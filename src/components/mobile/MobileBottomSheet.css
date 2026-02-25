@@ -1,0 +1,81 @@
+.mobile-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  z-index: 2100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.mobile-bottom-sheet {
+  width: min(100%, 680px);
+  background: var(--color-card);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
+  animation: mobileSheetUp 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mobile-sheet-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  margin: 8px auto 2px;
+}
+
+.mobile-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 0.7rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mobile-sheet-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--color-primary);
+}
+
+.mobile-sheet-close-btn {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-card);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mobile-sheet-body {
+  overflow-y: auto;
+  padding: 0.9rem 1rem;
+}
+
+.mobile-sheet-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+
+@keyframes mobileSheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

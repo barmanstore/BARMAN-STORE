@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Playfair+Display:wght@400;700;900&display=swap');
+
+@theme {
+  --color-primary: #1a1a1a;
+  --color-secondary: #d4af37;
+  --color-accent: #8b4513;
+  --color-bg: #faf8f5;
+  --color-text: #2d2d2d;
+  --color-border: #e0d7c6;
+  --color-card: #ffffff;
+  --font-display: 'Playfair Display', serif;
+  --font-mono: 'Space Mono', monospace;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+}
+
+:root {
+  --color-primary: #1a1a1a;
+  --color-secondary: #d4af37;
+  --color-accent: #8b4513;
+  --color-bg: #faf8f5;
+  --color-text: #2d2d2d;
+  --color-border: #e0d7c6;
+  --color-card: #ffffff;
+  --font-display: 'Playfair Display', serif;
+  --font-mono: 'Space Mono', monospace;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+@utility btn-primary {
+  @apply bg-primary text-white px-6 py-2 rounded-lg font-mono font-medium 
+         transition-all duration-300 hover:bg-secondary hover:text-primary
+         border-2 border-primary hover:border-secondary;
+}
+
+@utility btn-secondary {
+  @apply bg-secondary text-primary px-6 py-2 rounded-lg font-mono font-medium 
+         transition-all duration-300 hover:bg-primary hover:text-white
+         border-2 border-secondary hover:border-primary;
+}
+
+@utility btn-outline {
+  @apply border-2 border-primary text-primary px-6 py-2 rounded-lg font-mono font-medium 
+         transition-all duration-300 hover:bg-primary hover:text-white;
+}
+
+@utility card {
+  @apply bg-card rounded-xl shadow-md p-6 transition-shadow duration-300 hover:shadow-lg;
+}
+
+@utility input-field {
+  @apply w-full px-4 py-2 border-2 border-border rounded-lg font-mono 
+         focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20
+         transition-all duration-300;
+}
+
+@utility link-nav {
+  @apply text-white no-underline font-mono font-light uppercase tracking-wider 
+         relative py-2 transition-colors duration-300 hover:text-secondary;
+}
+
+@utility link-nav::after {
+  content: '';
+  @apply absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300;
+}
+
+@utility link-nav:hover::after {
+  @apply w-full;
+}
+
+.amount-positive {
+  color: #22c55e !important;
+}
+
+.amount-negative {
+  color: #000000 !important;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.6s ease-out forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.6s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

@@ -1,0 +1,338 @@
+﻿.billing-content {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.billing-content h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.refresh-btn,
+.retry-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-primary);
+  padding: 0.45rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.refresh-btn {
+  margin-bottom: 1rem;
+}
+
+.loading-indicator {
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+}
+
+.form-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.form-row,
+.form-section > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.billing-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.billing-table th,
+.billing-table td {
+  padding: 0.55rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.billing-table td input,
+.billing-table td select {
+  width: 100%;
+  padding: 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.discount-field {
+  display: grid;
+  grid-template-columns: 1fr 72px;
+  gap: 0.4rem;
+}
+
+.amount-cell {
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.delete-btn {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.total-section p {
+  margin: 0;
+}
+
+.total-section p:last-child {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.share-box {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.share-header {
+  margin-bottom: 0.6rem;
+  color: var(--color-primary);
+}
+
+.share-text {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  background: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.share-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.share-btn {
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn.whatsapp {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+@media (max-width: 900px) {
+  .form-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .billing-content {
+    padding: 1rem;
+  }
+
+  .billing-table thead {
+    display: none;
+  }
+
+  .billing-table,
+  .billing-table tbody,
+  .billing-table tr,
+  .billing-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .billing-table {
+    min-width: 0;
+  }
+
+  .billing-table tr {
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.6rem 0;
+  }
+
+  .billing-table td {
+    border: none;
+    padding: 0.4rem 0;
+  }
+
+  .billing-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text);
+    opacity: 0.75;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .add-btn {
+    justify-content: center;
+  }
+
+  .total-section {
+    text-align: right;
+  }
+}
+
+/* Customer Validation - Inline Error Styling */
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-wrapper .form-input {
+  width: 100%;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.input-wrapper .form-input.input-error {
+  border-color: #dc2626;
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+  background-color: rgba(220, 38, 38, 0.02);
+}
+
+.input-wrapper .form-input.input-error:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.2);
+}
+
+.input-wrapper .form-input.input-warning {
+  border-color: #f59e0b;
+  border-width: 1px;
+}
+
+.input-wrapper .form-input.input-warning:focus {
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+/* Error Icon */
+.error-icon {
+  position: absolute;
+  right: 12px;
+  font-size: 1.2rem;
+  cursor: help;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.error-icon:hover {
+  transform: scale(1.1);
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+/* Tooltip on hover */
+.error-icon::after {
+  content: attr(title);
+  position: absolute;
+  right: -8px;
+  bottom: 130%;
+  background-color: #1f2937;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.error-icon:hover::after {
+  opacity: 1;
+}
+
+/* For longer error messages on mobile */
+@media (max-width: 480px) {
+  .error-icon::after {
+    white-space: normal;
+    width: 200px;
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* Warning icon styling */
+.error-icon.warning {
+  color: #f59e0b;
+  font-size: 1rem;
+}
+
+.error-icon.warning:hover {
+  background-color: rgba(245, 158, 11, 0.1);
+}

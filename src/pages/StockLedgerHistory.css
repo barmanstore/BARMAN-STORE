@@ -1,0 +1,358 @@
+/* Stock Ledger History Styles */
+.stock-ledger-history {
+  padding: 24px;
+}
+
+.stock-ledger-history .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.stock-ledger-history .page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #111827;
+}
+
+.stock-ledger-history .admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stock-ledger-history .admin-btn:hover {
+  background: #e5e7eb;
+}
+
+/* Filters Section */
+.stock-ledger-history .filters-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.stock-ledger-history .filters-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.stock-ledger-history .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stock-ledger-history .filter-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.stock-ledger-history .filter-group select,
+.stock-ledger-history .filter-group input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  min-width: 150px;
+}
+
+.stock-ledger-history .filter-group select:focus,
+.stock-ledger-history .filter-group input:focus {
+  outline: none;
+  border-color: #10b981;
+}
+
+.stock-ledger-history .reset-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stock-ledger-history .reset-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Summary Stats */
+.stock-ledger-history .summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stock-ledger-history .stat-card {
+  background: white;
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.stock-ledger-history .stat-card.purchase {
+  border-left: 4px solid #10b981;
+}
+
+.stock-ledger-history .stat-card.sale {
+  border-left: 4px solid #3b82f6;
+}
+
+.stock-ledger-history .stat-card.return {
+  border-left: 4px solid #f59e0b;
+}
+
+.stock-ledger-history .stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.stock-ledger-history .stat-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Ledger Table */
+.stock-ledger-history .ledger-table-container {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.stock-ledger-history .ledger-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stock-ledger-history .ledger-table th {
+  background: #f9fafb;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.stock-ledger-history .ledger-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.stock-ledger-history .ledger-table tr:hover {
+  background: #f9fafb;
+}
+
+.stock-ledger-history .ledger-table .date-cell {
+  white-space: nowrap;
+}
+
+.stock-ledger-history .date-cell .time {
+  display: block;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.stock-ledger-history .product-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stock-ledger-history .product-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.stock-ledger-history .product-sku {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: monospace;
+}
+
+.stock-ledger-history .qty-cell .positive {
+  color: #059669;
+  font-weight: 600;
+}
+
+.stock-ledger-history .qty-cell .negative {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.stock-ledger-history .ref-cell .reference {
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.stock-ledger-history .notes-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+/* Transaction Icons */
+.stock-ledger-history .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.stock-ledger-history .icon.purchase {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.stock-ledger-history .icon.sale {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.stock-ledger-history .icon.return {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.stock-ledger-history .icon.purchase-return {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.stock-ledger-history .icon.adjustment {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.stock-ledger-history .icon.exchange-in {
+  background: #cffafe;
+  color: #0891b2;
+}
+
+.stock-ledger-history .icon.exchange-out {
+  background: #fce7f3;
+  color: #db2777;
+}
+
+/* Type Badges */
+.stock-ledger-history .type-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stock-ledger-history .type-badge.purchase {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.stock-ledger-history .type-badge.sale {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.stock-ledger-history .type-badge.return {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.stock-ledger-history .type-badge.purchase-return {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.stock-ledger-history .type-badge.adjustment {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.stock-ledger-history .type-badge.exchange-in {
+  background: #cffafe;
+  color: #155e75;
+}
+
+.stock-ledger-history .type-badge.exchange-out {
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+/* Loading and Empty States */
+.stock-ledger-history .loading,
+.stock-ledger-history .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.stock-ledger-history .empty-state p {
+  margin: 8px 0;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .stock-ledger-history .ledger-table-container {
+    overflow-x: auto;
+  }
+
+  .stock-ledger-history .ledger-table {
+    min-width: 900px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stock-ledger-history {
+    padding: 16px;
+  }
+
+  .stock-ledger-history .filters-row {
+    flex-direction: column;
+  }
+
+  .stock-ledger-history .filter-group {
+    width: 100%;
+  }
+
+  .stock-ledger-history .filter-group select,
+  .stock-ledger-history .filter-group input {
+    min-width: auto;
+    width: 100%;
+  }
+}

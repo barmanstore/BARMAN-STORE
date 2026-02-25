@@ -1,0 +1,425 @@
+/* Distributor Management Styles */
+.distributor-management {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.distributor-management .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.distributor-management .page-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.distributor-management .admin-btn.primary {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .admin-btn.primary:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+
+/* Search Bar */
+.distributor-management .search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 24px;
+}
+
+.distributor-management .search-bar svg {
+  color: #9ca3af;
+}
+
+.distributor-management .search-bar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: #374151;
+}
+
+/* Distributors Grid */
+.distributor-management .distributors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.distributor-management .distributor-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .distributor-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.distributor-management .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.distributor-management .distributor-name {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.distributor-management .distributor-name h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.distributor-management .status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.distributor-management .status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.distributor-management .status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.distributor-management .card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.distributor-management .action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .action-btn.edit {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.distributor-management .action-btn.edit:hover {
+  background: #bfdbfe;
+}
+
+.distributor-management .action-btn.delete {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.distributor-management .action-btn.delete:hover {
+  background: #fecaca;
+}
+
+.distributor-management .card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.distributor-management .info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.distributor-management .info-row svg {
+  color: #6b7280;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.distributor-management .info-row .label {
+  font-weight: 500;
+  color: #374151;
+  min-width: 100px;
+}
+
+.distributor-management .info-row.address {
+  align-items: flex-start;
+}
+
+.distributor-management .info-row.address svg {
+  margin-top: 4px;
+}
+
+.distributor-management .schedule {
+  display: flex;
+  gap: 24px;
+}
+
+.distributor-management .schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Empty State */
+.distributor-management .empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.distributor-management .empty-state p {
+  margin: 8px 0;
+}
+
+/* Modal Styles */
+.distributor-management .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.distributor-management .modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.distributor-management .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+}
+
+.distributor-management .modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.distributor-management .close-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .close-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.distributor-management form {
+  padding: 24px;
+}
+
+.distributor-management .form-section {
+  margin-bottom: 24px;
+}
+
+.distributor-management .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.distributor-management .form-group {
+  margin-bottom: 16px;
+}
+
+.distributor-management .form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.distributor-management .form-group input,
+.distributor-management .form-group select,
+.distributor-management .form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #111827;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .form-group input:focus,
+.distributor-management .form-group select:focus,
+.distributor-management .form-group textarea:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.distributor-management .form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.distributor-management .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.distributor-management .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  position: sticky;
+  bottom: 0;
+  background: white;
+}
+
+.distributor-management .cancel-btn {
+  padding: 10px 20px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .cancel-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.distributor-management .submit-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.distributor-management .submit-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+/* Error Message */
+.distributor-management .error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* Loading */
+.distributor-management .loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .distributor-management {
+    padding: 16px;
+  }
+
+  .distributor-management .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .distributor-management .distributors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .distributor-management .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .distributor-management .schedule {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

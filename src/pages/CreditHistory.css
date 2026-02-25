@@ -1,0 +1,866 @@
+.credit-history-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.credit-history-page .page-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.credit-history-page .back-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.credit-history-page .back-link:hover {
+  color: #333;
+}
+
+.credit-history-page .header-content {
+  flex: 1;
+}
+
+.credit-history-page .header-content h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.credit-history-page .customer-name {
+  margin: 5px 0 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.credit-history-page .balance-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 25px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 150px;
+}
+
+.credit-history-page .balance-label {
+  font-size: 12px;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.credit-history-page .balance-amount {
+  font-size: 28px;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.credit-history-page .balance-amount.positive {
+  color: #22c55e;
+}
+
+.credit-history-page .balance-amount.negative {
+  color: #000000;
+}
+
+.credit-history-page .actions-bar {
+  margin-bottom: 20px;
+}
+
+.credit-history-page .credit-table-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.credit-history-page .credit-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.credit-history-page .credit-table th,
+.credit-history-page .credit-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.credit-history-page .credit-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #555;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.credit-history-page .credit-table td {
+  font-size: 14px;
+  color: #333;
+}
+
+.credit-history-page .credit-table tr:hover {
+  background: #f8f9fa;
+}
+
+.credit-history-page .credit-table tr:last-child td {
+  border-bottom: none;
+}
+
+.credit-history-page .invoice-number {
+  font-family: monospace;
+  font-size: 12px;
+  color: #667eea;
+}
+
+.credit-history-page .type-icon {
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.credit-history-page .type-icon.given {
+  background: #f8f9fa;
+  color: #333;
+}
+
+.credit-history-page .type-icon.payment {
+  background: #d4edda;
+  color: #155724;
+}
+
+.credit-history-page .positive {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.credit-history-page .negative {
+  color: #000000;
+  font-weight: 500;
+}
+
+.credit-history-page .given-amount {
+  color: #000000;
+  font-weight: 500;
+}
+
+.credit-history-page .payment-amount {
+  color: #22c55e;
+  font-weight: 500;
+}
+
+.credit-history-page .empty-state {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+}
+
+.credit-history-page .empty-state p:first-child {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.credit-history-page .empty-state p:last-child {
+  font-size: 14px;
+  color: #999;
+}
+
+.credit-history-page .loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.credit-history-page .error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 12px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.credit-history-page .success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 12px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Modal styles */
+.credit-history-page .modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.credit-history-page .modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  width: 100%;
+  max-width: 450px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.credit-history-page .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.credit-history-page .modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #333;
+}
+
+.credit-history-page .close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}
+
+.credit-history-page .close-btn:hover {
+  color: #333;
+}
+
+.credit-history-page .form-group {
+  margin-bottom: 15px;
+}
+
+.credit-history-page .form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.credit-history-page .form-group input,
+.credit-history-page .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.credit-history-page .form-group input:focus,
+.credit-history-page .form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.credit-history-page .file-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.credit-history-page .upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.credit-history-page .upload-btn:hover {
+  background: #e9ecef;
+}
+
+.credit-history-page .upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.credit-history-page .uploaded-file {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #28a745;
+  font-size: 13px;
+}
+
+.credit-history-page .modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.credit-history-page .modal-actions button {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.credit-history-page .cancel-btn {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  color: #555;
+}
+
+.credit-history-page .cancel-btn:hover {
+  background: #e9ecef;
+}
+
+.credit-history-page .submit-btn {
+  background: #667eea;
+  border: none;
+  color: white;
+}
+
+.credit-history-page .submit-btn:hover {
+  background: #5568d3;
+}
+
+.credit-history-page .submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.credit-history-page .actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.credit-history-page .action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.credit-history-page .action-icon.view {
+  background: #e7f1ff;
+  color: #0d6efd;
+}
+
+.credit-history-page .action-icon.view:hover {
+  background: #d6e4ff;
+}
+
+.credit-history-page .action-icon.print {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+.credit-history-page .action-icon.print:hover {
+  background: #e9ecef;
+}
+
+.credit-history-page .action-icon.whatsapp {
+  background: #e7f9ef;
+  color: #1da851;
+}
+
+.credit-history-page .action-icon.whatsapp:hover {
+  background: #d2f4e1;
+}
+
+/* Invoice Modal Styles */
+.credit-history-page .invoice-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.credit-history-page .invoice-template {
+  position: relative;
+  background: white;
+  width: 100%;
+  max-width: 700px;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.credit-history-page .invoice-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.credit-history-page .invoice-close-btn:hover {
+  background: #f3f4f6;
+}
+
+.credit-history-page .invoice-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #333;
+}
+
+.credit-history-page .invoice-header h1 {
+  font-size: 36px;
+  color: #333;
+  margin-bottom: 10px;
+  letter-spacing: 8px;
+}
+
+.credit-history-page .company-details h3 {
+  font-size: 18px;
+  color: #333;
+  margin: 0 0 5px;
+}
+
+.credit-history-page .company-details p {
+  margin: 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.credit-history-page .invoice-details {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+}
+
+.credit-history-page .invoice-info {
+  text-align: left;
+}
+
+.credit-history-page .customer-info {
+  text-align: right;
+}
+
+.credit-history-page .customer-info h4 {
+  margin: 0 0 10px;
+  color: #333;
+}
+
+.credit-history-page .customer-info p {
+  margin: 3px 0;
+  color: #555;
+  font-size: 14px;
+}
+
+.credit-history-page .invoice-items {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+.credit-history-page .invoice-items th,
+.credit-history-page .invoice-items td {
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.credit-history-page .invoice-items th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.credit-history-page .invoice-items td {
+  color: #555;
+}
+
+.credit-history-page .invoice-items td:last-child,
+.credit-history-page .invoice-items th:last-child {
+  text-align: right;
+}
+
+.credit-history-page .invoice-summary {
+  margin-bottom: 30px;
+}
+
+.credit-history-page .invoice-summary .summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  color: #555;
+}
+
+.credit-history-page .invoice-summary .summary-row.total {
+  border-top: 2px solid #333;
+  margin-top: 10px;
+  padding-top: 15px;
+  font-weight: bold;
+  font-size: 18px;
+  color: #333;
+}
+
+.credit-history-page .invoice-footer {
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+  color: #666;
+  font-size: 14px;
+}
+
+.credit-history-page .invoice-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.credit-history-page .invoice-actions .admin-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.credit-history-page .invoice-actions .admin-btn.primary {
+  background: #667eea;
+  color: white;
+  border: none;
+}
+
+.credit-history-page .invoice-actions .admin-btn.secondary {
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.credit-history-page .invoice-actions .admin-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Print Styles */
+@media print {
+  .credit-history-page .no-print,
+  .credit-history-page .modal-overlay,
+  .credit-history-page .invoice-actions,
+  .credit-history-page .page-header,
+  .credit-history-page .actions-bar,
+  .credit-history-page .credit-table-container {
+    display: none !important;
+  }
+
+  .credit-history-page .invoice-modal-overlay {
+    position: static;
+    background: none;
+  }
+
+  .credit-history-page .invoice-template {
+    box-shadow: none;
+    max-width: 100%;
+    padding: 20px;
+  }
+
+  .credit-history-page body {
+    background: white;
+  }
+}
+
+/* Fade in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.credit-history-page .fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Report Box Styles */
+.credit-history-page .report-box {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.credit-history-page .report-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 20px;
+  font-size: 16px;
+}
+
+.credit-history-page .report-text {
+  width: 100%;
+  min-height: 200px;
+  padding: 15px;
+  border: none;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  resize: vertical;
+  background: #f8f9fa;
+}
+
+.credit-history-page .report-text:focus {
+  outline: none;
+}
+
+.credit-history-page .report-actions {
+  display: flex;
+  gap: 10px;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+  flex-wrap: wrap;
+}
+
+.credit-history-page .report-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #e0e0e0;
+  color: #333;
+}
+
+.credit-history-page .report-btn:hover {
+  background: #d0d0d0;
+  transform: translateY(-1px);
+}
+
+.credit-history-page .report-btn.whatsapp {
+  background: #25D366;
+  color: white;
+}
+
+.credit-history-page .report-btn.whatsapp:hover {
+  background: #1da851;
+}
+
+.credit-history-page .report-btn.pdf {
+  background: #dc3545;
+  color: white;
+}
+
+.credit-history-page .report-btn.pdf:hover {
+  background: #c82333;
+}
+
+/* Report Controls */
+.credit-history-page .report-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #eee;
+  flex-wrap: wrap;
+}
+
+.credit-history-page .report-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.credit-history-page .report-controls input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.credit-history-page .report-controls input[type="date"]:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.credit-history-page .credit-mobile-list {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .credit-history-page {
+    padding: 12px;
+  }
+
+  .credit-history-page .page-header {
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .credit-history-page .header-content h1 {
+    font-size: 20px;
+  }
+
+  .credit-history-page .balance-card {
+    width: 100%;
+    min-width: 0;
+    padding: 12px 14px;
+  }
+
+  .credit-history-page .credit-table {
+    display: none;
+  }
+
+  .credit-history-page .credit-mobile-list {
+    display: block;
+    padding: 12px;
+  }
+
+  .credit-history-page .credit-day-group + .credit-day-group {
+    margin-top: 14px;
+  }
+
+  .credit-history-page .credit-day-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .credit-history-page .credit-bubble-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .credit-history-page .credit-transaction-bubble {
+    width: calc(100% - 40px);
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e5e7eb;
+  }
+
+  .credit-history-page .credit-transaction-bubble.bubble-left {
+    align-self: flex-start;
+    background: #f8fafc;
+  }
+
+  .credit-history-page .credit-transaction-bubble.bubble-right {
+    align-self: flex-end;
+    background: #ecfdf3;
+  }
+
+  .credit-history-page .bubble-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .credit-history-page .bubble-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .credit-history-page .bubble-detail {
+    font-size: 12px;
+    line-height: 1.35;
+    color: #334155;
+    margin-bottom: 3px;
+    word-break: break-word;
+  }
+
+  .credit-history-page .bubble-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .credit-history-page .bubble-balance {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #dbe3ef;
+    font-size: 12px;
+  }
+
+  .credit-history-page .bubble-balance strong {
+    font-size: 13px;
+  }
+
+  .credit-history-page .report-controls {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .credit-history-page .report-controls label {
+    width: 100%;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .credit-history-page .report-controls input[type="date"] {
+    width: 62%;
+    font-size: 12px;
+    padding: 7px 9px;
+  }
+
+  .credit-history-page .mobile-hide-print {
+    display: none !important;
+  }
+}
