@@ -60,6 +60,25 @@ Supported by backend (`server/index.js`):
 - `SUPABASE_DB_URL`
   - Optional connection string for Supabase/Postgres
   - Used when `DB_EXECUTION_MODE=postgres`
+- `SUPABASE_URL`
+  - Supabase project URL (example: `https://<project-ref>.supabase.co`)
+  - Required for Supabase Auth features
+- `SUPABASE_ANON_KEY`
+  - Supabase anon/public API key
+  - Required for Supabase Auth client endpoints
+- `SUPABASE_SERVICE_ROLE_KEY`
+  - Optional Supabase service-role key for server-side admin auth operations
+- `SUPABASE_AUTH_ENABLED`
+  - Default: `false`
+  - Enables Supabase email auth integration when `true`
+- `SUPABASE_AUTH_MODE`
+  - Default: `hybrid`
+  - `hybrid` = try Supabase email auth first, then fallback to legacy local auth
+  - `strict` = Supabase-only for supported email auth flows
+- `SUPABASE_PASSWORD_RESET_REDIRECT`
+  - Optional URL used by Supabase password reset emails
+- `SUPABASE_EMAIL_VERIFY_REDIRECT`
+  - Optional URL used by Supabase signup verification emails
 - `POSTGRES_MIGRATIONS_DIR`
   - Default: `supabase/migrations`
   - Directory scanned for `.sql` migrations in Postgres mode
@@ -297,7 +316,7 @@ Use NSSM to run Node backend as service.
 - Application: `node.exe`
 - Arguments: `server/index.js`
 - Startup dir: project root
-3. Set environment variables (`PORT`, `DB_EXECUTION_MODE`, `SUPABASE_DB_URL`, `PG_SSL`, `PG_SSL_REJECT_UNAUTHORIZED`, `FRONTEND_ORIGIN`) in service config.
+3. Set environment variables (`PORT`, `DB_EXECUTION_MODE`, `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_AUTH_ENABLED`, `PG_SSL`, `PG_SSL_REJECT_UNAUTHORIZED`, `FRONTEND_ORIGIN`) in service config.
 4. Start service and configure auto-start.
 
 ### Option 4: Windows Installer (`Setup.exe`) flow

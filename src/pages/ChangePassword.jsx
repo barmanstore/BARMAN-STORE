@@ -1,13 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './login.css';
 
-const validateEmail = (email) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
+const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+
 const validateStrongPassword = (password) => {
   const value = String(password || '');
   return (
@@ -20,18 +18,40 @@ const validateStrongPassword = (password) => {
 };
 
 function ChangePassword() {
-  const [identifierType, setIdentifierType] = useState('email'); // 'email' or 'phone'
+  const [identifierType, setIdentifierType] = useState('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [identifierLocked, setIdentifierLocked] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryAccessToken, setRecoveryAccessToken] = useState('');
+  const [supabaseRecoveryReady, setSupabaseRecoveryReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMeta = async () => {
+      try {
+        const mode = await authApi.getResetMode();
+        if (cancelled) return;
+        setSupabaseRecoveryReady(Boolean(mode?.supabase_auth_enabled && mode?.supabase_client_ready));
+      } catch (_) {
+        if (cancelled) return;
+        setSupabaseRecoveryReady(false);
+      }
+    };
+    loadMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let storedUser = null;
@@ -43,10 +63,34 @@ function ChangePassword() {
     }
 
     const params = new URLSearchParams(location.search);
+    const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    const hashType = String(hashParams.get('type') || '').trim().toLowerCase();
+    const hashAccessToken = String(hashParams.get('access_token') || '').trim();
+    const queryRecovery = params.get('recovery') === '1';
+    const queryToken = String(params.get('access_token') || '').trim();
+    let sessionRecoveryToken = '';
+    try {
+      sessionRecoveryToken = String(sessionStorage.getItem('supabase_recovery_access_token') || '').trim();
+    } catch (_) {
+      sessionRecoveryToken = '';
+    }
+    const resolvedRecoveryToken = hashAccessToken || queryToken || sessionRecoveryToken;
+    const isRecoveryFromHash = hashType === 'recovery';
+    const shouldUseRecoveryMode = Boolean((queryRecovery || isRecoveryFromHash) && resolvedRecoveryToken);
+    if (shouldUseRecoveryMode) {
+      setRecoveryMode(true);
+      setIdentifierLocked(true);
+      setRecoveryAccessToken(resolvedRecoveryToken);
+      if (window.location.hash) {
+        const cleanUrl = `${window.location.pathname}${window.location.search}`;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      return;
+    }
+
     const forcedFromQuery = params.get('force') === '1';
     const forcedFromSession = Boolean(storedUser?.must_change_password);
     const shouldLockIdentifier = forcedFromQuery || forcedFromSession;
-
     const qpEmail = String(params.get('email') || '').trim().toLowerCase();
     const qpPhone = normalizeIndianPhone(params.get('phone') || '');
     const sessionEmail = String(storedUser?.email || '').trim().toLowerCase();
@@ -83,30 +127,23 @@ function ChangePassword() {
     setIdentifierLocked(false);
   }, [location.search]);
 
+  const submitLabel = useMemo(() => {
+    if (loading && recoveryMode) return 'Resetting Password...';
+    if (loading) return 'Changing Password...';
+    return recoveryMode ? 'Reset Password' : 'Change Password';
+  }, [loading, recoveryMode]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
 
-    // Validate identifier
-    if (identifierType === 'email' && !validateEmail(email)) {
-      setError('Please enter a valid email address');
-      setLoading(false);
-      return;
-    }
-    if (identifierType === 'phone' && !isValidIndianPhone(phone)) {
-      setError(PHONE_POLICY_MESSAGE);
-      setLoading(false);
-      return;
-    }
-
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
       setLoading(false);
       return;
     }
-
     if (!validateStrongPassword(newPassword)) {
       setError('Password must be at least 10 characters and include uppercase, lowercase, number, and special character');
       setLoading(false);
@@ -114,13 +151,46 @@ function ChangePassword() {
     }
 
     try {
+      if (recoveryMode) {
+        if (!supabaseRecoveryReady) {
+          throw new Error('Supabase recovery reset is not enabled on server');
+        }
+        if (!recoveryAccessToken) {
+          throw new Error('Recovery access token is missing');
+        }
+        const response = await authApi.completeRecoveryPasswordReset({
+          access_token: recoveryAccessToken,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        });
+        const nextUser = { ...response.user, token: response.token, auth_provider: response.auth_provider || 'supabase' };
+        localStorage.setItem('user', JSON.stringify(nextUser));
+        try {
+          sessionStorage.removeItem('supabase_recovery_access_token');
+        } catch (_) {
+          // ignore
+        }
+        window.dispatchEvent(new Event('user-updated'));
+        setSuccess('Password reset complete. Redirecting...');
+        setTimeout(() => navigate('/profile'), 800);
+        return;
+      }
+
+      if (identifierType === 'email' && !validateEmail(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+      if (identifierType === 'phone' && !isValidIndianPhone(phone)) {
+        throw new Error(PHONE_POLICY_MESSAGE);
+      }
+
       await authApi.changePassword(
-        identifierType === 'email' ? email : null,
+        identifierType === 'email' ? String(email || '').trim().toLowerCase() : null,
         identifierType === 'phone' ? normalizeIndianPhone(phone) : null,
         currentPassword,
         newPassword,
         confirmPassword
       );
+
       try {
         const raw = localStorage.getItem('user');
         const currentUser = raw ? JSON.parse(raw) : null;
@@ -130,22 +200,13 @@ function ChangePassword() {
           window.dispatchEvent(new Event('user-updated'));
         }
       } catch (_) {
-        // Ignore local storage errors here.
+        // ignore
       }
-      setSuccess('Password changed successfully! This window will close.');
-      setTimeout(() => {
-        try {
-          window.open('', '_self');
-          window.close();
-        } catch (_) {
-          // Ignore close errors and fall back to navigation.
-        }
-        setTimeout(() => {
-          navigate('/login');
-        }, 250);
-      }, 1000);
+
+      setSuccess('Password changed successfully. Redirecting...');
+      setTimeout(() => navigate('/login'), 850);
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || 'Failed to update password');
     } finally {
       setLoading(false);
     }
@@ -154,77 +215,83 @@ function ChangePassword() {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>Change Password</h1>
-        <p className="login-subtitle">Enter your account details and a new password</p>
-        
-        {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-        
-        <form onSubmit={handleSubmit}>
-          <div className="login-method-toggle">
-            <button
-              type="button"
-              className={`toggle-btn ${identifierType === 'email' ? 'active' : ''}`}
-              onClick={() => setIdentifierType('email')}
-              disabled={identifierLocked || loading}
-            >
-              Email
-            </button>
-            <button
-              type="button"
-              className={`toggle-btn ${identifierType === 'phone' ? 'active' : ''}`}
-              onClick={() => setIdentifierType('phone')}
-              disabled={identifierLocked || loading}
-            >
-              Phone
-            </button>
-          </div>
+        <h1>{recoveryMode ? 'Reset Password' : 'Change Password'}</h1>
+        <p className="login-subtitle">
+          {recoveryMode
+            ? 'Set a new password for your account'
+            : 'Verify your account and set a new password'}
+        </p>
 
-          {identifierType === 'email' && (
-            <div className="form-group">
-              <label htmlFor="email">Email</label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required={identifierType === 'email'}
-                disabled={identifierLocked || loading}
-              />
-            </div>
+        {error ? <div className="error-message">{error}</div> : null}
+        {success ? <div className="success-message">{success}</div> : null}
+
+        <form onSubmit={handleSubmit} className="login-form">
+          {!recoveryMode && (
+            <>
+              <div className="login-method-toggle">
+                <button
+                  type="button"
+                  className={`toggle-btn ${identifierType === 'email' ? 'active' : ''}`}
+                  onClick={() => setIdentifierType('email')}
+                  disabled={identifierLocked || loading}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${identifierType === 'phone' ? 'active' : ''}`}
+                  onClick={() => setIdentifierType('phone')}
+                  disabled={identifierLocked || loading}
+                >
+                  Phone
+                </button>
+              </div>
+
+              {identifierType === 'email' && (
+                <div className="form-group">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    required
+                    disabled={identifierLocked || loading}
+                  />
+                </div>
+              )}
+
+              {identifierType === 'phone' && (
+                <div className="form-group">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    required
+                    disabled={identifierLocked || loading}
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="currentPassword">Current Password</label>
+                <input
+                  type="password"
+                  id="currentPassword"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </>
           )}
 
-          {identifierType === 'phone' && (
-            <div className="form-group">
-              <label htmlFor="phone">Phone Number</label>
-              <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter your phone (e.g., 123-456-7890)"
-                required={identifierType === 'phone'}
-                disabled={identifierLocked || loading}
-              />
-              <small style={{ color: 'var(--color-text)', opacity: 0.7 }}>
-                Enter your registered phone number (10 digits, optional +91 prefix)
-              </small>
-            </div>
-          )}
-          
-          <div className="form-group">
-            <label htmlFor="currentPassword">Current Password</label>
-            <input
-              type="password"
-              id="currentPassword"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Enter your current password"
-              required
-            />
-          </div>
-          
           <div className="form-group">
             <label htmlFor="newPassword">New Password</label>
             <input
@@ -232,11 +299,12 @@ function ChangePassword() {
               id="newPassword"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter your new password"
+              placeholder="Enter new password"
               required
+              disabled={loading}
             />
           </div>
-          
+
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm New Password</label>
             <input
@@ -244,18 +312,23 @@ function ChangePassword() {
               id="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your new password"
+              placeholder="Re-enter new password"
               required
+              disabled={loading}
             />
           </div>
-          
+
           <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? 'Changing Password...' : 'Change Password'}
+            {submitLabel}
           </button>
         </form>
-        
+
+        <p className="auth-form-meta">
+          Password policy: minimum 10 chars with uppercase, lowercase, number, and special character.
+        </p>
+
         <p className="login-link">
-          Remember your password? <Link to="/login">Back to Login</Link>
+          <Link to="/login">Back to Login</Link>
         </p>
       </div>
     </div>

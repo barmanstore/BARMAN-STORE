@@ -12,6 +12,7 @@ const { createOtpProvider } = require('./otpProvider');
 const { createEmailVerificationProvider } = require('./emailVerificationProvider');
 const { createNotificationService } = require('./notificationService');
 const { createWhatsappProvider } = require('./whatsappProvider');
+const { createSupabaseAuthProvider } = require('./supabaseAuthProvider');
 const {
   createPostgresPool,
   getPostgresConnectionLabel,
@@ -156,6 +157,24 @@ const startDatabaseScaffolding = async () => {
     return false;
   }
 };
+const IS_VERCEL_RUNTIME = parseBooleanEnv(process.env.VERCEL, false) || process.env.NOW_REGION;
+let runtimeReadyPromise = null;
+const ensureRuntimeReady = async () => {
+  if (runtimeReadyPromise) return runtimeReadyPromise;
+  runtimeReadyPromise = (async () => {
+    const ready = await startDatabaseScaffolding();
+    if (!ready) {
+      throw new Error('Database initialization failed');
+    }
+  })();
+  try {
+    await runtimeReadyPromise;
+  } catch (error) {
+    runtimeReadyPromise = null;
+    throw error;
+  }
+  return runtimeReadyPromise;
+};
 
 const AUTO_BACKUP_ENABLED = parseBooleanEnv(process.env.AUTO_BACKUP_ENABLED, false);
 const AUTO_BACKUP_ON_STARTUP = parseBooleanEnv(process.env.AUTO_BACKUP_ON_STARTUP, false);
@@ -232,6 +251,16 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(PROFILE_UPLOAD_DIR)) fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.use('/api/uploads', express.static(UPLOADS_DIR));
+app.use(async (req, res, next) => {
+  try {
+    await ensureRuntimeReady();
+    return next();
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message || 'Database initialization failed',
+    });
+  }
+});
 app.get('/api/media/proxy', async (req, res) => {
   try {
     const rawUrl = String(req.query?.url || '').trim();
@@ -711,6 +740,18 @@ const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim()
 const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://narenbarman.github.io/BARMAN_STORE_REACT/#/login'
 ).trim();
+const SUPABASE_AUTH_ENABLED = parseBooleanEnv(process.env.SUPABASE_AUTH_ENABLED, false);
+const SUPABASE_AUTH_MODE = String(process.env.SUPABASE_AUTH_MODE || 'hybrid').trim().toLowerCase() === 'strict'
+  ? 'strict'
+  : 'hybrid';
+const SUPABASE_PASSWORD_RESET_REDIRECT = String(
+  process.env.SUPABASE_PASSWORD_RESET_REDIRECT || PASSWORD_RESET_LOGIN_URL
+).trim();
+const SUPABASE_EMAIL_VERIFY_REDIRECT = String(
+  process.env.SUPABASE_EMAIL_VERIFY_REDIRECT
+  || process.env.EMAIL_VERIFY_BASE_URL
+  || PASSWORD_RESET_LOGIN_URL
+).trim();
 const PHONE_VERIFY_BASE_URL = String(
   process.env.PHONE_VERIFY_BASE_URL || 'https://narenbarman.github.io/BARMAN_STORE_REACT/#/login'
 ).trim();
@@ -727,6 +768,16 @@ const EMAIL_DELIVERY_MODE = String(
 ).trim().toLowerCase() === 'auto'
   ? 'auto'
   : 'manual';
+const supabaseAuthProvider = createSupabaseAuthProvider({
+  enabled: SUPABASE_AUTH_ENABLED,
+  mode: SUPABASE_AUTH_MODE,
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseDbUrl: process.env.SUPABASE_DB_URL || '',
+  anonKey: process.env.SUPABASE_ANON_KEY || '',
+  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  passwordResetRedirectTo: SUPABASE_PASSWORD_RESET_REDIRECT,
+  emailRedirectTo: SUPABASE_EMAIL_VERIFY_REDIRECT,
+});
 const otpProvider = createOtpProvider({
   OTP_PROVIDER,
   OTP_API_KEY: process.env.OTP_API_KEY || '',
@@ -854,14 +905,132 @@ const verifyToken = (token) => {
   }
 };
 
-const getAuthUserFromRequest = async (req) => {
-  const header = String(req.headers.authorization || '');
-  if (!header.toLowerCase().startsWith('bearer ')) return null;
-  const token = header.slice(7).trim();
-  const payload = verifyToken(token);
-  if (!payload) return null;
-  const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [payload.uid]));
+const getBearerTokenFromRequest = (req) => {
+  const header = String(req?.headers?.authorization || '');
+  if (!header.toLowerCase().startsWith('bearer ')) return '';
+  return header.slice(7).trim();
+};
+
+const isSupabaseEmailAuthUsable = () => supabaseAuthProvider.shouldUseClientAuth();
+const isSupabaseAuthStrictMode = () => supabaseAuthProvider.isStrictMode();
+const isSupabaseEmailVerified = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
+const toSupabaseSessionPayload = (session = null) => {
+  if (!session || typeof session !== 'object') return null;
+  const accessToken = String(session.access_token || '').trim();
+  if (!accessToken) return null;
+  return {
+    access_token: accessToken,
+    refresh_token: String(session.refresh_token || '').trim() || null,
+    token_type: String(session.token_type || '').trim() || 'bearer',
+    expires_in: Number(session.expires_in || 0) || null,
+  };
+};
+const getSupabaseUserMetadata = (user = null) => {
+  const meta = user?.user_metadata;
+  return meta && typeof meta === 'object' ? meta : {};
+};
+
+const getVerifiedPhoneFromMetadata = (metadata = {}) => {
+  const candidate = metadata.phone || metadata.phone_number || null;
+  const parsed = parsePhoneInput(candidate);
+  return parsed.error ? null : parsed.value;
+};
+
+const syncLocalUserFromSupabaseAuth = async ({
+  email,
+  metadata = {},
+  emailVerified = false,
+  fallbackPassword = '',
+}) => {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return null;
+
+  let user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+  const metadataName = String(metadata.full_name || metadata.name || '').trim();
+  const metadataAddress = String(metadata.address || '').trim();
+  const metadataPhone = getVerifiedPhoneFromMetadata(metadata);
+
+  if (!user) {
+    let phoneToInsert = metadataPhone;
+    if (phoneToInsert) {
+      const existingPhone = await dbGetAsync(`SELECT id FROM users WHERE phone = ? LIMIT 1`, [phoneToInsert]);
+      if (existingPhone) phoneToInsert = null;
+    }
+    const result = await dbRunAsync(
+      `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        'customer',
+        metadataName || normalizedEmail.split('@')[0] || 'Customer',
+        normalizedEmail,
+        emailVerified ? 1 : 0,
+        phoneToInsert,
+        0,
+        metadataAddress || null,
+        hashPassword(fallbackPassword || generateTemporaryPassword()),
+        0,
+      ]
+    );
+    user = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [result.lastInsertRowid]);
+    return user || null;
+  }
+
+  const nextEmailVerified = emailVerified || Number(user.email_verified || 0) === 1 ? 1 : 0;
+  let nextPhone = user.phone || null;
+  if (!nextPhone && metadataPhone) {
+    const conflict = await dbGetAsync(`SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1`, [metadataPhone, user.id]);
+    if (!conflict) nextPhone = metadataPhone;
+  }
+  const nextName = String(user.name || '').trim() || metadataName || 'Customer';
+  const nextAddress = user.address || metadataAddress || null;
+
+  if (
+    nextName !== String(user.name || '')
+    || Number(user.email_verified || 0) !== nextEmailVerified
+    || String(user.phone || '') !== String(nextPhone || '')
+    || String(user.address || '') !== String(nextAddress || '')
+  ) {
+    await dbRunAsync(
+      `UPDATE users
+       SET name = ?, email_verified = ?, phone = ?, address = ?
+       WHERE id = ?`,
+      [nextName, nextEmailVerified, nextPhone, nextAddress, user.id]
+    );
+    user = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [user.id]);
+  }
+
   return user || null;
+};
+
+const syncLocalEmailVerifiedFromSupabase = async (email) => {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return;
+  await dbRunAsync(`UPDATE users SET email_verified = 1 WHERE email = ?`, [normalizedEmail]);
+};
+
+const getAuthUserFromRequest = async (req) => {
+  const token = getBearerTokenFromRequest(req);
+  if (!token) return null;
+  const payload = verifyToken(token);
+  if (payload) {
+    const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [payload.uid]));
+    return user || null;
+  }
+
+  if (!isSupabaseEmailAuthUsable()) return null;
+  try {
+    const supabaseUser = await supabaseAuthProvider.getUser({ accessToken: token });
+    const normalizedEmail = normalizeEmail(supabaseUser?.email);
+    if (!normalizedEmail) return null;
+    const synced = await syncLocalUserFromSupabaseAuth({
+      email: normalizedEmail,
+      metadata: getSupabaseUserMetadata(supabaseUser),
+      emailVerified: isSupabaseEmailVerified(supabaseUser),
+    });
+    return sanitizeUser(synced);
+  } catch (_) {
+    return null;
+  }
 };
 
 const requireAuth = async (req, res, next) => {
@@ -2733,12 +2902,60 @@ const logStockLedger = ({
   );
 };
 
+app.get('/api/auth/session', requireAuth, async (req, res) => {
+  try {
+    const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [req.authUser.id]));
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.json({
+      success: true,
+      user,
+      token: generateToken(user),
+      auth_provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to fetch session' });
+  }
+});
+
 app.post('/api/auth/login', authIpLimiter, async (req, res) => {
   try {
     const { email, phone, password } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+
+    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
+      try {
+        const authResult = await supabaseAuthProvider.signInWithPassword({
+          email: normalizedEmail,
+          password: String(password || ''),
+        });
+        const supabaseUser = authResult?.user || null;
+        const synced = await syncLocalUserFromSupabaseAuth({
+          email: normalizedEmail,
+          metadata: getSupabaseUserMetadata(supabaseUser),
+          emailVerified: isSupabaseEmailVerified(supabaseUser),
+          fallbackPassword: String(password || ''),
+        });
+        if (!synced) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        return res.json({
+          success: true,
+          user: sanitizeUser(synced),
+          token: generateToken(synced),
+          auth_provider: 'supabase',
+          supabase_session: toSupabaseSessionPayload(authResult),
+          message: `Welcome back, ${synced.name}`,
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(401).json({ error: error.message || 'Invalid credentials' });
+        }
+      }
+    }
+
     let user = null;
-    if (email) {
-      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizeEmail(email)]);
+    if (normalizedEmail) {
+      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
     } else if (phone) {
       const phoneParsed = parsePhoneInput(phone, { required: true });
       if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
@@ -2755,6 +2972,7 @@ app.post('/api/auth/login', authIpLimiter, async (req, res) => {
       success: true,
       user: sanitizeUser(user),
       token: generateToken(user),
+      auth_provider: 'legacy',
       message: `Welcome back, ${user.name}`,
     });
   } catch (error) {
@@ -2777,6 +2995,57 @@ app.post('/api/auth/register', authIpLimiter, async (req, res) => {
     }
     if (String(password || '') !== String(confirmPassword || '')) {
       return res.status(400).json({ error: 'Password and confirm password do not match' });
+    }
+
+    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
+      try {
+        const authResult = await supabaseAuthProvider.signUp({
+          email: normalizedEmail,
+          password: String(password || ''),
+          data: {
+            name: String(name || '').trim() || 'Customer',
+            phone: normalizedPhone || null,
+            address: address || null,
+          },
+        });
+        const supabaseUser = authResult?.user || null;
+        const synced = await syncLocalUserFromSupabaseAuth({
+          email: normalizedEmail,
+          metadata: getSupabaseUserMetadata(supabaseUser),
+          emailVerified: isSupabaseEmailVerified(supabaseUser),
+          fallbackPassword: String(password || ''),
+        });
+        if (!synced) {
+          return res.status(500).json({ error: 'Unable to create local user profile' });
+        }
+
+        let phoneVerification = null;
+        if (normalizedPhone) {
+          phoneVerification = await sendPhoneVerificationChallenge({
+            userId: synced.id,
+            phone: normalizedPhone,
+            recipientName: synced.name,
+          });
+        }
+
+        return res.status(201).json({
+          success: true,
+          user: sanitizeUser(synced),
+          token: generateToken(synced),
+          auth_provider: 'supabase',
+          supabase_session: toSupabaseSessionPayload(authResult),
+          email_verification: {
+            queued: true,
+            provider: 'supabase',
+            message: 'Supabase email verification flow started.',
+          },
+          phone_verification: phoneVerification,
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(400).json({ error: error.message || 'Registration failed' });
+        }
+      }
     }
 
     if (normalizedEmail && await dbGetAsync(`SELECT id FROM users WHERE email = ?`, [normalizedEmail])) {
@@ -2811,6 +3080,7 @@ app.post('/api/auth/register', authIpLimiter, async (req, res) => {
       success: true,
       user: sanitizeUser(user),
       token: generateToken(user),
+      auth_provider: 'legacy',
       email_verification: emailVerification,
       phone_verification: phoneVerification,
     });
@@ -2822,9 +3092,50 @@ app.post('/api/auth/register', authIpLimiter, async (req, res) => {
 app.post('/api/auth/change-password', authIpLimiter, async (req, res) => {
   try {
     const { email, phone, currentPassword, newPassword, confirmPassword } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+
+    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
+      try {
+        if (!isStrongPassword(newPassword)) {
+          return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
+        }
+        if (String(newPassword || '') !== String(confirmPassword || '')) {
+          return res.status(400).json({ error: 'New password and confirm password do not match' });
+        }
+
+        const signInResult = await supabaseAuthProvider.signInWithPassword({
+          email: normalizedEmail,
+          password: String(currentPassword || ''),
+        });
+        const accessToken = String(signInResult?.access_token || '').trim();
+        if (!accessToken) {
+          return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+        await supabaseAuthProvider.updatePassword({
+          accessToken,
+          password: String(newPassword || ''),
+        });
+
+        const synced = await syncLocalUserFromSupabaseAuth({
+          email: normalizedEmail,
+          metadata: getSupabaseUserMetadata(signInResult?.user || null),
+          emailVerified: isSupabaseEmailVerified(signInResult?.user || null),
+          fallbackPassword: String(newPassword || ''),
+        });
+        if (synced) {
+          await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), synced.id]);
+        }
+        return res.json({ success: true, auth_provider: 'supabase', message: 'Password changed successfully' });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(401).json({ error: error.message || 'Current password is incorrect' });
+        }
+      }
+    }
+
     let user = null;
-    if (email) {
-      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizeEmail(email)]);
+    if (normalizedEmail) {
+      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
     } else if (phone) {
       const phoneParsed = parsePhoneInput(phone, { required: true });
       if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
@@ -2857,9 +3168,25 @@ app.post('/api/auth/request-password-reset', authIpLimiter, passwordResetIdentif
     if (!normalizedEmail && !normalizedPhone) {
       return res.status(400).json({ error: 'Email or phone number is required' });
     }
-    if (reasonText.length < 5) {
+    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
+      try {
+        await supabaseAuthProvider.recoverPassword({ email: normalizedEmail });
+        return res.status(201).json({
+          success: true,
+          mode: 'supabase',
+          message: 'If the account exists, password reset instructions were sent by email.',
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(400).json({ error: error.message || 'Failed to start password reset' });
+        }
+      }
+    }
+
+    if (PASSWORD_RESET_MODE === 'admin' && reasonText.length < 5) {
       return res.status(400).json({ error: 'Reason is required (min 5 characters)' });
     }
+
     let user = null;
     if (normalizedEmail) {
       user = await dbGetAsync(`SELECT id, name, email, phone FROM users WHERE email = ?`, [normalizedEmail]);
@@ -2934,7 +3261,7 @@ app.post('/api/auth/request-password-reset', authIpLimiter, passwordResetIdentif
       await dbRunAsync(
         `INSERT INTO password_reset_requests (user_id, email, phone, reason, status, requested_from_ip)
          VALUES (?, ?, ?, ?, 'pending', ?)`,
-        [user.id, user.email || null, user.phone || null, reasonText, req.ip || req.connection?.remoteAddress || null]
+        [user.id, user.email || null, user.phone || null, reasonText || 'Password reset requested', req.ip || req.connection?.remoteAddress || null]
       );
     }
     return res.status(201).json({
@@ -2947,11 +3274,75 @@ app.post('/api/auth/request-password-reset', authIpLimiter, passwordResetIdentif
   }
 });
 
+app.post('/api/auth/password/recovery/complete', authIpLimiter, async (req, res) => {
+  try {
+    if (!isSupabaseEmailAuthUsable()) {
+      return res.status(400).json({ error: 'Supabase password recovery is not enabled' });
+    }
+
+    const accessToken = String(req.body?.access_token || req.body?.accessToken || getBearerTokenFromRequest(req) || '').trim();
+    const newPassword = String(req.body?.new_password || req.body?.newPassword || '').trim();
+    const confirmPassword = String(req.body?.confirm_password || req.body?.confirmPassword || '').trim();
+
+    if (!accessToken) {
+      return res.status(400).json({ error: 'access_token is required' });
+    }
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Password and confirm password do not match' });
+    }
+
+    const supabaseUser = await supabaseAuthProvider.getUser({ accessToken });
+    const normalizedEmail = normalizeEmail(supabaseUser?.email);
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: 'Unable to resolve account for recovery token' });
+    }
+
+    await supabaseAuthProvider.updatePassword({ accessToken, password: newPassword });
+    const synced = await syncLocalUserFromSupabaseAuth({
+      email: normalizedEmail,
+      metadata: getSupabaseUserMetadata(supabaseUser),
+      emailVerified: isSupabaseEmailVerified(supabaseUser),
+      fallbackPassword: newPassword,
+    });
+    if (!synced) {
+      return res.status(500).json({ error: 'Unable to sync local account' });
+    }
+    await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), synced.id]);
+    return res.json({
+      success: true,
+      message: 'Password reset completed successfully',
+      auth_provider: 'supabase',
+      user: sanitizeUser(synced),
+      token: generateToken(synced),
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Failed to complete password reset' });
+  }
+});
+
 app.post('/api/auth/email/verification/request', authIpLimiter, emailVerificationLimiter, async (req, res) => {
   try {
     const normalizedEmail = normalizeEmail(req.body?.email);
     if (!normalizedEmail) {
       return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (isSupabaseEmailAuthUsable()) {
+      try {
+        await supabaseAuthProvider.resendSignupVerification({ email: normalizedEmail });
+        return res.status(201).json({
+          success: true,
+          provider: 'supabase',
+          message: 'If the account exists, a verification email was sent.',
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(400).json({ error: error.message || 'Failed to send verification email' });
+        }
+      }
     }
 
     const user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE email = ?`, [normalizedEmail]);
@@ -2983,7 +3374,45 @@ app.post('/api/auth/email/verification/confirm', authIpLimiter, emailVerificatio
   try {
     const normalizedEmail = normalizeEmail(req.body?.email);
     const token = String(req.body?.token || '').trim();
-    if (!normalizedEmail || !token) {
+    const tokenHash = String(req.body?.token_hash || req.body?.tokenHash || '').trim();
+    if (!normalizedEmail || (!token && !tokenHash)) {
+      return res.status(400).json({ error: 'Email and token are required' });
+    }
+
+    if (isSupabaseEmailAuthUsable()) {
+      try {
+        const verificationResult = await supabaseAuthProvider.verifyEmailOtp({
+          email: normalizedEmail,
+          token,
+          tokenHash,
+        });
+        const supabaseUser = verificationResult?.user || null;
+        const synced = await syncLocalUserFromSupabaseAuth({
+          email: normalizeEmail(supabaseUser?.email) || normalizedEmail,
+          metadata: getSupabaseUserMetadata(supabaseUser),
+          emailVerified: true,
+        });
+        if (!synced) {
+          await syncLocalEmailVerifiedFromSupabase(normalizedEmail);
+        }
+        const userToComplete = synced
+          || await dbGetAsync(`SELECT id FROM users WHERE email = ?`, [normalizedEmail]);
+        if (userToComplete?.id) {
+          await completeContactVerificationRequests({ userId: userToComplete.id, requestType: 'email' });
+        }
+        return res.json({
+          success: true,
+          provider: 'supabase',
+          message: 'Email verified successfully',
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(400).json({ error: error.message || 'Invalid or expired verification token' });
+        }
+      }
+    }
+
+    if (!token) {
       return res.status(400).json({ error: 'Email and token are required' });
     }
     const user = await dbGetAsync(`SELECT id, email_verified FROM users WHERE email = ?`, [normalizedEmail]);
@@ -3034,13 +3463,33 @@ app.post('/api/auth/email/verification/confirm', authIpLimiter, emailVerificatio
 
 app.get('/api/auth/email/verification/status', requireAuth, async (req, res) => {
   try {
-    const user = await dbGetAsync(`SELECT id, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]);
+    let user = await dbGetAsync(`SELECT id, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    if (isSupabaseEmailAuthUsable() && user.email) {
+      const bearerToken = getBearerTokenFromRequest(req);
+      if (bearerToken) {
+        try {
+          const supabaseUser = await supabaseAuthProvider.getUser({ accessToken: bearerToken });
+          if (isSupabaseEmailVerified(supabaseUser) && Number(user.email_verified || 0) !== 1) {
+            await syncLocalEmailVerifiedFromSupabase(user.email);
+            user = await dbGetAsync(`SELECT id, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]) || user;
+            await completeContactVerificationRequests({ userId: user.id, requestType: 'email' });
+          }
+        } catch (_) {
+          // Ignore token mismatch (legacy token) and keep local status.
+        }
+      }
+    }
     return res.json({
       email: user.email || null,
       email_verified: Number(user.email_verified || 0) === 1,
       mode: EMAIL_VERIFICATION_MODE,
       provider_ready: Boolean(emailVerificationProvider?.isReady),
+      provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
+      supabase_auth_enabled: Boolean(supabaseAuthProvider?.isEnabled),
+      supabase_auth_mode: SUPABASE_AUTH_MODE,
+      supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
+      supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -3058,6 +3507,22 @@ app.post('/api/auth/email/verification/request-self', requireAuth, async (req, r
     if (Number(user.email_verified || 0) === 1) {
       return res.status(200).json({ success: true, message: 'Email is already verified' });
     }
+
+    if (isSupabaseEmailAuthUsable()) {
+      try {
+        await supabaseAuthProvider.resendSignupVerification({ email: normalizedEmail });
+        return res.status(201).json({
+          success: true,
+          provider: 'supabase',
+          message: 'Verification email sent.',
+        });
+      } catch (error) {
+        if (isSupabaseAuthStrictMode()) {
+          return res.status(400).json({ error: error.message || 'Failed to send verification email' });
+        }
+      }
+    }
+
     const requestRow = await queueContactVerificationRequest({
       userId: user.id,
       requestedBy: Number(req.authUser?.id || 0) || null,
@@ -3356,6 +3821,13 @@ app.get('/api/auth/reset-mode', (_, res) => {
     email_verification_mode: EMAIL_VERIFICATION_MODE,
     email_delivery_mode: EMAIL_DELIVERY_MODE,
     email_provider_ready: Boolean(emailVerificationProvider?.isReady),
+    supabase_auth_enabled: Boolean(supabaseAuthProvider?.isEnabled),
+    supabase_auth_mode: SUPABASE_AUTH_MODE,
+    supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
+    supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
+    supabase_url: supabaseAuthProvider?.baseUrl || null,
+    supabase_password_reset_redirect: SUPABASE_PASSWORD_RESET_REDIRECT || null,
+    supabase_email_verify_redirect: SUPABASE_EMAIL_VERIFY_REDIRECT || null,
   });
 });
 
@@ -6776,12 +7248,7 @@ app.get('/', (_, res) => {
 });
 
 const startServer = async () => {
-  const ready = await startDatabaseScaffolding();
-  if (!ready) {
-    console.error('[SYSTEM] Server start aborted due to database initialization failure.');
-    process.exit(1);
-    return;
-  }
+  await ensureRuntimeReady();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
@@ -6793,7 +7260,14 @@ const startServer = async () => {
   });
 };
 
-void startServer();
+if (!IS_VERCEL_RUNTIME) {
+  void startServer().catch((error) => {
+    console.error(`[SYSTEM] Server start aborted: ${error.message}`);
+    process.exit(1);
+  });
+} else {
+  console.log('[SYSTEM] Vercel runtime detected. Using serverless request handling.');
+}
 
 const shutdownServer = (signal) => {
   console.log(`[SYSTEM] Received ${signal}. Shutting down...`);
@@ -6803,6 +7277,10 @@ const shutdownServer = (signal) => {
   });
 };
 
-process.once('SIGINT', () => shutdownServer('SIGINT'));
-process.once('SIGTERM', () => shutdownServer('SIGTERM'));
+if (!IS_VERCEL_RUNTIME) {
+  process.once('SIGINT', () => shutdownServer('SIGINT'));
+  process.once('SIGTERM', () => shutdownServer('SIGTERM'));
+}
+
+module.exports = app;
 

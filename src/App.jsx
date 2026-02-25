@@ -49,6 +49,13 @@ const getGitHubPagesHashUrl = (path = '/') => {
   return `${window.location.origin}${basePath}/#${normalizedPath}`;
 };
 
+const getPublicFileUrl = (filename) => {
+  const base = String(import.meta.env.BASE_URL || '/');
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanFile = String(filename || '').replace(/^\/+/, '');
+  return `${normalizedBase}${cleanFile}`;
+};
+
 const VISITOR_SESSION_STORAGE_KEY = 'visitor_session_id';
 
 const createVisitorSessionId = () => {
@@ -306,6 +313,9 @@ function App() {
               <div className="footer-links-list">
                 <Link to="/products">Shop</Link>
                 <Link to="/cart">Cart</Link>
+                <a href={getPublicFileUrl('terms-of-service.html')}>Terms of Service</a>
+                <a href={getPublicFileUrl('privacy-policy.html')}>Privacy Policy</a>
+                <a href={getPublicFileUrl('data-deletion.html')}>Data Deletion</a>
               </div>
             </div>
             <div className="footer-section footer-contact">

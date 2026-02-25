@@ -63,6 +63,23 @@
   color: #718096;
 }
 
+.auth-mode-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #312e81;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+}
+
+.auth-mode-banner p {
+  margin: 3px 0 0;
+  font-size: 0.85rem;
+}
+
 /* Validation Warning */
 .validation-warning {
   display: flex;
@@ -287,6 +304,26 @@
   padding: 10px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
+}
+
+.verify-token-group {
+  display: flex;
+  flex: 1 1 320px;
+  min-width: 260px;
+  gap: 6px;
+}
+
+.verify-token-group select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 8px;
+  background: #fff;
+  max-width: 120px;
+}
+
+.verify-token-group input {
+  flex: 1;
+  min-width: 180px;
 }
 
 .verify-btn {
@@ -519,6 +556,10 @@
   .validation-warning {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .auth-mode-banner {
+    align-items: flex-start;
   }
 
   .form-actions {

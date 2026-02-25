@@ -193,10 +193,12 @@ export const authApi = {
     apiFetch('/api/auth/phone/verification/request-self', {
       method: 'POST',
     }),
-  confirmEmailVerification: (email, token) =>
+  confirmEmailVerification: (email, token, options = {}) =>
     apiFetch('/api/auth/email/verification/confirm', {
       method: 'POST',
-      body: { email, token },
+      body: options?.tokenHash
+        ? { email, token_hash: options.tokenHash }
+        : { email, token },
     }),
   confirmPhoneVerification: (phone, code) =>
     apiFetch('/api/auth/phone/verification/confirm', {
@@ -206,7 +208,19 @@ export const authApi = {
   getEmailVerificationStatus: () => apiFetch('/api/auth/email/verification/status'),
   getPhoneVerificationStatus: () => apiFetch('/api/auth/phone/verification/status'),
   getMyContactVerificationRequestStatus: () => apiFetch('/api/auth/contact-verification/status'),
+  getSession: () => apiFetch('/api/auth/session'),
+  getSessionFromToken: (token) =>
+    apiFetch('/api/auth/session', {
+      headers: {
+        Authorization: `Bearer ${String(token || '').trim()}`,
+      },
+    }),
   getResetMode: () => apiFetch('/api/auth/reset-mode'),
+  completeRecoveryPasswordReset: (payload) =>
+    apiFetch('/api/auth/password/recovery/complete', {
+      method: 'POST',
+      body: payload,
+    }),
   verifyResetOtp: (payload) =>
     apiFetch('/api/auth/reset-password/otp/verify', {
       method: 'POST',

@@ -3,6 +3,9 @@
     "version": "1.0.0",
     "description": "BARMAN STORE - E-commerce Application with Supabase Postgres",
     "private": true,
+    "engines": {
+        "node": "20.x"
+    },
     "homepage": "https://narenbarman.github.io/BARMAN_STORE_REACT",
     "dependencies": {
         "bcrypt": "^5.1.0",

@@ -23,9 +23,16 @@ function Profile() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
+  const [emailVerificationTokenType, setEmailVerificationTokenType] = useState('token');
   const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
   const [verificationLoading, setVerificationLoading] = useState('');
   const [verificationRequestStatus, setVerificationRequestStatus] = useState({ email: null, phone: null });
+  const [authModeInfo, setAuthModeInfo] = useState({
+    supabaseEnabled: false,
+    supabaseMode: 'hybrid',
+    supabaseClientReady: false,
+    emailProvider: 'legacy',
+  });
   
   const [formData, setFormData] = useState({
     name: '',
@@ -123,11 +130,21 @@ function Profile() {
       setUser(userData);
       
       // Load full profile from server
-      const [profile, requestStatusPayload] = await Promise.all([
+      const [profile, requestStatusPayload, resetModePayload, emailStatusPayload] = await Promise.all([
         usersApi.getById(userData.id),
         authApi.getMyContactVerificationRequestStatus().catch(() => null),
+        authApi.getResetMode().catch(() => null),
+        authApi.getEmailVerificationStatus().catch(() => null),
       ]);
       applyVerificationRequestStatus(requestStatusPayload || {});
+      const emailProvider = String(emailStatusPayload?.provider || '').trim().toLowerCase() || 'legacy';
+      setAuthModeInfo({
+        supabaseEnabled: Boolean(resetModePayload?.supabase_auth_enabled),
+        supabaseMode: String(resetModePayload?.supabase_auth_mode || 'hybrid').toLowerCase() === 'strict' ? 'strict' : 'hybrid',
+        supabaseClientReady: Boolean(resetModePayload?.supabase_client_ready),
+        emailProvider,
+      });
+      setEmailVerificationTokenType(emailProvider === 'supabase' ? 'token_hash' : 'token');
       
       let addressData = {};
       if (profile.address) {
@@ -394,11 +411,17 @@ function Profile() {
         return;
       }
       if (!token) {
-        setError('Email verification token is required');
+        setError(emailVerificationTokenType === 'token_hash'
+          ? 'Email verification token_hash is required'
+          : 'Email verification token is required');
         return;
       }
       setVerificationLoading('email_confirm');
-      const response = await authApi.confirmEmailVerification(normalizedSavedEmail, token);
+      const response = await authApi.confirmEmailVerification(
+        normalizedSavedEmail,
+        token,
+        emailVerificationTokenType === 'token_hash' ? { tokenHash: token } : undefined
+      );
       setEmailVerified(true);
       setEmailVerificationToken('');
       const updatedUser = { ...user, email_verified: true };
@@ -661,15 +684,29 @@ function Profile() {
                             onClick={handleRequestEmailVerification}
                             disabled={verificationLoading === 'email_request' || emailDraftChanged}
                           >
-                            {verificationLoading === 'email_request' ? 'Requesting...' : 'Request Verification'}
+                            {verificationLoading === 'email_request'
+                              ? 'Requesting...'
+                              : (authModeInfo.emailProvider === 'supabase'
+                                ? 'Send Verification Email'
+                                : 'Request Verification')}
                           </button>
-                          <input
-                            type="text"
-                            value={emailVerificationToken}
-                            onChange={(e) => setEmailVerificationToken(e.target.value)}
-                            placeholder="Enter email token"
-                            disabled={emailDraftChanged}
-                          />
+                          <div className="verify-token-group">
+                            <select
+                              value={emailVerificationTokenType}
+                              onChange={(e) => setEmailVerificationTokenType(e.target.value)}
+                              disabled={emailDraftChanged}
+                            >
+                              <option value="token">token</option>
+                              <option value="token_hash">token_hash</option>
+                            </select>
+                            <input
+                              type="text"
+                              value={emailVerificationToken}
+                              onChange={(e) => setEmailVerificationToken(e.target.value)}
+                              placeholder={emailVerificationTokenType === 'token_hash' ? 'Enter email token_hash' : 'Enter email token'}
+                              disabled={emailDraftChanged}
+                            />
+                          </div>
                           <button
                             type="button"
                             className="verify-btn secondary"
