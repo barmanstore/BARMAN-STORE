@@ -154,7 +154,7 @@ const BillsViewer = () => {
     creditAmount: bill?.credit_amount,
     paymentStatus: bill?.payment_status,
     onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine: 'Thank you for shopping with us.'
+    thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
   });
 
   const buildSmsText = (bill) => {

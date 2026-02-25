@@ -286,7 +286,7 @@ function CreditHistory({ user }) {
         entryDate: txSnapshot.transactionDate,
         previousBalance,
         updatedBalance,
-        thankYouLine: 'Thank you for your payment and trust.'
+        thankYouLine: 'আপোনাৰ পৰিশোধ আৰু বিশ্বাসৰ বাবে ধন্যবাদ।'
       });
       setEntryShareText(manualShare);
     } catch (err) {
@@ -426,7 +426,7 @@ function CreditHistory({ user }) {
       periodEndingBalance,
       currentDayBalance: parseFloat(balance || 0),
       onlineStoreUrl: info.ONLINE_STORE_URL,
-      thankYouLine: 'Thank you for shopping with us.'
+      thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
     });
   };
 
@@ -505,7 +505,7 @@ function CreditHistory({ user }) {
     previousBalance,
     updatedBalance,
     onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine: thankYouLine || 'Thank you for shopping with us.'
+    thankYouLine: thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
   });
 
   const handleCopyEntryShare = async () => {
@@ -552,17 +552,26 @@ function CreditHistory({ user }) {
       }));
   })();
 
-  const buildTransactionShareText = (transaction) => buildCreditTransactionText({
-    companyTitle: info.TITLE || 'BARMAN STORE',
-    dateLabel: formatTransactionDate(transaction),
-    typeLabel: getTypeLabel(transaction?.type),
-    amount: Number(transaction?.amount || 0),
-    description: transaction?.description || 'No additional note',
-    reference: transaction?.reference || '',
-    updatedBalance: Number(transaction?.balance || 0),
-    onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine: 'Thank you for shopping with us.'
-  });
+  const buildTransactionShareText = (transaction) => {
+    const amount = Number(transaction?.amount || 0);
+    const updatedBalance = Number(transaction?.balance || 0);
+    const previousBalance = String(transaction?.type || '').toLowerCase() === 'payment'
+      ? updatedBalance + amount
+      : updatedBalance - amount;
+
+    return buildCreditTransactionText({
+      companyTitle: info.TITLE || 'BARMAN STORE',
+      dateLabel: formatTransactionDate(transaction),
+      typeLabel: getTypeLabel(transaction?.type),
+      amount,
+      description: transaction?.description || 'অতিৰিক্ত টোকা নাই',
+      reference: transaction?.reference || '',
+      previousBalance,
+      updatedBalance,
+      onlineStoreUrl: info.ONLINE_STORE_URL,
+      thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
+    });
+  };
 
   const handleSendTransactionWhatsApp = async (transaction) => {
     if (!isTransactionWithinFiveDays(transaction)) return;

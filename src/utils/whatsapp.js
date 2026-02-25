@@ -14,7 +14,7 @@ const appendVisitUsFooter = (text) => {
   const normalizedUrl = storeUrl.toLowerCase();
   if (normalizedText.includes(normalizedUrl)) return baseText;
 
-  const footer = `Visit us at ${storeUrl}`;
+  const footer = `আমাক ইয়াত ভিজিট কৰক: ${storeUrl}`;
   return baseText ? `${baseText}\n\n${footer}` : footer;
 };
 

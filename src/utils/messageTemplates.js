@@ -9,6 +9,24 @@ const formatDateTime = (value) => new Date(value || Date.now()).toLocaleString('
 
 const formatDate = (value) => new Date(value || Date.now()).toLocaleDateString('en-IN');
 
+const localizeTypeLabel = (value) => {
+  const raw = String(value || '').trim();
+  const normalized = raw.toLowerCase();
+  if (normalized === 'given') return 'ধাৰ দিয়া';
+  if (normalized === 'payment') return 'পৰিশোধ';
+  return raw || '-';
+};
+
+const localizePaymentStatus = (value) => {
+  const raw = String(value || '').trim();
+  const normalized = raw.toLowerCase();
+  if (normalized === 'paid') return 'পরিশোধিত';
+  if (normalized === 'pending') return 'বকেয়া';
+  if (normalized === 'partial') return 'আংশিক';
+  if (normalized === 'cancelled') return 'বাতিল';
+  return raw;
+};
+
 export const buildBillShareText = ({
   companyTitle,
   billNumber,
@@ -31,19 +49,19 @@ export const buildBillShareText = ({
     lines.push(companyTitle);
     lines.push('');
   }
-  lines.push(`Bill: ${billNumber || ''}`);
-  lines.push(`Date: ${formatDateTime(createdAt)}`);
-  if (customerName) lines.push(`Customer: ${customerName}`);
-  if (customerPhone) lines.push(`Phone: ${customerPhone}`);
-  if (customerEmail) lines.push(`Email: ${customerEmail}`);
-  if (customerAddress) lines.push(`Address: ${customerAddress}`);
+  lines.push(`বিল: ${billNumber || ''}`);
+  lines.push(`তাৰিখ: ${formatDateTime(createdAt)}`);
+  if (customerName) lines.push(`গ্ৰাহক: ${customerName}`);
+  if (customerPhone) lines.push(`ফোন: ${customerPhone}`);
+  if (customerEmail) lines.push(`ইমেইল: ${customerEmail}`);
+  if (customerAddress) lines.push(`ঠিকনা: ${customerAddress}`);
   lines.push('');
-  lines.push('Items:');
+  lines.push('সামগ্ৰীসমূহ:');
   if (!Array.isArray(items) || items.length === 0) {
-    lines.push('- None');
+    lines.push('- নাই');
   } else {
     items.forEach((it) => {
-      const name = it.product_name || it.name || 'Item';
+      const name = it.product_name || it.name || 'সামগ্ৰী';
       const qty = toNumber(it.qty || it.quantity || 0);
       const unit = it.unit || '';
       const amount = toNumber(it.amount || 0);
@@ -51,16 +69,16 @@ export const buildBillShareText = ({
     });
   }
   lines.push('');
-  lines.push(`Total: ${formatCurrency(totalAmount)}`);
-  lines.push(`Paid: ${formatCurrency(paidAmount)}`);
-  lines.push(`Credit: ${formatCurrency(creditAmount)}`);
+  lines.push(`মুঠ: ${formatCurrency(totalAmount)}`);
+  lines.push(`পরিশোধ: ${formatCurrency(paidAmount)}`);
+  lines.push(`ধাৰ: ${formatCurrency(creditAmount)}`);
   if (currentTotalCredit !== undefined && currentTotalCredit !== null) {
-    lines.push(`Current Total Credit: ${formatCurrency(currentTotalCredit)}`);
+    lines.push(`বৰ্তমান মুঠ ধাৰ: ${formatCurrency(currentTotalCredit)}`);
   }
-  lines.push(`Status: ${paymentStatus || ''}`);
+  lines.push(`স্থিতি: ${localizePaymentStatus(paymentStatus) || ''}`);
   if (onlineStoreUrl) {
     lines.push('');
-    lines.push(`Visit online: ${onlineStoreUrl}`);
+    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
   }
   if (thankYouLine) {
     lines.push('');
@@ -84,38 +102,38 @@ export const buildCreditReportText = ({
   const lines = [];
   lines.push(companyTitle || 'BARMAN STORE');
   lines.push('');
-  lines.push(`Credit Report for: ${customerName || 'Customer'}`);
-  lines.push(`Date Range: ${fromDate || ''} to ${toDate || ''}`);
-  lines.push(`Generated: ${formatDateTime(generatedAt)}`);
+  lines.push(`ধাৰ প্ৰতিবেদন: ${customerName || 'গ্ৰাহক'}`);
+  lines.push(`তাৰিখৰ পৰিসৰ: ${fromDate || ''} পৰা ${toDate || ''}`);
+  lines.push(`প্ৰস্তুত কৰা সময়: ${formatDateTime(generatedAt)}`);
   lines.push('');
   if (!Array.isArray(transactions) || transactions.length === 0) {
-    lines.push('No transactions in this range.');
-    lines.push(`Period Ending Balance: ${formatCurrency(periodEndingBalance)}`);
-    lines.push(`Current Day Balance: ${formatCurrency(currentDayBalance)}`);
+    lines.push('এই সময়সীমাত কোনো লেনদেন নাই।');
+    lines.push(`সময়সীমা শেষৰ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)}`);
+    lines.push(`বৰ্তমান দিনৰ বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`);
   } else {
-    lines.push('Transactions:');
+    lines.push('লেনদেনসমূহ:');
     let totalGiven = 0;
     let totalPayment = 0;
     transactions.forEach((t) => {
       const amount = toNumber(t.amount);
       if (String(t.type || '').toLowerCase() === 'given') totalGiven += amount;
       if (String(t.type || '').toLowerCase() === 'payment') totalPayment += amount;
-      lines.push(`- ${t.dateLabel || '-'} | ${t.typeLabel || '-'} | ${formatCurrency(amount)} | Balance: ${formatCurrency(toNumber(t.balance))}`);
-      lines.push(`  Desc: ${t.description || '-'}`);
+      lines.push(`- ${t.dateLabel || '-'} | ${localizeTypeLabel(t.typeLabel || t.type)} | ${formatCurrency(amount)} | বেলেঞ্চ: ${formatCurrency(toNumber(t.balance))}`);
+      lines.push(`  বিৱৰণ: ${t.description || '-'}`);
     });
     lines.push('');
-    lines.push(`Total Given: ${formatCurrency(totalGiven)}`);
-    lines.push(`Total Payment: ${formatCurrency(totalPayment)}`);
-    lines.push(`Net Change: ${formatCurrency(totalGiven - totalPayment)}`);
-    lines.push(`Period Ending Balance: ${formatCurrency(periodEndingBalance)}`);
-    lines.push(`Current Day Balance: ${formatCurrency(currentDayBalance)}`);
+    lines.push(`মুঠ ধাৰ দিয়া: ${formatCurrency(totalGiven)}`);
+    lines.push(`মুঠ পৰিশোধ: ${formatCurrency(totalPayment)}`);
+    lines.push(`নেট পৰিবর্তন: ${formatCurrency(totalGiven - totalPayment)}`);
+    lines.push(`সময়সীমা শেষৰ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)}`);
+    lines.push(`বৰ্তমান দিনৰ বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`);
   }
   lines.push('');
   if (onlineStoreUrl) {
-    lines.push(`Visit online: ${onlineStoreUrl}`);
+    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
     lines.push('');
   }
-  lines.push(thankYouLine || 'Thank you for shopping with us.');
+  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
   return lines.join('\n');
 };
 
@@ -134,22 +152,22 @@ export const buildCreditEntryText = ({
   const lines = [];
   lines.push(companyTitle || 'BARMAN STORE');
   lines.push('');
-  lines.push('Credit Ledger Update');
-  lines.push(`Date: ${formatDate(entryDate)}`);
+  lines.push('ধাৰ লেজাৰ আপডেট');
+  lines.push(`তাৰিখ: ${formatDate(entryDate)}`);
   lines.push('');
-  lines.push(`New Entry: ${entryTypeLabel || '-'} | ${formatCurrency(toNumber(amount))}`);
-  lines.push(`Description: ${description || 'No additional note'}`);
-  if (reference) lines.push(`Reference: ${reference}`);
+  lines.push(`নতুন এণ্ট্রি: ${localizeTypeLabel(entryTypeLabel)} | ${formatCurrency(toNumber(amount))}`);
+  lines.push(`বিৱৰণ: ${description || 'অতিৰিক্ত টোকা নাই'}`);
+  if (reference) lines.push(`ৰেফাৰেন্স: ${reference}`);
   lines.push('');
-  lines.push(`Previous Balance: ${formatCurrency(toNumber(previousBalance))}`);
-  lines.push(`Updated Balance: ${formatCurrency(toNumber(updatedBalance))}`);
-  lines.push(`Current Total Credit: ${formatCurrency(toNumber(updatedBalance))}`);
+  lines.push(`পূৰ্বৰ বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))}`);
+  lines.push(`আপডেটেড বেলেঞ্চ: ${formatCurrency(toNumber(updatedBalance))}`);
+  lines.push(`বৰ্তমান মুঠ ধাৰ: ${formatCurrency(toNumber(updatedBalance))}`);
   lines.push('');
   if (onlineStoreUrl) {
-    lines.push(`Visit online: ${onlineStoreUrl}`);
+    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
     lines.push('');
   }
-  lines.push(thankYouLine || 'Thank you for shopping with us.');
+  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
   return lines.join('\n');
 };
 
@@ -160,6 +178,7 @@ export const buildCreditTransactionText = ({
   amount,
   description,
   reference,
+  previousBalance,
   updatedBalance,
   onlineStoreUrl,
   thankYouLine
@@ -167,19 +186,19 @@ export const buildCreditTransactionText = ({
   const lines = [];
   lines.push(companyTitle || 'BARMAN STORE');
   lines.push('');
-  lines.push('Transaction Update');
-  lines.push(`Date: ${dateLabel || '-'}`);
-  lines.push(`Type: ${typeLabel || '-'}`);
-  lines.push(`Amount: ${formatCurrency(toNumber(amount))}`);
-  lines.push(`Description: ${description || 'No additional note'}`);
-  if (reference) lines.push(`Reference: ${reference}`);
-  lines.push(`Updated Balance: ${formatCurrency(toNumber(updatedBalance))}`);
-  lines.push(`Current Total Credit: ${formatCurrency(toNumber(updatedBalance))}`);
+  lines.push('লেনদেন আপডেট');
+  lines.push(`তাৰিখ: ${dateLabel || '-'}`);
+  lines.push(`ধৰণ: ${localizeTypeLabel(typeLabel)}`);
+  lines.push(`পৰিমাণ: ${formatCurrency(toNumber(amount))}`);
+  lines.push(`বিৱৰণ: ${description || 'অতিৰিক্ত টোকা নাই'}`);
+  if (reference) lines.push(`ৰেফাৰেন্স: ${reference}`);
+  lines.push(`পূৰ্বৰ বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))}`);
+  lines.push(`আপডেটেড বেলেঞ্চ: ${formatCurrency(toNumber(updatedBalance))}`);
   lines.push('');
   if (onlineStoreUrl) {
-    lines.push(`Visit online: ${onlineStoreUrl}`);
+    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
     lines.push('');
   }
-  lines.push(thankYouLine || 'Thank you for shopping with us.');
+  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
   return lines.join('\n');
 };

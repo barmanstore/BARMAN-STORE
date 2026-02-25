@@ -454,7 +454,7 @@ const BillingSystem = () => {
         currentTotalCredit,
         paymentStatus: payload.payment_status,
         onlineStoreUrl: info.ONLINE_STORE_URL,
-        thankYouLine: 'Thank you for shopping with us.'
+        thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
       });
       setLastShareText(shareText);
       setLastShareNumber(result?.bill_number || '');

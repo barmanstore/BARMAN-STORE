@@ -7,7 +7,7 @@ const asBusinessName = (value) => {
 
 const formatExpiry = (value) => {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'soon';
+  if (Number.isNaN(date.getTime())) return 'শীঘ্ৰেই';
   return date.toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -46,23 +46,23 @@ const buildEmailVerificationTemplate = (payload = {}) => {
 
 const buildPhoneVerificationTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'Customer').trim();
+  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
   const link = String(payload.link || '').trim();
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
   const lines = [
-    `Hello ${recipientName},`,
+    `প্ৰিয় ${recipientName},`,
     '',
-    `Please verify your phone for ${businessName}.`,
+    `${businessName}ৰ বাবে আপোনাৰ ফোন নম্বৰ যাচাই কৰক।`,
     '',
-    code ? `Verification code: ${code}` : '',
-    link ? `Verification link: ${link}` : '',
+    code ? `যাচাইকৰণ কোড: ${code}` : '',
+    link ? `যাচাইকৰণ লিংক: ${link}` : '',
     '',
-    `This code/link expires on ${expiresAt}.`,
+    `এই কোড/লিংকৰ মেয়াদ ${expiresAt}ত শেষ হ'ব।`,
     '',
-    `If you did not request this, you can ignore this message.`,
+    `আপুনি এই অনুৰোধ কৰা নাছিলে এই মেছেজ উপেক্ষা কৰিব পাৰে।`,
     '',
-    `Regards,`,
+    `শুভেচ্ছান্তে,`,
     businessName,
   ].filter(Boolean);
   return {
@@ -75,12 +75,12 @@ const buildPasswordResetOtpTemplate = (payload = {}) => {
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
   const lines = [
-    `Password reset request for ${businessName}.`,
+    `${businessName}ৰ বাবে পাসৱৰ্ড ৰিছেট অনুৰোধ।`,
     '',
-    code ? `OTP code: ${code}` : '',
-    `Expires on ${expiresAt}.`,
+    code ? `OTP কোড: ${code}` : '',
+    `মেয়াদ: ${expiresAt}`,
     '',
-    'If you did not request this, ignore this message.',
+    'আপুনি অনুৰোধ কৰা নাছিলে এই মেছেজ উপেক্ষা কৰক।',
   ].filter(Boolean);
   return {
     text: lines.join('\n'),
@@ -110,15 +110,15 @@ const buildPasswordResetAdminTemplate = (payload = {}) => {
     businessName,
   ].filter(Boolean);
   const textLines = [
-    `Hello ${recipientName},`,
+    `প্ৰিয় ${recipientName},`,
     '',
-    `${businessName}: your password was reset by admin.`,
-    newPassword ? `Temporary password: ${newPassword}` : '',
-    loginIdentifier ? `Login using: ${loginIdentifier}` : '',
-    loginUrl ? `Login link: ${loginUrl}` : '',
+    `${businessName}: আপোনাৰ পাসৱৰ্ড এডমিনে ৰিছেট কৰিছে।`,
+    newPassword ? `অস্থায়ী পাসৱৰ্ড: ${newPassword}` : '',
+    loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
+    loginUrl ? `লগইন লিংক: ${loginUrl}` : '',
     '',
-    'Please sign in and change your password immediately.',
-    supportLine ? `Support: ${supportLine}` : '',
+    'অনুগ্ৰহ কৰি লগইন কৰি তৎক্ষণাত পাসৱৰ্ড সলনি কৰক।',
+    supportLine ? `সহায়তা: ${supportLine}` : '',
   ].filter(Boolean);
   return {
     subject,
