@@ -1,5 +1,5 @@
 const createUnsupportedModeError = (mode) => new Error(
-  `[DB] DB_EXECUTION_MODE=${mode} is no longer supported. Use DB_EXECUTION_MODE=postgres or sqlite.`
+  `[DB] DB_EXECUTION_MODE=${mode} is unsupported. Use DB_EXECUTION_MODE=postgres.`
 );
 
 const createPostgresSyncNotSupportedError = (operation) => new Error(
@@ -12,9 +12,9 @@ const createPostgresPoolNotReadyError = () => new Error(
 
 const resolveMode = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'postgres';
   if (normalized === 'postgres' || normalized === 'pg' || normalized === 'supabase') return 'postgres';
-  if (normalized === 'mysql') return 'mysql';
-  return 'sqlite';
+  throw createUnsupportedModeError(normalized);
 };
 
 const normalizePostgresRunResult = (result) => ({
@@ -171,63 +171,12 @@ const createPostgresQueryAdapter = ({ getPostgresPool }) => {
   };
 };
 
-const createUnsupportedQueryAdapter = (mode) => {
-  const raise = () => { throw createUnsupportedModeError(mode); };
-  return {
-    mode,
-    run: raise,
-    runAsync: async () => raise(),
-    get: raise,
-    getAsync: async () => raise(),
-    all: raise,
-    allAsync: async () => raise(),
-    prepare: raise,
-    transaction: () => { throw createUnsupportedModeError(mode); },
-    transactionAsync: async () => raise(),
-  };
-};
-
-const createSqliteQueryAdapter = ({ db }) => ({
-  mode: 'sqlite',
-  run: (sql, params = []) => db.prepare(sql).run(params),
-  runAsync: async (sql, params = []) => db.prepare(sql).run(params),
-  get: (sql, params = []) => db.prepare(sql).get(params),
-  getAsync: async (sql, params = []) => db.prepare(sql).get(params),
-  all: (sql, params = []) => db.prepare(sql).all(params),
-  allAsync: async (sql, params = []) => db.prepare(sql).all(params),
-  prepare: (sql) => db.prepare(sql),
-  transaction: (handler) => db.transaction(handler),
-  transactionAsync: async (handler, ...args) => {
-    const tx = {
-      runAsync: async (sql, params = []) => db.prepare(sql).run(params),
-      getAsync: async (sql, params = []) => db.prepare(sql).get(params),
-      allAsync: async (sql, params = []) => db.prepare(sql).all(params),
-    };
-    db.exec('BEGIN');
-    try {
-      const result = await handler(tx, ...args);
-      db.exec('COMMIT');
-      return result;
-    } catch (error) {
-      try {
-        db.exec('ROLLBACK');
-      } catch (_) {
-        // ignore rollback failures
-      }
-      throw error;
-    }
-  },
-});
-
-const createQueryAdapter = ({ mode = 'sqlite', db, getPostgresPool = null }) => {
+const createQueryAdapter = ({ mode = 'postgres', getPostgresPool = null }) => {
   const resolvedMode = resolveMode(mode);
-  if (resolvedMode === 'mysql') {
-    return createUnsupportedQueryAdapter('mysql');
-  }
   if (resolvedMode === 'postgres') {
     return createPostgresQueryAdapter({ getPostgresPool });
   }
-  return createSqliteQueryAdapter({ db });
+  throw createUnsupportedModeError(resolvedMode);
 };
 
 module.exports = {

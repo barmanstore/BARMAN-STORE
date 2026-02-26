@@ -2,20 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
+import { validateEmail, validateStrongPassword } from '../utils/validation';
 import './login.css';
-
-const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
-
-const validateStrongPassword = (password) => {
-  const value = String(password || '');
-  return (
-    value.length >= 10 &&
-    /[a-z]/.test(value) &&
-    /[A-Z]/.test(value) &&
-    /[0-9]/.test(value) &&
-    /[^A-Za-z0-9]/.test(value)
-  );
-};
 
 function ChangePassword() {
   const [identifierType, setIdentifierType] = useState('email');

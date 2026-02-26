@@ -1728,13 +1728,13 @@ function PurchaseManagement({ user }) {
                 ) : (
                   purchaseOrders.map(order => (
                     <tr key={order.id}>
-                      <td><strong>{order.po_number}</strong></td>
-                      <td>{order.distributor_name}</td>
-                      <td>{order.items?.length || 0}</td>
-                      <td>{formatCurrency(getOrderDisplayTotal(order))}</td>
-                      <td>{getStatusBadge(order.status)}</td>
-                      <td>{order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString() : '-'}</td>
-                       <td className="actions-cell">
+                      <td data-label="PO Number"><strong>{order.po_number}</strong></td>
+                      <td data-label="Distributor">{order.distributor_name}</td>
+                      <td data-label="Items">{order.items?.length || 0}</td>
+                      <td data-label="Total">{formatCurrency(getOrderDisplayTotal(order))}</td>
+                      <td data-label="Status">{getStatusBadge(order.status)}</td>
+                      <td data-label="Expected">{order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString() : '-'}</td>
+                       <td className="actions-cell" data-label="Actions">
                          <button className="action-btn view" title="View Details" onClick={() => handleViewOrder(order.id)}>
                            <Eye size={16} />
                          </button>
@@ -1816,15 +1816,15 @@ function PurchaseManagement({ user }) {
                 ) : (
                   ledgerRecords.map((entry, index) => (
                     <tr key={entry.id || index}>
-                      <td>{new Date(entry.created_at || entry.transaction_date || Date.now()).toLocaleDateString()}</td>
-                      <td>{getDistributorName(entry)}</td>
-                      <td>{getLedgerTypeLabel(entry)}</td>
-                      <td>{formatCurrency(toNumber(entry.amount))}</td>
-                      <td>{getEntryDisplayBalance(entry) === null ? '-' : formatCurrency(getEntryDisplayBalance(entry))}</td>
-                      <td>{entry.payment_mode || entry.method || '-'}</td>
-                      <td>{entry.reference || entry.po_number || '-'}</td>
-                      <td>{getLedgerBillNumber(entry)}</td>
-                      <td>{entry.description || '-'}</td>
+                      <td data-label="Date">{new Date(entry.created_at || entry.transaction_date || Date.now()).toLocaleDateString()}</td>
+                      <td data-label="Distributor">{getDistributorName(entry)}</td>
+                      <td data-label="Type">{getLedgerTypeLabel(entry)}</td>
+                      <td data-label="Amount">{formatCurrency(toNumber(entry.amount))}</td>
+                      <td data-label="Balance">{getEntryDisplayBalance(entry) === null ? '-' : formatCurrency(getEntryDisplayBalance(entry))}</td>
+                      <td data-label="Mode">{entry.payment_mode || entry.method || '-'}</td>
+                      <td data-label="Reference">{entry.reference || entry.po_number || '-'}</td>
+                      <td data-label="Bill No">{getLedgerBillNumber(entry)}</td>
+                      <td data-label="Description">{entry.description || '-'}</td>
                     </tr>
                   ))
                 )}
@@ -1871,17 +1871,17 @@ function PurchaseManagement({ user }) {
                 ) : (
                   purchaseReturns.map(ret => (
                     <tr key={ret.id}>
-                      <td><strong>{ret.return_number}</strong></td>
-                      <td>{ret.distributor_name}</td>
-                      <td>
+                      <td data-label="Return Number"><strong>{ret.return_number}</strong></td>
+                      <td data-label="Distributor">{ret.distributor_name}</td>
+                      <td data-label="Type">
                         <span className={`type-badge ${ret.return_type}`}>
                           {ret.return_type === 'exchange' ? 'Exchange' : 'Return'}
                         </span>
                       </td>
-                      <td>{ret.items?.length || 0}</td>
-                      <td>{formatCurrency(ret.total)}</td>
-                      <td>{ret.reason || '-'}</td>
-                      <td>{new Date(ret.created_at).toLocaleDateString()}</td>
+                      <td data-label="Items">{ret.items?.length || 0}</td>
+                      <td data-label="Total">{formatCurrency(ret.total)}</td>
+                      <td data-label="Reason">{ret.reason || '-'}</td>
+                      <td data-label="Date">{new Date(ret.created_at).toLocaleDateString()}</td>
                     </tr>
                   ))
                 )}

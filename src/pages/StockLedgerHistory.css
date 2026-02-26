@@ -355,4 +355,61 @@
     min-width: auto;
     width: 100%;
   }
+
+  .stock-ledger-history .ledger-table-container {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .stock-ledger-history .ledger-table thead {
+    display: none;
+  }
+
+  .stock-ledger-history .ledger-table,
+  .stock-ledger-history .ledger-table tbody,
+  .stock-ledger-history .ledger-table tr,
+  .stock-ledger-history .ledger-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stock-ledger-history .ledger-table tr {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .stock-ledger-history .ledger-table td {
+    border: none;
+    border-bottom: 1px dashed #e5e7eb;
+    padding: 0.42rem 0;
+  }
+
+  .stock-ledger-history .ledger-table td:last-child {
+    border-bottom: none;
+  }
+
+  .stock-ledger-history .ledger-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    margin-bottom: 0.22rem;
+  }
+
+  .stock-ledger-history .icon {
+    margin-right: 6px;
+  }
+
+  .stock-ledger-history .notes-cell {
+    max-width: none;
+    white-space: normal;
+  }
 }

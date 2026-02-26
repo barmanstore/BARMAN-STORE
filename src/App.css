@@ -152,9 +152,6 @@ body {
   display: none !important;
 }
 
-.mobile-my-orders-link {
-  display: none !important;
-}
 
 /* Cart Link */
 .cart-link {
@@ -651,9 +648,6 @@ body {
     background: rgba(24, 86, 150, 0.22);
   }
 
-  .header .nav .mobile-my-orders-link {
-    display: flex !important;
-  }
 }
 
 /* Utility Classes for Monetary Amounts */

@@ -1136,6 +1136,41 @@ tbody tr:hover {
     text-align: center;
   }
 
+  .products-table {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .products-table table {
+    min-width: 1060px;
+  }
+
+  .products-table th:nth-child(8),
+  .products-table td:nth-child(8),
+  .products-table th:nth-child(10),
+  .products-table td:nth-child(10),
+  .products-table th:nth-child(11),
+  .products-table td:nth-child(11),
+  .products-table th:nth-child(12),
+  .products-table td:nth-child(12),
+  .products-table th:nth-child(13),
+  .products-table td:nth-child(13),
+  .products-table th:nth-child(14),
+  .products-table td:nth-child(14),
+  .products-table th:nth-child(15),
+  .products-table td:nth-child(15),
+  .products-table th:nth-child(16),
+  .products-table td:nth-child(16),
+  .products-table th:nth-child(17),
+  .products-table td:nth-child(17),
+  .products-table th:nth-child(18),
+  .products-table td:nth-child(18),
+  .products-table th:nth-child(19),
+  .products-table td:nth-child(19) {
+    display: none;
+  }
+
   table {
     font-size: 0.85rem;
   }

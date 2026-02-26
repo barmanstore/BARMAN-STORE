@@ -1,25 +1,27 @@
 // Resolve API base URL.
 // - Production behind reverse proxy: use relative '/api' calls (base '')
 // - Optional override with VITE_API_BASE_URL when needed
-const isGitHubPagesRuntime = () =>
-  typeof window !== 'undefined' && /\.github\.io$/i.test(window.location.hostname);
-
-const isNgrokUrl = (value) => /\.ngrok-free\.(app|dev)(\/|$)/i.test(String(value || ''));
-const isLocalhostRuntime = () => {
-  if (typeof window === 'undefined') return false;
-  const host = String(window.location.hostname || '').toLowerCase();
-  return host === 'localhost' || host === '127.0.0.1';
-};
-
 const getApiUrl = () => {
   const fromEnv = String(import.meta.env.VITE_API_BASE_URL || '').trim();
-  if (isLocalhostRuntime() && isNgrokUrl(fromEnv)) {
-    return 'http://localhost:5000';
-  }
-  if (!fromEnv && isGitHubPagesRuntime()) {
-    throw new Error('Missing VITE_API_BASE_URL for GitHub Pages runtime. Configure VITE_API_BASE_URL in deployment environment.');
-  }
   return fromEnv ? fromEnv.replace(/\/+$/, '') : '';
+};
+
+const createClientRequestId = (prefix = 'req') => {
+  const safePrefix = String(prefix || 'req').replace(/[^a-zA-Z0-9_-]/g, '') || 'req';
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${safePrefix}_${crypto.randomUUID().replace(/-/g, '')}`;
+  }
+  return `${safePrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+};
+
+const withClientRequestId = (payload, prefix) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const existing = String(payload.client_request_id || '').trim();
+  if (existing) return payload;
+  return {
+    ...payload,
+    client_request_id: createClientRequestId(prefix),
+  };
 };
 
 export const resolveMediaUrl = (value) => {
@@ -27,32 +29,13 @@ export const resolveMediaUrl = (value) => {
   if (!raw) return '';
   if (raw.startsWith('data:')) return raw;
   if (/^https?:\/\//i.test(raw)) {
-    const baseUrl = getApiUrl();
-    const shouldProxy = !!baseUrl && isGitHubPagesRuntime();
-    if (!shouldProxy) return raw;
-    try {
-      const mediaOrigin = new URL(raw).origin;
-      if (mediaOrigin === new URL(baseUrl).origin) return raw;
-    } catch (_) {
-      // fallback to proxy for malformed-but-http-like values
-    }
-    const proxied = `${baseUrl}/api/media/proxy?url=${encodeURIComponent(raw)}`;
-    if (isNgrokUrl(baseUrl)) {
-      return `${proxied}&ngrok-skip-browser-warning=true`;
-    }
-    return proxied;
+    return raw;
   }
   if (raw.startsWith('/')) {
     const baseUrl = getApiUrl();
     if (raw.startsWith('/uploads/')) {
-      if (typeof window !== 'undefined' && !/\.github\.io$/i.test(window.location.hostname)) {
-        return `/api${raw}`;
-      }
-      const mediaUrl = `${baseUrl}/api${raw}`;
-      if (isNgrokUrl(baseUrl)) {
-        return `${mediaUrl}${mediaUrl.includes('?') ? '&' : '?'}ngrok-skip-browser-warning=true`;
-      }
-      return mediaUrl;
+      const mediaBase = baseUrl ? `${baseUrl}/api` : '/api';
+      return `${mediaBase}${raw}`;
     }
     return `${baseUrl}${raw}`;
   }
@@ -62,26 +45,7 @@ export const resolveMediaUrl = (value) => {
 export const resolveMediaSourceForDisplay = async (value) => {
   const directUrl = resolveMediaUrl(value);
   if (!directUrl) return { src: '', revoke: false };
-
-  const isGitHubHost = typeof window !== 'undefined' && /\.github\.io$/i.test(window.location.hostname);
-  if (!isGitHubHost || !isNgrokUrl(directUrl)) {
-    return { src: directUrl, revoke: false };
-  }
-
-  try {
-    const headers = {};
-    if (isNgrokUrl(directUrl)) {
-      headers['ngrok-skip-browser-warning'] = 'true';
-    }
-    const response = await fetch(directUrl, { headers });
-    if (!response.ok) return { src: directUrl, revoke: false };
-    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-    if (!contentType.startsWith('image/')) return { src: directUrl, revoke: false };
-    const blob = await response.blob();
-    return { src: URL.createObjectURL(blob), revoke: true };
-  } catch (_) {
-    return { src: directUrl, revoke: false };
-  }
+  return { src: directUrl, revoke: false };
 };
 
 // Get auth token from localStorage
@@ -109,10 +73,6 @@ export const apiFetch = async (endpoint, options = {}) => {
     },
     ...options,
   };
-
-  if (isNgrokUrl(baseUrl)) {
-    config.headers['ngrok-skip-browser-warning'] = 'true';
-  }
 
   if (config.body && typeof config.body === 'object' && !isFormData) {
     config.body = JSON.stringify(config.body);
@@ -496,7 +456,7 @@ export const creditApi = {
   addTransaction: (userId, data) =>
     apiFetch(`/api/users/${userId}/credit`, {
       method: 'POST',
-      body: data,
+      body: withClientRequestId(data, 'credit'),
     }),
   updateTransaction: (userId, entryId, data) =>
     apiFetch(`/api/users/${userId}/credit/${entryId}`, {
@@ -602,16 +562,6 @@ export const adminApi = {
     apiFetch(`/api/admin/users/${id}/phone/verify`, {
       method: 'POST',
     }),
-  createBackup: () =>
-    apiFetch('/api/admin/backup/create', {
-      method: 'POST',
-    }),
-  listBackups: () => apiFetch('/api/admin/backup/list'),
-  restoreBackup: (fileName) =>
-    apiFetch('/api/admin/backup/restore', {
-      method: 'POST',
-      body: { file_name: fileName },
-    }),
 };
 
 // ============================================
@@ -623,7 +573,7 @@ export const billingApi = {
   createBill: (billData) =>
     apiFetch('/api/bills/create', {
       method: 'POST',
-      body: billData,
+      body: withClientRequestId(billData, 'bill'),
     }),
   
   // Get all bills
@@ -876,7 +826,7 @@ export const purchaseOrdersApi = {
   create: (orderData) =>
     apiFetch('/api/purchase-orders', {
       method: 'POST',
-      body: orderData,
+      body: withClientRequestId(orderData, 'po'),
     }),
   update: (id, orderData) =>
     apiFetch(`/api/purchase-orders/${id}`, {

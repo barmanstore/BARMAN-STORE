@@ -1,4 +1,4 @@
-import { BrowserRouter, HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, Package, ClipboardList, Home as HomeIcon, Store, Shield } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import UserMenu from './components/UserMenu';
@@ -23,30 +23,10 @@ const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const Profile = lazy(() => import('./pages/Profile'));
 
 
-// React Router v7 future flags to opt-in early and suppress warnings
-const routerFuture = {
-  v7_startTransition: true,
-  v7_relativeSplatPath: true
-};
-
-const isGitHubPagesHost = (() => {
-  if (typeof window === 'undefined') return false;
-  return /\.github\.io$/i.test(window.location.hostname);
-})();
-
-const Router = isGitHubPagesHost ? HashRouter : BrowserRouter;
 const routerBasename = (() => {
-  if (isGitHubPagesHost) return '/';
   const base = String(import.meta.env.BASE_URL || '/');
   return base === '/' ? '/' : base.replace(/\/$/, '');
 })();
-
-const getGitHubPagesHashUrl = (path = '/') => {
-  if (typeof window === 'undefined') return path;
-  const normalizedPath = String(path || '/').startsWith('/') ? String(path) : `/${path}`;
-  const basePath = String(import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-  return `${window.location.origin}${basePath}/#${normalizedPath}`;
-};
 
 const getPublicFileUrl = (filename) => {
   const base = String(import.meta.env.BASE_URL || '/');
@@ -152,21 +132,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!isGitHubPagesHost || typeof window === 'undefined') return;
-    const currentHash = String(window.location.hash || '');
-    if (currentHash && currentHash.startsWith('#/')) return;
-
-    const basePath = String(import.meta.env.BASE_URL || '/').replace(/\/$/, '');
-    const pathWithoutBase = window.location.pathname.replace(basePath, '') || '/';
-    const normalizedPath = pathWithoutBase.startsWith('/') ? pathWithoutBase : `/${pathWithoutBase}`;
-
-    if (normalizedPath === '/') return;
-
-    const target = getGitHubPagesHashUrl(normalizedPath);
-    window.location.replace(target + window.location.search);
-  }, []);
-
-  useEffect(() => {
     const isVisible = (element) => {
       if (!element || !(element instanceof HTMLElement)) return false;
       const style = window.getComputedStyle(element);
@@ -219,7 +184,13 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router basename={routerBasename} future={routerFuture}>
+      <BrowserRouter
+        basename={routerBasename}
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
       <div className="app">
         <VisitorTracker />
         {/* Header */}
@@ -255,11 +226,6 @@ function App() {
               <Link to="/order-tracking" onClick={closeMobileMenu}>
                 <Package size={20} /> Track
               </Link>
-              {user && (
-                <Link to="/my-orders" onClick={closeMobileMenu} className="mobile-my-orders-link">
-                  <ShoppingCart size={20} /> My Orders
-                </Link>
-              )}
               <Link to="/cart" className="cart-link" onClick={closeMobileMenu}>
                 <ShoppingCart size={20} />
                 {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
@@ -330,7 +296,7 @@ function App() {
           </div>
         </footer>
       </div>
-    </Router>
+    </BrowserRouter>
     </ErrorBoundary>
   );
 }

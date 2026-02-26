@@ -1,7 +1,6 @@
 require('./loadEnv');
 const express = require('express');
 const cors = require('cors');
-const Database = require('better-sqlite3');
 const { AsyncLocalStorage } = require('async_hooks');
 const path = require('path');
 const fs = require('fs');
@@ -18,7 +17,7 @@ const {
   getPostgresConnectionLabel,
   pingPostgresPool,
 } = require('./db/postgresScaffold');
-const { createExecutionAdapter, normalizeExecutionMode } = require('./db/executionAdapter');
+const { normalizeExecutionMode } = require('./db/executionAdapter');
 const { createQueryAdapter } = require('./db/queryAdapter');
 const {
   applyPostgresMigrations,
@@ -27,34 +26,18 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'barman-store.db');
 const DB_EXECUTION_MODE = normalizeExecutionMode(process.env.DB_EXECUTION_MODE || process.env.DB_CLIENT || 'postgres');
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, 'backups');
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
 const PROFILE_UPLOAD_DIR = path.join(UPLOADS_DIR, 'profiles');
 const POSTGRES_MIGRATIONS_DIR = process.env.POSTGRES_MIGRATIONS_DIR || path.join(__dirname, '..', 'supabase', 'migrations');
-const dbExecution = createExecutionAdapter({ mode: DB_EXECUTION_MODE, sqlitePath: DB_PATH });
-const db = {
-  prepare: (...args) => dbExecution.prepare(...args),
-  exec: (...args) => dbExecution.exec(...args),
-  pragma: (...args) => dbExecution.pragma(...args),
-  transaction: (...args) => dbExecution.transaction(...args),
-  close: (...args) => dbExecution.close(...args),
-};
 let postgresPool = null;
 const dbQuery = createQueryAdapter({
   mode: DB_EXECUTION_MODE,
-  db,
   getPostgresPool: () => postgresPool,
 });
 const txStorage = new AsyncLocalStorage();
 const getActiveTransaction = () => txStorage.getStore();
 
-const dbRun = (sql, params = []) => dbQuery.run(sql, params);
-const dbGet = (sql, params = []) => dbQuery.get(sql, params);
-const dbAll = (sql, params = []) => dbQuery.all(sql, params);
-const dbTx = (handler) => dbQuery.transaction(handler);
-const dbPrepare = (sql) => dbQuery.prepare(sql);
 const dbRunAsync = (sql, params = []) => {
   const tx = getActiveTransaction();
   return tx ? tx.runAsync(sql, params) : dbQuery.runAsync(sql, params);
@@ -71,54 +54,34 @@ const dbTxAsync = (handler, ...args) => dbQuery.transactionAsync(
   async (tx, ...handlerArgs) => txStorage.run(tx, () => handler(...handlerArgs)),
   ...args
 );
-const IS_MYSQL_EXECUTION = DB_EXECUTION_MODE === 'mysql';
-const IS_POSTGRES_EXECUTION = DB_EXECUTION_MODE === 'postgres';
-const SQL_INSERT_IGNORE_CATEGORY = IS_POSTGRES_EXECUTION
-  ? `INSERT INTO categories (name, description) VALUES (?, ?) ON CONFLICT (name) DO NOTHING`
-  : `INSERT OR IGNORE INTO categories (name, description) VALUES (?, ?)`;
-const SQL_UPSERT_VISITOR_SESSION = IS_POSTGRES_EXECUTION
-  ? `INSERT INTO visitor_sessions (session_id, user_id, started_at, last_seen_at, last_path, referrer, user_agent, ip_hash)
-     VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
-     ON CONFLICT(session_id) DO UPDATE SET
-       last_seen_at = CURRENT_TIMESTAMP,
-       last_path = EXCLUDED.last_path,
-       user_id = COALESCE(visitor_sessions.user_id, EXCLUDED.user_id),
-       referrer = COALESCE(visitor_sessions.referrer, EXCLUDED.referrer),
-       user_agent = COALESCE(visitor_sessions.user_agent, EXCLUDED.user_agent),
-       ip_hash = COALESCE(visitor_sessions.ip_hash, EXCLUDED.ip_hash),
-       ended_at = NULL`
-  : `INSERT INTO visitor_sessions (session_id, user_id, started_at, last_seen_at, last_path, referrer, user_agent, ip_hash)
-     VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
-     ON CONFLICT(session_id) DO UPDATE SET
-       last_seen_at = CURRENT_TIMESTAMP,
-       last_path = excluded.last_path,
-       user_id = COALESCE(visitor_sessions.user_id, excluded.user_id),
-       referrer = COALESCE(visitor_sessions.referrer, excluded.referrer),
-       user_agent = COALESCE(visitor_sessions.user_agent, excluded.user_agent),
-       ip_hash = COALESCE(visitor_sessions.ip_hash, excluded.ip_hash),
-       ended_at = NULL`;
-const SQL_UPSERT_IMPORT_BATCH = IS_POSTGRES_EXECUTION
-  ? `INSERT INTO import_batches (batch_id, kind, created_by, payload, checksum, status, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, TO_TIMESTAMP(? / 1000.0))
-     ON CONFLICT(batch_id) DO UPDATE SET
-       kind = EXCLUDED.kind,
-       created_by = EXCLUDED.created_by,
-       payload = EXCLUDED.payload,
-       checksum = EXCLUDED.checksum,
-       status = EXCLUDED.status,
-       expires_at = EXCLUDED.expires_at`
-  : `INSERT OR REPLACE INTO import_batches (batch_id, kind, created_by, payload, checksum, status, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime(? / 1000, 'unixepoch'))`;
-const SQL_CAST_TO_INT = IS_POSTGRES_EXECUTION
-  ? `(
-      CASE
-        WHEN dl.source_id IS NULL THEN NULL
-        WHEN btrim(dl.source_id) ~ '^[0-9]+$' THEN CAST(btrim(dl.source_id) AS BIGINT)
-        WHEN btrim(dl.source_id) ~ '^[0-9]+\\.0+$' THEN CAST(split_part(btrim(dl.source_id), '.', 1) AS BIGINT)
-        ELSE NULL
-      END
-    )`
-  : `CAST(dl.source_id AS INTEGER)`;
+const SQL_INSERT_IGNORE_CATEGORY = `INSERT INTO categories (name, description) VALUES (?, ?) ON CONFLICT (name) DO NOTHING`;
+const SQL_UPSERT_VISITOR_SESSION = `INSERT INTO visitor_sessions (session_id, user_id, started_at, last_seen_at, last_path, referrer, user_agent, ip_hash)
+   VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+   ON CONFLICT(session_id) DO UPDATE SET
+     last_seen_at = CURRENT_TIMESTAMP,
+     last_path = EXCLUDED.last_path,
+     user_id = COALESCE(visitor_sessions.user_id, EXCLUDED.user_id),
+     referrer = COALESCE(visitor_sessions.referrer, EXCLUDED.referrer),
+     user_agent = COALESCE(visitor_sessions.user_agent, EXCLUDED.user_agent),
+     ip_hash = COALESCE(visitor_sessions.ip_hash, EXCLUDED.ip_hash),
+     ended_at = NULL`;
+const SQL_UPSERT_IMPORT_BATCH = `INSERT INTO import_batches (batch_id, kind, created_by, payload, checksum, status, expires_at)
+   VALUES (?, ?, ?, ?, ?, ?, TO_TIMESTAMP(? / 1000.0))
+   ON CONFLICT(batch_id) DO UPDATE SET
+     kind = EXCLUDED.kind,
+     created_by = EXCLUDED.created_by,
+     payload = EXCLUDED.payload,
+     checksum = EXCLUDED.checksum,
+     status = EXCLUDED.status,
+     expires_at = EXCLUDED.expires_at`;
+const SQL_CAST_TO_INT = `(
+    CASE
+      WHEN dl.source_id IS NULL THEN NULL
+      WHEN btrim(dl.source_id) ~ '^[0-9]+$' THEN CAST(btrim(dl.source_id) AS BIGINT)
+      WHEN btrim(dl.source_id) ~ '^[0-9]+\\.0+$' THEN CAST(split_part(btrim(dl.source_id), '.', 1) AS BIGINT)
+      ELSE NULL
+    END
+  )`;
 
 const parseBooleanEnv = (value, fallback = false) => {
   const raw = String(value ?? '').trim().toLowerCase();
@@ -133,16 +96,6 @@ const toTimestampMs = (value) => {
 
 const startDatabaseScaffolding = async () => {
   console.log(`[DB] Execution mode: ${DB_EXECUTION_MODE}`);
-
-  if (IS_MYSQL_EXECUTION) {
-    console.error('[DB] MySQL execution mode is no longer supported in this repo. Set DB_EXECUTION_MODE=postgres.');
-    return false;
-  }
-
-  if (!IS_POSTGRES_EXECUTION) {
-    console.log(`[DB] SQLite mode active (DB_EXECUTION_MODE=${DB_EXECUTION_MODE}, DB_CLIENT=${process.env.DB_CLIENT || 'sqlite'}) | path=${DB_PATH}`);
-    return true;
-  }
 
   try {
     postgresPool = createPostgresPool();
@@ -188,30 +141,10 @@ const ensureRuntimeReady = async () => {
   return runtimeReadyPromise;
 };
 
-const AUTO_BACKUP_ENABLED = parseBooleanEnv(process.env.AUTO_BACKUP_ENABLED, false);
-const AUTO_BACKUP_ON_STARTUP = parseBooleanEnv(process.env.AUTO_BACKUP_ON_STARTUP, false);
-const AUTO_BACKUP_INTERVAL_MINUTES = Math.max(1, Number(process.env.AUTO_BACKUP_INTERVAL_MINUTES || 360));
-const AUTO_BACKUP_RETENTION_COUNT = Math.max(0, Number(process.env.AUTO_BACKUP_RETENTION_COUNT || 30));
-const AUTO_BACKUP_RETENTION_DAYS = Math.max(0, Number(process.env.AUTO_BACKUP_RETENTION_DAYS || 30));
 const PURCHASE_STOCK_CAP_RAW = Number(process.env.PURCHASE_STOCK_CAP || 50);
 const PURCHASE_STOCK_CAP = Number.isFinite(PURCHASE_STOCK_CAP_RAW) && PURCHASE_STOCK_CAP_RAW >= 0
   ? PURCHASE_STOCK_CAP_RAW
   : 50;
-const AUTO_BACKUP_INTERVAL_MS = AUTO_BACKUP_INTERVAL_MINUTES * 60 * 1000;
-let autoBackupTimer = null;
-let autoBackupRunning = false;
-const autoBackupState = {
-  enabled: AUTO_BACKUP_ENABLED,
-  interval_minutes: AUTO_BACKUP_INTERVAL_MINUTES,
-  retention_count: AUTO_BACKUP_RETENTION_COUNT,
-  retention_days: AUTO_BACKUP_RETENTION_DAYS,
-  on_startup: AUTO_BACKUP_ON_STARTUP,
-  last_run_at: null,
-  last_success_at: null,
-  last_error: null,
-  last_backup_file: null,
-  next_run_at: null,
-};
 
 const normalizeOrigin = (value) => {
   const raw = String(value || '').trim();
@@ -237,7 +170,7 @@ const envAllowedOrigins = String(process.env.FRONTEND_ORIGIN || '')
 const defaultAllowedOrigins = [
   'http://localhost',
   'http://127.0.0.1',
-  'https://narenbarman.github.io',
+  'https://barman-store.vercel.app',
 ];
 
 const allowedOrigins = new Set(
@@ -252,7 +185,7 @@ const corsOptions = {
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 204,
 };
 
@@ -478,6 +411,75 @@ const getRequestIp = (req) => {
     .map((part) => part.trim())
     .find(Boolean);
   return forwarded || req.ip || req.connection?.remoteAddress || '';
+};
+const MAX_CLIENT_REQUEST_ID_LENGTH = 120;
+const normalizeClientRequestId = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.length > MAX_CLIENT_REQUEST_ID_LENGTH) return '';
+  if (!/^[a-zA-Z0-9:_-]+$/.test(raw)) return '';
+  return raw;
+};
+const resolveClientRequestId = (req) => {
+  const fromBody = String(req.body?.client_request_id || '').trim();
+  const fromHeader = String(
+    req.headers['x-idempotency-key']
+    || req.headers['x-client-request-id']
+    || req.headers['x-request-id']
+    || ''
+  ).trim();
+  const candidate = fromBody || fromHeader;
+  if (!candidate) return { value: null, error: null };
+  const normalized = normalizeClientRequestId(candidate);
+  if (!normalized) {
+    return {
+      value: null,
+      error: `client_request_id must match ^[a-zA-Z0-9:_-]+$ and be <= ${MAX_CLIENT_REQUEST_ID_LENGTH} chars`,
+    };
+  }
+  return { value: normalized, error: null };
+};
+const isUniqueViolationError = (error) => String(error?.code || '').trim() === '23505';
+const safeSerializeJson = (value) => {
+  try {
+    return JSON.stringify(value || {});
+  } catch (_) {
+    return '{}';
+  }
+};
+const logAdminAuditAsync = async (req, {
+  action,
+  entityType,
+  entityId = null,
+  requestId = null,
+  details = null,
+} = {}) => {
+  if (!action || !entityType) return;
+  const actorId = Number(req?.authUser?.id || 0) || null;
+  const actorRole = String(req?.authUser?.role || '').trim() || null;
+  const normalizedEntityId = entityId === null || entityId === undefined ? null : String(entityId);
+  const normalizedRequestId = requestId === null || requestId === undefined ? null : String(requestId);
+  const ipAddress = getRequestIp(req) || null;
+
+  try {
+    await dbRunAsync(
+      `INSERT INTO admin_audit_logs
+      (actor_user_id, actor_role, action, entity_type, entity_id, request_id, ip_address, details_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb)`,
+      [
+        actorId,
+        actorRole,
+        String(action),
+        String(entityType),
+        normalizedEntityId,
+        normalizedRequestId,
+        ipAddress,
+        safeSerializeJson(details),
+      ]
+    );
+  } catch (error) {
+    console.error('[AUDIT] Failed to write admin audit log:', error?.message || error);
+  }
 };
 const hashVisitorIp = (req) => {
   const ip = String(getRequestIp(req) || '').trim();
@@ -751,7 +753,7 @@ const OTP_VERIFY_SESSION_TTL_SECONDS = Math.max(60, Number(process.env.OTP_VERIF
 const CREDIT_ENTRY_DEDUP_WINDOW_MS = Math.max(0, Number(process.env.CREDIT_ENTRY_DEDUP_WINDOW_MS || 15000));
 const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim() || 'BARMAN STORE';
 const PASSWORD_RESET_LOGIN_URL = String(
-  process.env.PASSWORD_RESET_LOGIN_URL || 'https://narenbarman.github.io/BARMAN_STORE_REACT/#/login'
+  process.env.PASSWORD_RESET_LOGIN_URL || 'https://barman-store.vercel.app/login'
 ).trim();
 const SUPABASE_AUTH_ENABLED = parseBooleanEnv(process.env.SUPABASE_AUTH_ENABLED, false);
 const SUPABASE_AUTH_MODE = String(process.env.SUPABASE_AUTH_MODE || 'hybrid').trim().toLowerCase() === 'strict'
@@ -766,7 +768,7 @@ const SUPABASE_EMAIL_VERIFY_REDIRECT = String(
   || PASSWORD_RESET_LOGIN_URL
 ).trim();
 const PHONE_VERIFY_BASE_URL = String(
-  process.env.PHONE_VERIFY_BASE_URL || 'https://narenbarman.github.io/BARMAN_STORE_REACT/#/login'
+  process.env.PHONE_VERIFY_BASE_URL || 'https://barman-store.vercel.app/login'
 ).trim();
 const PHONE_VERIFY_TTL_SECONDS = Math.max(60, Number(process.env.PHONE_VERIFY_TTL_SECONDS || 900));
 const PHONE_VERIFY_MAX_ATTEMPTS = Math.max(1, Number(process.env.PHONE_VERIFY_MAX_ATTEMPTS || 5));
@@ -1101,15 +1103,6 @@ const normalizeCreditType = (type) => {
   const raw = String(type || '').trim().toLowerCase();
   return raw === 'payment' ? 'payment' : 'given';
 };
-
-const getLatestCreditEntry = (userId) => dbGet(
-  `SELECT *
-   FROM credit_history
-   WHERE user_id = ?
-   ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC
-   LIMIT 1`,
-  [userId]
-);
 
 const getLatestCreditEntryAsync = (userId) => dbGetAsync(
   `SELECT *
@@ -1613,92 +1606,6 @@ const validateProductPayload = (payload, { partial = false } = {}) => {
   return errors;
 };
 
-const findProductConflict = (payload, { excludeId = null } = {}) => {
-  const sku = normalizeTextKey(payload?.sku);
-  if (sku) {
-    const bySku = excludeId
-      ? dbGet(`SELECT id, name, sku FROM products WHERE lower(sku) = ? AND id <> ? LIMIT 1`, [sku, Number(excludeId)])
-      : dbGet(`SELECT id, name, sku FROM products WHERE lower(sku) = ? LIMIT 1`, [sku]);
-    if (bySku) {
-      return {
-        field: 'sku',
-        conflict_type: 'exact',
-        severity: 'block',
-        message: `Duplicate SKU already exists (Product #${bySku.id}: ${bySku.name})`
-      };
-    }
-  }
-
-  const barcode = normalizeTextKey(payload?.barcode);
-  if (barcode) {
-    const byBarcode = excludeId
-      ? dbGet(`SELECT id, name, barcode FROM products WHERE lower(barcode) = ? AND id <> ? LIMIT 1`, [barcode, Number(excludeId)])
-      : dbGet(`SELECT id, name, barcode FROM products WHERE lower(barcode) = ? LIMIT 1`, [barcode]);
-    if (byBarcode) {
-      return {
-        field: 'barcode',
-        conflict_type: 'exact',
-        severity: 'block',
-        message: `Duplicate barcode already exists (Product #${byBarcode.id}: ${byBarcode.name})`
-      };
-    }
-  }
-
-  const nameKey = normalizeTextKey(payload?.name);
-  const brandKey = normalizeTextKey(payload?.brand);
-  const subBrandKey = normalizeTextKey(payload?.sub_brand);
-  if (!nameKey) return null;
-
-  const byNameBrand = excludeId
-    ? dbAll(
-      `SELECT id, name, brand, sub_brand, price, mrp
-       FROM products
-       WHERE lower(trim(name)) = ?
-         AND lower(trim(COALESCE(brand, ''))) = ?
-         AND lower(trim(COALESCE(sub_brand, ''))) = ?
-         AND id <> ?
-       ORDER BY id DESC`,
-      [nameKey, brandKey, subBrandKey, Number(excludeId)]
-    )
-    : dbAll(
-      `SELECT id, name, brand, sub_brand, price, mrp
-       FROM products
-       WHERE lower(trim(name)) = ?
-         AND lower(trim(COALESCE(brand, ''))) = ?
-         AND lower(trim(COALESCE(sub_brand, ''))) = ?
-       ORDER BY id DESC`,
-      [nameKey, brandKey, subBrandKey]
-    );
-  if (!byNameBrand.length) return null;
-
-  const price = normalizeMoneyValue(payload?.price);
-  const mrp = normalizeMoneyValue(payload?.mrp);
-
-  const exact = byNameBrand.find((row) =>
-    normalizeMoneyValue(row?.price) === price && normalizeMoneyValue(row?.mrp) === mrp
-  );
-  if (exact) {
-    return {
-      field: 'name_brand_price_mrp',
-      conflict_type: 'exact',
-      severity: 'block',
-      product_id: exact.id,
-      product_name: exact.name,
-      message: `Exact duplicate exists (Product #${exact.id}: ${exact.name}) for name + brand/sub-brand + price + MRP`
-    };
-  }
-
-  const firstMatch = byNameBrand[0];
-  return {
-    field: 'name_brand',
-    conflict_type: 'identical',
-    severity: 'confirm',
-    product_id: firstMatch.id,
-    product_name: firstMatch.name,
-    message: `Identical product name + brand/sub-brand exists (Product #${firstMatch.id}: ${firstMatch.name}). Choose to allow or cancel.`
-  };
-};
-
 const findProductConflictAsync = async (payload, { excludeId = null } = {}) => {
   const sku = normalizeTextKey(payload?.sku);
   if (sku) {
@@ -1795,25 +1702,6 @@ const buildProductExactKey = (payload) => {
   return `${nameKey}::${brandKey}::${subBrandKey}::${price ?? ''}::${mrp ?? ''}`;
 };
 
-const findExistingProductForImport = (row) => {
-  const id = toPositiveIntOrNull(row.id);
-  if (id) {
-    const byId = dbGet(`SELECT * FROM products WHERE id = ?`, [id]);
-    if (byId) return byId;
-  }
-  const sku = String(row.sku || '').trim();
-  if (sku) {
-    const bySku = dbGet(`SELECT * FROM products WHERE lower(sku) = ?`, [sku.toLowerCase()]);
-    if (bySku) return bySku;
-  }
-  const barcode = String(row.barcode || '').trim();
-  if (barcode) {
-    const byBarcode = dbGet(`SELECT * FROM products WHERE lower(barcode) = ?`, [barcode.toLowerCase()]);
-    if (byBarcode) return byBarcode;
-  }
-  return null;
-};
-
 const findExistingProductForImportAsync = async (row) => {
   const id = toPositiveIntOrNull(row.id);
   if (id) {
@@ -1831,14 +1719,6 @@ const findExistingProductForImportAsync = async (row) => {
     if (byBarcode) return byBarcode;
   }
   return null;
-};
-
-const resolveOrCreateCategoryName = (inputCategory) => {
-  const requested = String(inputCategory || '').trim() || 'Groceries';
-  const existing = dbGet(`SELECT name FROM categories WHERE lower(name) = lower(?)`, [requested]);
-  if (existing?.name) return existing.name;
-  dbRun(SQL_INSERT_IGNORE_CATEGORY, [requested, 'Product category']);
-  return requested;
 };
 
 const resolveOrCreateCategoryNameAsync = async (inputCategory) => {
@@ -2085,14 +1965,6 @@ const toProductExportRow = (row) => ({
   is_active: Number(row.is_active ?? 1),
 });
 
-const closeDatabase = () => {
-  try {
-    if (db) db.close();
-  } catch (_) {
-    // ignore close failures
-  }
-};
-
 const closePostgresScaffold = async () => {
   if (!postgresPool) return;
   const pool = postgresPool;
@@ -2104,746 +1976,8 @@ const closePostgresScaffold = async () => {
   }
 };
 
-const reopenDatabase = () => {
-  dbExecution.reopen();
-};
-
-const ensureBackupDir = () => {
-  fs.mkdirSync(BACKUP_DIR, { recursive: true });
-};
-
-const makeBackupFileName = (tag = 'manual') => {
-  const now = new Date();
-  const stamp = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-    '-',
-    String(now.getHours()).padStart(2, '0'),
-    String(now.getMinutes()).padStart(2, '0'),
-    String(now.getSeconds()).padStart(2, '0'),
-  ].join('');
-  return `barman-store-${tag}-${stamp}.db`;
-};
-
-const validateBackupFileName = (name) => /^[a-zA-Z0-9._-]+\.db$/i.test(String(name || ''));
-
-const createDatabaseBackup = (tag = 'manual') => {
-  ensureBackupDir();
-  const fileName = makeBackupFileName(tag);
-  const filePath = path.join(BACKUP_DIR, fileName);
-  const escapedPath = filePath.replace(/'/g, "''");
-
-  // Flush WAL changes before creating backup snapshot.
-  try {
-    db.pragma('wal_checkpoint(TRUNCATE)');
-  } catch (_) {
-    // not fatal if journal mode is not WAL
-  }
-
-  db.exec(`VACUUM INTO '${escapedPath}'`);
-  const stat = fs.statSync(filePath);
-  return {
-    file_name: fileName,
-    size_bytes: stat.size,
-    created_at: stat.mtime.toISOString(),
-    path: filePath,
-  };
-};
-
-const listDatabaseBackups = () => {
-  ensureBackupDir();
-  const files = fs.readdirSync(BACKUP_DIR)
-    .filter((name) => validateBackupFileName(name))
-    .map((name) => {
-      const filePath = path.join(BACKUP_DIR, name);
-      const stat = fs.statSync(filePath);
-      return {
-        file_name: name,
-        size_bytes: stat.size,
-        created_at: stat.mtime.toISOString(),
-      };
-    })
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  return files;
-};
-
-const isAutoBackupFileName = (name) => /^barman-store-auto-\d{8}-\d{6}\.db$/i.test(String(name || ''));
-
-const pruneAutoBackups = () => {
-  ensureBackupDir();
-  const allAutoBackups = fs.readdirSync(BACKUP_DIR)
-    .filter((name) => validateBackupFileName(name) && isAutoBackupFileName(name))
-    .map((name) => {
-      const filePath = path.join(BACKUP_DIR, name);
-      const stat = fs.statSync(filePath);
-      return {
-        file_name: name,
-        path: filePath,
-        created_at: stat.mtime,
-      };
-    })
-    .sort((a, b) => b.created_at - a.created_at);
-
-  const now = Date.now();
-  const maxAgeMs = AUTO_BACKUP_RETENTION_DAYS > 0 ? AUTO_BACKUP_RETENTION_DAYS * 24 * 60 * 60 * 1000 : 0;
-  const removed = [];
-
-  allAutoBackups.forEach((backup, index) => {
-    const olderThanDays = maxAgeMs > 0 && (now - backup.created_at.getTime()) > maxAgeMs;
-    const beyondCount = AUTO_BACKUP_RETENTION_COUNT > 0 && index >= AUTO_BACKUP_RETENTION_COUNT;
-    if (!olderThanDays && !beyondCount) return;
-    try {
-      fs.unlinkSync(backup.path);
-      removed.push(backup.file_name);
-    } catch (_) {
-      // Ignore cleanup failures; they should not break backup flow.
-    }
-  });
-
-  return removed;
-};
-
-const runAutoBackup = (trigger = 'interval') => {
-  if (!AUTO_BACKUP_ENABLED || autoBackupRunning) return null;
-  autoBackupRunning = true;
-  autoBackupState.last_run_at = new Date().toISOString();
-  try {
-    const backup = createDatabaseBackup('auto');
-    const removed = pruneAutoBackups();
-    autoBackupState.last_success_at = new Date().toISOString();
-    autoBackupState.last_backup_file = backup.file_name;
-    autoBackupState.last_error = null;
-    console.log(`[AUTO_BACKUP] Success (${trigger}): ${backup.file_name}${removed.length ? ` | pruned: ${removed.join(', ')}` : ''}`);
-    return { backup, removed };
-  } catch (error) {
-    autoBackupState.last_error = String(error?.message || error);
-    console.error(`[AUTO_BACKUP] Failed (${trigger}):`, error?.message || error);
-    return null;
-  } finally {
-    autoBackupRunning = false;
-    if (AUTO_BACKUP_ENABLED) {
-      autoBackupState.next_run_at = new Date(Date.now() + AUTO_BACKUP_INTERVAL_MS).toISOString();
-    }
-  }
-};
-
-const startAutoBackupScheduler = () => {
-  if (!AUTO_BACKUP_ENABLED) {
-    autoBackupState.next_run_at = null;
-    console.log('[AUTO_BACKUP] Disabled');
-    return;
-  }
-  if (autoBackupTimer) {
-    clearInterval(autoBackupTimer);
-  }
-  autoBackupState.next_run_at = new Date(Date.now() + AUTO_BACKUP_INTERVAL_MS).toISOString();
-  if (AUTO_BACKUP_ON_STARTUP) {
-    runAutoBackup('startup');
-  } else {
-    try {
-      const removed = pruneAutoBackups();
-      if (removed.length) {
-        console.log(`[AUTO_BACKUP] Pruned old auto backups: ${removed.join(', ')}`);
-      }
-    } catch (_) {
-      // Keep startup resilient.
-    }
-  }
-  autoBackupTimer = setInterval(() => {
-    runAutoBackup('interval');
-  }, AUTO_BACKUP_INTERVAL_MS);
-  console.log(`[AUTO_BACKUP] Enabled | every ${AUTO_BACKUP_INTERVAL_MINUTES} minute(s) | retention count=${AUTO_BACKUP_RETENTION_COUNT || 'unlimited'} | retention days=${AUTO_BACKUP_RETENTION_DAYS || 'unlimited'} | startup=${AUTO_BACKUP_ON_STARTUP}`);
-};
-
-const assertBackupIntegrity = (filePath) => {
-  const checkDb = new Database(filePath, { readonly: true, fileMustExist: true });
-  try {
-    const row = checkDb.prepare('PRAGMA integrity_check').get();
-    const result = String(row?.integrity_check || '').toLowerCase();
-    if (result !== 'ok') {
-      throw new Error(`Backup integrity check failed: ${result || 'unknown result'}`);
-    }
-  } finally {
-    checkDb.close();
-  }
-};
-
-const alterTableSafe = (sql) => {
-  try {
-    db.exec(sql);
-  } catch (_) {
-    // ignore duplicate-column failures
-  }
-};
-
-const initDB = () => {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      role TEXT NOT NULL DEFAULT 'customer',
-      name TEXT NOT NULL,
-      email TEXT UNIQUE,
-      email_verified INTEGER DEFAULT 0,
-      phone TEXT UNIQUE,
-      phone_verified INTEGER DEFAULT 0,
-      address TEXT,
-      profile_image TEXT,
-      password_hash TEXT NOT NULL,
-      must_change_password INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      brand TEXT,
-      sub_brand TEXT,
-      content TEXT,
-      color TEXT,
-      price REAL NOT NULL,
-      mrp REAL,
-      uom TEXT DEFAULT 'pcs',
-      sku TEXT,
-      barcode TEXT,
-      image TEXT,
-      stock INTEGER DEFAULT 0,
-      category TEXT NOT NULL,
-      subcategory TEXT,
-      expiry_date DATE,
-      default_discount REAL DEFAULT 0,
-      discount_type TEXT DEFAULT 'fixed',
-      is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_number TEXT UNIQUE,
-      user_id INTEGER,
-      customer_name TEXT NOT NULL,
-      customer_email TEXT NOT NULL,
-      customer_phone TEXT,
-      shipping_address TEXT,
-      total_amount REAL NOT NULL,
-      status TEXT DEFAULT 'pending',
-      payment_method TEXT DEFAULT 'cash',
-      payment_status TEXT DEFAULT 'pending',
-      stock_applied INTEGER DEFAULT 0,
-      credit_applied INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL,
-      product_id INTEGER NOT NULL,
-      quantity INTEGER NOT NULL,
-      price REAL NOT NULL,
-      total REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS credit_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      amount REAL NOT NULL,
-      balance REAL DEFAULT 0,
-      description TEXT,
-      reference TEXT,
-      edited INTEGER DEFAULT 0,
-      edited_at DATETIME,
-      edited_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS stock_ledger (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      product_id INTEGER NOT NULL,
-      product_name TEXT,
-      sku TEXT,
-      transaction_type TEXT NOT NULL,
-      quantity_change REAL NOT NULL,
-      previous_balance REAL DEFAULT 0,
-      new_balance REAL DEFAULT 0,
-      reference_type TEXT,
-      reference_id TEXT,
-      user_id INTEGER,
-      user_name TEXT,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS distributors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      salesman_name TEXT,
-      contacts TEXT,
-      address TEXT,
-      products_supplied TEXT,
-      order_day TEXT,
-      delivery_day TEXT,
-      payment_terms TEXT DEFAULT 'Net 30',
-      status TEXT DEFAULT 'active',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS distributor_ledger (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      distributor_id INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      amount REAL NOT NULL,
-      balance REAL DEFAULT 0,
-      payment_mode TEXT,
-      reference TEXT,
-      bill_number TEXT,
-      description TEXT,
-      transaction_date DATE,
-      source TEXT,
-      source_id TEXT,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      po_number TEXT UNIQUE NOT NULL,
-      distributor_id INTEGER NOT NULL,
-      total REAL NOT NULL DEFAULT 0,
-      status TEXT DEFAULT 'pending',
-      notes TEXT,
-      expected_delivery DATE,
-      invoice_number TEXT,
-      stock_applied_on_confirm INTEGER DEFAULT 0,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS purchase_order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL,
-      product_id INTEGER,
-      product_name TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      received_quantity REAL DEFAULT 0,
-      uom TEXT DEFAULT 'pcs',
-      unit_price REAL NOT NULL,
-      total REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS purchase_returns (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      return_number TEXT UNIQUE NOT NULL,
-      distributor_id INTEGER NOT NULL,
-      total REAL NOT NULL DEFAULT 0,
-      reason TEXT,
-      return_type TEXT DEFAULT 'return',
-      reference_po TEXT,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS purchase_return_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      return_id INTEGER NOT NULL,
-      product_id INTEGER,
-      product_name TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      uom TEXT DEFAULT 'pcs',
-      unit_price REAL NOT NULL,
-      total REAL NOT NULL,
-      reason TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS bills (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      bill_number TEXT UNIQUE NOT NULL,
-      customer_id INTEGER,
-      customer_name TEXT NOT NULL,
-      customer_email TEXT,
-      customer_phone TEXT,
-      customer_address TEXT,
-      subtotal REAL NOT NULL DEFAULT 0,
-      discount_amount REAL NOT NULL DEFAULT 0,
-      total_amount REAL NOT NULL DEFAULT 0,
-      paid_amount REAL NOT NULL DEFAULT 0,
-      credit_amount REAL NOT NULL DEFAULT 0,
-      payment_method TEXT DEFAULT 'cash',
-      payment_status TEXT DEFAULT 'pending',
-      bill_type TEXT DEFAULT 'sales',
-      notes TEXT,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS bill_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      bill_id INTEGER NOT NULL,
-      product_id INTEGER,
-      product_name TEXT NOT NULL,
-      mrp REAL DEFAULT 0,
-      qty REAL NOT NULL,
-      unit TEXT DEFAULT 'pcs',
-      discount REAL DEFAULT 0,
-      amount REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender_id INTEGER NOT NULL,
-      recipient_id INTEGER,
-      subject TEXT,
-      body TEXT,
-      read INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS password_reset_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      email TEXT,
-      phone TEXT,
-      reason TEXT,
-      status TEXT DEFAULT 'pending',
-      admin_note TEXT,
-      requested_from_ip TEXT,
-      processed_by INTEGER,
-      processed_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS password_reset_otps (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      phone TEXT NOT NULL,
-      otp_hash TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      attempts INTEGER DEFAULT 0,
-      max_attempts INTEGER DEFAULT 5,
-      used INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS password_reset_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      phone TEXT NOT NULL,
-      token_hash TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      used INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS email_verification_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      email TEXT NOT NULL,
-      token_hash TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      attempts INTEGER DEFAULT 0,
-      max_attempts INTEGER DEFAULT 5,
-      used INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS phone_verification_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      phone TEXT NOT NULL,
-      token_hash TEXT NOT NULL,
-      expires_at DATETIME NOT NULL,
-      attempts INTEGER DEFAULT 0,
-      max_attempts INTEGER DEFAULT 5,
-      used INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS contact_verification_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      request_type TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      requested_from_ip TEXT,
-      requested_by INTEGER,
-      admin_note TEXT,
-      prepared_event_id INTEGER,
-      processed_by INTEGER,
-      processed_at DATETIME,
-      completed_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS notification_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL,
-      channel TEXT NOT NULL DEFAULT 'email',
-      recipient TEXT NOT NULL,
-      recipient_user_id INTEGER,
-      subject TEXT,
-      body TEXT,
-      status TEXT NOT NULL DEFAULT 'prepared',
-      error_message TEXT,
-      metadata TEXT,
-      prepared_by INTEGER,
-      sent_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      sent_at DATETIME
-    );
-
-    CREATE TABLE IF NOT EXISTS order_status_history (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL,
-      status TEXT NOT NULL,
-      description TEXT,
-      created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS offers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      description TEXT,
-      type TEXT NOT NULL,
-      value REAL DEFAULT 0,
-      min_quantity INTEGER DEFAULT 1,
-      apply_to_category TEXT,
-      apply_to_product INTEGER,
-      buy_product_id INTEGER,
-      buy_quantity INTEGER DEFAULT 1,
-      get_product_id INTEGER,
-      get_quantity INTEGER DEFAULT 1,
-      start_date DATE,
-      end_date DATE,
-      status TEXT DEFAULT 'active',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS import_batches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      batch_id TEXT UNIQUE NOT NULL,
-      kind TEXT NOT NULL,
-      created_by INTEGER,
-      payload TEXT NOT NULL,
-      checksum TEXT NOT NULL,
-      status TEXT DEFAULT 'staged',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      expires_at DATETIME
-    );
-
-    CREATE TABLE IF NOT EXISTS visitor_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      session_id TEXT UNIQUE NOT NULL,
-      user_id INTEGER,
-      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      ended_at DATETIME,
-      last_path TEXT,
-      referrer TEXT,
-      user_agent TEXT,
-      ip_hash TEXT
-    );
-  `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_visitor_sessions_started_at ON visitor_sessions(started_at);
-    CREATE INDEX IF NOT EXISTS idx_visitor_sessions_last_seen_at ON visitor_sessions(last_seen_at);
-    CREATE INDEX IF NOT EXISTS idx_visitor_sessions_user_id ON visitor_sessions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_contact_verification_requests_status ON contact_verification_requests(status);
-    CREATE INDEX IF NOT EXISTS idx_contact_verification_requests_user_type
-      ON contact_verification_requests(user_id, request_type, created_at DESC);
-  `);
-
-  alterTableSafe(`ALTER TABLE products ADD COLUMN brand TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN sub_brand TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN content TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN color TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN mrp REAL`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN uom TEXT DEFAULT 'pcs'`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN sku TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN barcode TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN subcategory TEXT`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN expiry_date DATE`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN default_discount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN discount_type TEXT DEFAULT 'fixed'`);
-  alterTableSafe(`ALTER TABLE products ADD COLUMN is_active INTEGER DEFAULT 1`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN order_number TEXT`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN user_id INTEGER`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN shipping_address TEXT`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'cash'`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'pending'`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN stock_applied INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE orders ADD COLUMN credit_applied INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE order_items ADD COLUMN total REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'customer'`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN email TEXT`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN phone TEXT`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN phone_verified INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN address TEXT`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN profile_image TEXT`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN password_hash TEXT`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN must_change_password INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE users ADD COLUMN credit_limit REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE password_reset_requests ADD COLUMN requested_from_ip TEXT`);
-  alterTableSafe(`ALTER TABLE password_reset_requests ADD COLUMN processed_by INTEGER`);
-  alterTableSafe(`ALTER TABLE password_reset_requests ADD COLUMN processed_at DATETIME`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN requested_from_ip TEXT`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN requested_by INTEGER`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN admin_note TEXT`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN prepared_event_id INTEGER`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN processed_by INTEGER`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN processed_at DATETIME`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN completed_at DATETIME`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN created_at DATETIME`);
-  alterTableSafe(`ALTER TABLE contact_verification_requests ADD COLUMN updated_at DATETIME`);
-  alterTableSafe(`ALTER TABLE credit_history ADD COLUMN transaction_date DATE`);
-  alterTableSafe(`ALTER TABLE credit_history ADD COLUMN created_by INTEGER`);
-  alterTableSafe(`ALTER TABLE credit_history ADD COLUMN edited INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE credit_history ADD COLUMN edited_at DATETIME`);
-  alterTableSafe(`ALTER TABLE credit_history ADD COLUMN edited_by INTEGER`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN product_name TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN sku TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN transaction_type TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN quantity_change REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN previous_balance REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN new_balance REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN reference_type TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN reference_id TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN user_id INTEGER`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN user_name TEXT`);
-  alterTableSafe(`ALTER TABLE stock_ledger ADD COLUMN notes TEXT`);
-  alterTableSafe(`ALTER TABLE bills ADD COLUMN paid_amount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE bills ADD COLUMN credit_amount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE bills ADD COLUMN notes TEXT`);
-  alterTableSafe(`ALTER TABLE purchase_orders ADD COLUMN subtotal REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_orders ADD COLUMN tax_amount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_orders ADD COLUMN total_amount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_orders ADD COLUMN bill_number TEXT`);
-  alterTableSafe(`ALTER TABLE purchase_orders ADD COLUMN stock_applied_on_confirm INTEGER DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE distributor_ledger ADD COLUMN source TEXT`);
-  alterTableSafe(`ALTER TABLE distributor_ledger ADD COLUMN source_id TEXT`);
-  alterTableSafe(`ALTER TABLE distributor_ledger ADD COLUMN transaction_date DATE`);
-  alterTableSafe(`ALTER TABLE distributor_ledger ADD COLUMN created_by INTEGER`);
-  alterTableSafe(`ALTER TABLE distributor_ledger ADD COLUMN bill_number TEXT`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN rate REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN gst_rate REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN discount_type TEXT DEFAULT 'percent'`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN discount_value REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN taxable_value REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN tax_amount REAL DEFAULT 0`);
-  alterTableSafe(`ALTER TABLE purchase_order_items ADD COLUMN line_total REAL DEFAULT 0`);
-  // Backfill legacy "Parent -> Child" text into dedicated hierarchy columns.
-  try {
-    dbRun(
-      `UPDATE products
-       SET subcategory = trim(substr(category, instr(category, '->') + 2)),
-           category = trim(substr(category, 1, instr(category, '->') - 1))
-       WHERE instr(category, '->') > 0
-         AND (subcategory IS NULL OR trim(subcategory) = '')
-         AND trim(substr(category, 1, instr(category, '->') - 1)) <> ''
-         AND trim(substr(category, instr(category, '->') + 2)) <> ''`
-    );
-  } catch (_) {
-    // ignore backfill failures
-  }
-  try {
-    dbRun(
-      `UPDATE products
-       SET sub_brand = trim(substr(brand, instr(brand, '->') + 2)),
-           brand = trim(substr(brand, 1, instr(brand, '->') - 1))
-       WHERE brand IS NOT NULL
-         AND instr(brand, '->') > 0
-         AND (sub_brand IS NULL OR trim(sub_brand) = '')
-         AND trim(substr(brand, 1, instr(brand, '->') - 1)) <> ''
-         AND trim(substr(brand, instr(brand, '->') + 2)) <> ''`
-    );
-  } catch (_) {
-    // ignore backfill failures
-  }
-
-  // Backfill from legacy "password" column if present.
-  try {
-    const legacyUsers = dbAll(`SELECT id, password, password_hash FROM users`);
-    legacyUsers.forEach((u) => {
-      if (!u.password_hash && u.password) {
-        const normalized = isSha256Hex(u.password) ? String(u.password).toLowerCase() : hashPassword(u.password);
-        dbRun(`UPDATE users SET password_hash = ? WHERE id = ?`, [normalized, u.id]);
-      }
-    });
-
-  } catch (_) {
-    // ignore when legacy password column does not exist
-  }
-
-  const adminCount = dbGet(`SELECT COUNT(*) AS count FROM users WHERE role = 'admin'`)?.count || 0;
-  if (adminCount === 0) {
-    const bootstrapAdminEmail = normalizeEmail(process.env.BOOTSTRAP_ADMIN_EMAIL);
-    const bootstrapAdminPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || '');
-    if (bootstrapAdminEmail && isStrongPassword(bootstrapAdminPassword)) {
-      dbRun(
-        `INSERT INTO users (role, name, email, email_verified, phone, address, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        ['admin', 'Administrator', bootstrapAdminEmail, 1, null, null, hashPassword(bootstrapAdminPassword), 0]
-      );
-      console.warn('Bootstrap admin account created from environment configuration.');
-    } else {
-      console.warn('No admin user exists. Set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD to create the initial admin account.');
-    }
-  }
-
-  const productCount = dbGet(`SELECT COUNT(*) AS count FROM products`)?.count || 0;
-  if (productCount === 0) {
-    const products = [
-      ['Premium Coffee Beans', 'Artisan roasted coffee beans from Colombia', 'CoffeeCo', '250g', 'Brown', 24.99, 29.99, 'pcs', 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500', 50, 'Groceries'],
-      ['Barista Apron', 'Premium cotton barista apron', 'BarWear', 'L', 'Black', 34.99, 39.99, 'pcs', 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=500', 30, 'Stationery'],
-      ['Corn Flakes', 'Crunchy breakfast cereal', 'CerealPro', '500g', 'Yellow', 119.0, 129.0, 'box', 'https://images.unsplash.com/photo-1571748982800-fa51082c2224?w=500', 100, 'Cereals'],
-      ['Digestive Biscuits', 'Whole wheat digestive biscuits', 'WheatB', '250g', 'Brown', 49.0, 55.0, 'pack', 'https://images.unsplash.com/photo-1612203985729-70726954388c?w=500', 150, 'Biscuits'],
-    ];
-    const stmt = dbPrepare(`
-      INSERT INTO products
-      (name, description, brand, content, color, price, mrp, uom, sku, image, stock, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const tx = dbTx((rows) => {
-      rows.forEach((p) => {
-        const sku = generateSku(p[0], p[2], p[3], p[6]);
-        stmt.run(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], sku, p[8], p[9], p[10]);
-      });
-    });
-    tx(products);
-  }
-
-  const categories = dbAll(`SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''`);
-  categories.forEach((c) => {
-    dbRun(SQL_INSERT_IGNORE_CATEGORY, [
-      c.category,
-      `${c.category} products`,
-    ]);
-  });
-};
-
-if (!IS_POSTGRES_EXECUTION) {
-  initDB();
-} else {
-  console.log(`[DB] Skipping SQLite initDB bootstrap in ${DB_EXECUTION_MODE} execution mode.`);
-}
-
 // Simple notify endpoint used by admin UI to send in-app messages to customers when order status changes.
-app.post('/api/notify-order/:orderId', async (req, res) => {
+app.post('/api/notify-order/:orderId', requireAdmin, async (req, res) => {
   try {
     const orderId = req.params.orderId;
     const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [orderId]);
@@ -2879,40 +2013,6 @@ const sanitizeUser = (row) => {
     must_change_password: Number(row.must_change_password || 0) === 1,
     created_at: row.created_at,
   };
-};
-
-const logStockLedger = ({
-  productId,
-  transactionType,
-  quantityChange,
-  previousBalance,
-  newBalance,
-  referenceType = null,
-  referenceId = null,
-  userId = null,
-  userName = null,
-  notes = null,
-}) => {
-  const product = dbGet(`SELECT name, sku FROM products WHERE id = ?`, [productId]);
-  dbRun(
-    `INSERT INTO stock_ledger
-    (product_id, product_name, sku, transaction_type, quantity_change, previous_balance, new_balance, reference_type, reference_id, user_id, user_name, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      productId,
-      product?.name || null,
-      product?.sku || null,
-      transactionType,
-      Number(quantityChange || 0),
-      Number(previousBalance || 0),
-      Number(newBalance || 0),
-      referenceType || null,
-      referenceId || null,
-      userId || null,
-      userName || null,
-      notes || null,
-    ]
-  );
 };
 
 app.get('/api/auth/session', requireAuth, async (req, res) => {
@@ -3886,67 +2986,44 @@ app.post('/api/analytics/session/heartbeat', async (req, res) => {
 
 app.get('/api/admin/analytics/summary', requireAdmin, async (_, res) => {
   try {
-    const windowArg = IS_POSTGRES_EXECUTION
-      ? -VISITOR_ONLINE_WINDOW_MINUTES
-      : `-${VISITOR_ONLINE_WINDOW_MINUTES} minutes`;
+    const windowArg = -VISITOR_ONLINE_WINDOW_MINUTES;
 
     const onlineVisitors = Number(
       (await dbGetAsync(
-        IS_POSTGRES_EXECUTION
-          ? `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`
-          : `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE datetime(last_seen_at) >= datetime('now', ?)`,
+        `SELECT COUNT(DISTINCT session_id) AS count
+         FROM visitor_sessions
+         WHERE last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`,
         [windowArg]
       ))?.count || 0
     );
     const onlineLoggedInUsers = Number(
       (await dbGetAsync(
-        IS_POSTGRES_EXECUTION
-          ? `SELECT COUNT(DISTINCT user_id) AS count
-             FROM visitor_sessions
-             WHERE user_id IS NOT NULL
-               AND last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`
-          : `SELECT COUNT(DISTINCT user_id) AS count
-             FROM visitor_sessions
-             WHERE user_id IS NOT NULL
-               AND datetime(last_seen_at) >= datetime('now', ?)`,
+        `SELECT COUNT(DISTINCT user_id) AS count
+         FROM visitor_sessions
+         WHERE user_id IS NOT NULL
+           AND last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`,
         [windowArg]
       ))?.count || 0
     );
     const uniqueSessionsToday = Number(
       (await dbGetAsync(
-        IS_POSTGRES_EXECUTION
-          ? `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE DATE(started_at) = CURRENT_DATE`
-          : `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE date(started_at, 'localtime') = date('now', 'localtime')`
+        `SELECT COUNT(DISTINCT session_id) AS count
+         FROM visitor_sessions
+         WHERE DATE(started_at) = CURRENT_DATE`
       ))?.count || 0
     );
     const uniqueSessionsMonth = Number(
       (await dbGetAsync(
-        IS_POSTGRES_EXECUTION
-          ? `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE TO_CHAR(started_at, 'YYYY-MM') = TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM')`
-          : `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE strftime('%Y-%m', started_at, 'localtime') = strftime('%Y-%m', 'now', 'localtime')`
+        `SELECT COUNT(DISTINCT session_id) AS count
+         FROM visitor_sessions
+         WHERE TO_CHAR(started_at, 'YYYY-MM') = TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM')`
       ))?.count || 0
     );
     const uniqueSessionsYear = Number(
       (await dbGetAsync(
-        IS_POSTGRES_EXECUTION
-          ? `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE EXTRACT(YEAR FROM started_at) = EXTRACT(YEAR FROM CURRENT_TIMESTAMP)`
-          : `SELECT COUNT(DISTINCT session_id) AS count
-             FROM visitor_sessions
-             WHERE strftime('%Y', started_at, 'localtime') = strftime('%Y', 'now', 'localtime')`
+        `SELECT COUNT(DISTINCT session_id) AS count
+         FROM visitor_sessions
+         WHERE EXTRACT(YEAR FROM started_at) = EXTRACT(YEAR FROM CURRENT_TIMESTAMP)`
       ))?.count || 0
     );
 
@@ -4461,109 +3538,18 @@ app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (req, res)
       }
       response.notification = notification;
     }
+    await logAdminAuditAsync(req, {
+      action: 'password_reset_request.update',
+      entityType: 'password_reset_request',
+      entityId: req.params.id,
+      details: {
+        status: normalizedStatus,
+        notify_channel: notifyChannel,
+        user_id: Number(request.user_id || 0) || null,
+      },
+    });
     return res.json(response);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/admin/backup/create', requireAdmin, (_, res) => {
-  try {
-    if (IS_POSTGRES_EXECUTION) {
-      return res.status(501).json({
-        error: 'Backup API is SQLite-only in-app. Use database-native tooling for Postgres backups.',
-      });
-    }
-    const backup = createDatabaseBackup('manual');
-    return res.status(201).json({ success: true, backup });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/backup/status', requireAdmin, (_, res) => {
-  try {
-    return res.json({
-      ...autoBackupState,
-      mode: DB_EXECUTION_MODE,
-      running: autoBackupRunning,
-      backup_dir: BACKUP_DIR,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/backup/list', requireAdmin, (_, res) => {
-  try {
-    if (IS_POSTGRES_EXECUTION) return res.json([]);
-    return res.json(listDatabaseBackups());
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/admin/backup/download/:fileName', requireAdmin, async (req, res) => {
-  try {
-    if (IS_POSTGRES_EXECUTION) {
-      return res.status(501).json({
-        error: 'Backup download is SQLite-only in-app. Use database dump files managed outside this API.',
-      });
-    }
-    const { fileName } = req.params;
-    if (!validateBackupFileName(fileName)) {
-      return res.status(400).json({ error: 'Invalid backup file name' });
-    }
-    const filePath = path.join(BACKUP_DIR, fileName);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'Backup file not found' });
-    }
-    return res.download(filePath, fileName);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/admin/backup/restore', requireAdmin, async (req, res) => {
-  try {
-    if (IS_POSTGRES_EXECUTION) {
-      return res.status(501).json({
-        error: 'Restore API is SQLite-only in-app. Use database-native restore tooling for Postgres restores.',
-      });
-    }
-    const fileName = String(req.body?.file_name || '').trim();
-    if (!validateBackupFileName(fileName)) {
-      return res.status(400).json({ error: 'Valid file_name is required' });
-    }
-
-    const sourcePath = path.join(BACKUP_DIR, fileName);
-    if (!fs.existsSync(sourcePath)) {
-      return res.status(404).json({ error: 'Backup file not found' });
-    }
-
-    assertBackupIntegrity(sourcePath);
-    const preRestoreBackup = createDatabaseBackup('pre-restore');
-
-    closeDatabase();
-    fs.copyFileSync(sourcePath, DB_PATH);
-    reopenDatabase();
-
-    return res.json({
-      success: true,
-      message: 'Database restored successfully',
-      restored_file: fileName,
-      pre_restore_backup: preRestoreBackup.file_name,
-    });
-  } catch (error) {
-    try {
-      await dbGetAsync('SELECT 1');
-    } catch (_) {
-      try {
-        reopenDatabase();
-      } catch (_) {
-        // ignore recovery failures
-      }
-    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -4797,6 +3783,12 @@ app.delete('/api/users/:id', requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.role === 'admin') return res.status(400).json({ error: 'Cannot delete admin user' });
     await dbRunAsync(`DELETE FROM users WHERE id = ?`, [req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'user.delete',
+      entityType: 'user',
+      entityId: req.params.id,
+      details: { role: user.role || null, email: normalizeEmail(user.email) },
+    });
     return res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -4878,10 +3870,13 @@ app.get('/api/customers/:id/profile', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/orders/validate-customer', async (req, res) => {
+app.post('/api/orders/validate-customer', requireAuth, async (req, res) => {
   try {
-    const userId = req.body?.user_id;
+    const userId = Number(req.body?.user_id || 0);
     if (!userId) return res.status(400).json({ error: 'MISSING_CUSTOMER', message: 'Customer ID is required' });
+    if (req.authUser.role !== 'admin' && Number(req.authUser.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const user = await dbGetAsync(`SELECT id, name, email, email_verified, phone, phone_verified, address, role FROM users WHERE id = ?`, [userId]);
     if (!user) return res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
     let address = {};
@@ -4948,7 +3943,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-app.get('/api/products/:id(\\d+)/last-purchase', async (req, res) => {
+app.get('/api/products/:id(\\d+)/last-purchase', requireAdmin, async (req, res) => {
   try {
     const productId = Number(req.params.id);
     if (!productId) return res.status(400).json({ error: 'Invalid product id' });
@@ -5122,28 +4117,17 @@ app.delete('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
     const current = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id]);
     if (!current) return res.status(404).json({ error: 'Product not found' });
     await dbRunAsync(`UPDATE products SET is_active = 0 WHERE id = ?`, [req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'product.deactivate',
+      entityType: 'product',
+      entityId: req.params.id,
+      details: { name: current.name || null },
+    });
     return res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
-
-const doesTableExist = (tableName) => {
-  if (IS_POSTGRES_EXECUTION) {
-    return Boolean(
-      dbGet(
-        `SELECT 1 AS ok
-         FROM information_schema.tables
-         WHERE table_schema = current_schema() AND table_name = ?
-         LIMIT 1`,
-        [tableName]
-      )?.ok
-    );
-  }
-  return Boolean(
-    dbGet(`SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1`, [tableName])?.ok
-  );
-};
 
 const logStockLedgerAsync = async ({
   productId,
@@ -5179,22 +4163,15 @@ const logStockLedgerAsync = async ({
   );
 };
 
-const doesTableExistAsync = async (tableName) => {
-  if (IS_POSTGRES_EXECUTION) {
-    return Boolean(
-      (await dbGetAsync(
-        `SELECT 1 AS ok
-         FROM information_schema.tables
-         WHERE table_schema = current_schema() AND table_name = ?
-         LIMIT 1`,
-        [tableName]
-      ))?.ok
-    );
-  }
-  return Boolean(
-    (await dbGetAsync(`SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1`, [tableName]))?.ok
-  );
-};
+const doesTableExistAsync = async (tableName) => Boolean(
+  (await dbGetAsync(
+    `SELECT 1 AS ok
+     FROM information_schema.tables
+     WHERE table_schema = current_schema() AND table_name = ?
+     LIMIT 1`,
+    [tableName]
+  ))?.ok
+);
 
 app.delete('/api/products/:id(\\d+)/permanent', requireAdmin, async (req, res) => {
   try {
@@ -5224,6 +4201,12 @@ app.delete('/api/products/:id(\\d+)/permanent', requireAdmin, async (req, res) =
     }
 
     await dbRunAsync(`DELETE FROM products WHERE id = ?`, [productId]);
+    await logAdminAuditAsync(req, {
+      action: 'product.permanent_delete',
+      entityType: 'product',
+      entityId: productId,
+      details: { name: current.name || null },
+    });
     return res.json({ success: true, message: 'Product permanently deleted' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -5494,7 +4477,7 @@ app.get('/api/categories', async (_, res) => {
   }
 });
 
-app.post('/api/categories', async (req, res) => {
+app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ error: 'Category name is required' });
@@ -5505,7 +4488,7 @@ app.post('/api/categories', async (req, res) => {
   }
 });
 
-app.put('/api/categories/:id', async (req, res) => {
+app.put('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     const current = await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [req.params.id]);
     if (!current) return res.status(404).json({ error: 'Category not found' });
@@ -5520,7 +4503,7 @@ app.put('/api/categories/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/categories/:id', async (req, res) => {
+app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
   try {
     await dbRunAsync(`DELETE FROM categories WHERE id = ?`, [req.params.id]);
     return res.json({ success: true });
@@ -5529,7 +4512,7 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
-app.get('/api/orders', async (_, res) => {
+app.get('/api/orders', requireAdmin, async (_, res) => {
   try {
     const orders = await dbAllAsync(`SELECT * FROM orders ORDER BY created_at DESC`);
     return res.json(orders);
@@ -5538,10 +4521,20 @@ app.get('/api/orders', async (_, res) => {
   }
 });
 
-app.get('/api/orders/:id', async (req, res) => {
+const canAccessOrder = (authUser, order) => {
+  if (!authUser || !order) return false;
+  if (authUser.role === 'admin') return true;
+  const ownerId = Number(order.user_id || order.customer_id || 0);
+  return ownerId > 0 && Number(authUser.id) === ownerId;
+};
+
+app.get('/api/orders/:id', requireAuth, async (req, res) => {
   try {
     const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!canAccessOrder(req.authUser, order)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [req.params.id]);
     return res.json({ ...order, items });
   } catch (error) {
@@ -5549,8 +4542,13 @@ app.get('/api/orders/:id', async (req, res) => {
   }
 });
 
-app.get('/api/orders/:id/history', async (req, res) => {
+app.get('/api/orders/:id/history', requireAuth, async (req, res) => {
   try {
+    const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!canAccessOrder(req.authUser, order)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     const rows = await dbAllAsync(
       `SELECT h.id, h.order_id, h.status, h.description, h.created_by, h.created_at, u.name as created_by_name
        FROM order_status_history h
@@ -5699,7 +4697,19 @@ app.post('/api/orders', async (req, res) => {
 app.post('/api/orders/create-validated', async (req, res) => {
   try {
     const body = req.body || {};
+    const authUser = await getAuthUserFromRequest(req);
     const effectiveUserId = Number(body.user_id || body.selected_customer_id || 0) || null;
+    if (body.is_admin_order && (!authUser || authUser.role !== 'admin')) {
+      return res.status(403).json({ error: 'Admin access required for admin order mode' });
+    }
+    if (effectiveUserId) {
+      if (!authUser) {
+        return res.status(401).json({ error: 'Unauthorized', message: 'Sign in is required to place an account order' });
+      }
+      if (authUser.role !== 'admin' && Number(authUser.id) !== effectiveUserId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
     if (body.is_admin_order && !body.selected_customer_id) {
       return res.status(400).json({ error: 'Selected customer is required for admin order' });
     }
@@ -5744,7 +4754,7 @@ app.post('/api/orders/create-validated', async (req, res) => {
   }
 });
 
-app.put('/api/orders/:id/status', async (req, res) => {
+app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const status = req.body?.status;
     if (!status) return res.status(400).json({ error: 'Status is required' });
@@ -5810,17 +4820,37 @@ app.put('/api/orders/:id/status', async (req, res) => {
           [status, order.payment_method === 'cash' ? 'paid' : 'pending', req.params.id]
         );
       });
+      await logAdminAuditAsync(req, {
+        action: 'order.status_update',
+        entityType: 'order',
+        entityId: req.params.id,
+        details: {
+          status,
+          applied: true,
+          stock_applied: 1,
+          credit_applied: order.payment_method === 'credit' ? 1 : Number(order.credit_applied || 0),
+        },
+      });
       return res.json({ success: true, applied: true });
     }
 
     await dbRunAsync(`UPDATE orders SET status = ? WHERE id = ?`, [status, req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'order.status_update',
+      entityType: 'order',
+      entityId: req.params.id,
+      details: {
+        status,
+        applied: false,
+      },
+    });
     return res.json({ success: true, applied: false });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
 });
 
-app.get('/api/stats/orders', async (_, res) => {
+app.get('/api/stats/orders', requireAdmin, async (_, res) => {
   try {
     const totalOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders`))?.count || 0;
     const totalRevenue = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) AS total FROM orders`))?.total || 0;
@@ -5878,7 +4908,23 @@ app.get('/api/users/:userId/credit-balance', requireAuth, async (req, res) => {
 });
 
 app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
+  let clientRequestId = null;
   try {
+    const idempotency = resolveClientRequestId(req);
+    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
+    clientRequestId = idempotency.value;
+    if (clientRequestId) {
+      const existingByRequest = await dbGetAsync(`SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existingByRequest) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          balance: Number(existingByRequest.balance || 0),
+          transaction: existingByRequest,
+        });
+      }
+    }
+
     const { type, amount, description, reference, transactionDate } = req.body || {};
     if (!type || !['given', 'payment'].includes(type)) {
       return res.status(400).json({ error: 'Invalid transaction type' });
@@ -5898,9 +4944,7 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
       : null;
 
     if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
-      const transactionDateCompareSql = IS_POSTGRES_EXECUTION
-        ? `COALESCE(transaction_date::text, '')`
-        : `COALESCE(transaction_date, '')`;
+      const transactionDateCompareSql = `COALESCE(transaction_date::text, '')`;
       const maybeDuplicate = await dbGetAsync(
         `SELECT id, created_at, balance
          FROM credit_history
@@ -5940,7 +4984,7 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
     }
 
     const result = await dbRunAsync(
-      `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         req.params.userId,
         type,
@@ -5949,15 +4993,40 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
         normalizedDescription || null,
         normalizedReference || null,
         normalizedDate,
-        createdById || null
+        createdById || null,
+        clientRequestId,
       ]
     );
+    const transaction = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [result.lastInsertRowid]);
+    await logAdminAuditAsync(req, {
+      action: 'credit.create',
+      entityType: 'credit_history',
+      entityId: result.lastInsertRowid,
+      requestId: clientRequestId,
+      details: {
+        user_id: Number(req.params.userId || 0),
+        type,
+        amount: parsedAmount,
+        transaction_date: normalizedDate,
+      },
+    });
     return res.status(201).json({
       success: true,
       balance: next,
-      transaction: await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [result.lastInsertRowid]),
+      transaction,
     });
   } catch (error) {
+    if (clientRequestId && isUniqueViolationError(error)) {
+      const existingByRequest = await dbGetAsync(`SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existingByRequest) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          balance: Number(existingByRequest.balance || 0),
+          transaction: existingByRequest,
+        });
+      }
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -6012,6 +5081,17 @@ app.put('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => 
 
     const nextBalance = await recalculateCreditBalancesForUser(userId);
     const updated = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [entryId]);
+    await logAdminAuditAsync(req, {
+      action: 'credit.update',
+      entityType: 'credit_history',
+      entityId: entryId,
+      details: {
+        user_id: userId,
+        type,
+        amount: parsedAmount,
+        transaction_date: normalizedDate,
+      },
+    });
 
     return res.json({
       success: true,
@@ -6075,39 +5155,22 @@ app.post('/api/credit/check-limit', requireAuth, async (req, res) => {
 
 app.get('/api/credit/aging', requireAdmin, async (_, res) => {
   try {
-    const reportSql = IS_POSTGRES_EXECUTION
-      ? `
-        SELECT
-          u.id as customer_id,
-          u.name as customer_name,
-          u.email,
-          u.phone,
-          COALESCE(u.credit_limit, 0) as credit_limit,
-          COALESCE((SELECT balance FROM credit_history ch WHERE ch.user_id = u.id ORDER BY COALESCE(ch.transaction_date, ch.created_at) DESC, ch.id DESC LIMIT 1), 0) as current_balance,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 30), 0) as days_0_30,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 30 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 60), 0) as days_31_60,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 60 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 90), 0) as days_61_90,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 90), 0) as days_over_90
-        FROM users u
-        WHERE u.role = 'customer'
-        ORDER BY current_balance DESC, u.name ASC
-      `
-      : `
-        SELECT
-          u.id as customer_id,
-          u.name as customer_name,
-          u.email,
-          u.phone,
-          COALESCE(u.credit_limit, 0) as credit_limit,
-          COALESCE((SELECT balance FROM credit_history ch WHERE ch.user_id = u.id ORDER BY COALESCE(ch.transaction_date, ch.created_at) DESC, ch.id DESC LIMIT 1), 0) as current_balance,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND julianday('now') - julianday(ch.created_at) <= 30), 0) as days_0_30,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND julianday('now') - julianday(ch.created_at) > 30 AND julianday('now') - julianday(ch.created_at) <= 60), 0) as days_31_60,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND julianday('now') - julianday(ch.created_at) > 60 AND julianday('now') - julianday(ch.created_at) <= 90), 0) as days_61_90,
-          COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND julianday('now') - julianday(ch.created_at) > 90), 0) as days_over_90
-        FROM users u
-        WHERE u.role = 'customer'
-        ORDER BY current_balance DESC, u.name ASC
-      `;
+    const reportSql = `
+      SELECT
+        u.id as customer_id,
+        u.name as customer_name,
+        u.email,
+        u.phone,
+        COALESCE(u.credit_limit, 0) as credit_limit,
+        COALESCE((SELECT balance FROM credit_history ch WHERE ch.user_id = u.id ORDER BY COALESCE(ch.transaction_date, ch.created_at) DESC, ch.id DESC LIMIT 1), 0) as current_balance,
+        COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 30), 0) as days_0_30,
+        COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 30 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 60), 0) as days_31_60,
+        COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 60 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 90), 0) as days_61_90,
+        COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 90), 0) as days_over_90
+      FROM users u
+      WHERE u.role = 'customer'
+      ORDER BY current_balance DESC, u.name ASC
+    `;
     const report = await dbAllAsync(reportSql);
     const summary = report.reduce(
       (acc, r) => {
@@ -6129,7 +5192,7 @@ app.get('/api/credit/aging', requireAdmin, async (_, res) => {
   }
 });
 
-app.get('/api/distributors', async (_, res) => {
+app.get('/api/distributors', requireAdmin, async (_, res) => {
   try {
     return res.json(await dbAllAsync(`SELECT * FROM distributors ORDER BY name ASC`));
   } catch (error) {
@@ -6137,7 +5200,7 @@ app.get('/api/distributors', async (_, res) => {
   }
 });
 
-app.get('/api/distributors/:id', async (req, res) => {
+app.get('/api/distributors/:id', requireAdmin, async (req, res) => {
   try {
     const row = await dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [req.params.id]);
     if (!row) return res.status(404).json({ error: 'Distributor not found' });
@@ -6147,7 +5210,7 @@ app.get('/api/distributors/:id', async (req, res) => {
   }
 });
 
-app.post('/api/distributors', async (req, res) => {
+app.post('/api/distributors', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.name || !String(b.name).trim()) return res.status(400).json({ error: 'Distributor name is required' });
@@ -6172,7 +5235,7 @@ app.post('/api/distributors', async (req, res) => {
   }
 });
 
-app.put('/api/distributors/:id', async (req, res) => {
+app.put('/api/distributors/:id', requireAdmin, async (req, res) => {
   try {
     const cur = await dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Distributor not found' });
@@ -6200,7 +5263,7 @@ app.put('/api/distributors/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/distributors/:id', async (req, res) => {
+app.delete('/api/distributors/:id', requireAdmin, async (req, res) => {
   try {
     await dbRunAsync(`DELETE FROM distributors WHERE id = ?`, [req.params.id]);
     return res.json({ success: true });
@@ -6312,7 +5375,7 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
   );
 };
 
-app.get('/api/distributor-ledger', async (req, res) => {
+app.get('/api/distributor-ledger', requireAdmin, async (req, res) => {
   try {
     return res.json(await getDistributorLedgerRows(req));
   } catch (error) {
@@ -6320,7 +5383,7 @@ app.get('/api/distributor-ledger', async (req, res) => {
   }
 });
 
-app.get('/api/distributors/ledger', async (req, res) => {
+app.get('/api/distributors/ledger', requireAdmin, async (req, res) => {
   try {
     return res.json(await getDistributorLedgerRows(req));
   } catch (error) {
@@ -6328,7 +5391,7 @@ app.get('/api/distributors/ledger', async (req, res) => {
   }
 });
 
-app.get('/api/distributors/:id/ledger', async (req, res) => {
+app.get('/api/distributors/:id/ledger', requireAdmin, async (req, res) => {
   try {
     return res.json(await getDistributorLedgerRows(req, req.params.id));
   } catch (error) {
@@ -6336,7 +5399,7 @@ app.get('/api/distributors/:id/ledger', async (req, res) => {
   }
 });
 
-app.get('/api/distributors/:id/credit-history', async (req, res) => {
+app.get('/api/distributors/:id/credit-history', requireAdmin, async (req, res) => {
   try {
     return res.json(await getDistributorLedgerRows(req, req.params.id));
   } catch (error) {
@@ -6357,13 +5420,13 @@ const handleDistributorLedgerCreate = async (req, res, distributorId = null) => 
   }
 };
 
-app.post('/api/distributor-ledger', async (req, res) => handleDistributorLedgerCreate(req, res));
-app.post('/api/distributors/ledger', async (req, res) => handleDistributorLedgerCreate(req, res));
-app.post('/api/distributors/:id/ledger', async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
-app.post('/api/distributors/:id/transactions', async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
-app.post('/api/distributors/:id/credit', async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
+app.post('/api/distributor-ledger', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res));
+app.post('/api/distributors/ledger', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res));
+app.post('/api/distributors/:id/ledger', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
+app.post('/api/distributors/:id/transactions', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
+app.post('/api/distributors/:id/credit', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
 
-app.get('/api/purchase-orders', async (req, res) => {
+app.get('/api/purchase-orders', requireAdmin, async (req, res) => {
   try {
     let sql = `
       SELECT po.*, d.name as distributor_name
@@ -6400,7 +5463,7 @@ app.get('/api/purchase-orders', async (req, res) => {
   }
 });
 
-app.get('/api/purchase-orders/:id', async (req, res) => {
+app.get('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     const row = await dbGetAsync(
       `SELECT po.*, d.name as distributor_name, d.address as distributor_address, d.contacts as distributor_contacts
@@ -6417,9 +5480,25 @@ app.get('/api/purchase-orders/:id', async (req, res) => {
   }
 });
 
-app.post('/api/purchase-orders', async (req, res) => {
+app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
+  let clientRequestId = null;
   try {
     const b = req.body || {};
+    const idempotency = resolveClientRequestId(req);
+    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
+    clientRequestId = idempotency.value;
+    if (clientRequestId) {
+      const existing = await dbGetAsync(`SELECT id, po_number FROM purchase_orders WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          id: Number(existing.id),
+          po_number: existing.po_number,
+        });
+      }
+    }
+
     if (!b.distributor_id) return res.status(400).json({ error: 'distributor_id is required' });
     const items = Array.isArray(b.items) ? b.items : [];
     if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
@@ -6463,9 +5542,9 @@ app.post('/api/purchase-orders', async (req, res) => {
     const poNumber = generatePONumber();
     const orderId = await dbTxAsync(async () => {
       const header = await dbRunAsync(
-        `INSERT INTO purchase_orders (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, notes, expected_delivery, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNumber, b.distributor_id, subtotal, taxAmount, totalAmount, totalAmount, 'pending', b.notes || null, b.expected_delivery || null, b.created_by || null]
+        `INSERT INTO purchase_orders (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, notes, expected_delivery, created_by, client_request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [poNumber, b.distributor_id, subtotal, taxAmount, totalAmount, totalAmount, 'pending', b.notes || null, b.expected_delivery || null, b.created_by || null, clientRequestId]
       );
       const orderId = header.lastInsertRowid;
       for (const it of normalizedItems) {
@@ -6496,13 +5575,36 @@ app.post('/api/purchase-orders', async (req, res) => {
       }
       return orderId;
     });
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.create',
+      entityType: 'purchase_order',
+      entityId: orderId,
+      requestId: clientRequestId,
+      details: {
+        po_number: poNumber,
+        distributor_id: Number(b.distributor_id || 0),
+        total_amount: Number(totalAmount || 0),
+        items_count: normalizedItems.length,
+      },
+    });
     return res.status(201).json({ success: true, id: orderId, po_number: poNumber });
   } catch (error) {
+    if (clientRequestId && isUniqueViolationError(error)) {
+      const existing = await dbGetAsync(`SELECT id, po_number FROM purchase_orders WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          id: Number(existing.id),
+          po_number: existing.po_number,
+        });
+      }
+    }
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/api/purchase-orders/:id', async (req, res) => {
+app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     const cur = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Purchase order not found' });
@@ -6612,13 +5714,22 @@ app.put('/api/purchase-orders/:id', async (req, res) => {
         ]
       );
     }
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.update',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      details: {
+        status: req.body?.status ?? cur.status,
+        has_items_payload: Array.isArray(req.body?.items),
+      },
+    });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/api/purchase-orders/:id/status', async (req, res) => {
+app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const status = req.body?.status;
     const billNumberRaw = req.body?.bill_number ?? req.body?.invoice_number;
@@ -6702,6 +5813,18 @@ app.put('/api/purchase-orders/:id/status', async (req, res) => {
         );
       }
 
+      await logAdminAuditAsync(req, {
+        action: 'purchase_order.status_update',
+        entityType: 'purchase_order',
+        entityId: req.params.id,
+        details: {
+          status,
+          bill_number: billNumber || null,
+          stock_applied: !stockAlreadyApplied,
+          stock_already_applied: stockAlreadyApplied,
+          cap_applied_count: capAdjustments.length,
+        },
+      });
       return res.json({
         success: true,
         stock_cap: PURCHASE_STOCK_CAP,
@@ -6712,6 +5835,16 @@ app.put('/api/purchase-orders/:id/status', async (req, res) => {
       });
     } else {
       await dbRunAsync(`UPDATE purchase_orders SET status = ?, updated_at=CURRENT_TIMESTAMP WHERE id = ?`, [status, req.params.id]);
+      await logAdminAuditAsync(req, {
+        action: 'purchase_order.status_update',
+        entityType: 'purchase_order',
+        entityId: req.params.id,
+        details: {
+          status,
+          bill_number: billNumber || null,
+          stock_applied_on_confirm: Number(order.stock_applied_on_confirm || 0),
+        },
+      });
       return res.json({ success: true });
     }
   } catch (error) {
@@ -6719,7 +5852,7 @@ app.put('/api/purchase-orders/:id/status', async (req, res) => {
   }
 });
 
-app.post('/api/purchase-orders/:id/receive', async (req, res) => {
+app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
   try {
     const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
@@ -6761,23 +5894,37 @@ app.post('/api/purchase-orders/:id/receive', async (req, res) => {
         [b.invoice_number || order.invoice_number || null, req.params.id]
       );
     });
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.receive',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      details: {
+        items_count: items.length,
+        applied_stock_on_receive: shouldApplyStockOnReceive,
+      },
+    });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/purchase-orders/:id', async (req, res) => {
+app.delete('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_orders WHERE id = ?`, [req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.delete',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+    });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/purchase-returns', async (req, res) => {
+app.get('/api/purchase-returns', requireAdmin, async (req, res) => {
   try {
     let sql = `
       SELECT pr.*, d.name as distributor_name
@@ -6804,7 +5951,7 @@ app.get('/api/purchase-returns', async (req, res) => {
   }
 });
 
-app.get('/api/purchase-returns/:id', async (req, res) => {
+app.get('/api/purchase-returns/:id', requireAdmin, async (req, res) => {
   try {
     const row = await dbGetAsync(`SELECT * FROM purchase_returns WHERE id = ?`, [req.params.id]);
     if (!row) return res.status(404).json({ error: 'Purchase return not found' });
@@ -6814,7 +5961,7 @@ app.get('/api/purchase-returns/:id', async (req, res) => {
   }
 });
 
-app.post('/api/purchase-returns', async (req, res) => {
+app.post('/api/purchase-returns', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     const items = Array.isArray(b.items) ? b.items : [];
@@ -6871,7 +6018,7 @@ app.post('/api/purchase-returns', async (req, res) => {
   }
 });
 
-app.put('/api/purchase-returns/:id', async (req, res) => {
+app.put('/api/purchase-returns/:id', requireAdmin, async (req, res) => {
   try {
     const cur = await dbGetAsync(`SELECT * FROM purchase_returns WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Purchase return not found' });
@@ -6886,7 +6033,7 @@ app.put('/api/purchase-returns/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/purchase-returns/:id', async (req, res) => {
+app.delete('/api/purchase-returns/:id', requireAdmin, async (req, res) => {
   try {
     await dbRunAsync(`DELETE FROM purchase_return_items WHERE return_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_returns WHERE id = ?`, [req.params.id]);
@@ -6896,7 +6043,7 @@ app.delete('/api/purchase-returns/:id', async (req, res) => {
   }
 });
 
-app.get('/api/stock-ledger', async (req, res) => {
+app.get('/api/stock-ledger', requireAdmin, async (req, res) => {
   try {
     let sql = `SELECT * FROM stock_ledger WHERE 1=1`;
     const params = [];
@@ -6923,7 +6070,7 @@ app.get('/api/stock-ledger', async (req, res) => {
   }
 });
 
-app.get('/api/stock-ledger/product/:productId', async (req, res) => {
+app.get('/api/stock-ledger/product/:productId', requireAdmin, async (req, res) => {
   try {
     return res.json(await dbAllAsync(`SELECT * FROM stock_ledger WHERE product_id = ? ORDER BY created_at DESC`, [req.params.productId]));
   } catch (error) {
@@ -6931,11 +6078,11 @@ app.get('/api/stock-ledger/product/:productId', async (req, res) => {
   }
 });
 
-app.get('/api/stock-ledger/batch/:batchNumber', (_, res) => {
+app.get('/api/stock-ledger/batch/:batchNumber', requireAdmin, (_, res) => {
   return res.json([]);
 });
 
-app.get('/api/stock-ledger/summary', async (_, res) => {
+app.get('/api/stock-ledger/summary', requireAdmin, async (_, res) => {
   try {
     const rows = await dbAllAsync(`SELECT transaction_type, COUNT(*) as count FROM stock_ledger GROUP BY transaction_type`);
     return res.json(rows);
@@ -7000,8 +6147,24 @@ app.get('/api/billing/products/search', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/bills/create', requireAdmin, async (req, res) => {
+  let clientRequestId = null;
   try {
     const b = req.body || {};
+    const idempotency = resolveClientRequestId(req);
+    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
+    clientRequestId = idempotency.value;
+    if (clientRequestId) {
+      const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          bill_id: Number(existing.id),
+          bill_number: existing.bill_number,
+        });
+      }
+    }
+
     const items = Array.isArray(b.items) ? b.items : [];
     if (!items.length) return res.status(400).json({ error: 'items are required' });
     const billTypeRaw = String(b.bill_type || 'sales').trim().toLowerCase();
@@ -7106,8 +6269,8 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
     const billNumber = generateBillNumber();
     const billId = await dbTxAsync(async () => {
       const header = await dbRunAsync(
-        `INSERT INTO bills (bill_number, customer_id, customer_name, customer_email, customer_phone, customer_address, subtotal, discount_amount, total_amount, paid_amount, credit_amount, payment_method, payment_status, bill_type, created_by, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO bills (bill_number, customer_id, customer_name, customer_email, customer_phone, customer_address, subtotal, discount_amount, total_amount, paid_amount, credit_amount, payment_method, payment_status, bill_type, created_by, client_request_id, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           billNumber,
           Number(customer.id),
@@ -7124,6 +6287,7 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
           paymentStatus,
           billType,
           createdBy,
+          clientRequestId,
           b.notes ? String(b.notes) : null,
         ]
       );
@@ -7170,8 +6334,33 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
       }
       return billId;
     });
+    await logAdminAuditAsync(req, {
+      action: 'bill.create',
+      entityType: 'bill',
+      entityId: billId,
+      requestId: clientRequestId,
+      details: {
+        bill_number: billNumber,
+        customer_id: Number(customer.id),
+        bill_type: billType,
+        total_amount: Number(totalAmount || 0),
+        credit_amount: Number(creditAmount || 0),
+        items_count: sanitizedItems.length,
+      },
+    });
     return res.status(201).json({ success: true, bill_id: billId, bill_number: billNumber });
   } catch (error) {
+    if (clientRequestId && isUniqueViolationError(error)) {
+      const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          bill_id: Number(existing.id),
+          bill_number: existing.bill_number,
+        });
+      }
+    }
     return res.status(error.status || 500).json({ error: error.message });
   }
 });
@@ -7205,6 +6394,15 @@ app.put('/api/bills/:id/payment', requireAdmin, async (req, res) => {
       req.body?.payment_method || cur.payment_method,
       req.params.id,
     ]);
+    await logAdminAuditAsync(req, {
+      action: 'bill.payment_update',
+      entityType: 'bill',
+      entityId: req.params.id,
+      details: {
+        payment_status: req.body?.payment_status || cur.payment_status,
+        payment_method: req.body?.payment_method || cur.payment_method,
+      },
+    });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -7230,7 +6428,7 @@ app.get('/api/offers', async (_, res) => {
   }
 });
 
-app.post('/api/offers', async (req, res) => {
+app.post('/api/offers', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.name || !b.type) return res.status(400).json({ error: 'name and type are required' });
@@ -7255,13 +6453,20 @@ app.post('/api/offers', async (req, res) => {
         b.status || 'active',
       ]
     );
-    return res.status(201).json(await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [result.lastInsertRowid]));
+    const created = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [result.lastInsertRowid]);
+    await logAdminAuditAsync(req, {
+      action: 'offer.create',
+      entityType: 'offer',
+      entityId: result.lastInsertRowid,
+      details: { name: b.name, type: b.type },
+    });
+    return res.status(201).json(created);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/api/offers/:id', async (req, res) => {
+app.put('/api/offers/:id', requireAdmin, async (req, res) => {
   try {
     const cur = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Offer not found' });
@@ -7288,15 +6493,27 @@ app.put('/api/offers/:id', async (req, res) => {
         req.params.id,
       ]
     );
-    return res.json(await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [req.params.id]));
+    const updated = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'offer.update',
+      entityType: 'offer',
+      entityId: req.params.id,
+      details: { name: updated?.name || null, status: updated?.status || null },
+    });
+    return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/offers/:id', async (req, res) => {
+app.delete('/api/offers/:id', requireAdmin, async (req, res) => {
   try {
     await dbRunAsync(`DELETE FROM offers WHERE id = ?`, [req.params.id]);
+    await logAdminAuditAsync(req, {
+      action: 'offer.delete',
+      entityType: 'offer',
+      entityId: req.params.id,
+    });
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -7305,11 +6522,11 @@ app.delete('/api/offers/:id', async (req, res) => {
 
 app.get('/api/product-versions/:internalId', (_, res) => res.json([]));
 app.get('/api/product-versions/sku/:sku', (_, res) => res.json([]));
-app.get('/api/uom-conversions/:productId', (_, res) => res.json([]));
-app.post('/api/uom-conversions', (_, res) => res.status(201).json({ success: true }));
-app.delete('/api/uom-conversions/:id', (_, res) => res.json({ success: true }));
-app.get('/api/batch-stock', (_, res) => res.json([]));
-app.post('/api/batch-stock', (_, res) => res.status(201).json({ success: true }));
+app.get('/api/uom-conversions/:productId', requireAdmin, (_, res) => res.json([]));
+app.post('/api/uom-conversions', requireAdmin, (_, res) => res.status(201).json({ success: true }));
+app.delete('/api/uom-conversions/:id', requireAdmin, (_, res) => res.json({ success: true }));
+app.get('/api/batch-stock', requireAdmin, (_, res) => res.json([]));
+app.post('/api/batch-stock', requireAdmin, (_, res) => res.status(201).json({ success: true }));
 
 // Root route
 app.get('/', (_, res) => {
@@ -7326,11 +6543,6 @@ const startServer = async () => {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
-    if (!IS_POSTGRES_EXECUTION) {
-      startAutoBackupScheduler();
-    } else {
-      console.log(`[AUTO_BACKUP] Skipped in ${DB_EXECUTION_MODE} execution mode.`);
-    }
   });
 };
 
@@ -7346,7 +6558,6 @@ if (!IS_VERCEL_RUNTIME) {
 const shutdownServer = (signal) => {
   console.log(`[SYSTEM] Received ${signal}. Shutting down...`);
   void Promise.allSettled([closePostgresScaffold()]).finally(() => {
-    closeDatabase();
     process.exit(0);
   });
 };

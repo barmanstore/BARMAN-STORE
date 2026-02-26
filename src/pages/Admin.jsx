@@ -25,14 +25,6 @@ const formatCurrencyColored = (amount) => {
   return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
 };
 
-const formatBytes = (bytes) => {
-  const size = Number(bytes || 0);
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
-
 const asNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -69,7 +61,7 @@ function Admin({ user }) {
       'products', 'categories',
       'billing', 'view-bills',
       'purchases', 'distributors', 'stock-ledger',
-      'users', 'credit-khata', 'password-resets', 'backup-restore'
+      'users', 'credit-khata', 'password-resets'
     ]);
     return allowedTabs.has(tab) ? tab : 'dashboard';
   });
@@ -96,9 +88,6 @@ function Admin({ user }) {
   const [modalOrder, setModalOrder] = useState(null);
   const [modalItems, setModalItems] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
-  const [backups, setBackups] = useState([]);
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupBusy, setBackupBusy] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [userAvatarErrors, setUserAvatarErrors] = useState({});
   const [productViewMode, setProductViewMode] = useState(() => {
@@ -172,8 +161,7 @@ function Admin({ user }) {
     'stock-ledger': 'purchase',
     users: 'users',
     'credit-khata': 'users',
-    'password-resets': 'users',
-    'backup-restore': 'users'
+    'password-resets': 'users'
   };
   const [expandedGroups, setExpandedGroups] = useState({
     general: true,
@@ -286,12 +274,6 @@ function Admin({ user }) {
   }, [searchParams]);
 
   useEffect(() => {
-    if (activeTab === 'backup-restore') {
-      fetchBackups();
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('admin-products-view', productViewMode);
   }, [productViewMode]);
@@ -332,53 +314,6 @@ function Admin({ user }) {
     if (!value) return '-';
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
-  };
-
-  const fetchBackups = async () => {
-    try {
-      setBackupLoading(true);
-      const rows = await adminApi.listBackups();
-      setBackups(Array.isArray(rows) ? rows : []);
-    } catch (error) {
-      showNotification(error.message || 'Failed to load backups', 'error');
-    } finally {
-      setBackupLoading(false);
-    }
-  };
-
-  const handleCreateBackup = async () => {
-    try {
-      setBackupBusy(true);
-      const result = await adminApi.createBackup();
-      const backupName = result?.backup?.file_name || 'backup';
-      showNotification(`Backup created: ${backupName}`, 'success');
-      await fetchBackups();
-    } catch (error) {
-      showNotification(error.message || 'Failed to create backup', 'error');
-    } finally {
-      setBackupBusy(false);
-    }
-  };
-
-  const handleRestoreBackup = async (fileName) => {
-    if (!fileName) return;
-    const ok = window.confirm(`Restore backup "${fileName}"?\n\nA pre-restore snapshot will be created automatically.`);
-    if (!ok) return;
-
-    try {
-      setBackupBusy(true);
-      const result = await adminApi.restoreBackup(fileName);
-      showNotification(
-        `Restore complete: ${result?.restored_file || fileName}. Pre-restore backup: ${result?.pre_restore_backup || 'created'}`,
-        'success'
-      );
-      await fetchBackups();
-      await refreshAdminData();
-    } catch (error) {
-      showNotification(error.message || 'Failed to restore backup', 'error');
-    } finally {
-      setBackupBusy(false);
-    }
   };
 
   const handleDeleteProduct = async (id) => {
@@ -1236,12 +1171,6 @@ function Admin({ user }) {
                 >
                   <KeyRound size={18} /> Account Actions
                 </button>
-                <button
-                  className={`${activeTab === 'backup-restore' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('backup-restore')}
-                >
-                  <History size={18} /> Backup & Restore
-                </button>
               </div>
             )}
           </div>
@@ -1331,7 +1260,6 @@ function Admin({ user }) {
                   <button className="admin-btn" onClick={() => handleTabChange('billing')}>Create Bill</button>
                   <button className="admin-btn" onClick={() => handleTabChange('credit-khata')}>Credit Khata</button>
                   <button className="admin-btn" onClick={() => handleTabChange('purchases')}>Purchases</button>
-                  <button className="admin-btn" onClick={() => handleTabChange('backup-restore')}>Backup & Restore</button>
                 </div>
               </div>
 
@@ -2025,73 +1953,6 @@ function Admin({ user }) {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'backup-restore' && (
-          <div className="users-management">
-            <div className="section-header">
-              <h1>Backup & Restore</h1>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="admin-btn" onClick={fetchBackups} disabled={backupLoading || backupBusy}>
-                  Refresh
-                </button>
-                <button className="admin-btn primary" onClick={handleCreateBackup} disabled={backupBusy}>
-                  <Plus size={20} /> Create Backup
-                </button>
-              </div>
-            </div>
-            <div className="categories-info">
-              <p>Restoring data will replace the current database. A pre-restore backup is created automatically.</p>
-            </div>
-            <div className="users-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Created</th>
-                    <th>Size</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {backupLoading ? (
-                    <tr>
-                      <td colSpan="4">Loading backups...</td>
-                    </tr>
-                  ) : backups.length === 0 ? (
-                    <tr>
-                      <td colSpan="4">No backups found</td>
-                    </tr>
-                  ) : backups.map((backup) => (
-                    <tr key={backup.file_name}>
-                      <td>{backup.file_name}</td>
-                      <td>{backup.created_at ? new Date(backup.created_at).toLocaleString() : '-'}</td>
-                      <td>{formatBytes(backup.size_bytes)}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <a
-                            className="admin-btn"
-                            href={`/api/admin/backup/download/${encodeURIComponent(backup.file_name)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Download
-                          </a>
-                          <button
-                            className="admin-btn"
-                            onClick={() => handleRestoreBackup(backup.file_name)}
-                            disabled={backupBusy}
-                          >
-                            Restore
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         )}

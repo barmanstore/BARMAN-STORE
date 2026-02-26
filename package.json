@@ -6,10 +6,8 @@
     "engines": {
         "node": "20.x"
     },
-    "homepage": "https://narenbarman.github.io/BARMAN_STORE_REACT",
     "dependencies": {
         "bcrypt": "^5.1.0",
-        "better-sqlite3": "^9.2.0",
         "cors": "^2.8.5",
         "express": "^4.18.2",
         "jspdf": "^4.1.0",
@@ -25,7 +23,6 @@
         "@tailwindcss/postcss": "^4.1.18",
         "@vitejs/plugin-react": "^4.2.1",
         "autoprefixer": "^10.4.24",
-        "gh-pages": "^6.3.0",
         "postcss": "^8.5.6",
         "tailwindcss": "^4.1.18",
         "vite": "^5.0.8"
@@ -38,14 +35,7 @@
         "server": "node server/index.js",
         "start:prod": "node server/index.js",
         "db:supabase:check": "node scripts/check-supabase-connection.js",
-        "db:supabase:migrate": "node scripts/apply-supabase-migrations.js",
-        "db:sqlite:migrate:supabase": "node scripts/migrate-sqlite-to-supabase.js",
-        "db:sqlite:verify:supabase": "node scripts/verify-sqlite-vs-supabase.js",
-        "pm2:start": "echo PM2 disabled in this copy. Use direct node start. && exit 1",
-        "pm2:restart": "echo PM2 disabled in this copy. && exit 1",
-        "pm2:logs": "echo PM2 disabled in this copy. && exit 1",
-        "predeploy": "echo GH Pages deploy disabled in this copy. && exit 1",
-        "deploy": "echo GH Pages deploy disabled in this copy. && exit 1"
+        "db:supabase:migrate": "node scripts/apply-supabase-migrations.js"
     },
     "browserslist": {
         "production": [

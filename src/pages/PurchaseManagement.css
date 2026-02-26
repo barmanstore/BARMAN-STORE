@@ -1216,11 +1216,74 @@ body.po-modal-resizing {
   }
 
   .purchase-management .data-table {
-    overflow-x: auto;
+    overflow: visible;
+    max-height: none;
+    border: none;
+    background: transparent;
+  }
+
+  .purchase-management .data-table thead {
+    display: none;
+  }
+
+  .purchase-management .data-table table,
+  .purchase-management .data-table tbody,
+  .purchase-management .data-table tr,
+  .purchase-management .data-table td {
+    display: block;
+    width: 100%;
   }
 
   .purchase-management .data-table table {
-    min-width: 800px;
+    min-width: 0;
+  }
+
+  .purchase-management .data-table tr {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .purchase-management .data-table td {
+    border: none;
+    border-bottom: 1px dashed #e5e7eb;
+    padding: 0.45rem 0;
+  }
+
+  .purchase-management .data-table td:last-child {
+    border-bottom: none;
+  }
+
+  .purchase-management .data-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+    margin-bottom: 0.22rem;
+  }
+
+  .purchase-management .data-table .actions-cell {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .purchase-management .data-table .action-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .purchase-management .data-table .empty-state {
+    text-align: left;
+    padding: 0.75rem;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
   }
 }
 

@@ -214,34 +214,34 @@ function StockLedgerHistory({ user }) {
             <tbody>
               {ledger.map(entry => (
                 <tr key={entry.id}>
-                  <td className="date-cell">
+                  <td className="date-cell" data-label="Date & Time">
                     {new Date(entry.created_at).toLocaleDateString()}
                     <span className="time">
                       {new Date(entry.created_at).toLocaleTimeString()}
                     </span>
                   </td>
-                  <td className="product-cell">
+                  <td className="product-cell" data-label="Product">
                     <span className="product-name">{entry.product_name}</span>
                     <span className="product-sku">{entry.sku}</span>
                   </td>
-                  <td>
+                  <td data-label="Type">
                     {getTransactionIcon(entry.transaction_type)}
                     {getTransactionBadge(entry.transaction_type)}
                   </td>
-                  <td className="qty-cell">
+                  <td className="qty-cell" data-label="Quantity">
                     <span className={entry.quantity_change >= 0 ? 'positive' : 'negative'}>
                       {entry.quantity_change >= 0 ? '+' : ''}{entry.quantity_change}
                     </span>
                   </td>
-                  <td>{entry.previous_balance}</td>
-                  <td><strong>{entry.new_balance}</strong></td>
-                  <td className="ref-cell">
+                  <td data-label="Previous">{entry.previous_balance}</td>
+                  <td data-label="New Balance"><strong>{entry.new_balance}</strong></td>
+                  <td className="ref-cell" data-label="Reference">
                     {entry.reference_id && (
                       <span className="reference">{entry.reference_type}: {entry.reference_id}</span>
                     )}
                   </td>
-                  <td>{entry.user_name || '-'}</td>
-                  <td className="notes-cell">{entry.notes || '-'}</td>
+                  <td data-label="By">{entry.user_name || '-'}</td>
+                  <td className="notes-cell" data-label="Notes">{entry.notes || '-'}</td>
                 </tr>
               ))}
             </tbody>

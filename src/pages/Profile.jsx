@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import { authApi, usersApi, resolveMediaSourceForDisplay } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
+import { validateEmail } from '../utils/validation';
 import './Profile.css';
-
-const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
 
 function Profile() {
   const navigate = useNavigate();

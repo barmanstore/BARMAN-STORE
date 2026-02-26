@@ -50,13 +50,10 @@ Supported by backend (`server/index.js`):
   - Backend listen port
 - `DB_EXECUTION_MODE`
   - Default: `postgres`
-  - Database execution mode (`postgres` or `sqlite`)
+  - Database execution mode (`postgres`)
 - `DB_CLIENT`
   - Default: `postgres`
-  - Backward-compatible DB client selector for scripts/scaffolding
-- `DB_PATH`
-  - Default: `server/barman-store.db`
-  - SQLite DB file path (used only when `DB_EXECUTION_MODE=sqlite`)
+  - Backward-compatible DB client selector (postgres aliases only)
 - `SUPABASE_DB_URL`
   - Optional connection string for Supabase/Postgres
   - Used when `DB_EXECUTION_MODE=postgres`
@@ -97,24 +94,6 @@ Supported by backend (`server/index.js`):
 - `BCRYPT_SALT_ROUNDS`
   - Default: `10`
   - Password hashing cost
-- `BACKUP_DIR`
-  - Default: `server/backups`
-  - Backup files directory
-- `AUTO_BACKUP_ENABLED`
-  - Default: `false`
-  - Enables periodic automatic DB backups when `true` (SQLite mode only)
-- `AUTO_BACKUP_INTERVAL_MINUTES`
-  - Default: `360`
-  - Interval between automatic backups (SQLite mode only)
-- `AUTO_BACKUP_ON_STARTUP`
-  - Default: `false`
-  - If `true`, performs one automatic backup at server startup (SQLite mode only)
-- `AUTO_BACKUP_RETENTION_COUNT`
-  - Default: `30`
-  - Maximum number of auto backups to keep (`0` means unlimited, SQLite mode only)
-- `AUTO_BACKUP_RETENTION_DAYS`
-  - Default: `30`
-  - Maximum age in days for auto backups (`0` means unlimited, SQLite mode only)
 
 Notes:
 - Backend and DB helper scripts auto-load project env files (`.env`, `.env.local`, `.env.<NODE_ENV>`, `.env.<NODE_ENV>.local`).
@@ -127,22 +106,7 @@ Notes:
 - `npm run preview` preview frontend build
 - `npm run db:supabase:check` verify Supabase/Postgres connectivity (reads `DB_EXECUTION_MODE` from env files)
 - `npm run db:supabase:migrate` apply staged Supabase/Postgres SQL migrations (reads `DB_EXECUTION_MODE` from env files)
-- `npm run db:sqlite:migrate:supabase` one-time copy from SQLite (`DB_PATH`) to Supabase/Postgres
-- `npm run db:sqlite:verify:supabase` compare SQLite vs Supabase row counts and key totals
-- `npm run pm2:start` start backend via PM2 using `ecosystem.config.cjs`
-- `npm run pm2:restart` restart PM2 backend app
-- `npm run pm2:logs` view PM2 logs for backend app
 - `docs/SUPABASE_MIGRATION_START.md` Supabase migration runbook
-
-### SQLite to Supabase Data Move
-- Ensure `DB_EXECUTION_MODE=postgres` and `SUPABASE_DB_URL` are set.
-- Optional source override: `SQLITE_DB_PATH=<path-to-sqlite-file>`.
-- Migrate:
-  - Default upsert mode: `npm run db:sqlite:migrate:supabase`
-  - Full replace mode: `npm run db:sqlite:migrate:supabase -- --mode truncate`
-- Verify:
-  - `npm run db:sqlite:verify:supabase`
-  - show only mismatches: `npm run db:sqlite:verify:supabase -- --only-mismatches`
 
 ## Default Admin Login
 - Email: `admin@admin.com`
@@ -164,14 +128,6 @@ Base URL: `http://localhost:5000`
 ### Admin Password Reset
 - `GET /api/admin/password-reset-requests`
 - `PUT /api/admin/password-reset-requests/:id`
-
-### Admin Backup
-- `POST /api/admin/backup/create`
-- `GET /api/admin/backup/status`
-- `GET /api/admin/backup/list`
-- `GET /api/admin/backup/download/:fileName`
-- `POST /api/admin/backup/restore`
-  - Note: in-app create/download/restore is SQLite-only; for Postgres use external dump/restore tooling.
 
 ### Users and Customers
 - `GET /api/users`
@@ -283,29 +239,8 @@ Base URL: `http://localhost:5000`
 3. Run backend on host
 - `node server/index.js`
 
-### Option 2: PM2 process manager
-1. Install PM2
-- `npm i -g pm2`
-
-2. Start backend
-- `pm2 start server/index.js --name barman-api`
-
-3. Persist across reboot
-- `pm2 save`
-- `pm2 startup`
-
-4. Useful commands
-- `pm2 status`
-- `pm2 logs barman-api`
-- `pm2 restart barman-api`
-- Or use project scripts:
-- `npm run pm2:start`
-- `npm run pm2:restart`
-- `npm run pm2:logs`
-
-### Option 2A: Ready config files in this repo
+### Option 2: Ready config files in this repo
 - IIS rewrite template: `public/web.config` (copied to `dist/web.config` on build)
-- PM2 config: `ecosystem.config.cjs`
 - Nginx site config template: `nginx/barman-store.conf`
 
 ### Option 3: Windows Service (backend)

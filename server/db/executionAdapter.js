@@ -1,13 +1,12 @@
-const Database = require('better-sqlite3');
-
 const normalizeExecutionMode = (value) => {
   const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'postgres';
   if (normalized === 'postgres' || normalized === 'pg' || normalized === 'supabase') return 'postgres';
-  return normalized === 'mysql' ? 'mysql' : 'sqlite';
+  throw new Error(`[DB] Unsupported DB_EXECUTION_MODE=${value}. Only "postgres" is supported.`);
 };
 
 const createUnsupportedSyncError = (operation, mode) => new Error(
-  `[DB] "${operation}" is a synchronous SQLite-only operation and is unavailable in DB_EXECUTION_MODE=${mode}.`
+  `[DB] "${operation}" is unavailable in DB_EXECUTION_MODE=${mode}. Use async DB helpers with postgres mode.`
 );
 
 const createUnsupportedAdapter = (mode) => ({
@@ -20,38 +19,10 @@ const createUnsupportedAdapter = (mode) => ({
   reopen: () => {},
 });
 
-const createSqliteAdapter = ({ sqlitePath }) => {
-  let sqlite = new Database(sqlitePath);
-
-  return {
-    mode: 'sqlite',
-    prepare: (sql) => sqlite.prepare(sql),
-    exec: (sql) => sqlite.exec(sql),
-    pragma: (statement) => sqlite.pragma(statement),
-    transaction: (handler) => sqlite.transaction(handler),
-    close: () => {
-      try {
-        if (sqlite) sqlite.close();
-      } catch (_) {
-        // ignore close failures
-      }
-    },
-    reopen: () => {
-      try {
-        if (sqlite) sqlite.close();
-      } catch (_) {
-        // ignore close failures
-      }
-      sqlite = new Database(sqlitePath);
-    },
-  };
-};
-
-const createExecutionAdapter = ({ mode = 'sqlite', sqlitePath }) => {
+const createExecutionAdapter = ({ mode = 'postgres' }) => {
   const resolvedMode = normalizeExecutionMode(mode);
-  if (resolvedMode === 'mysql') return createUnsupportedAdapter('mysql');
   if (resolvedMode === 'postgres') return createUnsupportedAdapter('postgres');
-  return createSqliteAdapter({ sqlitePath });
+  throw new Error(`[DB] Unsupported DB execution adapter mode: ${resolvedMode}`);
 };
 
 module.exports = {
