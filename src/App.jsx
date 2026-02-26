@@ -1,4 +1,4 @@
-import { BrowserRouter, HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, Package, ClipboardList, Home as HomeIcon, Store, Shield } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import UserMenu from './components/UserMenu';
@@ -19,7 +19,6 @@ const Admin = lazy(() => import('./pages/Admin'));
 const CreditHistory = lazy(() => import('./pages/CreditHistory'));
 const OrderHistory = lazy(() => import('./pages/OrderHistory'));
 const OrderTracking = lazy(() => import('./pages/OrderTracking'));
-const MyOrders = lazy(() => import('./pages/MyOrders'));
 const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const Profile = lazy(() => import('./pages/Profile'));
 
@@ -292,7 +291,7 @@ function App() {
               <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
               <Route path="/my-credit" element={<CreditHistory user={user} />} />
               <Route path="/order-history" element={<OrderHistory />} />
-              <Route path="/my-orders" element={<MyOrders />} />
+              <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />
               <Route path="/orders/:id" element={<OrderDetails />} />
               <Route path="/order-tracking" element={<OrderTracking />} />
               <Route path="/order-tracking/:orderId" element={<OrderTracking />} />

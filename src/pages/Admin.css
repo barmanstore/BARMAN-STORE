@@ -1012,7 +1012,7 @@ tbody tr:hover {
   }
 
   .admin-mobile-topbar {
-    position: sticky;
+    position: initial;
     top: 0;
     z-index: 1100;
     display: flex;

@@ -44,6 +44,11 @@
   gap: 0.6rem;
 }
 
+.image-source-help {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
 .image-choice-card {
   border: 2px solid var(--color-border);
   background: var(--color-card);

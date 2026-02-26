@@ -19,6 +19,7 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [queryUsed, setQueryUsed] = useState('');
+  const [provider, setProvider] = useState('');
   const [choices, setChoices] = useState([]);
 
   const currentValue = String(value || '').trim();
@@ -48,9 +49,11 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
         limit: 4,
       });
       setQueryUsed(result.query || '');
+      setProvider(String(result.provider || '').trim());
       setChoices(Array.isArray(result.images) ? result.images.slice(0, 4) : []);
     } catch (err) {
       setError(err?.message || 'Image search failed');
+      setProvider('');
       setChoices([]);
     } finally {
       setLoading(false);
@@ -66,6 +69,13 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
     onChange(safeUrl);
     setError('');
   };
+
+  const providerLabel = useMemo(() => {
+    if (provider === 'google-cse') return 'Google CSE';
+    if (provider === 'unsplash') return 'Unsplash';
+    if (provider === 'fallback') return 'Fallback (Picsum)';
+    return '';
+  }, [provider]);
 
   return (
     <div className="image-url-picker">
@@ -94,6 +104,7 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
       <small className="field-help">
         {queryUsed ? `Search used: ${queryUsed}` : `Auto query preview: ${autoQueryPreview || 'product packshot'}`}
       </small>
+      {providerLabel && <small className="field-help image-source-help">Image source: {providerLabel}</small>}
       {error && <span className="field-error">{error}</span>}
 
       {choices.length > 0 && (

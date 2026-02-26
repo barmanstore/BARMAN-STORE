@@ -93,22 +93,22 @@ export const searchProductImages = async (params = {}) => {
   const query = buildAutoQuery(params);
 
   if (!query) {
-    return { query: '', images: makeFallbackImages('product-image', limit) };
+    return { query: '', provider: 'fallback', images: makeFallbackImages('product-image', limit) };
   }
 
   try {
     const google = await fetchGoogleCseImages(query, limit);
-    if (google.length) return { query, images: google };
+    if (google.length) return { query, provider: 'google-cse', images: google };
   } catch (_) {
     // Fall through to next provider.
   }
 
   try {
     const unsplash = await fetchUnsplashImages(query, limit);
-    if (unsplash.length) return { query, images: unsplash };
+    if (unsplash.length) return { query, provider: 'unsplash', images: unsplash };
   } catch (_) {
     // Fall through to fallback image set.
   }
 
-  return { query, images: makeFallbackImages(query, limit) };
+  return { query, provider: 'fallback', images: makeFallbackImages(query, limit) };
 };

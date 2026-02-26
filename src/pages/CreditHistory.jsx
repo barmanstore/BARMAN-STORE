@@ -125,6 +125,7 @@ function CreditHistory({ user }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [addingTransaction, setAddingTransaction] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
     type: 'given',
@@ -227,6 +228,7 @@ function CreditHistory({ user }) {
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
+    if (addingTransaction) return;
     setError('');
     setSuccess('');
 
@@ -247,6 +249,7 @@ function CreditHistory({ user }) {
     }
 
     try {
+      setAddingTransaction(true);
       const previousBalance = Number(balance || 0);
       const txSnapshot = {
         type: newTransaction.type,
@@ -296,6 +299,8 @@ function CreditHistory({ user }) {
         return;
       }
       setError(err.message || 'Failed to add transaction');
+    } finally {
+      setAddingTransaction(false);
     }
   };
 
@@ -1030,7 +1035,7 @@ function CreditHistory({ user }) {
           <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Add Payment Entry</h2>
-              <button className="close-btn" onClick={() => setShowAddModal(false)}>×</button>
+              <button className="close-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>×</button>
             </div>
             <form onSubmit={handleAddTransaction}>
               <div className="form-group">
@@ -1097,7 +1102,7 @@ function CreditHistory({ user }) {
                     type="button"
                     className="upload-btn"
                     onClick={() => fileInputRef.current.click()}
-                    disabled={uploading}
+                    disabled={uploading || addingTransaction}
                   >
                     <Upload size={16} />
                     {uploading ? 'Uploading...' : 'Choose File'}
@@ -1110,11 +1115,11 @@ function CreditHistory({ user }) {
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={() => setShowAddModal(false)}>
+                <button type="button" className="cancel-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>
                   Cancel
                 </button>
-                <button type="submit" className="submit-btn">
-                  Add Transaction
+                <button type="submit" className="submit-btn" disabled={addingTransaction}>
+                  {addingTransaction ? 'Adding...' : 'Add Transaction'}
                 </button>
               </div>
             </form>

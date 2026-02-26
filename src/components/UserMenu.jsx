@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, Shield, LogOut, ChevronDown, Settings, X, ShoppingCart, CreditCard } from 'lucide-react';
+import { User, Shield, LogOut, ChevronDown, Settings, X, CreditCard } from 'lucide-react';
 import { resolveMediaSourceForDisplay } from '../services/api';
 import './UserMenu.css';
 
@@ -233,11 +233,6 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                           <span>Admin Panel</span>
                         </Link>
                       )}
-                      <Link to="/my-orders" className="dropdown-item" onClick={closeAccountMenu}>
-                        <ShoppingCart size={18} />
-                        <span>My Orders</span>
-                      </Link>
-
                       {user.role === 'customer' && (
                         <Link to="/my-credit" className="dropdown-item" onClick={closeAccountMenu}>
                           <CreditCard size={18} />

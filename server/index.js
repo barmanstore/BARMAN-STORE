@@ -110,13 +110,25 @@ const SQL_UPSERT_IMPORT_BATCH = IS_POSTGRES_EXECUTION
   : `INSERT OR REPLACE INTO import_batches (batch_id, kind, created_by, payload, checksum, status, expires_at)
      VALUES (?, ?, ?, ?, ?, ?, datetime(? / 1000, 'unixepoch'))`;
 const SQL_CAST_TO_INT = IS_POSTGRES_EXECUTION
-  ? `CAST(dl.source_id AS BIGINT)`
+  ? `(
+      CASE
+        WHEN dl.source_id IS NULL THEN NULL
+        WHEN btrim(dl.source_id) ~ '^[0-9]+$' THEN CAST(btrim(dl.source_id) AS BIGINT)
+        WHEN btrim(dl.source_id) ~ '^[0-9]+\\.0+$' THEN CAST(split_part(btrim(dl.source_id), '.', 1) AS BIGINT)
+        ELSE NULL
+      END
+    )`
   : `CAST(dl.source_id AS INTEGER)`;
 
 const parseBooleanEnv = (value, fallback = false) => {
   const raw = String(value ?? '').trim().toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
+};
+
+const toTimestampMs = (value) => {
+  const ts = new Date(value || '').getTime();
+  return Number.isFinite(ts) ? ts : 0;
 };
 
 const startDatabaseScaffolding = async () => {
@@ -736,6 +748,7 @@ const OTP_DELIVERY_MODE = String(
   ? 'auto'
   : 'manual';
 const OTP_VERIFY_SESSION_TTL_SECONDS = Math.max(60, Number(process.env.OTP_VERIFY_SESSION_TTL_SECONDS || 900));
+const CREDIT_ENTRY_DEDUP_WINDOW_MS = Math.max(0, Number(process.env.CREDIT_ENTRY_DEDUP_WINDOW_MS || 15000));
 const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim() || 'BARMAN STORE';
 const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://narenbarman.github.io/BARMAN_STORE_REACT/#/login'
@@ -5870,18 +5883,74 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
     if (!type || !['given', 'payment'].includes(type)) {
       return res.status(400).json({ error: 'Invalid transaction type' });
     }
-    if (!amount || Number(amount) <= 0) {
+    const parsedAmount = Number(amount);
+    if (!parsedAmount || parsedAmount <= 0) {
       return res.status(400).json({ error: 'Amount must be positive' });
     }
+    const normalizedDescription = String(description || '').trim();
+    const normalizedReference = String(reference || '').trim();
+    const createdById = Number(req.authUser?.id || 0);
     const last = await getLatestCreditEntryAsync(req.params.userId);
     const current = Number(last?.balance || 0);
-    const next = type === 'given' ? current + Number(amount) : current - Number(amount);
+    const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
     const normalizedDate = transactionDate && /^\d{4}-\d{2}-\d{2}$/.test(String(transactionDate))
       ? String(transactionDate)
       : null;
+
+    if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
+      const transactionDateCompareSql = IS_POSTGRES_EXECUTION
+        ? `COALESCE(transaction_date::text, '')`
+        : `COALESCE(transaction_date, '')`;
+      const maybeDuplicate = await dbGetAsync(
+        `SELECT id, created_at, balance
+         FROM credit_history
+         WHERE user_id = ?
+           AND type = ?
+           AND amount = ?
+           AND COALESCE(description, '') = ?
+           AND COALESCE(reference, '') = ?
+           AND ${transactionDateCompareSql} = ?
+           AND COALESCE(created_by, 0) = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [
+          req.params.userId,
+          type,
+          parsedAmount,
+          normalizedDescription,
+          normalizedReference,
+          normalizedDate || '',
+          createdById,
+        ]
+      );
+      if (maybeDuplicate) {
+        const createdAtMs = toTimestampMs(maybeDuplicate.created_at);
+        const ageMs = createdAtMs > 0 ? Date.now() - createdAtMs : Number.POSITIVE_INFINITY;
+        if (ageMs >= 0 && ageMs <= CREDIT_ENTRY_DEDUP_WINDOW_MS) {
+          const existing = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [maybeDuplicate.id]);
+          return res.status(200).json({
+            success: true,
+            deduplicated: true,
+            message: 'Duplicate submit prevented',
+            balance: Number(maybeDuplicate.balance || current),
+            transaction: existing,
+          });
+        }
+      }
+    }
+
     const result = await dbRunAsync(
       `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [req.params.userId, type, Number(amount), next, description || null, reference || null, normalizedDate, req.authUser?.id || null]
+      [
+        req.params.userId,
+        type,
+        parsedAmount,
+        next,
+        normalizedDescription || null,
+        normalizedReference || null,
+        normalizedDate,
+        createdById || null
+      ]
     );
     return res.status(201).json({
       success: true,
@@ -6202,6 +6271,11 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
   const paymentMode = body.payment_mode || body.mode || null;
   const billNumberRaw = body.bill_number ?? body.billNo ?? body.invoice_number;
   const billNumber = billNumberRaw === undefined || billNumberRaw === null ? null : String(billNumberRaw).trim() || null;
+  const sourceIdRaw = body.source_id;
+  const sourceIdText = sourceIdRaw === undefined || sourceIdRaw === null ? '' : String(sourceIdRaw).trim();
+  const sourceId = sourceIdText
+    ? (/^[0-9]+(?:\.0+)?$/.test(sourceIdText) ? String(parseInt(sourceIdText, 10)) : sourceIdText)
+    : null;
 
   const result = await dbRunAsync(
     `INSERT INTO distributor_ledger
@@ -6218,7 +6292,7 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
       body.description || null,
       transactionDate,
       body.source || null,
-      body.source_id || null,
+      sourceId,
       body.created_by || null,
     ]
   );

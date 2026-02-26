@@ -871,9 +871,6 @@ function Profile() {
         {/* Quick Actions */}
         <div className="quick-actions slide-in-up">
           <h3>Quick Actions</h3>
-          <button className="action-btn" onClick={() => navigate('/my-orders')}>
-            View My Orders
-          </button>
           <button className="action-btn" onClick={() => navigate('/cart')}>
             View Cart
           </button>
