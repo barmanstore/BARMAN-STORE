@@ -119,6 +119,11 @@ function Admin({ user }) {
   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState('');
   const [productTableStatusFilter, setProductTableStatusFilter] = useState('all');
   const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(false);
+  const [productTableColumnPreset, setProductTableColumnPreset] = useState(() => {
+    if (typeof window === 'undefined') return 'primary';
+    const saved = window.localStorage.getItem('admin-products-columns');
+    return saved === 'full' ? 'full' : 'primary';
+  });
   const [tableEditId, setTableEditId] = useState(null);
   const [tableEditSaving, setTableEditSaving] = useState(false);
   const [tableEditForm, setTableEditForm] = useState({
@@ -277,6 +282,11 @@ function Admin({ user }) {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('admin-products-view', productViewMode);
   }, [productViewMode]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('admin-products-columns', productTableColumnPreset);
+  }, [productTableColumnPreset]);
 
   const toggleSidebarGroup = (groupKey) => {
     setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -1350,6 +1360,7 @@ function Admin({ user }) {
                     Grid
                   </button>
                 </div>
+                <span className="products-view-hint">Table = expert mode, Grid = touch-friendly</span>
                 <button className="admin-btn primary" onClick={handleAddProduct}>
                   <Plus size={20} /> Add Product
                 </button>
@@ -1497,9 +1508,25 @@ function Admin({ user }) {
                     />
                     Low Stock
                   </label>
+                  <div className="products-column-preset" role="group" aria-label="Product table columns">
+                    <button
+                      type="button"
+                      className={`admin-btn ${productTableColumnPreset === 'primary' ? 'primary' : ''}`}
+                      onClick={() => setProductTableColumnPreset('primary')}
+                    >
+                      Primary
+                    </button>
+                    <button
+                      type="button"
+                      className={`admin-btn ${productTableColumnPreset === 'full' ? 'primary' : ''}`}
+                      onClick={() => setProductTableColumnPreset('full')}
+                    >
+                      Full
+                    </button>
+                  </div>
                   <span className="products-table-count">Rows: {visibleProducts.length}</span>
                 </div>
-                <div className="products-table">
+                <div className={`products-table ${productTableColumnPreset === 'primary' ? 'preset-primary' : 'preset-full'}`}>
                   <table>
                     <thead>
                       <tr>
@@ -1507,21 +1534,21 @@ function Admin({ user }) {
                         <th className="sortable" onClick={() => toggleProductTableSort('brand')}>Brand{getSortIndicator('brand')}</th>
                         <th className="sortable" onClick={() => toggleProductTableSort('category')}>Category{getSortIndicator('category')}</th>
                         <th className="sortable" onClick={() => toggleProductTableSort('price')}>Price{getSortIndicator('price')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('mrp')}>MRP{getSortIndicator('mrp')}</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('mrp')}>MRP{getSortIndicator('mrp')}</th>
                         <th className="sortable" onClick={() => toggleProductTableSort('stock')}>Stock{getSortIndicator('stock')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('sku')}>SKU{getSortIndicator('sku')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('barcode')}>Barcode{getSortIndicator('barcode')}</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('sku')}>SKU{getSortIndicator('sku')}</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('barcode')}>Barcode{getSortIndicator('barcode')}</th>
                         <th className="sortable" onClick={() => toggleProductTableSort('is_active')}>Status{getSortIndicator('is_active')}</th>
-                        <th>Description</th>
-                        <th>Content</th>
-                        <th>Color</th>
-                        <th>UOM</th>
-                        <th>Expiry</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('defaultDiscount')}>Discount{getSortIndicator('defaultDiscount')}</th>
-                        <th>Disc Type</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('id')}>ID{getSortIndicator('id')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('created_at')}>Created{getSortIndicator('created_at')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('src')}>Src{getSortIndicator('src')}</th>
+                        <th className="col-extended">Description</th>
+                        <th className="col-extended">Content</th>
+                        <th className="col-extended">Color</th>
+                        <th className="col-extended">UOM</th>
+                        <th className="col-extended">Expiry</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('defaultDiscount')}>Discount{getSortIndicator('defaultDiscount')}</th>
+                        <th className="col-extended">Disc Type</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('id')}>ID{getSortIndicator('id')}</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('created_at')}>Created{getSortIndicator('created_at')}</th>
+                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('src')}>Src{getSortIndicator('src')}</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -1534,10 +1561,10 @@ function Admin({ user }) {
                             <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} /> : (getBrandPath(product) || '-')}</td>
                             <td>{isEditingRow ? <input className="table-edit-input" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} /> : getCategoryPath(product)}</td>
                             <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}</td>
                             <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} /> : (product.sku || '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} /> : (product.barcode || '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} /> : (product.sku || '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} /> : (product.barcode || '-')}</td>
                             <td>
                               {isEditingRow ? (
                                 <select className="table-edit-input" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
@@ -1546,7 +1573,7 @@ function Admin({ user }) {
                                 </select>
                               ) : (Number(product.is_active ?? 1) === 1 ? 'Active' : 'Inactive')}
                             </td>
-                            <td>
+                            <td className="col-extended">
                               {isEditingRow ? (
                                 <input className="table-edit-input" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
                               ) : (
@@ -1555,12 +1582,12 @@ function Admin({ user }) {
                                 </span>
                               )}
                             </td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} /> : (product.content || '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} /> : (product.color || '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} /> : (product.uom || '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}</td>
-                            <td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} /> : (product.content || '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} /> : (product.color || '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} /> : (product.uom || '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}</td>
+                            <td className="col-extended">
                               {isEditingRow ? (
                                 <select className="table-edit-input" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
                                   <option value="fixed">fixed</option>
@@ -1568,9 +1595,9 @@ function Admin({ user }) {
                                 </select>
                               ) : (product.discountType || 'fixed')}
                             </td>
-                            <td>{product.id}</td>
-                            <td>{product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}</td>
+                            <td className="col-extended">{product.id}</td>
+                            <td className="col-extended">{product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}</td>
+                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}</td>
                             <td>
                               {isEditingRow ? (
                                 <div className="table-edit-actions">
@@ -1736,7 +1763,13 @@ function Admin({ user }) {
                         </div>
                       ) : (
                         <>
-                          <h3>{product.name}</h3>
+                          <div className="product-card-title-row">
+                            <h3>{product.name}</h3>
+                            {Number(product.is_active ?? 1) === 0 ? (
+                              <span className="product-status-badge inactive">Inactive</span>
+                            ) : null}
+                          </div>
+                          <p className="product-meta">{getBrandPath(product) || 'Unbranded'}</p>
                           <p className="product-meta">{getCategoryPath(product)}</p>
                           <p className="product-meta">{formatCurrencyColored(product.price)}</p>
                           <p className={product.stock < 10 ? 'product-stock-label low-stock' : 'product-stock-label'}>

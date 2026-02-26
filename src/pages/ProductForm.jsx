@@ -36,6 +36,11 @@ function ProductForm({ product, onClose, onSave }) {
   const [errors, setErrors] = useState({});
   const [batchProducts, setBatchProducts] = useState([]);
   const [isDescriptionAuto, setIsDescriptionAuto] = useState(true);
+  const isMobile = useIsMobile();
+  const [showAdvancedFields, setShowAdvancedFields] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth > 768;
+  });
 
   // UOM options for groceries
   const uomOptions = [
@@ -75,12 +80,14 @@ function ProductForm({ product, onClose, onSave }) {
         discountType: product.discountType || 'fixed'
       });
       setIsDescriptionAuto(false);
+      setShowAdvancedFields(true);
     } else {
       setFormData(createInitialFormData());
       setBatchProducts([]);
       setIsDescriptionAuto(true);
+      setShowAdvancedFields(!isMobile);
     }
-  }, [product]);
+  }, [product, isMobile]);
 
   const fetchCategories = async () => {
     try {
@@ -208,6 +215,10 @@ function ProductForm({ product, onClose, onSave }) {
     setBatchProducts((prev) => prev.filter((_, idx) => idx !== index));
   };
 
+  const handleClearBatch = () => {
+    setBatchProducts([]);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     const nextFormData = { ...formData, [name]: value };
@@ -307,7 +318,6 @@ function ProductForm({ product, onClose, onSave }) {
   };
 
   const isEditing = !!product;
-  const isMobile = useIsMobile();
 
   const formContent = (
     <>
@@ -326,6 +336,14 @@ function ProductForm({ product, onClose, onSave }) {
                 </button>
               </div>
               {batchProducts.length > 0 && (
+                <div className="batch-summary-bar">
+                  <span>{batchProducts.length} product(s) queued for one-click save</span>
+                  <button type="button" className="batch-clear-btn" onClick={handleClearBatch}>
+                    Clear Queue
+                  </button>
+                </div>
+              )}
+              {batchProducts.length > 0 && (
                 <div className="batch-list">
                   {batchProducts.map((item, index) => (
                     <div key={`${item.name}-${index}`} className="batch-item">
@@ -342,6 +360,17 @@ function ProductForm({ product, onClose, onSave }) {
               )}
             </div>
           )}
+
+          <div className="advanced-fields-toggle">
+            <button
+              type="button"
+              className="advanced-toggle-btn"
+              onClick={() => setShowAdvancedFields((prev) => !prev)}
+            >
+              {showAdvancedFields ? 'Hide advanced fields' : 'Show advanced fields'}
+            </button>
+            <small className="field-help">Advanced: UOM conversion, SKU and barcode.</small>
+          </div>
 
           {/* Basic Information Section */}
           <div className="form-section">
@@ -570,39 +599,6 @@ function ProductForm({ product, onClose, onSave }) {
               </div>
 
               <div className="form-group">
-                <label htmlFor="uom_type">UOM Type</label>
-                <select
-                  id="uom_type"
-                  name="uom_type"
-                  value={formData.uom_type}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  <option value="selling">Selling Only</option>
-                  <option value="purchasing">Purchasing Only</option>
-                  <option value="both">Both Selling & Purchasing</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="conversion_factor">Conversion Factor</label>
-                <input
-                  type="number"
-                  id="conversion_factor"
-                  name="conversion_factor"
-                  value={formData.conversion_factor}
-                  onChange={handleChange}
-                  placeholder="1"
-                  step="0.0001"
-                  min="0"
-                  className="input-field"
-                />
-                <small className="field-help">Selling units per base unit (e.g., 12 for Dozen)</small>
-              </div>
-
-              <div className="form-group">
                 <label htmlFor="expiry_date">Expiry Date</label>
                 <input
                   type="date"
@@ -614,46 +610,82 @@ function ProductForm({ product, onClose, onSave }) {
                 />
               </div>
             </div>
+
+            {showAdvancedFields && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="uom_type">UOM Type</label>
+                  <select
+                    id="uom_type"
+                    name="uom_type"
+                    value={formData.uom_type}
+                    onChange={handleChange}
+                    className="input-field"
+                  >
+                    <option value="selling">Selling Only</option>
+                    <option value="purchasing">Purchasing Only</option>
+                    <option value="both">Both Selling & Purchasing</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="conversion_factor">Conversion Factor</label>
+                  <input
+                    type="number"
+                    id="conversion_factor"
+                    name="conversion_factor"
+                    value={formData.conversion_factor}
+                    onChange={handleChange}
+                    placeholder="1"
+                    step="0.0001"
+                    min="0"
+                    className="input-field"
+                  />
+                  <small className="field-help">Selling units per base unit (e.g., 12 for Dozen)</small>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* SKU & Barcode Section */}
-          <div className="form-section">
-            <h3 className="section-title">SKU & Barcode</h3>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="sku">
-                  <Package size={16} /> SKU (Auto-generated)
-                </label>
-                <input
-                  type="text"
-                  id="sku"
-                  name="sku"
-                  value={formData.sku}
-                  onChange={handleChange}
-                  placeholder="Auto-generated SKU"
-                  className="input-field"
-                  readOnly={!isEditing}
-                />
-                <small className="field-help">Format: Name[:4] + Brand[:4] + Content[:2] + MRP[:4]</small>
-              </div>
+          {showAdvancedFields && (
+            <div className="form-section">
+              <h3 className="section-title">SKU & Barcode</h3>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="sku">
+                    <Package size={16} /> SKU (Auto-generated)
+                  </label>
+                  <input
+                    type="text"
+                    id="sku"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleChange}
+                    placeholder="Auto-generated SKU"
+                    className="input-field"
+                    readOnly={!isEditing}
+                  />
+                  <small className="field-help">Format: Name[:4] + Brand[:4] + Content[:2] + MRP[:4]</small>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="barcode">
-                  <QrCode size={16} /> Barcode
-                </label>
-                <input
-                  type="text"
-                  id="barcode"
-                  name="barcode"
-                  value={formData.barcode}
-                  onChange={handleChange}
-                  placeholder="Enter barcode (numeric)"
-                  className="input-field"
-                />
+                <div className="form-group">
+                  <label htmlFor="barcode">
+                    <QrCode size={16} /> Barcode
+                  </label>
+                  <input
+                    type="text"
+                    id="barcode"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleChange}
+                    placeholder="Enter barcode (numeric)"
+                    className="input-field"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Image Section */}
           <div className="form-section">

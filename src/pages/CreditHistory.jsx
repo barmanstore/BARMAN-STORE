@@ -7,6 +7,13 @@ import * as info from './info';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
 import { createPdfDoc, addAutoTable, addPdfFooterWithPagination, savePdf, safeFileName } from '../utils/pdfService';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
+import {
+  applyCreditQuickFilters,
+  getBalanceSummary,
+  getLastTransactionFromHistory,
+  getRecentActivityHint,
+  truncateCreditDescription,
+} from '../utils/creditHistoryUi.mjs';
 import { buildCreditReportText, buildCreditEntryText, buildCreditTransactionText } from '../utils/messageTemplates';
 import './CreditHistory.css';
 
@@ -148,7 +155,11 @@ function CreditHistory({ user }) {
   const [toDate, setToDate] = useState(getTodayDateInputValue());
   const [reportText, setReportText] = useState('');
   const [showReport, setShowReport] = useState(false);
+  const [reportSummary, setReportSummary] = useState(null);
   const [entryShareText, setEntryShareText] = useState('');
+  const [quickTypeFilter, setQuickTypeFilter] = useState('all');
+  const [quickRangeFilter, setQuickRangeFilter] = useState('all');
+  const [expandedTransactionId, setExpandedTransactionId] = useState(null);
 
   useEffect(() => {
     if (!authUser) {
@@ -169,6 +180,10 @@ function CreditHistory({ user }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    setExpandedTransactionId(null);
+  }, [quickTypeFilter, quickRangeFilter]);
 
   const fetchCreditData = async (targetUserId = effectiveUserId) => {
     try {
@@ -302,6 +317,16 @@ function CreditHistory({ user }) {
     } finally {
       setAddingTransaction(false);
     }
+  };
+
+  const openAddModalWithType = (type = 'given') => {
+    setError('');
+    setSuccess('');
+    setNewTransaction((prev) => ({
+      ...prev,
+      type: type === 'payment' ? 'payment' : 'given',
+    }));
+    setShowAddModal(true);
   };
 
   const handlePrintInvoice = (transaction) => {
@@ -447,13 +472,41 @@ function CreditHistory({ user }) {
     }
     setError('');
     setSuccess('');
+    setReportSummary(null);
     const filtered = creditHistory.filter((t) => {
       const dateKey = getEffectiveTransactionDateKey(t);
       return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
     }).sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
+    const totals = filtered.reduce((acc, transaction) => {
+      const numericAmount = Number(transaction?.amount || 0);
+      if (String(transaction?.type || '').toLowerCase() === 'payment') {
+        acc.totalPayment += numericAmount;
+      } else {
+        acc.totalGiven += numericAmount;
+      }
+      return acc;
+    }, { totalGiven: 0, totalPayment: 0 });
+
+    const allThroughPeriod = creditHistory
+      .filter((t) => {
+        const dateKey = getEffectiveTransactionDateKey(t);
+        return Boolean(dateKey) && dateKey <= toDate;
+      })
+      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+    const endingBalance = allThroughPeriod.length > 0
+      ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
+      : 0;
+
     const report = buildCreditReport(filtered, fromDate, toDate);
     setReportText(report);
+    setReportSummary({
+      entryCount: filtered.length,
+      fromDate,
+      toDate,
+      netChange: totals.totalGiven - totals.totalPayment,
+      endingBalance,
+    });
     setShowReport(true);
   };
 
@@ -536,9 +589,16 @@ function CreditHistory({ user }) {
     return now >= txTime && (now - txTime) <= FIVE_DAYS_MS;
   };
 
+  const filteredTransactions = applyCreditQuickFilters(creditHistory, {
+    typeFilter: quickTypeFilter,
+    rangeFilter: quickRangeFilter,
+    nowTimestamp: Date.now(),
+    getTimestamp: getEffectiveTransactionTimestamp,
+  });
+
   const groupedTransactions = (() => {
     const groups = new Map();
-    creditHistory.forEach((transaction) => {
+    filteredTransactions.forEach((transaction) => {
       const dateKey = getEffectiveTransactionDateKey(transaction) || 'Unknown';
       if (!groups.has(dateKey)) groups.set(dateKey, []);
       groups.get(dateKey).push(transaction);
@@ -556,6 +616,17 @@ function CreditHistory({ user }) {
         )
       }));
   })();
+
+  const lastTransaction = getLastTransactionFromHistory(creditHistory, getEffectiveTransactionTimestamp);
+  const lastTransactionLine = lastTransaction
+    ? `Last: ${getTypeLabel(lastTransaction.type)} · ${formatTransactionDate(lastTransaction, { long: true })}`
+    : 'Last: No transactions yet';
+  const balanceSummary = getBalanceSummary(balance);
+  const inactivityHint = getRecentActivityHint(
+    lastTransaction ? getEffectiveTransactionTimestamp(lastTransaction) : 0,
+    { idleDays: 30 }
+  );
+  const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
 
   const buildTransactionShareText = (transaction) => {
     const amount = Number(transaction?.amount || 0);
@@ -802,6 +873,11 @@ function CreditHistory({ user }) {
   };
   const backHref = isAdminView ? getBackToAdminUrl() : '/profile';
   const backLabel = isAdminView ? 'Back to Admin' : 'Back to Profile';
+  const trustLine = isAdminView
+    ? 'Data stored safely in your Barman Store system. Backup available in Admin > Backup.'
+    : 'Data stored safely in your Barman Store system.';
+  const addModalTitle = newTransaction.type === 'payment' ? 'Add Payment' : 'Add Credit';
+  const addModalActionLabel = newTransaction.type === 'payment' ? 'Payment' : 'Credit';
 
   return (
     <div className="credit-history-page">
@@ -813,30 +889,112 @@ function CreditHistory({ user }) {
           <h1>{isAdminView ? 'Credit History' : 'My Credit History'}</h1>
           {customer && <p className="customer-name">{customer.name}</p>}
         </div>
-        <div className="balance-card">
-          <span className="balance-label">Current Balance</span>
-          <span className={`balance-amount ${balance >= 0 ? 'positive' : 'negative'}`}>
-            {formatCurrencyColored(balance)}
-          </span>
-        </div>
       </div>
+
+      <section className="balance-card summary-hero-card">
+        <span className="balance-label">{balanceSummary.headline}</span>
+        <span className={`balance-amount ${balanceSummary.toneClass}`}>
+          {formatCurrency(Math.abs(Number(balance || 0)))}
+        </span>
+        <span className="summary-direction">{balanceSummary.directionLine}</span>
+        <span className="summary-last-line">{lastTransactionLine}</span>
+        <span className="summary-trust-line">{trustLine}</span>
+      </section>
+
+      {inactivityHint && (
+        <div className="inactivity-hint">{inactivityHint}</div>
+      )}
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
 
-      {isAdminView && (
+      {isAdminView && !isMobile && (
         <div className="actions-bar">
-          <button className="admin-btn primary" onClick={() => setShowAddModal(true)}>
-            <Plus size={20} /> Add Transaction
+          <button className="admin-btn primary" onClick={() => openAddModalWithType('payment')}>
+            <RefreshCw size={18} /> Add Payment
+          </button>
+          <button className="admin-btn" onClick={() => openAddModalWithType('given')}>
+            <Plus size={18} /> Add Credit
           </button>
         </div>
       )}
 
+      <div className="quick-filter-panel">
+        <div className="quick-filter-group">
+          <span className="quick-filter-title">Type</span>
+          <div className="quick-filter-chips">
+            <button
+              type="button"
+              className={`quick-chip ${quickTypeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setQuickTypeFilter('all')}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`quick-chip ${quickTypeFilter === 'given' ? 'active' : ''}`}
+              onClick={() => setQuickTypeFilter('given')}
+            >
+              Given
+            </button>
+            <button
+              type="button"
+              className={`quick-chip ${quickTypeFilter === 'payment' ? 'active' : ''}`}
+              onClick={() => setQuickTypeFilter('payment')}
+            >
+              Payment
+            </button>
+          </div>
+        </div>
+        <div className="quick-filter-group">
+          <span className="quick-filter-title">Range</span>
+          <div className="quick-filter-chips">
+            <button
+              type="button"
+              className={`quick-chip ${quickRangeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setQuickRangeFilter('all')}
+            >
+              All Time
+            </button>
+            <button
+              type="button"
+              className={`quick-chip ${quickRangeFilter === '7d' ? 'active' : ''}`}
+              onClick={() => setQuickRangeFilter('7d')}
+            >
+              7 Days
+            </button>
+            <button
+              type="button"
+              className={`quick-chip ${quickRangeFilter === '30d' ? 'active' : ''}`}
+              onClick={() => setQuickRangeFilter('30d')}
+            >
+              30 Days
+            </button>
+            <button
+              type="button"
+              className={`quick-chip ${quickRangeFilter === 'this_month' ? 'active' : ''}`}
+              onClick={() => setQuickRangeFilter('this_month')}
+            >
+              This Month
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="credit-table-container">
-        {creditHistory.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <div className="empty-state">
-            <p>No credit history found{isAdminView ? ' for this customer.' : '.'}</p>
-            {isAdminView && <p>Click "Add Transaction" to record a transaction.</p>}
+            {creditHistory.length === 0 ? (
+              <>
+                <p>No entries yet{isAdminView ? ' for this customer.' : '.'}</p>
+                {isAdminView && <p>Tap "Add Credit" for first sale or "Add Payment" when customer pays.</p>}
+              </>
+            ) : (
+              <>
+                <p>No entries match current filters.</p>
+                {hasFiltersApplied && <p>Switch filters to "All" to view complete history.</p>}
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -853,7 +1011,7 @@ function CreditHistory({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {creditHistory.map((transaction) => {
+                {filteredTransactions.map((transaction) => {
                   const descriptionWithRef = transaction.reference
                     ? `${transaction.description || ''} (${transaction.reference})`.trim()
                     : transaction.description || '-';
@@ -914,12 +1072,13 @@ function CreditHistory({ user }) {
                   <h3 className="credit-day-title">{group.dateLabel}</h3>
                   <div className="credit-bubble-stack">
                     {group.transactions.map((transaction) => {
-                      const description = transaction.description || '-';
-                      const reference = transaction.reference || '-';
+                      const description = String(transaction.description || '').trim();
+                      const reference = String(transaction.reference || '').trim();
                       const signedAmount = transaction.type === 'payment'
                         ? -parseFloat(transaction.amount)
                         : parseFloat(transaction.amount);
                       const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+                      const isExpanded = expandedTransactionId === transaction.id;
                       return (
                         <article
                           key={`mobile-${transaction.id}`}
@@ -927,20 +1086,41 @@ function CreditHistory({ user }) {
                         >
                           <header className="bubble-head">
                             <span className="bubble-type">
-                              {getTypeIcon(transaction.type)}
-                              {getTypeLabel(transaction.type)}
+                              <span className={`bubble-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
+                                {getTypeLabel(transaction.type)}
+                              </span>
+                              <span className="bubble-date">{formatTransactionDate(transaction, { long: true })}</span>
                             </span>
-                            <span className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
-                              {formatCurrencyColored(signedAmount)}
+                            <span className="bubble-amount-wrap">
+                              <span className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
+                                {formatCurrencyColored(signedAmount)}
+                              </span>
+                              <span className="bubble-balance-pill">
+                                Balance: {formatCurrencyColored(parseFloat(transaction.balance))}
+                              </span>
                             </span>
                           </header>
 
-                          <div className="bubble-detail"><strong>Desc:</strong> {description}</div>
-                          <div className="bubble-detail"><strong>Ref:</strong> {reference}</div>
-                          <div className="bubble-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
-                          <div className="bubble-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
+                          <div className="bubble-description">
+                            {truncateCreditDescription(description || 'No description', 56)}
+                          </div>
 
-                          <div className="bubble-actions">
+                          <div className="bubble-summary-actions">
+                            <button
+                              type="button"
+                              className="bubble-expand-btn"
+                              onClick={() => setExpandedTransactionId(isExpanded ? null : transaction.id)}
+                            >
+                              {isExpanded ? 'Hide details' : 'Details'}
+                            </button>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="bubble-expanded">
+                              <div className="bubble-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
+                              {reference && <div className="bubble-detail"><strong>Ref:</strong> {reference}</div>}
+                              <div className="bubble-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
+                              <div className="bubble-actions">
                             {transaction.image_path && (
                               <a
                                 href={transaction.image_path}
@@ -971,12 +1151,9 @@ function CreditHistory({ user }) {
                                 <MessageCircle size={16} />
                               </button>
                             )}
-                          </div>
-
-                          <footer className="bubble-balance">
-                            <span>Balance</span>
-                            <strong>{formatCurrencyColored(parseFloat(transaction.balance))}</strong>
-                          </footer>
+                              </div>
+                            </div>
+                          )}
                         </article>
                       );
                     })}
@@ -987,10 +1164,10 @@ function CreditHistory({ user }) {
           </>
               )}
          {isAdminView && (
-           <div className="report-controls">
-              <label> From:<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-              </label>
-              <label> To:<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <div className="report-controls secondary-tools">
+               <label> From:<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+               </label>
+               <label> To:<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </label>
               <button className="admin-btn" onClick={handleGenerateReport} title="Generate credit report for date range">
               Generate Report
@@ -1005,12 +1182,20 @@ function CreditHistory({ user }) {
           <div className="report-header">
             <strong>Credit Report {customer?.name ? `- ${customer.name}` : ''}</strong>
           </div>
+          {reportSummary && (
+            <div className="report-summary-line">
+              <span>{reportSummary.entryCount} entries</span>
+              <span>{reportSummary.fromDate} to {reportSummary.toDate}</span>
+              <span>Net change: {formatCurrencyColored(reportSummary.netChange)}</span>
+              <span>Ending balance: {formatCurrencyColored(reportSummary.endingBalance)}</span>
+            </div>
+          )}
           <textarea className="report-text" readOnly value={reportText} />
           <div className="report-actions">
-            <button className="report-btn" onClick={handleCopyReport}>Copy</button>
-            <button className="report-btn whatsapp" onClick={handleSendWhatsApp}>WhatsApp</button>
-            <button className="report-btn pdf" onClick={generatePDFReport}><Download size={14} /> PDF</button>
-            <button className="report-btn" onClick={() => setShowReport(false)}>Close</button>
+            <button className="report-btn primary-action" onClick={handleCopyReport}>Copy Text</button>
+            <button className="report-btn whatsapp primary-action" onClick={handleSendWhatsApp}>Share on WhatsApp</button>
+            <button className="report-btn pdf secondary-action" onClick={generatePDFReport}><Download size={14} /> PDF</button>
+            <button className="report-btn secondary-action" onClick={() => { setShowReport(false); setReportSummary(null); }}>Close</button>
           </div>
         </div>
       )}
@@ -1029,13 +1214,32 @@ function CreditHistory({ user }) {
         </div>
       )}
 
+      {isAdminView && isMobile && (
+        <div className="credit-mobile-cta-bar">
+          <button
+            type="button"
+            className="mobile-cta payment"
+            onClick={() => openAddModalWithType('payment')}
+          >
+            <RefreshCw size={16} /> Add Payment
+          </button>
+          <button
+            type="button"
+            className="mobile-cta given"
+            onClick={() => openAddModalWithType('given')}
+          >
+            <Plus size={16} /> Add Credit
+          </button>
+        </div>
+      )}
+
       {/* Add Transaction Modal */}
       {isAdminView && showAddModal && (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add Payment Entry</h2>
-              <button className="close-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>×</button>
+              <h2>{addModalTitle}</h2>
+              <button className="close-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>x</button>
             </div>
             <form onSubmit={handleAddTransaction}>
               <div className="form-group">
@@ -1044,8 +1248,8 @@ function CreditHistory({ user }) {
                   value={newTransaction.type}
                   onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
                 >
-                  <option value="given">Given (Add to balance)</option>
-                  <option value="payment">Payment (Reduce balance)</option>
+                  <option value="given">Credit (customer will give)</option>
+                  <option value="payment">Payment (customer paid)</option>
                 </select>
               </div>
               <div className="form-group">
@@ -1119,7 +1323,7 @@ function CreditHistory({ user }) {
                   Cancel
                 </button>
                 <button type="submit" className="submit-btn" disabled={addingTransaction}>
-                  {addingTransaction ? 'Adding...' : 'Add Transaction'}
+                  {addingTransaction ? 'Saving...' : `Save ${addModalActionLabel}`}
                 </button>
               </div>
             </form>

@@ -92,6 +92,36 @@
   justify-content: flex-start;
 }
 
+.batch-summary-bar {
+  margin-top: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+}
+
+.batch-clear-btn {
+  border: 1px solid #fca5a5;
+  background: #fff1f2;
+  color: #b91c1c;
+  border-radius: 7px;
+  padding: 0.3rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+.batch-clear-btn:hover {
+  background: #ffe4e6;
+}
+
 .batch-add-btn {
   display: inline-flex;
   align-items: center;
@@ -161,6 +191,34 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.advanced-fields-toggle {
+  margin: -0.4rem 0 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.advanced-toggle-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.45rem 0.7rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.advanced-toggle-btn:hover {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
 }
 
 .product-form .form-group {
@@ -406,6 +464,24 @@
   .form-actions {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .batch-summary-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .batch-clear-btn {
+    width: 100%;
+  }
+
+  .advanced-fields-toggle {
+    align-items: stretch;
+  }
+
+  .advanced-toggle-btn {
+    width: 100%;
+    text-align: center;
   }
 
   .cancel-btn,

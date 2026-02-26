@@ -134,6 +134,14 @@ const getVariationLabel = (variation, index) => {
   return `Option ${index + 1}`;
 };
 
+const getVariationPreviewLabel = (variation) => {
+  const content = String(variation?.content || '').trim();
+  const color = String(variation?.color || '').trim();
+  const sku = String(variation?.sku || '').trim();
+  const label = [content, color].filter(Boolean).join(' · ');
+  return label || sku || 'Option';
+};
+
 function SafeProductImage({ src, alt, className, fallbackProduct, ...rest }) {
   const [resolvedSrc, setResolvedSrc] = useState(() => src || getProductFallbackImage(fallbackProduct));
   const preferredWidth = String(className || '').includes('detail-mobile-image') ? 960 : 520;
@@ -740,6 +748,9 @@ function Products({ setCartCount }) {
     const selectedStock = Number(selectedVariation.stock || 0);
     const selectedMaxed = selectedStock > 0 && selectedQty >= selectedStock;
     const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
+    const priceValue = family.variations.length > 1 ? family.minPrice : selectedVariation.price;
+    const metaLine = String(family.brand || family.category || '').trim();
+    const variationPreview = family.variations.slice(0, 2).map((variation) => getVariationPreviewLabel(variation));
 
     return (
       <div
@@ -767,15 +778,41 @@ function Products({ setCartCount }) {
 
         <div className="product-info">
           <h3 className="product-name">{family.name}</h3>
-          {!isMobile && (
-            <div className="product-footer compact">
-              <div className="product-stock">
-                <span className={familyInStock ? 'in-stock' : 'out-of-stock'}>
-                  {familyInStock ? 'In stock' : 'Out of stock'}
-                </span>
-                {familyCartQty > 0 && <small className="cart-qty-indicator">In cart: {familyCartQty}</small>}
-              </div>
-              {selectedQty > 0 ? (
+          {metaLine ? <p className="product-meta-line">{metaLine}</p> : null}
+          <div className="product-price-line">
+            <strong>{formatCurrencyColored(Number(priceValue || 0))}</strong>
+            <small>/ {selectedVariation.uom || 'pcs'}</small>
+          </div>
+          {variationPreview.length > 1 && (
+            <div className="product-variation-preview">
+              {variationPreview.map((label, index) => (
+                <span key={`${family.id}-preview-${index}`} className="variation-preview-tag">{label}</span>
+              ))}
+              {family.variations.length > 2 && (
+                <span className="variation-more-tag">+{family.variations.length - 2} more</span>
+              )}
+            </div>
+          )}
+          <div className="product-footer compact">
+            <div className="product-stock">
+              <span className={familyInStock ? 'in-stock' : 'out-of-stock'}>
+                {familyInStock ? 'In stock' : 'Out of stock'}
+              </span>
+              {familyCartQty > 0 && <small className="cart-qty-indicator">In cart: {familyCartQty}</small>}
+            </div>
+            {isMobile ? (
+              <button
+                type="button"
+                className="card-view-btn"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openFamilyDetails(family.id);
+                }}
+              >
+                View
+              </button>
+            ) : (
+              selectedQty > 0 ? (
                 <div className="card-qty-counter" onClick={(event) => event.stopPropagation()}>
                   <button
                     type="button"
@@ -806,9 +843,9 @@ function Products({ setCartCount }) {
                 >
                   <Plus size={14} /> Add
                 </button>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
 
           {isActiveDesktop && (
             <ProductDetailView

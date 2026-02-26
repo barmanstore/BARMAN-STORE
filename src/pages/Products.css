@@ -382,6 +382,55 @@
   overflow: hidden;
 }
 
+.product-meta-line {
+  margin: 0;
+  font-size: 0.58rem;
+  color: var(--color-text);
+  opacity: 0.72;
+  font-family: var(--font-mono);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.product-price-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28rem;
+}
+
+.product-price-line strong {
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.product-price-line small {
+  font-size: 0.56rem;
+  color: var(--color-text);
+  opacity: 0.66;
+  font-weight: 700;
+}
+
+.product-variation-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.24rem;
+  flex-wrap: wrap;
+}
+
+.variation-preview-tag,
+.variation-more-tag {
+  font-size: 0.52rem;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 0.14rem 0.38rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--color-text);
+}
+
 .product-pricing.compact {
   display: flex;
   align-items: flex-end;
@@ -477,6 +526,23 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   white-space: nowrap;
+}
+
+.card-view-btn {
+  min-height: 34px;
+  padding: 0.26rem 0.42rem;
+  background: #fff;
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .add-to-cart-btn:disabled {
@@ -777,13 +843,40 @@
 }
 
 @media (max-width: 767px) {
+  .group-products-grid,
+  .products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
   .product-info {
-    gap: 0;
+    gap: 0.24rem;
+    padding: 0.48rem;
   }
 
   .product-name {
     -webkit-line-clamp: 1;
     font-size: 0.76rem;
+  }
+
+  .product-price-line strong {
+    font-size: 0.74rem;
+  }
+
+  .product-footer.compact {
+    gap: 0.3rem;
+  }
+
+  .card-view-btn {
+    min-height: 32px;
+    padding: 0.2rem 0.34rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .group-products-grid,
+  .products-grid {
+    grid-template-columns: 1fr;
   }
 }
 
