@@ -52,9 +52,6 @@ function Checkout() {
   const [profileValidation, setProfileValidation] = useState(null);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   
-  // Payment state (demo)
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  
   const sessionId = searchParams.get('session_id') || localStorage.getItem('checkout_session') || generateSessionId();
 
   useEffect(() => {
@@ -77,18 +74,26 @@ function Checkout() {
           const retryOrder = await ordersApi.getById(retryOrderId);
           const retryItems = Array.isArray(retryOrder?.items) ? retryOrder.items : [];
           cartItems = retryItems
-            .map((item) => {
+            .map((item, index) => {
               const quantity = Number(item.quantity || 0);
               const price = Number(item.price || 0);
+              const parsedProductId = Number(item.product_id || item.id || 0);
+              const manual = Number(item.is_manual || 0) === 1 || !parsedProductId;
+              const quantityLabelRaw = String(item.quantity_label || item.qty_text || '').trim();
               return {
-                id: item.product_id || item.id,
+                id: manual ? (item.id || `manual:retry:${index}`) : parsedProductId,
+                product_id: manual ? null : parsedProductId,
                 name: item.product_name || item.name || 'Item',
                 image: item.product_image || item.image || '/logo.png',
                 category: item.category || '',
                 uom: item.uom || 'pcs',
-                stock: Number(item.stock || quantity || 1),
+                stock: manual ? null : Number(item.stock || quantity || 1),
                 quantity: quantity > 0 ? quantity : 1,
-                price: price > 0 ? price : 0
+                quantity_label: quantityLabelRaw || String(quantity > 0 ? quantity : 1),
+                price: price > 0 ? price : 0,
+                item_type: manual ? 'manual' : 'catalog',
+                is_manual: manual ? 1 : 0,
+                price_unknown: manual && price <= 0 ? 1 : 0,
               };
             })
             .filter((item) => item.id && item.price >= 0 && item.quantity > 0);
@@ -112,28 +117,55 @@ function Checkout() {
         cartItems = JSON.parse(savedCart);
       }
 
-      if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      const normalizedCartItems = (Array.isArray(cartItems) ? cartItems : [])
+        .map((item, index) => {
+          const parsedProductId = Number(item?.product_id || item?.id || 0);
+          const manual = Number(item?.is_manual || 0) === 1
+            || String(item?.item_type || '').trim().toLowerCase() === 'manual'
+            || !parsedProductId;
+          const quantity = Math.max(1, Number(item?.quantity || 1));
+          const quantityLabelRaw = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim();
+          const price = Math.max(0, Number(item?.price || 0));
+          return {
+            ...item,
+            id: item?.id || (manual ? `manual:checkout:${index}` : parsedProductId),
+            product_id: manual ? null : parsedProductId,
+            name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
+            quantity,
+            quantity_label: quantityLabelRaw || String(quantity),
+            price,
+            stock: manual ? null : Math.max(1, Number(item?.stock || 1)),
+            item_type: manual ? 'manual' : 'catalog',
+            is_manual: manual ? 1 : 0,
+            price_unknown: manual ? Number(item?.price_unknown || (price <= 0 ? 1 : 0)) : 0,
+          };
+        })
+        .filter((item) => item.id && item.quantity > 0);
+
+      if (!normalizedCartItems.length) {
         navigate('/products');
         return;
       }
 
-      setCart(cartItems);
+      setCart(normalizedCartItems);
       
       // Check for logged in user
       const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        setIsLoggedIn(true);
-        setIsAdmin(userData.role === 'admin');
-        
-        // Check if admin wants to place order for customer
-        if (userData.role === 'admin' && searchParams.get('admin') === 'true') {
-          setAdminMode(true);
-        } else {
-          // Validate customer profile
-          await validateCustomerProfile(userData.id);
-        }
+      if (!savedUser) {
+        navigate('/login');
+        return;
+      }
+      const userData = JSON.parse(savedUser);
+      setUser(userData);
+      setIsLoggedIn(true);
+      setIsAdmin(userData.role === 'admin');
+      
+      // Check if admin wants to place order for customer
+      if (userData.role === 'admin' && searchParams.get('admin') === 'true') {
+        setAdminMode(true);
+      } else {
+        // Validate customer profile
+        await validateCustomerProfile(userData.id);
       }
       
       // Save session ID
@@ -233,6 +265,19 @@ function Checkout() {
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
+  const getItemQuantityLabel = (item) => {
+    const custom = String(item?.quantity_label || item?.qty_text || '').trim();
+    if (custom) return custom;
+    const qty = Number(item?.quantity || 1);
+    return Number.isFinite(qty) && qty > 0 ? String(qty) : '1';
+  };
+
+  const isUnknownPriceItem = (item) => {
+    const manual = Number(item?.is_manual || 0) === 1 || String(item?.item_type || '') === 'manual';
+    return manual && (Number(item?.price_unknown || 0) === 1 || Number(item?.price || 0) <= 0);
+  };
+  const hasUnknownPriceItems = cart.some((item) => isUnknownPriceItem(item));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -244,9 +289,21 @@ function Checkout() {
       }
       const orderData = {
         items: cart.map(item => ({
-          product_id: item.id,
-          quantity: item.quantity,
-          price: item.price
+          product_id: Number(item?.is_manual || 0) === 1 ? null : Number(item.product_id || item.id || 0),
+          product_name: (() => {
+            const baseName = String(item.name || 'Item').trim() || 'Item';
+            const quantityLabel = getItemQuantityLabel(item);
+            if (Number(item?.is_manual || 0) === 1 && quantityLabel) {
+              return `${baseName} [Qty: ${quantityLabel}]`;
+            }
+            return baseName;
+          })(),
+          quantity: Math.max(1, Number(item.quantity || 1)),
+          quantity_label: getItemQuantityLabel(item),
+          price: Math.max(0, Number(item.price || 0)),
+          price_unknown: isUnknownPriceItem(item) ? 1 : 0,
+          is_manual: Number(item?.is_manual || 0) === 1 ? 1 : 0,
+          item_type: Number(item?.is_manual || 0) === 1 ? 'manual' : 'catalog',
         })),
         customer_name: formData.customer_name,
         customer_email: formData.customer_email,
@@ -258,7 +315,7 @@ function Checkout() {
           zip: formData.zip,
           country: formData.country
         },
-        payment_method: paymentMethod,
+        payment_method: 'cash',
         payment_data: null,
         is_admin_order: adminMode,
         selected_customer_id: selectedCustomer?.id || user?.id
@@ -309,7 +366,7 @@ function Checkout() {
           <h1>Order Placed Successfully!</h1>
           <p className="order-number">Order #{orderResult.orderNumber}</p>
           <p className="success-message">
-            Thank you for your purchase! A confirmation email has been sent to {formData.customer_email}
+            Thank you for your order. Payment mode: Cash on delivery.
           </p>
           <div className="order-details">
             <p>Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong></p>
@@ -525,31 +582,8 @@ function Checkout() {
               <h2><CreditCard size={20} /> Payment Method</h2>
               <p className="payment-note">
                 <CreditCard size={16} />
-                Choose cash payment or use store credit.
+                Cash on delivery only. No online payment step is required.
               </p>
-              
-              <div className="payment-methods">
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cash"
-                    checked={paymentMethod === 'cash'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  <span>Cash</span>
-                </label>
-                <label className="payment-option">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="credit"
-                    checked={paymentMethod === 'credit'}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  />
-                  <span>Store Credit</span>
-                </label>
-              </div>
             </div>
 
             <button 
@@ -569,14 +603,16 @@ function Checkout() {
             {cart.map(item => (
               <div key={item.id} className="summary-item">
                 <div className="summary-item-image">
-                  <img src={item.image} alt={item.name} />
+                  {item.image ? <img src={item.image} alt={item.name} /> : <div className="placeholder-image">No Image</div>}
                 </div>
                 <div className="summary-item-details">
                   <h4>{item.name}</h4>
-                  <p>Qty: {item.quantity}</p>
+                  <p>Qty: {getItemQuantityLabel(item)}</p>
                 </div>
                 <div className="summary-item-price">
-                  {formatCurrency(item.price * item.quantity)}
+                  {isUnknownPriceItem(item)
+                    ? 'Unknown'
+                    : formatCurrency(item.price * item.quantity)}
                 </div>
               </div>
             ))}
@@ -601,6 +637,9 @@ function Checkout() {
               <span>{formatCurrency(getTotal() * 1.1)}</span>
             </div>
           </div>
+          {hasUnknownPriceItems ? (
+            <p className="unknown-price-note">Requested/manual items are submitted with price marked as Unknown.</p>
+          ) : null}
         </div>
       </div>
     </div>

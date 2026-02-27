@@ -22,13 +22,9 @@ const formatDate = (dateString) => {
 
 const getStatusIcon = (status) => {
   switch (status) {
-    case 'delivered':
-    case 'confirmed':
+    case 'received':
       return <CheckCircle size={20} className="status-icon delivered" />;
-    case 'shipped':
-      return <Truck size={20} className="status-icon shipped" />;
-    case 'processing':
-    case 'pending':
+    case 'ordered':
       return <Clock size={20} className="status-icon pending" />;
     default:
       return <Package size={20} className="status-icon default" />;
@@ -36,9 +32,37 @@ const getStatusIcon = (status) => {
 };
 
 const getStatusStep = (status) => {
-  const steps = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+  const steps = ['ordered', 'received'];
   const index = steps.indexOf(status);
   return index >= 0 ? index : 0;
+};
+
+const extractQtyLabelFromName = (value) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/\s*\[Qty:\s*([^\]]+)\]\s*$/i);
+  if (!match) {
+    return { name: raw, qtyLabel: '' };
+  }
+  return {
+    name: raw.replace(/\s*\[Qty:\s*([^\]]+)\]\s*$/i, '').trim(),
+    qtyLabel: String(match[1] || '').trim(),
+  };
+};
+
+const getOrderItemDisplay = (item) => {
+  const parsed = extractQtyLabelFromName(item?.product_name || item?.name || '');
+  const manual = Number(item?.is_manual || 0) === 1 || !Number(item?.product_id || 0);
+  const unitPrice = Number(item?.price || 0);
+  const quantity = Number(item?.quantity || 0);
+  const computedTotal = Number(item?.total || (quantity * unitPrice));
+  const quantityLabel = String(item?.quantity_label || parsed.qtyLabel || '').trim();
+  return {
+    name: parsed.name || '-',
+    quantityText: quantityLabel || String(quantity > 0 ? quantity : 1),
+    unitPrice,
+    total: computedTotal,
+    unknownPrice: manual && unitPrice <= 0,
+  };
 };
 
 function OrderTracking() {
@@ -59,6 +83,11 @@ function OrderTracking() {
     setLoading(true);
     setError(null);
     try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!storedUser?.id) {
+        navigate('/login');
+        return;
+      }
       let orderData;
       if (orderId.match(/^ORD-/)) {
         orderData = await ordersApi.getByOrderNumber(orderId);
@@ -103,15 +132,13 @@ function OrderTracking() {
   const buildOrderReceiptHtml = (orderData) => {
     const items = Array.isArray(orderData?.items) ? orderData.items : [];
     const rows = items.map((item) => {
-      const qty = Number(item.quantity || 0);
-      const unit = Number(item.price || 0);
-      const total = Number(item.total || (qty * unit));
+      const display = getOrderItemDisplay(item);
       return `
         <tr>
-          <td>${escapeHtml(item.product_name || '-')}</td>
-          <td>${qty}</td>
-          <td>${escapeHtml(formatCurrency(unit))}</td>
-          <td>${escapeHtml(formatCurrency(total))}</td>
+          <td>${escapeHtml(display.name)}</td>
+          <td>${escapeHtml(display.quantityText)}</td>
+          <td>${escapeHtml(display.unknownPrice ? 'Unknown' : formatCurrency(display.unitPrice))}</td>
+          <td>${escapeHtml(display.unknownPrice ? 'Unknown' : formatCurrency(display.total))}</td>
         </tr>
       `;
     }).join('');
@@ -232,7 +259,7 @@ function OrderTracking() {
   }
 
   const currentStep = getStatusStep(order.status);
-  const progressPercentage = (currentStep / 4) * 100;
+  const progressPercentage = (currentStep / 1) * 100;
 
   return (
     <div className="order-tracking-page">
@@ -250,24 +277,12 @@ function OrderTracking() {
         </div>
         <div className="progress-steps">
           <div className={`step ${currentStep >= 0 ? 'active' : ''}`}>
-            {getStatusIcon('pending')}
-            <span>Order Placed</span>
+            {getStatusIcon('ordered')}
+            <span>Ordered</span>
           </div>
           <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>
-            {getStatusIcon('confirmed')}
-            <span>Confirmed</span>
-          </div>
-          <div className={`step ${currentStep >= 2 ? 'active' : ''}`}>
-            {getStatusIcon('processing')}
-            <span>Processing</span>
-          </div>
-          <div className={`step ${currentStep >= 3 ? 'active' : ''}`}>
-            {getStatusIcon('shipped')}
-            <span>Shipped</span>
-          </div>
-          <div className={`step ${currentStep >= 4 ? 'active' : ''}`}>
-            {getStatusIcon('delivered')}
-            <span>Delivered</span>
+            {getStatusIcon('received')}
+            <span>Received</span>
           </div>
         </div>
       </div>
@@ -280,25 +295,30 @@ function OrderTracking() {
           <div className="tracking-card">
             <h2>Order Items</h2>
             <div className="order-items-list">
-              {order.items?.map((item, index) => (
-                <div key={item.id} className="tracking-item" style={{ animationDelay: `${index * 0.1}s` }}>
-                  <div className="item-image">
-                    {item.product_image ? (
-                      <img src={item.product_image} alt={item.product_name} />
-                    ) : (
-                      <div className="placeholder-image">No Image</div>
-                    )}
+              {order.items?.map((item, index) => {
+                const display = getOrderItemDisplay(item);
+                return (
+                  <div key={item.id} className="tracking-item" style={{ animationDelay: `${index * 0.1}s` }}>
+                    <div className="item-image">
+                      {item.product_image ? (
+                        <img src={item.product_image} alt={item.product_name} />
+                      ) : (
+                        <div className="placeholder-image">No Image</div>
+                      )}
+                    </div>
+                    <div className="item-details">
+                      <h4>{display.name}</h4>
+                      <p className="item-quantity">Quantity: {display.quantityText}</p>
+                      <p className="item-price">
+                        {display.unknownPrice ? 'Price: Unknown' : `${formatCurrency(display.unitPrice)} each`}
+                      </p>
+                    </div>
+                    <div className="item-total">
+                      {display.unknownPrice ? 'Unknown' : formatCurrency(display.total)}
+                    </div>
                   </div>
-                  <div className="item-details">
-                    <h4>{item.product_name}</h4>
-                    <p className="item-quantity">Quantity: {item.quantity}</p>
-                    <p className="item-price">{formatCurrency(item.price)} each</p>
-                  </div>
-                  <div className="item-total">
-                    {formatCurrency(item.total || item.price * item.quantity)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

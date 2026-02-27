@@ -19,7 +19,7 @@ const createEmptyItem = () => ({
   amount: 0
 });
 
-const BillingSystem = () => {
+const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '' });
   const [items, setItems] = useState([createEmptyItem()]);
   const [loading, setLoading] = useState(false);
@@ -29,11 +29,13 @@ const BillingSystem = () => {
   const [lastShareText, setLastShareText] = useState('');
   const [lastShareNumber, setLastShareNumber] = useState('');
   const [lastSharePhone, setLastSharePhone] = useState('');
+  const [prefillSummary, setPrefillSummary] = useState('');
 
   const [customersList, setCustomersList] = useState([]);
   const [productsList, setProductsList] = useState([]);
 
   const customerSearchTimeout = useRef(null);
+  const appliedPrefillKeyRef = useRef('');
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -83,6 +85,55 @@ const BillingSystem = () => {
 
     return { amount: Math.max(0, subtotal - discountAmount) };
   }, []);
+
+  useEffect(() => {
+    const prefillKey = String(initialPrefill?.key || '').trim();
+    if (!prefillKey) return;
+    if (appliedPrefillKeyRef.current === prefillKey) return;
+    appliedPrefillKeyRef.current = prefillKey;
+
+    const prefillCustomer = initialPrefill?.customer && typeof initialPrefill.customer === 'object'
+      ? initialPrefill.customer
+      : {};
+    const prefillItemsRaw = Array.isArray(initialPrefill?.items) ? initialPrefill.items : [];
+    const prefillItems = prefillItemsRaw.length
+      ? prefillItemsRaw.map((item, index) => {
+        const price = Math.max(0, Number(item?.price || item?.mrp || 0));
+        const qty = Math.max(1, Number(item?.qty || item?.quantity || 1));
+        const disc = Math.max(0, Number(item?.disc || item?.discount || 0));
+        const discType = item?.discType === 'percentage' ? 'percentage' : 'fixed';
+        return {
+          id: item?.id || `prefill_item_${index}_${Date.now()}`,
+          name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
+          productId: Number(item?.productId || item?.product_id || 0) || null,
+          price,
+          qty,
+          unit: String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
+          disc,
+          discType,
+          amount: calculateAmount(price, qty, disc, discType).amount,
+        };
+      })
+      : [createEmptyItem()];
+
+    setCustomer({
+      id: Number(prefillCustomer?.id || 0) || null,
+      name: String(prefillCustomer?.name || '').trim(),
+      email: String(prefillCustomer?.email || '').trim(),
+      phone: String(prefillCustomer?.phone || '').trim(),
+      address: String(prefillCustomer?.address || '').trim(),
+    });
+    setItems(prefillItems);
+    setPaidAmount(0);
+    setLastShareText('');
+    setLastShareNumber('');
+    setLastSharePhone('');
+
+    const sourceOrderLabel = String(initialPrefill?.source?.order_number || '').trim()
+      || (Number(initialPrefill?.source?.order_id || 0) ? `#${Number(initialPrefill.source.order_id)}` : '');
+    setPrefillSummary(sourceOrderLabel ? `Loaded from pending order ${sourceOrderLabel}` : 'Loaded from pending order');
+    if (typeof onPrefillApplied === 'function') onPrefillApplied(initialPrefill);
+  }, [initialPrefill, calculateAmount, onPrefillApplied]);
 
   const handleProductChange = useCallback((index, field, value) => {
     setItems((prevItems) => {
@@ -459,6 +510,7 @@ const BillingSystem = () => {
       setLastShareText(shareText);
       setLastShareNumber(result?.bill_number || '');
       setLastSharePhone(payload.customer_phone || '');
+      setPrefillSummary('');
       alert('Bill created successfully.');
       setCustomer({ name: '', email: '', phone: '', address: '' });
       setItems([createEmptyItem()]);
@@ -503,6 +555,7 @@ const BillingSystem = () => {
   return (
     <div className="billing-content">
       <h1>Billing Invoice</h1>
+      {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
 
       {error && (
         <div className="error-message" role="alert">
@@ -717,6 +770,7 @@ const BillingSystem = () => {
           setCustomer({ name: '', email: '', phone: '', address: '' });
           setItems([createEmptyItem()]);
           setPaidAmount(0);
+          setPrefillSummary('');
         }}>
           Clear
         </button>

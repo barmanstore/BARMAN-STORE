@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, Shield, LogOut, ChevronDown, Settings, X, CreditCard } from 'lucide-react';
+import { User, Shield, LogOut, ChevronDown, X, CreditCard, FileText, Lightbulb } from 'lucide-react';
 import { resolveMediaSourceForDisplay } from '../services/api';
 import './UserMenu.css';
 
@@ -183,11 +183,19 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                         <span>My Credit History</span>
                       </Link>
                     )}
+                    {user.role === 'customer' && (
+                      <Link to="/my-bills" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                        <FileText size={18} />
+                        <span>My Bills</span>
+                      </Link>
+                    )}
+                    {user.role === 'customer' && (
+                      <Link to="/product-requests" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                        <Lightbulb size={18} />
+                        <span>Request Product</span>
+                      </Link>
+                    )}
                     <div className="dropdown-divider"></div>
-                    <Link to="/change-password" className="dropdown-item" onClick={closeAccountMenuAndNav}>
-                      <Settings size={18} />
-                      <span>Change Password</span>
-                    </Link>
                     <button className="dropdown-item logout-item" onClick={handleLogout}>
                       <LogOut size={18} />
                       <span>Sign out</span>
@@ -239,13 +247,20 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                           <span>My Credit History</span>
                         </Link>
                       )}
+                      {user.role === 'customer' && (
+                        <Link to="/my-bills" className="dropdown-item" onClick={closeAccountMenu}>
+                          <FileText size={18} />
+                          <span>My Bills</span>
+                        </Link>
+                      )}
+                      {user.role === 'customer' && (
+                        <Link to="/product-requests" className="dropdown-item" onClick={closeAccountMenu}>
+                          <Lightbulb size={18} />
+                          <span>Request Product</span>
+                        </Link>
+                      )}
 
                       <div className="dropdown-divider"></div>
-
-                      <Link to="/change-password" className="dropdown-item" onClick={closeAccountMenu}>
-                        <Settings size={18} />
-                        <span>Change Password</span>
-                      </Link>
 
                       <button className="dropdown-item logout-item" onClick={handleLogout}>
                         <LogOut size={18} />

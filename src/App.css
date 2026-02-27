@@ -108,6 +108,26 @@ body {
   justify-content: flex-end;
 }
 
+.header-right-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.desktop-user-menu {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mobile-user-menu {
+  display: none;
+}
+
+.mobile-nav-only {
+  display: none !important;
+}
+
 .nav a {
   color: white;
   text-decoration: none;
@@ -152,6 +172,107 @@ body {
   display: none !important;
 }
 
+.orders-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.orders-trigger {
+  color: white;
+  text-decoration: none;
+  font-size: clamp(0.75rem, 2vw, 0.9rem);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  position: relative;
+  padding: 0.5rem 0.75rem;
+  transition: color var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.orders-trigger svg {
+  width: clamp(16px, 4vw, 20px);
+  height: clamp(16px, 4vw, 20px);
+}
+
+.orders-trigger::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--color-secondary);
+  transition: width var(--transition-fast);
+}
+
+.orders-menu:hover .orders-trigger,
+.orders-menu:focus-within .orders-trigger,
+.orders-trigger:active {
+  color: var(--color-secondary);
+}
+
+.orders-menu:hover .orders-trigger::after,
+.orders-menu:focus-within .orders-trigger::after,
+.orders-trigger:active::after {
+  width: 100%;
+}
+
+.orders-submenu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  min-width: 220px;
+  display: none;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: #121212;
+  box-shadow: var(--shadow-lg);
+  z-index: 1200;
+}
+
+.orders-menu:hover .orders-submenu,
+.orders-menu:focus-within .orders-submenu {
+  display: flex;
+}
+
+.orders-submenu .orders-submenu-item {
+  color: #f8f8f8;
+  text-decoration: none;
+  padding: 0.62rem 0.72rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.82rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  background: transparent;
+}
+
+.orders-submenu .orders-submenu-item::after {
+  display: none;
+}
+
+.orders-submenu .orders-submenu-item:hover,
+.orders-submenu .orders-submenu-item:focus-visible,
+.orders-submenu .orders-submenu-item:active {
+  color: #ffffff;
+  background: rgba(212, 175, 55, 0.16);
+}
+
 
 /* Cart Link */
 .cart-link {
@@ -162,6 +283,20 @@ body {
   min-width: 44px;
   height: 44px;
   justify-content: center;
+}
+
+.header-cart-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .cart-badge {
@@ -228,6 +363,226 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.notification-inbox {
+  position: relative;
+}
+
+.notification-inbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  height: 42px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.notification-unread-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #111827;
+  font-size: 0.7rem;
+  font-style: normal;
+  padding: 0 5px;
+}
+
+.notification-inbox-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(92vw, 360px);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: var(--shadow-lg);
+  padding: 10px;
+  z-index: 1200;
+}
+
+.notification-inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.notification-inbox-head button {
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.notification-compose-box {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+  background: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.notification-compose-title {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.notification-compose-input,
+.notification-compose-textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.notification-compose-textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.notification-recipient-list {
+  max-height: 120px;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px;
+  display: grid;
+  gap: 4px;
+}
+
+.notification-recipient-item {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: #334155;
+}
+
+.notification-recipients-empty,
+.notification-compose-helper {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.notification-compose-send {
+  border: 1px solid #0f4fa8;
+  background: #0f4fa8;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.notification-compose-send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notification-compose-feedback {
+  margin: 0;
+  font-size: 12px;
+}
+
+.notification-compose-feedback.success {
+  color: #166534;
+}
+
+.notification-compose-feedback.error {
+  color: #b91c1c;
+}
+
+.notification-inbox-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.notification-inbox-list {
+  display: grid;
+  gap: 8px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.notification-inbox-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.notification-inbox-item.is-unread {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.notification-inbox-item.is-read {
+  background: #ffffff;
+  opacity: 0.9;
+}
+
+.notification-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.notification-item-head strong {
+  font-size: 13px;
+}
+
+.notification-item-head small {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.notification-inbox-item p {
+  margin: 0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.notification-item-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.notification-item-actions a,
+.notification-item-actions button {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  text-decoration: none;
+  color: #0f172a;
+  cursor: pointer;
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
@@ -266,6 +621,10 @@ body {
 
   .nav.nav-open {
     transform: translateX(0);
+  }
+
+  .orders-menu {
+    display: none;
   }
 
   .nav a {
@@ -323,6 +682,37 @@ body {
   /* Main Content */
   .main-content {
     padding: 1rem;
+  }
+
+  .desktop-user-menu {
+    display: none;
+  }
+
+  .mobile-user-menu {
+    display: block;
+  }
+
+  .header .nav > a.mobile-nav-only {
+    display: flex !important;
+  }
+
+  .header-right-tools {
+    gap: 0.35rem;
+  }
+
+  .notification-inbox-toggle {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .notification-inbox-toggle span {
+    display: none;
+  }
+
+  .notification-inbox-panel {
+    right: -6px;
+    width: min(94vw, 360px);
   }
 }
 
@@ -461,6 +851,10 @@ body {
     transform: translateX(0);
   }
 
+  .orders-menu {
+    display: none;
+  }
+
   .mobile-menu-btn {
     display: block;
   }
@@ -542,6 +936,37 @@ body {
     align-items: center;
     justify-content: flex-start;
     gap: 0.55rem;
+  }
+
+  .desktop-user-menu {
+    display: none;
+  }
+
+  .mobile-user-menu {
+    display: block;
+  }
+
+  .header .nav > a.mobile-nav-only {
+    display: flex !important;
+  }
+
+  .header-right-tools {
+    gap: 0.35rem;
+  }
+
+  .notification-inbox-toggle {
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .notification-inbox-toggle span {
+    display: none;
+  }
+
+  .notification-inbox-panel {
+    right: -6px;
+    width: min(94vw, 360px);
   }
 
   .mobile-menu-btn {

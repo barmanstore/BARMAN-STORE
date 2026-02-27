@@ -744,6 +744,8 @@ const PHONE_VERIFICATION_REQUIRED = parseBooleanEnv(process.env.PHONE_VERIFICATI
 const OTP_PROVIDER = String(process.env.OTP_PROVIDER || 'twilio').trim().toLowerCase();
 const OTP_TTL_SECONDS = Math.max(60, Number(process.env.OTP_TTL_SECONDS || 300));
 const OTP_MAX_ATTEMPTS = Math.max(1, Number(process.env.OTP_MAX_ATTEMPTS || 5));
+const AUTH_LOGIN_OTP_EXPOSE_CODE = process.env.NODE_ENV !== 'production'
+  || parseBooleanEnv(process.env.AUTH_LOGIN_OTP_EXPOSE_CODE, false);
 const OTP_DELIVERY_MODE = String(
   process.env.OTP_DELIVERY_MODE || (AUTH_FLOW_MODE === 'provider' ? 'auto' : 'manual')
 ).trim().toLowerCase() === 'auto'
@@ -1084,12 +1086,43 @@ const generateOrderNumber = () => {
 const generatePONumber = () => `PO-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateReturnNumber = () => `RET-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+const ORDER_STATUS_ORDERED = 'ordered';
+const ORDER_STATUS_RECEIVED = 'received';
+const ORDER_ALLOWED_STATUSES = new Set([ORDER_STATUS_ORDERED, ORDER_STATUS_RECEIVED]);
+const normalizeOrderStatus = (status, fallback = ORDER_STATUS_ORDERED) => {
+  const raw = String(status || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === ORDER_STATUS_ORDERED || raw === 'pending') return ORDER_STATUS_ORDERED;
+  if (raw === ORDER_STATUS_RECEIVED || raw === 'confirmed' || raw === 'delivered' || raw === 'processing' || raw === 'shipped') {
+    return ORDER_STATUS_RECEIVED;
+  }
+  return fallback;
+};
+
+const normalizeOrderPaymentStatus = (status, orderStatus) => {
+  const normalizedOrderStatus = normalizeOrderStatus(orderStatus, ORDER_STATUS_ORDERED);
+  if (normalizedOrderStatus === ORDER_STATUS_RECEIVED) return 'paid';
+  return 'pending';
+};
+
 const normalizePaymentMethod = (method) => {
   const raw = String(method || '').trim().toLowerCase();
   if (!raw) return 'cash';
   if (raw === 'cod' || raw === 'cash') return 'cash';
-  if (raw === 'credit' || raw === 'store_credit' || raw === 'store-credit') return 'credit';
   return 'cash';
+};
+
+const parseOrderAddress = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'object') return value;
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return { street: raw };
+  }
 };
 
 const normalizeDistributorLedgerType = (type) => {
@@ -1189,6 +1222,96 @@ const updateNotificationEventStatus = async (id, { status, errorMessage = null, 
      WHERE id = ?`,
     [normalizedStatus, errorMessage ? String(errorMessage) : null, sentBy || null, sentAt, eventId]
   );
+};
+
+const parseJsonText = (value, fallback = null) => {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const normalizeNotificationLevel = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'warning' || normalized === 'error') return normalized;
+  return 'info';
+};
+
+const createAppNotification = async ({
+  userId,
+  title,
+  message,
+  level = 'info',
+  entityType = null,
+  entityId = null,
+  issueId = null,
+  metadata = null,
+  createdBy = null,
+}) => {
+  const normalizedUserId = Number(userId || 0);
+  if (!normalizedUserId) return 0;
+  const normalizedTitle = String(title || '').trim();
+  const normalizedMessage = String(message || '').trim();
+  if (!normalizedTitle || !normalizedMessage) return 0;
+  const result = await dbRunAsync(
+    `INSERT INTO app_notifications
+    (user_id, title, message, level, entity_type, entity_id, issue_id, is_read, metadata, created_by, read_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL)`,
+    [
+      normalizedUserId,
+      normalizedTitle,
+      normalizedMessage,
+      normalizeNotificationLevel(level),
+      entityType ? String(entityType).trim() : null,
+      entityId ? Number(entityId || 0) : null,
+      issueId ? Number(issueId || 0) : null,
+      metadata ? safeSerializeJson(metadata) : null,
+      createdBy ? Number(createdBy || 0) : null,
+    ]
+  );
+  return Number(result.lastInsertRowid || 0);
+};
+
+const notifyAdmins = async ({
+  title,
+  message,
+  level = 'info',
+  entityType = null,
+  entityId = null,
+  issueId = null,
+  metadata = null,
+  createdBy = null,
+}) => {
+  const admins = await dbAllAsync(`SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`);
+  for (const admin of admins || []) {
+    const adminId = Number(admin?.id || 0);
+    if (!adminId) continue;
+    await createAppNotification({
+      userId: adminId,
+      title,
+      message,
+      level,
+      entityType,
+      entityId,
+      issueId,
+      metadata,
+      createdBy,
+    });
+  }
+};
+
+const normalizeCreditIssueStatus = (value, { fallback = 'open' } = {}) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (normalized === 'reviewed') return 'in_review';
+  if (normalized === 'resolved') return 'corrected';
+  if (normalized === 'open' || normalized === 'in_review' || normalized === 'corrected' || normalized === 'rejected') {
+    return normalized;
+  }
+  return fallback;
 };
 
 const normalizeContactVerificationRequestType = (value) => {
@@ -2030,411 +2153,275 @@ app.get('/api/auth/session', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', authIpLimiter, async (req, res) => {
-  try {
-    const { email, phone, password } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
+const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
 
-    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
+app.post('/api/auth/otp/request', authIpLimiter, async (req, res) => {
+  try {
+    const authMode = String(req.body?.mode || req.body?.purpose || 'login').trim().toLowerCase() === 'register'
+      ? 'register'
+      : 'login';
+    const normalizedEmail = normalizeEmail(req.body?.email);
+    const phoneParsed = parsePhoneInput(req.body?.phone);
+    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
+    const normalizedPhone = phoneParsed.value;
+    if (!normalizedEmail && !normalizedPhone) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (normalizedEmail && normalizedPhone) {
+      return res.status(400).json({ error: 'Provide either email or phone, not both' });
+    }
+    if (normalizedPhone) {
+      return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
+    }
+
+    if (isSupabaseEmailAuthUsable()) {
       try {
-        const authResult = await supabaseAuthProvider.signInWithPassword({
+        await supabaseAuthProvider.requestEmailOtp({
           email: normalizedEmail,
-          password: String(password || ''),
+          shouldCreateUser: authMode === 'register',
         });
-        const supabaseUser = authResult?.user || null;
-        const synced = await syncLocalUserFromSupabaseAuth({
+        return res.status(201).json({
+          success: true,
+          message: 'OTP sent to email.',
+          delivery_channel: 'email',
+          delivery_mode: 'supabase',
+          otp_ttl_seconds: OTP_TTL_SECONDS,
+          provider: 'supabase',
+        });
+      } catch (error) {
+        return res.status(400).json({ error: error.message || 'Failed to send email OTP' });
+      }
+    }
+
+    let user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+
+    if (authMode === 'login' && !user) {
+      return res.status(404).json({
+        error: 'Account not found. Please register first.',
+        register_required: true,
+      });
+    }
+    if (authMode === 'register' && user) {
+      return res.status(409).json({
+        error: 'Account already exists. Please sign in.',
+        login_required: true,
+      });
+    }
+
+    if (authMode === 'register' && !user) {
+      const displayName = normalizedEmail.split('@')[0];
+      try {
+        const created = await dbRunAsync(
+          `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            'customer',
+            displayName,
+            normalizedEmail || null,
+            0,
+            null,
+            0,
+            null,
+            hashPassword(generateTemporaryPassword()),
+            0,
+          ]
+        );
+        user = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [created.lastInsertRowid]);
+      } catch (error) {
+        if (!isUniqueViolationError(error)) throw error;
+        user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+      }
+    }
+    if (!user) {
+      return res.status(500).json({ error: 'Unable to prepare OTP login for this account' });
+    }
+
+    const otpCode = generateOtpCode(6);
+    const otpHash = hashPassword(otpCode);
+    const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000).toISOString();
+    await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE email = ? AND used = 0`, [normalizedEmail]);
+    await dbRunAsync(
+      `INSERT INTO auth_login_otps (user_id, email, phone, otp_hash, expires_at, attempts, max_attempts, used)
+       VALUES (?, ?, ?, ?, ?, 0, ?, 0)`,
+      [user.id, normalizedEmail || null, null, otpHash, expiresAt, OTP_MAX_ATTEMPTS]
+    );
+
+    const responsePayload = {
+      success: true,
+      message: 'OTP sent to email.',
+      delivery_channel: 'email',
+      otp_ttl_seconds: OTP_TTL_SECONDS,
+    };
+    const preparedEmail = notificationService.prepareEmail({
+      type: 'auth_login_otp',
+      to: normalizedEmail,
+      payload: {
+        recipientName: user.name,
+        code: otpCode,
+        expiresAt,
+      },
+    });
+    const eventId = await createNotificationEvent({
+      type: 'auth_login_otp',
+      channel: 'email',
+      recipient: preparedEmail.to,
+      recipientUserId: Number(user.id || 0) || null,
+      subject: preparedEmail.subject,
+      body: preparedEmail.body,
+      metadata: {
+        mode: EMAIL_DELIVERY_MODE,
+        expires_at: expiresAt,
+        mailto_url: preparedEmail.mailto_url,
+      },
+      status: 'prepared',
+    });
+
+    if (EMAIL_DELIVERY_MODE === 'auto') {
+      if (!emailVerificationProvider?.isReady) {
+        await updateNotificationEventStatus(eventId, {
+          status: 'failed',
+          errorMessage: 'Email provider is not configured',
+        });
+        return res.status(503).json({ error: 'Email provider is not configured' });
+      }
+      await emailVerificationProvider.sendVerification({
+        to: normalizedEmail,
+        token: otpCode,
+        link: '',
+        expiresAt,
+        subject: preparedEmail.subject,
+        body: preparedEmail.body,
+      });
+      await updateNotificationEventStatus(eventId, { status: 'sent' });
+    }
+
+    responsePayload.delivery_mode = EMAIL_DELIVERY_MODE;
+    responsePayload.prepared_event_id = eventId;
+    if (AUTH_LOGIN_OTP_EXPOSE_CODE) {
+      responsePayload.dev_otp_code = otpCode;
+      responsePayload.manual_email = {
+        subject: preparedEmail.subject,
+        body: preparedEmail.body,
+        mailto_url: preparedEmail.mailto_url,
+      };
+    }
+    return res.status(201).json(responsePayload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to request OTP' });
+  }
+});
+
+app.post('/api/auth/otp/verify', authIpLimiter, async (req, res) => {
+  try {
+    const normalizedEmail = normalizeEmail(req.body?.email);
+    const phoneParsed = parsePhoneInput(req.body?.phone);
+    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
+    const normalizedPhone = phoneParsed.value;
+    const otpCode = String(req.body?.otp || req.body?.code || '').trim();
+    if (!normalizedEmail && !normalizedPhone) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    if (normalizedEmail && normalizedPhone) {
+      return res.status(400).json({ error: 'Provide either email or phone, not both' });
+    }
+    if (normalizedPhone) {
+      return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
+    }
+    if (!otpCode) return res.status(400).json({ error: 'OTP is required' });
+
+    if (isSupabaseEmailAuthUsable()) {
+      try {
+        const verification = await supabaseAuthProvider.verifySignInOtp({
           email: normalizedEmail,
+          token: otpCode,
+        });
+        const supabaseUser = verification?.user || null;
+        const resolvedEmail = normalizeEmail(supabaseUser?.email) || normalizedEmail;
+        const synced = await syncLocalUserFromSupabaseAuth({
+          email: resolvedEmail,
           metadata: getSupabaseUserMetadata(supabaseUser),
-          emailVerified: isSupabaseEmailVerified(supabaseUser),
-          fallbackPassword: String(password || ''),
+          emailVerified: true,
         });
         if (!synced) {
-          return res.status(401).json({ error: 'Invalid credentials' });
+          return res.status(401).json({ error: 'Unable to sync account after OTP verification' });
         }
         return res.json({
           success: true,
           user: sanitizeUser(synced),
           token: generateToken(synced),
-          auth_provider: 'supabase',
-          supabase_session: toSupabaseSessionPayload(authResult),
-          message: `Welcome back, ${synced.name}`,
+          auth_provider: 'supabase_otp',
+          supabase_session: toSupabaseSessionPayload(verification?.session),
         });
       } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(401).json({ error: error.message || 'Invalid credentials' });
-        }
+        return res.status(400).json({ error: error.message || 'Invalid or expired OTP' });
       }
     }
 
-    let user = null;
-    if (normalizedEmail) {
-      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
-    } else if (phone) {
-      const phoneParsed = parsePhoneInput(phone, { required: true });
-      if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-      const normalizedPhone = phoneParsed.value;
-      user = await dbGetAsync(`SELECT * FROM users WHERE phone = ?`, [normalizedPhone]);
-    } else {
-      return res.status(400).json({ error: 'Email or phone number is required' });
-    }
+    const user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
+    if (!user) return res.status(400).json({ error: 'Invalid or expired OTP' });
 
-    const passwordOk = verifyPassword(password, user);
-    if (!passwordOk) return res.status(401).json({ error: 'Invalid credentials' });
-
-    return res.json({
-      success: true,
-      user: sanitizeUser(user),
-      token: generateToken(user),
-      auth_provider: 'legacy',
-      message: `Welcome back, ${user.name}`,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/register', authIpLimiter, async (req, res) => {
-  try {
-    const { email, phone, password, confirmPassword, name, address } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-    const phoneParsed = parsePhoneInput(phone);
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    if (!normalizedEmail && !normalizedPhone) {
-      return res.status(400).json({ error: 'Email or phone number is required' });
-    }
-    if (!isStrongPassword(password)) {
-      return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-    }
-    if (String(password || '') !== String(confirmPassword || '')) {
-      return res.status(400).json({ error: 'Password and confirm password do not match' });
-    }
-
-    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
-      try {
-        const authResult = await supabaseAuthProvider.signUp({
-          email: normalizedEmail,
-          password: String(password || ''),
-          data: {
-            name: String(name || '').trim() || 'Customer',
-            phone: normalizedPhone || null,
-            address: address || null,
-          },
-        });
-        const supabaseUser = authResult?.user || null;
-        const synced = await syncLocalUserFromSupabaseAuth({
-          email: normalizedEmail,
-          metadata: getSupabaseUserMetadata(supabaseUser),
-          emailVerified: isSupabaseEmailVerified(supabaseUser),
-          fallbackPassword: String(password || ''),
-        });
-        if (!synced) {
-          return res.status(500).json({ error: 'Unable to create local user profile' });
-        }
-
-        let phoneVerification = null;
-        if (normalizedPhone) {
-          phoneVerification = await sendPhoneVerificationChallenge({
-            userId: synced.id,
-            phone: normalizedPhone,
-            recipientName: synced.name,
-          });
-        }
-
-        return res.status(201).json({
-          success: true,
-          user: sanitizeUser(synced),
-          token: generateToken(synced),
-          auth_provider: 'supabase',
-          supabase_session: toSupabaseSessionPayload(authResult),
-          email_verification: {
-            queued: true,
-            provider: 'supabase',
-            message: 'Supabase email verification flow started.',
-          },
-          phone_verification: phoneVerification,
-        });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(400).json({ error: error.message || 'Registration failed' });
-        }
-      }
-    }
-
-    if (normalizedEmail && await dbGetAsync(`SELECT id FROM users WHERE email = ?`, [normalizedEmail])) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
-    if (normalizedPhone && await dbGetAsync(`SELECT id FROM users WHERE phone = ?`, [normalizedPhone])) {
-      return res.status(400).json({ error: 'Phone number already registered' });
-    }
-
-    const result = await dbRunAsync(
-      `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['customer', name || 'Customer', normalizedEmail, 0, normalizedPhone, 0, address || null, hashPassword(password), 0]
+    const otpRow = await dbGetAsync(
+      `SELECT * FROM auth_login_otps
+       WHERE user_id = ?
+         AND COALESCE(email, '') = COALESCE(?, '')
+         AND COALESCE(phone, '') = ''
+         AND used = 0
+       ORDER BY id DESC LIMIT 1`,
+      [user.id, normalizedEmail || null]
     );
-    const user = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [result.lastInsertRowid]);
-    let emailVerification = null;
-    let phoneVerification = null;
-    if (normalizedEmail) {
-      emailVerification = await sendEmailVerificationChallenge({
-        userId: user.id,
-        email: normalizedEmail,
-        recipientName: user.name,
-      });
+    if (!otpRow) return res.status(400).json({ error: 'Invalid or expired OTP' });
+
+    const now = Date.now();
+    const expiresAt = new Date(otpRow.expires_at).getTime();
+    if (!Number.isFinite(expiresAt) || now > expiresAt) {
+      await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
-    if (normalizedPhone) {
-      phoneVerification = await sendPhoneVerificationChallenge({
-        userId: user.id,
-        phone: normalizedPhone,
-        recipientName: user.name,
-      });
-    }
-    return res.status(201).json({
-      success: true,
-      user: sanitizeUser(user),
-      token: generateToken(user),
-      auth_provider: 'legacy',
-      email_verification: emailVerification,
-      phone_verification: phoneVerification,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/change-password', authIpLimiter, async (req, res) => {
-  try {
-    const { email, phone, currentPassword, newPassword, confirmPassword } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-
-    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
-      try {
-        if (!isStrongPassword(newPassword)) {
-          return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-        }
-        if (String(newPassword || '') !== String(confirmPassword || '')) {
-          return res.status(400).json({ error: 'New password and confirm password do not match' });
-        }
-
-        const signInResult = await supabaseAuthProvider.signInWithPassword({
-          email: normalizedEmail,
-          password: String(currentPassword || ''),
-        });
-        const accessToken = String(signInResult?.access_token || '').trim();
-        if (!accessToken) {
-          return res.status(401).json({ error: 'Current password is incorrect' });
-        }
-        await supabaseAuthProvider.updatePassword({
-          accessToken,
-          password: String(newPassword || ''),
-        });
-
-        const synced = await syncLocalUserFromSupabaseAuth({
-          email: normalizedEmail,
-          metadata: getSupabaseUserMetadata(signInResult?.user || null),
-          emailVerified: isSupabaseEmailVerified(signInResult?.user || null),
-          fallbackPassword: String(newPassword || ''),
-        });
-        if (synced) {
-          await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), synced.id]);
-        }
-        return res.json({ success: true, auth_provider: 'supabase', message: 'Password changed successfully' });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(401).json({ error: error.message || 'Current password is incorrect' });
-        }
-      }
+    if (Number(otpRow.attempts || 0) >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS)) {
+      await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
+      return res.status(400).json({ error: 'OTP attempt limit reached' });
     }
 
-    let user = null;
-    if (normalizedEmail) {
-      user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
-    } else if (phone) {
-      const phoneParsed = parsePhoneInput(phone, { required: true });
-      if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-      user = await dbGetAsync(`SELECT * FROM users WHERE phone = ?`, [phoneParsed.value]);
-    }
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    const passwordOk = verifyPassword(currentPassword, user);
-    if (!passwordOk) return res.status(401).json({ error: 'Current password is incorrect' });
-    if (!isStrongPassword(newPassword)) {
-      return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-    }
-    if (String(newPassword || '') !== String(confirmPassword || '')) {
-      return res.status(400).json({ error: 'New password and confirm password do not match' });
-    }
-    await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), user.id]);
-    return res.json({ success: true, message: 'Password changed successfully' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/request-password-reset', authIpLimiter, passwordResetIdentifierLimiter, async (req, res) => {
-  try {
-    const { email, phone, reason } = req.body || {};
-    const reasonText = String(reason || '').trim();
-    const normalizedEmail = normalizeEmail(email);
-    const phoneParsed = parsePhoneInput(phone);
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    if (!normalizedEmail && !normalizedPhone) {
-      return res.status(400).json({ error: 'Email or phone number is required' });
-    }
-    if (normalizedEmail && isSupabaseEmailAuthUsable()) {
-      try {
-        await supabaseAuthProvider.recoverPassword({ email: normalizedEmail });
-        return res.status(201).json({
-          success: true,
-          mode: 'supabase',
-          message: 'If the account exists, password reset instructions were sent by email.',
-        });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(400).json({ error: error.message || 'Failed to start password reset' });
-        }
-      }
-    }
-
-    if (PASSWORD_RESET_MODE === 'admin' && reasonText.length < 5) {
-      return res.status(400).json({ error: 'Reason is required (min 5 characters)' });
-    }
-
-    let user = null;
-    if (normalizedEmail) {
-      user = await dbGetAsync(`SELECT id, name, email, phone FROM users WHERE email = ?`, [normalizedEmail]);
-    } else if (normalizedPhone) {
-      user = await dbGetAsync(`SELECT id, name, email, phone FROM users WHERE phone = ?`, [normalizedPhone]);
-    }
-
-    if (PASSWORD_RESET_MODE === 'otp') {
-      if (!user?.phone) {
-        // Keep account enumeration hard even in OTP mode.
-        return res.status(201).json({
-          success: true,
-          mode: PASSWORD_RESET_MODE,
-          delivery_mode: OTP_DELIVERY_MODE,
-          message: 'If the account exists, reset instructions will be sent.',
-        });
-      }
-      const otpCode = generateOtpCode(6);
-      const otpHash = hashPassword(otpCode);
-      const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000).toISOString();
+    const otpOk = verifyPassword(otpCode, { password_hash: otpRow.otp_hash });
+    if (!otpOk) {
+      const nextAttempts = Number(otpRow.attempts || 0) + 1;
+      const exhausted = nextAttempts >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS);
       await dbRunAsync(
-        `INSERT INTO password_reset_otps (user_id, phone, otp_hash, expires_at, attempts, max_attempts, used)
-         VALUES (?, ?, ?, ?, 0, ?, 0)`,
-        [user.id, user.phone, otpHash, expiresAt, OTP_MAX_ATTEMPTS]
+        `UPDATE auth_login_otps SET attempts = ?, used = ? WHERE id = ?`,
+        [nextAttempts, exhausted ? 1 : Number(otpRow.used || 0), otpRow.id]
       );
-      if (OTP_DELIVERY_MODE === 'auto') {
-        if (!otpProvider?.isReady) {
-          return res.status(503).json({
-            error: 'OTP provider is not configured',
-            missing: otpProvider?.missing || [],
-          });
-        }
-        await otpProvider.sendOtp({ phone: user.phone, code: otpCode });
-      } else {
-        const preparedWhatsApp = notificationService.prepareWhatsApp({
-          type: 'password_reset_otp',
-          to: user.phone,
-          payload: {
-            recipientName: null,
-            code: otpCode,
-            link: '',
-            expiresAt,
-          },
-        });
-        await createNotificationEvent({
-          type: 'password_reset_otp',
-          channel: 'whatsapp',
-          recipient: user.phone,
-          recipientUserId: user.id,
-          subject: 'Password reset OTP prepared',
-          body: preparedWhatsApp.text,
-          metadata: {
-            mode: 'manual',
-            phone: user.phone,
-            expires_at: expiresAt,
-            whatsapp_url: preparedWhatsApp.whatsapp_url,
-          },
-          status: 'prepared',
-        });
-      }
-      return res.status(201).json({
-        success: true,
-        mode: PASSWORD_RESET_MODE,
-        delivery_mode: OTP_DELIVERY_MODE,
-        message: OTP_DELIVERY_MODE === 'auto'
-          ? 'OTP sent successfully'
-          : 'OTP generated for manual handling',
-      });
+      return res.status(400).json({ error: 'Invalid or expired OTP' });
     }
 
-    if (user) {
-      await dbRunAsync(
-        `INSERT INTO password_reset_requests (user_id, email, phone, reason, status, requested_from_ip)
-         VALUES (?, ?, ?, ?, 'pending', ?)`,
-        [user.id, user.email || null, user.phone || null, reasonText || 'Password reset requested', req.ip || req.connection?.remoteAddress || null]
-      );
-    }
-    return res.status(201).json({
-      success: true,
-      mode: PASSWORD_RESET_MODE,
-      message: 'Password reset request submitted to admin',
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/password/recovery/complete', authIpLimiter, async (req, res) => {
-  try {
-    if (!isSupabaseEmailAuthUsable()) {
-      return res.status(400).json({ error: 'Supabase password recovery is not enabled' });
-    }
-
-    const accessToken = String(req.body?.access_token || req.body?.accessToken || getBearerTokenFromRequest(req) || '').trim();
-    const newPassword = String(req.body?.new_password || req.body?.newPassword || '').trim();
-    const confirmPassword = String(req.body?.confirm_password || req.body?.confirmPassword || '').trim();
-
-    if (!accessToken) {
-      return res.status(400).json({ error: 'access_token is required' });
-    }
-    if (!isStrongPassword(newPassword)) {
-      return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-    }
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ error: 'Password and confirm password do not match' });
-    }
-
-    const supabaseUser = await supabaseAuthProvider.getUser({ accessToken });
-    const normalizedEmail = normalizeEmail(supabaseUser?.email);
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: 'Unable to resolve account for recovery token' });
-    }
-
-    await supabaseAuthProvider.updatePassword({ accessToken, password: newPassword });
-    const synced = await syncLocalUserFromSupabaseAuth({
-      email: normalizedEmail,
-      metadata: getSupabaseUserMetadata(supabaseUser),
-      emailVerified: isSupabaseEmailVerified(supabaseUser),
-      fallbackPassword: newPassword,
-    });
-    if (!synced) {
-      return res.status(500).json({ error: 'Unable to sync local account' });
-    }
-    await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), synced.id]);
+    await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
+    await dbRunAsync(`UPDATE users SET email_verified = 1 WHERE id = ?`, [user.id]);
+    const freshUser = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [user.id]);
     return res.json({
       success: true,
-      message: 'Password reset completed successfully',
-      auth_provider: 'supabase',
-      user: sanitizeUser(synced),
-      token: generateToken(synced),
+      user: sanitizeUser(freshUser),
+      token: generateToken(freshUser),
+      auth_provider: 'otp',
     });
   } catch (error) {
-    return res.status(400).json({ error: error.message || 'Failed to complete password reset' });
+    return res.status(500).json({ error: error.message || 'Failed to verify OTP' });
   }
 });
+
+app.post('/api/auth/login', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
+app.post('/api/auth/register', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
+app.post('/api/auth/change-password', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
+app.post('/api/auth/request-password-reset', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
+app.post('/api/auth/password/recovery/complete', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
 
 app.post('/api/auth/email/verification/request', authIpLimiter, emailVerificationLimiter, async (req, res) => {
   try {
@@ -2803,129 +2790,26 @@ app.post('/api/auth/phone/verification/request-self', requireAuth, async (req, r
   }
 });
 
-app.post('/api/auth/reset-password/otp/verify', authIpLimiter, async (req, res) => {
-  try {
-    if (PASSWORD_RESET_MODE !== 'otp') {
-      return res.status(400).json({ error: 'OTP reset is disabled', mode: PASSWORD_RESET_MODE });
-    }
-    const phoneParsed = parsePhoneInput(req.body?.phone, { required: true });
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    const otpCode = String(req.body?.otp || req.body?.code || '').trim();
-    if (!otpCode) return res.status(400).json({ error: 'OTP is required' });
+app.post('/api/auth/reset-password/otp/verify', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
 
-    const user = await dbGetAsync(`SELECT id, phone FROM users WHERE phone = ?`, [normalizedPhone]);
-    if (!user) return res.status(400).json({ error: 'Invalid or expired OTP' });
-    const otpRow = await dbGetAsync(
-      `SELECT * FROM password_reset_otps
-       WHERE user_id = ? AND phone = ? AND used = 0
-       ORDER BY id DESC LIMIT 1`,
-      [user.id, normalizedPhone]
-    );
-    if (!otpRow) return res.status(400).json({ error: 'Invalid or expired OTP' });
-
-    const now = Date.now();
-    const expiresAt = new Date(otpRow.expires_at).getTime();
-    if (!Number.isFinite(expiresAt) || now > expiresAt) {
-      await dbRunAsync(`UPDATE password_reset_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
-    if (Number(otpRow.attempts || 0) >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS)) {
-      await dbRunAsync(`UPDATE password_reset_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-      return res.status(400).json({ error: 'OTP attempt limit reached' });
-    }
-
-    const otpOk = verifyPassword(otpCode, { password_hash: otpRow.otp_hash });
-    if (!otpOk) {
-      const nextAttempts = Number(otpRow.attempts || 0) + 1;
-      const exhausted = nextAttempts >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS);
-      await dbRunAsync(
-        `UPDATE password_reset_otps SET attempts = ?, used = ? WHERE id = ?`,
-        [nextAttempts, exhausted ? 1 : Number(otpRow.used || 0), otpRow.id]
-      );
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
-
-    await dbRunAsync(`UPDATE password_reset_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-    await dbRunAsync(`UPDATE password_reset_sessions SET used = 1 WHERE user_id = ? AND phone = ? AND used = 0`, [user.id, normalizedPhone]);
-    const resetToken = generateOpaqueToken(24);
-    const tokenHash = hashOpaqueToken(resetToken);
-    const sessionExpiresAt = new Date(Date.now() + OTP_VERIFY_SESSION_TTL_SECONDS * 1000).toISOString();
-    await dbRunAsync(
-      `INSERT INTO password_reset_sessions (user_id, phone, token_hash, expires_at, used)
-       VALUES (?, ?, ?, ?, 0)`,
-      [user.id, normalizedPhone, tokenHash, sessionExpiresAt]
-    );
-    return res.json({
-      success: true,
-      mode: PASSWORD_RESET_MODE,
-      reset_token: resetToken,
-      expires_at: sessionExpiresAt,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to verify OTP' });
-  }
-});
-
-app.post('/api/auth/reset-password/otp/complete', authIpLimiter, async (req, res) => {
-  try {
-    if (PASSWORD_RESET_MODE !== 'otp') {
-      return res.status(400).json({ error: 'OTP reset is disabled', mode: PASSWORD_RESET_MODE });
-    }
-    const phoneParsed = parsePhoneInput(req.body?.phone, { required: true });
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    const resetToken = String(req.body?.reset_token || req.body?.resetToken || req.body?.token || '').trim();
-    const newPassword = String(req.body?.new_password || req.body?.newPassword || '');
-    const confirmPassword = String(req.body?.confirm_password || req.body?.confirmPassword || '');
-    if (!resetToken) return res.status(400).json({ error: 'reset_token is required' });
-    if (!isStrongPassword(newPassword)) return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ error: 'Password and confirm password do not match' });
-    }
-
-    const user = await dbGetAsync(`SELECT id, phone FROM users WHERE phone = ?`, [normalizedPhone]);
-    if (!user) return res.status(400).json({ error: 'Invalid or expired reset token' });
-    const tokenHash = hashOpaqueToken(resetToken);
-    const session = await dbGetAsync(
-      `SELECT * FROM password_reset_sessions
-       WHERE user_id = ? AND phone = ? AND token_hash = ? AND used = 0
-       ORDER BY id DESC LIMIT 1`,
-      [user.id, normalizedPhone, tokenHash]
-    );
-    if (!session) return res.status(400).json({ error: 'Invalid or expired reset token' });
-    const now = Date.now();
-    const expiresAt = new Date(session.expires_at).getTime();
-    if (!Number.isFinite(expiresAt) || now > expiresAt) {
-      await dbRunAsync(`UPDATE password_reset_sessions SET used = 1 WHERE id = ?`, [session.id]);
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
-    }
-
-    await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?`, [hashPassword(newPassword), user.id]);
-    await dbRunAsync(`UPDATE password_reset_sessions SET used = 1 WHERE id = ?`, [session.id]);
-    await createNotificationEvent({
-      type: 'password_reset_otp_completed',
-      channel: 'auth',
-      recipient: normalizedPhone,
-      recipientUserId: user.id,
-      subject: 'Password reset completed via OTP',
-      body: 'Password reset was completed using OTP verification.',
-      metadata: { mode: 'otp' },
-      status: 'sent',
-    });
-    return res.json({ success: true, message: 'Password reset completed successfully' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to complete OTP reset' });
-  }
-});
+app.post('/api/auth/reset-password/otp/complete', authIpLimiter, async (_, res) =>
+  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
+);
 
 app.get('/api/auth/reset-mode', (_, res) => {
   return res.json({
     auth_flow_mode: AUTH_FLOW_MODE,
-    mode: PASSWORD_RESET_MODE,
+    mode: 'otp_login_only',
+    auth_methods: {
+      otp: true,
+      oauth: Boolean(supabaseAuthProvider?.isEnabled && supabaseAuthProvider?.clientReady),
+      password: false,
+    },
     otp_provider: OTP_PROVIDER,
     otp_delivery_mode: OTP_DELIVERY_MODE,
-    otp_ready: PASSWORD_RESET_MODE === 'otp' ? Boolean(otpProvider?.isReady) : false,
+    otp_ready: true,
     otp_verify_session_ttl_seconds: OTP_VERIFY_SESSION_TTL_SECONDS,
     phone_verification_required: PHONE_VERIFICATION_REQUIRED,
     whatsapp_delivery_mode: WHATSAPP_DELIVERY_MODE,
@@ -2939,7 +2823,6 @@ app.get('/api/auth/reset-mode', (_, res) => {
     supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
     supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
     supabase_url: supabaseAuthProvider?.baseUrl || null,
-    supabase_password_reset_redirect: SUPABASE_PASSWORD_RESET_REDIRECT || null,
     supabase_email_verify_redirect: SUPABASE_EMAIL_VERIFY_REDIRECT || null,
   });
 });
@@ -3159,6 +3042,221 @@ app.post('/api/admin/notifications/:id/mark-sent', requireAdmin, async (req, res
     return res.json({ success: true, id: eventId, status: 'sent' });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Failed to update notification status' });
+  }
+});
+
+app.get('/api/notifications/me', requireAuth, async (req, res) => {
+  try {
+    const unreadOnly = parseBooleanEnv(req.query?.unread_only, false);
+    const requestedLimit = Number(req.query?.limit || 20);
+    const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
+    const params = [Number(req.authUser?.id || 0)];
+    const rows = await dbAllAsync(
+      `SELECT *
+       FROM app_notifications
+       WHERE user_id = ?
+         ${unreadOnly ? 'AND COALESCE(is_read, 0) = 0' : ''}
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      unreadOnly ? [params[0], limit] : [params[0], limit]
+    );
+    const payload = (rows || []).map((row) => ({
+      ...row,
+      is_read: Number(row?.is_read || 0) === 1,
+      metadata: parseJsonText(row?.metadata, null),
+    }));
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load notifications' });
+  }
+});
+
+app.post('/api/notifications/:id/read', requireAuth, async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id || 0);
+    if (!notificationId) return res.status(400).json({ error: 'Invalid notification id' });
+    const row = await dbGetAsync(
+      `SELECT * FROM app_notifications WHERE id = ? AND user_id = ?`,
+      [notificationId, Number(req.authUser?.id || 0)]
+    );
+    if (!row) return res.status(404).json({ error: 'Notification not found' });
+    await dbRunAsync(
+      `UPDATE app_notifications
+       SET is_read = 1, read_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND user_id = ?`,
+      [notificationId, Number(req.authUser?.id || 0)]
+    );
+    return res.json({ success: true, id: notificationId, is_read: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to mark notification as read' });
+  }
+});
+
+app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
+  try {
+    await dbRunAsync(
+      `UPDATE app_notifications
+       SET is_read = 1, read_at = CURRENT_TIMESTAMP
+       WHERE user_id = ? AND COALESCE(is_read, 0) = 0`,
+      [Number(req.authUser?.id || 0)]
+    );
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to mark notifications as read' });
+  }
+});
+
+app.get('/api/notifications/message-recipients', requireAdmin, async (req, res) => {
+  try {
+    const q = String(req.query?.q || '').trim();
+    const requestedLimit = Number(req.query?.limit || 20);
+    const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
+    const like = `%${q}%`;
+    const rows = q
+      ? await dbAllAsync(
+        `SELECT id, name, email, phone
+         FROM users
+         WHERE role = 'customer'
+           AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)
+         ORDER BY name ASC
+         LIMIT ?`,
+        [like, like, like, limit]
+      )
+      : await dbAllAsync(
+        `SELECT id, name, email, phone
+         FROM users
+         WHERE role = 'customer'
+         ORDER BY name ASC
+         LIMIT ?`,
+        [limit]
+      );
+    return res.json(rows || []);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load recipients' });
+  }
+});
+
+app.post('/api/notifications/messages/to-admin', requireAuth, async (req, res) => {
+  try {
+    const senderId = Number(req.authUser?.id || 0);
+    if (!senderId) return res.status(401).json({ error: 'Unauthorized' });
+    const senderRole = String(req.authUser?.role || '').trim().toLowerCase();
+    if (senderRole === 'admin') {
+      return res.status(400).json({ error: 'Admins should use customer message endpoint' });
+    }
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+    if (message.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
+    const senderName = String(req.authUser?.name || '').trim() || `User #${senderId}`;
+
+    await notifyAdmins({
+      title: `Message from ${senderName}`,
+      message,
+      level: 'info',
+      entityType: 'conversation',
+      metadata: {
+        kind: 'chat_message',
+        direction: 'customer_to_admin',
+        from_user_id: senderId,
+        from_user_name: senderName,
+        route: '/admin?tab=users',
+      },
+      createdBy: senderId,
+    });
+
+    await createAppNotification({
+      userId: senderId,
+      title: 'Message sent',
+      message: 'Your message was sent to admin inbox.',
+      level: 'success',
+      entityType: 'conversation',
+      metadata: {
+        kind: 'chat_message',
+        direction: 'outbound',
+        route: '/profile',
+      },
+      createdBy: senderId,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to send message' });
+  }
+});
+
+app.post('/api/notifications/messages/to-customers', requireAdmin, async (req, res) => {
+  try {
+    const senderId = Number(req.authUser?.id || 0);
+    const senderName = String(req.authUser?.name || '').trim() || 'Admin';
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'Message is required' });
+    if (message.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
+    const recipientIds = Array.from(new Set(
+      (Array.isArray(req.body?.recipient_user_ids) ? req.body.recipient_user_ids : [])
+        .map((value) => Number(value || 0))
+        .filter((value) => value > 0)
+    ));
+    if (!recipientIds.length) {
+      return res.status(400).json({ error: 'Select at least one customer' });
+    }
+    if (recipientIds.length > 100) {
+      return res.status(400).json({ error: 'Too many recipients (max 100)' });
+    }
+
+    const placeholders = recipientIds.map(() => '?').join(', ');
+    const recipients = await dbAllAsync(
+      `SELECT id, name
+       FROM users
+       WHERE role = 'customer'
+         AND id IN (${placeholders})
+       ORDER BY name ASC`,
+      recipientIds
+    );
+    if (!recipients.length) {
+      return res.status(400).json({ error: 'No valid customer recipients found' });
+    }
+
+    for (const recipient of recipients) {
+      const recipientId = Number(recipient?.id || 0);
+      if (!recipientId) continue;
+      await createAppNotification({
+        userId: recipientId,
+        title: `Message from ${senderName}`,
+        message,
+        level: 'info',
+        entityType: 'conversation',
+        metadata: {
+          kind: 'chat_message',
+          direction: 'admin_to_customer',
+          from_user_id: senderId,
+          from_user_name: senderName,
+          route: '/profile',
+        },
+        createdBy: senderId,
+      });
+    }
+
+    await createAppNotification({
+      userId: senderId,
+      title: 'Message sent',
+      message: `Message sent to ${recipients.length} customer${recipients.length === 1 ? '' : 's'}.`,
+      level: 'success',
+      entityType: 'conversation',
+      metadata: {
+        kind: 'chat_message',
+        direction: 'outbound',
+        route: '/admin?tab=users',
+      },
+      createdBy: senderId,
+    });
+
+    return res.json({
+      success: true,
+      sent_count: recipients.length,
+      recipient_names: recipients.map((row) => String(row?.name || '').trim()).filter(Boolean),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to send messages' });
   }
 });
 
@@ -3404,154 +3502,11 @@ app.post('/api/admin/users/:id/phone/verify', requireAdmin, async (req, res) => 
 });
 
 app.get('/api/admin/password-reset-requests', requireAdmin, async (_, res) => {
-  try {
-    const rows = await dbAllAsync(`
-      SELECT prr.*, u.name as user_name, p.name as processed_by_name
-      FROM password_reset_requests prr
-      LEFT JOIN users u ON u.id = prr.user_id
-      LEFT JOIN users p ON p.id = prr.processed_by
-      ORDER BY prr.created_at DESC
-    `);
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
+  return res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
 });
 
-app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (req, res) => {
-  try {
-    const { status, notify_channel } = req.body || {};
-    const normalizedStatus = String(status || '').toLowerCase();
-    if (!['approved', 'rejected', 'pending'].includes(normalizedStatus)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
-    const request = await dbGetAsync(`SELECT * FROM password_reset_requests WHERE id = ?`, [req.params.id]);
-    if (!request) return res.status(404).json({ error: 'Request not found' });
-    const processedAt = new Date().toISOString();
-    const notifyChannel = String(notify_channel || 'none').trim().toLowerCase();
-    if (!['none', 'email', 'whatsapp', 'both'].includes(notifyChannel)) {
-      return res.status(400).json({ error: 'Invalid notify channel' });
-    }
-    if (normalizedStatus !== 'approved' && notifyChannel !== 'none') {
-      return res.status(400).json({ error: 'Notification preparation is available only for approved requests' });
-    }
-    const targetUser = request.user_id
-      ? await dbGetAsync(`SELECT id, name, email, phone FROM users WHERE id = ?`, [request.user_id])
-      : null;
-    const recipientName = String(targetUser?.name || 'Customer').trim() || 'Customer';
-    const recipientEmail = normalizeEmail(targetUser?.email || request.email);
-    const recipientPhone = normalizePhone(targetUser?.phone || request.phone);
-    let generatedPassword = '';
-    let adminNote = '';
-    if (normalizedStatus === 'approved') {
-      if (!request.user_id) {
-        return res.status(400).json({ error: 'User reference is required for approved reset' });
-      }
-      if (notifyChannel === 'none') {
-        return res.status(400).json({ error: 'Choose email or WhatsApp for approved reset' });
-      }
-      if ((notifyChannel === 'email' || notifyChannel === 'both') && !recipientEmail) {
-        return res.status(400).json({ error: 'Email is not available for this user' });
-      }
-      if ((notifyChannel === 'whatsapp' || notifyChannel === 'both') && !recipientPhone) {
-        return res.status(400).json({ error: 'Phone number is not available for this user' });
-      }
-      generatedPassword = generateTemporaryPassword();
-      await dbRunAsync(`UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?`, [
-        hashPassword(generatedPassword),
-        request.user_id,
-      ]);
-      adminNote = `Password reset approved by admin. Temporary password was generated automatically and shared via ${notifyChannel}.`;
-    } else if (normalizedStatus === 'rejected') {
-      adminNote = 'Password reset request rejected by admin.';
-    } else {
-      adminNote = 'Password reset request moved to pending by admin.';
-    }
-    await dbRunAsync(
-      `UPDATE password_reset_requests
-       SET status = ?, admin_note = ?, processed_by = ?, processed_at = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [normalizedStatus, adminNote, Number(req.authUser?.id || 0) || null, processedAt, req.params.id]
-    );
-    const response = { success: true, status: normalizedStatus, admin_note: adminNote };
-    if (normalizedStatus === 'approved' && notifyChannel !== 'none') {
-      const preparedBy = Number(req.authUser?.id || 0) || null;
-      const templatePayload = {
-        recipientName,
-        newPassword: generatedPassword,
-        loginIdentifier: recipientEmail || recipientPhone || '',
-        loginUrl: PASSWORD_RESET_LOGIN_URL,
-      };
-      const notification = {};
-      if (notifyChannel === 'email' || notifyChannel === 'both') {
-        const preparedEmail = notificationService.prepareEmail({
-          type: 'password_reset_admin',
-          to: recipientEmail,
-          payload: templatePayload,
-        });
-        const eventId = await createNotificationEvent({
-          type: 'password_reset_admin',
-          channel: 'email',
-          recipient: preparedEmail.to,
-          recipientUserId: Number(request.user_id || 0) || null,
-          subject: preparedEmail.subject,
-          body: preparedEmail.body,
-          metadata: {
-            mode: 'manual',
-            request_id: Number(req.params.id || 0) || null,
-            login_url: PASSWORD_RESET_LOGIN_URL,
-          },
-          status: 'prepared',
-          preparedBy,
-        });
-        notification.email = {
-          event_id: eventId,
-          ...preparedEmail,
-        };
-      }
-      if (notifyChannel === 'whatsapp' || notifyChannel === 'both') {
-        const preparedWhatsApp = notificationService.prepareWhatsApp({
-          type: 'password_reset_admin',
-          to: recipientPhone,
-          payload: templatePayload,
-        });
-        const eventId = await createNotificationEvent({
-          type: 'password_reset_admin',
-          channel: 'whatsapp',
-          recipient: preparedWhatsApp.to,
-          recipientUserId: Number(request.user_id || 0) || null,
-          subject: 'Password reset by admin',
-          body: preparedWhatsApp.text,
-          metadata: {
-            mode: 'manual',
-            request_id: Number(req.params.id || 0) || null,
-            login_url: PASSWORD_RESET_LOGIN_URL,
-            whatsapp_url: preparedWhatsApp.whatsapp_url,
-          },
-          status: 'prepared',
-          preparedBy,
-        });
-        notification.whatsapp = {
-          event_id: eventId,
-          ...preparedWhatsApp,
-        };
-      }
-      response.notification = notification;
-    }
-    await logAdminAuditAsync(req, {
-      action: 'password_reset_request.update',
-      entityType: 'password_reset_request',
-      entityId: req.params.id,
-      details: {
-        status: normalizedStatus,
-        notify_channel: notifyChannel,
-        user_id: Number(request.user_id || 0) || null,
-      },
-    });
-    return res.json(response);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
+app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (_, res) => {
+  return res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
 });
 
 app.get('/api/users', requireAdmin, async (_, res) => {
@@ -3580,7 +3535,7 @@ app.get('/api/users/:id', requireAuth, async (req, res) => {
 
 app.post('/api/users', requireAdmin, async (req, res) => {
   try {
-    const { name, email, phone, address, password, role } = req.body || {};
+    const { name, email, phone, address, role } = req.body || {};
     const normalizedEmail = normalizeEmail(email);
     const phoneParsed = parsePhoneInput(phone);
     if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
@@ -3598,22 +3553,14 @@ app.post('/api/users', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Phone number already registered' });
     }
     const userRole = role === 'admin' ? 'admin' : 'customer';
-    const providedPassword = String(password || '');
-    if (providedPassword && !isStrongPassword(providedPassword)) {
-      return res.status(400).json({ error: PASSWORD_POLICY_MESSAGE });
-    }
-    if (userRole === 'admin' && !isStrongPassword(providedPassword)) {
-      return res.status(400).json({ error: 'Admin password is required and must be strong.' });
-    }
-    const nextPassword = providedPassword || generateTemporaryPassword();
-    const mustChangePassword = providedPassword ? 0 : 1;
+    const nextPassword = generateTemporaryPassword();
     const requestedEmailVerified = Number(req.body?.email_verified || 0) === 1;
     const requestedPhoneVerified = Number(req.body?.phone_verified || 0) === 1;
     const emailVerifiedValue = normalizedEmail ? (requestedEmailVerified ? 1 : 0) : 0;
     const phoneVerifiedValue = normalizedPhone ? (requestedPhoneVerified ? 1 : 0) : 0;
     const result = await dbRunAsync(
       `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userRole, String(name).trim(), normalizedEmail, emailVerifiedValue, normalizedPhone, phoneVerifiedValue, address || null, hashPassword(nextPassword), mustChangePassword]
+      [userRole, String(name).trim(), normalizedEmail, emailVerifiedValue, normalizedPhone, phoneVerifiedValue, address || null, hashPassword(nextPassword), 0]
     );
     const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [result.lastInsertRowid]));
     if (normalizedEmail && emailVerifiedValue === 0) {
@@ -4515,7 +4462,13 @@ app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
 app.get('/api/orders', requireAdmin, async (_, res) => {
   try {
     const orders = await dbAllAsync(`SELECT * FROM orders ORDER BY created_at DESC`);
-    return res.json(orders);
+    return res.json(orders.map((order) => ({
+      ...order,
+      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
+      payment_method: 'cash',
+      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
+      shipping_address: parseOrderAddress(order?.shipping_address),
+    })));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -4535,8 +4488,23 @@ app.get('/api/orders/:id', requireAuth, async (req, res) => {
     if (!canAccessOrder(req.authUser, order)) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [req.params.id]);
-    return res.json({ ...order, items });
+    const items = await dbAllAsync(
+      `SELECT oi.*,
+              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = ?
+       ORDER BY oi.id ASC`,
+      [req.params.id]
+    );
+    return res.json({
+      ...order,
+      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
+      payment_method: 'cash',
+      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
+      shipping_address: parseOrderAddress(order?.shipping_address),
+      items,
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -4557,18 +4525,39 @@ app.get('/api/orders/:id/history', requireAuth, async (req, res) => {
        ORDER BY h.created_at DESC`,
       [req.params.id]
     );
-    return res.json(rows);
+    return res.json(rows.map((row) => ({
+      ...row,
+      status: normalizeOrderStatus(row?.status, ORDER_STATUS_ORDERED),
+    })));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.get('/api/orders/number/:orderNumber', async (req, res) => {
+app.get('/api/orders/number/:orderNumber', requireAuth, async (req, res) => {
   try {
     const order = await dbGetAsync(`SELECT * FROM orders WHERE order_number = ?`, [req.params.orderNumber]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
-    const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [order.id]);
-    return res.json({ ...order, items });
+    if (!canAccessOrder(req.authUser, order)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const items = await dbAllAsync(
+      `SELECT oi.*,
+              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = ?
+       ORDER BY oi.id ASC`,
+      [order.id]
+    );
+    return res.json({
+      ...order,
+      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
+      payment_method: 'cash',
+      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
+      shipping_address: parseOrderAddress(order?.shipping_address),
+      items,
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -4582,7 +4571,13 @@ app.get('/api/users/:userId/orders', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const orders = await dbAllAsync(`SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`, [req.params.userId]);
-    return res.json(orders);
+    return res.json(orders.map((order) => ({
+      ...order,
+      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
+      payment_method: 'cash',
+      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
+      shipping_address: parseOrderAddress(order?.shipping_address),
+    })));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -4602,19 +4597,20 @@ const placeOrder = async (payload) => {
   if (!customer_name || !items.length) {
     throw new Error('Missing required fields');
   }
+  if (!Number(user_id)) {
+    throw new Error('AUTH_REQUIRED: Login is required to place orders');
+  }
   const normalizedCustomerEmail = normalizeEmail(customer_email) || '';
-  if (user_id) {
-    const account = await dbGetAsync(`SELECT id, role, email_verified, phone_verified FROM users WHERE id = ?`, [user_id]);
-    if (!account) {
-      throw new Error('CUSTOMER_NOT_FOUND');
-    }
-    if (
-      String(account.role || '').toLowerCase() !== 'admin' &&
-      Number(account.email_verified || 0) !== 1 &&
-      Number(account.phone_verified || 0) !== 1
-    ) {
-      throw new Error('INCOMPLETE_PROFILE: Verify at least one contact method (email or phone) before placing orders');
-    }
+  const account = await dbGetAsync(`SELECT id, role, email_verified, phone_verified FROM users WHERE id = ?`, [user_id]);
+  if (!account) {
+    throw new Error('CUSTOMER_NOT_FOUND');
+  }
+  if (
+    String(account.role || '').toLowerCase() !== 'admin' &&
+    Number(account.email_verified || 0) !== 1 &&
+    Number(account.phone_verified || 0) !== 1
+  ) {
+    throw new Error('INCOMPLETE_PROFILE: Verify at least one contact method (email or phone) before placing orders');
   }
   const phoneParsed = parsePhoneInput(customer_phone);
   if (phoneParsed.error) {
@@ -4622,19 +4618,58 @@ const placeOrder = async (payload) => {
   }
   const normalizedCustomerPhone = phoneParsed.value;
 
-  const parsedItems = items.map((it) => ({
-    product_id: Number(it.product_id),
-    quantity: Number(it.quantity),
-    price: Number(it.price),
-  }));
-  if (parsedItems.some((it) => !it.product_id || it.quantity <= 0 || it.price < 0)) {
+  const parsedItems = items.map((it, index) => {
+    const parsedProductId = Number(it?.product_id ?? it?.id ?? 0);
+    const productId = Number.isFinite(parsedProductId) && parsedProductId > 0
+      ? Math.trunc(parsedProductId)
+      : null;
+    let quantity = Number(it?.quantity || 0);
+    const providedName = String(it?.product_name || it?.name || '').trim();
+    const quantityLabel = String(it?.quantity_label || it?.qty_text || '').trim();
+    const itemType = String(it?.item_type || '').trim().toLowerCase();
+    const manualHint = parseBooleanEnv(it?.is_manual, false) || itemType === 'manual';
+    const isManual = manualHint || !productId;
+    if ((!Number.isFinite(quantity) || quantity <= 0) && quantityLabel) {
+      const quantityFromLabel = Number(String(quantityLabel).match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
+      if (Number.isFinite(quantityFromLabel) && quantityFromLabel > 0) {
+        quantity = quantityFromLabel;
+      }
+    }
+    const rawPrice = Number(it?.price);
+    const priceUnknownHint = parseBooleanEnv(it?.price_unknown, false) || parseBooleanEnv(it?.unknown_price, false);
+    let price = Number.isFinite(rawPrice) ? rawPrice : NaN;
+    if (isManual && (priceUnknownHint || !Number.isFinite(price) || price < 0)) {
+      price = 0;
+    }
+    return {
+      line_index: index,
+      // Keep backward compatibility for older schemas where product_id can still be NOT NULL.
+      // product_id=0 is treated as manual everywhere in this codebase.
+      product_id: isManual ? 0 : productId,
+      product_name: providedName,
+      quantity,
+      price,
+      is_manual: isManual ? 1 : 0,
+    };
+  });
+  if (parsedItems.some((it) => it.quantity <= 0 || !Number.isFinite(it.quantity))) {
     throw new Error('Invalid order items');
+  }
+  if (parsedItems.some((it) => it.price < 0 || !Number.isFinite(it.price))) {
+    throw new Error('Invalid order items');
+  }
+  if (parsedItems.some((it) => it.is_manual === 1 && !it.product_name)) {
+    throw new Error('Manual order items must include a product name');
   }
 
   for (const it of parsedItems) {
-    const p = await dbGetAsync(`SELECT id, stock FROM products WHERE id = ?`, [it.product_id]);
+    if (it.is_manual === 1) continue;
+    const p = await dbGetAsync(`SELECT id, name, stock FROM products WHERE id = ?`, [it.product_id]);
     if (!p) throw new Error(`Product ${it.product_id} not found`);
-    if (p.stock < it.quantity) throw new Error(`Insufficient stock for product ${it.product_id}`);
+    if (Number(p.stock) < it.quantity) throw new Error(`Insufficient stock for product ${it.product_id}`);
+    if (!it.product_name) {
+      it.product_name = String(p.name || '').trim() || 'Item';
+    }
   }
 
   const normalizedPaymentMethod = normalizePaymentMethod(payment_method);
@@ -4642,6 +4677,7 @@ const placeOrder = async (payload) => {
   const tax = Math.round(subtotal * 0.1 * 100) / 100;
   const total = subtotal + tax;
   const orderNumber = generateOrderNumber();
+  const createdStatus = ORDER_STATUS_ORDERED;
 
   return await dbTxAsync(async () => {
     const orderInsert = await dbRunAsync(
@@ -4656,61 +4692,52 @@ const placeOrder = async (payload) => {
         normalizedCustomerPhone,
         JSON.stringify(shipping_address || {}),
         total,
-        'pending',
+        createdStatus,
         normalizedPaymentMethod,
-        'pending',
+        normalizeOrderPaymentStatus('pending', createdStatus),
       ]
     );
     const orderId = orderInsert.lastInsertRowid;
 
     for (const it of parsedItems) {
       await dbRunAsync(
-        `INSERT INTO order_items (order_id, product_id, quantity, price, total) VALUES (?, ?, ?, ?, ?)`,
-        [orderId, it.product_id, it.quantity, it.price, it.price * it.quantity]
+        `INSERT INTO order_items (order_id, product_id, product_name, is_manual, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          orderId,
+          Number(it.is_manual || 0) === 1 ? 0 : (it.product_id || null),
+          it.product_name || null,
+          Number(it.is_manual || 0) === 1 ? 1 : 0,
+          it.quantity,
+          it.price,
+          it.price * it.quantity
+        ]
       );
     }
-
-    // Add order placed entry to credit history if user has a credit account
-    if (user_id) {
-      const last = await getLatestCreditEntryAsync(user_id);
-      const currentBalance = Number(last?.balance || 0);
-      const orderRef = orderNumber || `ORDER-${orderId}`;
-      await dbRunAsync(
-        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference) VALUES (?, ?, ?, ?, ?, ?)`,
-        [user_id, 'order_placed', 0, currentBalance, `Order placed (Order #${orderRef})`, orderRef]
-      );
-    }
+    await dbRunAsync(
+      `INSERT INTO order_status_history (order_id, status, description, created_by) VALUES (?, ?, ?, ?)`,
+      [orderId, createdStatus, 'Order placed', user_id]
+    );
 
     return { orderId, orderNumber, totalAmount: total };
   });
 };
 
-app.post('/api/orders', async (req, res) => {
-  try {
-    const result = await placeOrder(req.body || {});
-    return res.status(201).json({ ...result, message: 'Order created successfully' });
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
-});
+app.post('/api/orders', requireAuth, async (_, res) =>
+  res.status(410).json({ error: 'Legacy order endpoint is disabled. Use /api/orders/create-validated.' })
+);
 
-app.post('/api/orders/create-validated', async (req, res) => {
+app.post('/api/orders/create-validated', requireAuth, async (req, res) => {
   try {
     const body = req.body || {};
-    const authUser = await getAuthUserFromRequest(req);
-    const effectiveUserId = Number(body.user_id || body.selected_customer_id || 0) || null;
-    if (body.is_admin_order && (!authUser || authUser.role !== 'admin')) {
+    const authUser = req.authUser;
+    const isAdminOrder = Boolean(body.is_admin_order) && authUser.role === 'admin';
+    const effectiveUserId = isAdminOrder
+      ? (Number(body.selected_customer_id || body.user_id || 0) || null)
+      : Number(authUser.id);
+    if (body.is_admin_order && authUser.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required for admin order mode' });
     }
-    if (effectiveUserId) {
-      if (!authUser) {
-        return res.status(401).json({ error: 'Unauthorized', message: 'Sign in is required to place an account order' });
-      }
-      if (authUser.role !== 'admin' && Number(authUser.id) !== effectiveUserId) {
-        return res.status(403).json({ error: 'Forbidden' });
-      }
-    }
-    if (body.is_admin_order && !body.selected_customer_id) {
+    if (isAdminOrder && !body.selected_customer_id) {
       return res.status(400).json({ error: 'Selected customer is required for admin order' });
     }
     if (effectiveUserId) {
@@ -4730,7 +4757,21 @@ app.post('/api/orders/create-validated', async (req, res) => {
         }
       }
       if (String(customer.role || '').toLowerCase() !== 'admin') {
-        const validation = validateCustomerProfile(customer, address);
+        const submittedAddress = (body.shipping_address && typeof body.shipping_address === 'object')
+          ? body.shipping_address
+          : {};
+        const mergedAddress = {
+          street: String(submittedAddress.street || address.street || '').trim(),
+          city: String(submittedAddress.city || address.city || '').trim(),
+          state: String(submittedAddress.state || address.state || '').trim(),
+          zip: String(submittedAddress.zip || address.zip || '').trim(),
+          country: String(submittedAddress.country || address.country || '').trim(),
+        };
+        const profileForValidation = {
+          ...customer,
+          phone: String(body.customer_phone || customer.phone || '').trim(),
+        };
+        const validation = validateCustomerProfile(profileForValidation, mergedAddress);
         if (!validation.complete) {
           return res.status(400).json({
             error: 'INCOMPLETE_PROFILE',
@@ -4746,8 +4787,48 @@ app.post('/api/orders/create-validated', async (req, res) => {
       user_id: effectiveUserId,
       customer_phone: body.customer_phone,
       shipping_address: body.shipping_address || {},
-      payment_method: body.payment_method || 'cash',
+      payment_method: 'cash',
     });
+    const orderId = Number(result?.orderId || 0);
+    const orderNumber = String(result?.orderNumber || '').trim();
+    const customerName = String(body.customer_name || '').trim() || `User #${effectiveUserId}`;
+    const actorName = String(authUser?.name || '').trim() || 'System';
+    try {
+      if (orderId && effectiveUserId) {
+        await createAppNotification({
+          userId: Number(effectiveUserId),
+          title: 'Order placed',
+          message: `Order ${orderNumber || `#${orderId}`} has been placed successfully.`,
+          level: 'success',
+          entityType: 'order',
+          entityId: orderId,
+          metadata: {
+            order_id: orderId,
+            order_number: orderNumber || null,
+            user_id: Number(effectiveUserId),
+          },
+          createdBy: Number(authUser?.id || 0) || null,
+        });
+      }
+      if (orderId) {
+        await notifyAdmins({
+          title: 'New order placed',
+          message: `${customerName} placed order ${orderNumber || `#${orderId}`}${isAdminOrder ? ` (created by ${actorName})` : ''}.`,
+          level: 'info',
+          entityType: 'order',
+          entityId: orderId,
+          metadata: {
+            order_id: orderId,
+            order_number: orderNumber || null,
+            user_id: Number(effectiveUserId || 0) || null,
+            created_by_admin: isAdminOrder ? Number(authUser?.id || 0) || null : null,
+          },
+          createdBy: Number(authUser?.id || 0) || null,
+        });
+      }
+    } catch (notifyError) {
+      console.warn('[NOTIFY] order placement notification failed:', notifyError?.message || notifyError);
+    }
     return res.status(201).json({ success: true, ...result, message: 'Order placed successfully' });
   } catch (error) {
     return res.status(400).json({ error: error.message });
@@ -4756,95 +4837,93 @@ app.post('/api/orders/create-validated', async (req, res) => {
 
 app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
   try {
-    const status = req.body?.status;
-    if (!status) return res.status(400).json({ error: 'Status is required' });
+    const requestedStatus = normalizeOrderStatus(req.body?.status, '');
+    if (!requestedStatus) return res.status(400).json({ error: 'Status is required' });
+    if (requestedStatus !== ORDER_STATUS_RECEIVED) {
+      return res.status(400).json({ error: 'Only received confirmation is allowed' });
+    }
     const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    const currentStatus = normalizeOrderStatus(order.status, ORDER_STATUS_ORDERED);
+    if (currentStatus === ORDER_STATUS_RECEIVED) {
+      return res.json({ success: true, applied: false, message: 'Order is already marked as received' });
+    }
+    if (currentStatus !== ORDER_STATUS_ORDERED) {
+      return res.status(400).json({ error: 'Order is not in ordered state' });
+    }
 
     // record status change in history
     const createdBy = req.body?.created_by || null;
     const description = req.body?.description || null;
-    await dbRunAsync(`INSERT INTO order_status_history (order_id, status, description, created_by) VALUES (?, ?, ?, ?)`, [req.params.id, status, description, createdBy]);
+    const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [req.params.id]);
+    await dbTxAsync(async () => {
+      for (const item of items) {
+        const productId = Number(item?.product_id || 0);
+        const isManual = Number(item?.is_manual || 0) === 1 || !productId;
+        if (isManual) continue;
+        const current = await dbGetAsync(`SELECT id, stock FROM products WHERE id = ?`, [item.product_id]);
+        if (!current) throw new Error(`Product ${item.product_id} not found`);
+        if (Number(current.stock) < Number(item.quantity)) {
+          throw new Error(`Insufficient stock for product ${item.product_id}`);
+        }
+        const before = Number(current.stock);
+        await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [item.quantity, item.product_id]);
+        const after = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
+        await logStockLedgerAsync({
+          productId: item.product_id,
+          transactionType: 'SALE',
+          quantityChange: -Number(item.quantity),
+          previousBalance: before,
+          newBalance: Number(after),
+          referenceType: 'ORDER',
+          referenceId: String(req.params.id),
+          userId: order.user_id || null,
+        });
+      }
 
-    // Update credit history with status change
-    if (order.user_id) {
-      const last = await getLatestCreditEntryAsync(order.user_id);
-      const currentBalance = Number(last?.balance || 0);
-      const orderRef = order.order_number || `ORDER-${order.id}`;
-      const statusDescription = `Order status updated to ${status} (Order #${orderRef})`;
       await dbRunAsync(
-        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference) VALUES (?, ?, ?, ?, ?, ?)`,
-        [order.user_id, 'status_update', 0, currentBalance, statusDescription, orderRef]
+        `INSERT INTO order_status_history (order_id, status, description, created_by) VALUES (?, ?, ?, ?)`,
+        [req.params.id, ORDER_STATUS_RECEIVED, description || 'Order received/confirmed', createdBy]
       );
-    }
+      await dbRunAsync(
+        `UPDATE orders
+         SET status = ?, payment_method = ?, payment_status = ?, stock_applied = 1, credit_applied = 0
+          WHERE id = ?`,
+        [ORDER_STATUS_RECEIVED, 'cash', normalizeOrderPaymentStatus('paid', ORDER_STATUS_RECEIVED), req.params.id]
+      );
+    });
 
-    if (status === 'confirmed' && Number(order.stock_applied || 0) === 0) {
-      const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [req.params.id]);
-      await dbTxAsync(async () => {
-        for (const item of items) {
-          const current = await dbGetAsync(`SELECT id, stock FROM products WHERE id = ?`, [item.product_id]);
-          if (!current) throw new Error(`Product ${item.product_id} not found`);
-          if (Number(current.stock) < Number(item.quantity)) {
-            throw new Error(`Insufficient stock for product ${item.product_id}`);
-          }
-          const before = Number(current.stock);
-          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [item.quantity, item.product_id]);
-          const after = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
-          await logStockLedgerAsync({
-            productId: item.product_id,
-            transactionType: 'SALE',
-            quantityChange: -Number(item.quantity),
-            previousBalance: before,
-            newBalance: Number(after),
-            referenceType: 'ORDER',
-            referenceId: String(req.params.id),
-            userId: order.user_id || null,
-          });
-        }
-
-        if (order.payment_method === 'credit' && order.user_id && Number(order.credit_applied || 0) === 0) {
-          const last = await getLatestCreditEntryAsync(order.user_id);
-          const currentBalance = Number(last?.balance || 0);
-          const nextBalance = currentBalance + Number(order.total_amount || 0);
-          const orderRef = order.order_number || `ORDER-${order.id}`;
-          await dbRunAsync(
-            `INSERT INTO credit_history (user_id, type, amount, balance, description, reference) VALUES (?, ?, ?, ?, ?, ?)`,
-            [order.user_id, 'given', Number(order.total_amount || 0), nextBalance, `Approved credit order (Order #${orderRef})`, orderRef]
-          );
-        }
-
-        await dbRunAsync(
-          `UPDATE orders
-           SET status = ?, payment_status = ?, stock_applied = 1, credit_applied = CASE WHEN payment_method='credit' THEN 1 ELSE credit_applied END
-            WHERE id = ?`,
-          [status, order.payment_method === 'cash' ? 'paid' : 'pending', req.params.id]
-        );
-      });
-      await logAdminAuditAsync(req, {
-        action: 'order.status_update',
-        entityType: 'order',
-        entityId: req.params.id,
-        details: {
-          status,
-          applied: true,
-          stock_applied: 1,
-          credit_applied: order.payment_method === 'credit' ? 1 : Number(order.credit_applied || 0),
-        },
-      });
-      return res.json({ success: true, applied: true });
-    }
-
-    await dbRunAsync(`UPDATE orders SET status = ? WHERE id = ?`, [status, req.params.id]);
     await logAdminAuditAsync(req, {
       action: 'order.status_update',
       entityType: 'order',
       entityId: req.params.id,
       details: {
-        status,
-        applied: false,
+        status: ORDER_STATUS_RECEIVED,
+        applied: true,
+        stock_applied: 1,
       },
     });
-    return res.json({ success: true, applied: false });
+    try {
+      if (Number(order?.user_id || 0)) {
+        await createAppNotification({
+          userId: Number(order.user_id),
+          title: 'Order received',
+          message: `Order ${order.order_number || `#${order.id}`} has been marked as received.`,
+          level: 'success',
+          entityType: 'order',
+          entityId: Number(order.id || req.params.id),
+          metadata: {
+            order_id: Number(order.id || req.params.id),
+            order_number: order.order_number || null,
+            user_id: Number(order.user_id || 0) || null,
+          },
+          createdBy: Number(req.authUser?.id || 0) || null,
+        });
+      }
+    } catch (notifyError) {
+      console.warn('[NOTIFY] order status notification failed:', notifyError?.message || notifyError);
+    }
+    return res.json({ success: true, applied: true });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
@@ -4854,13 +4933,209 @@ app.get('/api/stats/orders', requireAdmin, async (_, res) => {
   try {
     const totalOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders`))?.count || 0;
     const totalRevenue = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) AS total FROM orders`))?.total || 0;
-    const pendingOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders WHERE status = 'pending'`))?.count || 0;
+    const pendingOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders WHERE status = ?`, [ORDER_STATUS_ORDERED]))?.count || 0;
     return res.json({
       totalOrders,
       totalRevenue,
       pendingOrders,
-      byStatus: { pending: pendingOrders },
+      byStatus: { ordered: pendingOrders },
     });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/bills', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId);
+    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
+    const isAdmin = req.authUser?.role === 'admin';
+    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const rows = await dbAllAsync(
+      `SELECT *
+       FROM bills
+       WHERE customer_id = ?
+       ORDER BY created_at DESC`,
+      [requestUserId]
+    );
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/bills/:identifier', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId);
+    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
+    const isAdmin = req.authUser?.role === 'admin';
+    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const identifier = String(req.params.identifier || '').trim();
+    const bill = await dbGetAsync(
+      `SELECT *
+       FROM bills
+       WHERE customer_id = ?
+         AND (id = ? OR bill_number = ?)
+       LIMIT 1`,
+      [requestUserId, identifier, identifier]
+    );
+    if (!bill) return res.status(404).json({ error: 'Bill not found' });
+    const items = await dbAllAsync(`SELECT * FROM bill_items WHERE bill_id = ? ORDER BY id ASC`, [bill.id]);
+    return res.json({ ...bill, items });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/product-recommendations', requireAuth, async (req, res) => {
+  try {
+    const requestedName = String(req.body?.requested_name || req.body?.name || '').trim();
+    const notes = String(req.body?.notes || '').trim();
+    const phoneParsed = parsePhoneInput(req.body?.contact_phone || req.body?.phone || req.authUser?.phone || null);
+    if (phoneParsed.error && (req.body?.contact_phone || req.body?.phone)) {
+      return res.status(400).json({ error: phoneParsed.error });
+    }
+    if (!requestedName) {
+      return res.status(400).json({ error: 'Requested product name is required' });
+    }
+    const result = await dbRunAsync(
+      `INSERT INTO product_recommendations (user_id, requested_name, notes, contact_phone, status)
+       VALUES (?, ?, ?, ?, ?)`,
+      [req.authUser.id, requestedName, notes || null, phoneParsed.value || null, 'open']
+    );
+    const created = await dbGetAsync(`SELECT * FROM product_recommendations WHERE id = ?`, [result.lastInsertRowid]);
+    const recommendationId = Number(created?.id || 0) || Number(result.lastInsertRowid || 0) || null;
+    try {
+      await createAppNotification({
+        userId: Number(req.authUser?.id || 0),
+        title: 'Product request received',
+        message: `Your product request "${requestedName}" was submitted.`,
+        level: 'success',
+        entityType: 'product_recommendation',
+        entityId: recommendationId,
+        metadata: {
+          recommendation_id: recommendationId,
+          user_id: Number(req.authUser?.id || 0) || null,
+          requested_name: requestedName,
+          status: 'open',
+        },
+        createdBy: Number(req.authUser?.id || 0) || null,
+      });
+      await notifyAdmins({
+        title: 'New product request',
+        message: `${String(req.authUser?.name || '').trim() || `User #${req.authUser?.id}`} requested "${requestedName}".`,
+        level: 'info',
+        entityType: 'product_recommendation',
+        entityId: recommendationId,
+        metadata: {
+          recommendation_id: recommendationId,
+          user_id: Number(req.authUser?.id || 0) || null,
+          requested_name: requestedName,
+          status: 'open',
+        },
+        createdBy: Number(req.authUser?.id || 0) || null,
+      });
+    } catch (notifyError) {
+      console.warn('[NOTIFY] product recommendation notification failed:', notifyError?.message || notifyError);
+    }
+    return res.status(201).json({ success: true, recommendation: created });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/product-recommendations/mine', requireAuth, async (req, res) => {
+  try {
+    const rows = await dbAllAsync(
+      `SELECT *
+       FROM product_recommendations
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+      [req.authUser.id]
+    );
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/product-recommendations', requireAdmin, async (req, res) => {
+  try {
+    const status = String(req.query?.status || '').trim().toLowerCase();
+    const allowed = new Set(['open', 'reviewed', 'fulfilled', 'rejected']);
+    const rows = await dbAllAsync(
+      `SELECT pr.*,
+              u.name as user_name,
+              u.email as user_email,
+              u.phone as user_phone
+       FROM product_recommendations pr
+       LEFT JOIN users u ON u.id = pr.user_id
+       ${allowed.has(status) ? 'WHERE pr.status = ?' : ''}
+       ORDER BY pr.created_at DESC`,
+      allowed.has(status) ? [status] : []
+    );
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/product-recommendations/:id', requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid recommendation id' });
+    const status = String(req.body?.status || '').trim().toLowerCase();
+    const allowed = new Set(['open', 'reviewed', 'fulfilled', 'rejected']);
+    if (!allowed.has(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const adminNote = String(req.body?.admin_note || '').trim() || null;
+    const current = await dbGetAsync(`SELECT * FROM product_recommendations WHERE id = ?`, [id]);
+    if (!current) return res.status(404).json({ error: 'Recommendation not found' });
+    await dbRunAsync(
+      `UPDATE product_recommendations
+       SET status = ?, admin_note = ?, resolved_by = ?, resolved_at = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        status,
+        adminNote,
+        req.authUser.id,
+        status === 'fulfilled' || status === 'rejected' ? new Date().toISOString() : null,
+        id,
+      ]
+    );
+    const updated = await dbGetAsync(`SELECT * FROM product_recommendations WHERE id = ?`, [id]);
+    await logAdminAuditAsync(req, {
+      action: 'product_recommendation.update',
+      entityType: 'product_recommendation',
+      entityId: id,
+      details: { status, admin_note: adminNote },
+    });
+    try {
+      if (Number(updated?.user_id || 0)) {
+        await createAppNotification({
+          userId: Number(updated.user_id),
+          title: 'Product request updated',
+          message: `Your product request "${updated.requested_name || `#${id}`}" is now ${status.replace(/_/g, ' ')}${adminNote ? `: ${adminNote}` : ''}.`,
+          level: status === 'fulfilled' ? 'success' : (status === 'rejected' ? 'warning' : 'info'),
+          entityType: 'product_recommendation',
+          entityId: id,
+          metadata: {
+            recommendation_id: id,
+            user_id: Number(updated.user_id || 0) || null,
+            status,
+          },
+          createdBy: Number(req.authUser?.id || 0) || null,
+        });
+      }
+    } catch (notifyError) {
+      console.warn('[NOTIFY] product recommendation update notification failed:', notifyError?.message || notifyError);
+    }
+    return res.json({ success: true, recommendation: updated });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -4883,6 +5158,361 @@ app.get('/api/users/:userId/credit-history', requireAuth, async (req, res) => {
     return res.json(rows);
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId);
+    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
+    if (Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const creditEntryId = Number(req.body?.credit_entry_id || 0) || null;
+    const issueType = String(req.body?.issue_type || 'wrong_entry').trim().toLowerCase();
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'Issue message is required' });
+    const allowedIssueTypes = new Set(['wrong_entry', 'missing_entry', 'wrong_amount', 'other']);
+    if (!allowedIssueTypes.has(issueType)) {
+      return res.status(400).json({ error: 'Invalid issue type' });
+    }
+
+    let entry = null;
+    if (creditEntryId) {
+      entry = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ? AND user_id = ?`, [creditEntryId, requestUserId]);
+      if (!entry) return res.status(404).json({ error: 'Credit entry not found for this user' });
+    }
+
+    const result = await dbRunAsync(
+      `INSERT INTO credit_entry_issues
+       (user_id, credit_entry_id, issue_type, message, status, entry_snapshot, reported_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        requestUserId,
+        creditEntryId,
+        issueType,
+        message,
+        'open',
+        entry ? JSON.stringify(entry) : null,
+        req.authUser.id,
+      ]
+    );
+    const created = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [result.lastInsertRowid]);
+    const reporterName = String(req.authUser?.name || '').trim() || `User #${requestUserId}`;
+    await notifyAdmins({
+      title: 'New credit issue reported',
+      message: `${reporterName} reported issue #${created?.id || ''} (${issueType.replace(/_/g, ' ')})`,
+      level: 'warning',
+      entityType: 'credit_entry_issue',
+      entityId: Number(created?.id || 0) || null,
+      issueId: Number(created?.id || 0) || null,
+      metadata: {
+        user_id: requestUserId,
+        issue_id: Number(created?.id || 0) || null,
+        credit_entry_id: creditEntryId || null,
+        issue_type: issueType,
+      },
+      createdBy: Number(req.authUser?.id || 0) || null,
+    });
+    return res.status(201).json({ success: true, issue: created });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId);
+    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
+    const isAdmin = req.authUser?.role === 'admin';
+    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
+    const normalizedStatus = requestedStatus
+      ? normalizeCreditIssueStatus(requestedStatus, { fallback: '' })
+      : '';
+    if (requestedStatus && !normalizedStatus) {
+      return res.status(400).json({ error: 'Invalid status filter' });
+    }
+    const rows = await dbAllAsync(
+      `SELECT cei.*,
+              corr.amount as correction_amount,
+              corr.type as correction_type,
+              corr.reference as correction_reference
+       FROM credit_entry_issues cei
+       LEFT JOIN credit_history corr ON corr.id = cei.correction_entry_id
+       WHERE cei.user_id = ?
+         ${normalizedStatus ? 'AND cei.status = ?' : ''}
+       ORDER BY cei.created_at DESC`,
+      normalizedStatus ? [requestUserId, normalizedStatus] : [requestUserId]
+    );
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/credit-issues', requireAdmin, async (req, res) => {
+  try {
+    const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
+    const normalizedStatus = requestedStatus
+      ? normalizeCreditIssueStatus(requestedStatus, { fallback: '' })
+      : '';
+    if (requestedStatus && !normalizedStatus) {
+      return res.status(400).json({ error: 'Invalid status filter' });
+    }
+    const rows = await dbAllAsync(
+      `SELECT cei.*,
+              u.name as user_name,
+              u.email as user_email,
+              ch.amount as credit_amount,
+              ch.balance as credit_balance,
+              ch.reference as credit_reference,
+              corr.amount as correction_amount,
+              corr.type as correction_type,
+              corr.reference as correction_reference
+       FROM credit_entry_issues cei
+       LEFT JOIN users u ON u.id = cei.user_id
+       LEFT JOIN credit_history ch ON ch.id = cei.credit_entry_id
+       LEFT JOIN credit_history corr ON corr.id = cei.correction_entry_id
+       ${normalizedStatus ? 'WHERE cei.status = ?' : ''}
+       ORDER BY cei.created_at DESC`,
+      normalizedStatus ? [normalizedStatus] : []
+    );
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/credit-issues/:id', requireAdmin, async (req, res) => {
+  try {
+    const issueId = Number(req.params.id);
+    if (!issueId) return res.status(400).json({ error: 'Invalid issue id' });
+    const requestedAction = String(req.body?.action || req.body?.status || '').trim().toLowerCase();
+    let status = normalizeCreditIssueStatus(requestedAction, { fallback: '' });
+    if (!status) {
+      if (requestedAction === 'correct' || requestedAction === 'mark_corrected' || requestedAction === 'resolved') {
+        status = 'corrected';
+      } else if (requestedAction === 'reject' || requestedAction === 'mark_rejected') {
+        status = 'rejected';
+      } else if (requestedAction === 'review' || requestedAction === 'mark_in_review') {
+        status = 'in_review';
+      }
+    }
+
+    const adminReason = String(req.body?.admin_reason || req.body?.resolution_note || '').trim() || null;
+
+    const correctionType = String(req.body?.correction_type || '').trim().toLowerCase();
+    const correctionAmount = Number(req.body?.correction_amount || 0);
+    const correctionDescription = String(req.body?.correction_description || '').trim();
+    const correctionReference = String(req.body?.correction_reference || '').trim();
+    const correctionDateRaw = String(req.body?.correction_date || '').trim();
+    if (correctionDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(correctionDateRaw)) {
+      return res.status(400).json({ error: 'correction_date must be YYYY-MM-DD' });
+    }
+    const shouldCreateCorrectionEntry = (
+      (correctionType === 'given' || correctionType === 'payment')
+      && Number.isFinite(correctionAmount)
+      && correctionAmount > 0
+    );
+    if (!status) {
+      if (shouldCreateCorrectionEntry) {
+        status = 'corrected';
+      } else if (adminReason) {
+        status = 'rejected';
+      } else {
+        status = 'in_review';
+      }
+    }
+    if (status === 'rejected' && !adminReason) {
+      return res.status(400).json({ error: 'Reason is required when rejecting an issue' });
+    }
+    const shouldInsertCorrection = status === 'corrected' && shouldCreateCorrectionEntry;
+
+    const updated = await dbTxAsync(async () => {
+      const existing = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [issueId]);
+      if (!existing) {
+        const notFound = new Error('Credit issue not found');
+        notFound.code = 'NOT_FOUND';
+        throw notFound;
+      }
+
+      let correctionEntryId = Number(existing.correction_entry_id || 0) || null;
+      if (shouldInsertCorrection) {
+        const userId = Number(existing.user_id || 0);
+        const latest = await getLatestCreditEntryAsync(userId);
+        const currentBalance = Number(latest?.balance || 0);
+        const amountAbs = Math.abs(correctionAmount);
+        const nextBalance = correctionType === 'payment'
+          ? (currentBalance - amountAbs)
+          : (currentBalance + amountAbs);
+        const derivedDescription = correctionDescription
+          || `Correction for issue #${issueId}${adminReason ? `: ${adminReason}` : ''}`;
+        const insert = await dbRunAsync(
+          `INSERT INTO credit_history
+           (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+          [
+            userId,
+            correctionType,
+            amountAbs,
+            nextBalance,
+            derivedDescription,
+            correctionReference || `ISSUE-${issueId}`,
+            correctionDateRaw || null,
+            Number(req.authUser?.id || 0) || null,
+          ]
+        );
+        correctionEntryId = Number(insert.lastInsertRowid || 0) || null;
+        await recalculateCreditBalancesForUser(userId);
+      }
+
+      const isFinal = status === 'corrected' || status === 'rejected';
+      await dbRunAsync(
+        `UPDATE credit_entry_issues
+         SET status = ?,
+             resolution_note = ?,
+             admin_reason = ?,
+             resolved_by = ?,
+             resolved_at = ?,
+             correction_entry_id = ?,
+             customer_response_status = ?,
+             customer_response_note = NULL,
+             customer_response_at = NULL,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          status,
+          adminReason,
+          adminReason,
+          Number(req.authUser?.id || 0) || null,
+          isFinal ? new Date().toISOString() : null,
+          correctionEntryId,
+          isFinal ? 'pending' : null,
+          issueId,
+        ]
+      );
+      return await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [issueId]);
+    });
+
+    const issueDetails = await dbGetAsync(
+      `SELECT cei.*,
+              u.name as user_name,
+              u.email as user_email,
+              corr.amount as correction_amount,
+              corr.type as correction_type,
+              corr.reference as correction_reference
+       FROM credit_entry_issues cei
+       LEFT JOIN users u ON u.id = cei.user_id
+       LEFT JOIN credit_history corr ON corr.id = cei.correction_entry_id
+       WHERE cei.id = ?`,
+      [issueId]
+    );
+
+    if (Number(updated?.user_id || 0)) {
+      await createAppNotification({
+        userId: Number(updated.user_id),
+        title: 'Credit issue updated',
+        message: `Issue #${issueId} marked as ${status.replace(/_/g, ' ')}${adminReason ? `: ${adminReason}` : ''}`,
+        level: status === 'corrected' ? 'success' : (status === 'rejected' ? 'warning' : 'info'),
+        entityType: 'credit_entry_issue',
+        entityId: issueId,
+        issueId,
+        metadata: {
+          status,
+          user_id: Number(updated?.user_id || 0) || null,
+          issue_id: issueId,
+          credit_entry_id: Number(updated?.credit_entry_id || 0) || null,
+          correction_entry_id: Number(updated?.correction_entry_id || 0) || null,
+        },
+        createdBy: Number(req.authUser?.id || 0) || null,
+      });
+    }
+
+    await logAdminAuditAsync(req, {
+      action: 'credit_issue.update',
+      entityType: 'credit_entry_issue',
+      entityId: issueId,
+      details: {
+        status,
+        resolution_note: adminReason,
+        user_id: Number(updated?.user_id || 0),
+        credit_entry_id: Number(updated?.credit_entry_id || 0),
+        correction_entry_id: Number(updated?.correction_entry_id || 0),
+      },
+    });
+    return res.json({ success: true, issue: issueDetails || updated });
+  } catch (error) {
+    if (error?.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: 'Credit issue not found' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users/:userId/credit-issues/:id/respond', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId || 0);
+    const issueId = Number(req.params.id || 0);
+    if (!requestUserId || !issueId) {
+      return res.status(400).json({ error: 'Invalid user id or issue id' });
+    }
+    if (Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const responseStatus = String(req.body?.response_status || '').trim().toLowerCase();
+    if (responseStatus !== 'acknowledged' && responseStatus !== 'disputed') {
+      return res.status(400).json({ error: 'response_status must be acknowledged or disputed' });
+    }
+    const responseNote = String(req.body?.message || req.body?.note || '').trim() || null;
+    if (responseStatus === 'disputed' && !responseNote) {
+      return res.status(400).json({ error: 'Please describe what is still wrong' });
+    }
+
+    const existing = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ? AND user_id = ?`, [issueId, requestUserId]);
+    if (!existing) return res.status(404).json({ error: 'Credit issue not found' });
+
+    const nextStatus = (
+      responseStatus === 'disputed'
+      && normalizeCreditIssueStatus(existing.status, { fallback: 'open' }) === 'corrected'
+    )
+      ? 'in_review'
+      : normalizeCreditIssueStatus(existing.status, { fallback: 'open' });
+
+    await dbRunAsync(
+      `UPDATE credit_entry_issues
+       SET status = ?,
+           customer_response_status = ?,
+           customer_response_note = ?,
+           customer_response_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND user_id = ?`,
+      [nextStatus, responseStatus, responseNote, issueId, requestUserId]
+    );
+    const updated = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [issueId]);
+
+    await notifyAdmins({
+      title: 'Customer responded to credit issue',
+      message: `Issue #${issueId} response: ${responseStatus}${responseNote ? ` - ${responseNote}` : ''}`,
+      level: responseStatus === 'disputed' ? 'warning' : 'info',
+      entityType: 'credit_entry_issue',
+      entityId: issueId,
+      issueId,
+      metadata: {
+        user_id: requestUserId,
+        issue_id: issueId,
+        credit_entry_id: Number(existing?.credit_entry_id || 0) || null,
+        response_status: responseStatus,
+      },
+      createdBy: Number(req.authUser?.id || 0) || null,
+    });
+
+    return res.json({ success: true, issue: updated });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to submit response' });
   }
 });
 
@@ -6348,6 +6978,28 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
         items_count: sanitizedItems.length,
       },
     });
+    try {
+      const totalAmountText = `Rs ${Number(totalAmount || 0).toFixed(2)}`;
+      await createAppNotification({
+        userId: Number(customer.id),
+        title: `Bill ${billNumber} created`,
+        message: `A new bill of ${totalAmountText} was created for your account.`,
+        level: 'info',
+        entityType: 'bill',
+        entityId: billId,
+        metadata: {
+          route: '/my-bills',
+          bill_id: Number(billId || 0),
+          bill_number: billNumber,
+          total_amount: Number(totalAmount || 0),
+          credit_amount: Number(creditAmount || 0),
+          paid_amount: Number(paidAmount || 0),
+        },
+        createdBy,
+      });
+    } catch (notifyError) {
+      console.warn('[NOTIFY] bill creation notification failed:', notifyError?.message || notifyError);
+    }
     return res.status(201).json({ success: true, bill_id: billId, bill_number: billNumber });
   } catch (error) {
     if (clientRequestId && isUniqueViolationError(error)) {

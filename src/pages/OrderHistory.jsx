@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Package, Clock, Truck, CheckCircle, XCircle, 
+  Package, Clock, CheckCircle, 
   Search, Filter, Eye, RotateCcw, Download 
 } from 'lucide-react';
 import { ordersApi } from '../services/api';
@@ -18,18 +18,13 @@ const formatDate = (dateString) => {
 
 const getStatusConfig = (status) => {
   const configs = {
-    pending: { icon: Clock, color: 'pending', label: 'Pending' },
-    confirmed: { icon: CheckCircle, color: 'confirmed', label: 'Confirmed' },
-    processing: { icon: Package, color: 'processing', label: 'Processing' },
-    shipped: { icon: Truck, color: 'shipped', label: 'Shipped' },
-    delivered: { icon: CheckCircle, color: 'delivered', label: 'Delivered' },
-    cancelled: { icon: XCircle, color: 'cancelled', label: 'Cancelled' },
-    refunded: { icon: RotateCcw, color: 'refunded', label: 'Refunded' }
+    ordered: { icon: Clock, color: 'pending', label: 'Ordered' },
+    received: { icon: CheckCircle, color: 'delivered', label: 'Received' },
   };
   return configs[status] || { icon: Package, color: 'default', label: status };
 };
 
-const statusFilters = ['all', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const statusFilters = ['all', 'ordered', 'received'];
 
 const sortOptions = [
   { value: 'date_desc', label: 'Newest First' },
@@ -37,6 +32,16 @@ const sortOptions = [
   { value: 'amount_desc', label: 'Highest Amount' },
   { value: 'amount_asc', label: 'Lowest Amount' }
 ];
+
+const extractQtyLabelFromName = (value) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/\s*\[Qty:\s*([^\]]+)\]\s*$/i);
+  if (!match) return { name: raw, qtyLabel: '' };
+  return {
+    name: raw.replace(/\s*\[Qty:\s*([^\]]+)\]\s*$/i, '').trim(),
+    qtyLabel: String(match[1] || '').trim(),
+  };
+};
 
 function HistoryHeader() {
   return (
@@ -124,7 +129,7 @@ function EmptyOrdersState({ hasActiveFilters, onStartShopping }) {
   );
 }
 
-function OrderCard({ order, index, onViewOrder, onRetryPayment, onTrackOrder }) {
+function OrderCard({ order, index, onViewOrder }) {
   const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
 
@@ -158,12 +163,16 @@ function OrderCard({ order, index, onViewOrder, onRetryPayment, onTrackOrder }) 
       </div>
 
       <div className="order-items-preview">
-        {order.items?.slice(0, 3).map((item, itemIndex) => (
-          <div key={item.id || itemIndex} className="item-preview">
-            <span className="item-name">{item.product_name || item.name}</span>
-            <span className="item-qty">x{item.quantity}</span>
-          </div>
-        ))}
+        {order.items?.slice(0, 3).map((item, itemIndex) => {
+          const parsed = extractQtyLabelFromName(item.product_name || item.name);
+          const qtyText = String(item.quantity_label || parsed.qtyLabel || '').trim() || `x${item.quantity}`;
+          return (
+            <div key={item.id || itemIndex} className="item-preview">
+              <span className="item-name">{parsed.name || item.product_name || item.name}</span>
+              <span className="item-qty">{qtyText.startsWith('x') ? qtyText : `Qty: ${qtyText}`}</span>
+            </div>
+          );
+        })}
         {order.items?.length > 3 && (
           <span className="more-items">+{order.items.length - 3} more</span>
         )}
@@ -179,27 +188,8 @@ function OrderCard({ order, index, onViewOrder, onRetryPayment, onTrackOrder }) 
             <Eye size={16} />
             View Details
           </button>
-          {order.status === 'pending' && (
-            <button className="retry-btn" onClick={onRetryPayment}>
-              Retry Payment
-            </button>
-          )}
-          {order.fulfillment_status === 'shipped' && order.shipping_tracking_number && (
-            <button className="track-btn" onClick={onTrackOrder}>
-              <Truck size={16} />
-              Track
-            </button>
-          )}
         </div>
       </div>
-
-      {order.payment_status !== 'paid' && (
-        <div className={`payment-warning ${order.payment_status}`}>
-          {order.payment_status === 'pending' && 'Payment Pending'}
-          {order.payment_status === 'declined' && 'Payment Declined - Action Required'}
-          {order.payment_status === 'refunded' && 'Refund Processed'}
-        </div>
-      )}
     </div>
   );
 }
@@ -302,13 +292,8 @@ function OrderHistory() {
   const getStatusCounts = () => {
     const counts = {
       all: orders.length,
-      pending: orders.filter(o => o.status === 'pending').length,
-      confirmed: orders.filter(o => o.status === 'confirmed').length,
-      processing: orders.filter(o => o.status === 'processing').length,
-      shipped: orders.filter(o => o.status === 'shipped').length,
-      delivered: orders.filter(o => o.status === 'delivered').length,
-      cancelled: orders.filter(o => o.status === 'cancelled').length,
-      refunded: orders.filter(o => o.status === 'refunded').length
+      ordered: orders.filter(o => o.status === 'ordered').length,
+      received: orders.filter(o => o.status === 'received').length,
     };
     return counts;
   };
@@ -317,15 +302,6 @@ function OrderHistory() {
 
   const handleViewOrder = (orderId) => {
     navigate(`/orders/${orderId}`);
-  };
-
-  const handleRetryPayment = (orderId) => {
-    navigate(`/checkout?retry=${orderId}`);
-  };
-
-  const handleTrackOrder = (order) => {
-    const trackId = order.order_number || order.id;
-    navigate(`/order-tracking/${trackId}`);
   };
 
   const handleExportOrders = () => {
@@ -432,8 +408,6 @@ function OrderHistory() {
               order={order}
               index={index}
               onViewOrder={() => handleViewOrder(order.id)}
-              onRetryPayment={() => handleRetryPayment(order.id)}
-              onTrackOrder={() => handleTrackOrder(order)}
             />
           ))}
         </div>

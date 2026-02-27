@@ -209,6 +209,18 @@
   object-fit: cover;
 }
 
+.summary-item-image .placeholder-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+}
+
 .summary-item-details h4 {
   font-size: 0.95rem;
   font-weight: 600;
@@ -225,6 +237,16 @@
 .summary-item-price {
   font-weight: 700;
   color: var(--color-accent);
+}
+
+.unknown-price-note {
+  margin-top: 0.8rem;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.82rem;
 }
 
 .summary-totals {

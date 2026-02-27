@@ -3,6 +3,32 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ordersApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 
+const extractQtyLabelFromName = (value) => {
+  const raw = String(value || '').trim();
+  const match = raw.match(/\s*\[Qty:\s*([^\]]+)\]\s*$/i);
+  if (!match) return { name: raw, qtyLabel: '' };
+  return {
+    name: raw.replace(/\s*\[Qty:\s*([^\]]+)\]\s*$/i, '').trim(),
+    qtyLabel: String(match[1] || '').trim(),
+  };
+};
+
+const getOrderItemDisplay = (item) => {
+  const parsed = extractQtyLabelFromName(item?.product_name || item?.name || '');
+  const manual = Number(item?.is_manual || 0) === 1 || !Number(item?.product_id || 0);
+  const unitPrice = Number(item?.price || 0);
+  const quantity = Number(item?.quantity || 0);
+  const computedTotal = Number(item?.total || (quantity * unitPrice));
+  const quantityLabel = String(item?.quantity_label || parsed.qtyLabel || '').trim();
+  return {
+    name: parsed.name || '-',
+    quantityText: quantityLabel || String(quantity > 0 ? quantity : 1),
+    unitPrice,
+    total: computedTotal,
+    unknownPrice: manual && unitPrice <= 0,
+  };
+};
+
 export default function OrderDetails() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
@@ -57,8 +83,7 @@ export default function OrderDetails() {
 
   const savedUser = getSavedUser();
   const isAdmin = savedUser?.role === 'admin';
-  const orderOwnerId = order?.user_id ?? order?.customer_id;
-  const canCustomerCancel = !isAdmin && Number(savedUser?.id) === Number(orderOwnerId) && order.status === 'pending';
+  const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
 
   return (
     <div style={{ padding: 20 }}>
@@ -67,68 +92,29 @@ export default function OrderDetails() {
       { /* If admin viewing, show admin controls */ }
       {isAdmin && (
         <div style={{ marginTop: 8 }}>
-          <button
-            onClick={async () => {
-              if (!window.confirm('Approve this order and apply stock?')) return;
-              try {
-                setActionLoading(true);
-                await ordersApi.updateStatus(order.id, 'confirmed', 'Approved via details page', savedUser.id);
-                await loadOrder();
-                alert('Order approved');
-              } catch (err) {
-                alert(err.message || 'Failed to approve');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            className="admin-btn"
-            disabled={actionLoading}
-          >
-            Approve
-          </button>
-          <button
-            onClick={async () => {
-              if (!window.confirm('Cancel this order?')) return;
-              try {
-                setActionLoading(true);
-                await ordersApi.updateStatus(order.id, 'cancelled', 'Cancelled via details page', savedUser.id);
-                await loadOrder();
-                alert('Order cancelled');
-              } catch (err) {
-                alert(err.message || 'Failed to cancel');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            style={{ marginLeft: 8 }}
-            className="admin-btn"
-            disabled={actionLoading}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-      {canCustomerCancel && (
-        <div style={{ marginTop: 8 }}>
-          <button
-            onClick={async () => {
-              if (!window.confirm('Cancel this pending order?')) return;
-              try {
-                setActionLoading(true);
-                await ordersApi.cancel(order.id, 'Cancelled by customer from order details', savedUser.id);
-                await loadOrder();
-                alert('Order cancelled');
-              } catch (err) {
-                alert(err.message || 'Failed to cancel order');
-              } finally {
-                setActionLoading(false);
-              }
-            }}
-            className="admin-btn"
-            disabled={actionLoading}
-          >
-            Cancel Order
-          </button>
+          {isOrdered ? (
+            <button
+              onClick={async () => {
+                if (!window.confirm('Mark this order as received/confirmed?')) return;
+                try {
+                  setActionLoading(true);
+                  await ordersApi.updateStatus(order.id, 'received', 'Marked received via order details', savedUser.id);
+                  await loadOrder();
+                  alert('Order marked as received');
+                } catch (err) {
+                  alert(err.message || 'Failed to update order');
+                } finally {
+                  setActionLoading(false);
+                }
+              }}
+              className="admin-btn"
+              disabled={actionLoading}
+            >
+              Mark Received
+            </button>
+          ) : (
+            <span style={{ opacity: 0.8 }}>Already received</span>
+          )}
         </div>
       )}
       <p><strong>Status:</strong> {order.status} &nbsp; <strong>Payment:</strong> {order.payment_status}</p>
@@ -143,14 +129,17 @@ export default function OrderDetails() {
           </tr>
         </thead>
         <tbody>
-          {order.items && order.items.map(item => (
+          {order.items && order.items.map(item => {
+            const display = getOrderItemDisplay(item);
+            return (
             <tr key={item.id} style={{ borderTop: '1px solid #eee' }}>
-              <td style={{ padding: 8 }}>{item.product_name}</td>
-              <td style={{ padding: 8 }}>{item.quantity}</td>
-              <td style={{ padding: 8 }}>{formatCurrency(item.price)}</td>
-              <td style={{ padding: 8 }}>{formatCurrency(item.total)}</td>
+              <td style={{ padding: 8 }}>{display.name}</td>
+              <td style={{ padding: 8 }}>{display.quantityText}</td>
+              <td style={{ padding: 8 }}>{display.unknownPrice ? 'Unknown' : formatCurrency(display.unitPrice)}</td>
+              <td style={{ padding: 8 }}>{display.unknownPrice ? 'Unknown' : formatCurrency(display.total)}</td>
             </tr>
-          ))}
+          );
+          })}
         </tbody>
       </table>
       <div style={{ marginTop: 12 }}>

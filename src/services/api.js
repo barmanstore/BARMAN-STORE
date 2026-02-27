@@ -106,34 +106,15 @@ export const apiFetch = async (endpoint, options = {}) => {
 
 // Auth API
 export const authApi = {
-  login: (email, password) => 
-    apiFetch('/api/auth/login', {
+  requestLoginOtp: (payload) =>
+    apiFetch('/api/auth/otp/request', {
       method: 'POST',
-      body: { email, password },
+      body: payload,
     }),
-  
-  loginWithPhone: (phone, password) =>
-    apiFetch('/api/auth/login', {
+  verifyLoginOtp: (payload) =>
+    apiFetch('/api/auth/otp/verify', {
       method: 'POST',
-      body: { phone, password },
-    }),
-  
-  register: (email, password, confirmPassword, name, phone, address) => 
-    apiFetch('/api/auth/register', {
-      method: 'POST',
-      body: { email, password, confirmPassword, name, phone, address },
-    }),
-  
-  changePassword: (email, phone, currentPassword, newPassword, confirmPassword) =>
-    apiFetch('/api/auth/change-password', {
-      method: 'POST',
-      body: { email, phone, currentPassword, newPassword, confirmPassword },
-    }),
-
-  requestPasswordReset: (email, phone, reason) =>
-    apiFetch('/api/auth/request-password-reset', {
-      method: 'POST',
-      body: { email, phone, reason },
+      body: payload,
     }),
   requestEmailVerification: (email) =>
     apiFetch('/api/auth/email/verification/request', {
@@ -176,21 +157,6 @@ export const authApi = {
       },
     }),
   getResetMode: () => apiFetch('/api/auth/reset-mode'),
-  completeRecoveryPasswordReset: (payload) =>
-    apiFetch('/api/auth/password/recovery/complete', {
-      method: 'POST',
-      body: payload,
-    }),
-  verifyResetOtp: (payload) =>
-    apiFetch('/api/auth/reset-password/otp/verify', {
-      method: 'POST',
-      body: payload,
-    }),
-  completeResetWithOtp: (payload) =>
-    apiFetch('/api/auth/reset-password/otp/complete', {
-      method: 'POST',
-      body: payload,
-    }),
 };
 
 export const analyticsApi = {
@@ -301,7 +267,7 @@ export const ordersApi = {
   
   // Create order (legacy)
   create: (orderData) => 
-    apiFetch('/api/orders', {
+    apiFetch('/api/orders/create-validated', {
       method: 'POST',
       body: orderData,
     }),
@@ -344,36 +310,7 @@ export const ordersApi = {
   // Get order history (status changes and events)
   getHistory: (id) => apiFetch(`/api/orders/${id}/history`),
 
-  // Cancel order
-  cancel: (id, reason, userId) => 
-    apiFetch(`/api/orders/${id}/cancel`, {
-      method: 'POST',
-      body: { reason, user_id: userId },
-    }),
-  
-  // Modify order
-  modify: (id, data) => 
-    apiFetch(`/api/orders/${id}/modify`, {
-      method: 'PUT',
-      body: data,
-    }),
-  
-  // Generate shipping label
-  generateLabel: (id, carrier, serviceType, weight) => 
-    apiFetch(`/api/orders/${id}/generate-label`, {
-      method: 'POST',
-      body: { carrier, service_type: serviceType, weight },
-    }),
-  
-  // Get order notifications
-  getNotifications: (orderId) => 
-    apiFetch(`/api/orders/${orderId}/notifications`),
-  
-  // Resend notification
-  resendNotification: (notificationId) => 
-    apiFetch(`/api/notifications/${notificationId}/resend`, {
-      method: 'POST',
-    }),
+  // Deprecated endpoints intentionally removed from customer flow.
 };
 
 // ============================================
@@ -469,6 +406,45 @@ export const creditApi = {
       body: { customer_id: customerId, additional_amount: amount },
     }),
   getAgingReport: () => apiFetch('/api/credit/aging'),
+  listIssues: (userId, status = '') => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return apiFetch(`/api/users/${userId}/credit-issues${query}`);
+  },
+  reportIssue: (userId, payload) =>
+    apiFetch(`/api/users/${userId}/credit-issues`, {
+      method: 'POST',
+      body: payload,
+    }),
+  respondIssue: (userId, issueId, payload) =>
+    apiFetch(`/api/users/${userId}/credit-issues/${issueId}/respond`, {
+      method: 'POST',
+      body: payload,
+    }),
+};
+
+export const notificationsApi = {
+  listMine: ({ unreadOnly = true, limit = 20 } = {}) =>
+    apiFetch(`/api/notifications/me?unread_only=${unreadOnly ? '1' : '0'}&limit=${encodeURIComponent(limit)}`),
+  markRead: (id) =>
+    apiFetch(`/api/notifications/${id}/read`, {
+      method: 'POST',
+    }),
+  markAllRead: () =>
+    apiFetch('/api/notifications/read-all', {
+      method: 'POST',
+    }),
+  listMessageRecipients: (query = '', limit = 20) =>
+    apiFetch(`/api/notifications/message-recipients?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`),
+  sendMessageToAdmin: (message) =>
+    apiFetch('/api/notifications/messages/to-admin', {
+      method: 'POST',
+      body: { message },
+    }),
+  sendMessageToCustomers: ({ recipient_user_ids = [], message = '' } = {}) =>
+    apiFetch('/api/notifications/messages/to-customers', {
+      method: 'POST',
+      body: { recipient_user_ids, message },
+    }),
 };
 
 // ============================================
@@ -523,7 +499,6 @@ export const offersApi = {
 
 export const adminApi = {
   getAnalyticsSummary: () => apiFetch('/api/admin/analytics/summary'),
-  getPasswordResetRequests: () => apiFetch('/api/admin/password-reset-requests'),
   getContactVerificationRequests: (status = 'open') =>
     apiFetch(`/api/admin/contact-verification-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   approveAndSendContactVerificationRequest: (id) =>
@@ -533,11 +508,6 @@ export const adminApi = {
   rejectContactVerificationRequest: (id, payload = {}) =>
     apiFetch(`/api/admin/contact-verification-requests/${id}/reject`, {
       method: 'POST',
-      body: payload,
-    }),
-  updatePasswordResetRequest: (id, payload) =>
-    apiFetch(`/api/admin/password-reset-requests/${id}`, {
-      method: 'PUT',
       body: payload,
     }),
   prepareEmailNotification: (payload) =>
@@ -562,6 +532,20 @@ export const adminApi = {
     apiFetch(`/api/admin/users/${id}/phone/verify`, {
       method: 'POST',
     }),
+  getProductRecommendations: (status = '') =>
+    apiFetch(`/api/admin/product-recommendations${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  updateProductRecommendation: (id, payload) =>
+    apiFetch(`/api/admin/product-recommendations/${id}`, {
+      method: 'PUT',
+      body: payload,
+    }),
+  getCreditIssues: (status = '') =>
+    apiFetch(`/api/admin/credit-issues${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  updateCreditIssue: (id, payload) =>
+    apiFetch(`/api/admin/credit-issues/${id}`, {
+      method: 'PUT',
+      body: payload,
+    }),
 };
 
 // ============================================
@@ -581,6 +565,8 @@ export const billingApi = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/bills${query ? '?' + query : ''}`);
   },
+  getByUser: (userId) => apiFetch(`/api/users/${userId}/bills`),
+  getByUserBill: (userId, identifier) => apiFetch(`/api/users/${userId}/bills/${identifier}`),
   
   // Get bill by ID or number
   getById: (identifier) => apiFetch(`/api/bills/${identifier}`),
@@ -613,6 +599,15 @@ export const billingApi = {
       method: 'POST',
       body: { items },
     }),
+};
+
+export const productRecommendationsApi = {
+  create: (payload) =>
+    apiFetch('/api/product-recommendations', {
+      method: 'POST',
+      body: payload,
+    }),
+  getMine: () => apiFetch('/api/product-recommendations/mine'),
 };
 
 // ============================================

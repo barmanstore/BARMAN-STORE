@@ -103,15 +103,27 @@ const ensurePostgresBootstrapData = async ({
   if (adminCount === 0) {
     const bootstrapAdminEmail = normalizeEmail(process.env.BOOTSTRAP_ADMIN_EMAIL);
     const bootstrapAdminPassword = String(process.env.BOOTSTRAP_ADMIN_PASSWORD || '');
-    if (bootstrapAdminEmail && isStrongPassword(bootstrapAdminPassword)) {
+    const fallbackPassword = (() => {
+      if (isStrongPassword(bootstrapAdminPassword)) return bootstrapAdminPassword;
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+      let candidate = '';
+      while (!isStrongPassword(candidate)) {
+        candidate = '';
+        for (let i = 0; i < 14; i += 1) {
+          candidate += chars[Math.floor(Math.random() * chars.length)];
+        }
+      }
+      return candidate;
+    })();
+    if (bootstrapAdminEmail) {
       await pool.query(
         `INSERT INTO users (role, name, email, email_verified, phone, address, password_hash, must_change_password)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        ['admin', 'Administrator', bootstrapAdminEmail, 1, null, null, hashPassword(bootstrapAdminPassword), 0]
+        ['admin', 'Administrator', bootstrapAdminEmail, 1, null, null, hashPassword(fallbackPassword), 0]
       );
-      console.warn('Bootstrap admin account created from environment configuration.');
+      console.warn('Bootstrap admin account created (OTP/OAuth login only; password auth is disabled).');
     } else {
-      console.warn('No admin user exists. Set BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD to create the initial admin account.');
+      console.warn('No admin user exists. Set BOOTSTRAP_ADMIN_EMAIL to create the initial admin account.');
     }
   }
 

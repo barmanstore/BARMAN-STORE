@@ -87,6 +87,28 @@ const buildPasswordResetOtpTemplate = (payload = {}) => {
   };
 };
 
+const buildAuthLoginOtpTemplate = (payload = {}) => {
+  const businessName = asBusinessName(payload.businessName);
+  const recipientName = String(payload.recipientName || 'Customer').trim();
+  const code = String(payload.code || '').trim();
+  const expiresAt = formatExpiry(payload.expiresAt);
+  const subject = `${businessName}: Your login OTP`;
+  const body = [
+    `Hello ${recipientName},`,
+    '',
+    `Your ${businessName} login OTP is: ${code || '-'}`,
+    '',
+    `This OTP expires on ${expiresAt}.`,
+    'If you did not request this, ignore this message.',
+  ].join('\n');
+  const text = [
+    `${businessName} login OTP: ${code || '-'}`,
+    `Expires: ${expiresAt}`,
+    'If not requested, ignore this message.',
+  ].join('\n');
+  return { subject, body, text };
+};
+
 const buildPasswordResetAdminTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
   const recipientName = String(payload.recipientName || 'Customer').trim();
@@ -137,6 +159,9 @@ const buildNotificationTemplate = (type, payload = {}) => {
   }
   if (normalizedType === 'password_reset_otp') {
     return buildPasswordResetOtpTemplate(payload);
+  }
+  if (normalizedType === 'auth_login_otp') {
+    return buildAuthLoginOtpTemplate(payload);
   }
   if (normalizedType === 'password_reset_admin') {
     return buildPasswordResetAdminTemplate(payload);

@@ -67,13 +67,10 @@ Supported by backend (`server/index.js`):
   - Optional Supabase service-role key for server-side admin auth operations
 - `SUPABASE_AUTH_ENABLED`
   - Default: `false`
-  - Enables Supabase email auth integration when `true`
+  - Enables Supabase OAuth/session integration when `true`
 - `SUPABASE_AUTH_MODE`
   - Default: `hybrid`
-  - `hybrid` = try Supabase email auth first, then fallback to legacy local auth
-  - `strict` = Supabase-only for supported email auth flows
-- `SUPABASE_PASSWORD_RESET_REDIRECT`
-  - Optional URL used by Supabase password reset emails
+  - `hybrid` or `strict` for Supabase-backed auth/session behavior
 - `SUPABASE_EMAIL_VERIFY_REDIRECT`
   - Optional URL used by Supabase signup verification emails
 - `POSTGRES_MIGRATIONS_DIR`
@@ -98,6 +95,7 @@ Supported by backend (`server/index.js`):
 Notes:
 - Backend and DB helper scripts auto-load project env files (`.env`, `.env.local`, `.env.<NODE_ENV>`, `.env.<NODE_ENV>.local`).
 - Shell-defined environment variables still take priority over file values.
+- Secrets must never be committed. Keep real values only in deployment/runtime environment variables.
 
 ## Scripts
 - `npm run dev` start Vite dev server
@@ -106,11 +104,26 @@ Notes:
 - `npm run preview` preview frontend build
 - `npm run db:supabase:check` verify Supabase/Postgres connectivity (reads `DB_EXECUTION_MODE` from env files)
 - `npm run db:supabase:migrate` apply staged Supabase/Postgres SQL migrations (reads `DB_EXECUTION_MODE` from env files)
+- `npm run hooks:install` configure git hooks at `.githooks/`
+- `npm run secrets:scan:staged` scan staged files for secrets (used by pre-commit hook)
+- `npm run secrets:scan` scan tracked repository files for secrets (used by pre-push + CI)
 - `docs/SUPABASE_MIGRATION_START.md` Supabase migration runbook
 
-## Default Admin Login
-- Email: `admin@admin.com`
-- Password: `admin123`
+## Secret Protection Guardrails
+- Local hooks are configured via `core.hooksPath=.githooks`.
+- `pre-commit` blocks commits containing potential secrets.
+- `pre-push` blocks pushes containing potential secrets.
+- CI runs `.github/workflows/secret-scan.yml` using both Gitleaks and repo policy checks.
+
+Recommended account settings:
+- Enable GitHub Secret Scanning + Push Protection for this repository/org.
+- Protect `main` branch and require status checks (including `Secret Scan`) before merge.
+
+## Auth Model
+- Password login and password reset are disabled.
+- Supported sign-in methods:
+  - OTP login (`email` only)
+  - OAuth login (Supabase social providers when configured)
 
 ## API Reference
 Base URL: `http://localhost:5000`
@@ -120,14 +133,9 @@ Base URL: `http://localhost:5000`
 - `POST /api/notify-order/:orderId`
 
 ### Auth
-- `POST /api/auth/login`
-- `POST /api/auth/register`
-- `POST /api/auth/change-password`
-- `POST /api/auth/request-password-reset`
-
-### Admin Password Reset
-- `GET /api/admin/password-reset-requests`
-- `PUT /api/admin/password-reset-requests/:id`
+- `POST /api/auth/otp/request`
+- `POST /api/auth/otp/verify`
+- `GET /api/auth/session`
 
 ### Users and Customers
 - `GET /api/users`
@@ -157,10 +165,15 @@ Base URL: `http://localhost:5000`
 - `GET /api/orders/:id/history`
 - `GET /api/orders/number/:orderNumber`
 - `GET /api/users/:userId/orders`
-- `POST /api/orders`
+- `POST /api/orders` (deprecated/disabled, returns `410`)
 - `POST /api/orders/create-validated`
 - `POST /api/orders/validate-customer`
 - `PUT /api/orders/:id/status`
+
+Order flow constraints:
+- Only `ordered` -> `received` transitions are supported.
+- Payment mode is cash-on-delivery (`cash`) with no online payment activity.
+- Payment status is tracked as record state (`pending`/`paid`) only.
 
 ### Stats
 - `GET /api/stats/orders`
@@ -210,6 +223,20 @@ Base URL: `http://localhost:5000`
 - `GET /api/bills/:id`
 - `PUT /api/bills/:id/payment`
 - `GET /api/bills/stats/summary`
+- `GET /api/users/:userId/bills`
+- `GET /api/users/:userId/bills/:identifier`
+
+### Customer Requests
+- `POST /api/product-recommendations`
+- `GET /api/product-recommendations/mine`
+- `GET /api/admin/product-recommendations`
+- `PUT /api/admin/product-recommendations/:id`
+
+### Credit Entry Issues
+- `POST /api/users/:userId/credit-issues`
+- `GET /api/users/:userId/credit-issues`
+- `GET /api/admin/credit-issues`
+- `PUT /api/admin/credit-issues/:id`
 
 ### Offers
 - `GET /api/offers`
@@ -270,4 +297,12 @@ Typical packaging flow:
 - Use regular Postgres dumps/restores for database backup and disaster recovery.
 - If running over LAN, set `FRONTEND_ORIGIN` to allowed hosts for stricter CORS.
 - Frontend routes include public pages and admin views; admin access is role-based.
+
+## Security, Trust, and Liability Notes
+- Keep all secrets only in environment variables (never in git), and rotate immediately if exposure is suspected.
+- Keep GitHub secret scanning + push protection enabled to block accidental secret pushes server-side.
+- Enforce TLS/HTTPS in production for all auth/session traffic.
+- OTP delivery reliability depends on external provider configuration (Supabase + SMTP provider).
+- Cash collection and credit entries are business records; provide clear correction workflow (customer issue report + admin resolution).
+- Add/update your customer-facing privacy policy, refund policy, and terms of service to match your local legal requirements before production use.
 

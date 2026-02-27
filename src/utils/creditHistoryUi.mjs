@@ -13,19 +13,20 @@ const getRangeStartTimestamp = (rangeFilter, nowTimestamp) => {
   return null;
 };
 
-export const getBalanceSummary = (rawBalance) => {
+export const getBalanceSummary = (rawBalance, { viewerRole = 'customer' } = {}) => {
   const balance = Number(rawBalance || 0);
+  const isAdminViewer = String(viewerRole || '').toLowerCase() === 'admin';
   if (balance > 0) {
     return {
-      headline: 'You will get',
-      directionLine: 'Customer will give you this amount',
+      headline: isAdminViewer ? 'Customer will give' : 'You will give',
+      directionLine: isAdminViewer ? 'Customer owes this amount' : 'You owe this amount',
       toneClass: 'positive',
     };
   }
   if (balance < 0) {
     return {
-      headline: 'You will give',
-      directionLine: 'You owe customer this amount',
+      headline: isAdminViewer ? 'You will give' : 'You will get',
+      directionLine: isAdminViewer ? 'You owe customer this amount' : 'Store owes you this amount',
       toneClass: 'negative',
     };
   }
@@ -94,4 +95,3 @@ export const truncateCreditDescription = (value, maxLength = 56) => {
   if (text.length <= limit) return text;
   return `${text.slice(0, limit - 3).trimEnd()}...`;
 };
-

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, DollarSign, CreditCard, RefreshCw, Printer, Upload, FileText, Eye, Download, MessageCircle, X } from 'lucide-react';
-import { creditApi, usersApi } from '../services/api';
+import { creditApi, usersApi, adminApi } from '../services/api';
 import { sendWhatsAppSmart } from '../utils/whatsapp';
 import * as info from './info';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
@@ -115,6 +115,7 @@ function CreditHistory({ user }) {
   const { userId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const authUser = (() => {
     if (user) return user;
     try {
@@ -160,6 +161,20 @@ function CreditHistory({ user }) {
   const [quickTypeFilter, setQuickTypeFilter] = useState('all');
   const [quickRangeFilter, setQuickRangeFilter] = useState('all');
   const [expandedTransactionId, setExpandedTransactionId] = useState(null);
+  const [creditIssues, setCreditIssues] = useState([]);
+  const [issueSubmitting, setIssueSubmitting] = useState(false);
+  const [issueForm, setIssueForm] = useState({
+    credit_entry_id: '',
+    issue_type: 'wrong_entry',
+    message: '',
+  });
+  const [issueRespondingId, setIssueRespondingId] = useState(0);
+  const [issueResponseDrafts, setIssueResponseDrafts] = useState({});
+  const [adminIssueDrafts, setAdminIssueDrafts] = useState({});
+  const [adminIssueSavingId, setAdminIssueSavingId] = useState(0);
+  const [activeAdminIssueId, setActiveAdminIssueId] = useState(0);
+  const focusIssueId = Number(searchParams.get('focusIssue') || 0) || 0;
+  const focusEntryId = Number(searchParams.get('focusEntry') || 0) || 0;
 
   useEffect(() => {
     if (!authUser) {
@@ -196,6 +211,12 @@ function CreditHistory({ user }) {
       setCreditHistory(historyData);
       setBalance(balanceData.balance);
       setCustomer(customerData);
+      try {
+        const issueRows = await creditApi.listIssues(targetUserId);
+        setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
+      } catch (_) {
+        setCreditIssues([]);
+      }
       return {
         history: historyData,
         balance: Number(balanceData?.balance || 0),
@@ -316,6 +337,126 @@ function CreditHistory({ user }) {
       setError(err.message || 'Failed to add transaction');
     } finally {
       setAddingTransaction(false);
+    }
+  };
+
+  const handleReportIssue = async (event) => {
+    event.preventDefault();
+    if (issueSubmitting || isAdminView) return;
+    setIssueSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      const payload = {
+        credit_entry_id: Number(issueForm.credit_entry_id || 0) || null,
+        issue_type: String(issueForm.issue_type || 'wrong_entry').trim(),
+        message: String(issueForm.message || '').trim(),
+      };
+      if (!payload.message) {
+        throw new Error('Please describe the issue');
+      }
+      await creditApi.reportIssue(effectiveUserId, payload);
+      const issueRows = await creditApi.listIssues(effectiveUserId);
+      setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
+      setIssueForm((prev) => ({ ...prev, message: '' }));
+      setSuccess('Issue submitted. Admin will review and correct if needed.');
+    } catch (err) {
+      setError(err.message || 'Failed to submit issue');
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
+
+  const handleIssueResponse = async (issue, responseStatus) => {
+    if (isAdminView || !issue?.id || !effectiveUserId) return;
+    const nextResponse = String(responseStatus || '').trim().toLowerCase();
+    if (nextResponse !== 'acknowledged' && nextResponse !== 'disputed') return;
+    const note = String(issueResponseDrafts[issue.id] || '').trim();
+    if (nextResponse === 'disputed' && !note) {
+      setError('Please add a short note before marking an issue as disputed.');
+      return;
+    }
+    try {
+      setIssueRespondingId(Number(issue.id || 0));
+      setError('');
+      setSuccess('');
+      await creditApi.respondIssue(effectiveUserId, issue.id, {
+        response_status: nextResponse,
+        message: note,
+      });
+      const issueRows = await creditApi.listIssues(effectiveUserId);
+      setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
+      setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: '' }));
+      setSuccess(nextResponse === 'acknowledged'
+        ? 'Thanks. Admin has been notified that this issue is acknowledged.'
+        : 'Your dispute has been sent to admin for re-check.');
+    } catch (err) {
+      setError(err.message || 'Failed to send issue response');
+    } finally {
+      setIssueRespondingId(0);
+    }
+  };
+
+  const getAdminIssueDraft = (issue) => {
+    const current = adminIssueDrafts[issue.id] || {};
+    return {
+      admin_reason: current.admin_reason ?? issue.admin_reason ?? issue.resolution_note ?? '',
+      correction_type: current.correction_type ?? '',
+      correction_amount: current.correction_amount ?? '',
+      correction_description: current.correction_description ?? '',
+      correction_reference: current.correction_reference ?? '',
+    };
+  };
+
+  const setAdminIssueDraft = (id, patch) => {
+    setAdminIssueDrafts((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        ...patch,
+      },
+    }));
+  };
+
+  const scrollToTransactionEntry = (entryId) => {
+    const numericId = Number(entryId || 0);
+    if (!numericId || typeof document === 'undefined') return;
+    const selector = `[data-credit-entry-id="${numericId}"]`;
+    const target = document.querySelector(selector);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleAdminIssueAction = async (issue, action) => {
+    if (!isAdminView) return;
+    const issueId = Number(issue?.id || 0);
+    if (!issueId) return;
+    const nextAction = String(action || '').trim().toLowerCase();
+    if (!nextAction) return;
+    const draft = getAdminIssueDraft(issue);
+    const payload = {
+      action: nextAction,
+      admin_reason: String(draft.admin_reason || '').trim(),
+    };
+    const correctionAmount = Number(draft.correction_amount || 0);
+    if (nextAction === 'corrected' && correctionAmount > 0) {
+      payload.correction_type = draft.correction_type === 'payment' ? 'payment' : 'given';
+      payload.correction_amount = correctionAmount;
+      payload.correction_description = String(draft.correction_description || '').trim();
+      payload.correction_reference = String(draft.correction_reference || '').trim();
+    }
+    try {
+      setAdminIssueSavingId(issueId);
+      setError('');
+      setSuccess('');
+      await adminApi.updateCreditIssue(issueId, payload);
+      await fetchCreditData(effectiveUserId);
+      setSuccess('Issue action submitted and customer has been notified.');
+      setActiveAdminIssueId(0);
+    } catch (err) {
+      setError(err.message || 'Failed to update issue');
+    } finally {
+      setAdminIssueSavingId(0);
     }
   };
 
@@ -621,12 +762,76 @@ function CreditHistory({ user }) {
   const lastTransactionLine = lastTransaction
     ? `Last: ${getTypeLabel(lastTransaction.type)} · ${formatTransactionDate(lastTransaction, { long: true })}`
     : 'Last: No transactions yet';
-  const balanceSummary = getBalanceSummary(balance);
+  const balanceSummary = getBalanceSummary(balance, {
+    viewerRole: isAdminView ? 'admin' : 'customer',
+  });
   const inactivityHint = getRecentActivityHint(
     lastTransaction ? getEffectiveTransactionTimestamp(lastTransaction) : 0,
     { idleDays: 30 }
   );
   const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
+  const issueFlagByEntryId = (() => {
+    const map = new Map();
+    const tonePriority = {
+      open: 1,
+      review: 2,
+      rejected: 3,
+      corrected: 4,
+    };
+    for (const issue of creditIssues) {
+      const entryId = Number(issue?.credit_entry_id || 0);
+      if (!entryId) continue;
+      const status = String(issue?.status || '').trim().toLowerCase();
+      const customerResponse = String(issue?.customer_response_status || '').trim().toLowerCase();
+      let tone = '';
+      let label = '';
+      if (customerResponse === 'disputed' || status === 'in_review') {
+        tone = 'review';
+        label = 'Under Review';
+      } else if (status === 'open') {
+        tone = 'open';
+        label = 'Issue Open';
+      } else if (status === 'corrected') {
+        tone = 'corrected';
+        label = 'Corrected';
+      } else if (status === 'rejected') {
+        tone = 'rejected';
+        label = 'Rejected';
+      }
+      if (!tone) continue;
+      const updatedAtTs = new Date(issue?.updated_at || issue?.created_at || 0).getTime() || 0;
+      const existing = map.get(entryId);
+      const nextPriority = Number(tonePriority[tone] || 0);
+      if (!existing || updatedAtTs > existing.updatedAtTs || (updatedAtTs === existing.updatedAtTs && nextPriority >= existing.priority)) {
+        map.set(entryId, {
+          tone,
+          label,
+          updatedAtTs,
+          priority: nextPriority,
+        });
+      }
+    }
+    return map;
+  })();
+  const adminVisibleIssues = isAdminView
+    ? creditIssues.filter((issue) => {
+      const status = String(issue?.status || '').trim().toLowerCase();
+      const response = String(issue?.customer_response_status || '').trim().toLowerCase();
+      if (focusIssueId > 0 && Number(issue?.id || 0) === focusIssueId) return true;
+      return status === 'open' || status === 'in_review' || response === 'pending' || response === 'disputed';
+    })
+    : [];
+
+  useEffect(() => {
+    if (!focusEntryId) return;
+    if (loading) return;
+    scrollToTransactionEntry(focusEntryId);
+  }, [focusEntryId, loading, filteredTransactions.length]);
+
+  useEffect(() => {
+    if (!focusIssueId) return;
+    setActiveAdminIssueId(focusIssueId);
+  }, [focusIssueId]);
 
   const buildTransactionShareText = (transaction) => {
     const amount = Number(transaction?.amount || 0);
@@ -981,6 +1186,134 @@ function CreditHistory({ user }) {
         </div>
       </div>
 
+      {isAdminView && (
+        <div className="report-box admin-issue-workbench">
+          <div className="report-header">
+            <strong>Transaction Issue Inbox</strong>
+          </div>
+          {adminVisibleIssues.length === 0 ? (
+            <p className="muted">No customer transaction issues right now.</p>
+          ) : (
+            <div className="admin-issue-list">
+              {adminVisibleIssues.map((issue) => {
+                const issueId = Number(issue?.id || 0);
+                const draft = getAdminIssueDraft(issue);
+                const isFocused = focusIssueId > 0 && issueId === focusIssueId;
+                const entryId = Number(issue?.credit_entry_id || 0) || null;
+                return (
+                  <article key={issueId || `issue-${issue.created_at || ''}`} className={`admin-issue-card ${isFocused ? 'focused' : ''}`}>
+                    <div className="admin-issue-top">
+                      <strong>Issue #{issueId}</strong>
+                      <span className={`status-chip ${issue.status}`}>{issue.status}</span>
+                    </div>
+                    <div className="admin-issue-meta">
+                      <span>Type: {issue.issue_type}</span>
+                      {entryId ? <span>Entry: #{entryId}</span> : null}
+                      {issue.customer_response_status ? (
+                        <span>Customer: {issue.customer_response_status}</span>
+                      ) : null}
+                    </div>
+                    <p>{issue.message}</p>
+                    {(issue.admin_reason || issue.resolution_note) ? (
+                      <p><strong>Reason:</strong> {issue.admin_reason || issue.resolution_note}</p>
+                    ) : null}
+                    {entryId ? (
+                      <button
+                        type="button"
+                        className="report-btn secondary-action"
+                        onClick={() => scrollToTransactionEntry(entryId)}
+                      >
+                        Go to Transaction
+                      </button>
+                    ) : null}
+                    {activeAdminIssueId !== issueId ? (
+                      <button
+                        type="button"
+                        className="report-btn secondary-action"
+                        onClick={() => setActiveAdminIssueId(issueId)}
+                      >
+                        Open Action Panel
+                      </button>
+                    ) : (
+                      <>
+                        <label>
+                          Resolution Reason
+                          <textarea
+                            value={draft.admin_reason}
+                            onChange={(e) => setAdminIssueDraft(issueId, { admin_reason: e.target.value })}
+                            rows={2}
+                            placeholder="Reason visible to customer"
+                          />
+                        </label>
+                        <div className="request-correction-grid">
+                          <label>
+                            Correction Type
+                            <select
+                              value={draft.correction_type}
+                              onChange={(e) => setAdminIssueDraft(issueId, { correction_type: e.target.value })}
+                            >
+                              <option value="">None</option>
+                              <option value="given">Credit</option>
+                              <option value="payment">Payment</option>
+                            </select>
+                          </label>
+                          <label>
+                            Correction Amount
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={draft.correction_amount}
+                              onChange={(e) => setAdminIssueDraft(issueId, { correction_amount: e.target.value })}
+                              placeholder="0"
+                            />
+                          </label>
+                        </div>
+                        <label>
+                          Correction Description
+                          <input
+                            type="text"
+                            value={draft.correction_description}
+                            onChange={(e) => setAdminIssueDraft(issueId, { correction_description: e.target.value })}
+                            placeholder="Optional"
+                          />
+                        </label>
+                        <div className="request-correction-actions">
+                          <button
+                            type="button"
+                            className="report-btn secondary-action"
+                            onClick={() => handleAdminIssueAction(issue, 'in_review')}
+                            disabled={adminIssueSavingId === issueId}
+                          >
+                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Needs Review'}
+                          </button>
+                          <button
+                            type="button"
+                            className="report-btn secondary-action"
+                            onClick={() => handleAdminIssueAction(issue, 'rejected')}
+                            disabled={adminIssueSavingId === issueId}
+                          >
+                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Reject'}
+                          </button>
+                          <button
+                            type="button"
+                            className="report-btn primary-action"
+                            onClick={() => handleAdminIssueAction(issue, 'corrected')}
+                            disabled={adminIssueSavingId === issueId}
+                          >
+                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Submit Correction'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="credit-table-container">
         {filteredTransactions.length === 0 ? (
           <div className="empty-state">
@@ -1016,8 +1349,13 @@ function CreditHistory({ user }) {
                     ? `${transaction.description || ''} (${transaction.reference})`.trim()
                     : transaction.description || '-';
                   const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+                  const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
                   return (
-                    <tr key={transaction.id}>
+                    <tr
+                      key={transaction.id}
+                      data-credit-entry-id={Number(transaction.id || 0) || undefined}
+                      className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
+                    >
                       <td>{formatTransactionDate(transaction, { long: true })}</td>
                       <td className="invoice-number">{transaction.invoice_number || '-'}</td>
                       <td>
@@ -1028,8 +1366,20 @@ function CreditHistory({ user }) {
                         {formatCurrencyColored(transaction.type === 'payment' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount))}
                       </td>
                       <td>{formatCurrencyColored(parseFloat(transaction.balance))}</td>
-                      <td>{descriptionWithRef}</td>
+                      <td>
+                        {descriptionWithRef}
+                        {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
+                      </td>
                       <td className="actions-cell">
+                        {!isAdminView && (
+                          <button
+                            className="action-icon"
+                            onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
+                            title="Report issue on this entry"
+                          >
+                            <FileText size={16} />
+                          </button>
+                        )}
                         {transaction.image_path && (
                           <a
                             href={transaction.image_path}
@@ -1079,10 +1429,12 @@ function CreditHistory({ user }) {
                         : parseFloat(transaction.amount);
                       const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
                       const isExpanded = expandedTransactionId === transaction.id;
+                      const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
                       return (
                         <article
                           key={`mobile-${transaction.id}`}
-                          className={`credit-transaction-bubble ${transaction.type === 'payment' ? 'bubble-right payment' : 'bubble-left given'}`}
+                          data-credit-entry-id={Number(transaction.id || 0) || undefined}
+                          className={`credit-transaction-bubble ${transaction.type === 'payment' ? 'bubble-right payment' : 'bubble-left given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
                         >
                           <header className="bubble-head">
                             <span className="bubble-type">
@@ -1090,6 +1442,7 @@ function CreditHistory({ user }) {
                                 {getTypeLabel(transaction.type)}
                               </span>
                               <span className="bubble-date">{formatTransactionDate(transaction, { long: true })}</span>
+                              {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
                             </span>
                             <span className="bubble-amount-wrap">
                               <span className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
@@ -1121,6 +1474,15 @@ function CreditHistory({ user }) {
                               {reference && <div className="bubble-detail"><strong>Ref:</strong> {reference}</div>}
                               <div className="bubble-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
                               <div className="bubble-actions">
+                            {!isAdminView && (
+                              <button
+                                className="action-icon"
+                                onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
+                                title="Report issue on this entry"
+                              >
+                                <FileText size={16} />
+                              </button>
+                            )}
                             {transaction.image_path && (
                               <a
                                 href={transaction.image_path}
@@ -1163,6 +1525,104 @@ function CreditHistory({ user }) {
             </div>
           </>
               )}
+         {!isAdminView && (
+            <div className="report-box">
+              <div className="report-header">
+                <strong>Report Credit Entry Issue</strong>
+              </div>
+              <form className="credit-issue-form" onSubmit={handleReportIssue}>
+                <label>
+                  Entry
+                  <select
+                    value={issueForm.credit_entry_id}
+                    onChange={(e) => setIssueForm((prev) => ({ ...prev, credit_entry_id: e.target.value }))}
+                  >
+                    <option value="">Select (optional)</option>
+                    {creditHistory.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        #{entry.id} | {getTypeLabel(entry.type)} | {formatCurrency(entry.amount || 0)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Issue Type
+                  <select
+                    value={issueForm.issue_type}
+                    onChange={(e) => setIssueForm((prev) => ({ ...prev, issue_type: e.target.value }))}
+                  >
+                    <option value="wrong_entry">Wrong Entry</option>
+                    <option value="missing_entry">Missing Entry</option>
+                    <option value="wrong_amount">Wrong Amount</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Message
+                  <textarea
+                    value={issueForm.message}
+                    onChange={(e) => setIssueForm((prev) => ({ ...prev, message: e.target.value }))}
+                    placeholder="Explain what is wrong so admin can correct it."
+                    rows={3}
+                    required
+                  />
+                </label>
+                <button type="submit" className="report-btn primary-action" disabled={issueSubmitting}>
+                  {issueSubmitting ? 'Submitting...' : 'Submit Issue'}
+                </button>
+              </form>
+              {creditIssues.length > 0 && (
+                <div className="credit-issues-list">
+                  {creditIssues.map((issue) => (
+                    <div key={issue.id} className="credit-issue-row">
+                      <div>
+                        <strong>#{issue.id}</strong> {issue.issue_type}
+                      </div>
+                      <div>{issue.message}</div>
+                      <div className={`status-chip ${issue.status}`}>{issue.status}</div>
+                      {issue.admin_reason || issue.resolution_note ? (
+                        <div><strong>Admin reason:</strong> {issue.admin_reason || issue.resolution_note}</div>
+                      ) : null}
+                      {issue.correction_entry_id ? (
+                        <div><strong>Correction entry:</strong> #{issue.correction_entry_id}</div>
+                      ) : null}
+                      {issue.customer_response_status ? (
+                        <div><strong>Your response:</strong> {issue.customer_response_status}</div>
+                      ) : null}
+                      {(issue.status === 'corrected' || issue.status === 'rejected') && !issue.customer_response_status ? (
+                        <div className="credit-issue-response">
+                          <textarea
+                            value={issueResponseDrafts[issue.id] || ''}
+                            onChange={(e) => setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: e.target.value }))}
+                            placeholder="Optional note. Required if you still disagree."
+                            rows={2}
+                          />
+                          <div className="credit-issue-response-actions">
+                            <button
+                              type="button"
+                              className="report-btn secondary-action"
+                              onClick={() => handleIssueResponse(issue, 'acknowledged')}
+                              disabled={issueRespondingId === Number(issue.id)}
+                            >
+                              {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Acknowledge'}
+                            </button>
+                            <button
+                              type="button"
+                              className="report-btn primary-action"
+                              onClick={() => handleIssueResponse(issue, 'disputed')}
+                              disabled={issueRespondingId === Number(issue.id)}
+                            >
+                              {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Still Wrong'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+         )}
          {isAdminView && (
             <div className="report-controls secondary-tools">
                <label> From:<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />

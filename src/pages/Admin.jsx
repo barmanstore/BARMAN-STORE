@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, ShoppingCart, Users, TrendingUp, LogOut, Plus, Edit, Trash2, X, FolderOpen, CreditCard, FileText, Truck, ShoppingBag, History, BarChart2, Gift, KeyRound, Eye, Menu, Upload, Download, CheckCircle2 } from 'lucide-react';
+import { Package, ShoppingCart, Users, TrendingUp, LogOut, Plus, Edit, Trash2, X, FolderOpen, CreditCard, FileText, Truck, ShoppingBag, History, BarChart2, Gift, Eye, Menu, Upload, Download, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { statsApi, productsApi, ordersApi, usersApi, adminApi, resolveMediaUrl } from '../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../utils/productImage';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
@@ -14,8 +14,8 @@ import UserEditModal from './UserEditModal';
 import BillingTab from './BillingTab';
 import BillsViewer from './BillsViewer';
 import OfferManagement from './OfferManagement';
-import PasswordResetRequests from './PasswordResetRequests';
 import CreditKhata from './CreditKhata';
+import CustomerRequestsAdmin from './CustomerRequestsAdmin';
 import AppModal from '../components/AppModal';
 import './Admin.css';
 
@@ -50,6 +50,58 @@ const getBrandPath = (product) => (
   || String(product?.brand || '').trim()
 );
 
+const SIDEBAR_SECTIONS = [
+  {
+    key: 'general',
+    label: 'General',
+    icon: TrendingUp,
+    items: [
+      { tab: 'dashboard', label: 'Dashboard', icon: TrendingUp },
+      { tab: 'orders', label: 'Orders', icon: ShoppingCart },
+      { tab: 'offers', label: 'Offers', icon: Gift },
+      { tab: 'credit-aging', label: 'Credit Aging', icon: BarChart2 },
+    ],
+  },
+  {
+    key: 'products',
+    label: 'Products',
+    icon: Package,
+    items: [
+      { tab: 'products', label: 'Products', icon: Package },
+      { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true },
+    ],
+  },
+  {
+    key: 'billing',
+    label: 'Billing',
+    icon: FileText,
+    items: [
+      { tab: 'billing', label: 'Billing', icon: FileText },
+      { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true },
+    ],
+  },
+  {
+    key: 'purchase',
+    label: 'Purchase',
+    icon: ShoppingBag,
+    items: [
+      { tab: 'purchases', label: 'Purchases', icon: ShoppingBag },
+      { tab: 'distributors', label: 'Distributors', icon: Truck, sub: true },
+      { tab: 'stock-ledger', label: 'Stock History', icon: History, sub: true },
+    ],
+  },
+  {
+    key: 'users',
+    label: 'Users',
+    icon: Users,
+    items: [
+      { tab: 'users', label: 'Users', icon: Users },
+      { tab: 'credit-khata', label: 'Credit Khata', icon: CreditCard, sub: true },
+      { tab: 'customer-requests', label: 'Customer Requests', icon: FileText, sub: true },
+    ],
+  },
+];
+
 function Admin({ user }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -61,7 +113,7 @@ function Admin({ user }) {
       'products', 'categories',
       'billing', 'view-bills',
       'purchases', 'distributors', 'stock-ledger',
-      'users', 'credit-khata', 'password-resets'
+      'users', 'credit-khata', 'customer-requests'
     ]);
     return allowedTabs.has(tab) ? tab : 'dashboard';
   });
@@ -88,6 +140,8 @@ function Admin({ user }) {
   const [modalOrder, setModalOrder] = useState(null);
   const [modalItems, setModalItems] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [billingPrefill, setBillingPrefill] = useState(null);
+  const [proceedBillingOrderId, setProceedBillingOrderId] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [userAvatarErrors, setUserAvatarErrors] = useState({});
   const [productViewMode, setProductViewMode] = useState(() => {
@@ -166,7 +220,7 @@ function Admin({ user }) {
     'stock-ledger': 'purchase',
     users: 'users',
     'credit-khata': 'users',
-    'password-resets': 'users'
+    'customer-requests': 'users'
   };
   const [expandedGroups, setExpandedGroups] = useState({
     general: true,
@@ -174,6 +228,16 @@ function Admin({ user }) {
     billing: false,
     purchase: false,
     users: false
+  });
+  const [desktopActiveGroup, setDesktopActiveGroup] = useState(() => {
+    if (typeof window === 'undefined') return 'general';
+    const saved = String(window.localStorage.getItem('admin-sidebar-desktop-group') || '').trim();
+    const validKeys = new Set(SIDEBAR_SECTIONS.map((section) => section.key));
+    return validKeys.has(saved) ? saved : 'general';
+  });
+  const [desktopPanelCollapsed, setDesktopPanelCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('admin-sidebar-panel-collapsed') === '1';
   });
 
   const refreshAdminData = async () => {
@@ -226,25 +290,25 @@ function Admin({ user }) {
     if (!modalOrder) return;
     try {
       setModalLoading(true);
-      await ordersApi.updateStatus(modalOrder.id, 'confirmed', 'Approved via admin modal', user.id);
+      await ordersApi.updateStatus(modalOrder.id, 'received', 'Marked received via admin modal', user.id);
       setShowApproveModal(false);
       await refreshAdminData();
-      showNotification('Order approved and stock applied', 'success');
+      showNotification('Order marked received and stock applied', 'success');
       await fetch(`/api/notify-order/${modalOrder.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approved' })
+        body: JSON.stringify({ action: 'received' })
       }).catch(() => {});
     } catch (err) {
-      showNotification(err.message || 'Failed to approve order', 'error');
+      showNotification(err.message || 'Failed to mark order received', 'error');
     } finally {
       setModalLoading(false);
     }
   };
 
   const handleUpdateOrderStatus = async (id, status) => {
-    if (status === 'cancelled' && !window.confirm('Are you sure you want to cancel this order?')) return;
-    if (status === 'confirmed' && !window.confirm('Approve this order and apply stock?')) return;
+    if (status !== 'received') return;
+    if (!window.confirm('Mark this order as received and apply stock?')) return;
     try {
       await ordersApi.updateStatus(id, status, `Order ${status} via admin panel`, user.id);
       await refreshAdminData();
@@ -252,6 +316,70 @@ function Admin({ user }) {
     } catch (error) {
       console.error('Failed to update order status', error);
       showNotification(error.message || 'Failed to update order status', 'error');
+    }
+  };
+
+  const buildAddressTextFromOrder = (order) => {
+    const shipping = order?.shipping_address && typeof order.shipping_address === 'object'
+      ? order.shipping_address
+      : {};
+    const parts = [
+      shipping.street,
+      shipping.city,
+      shipping.state,
+      shipping.zip,
+      shipping.country,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const buildBillingPrefillFromOrder = (order) => {
+    const customerId = Number(order?.user_id || 0) || null;
+    const rows = Array.isArray(order?.items) ? order.items : [];
+    return {
+      key: `order_${Number(order?.id || 0)}_${Date.now()}`,
+      source: {
+        order_id: Number(order?.id || 0) || null,
+        order_number: String(order?.order_number || '').trim(),
+      },
+      customer: {
+        id: customerId,
+        name: String(order?.customer_name || '').trim(),
+        email: String(order?.customer_email || '').trim(),
+        phone: String(order?.customer_phone || '').trim(),
+        address: buildAddressTextFromOrder(order),
+      },
+      items: rows.map((item, index) => ({
+        id: `prefill_${Number(order?.id || 0)}_${index}`,
+        name: String(item?.product_name || item?.name || 'Item').trim() || 'Item',
+        productId: Number(item?.product_id || 0) > 0 ? Number(item.product_id) : null,
+        price: Math.max(0, Number(item?.price || 0)),
+        qty: Math.max(1, Number(item?.quantity || 1)),
+        unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
+        disc: 0,
+        discType: 'fixed',
+      })),
+      note: `Prepared from order ${String(order?.order_number || `#${order?.id || ''}`)}`,
+    };
+  };
+
+  const handleProceedToBilling = async (orderInput) => {
+    const orderId = Number(orderInput?.id || 0);
+    if (!orderId) return;
+    try {
+      setProceedBillingOrderId(orderId);
+      const fullOrder = Array.isArray(orderInput?.items)
+        ? orderInput
+        : await ordersApi.getById(orderId);
+      const prefill = buildBillingPrefillFromOrder(fullOrder);
+      setBillingPrefill(prefill);
+      handleTabChange('billing');
+      setShowApproveModal(false);
+      showNotification('Order loaded in billing form', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Failed to open billing with this order', 'error');
+    } finally {
+      setProceedBillingOrderId(0);
     }
   };
 
@@ -269,6 +397,7 @@ function Admin({ user }) {
     const group = tabGroupMap[activeTab];
     if (!group) return;
     setExpandedGroups(prev => ({ ...prev, [group]: true }));
+    setDesktopActiveGroup(group);
   }, [activeTab]);
 
   useEffect(() => {
@@ -288,9 +417,28 @@ function Admin({ user }) {
     window.localStorage.setItem('admin-products-columns', productTableColumnPreset);
   }, [productTableColumnPreset]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('admin-sidebar-desktop-group', desktopActiveGroup);
+  }, [desktopActiveGroup]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('admin-sidebar-panel-collapsed', desktopPanelCollapsed ? '1' : '0');
+  }, [desktopPanelCollapsed]);
+
   const toggleSidebarGroup = (groupKey) => {
     setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
+
+  const handleDesktopGroupSelect = (groupKey) => {
+    setDesktopActiveGroup(groupKey);
+    if (desktopPanelCollapsed) {
+      setDesktopPanelCollapsed(false);
+    }
+  };
+
+  const desktopCurrentSection = SIDEBAR_SECTIONS.find((section) => section.key === desktopActiveGroup) || SIDEBAR_SECTIONS[0];
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -440,7 +588,7 @@ function Admin({ user }) {
   );
 
   const pendingOrdersList = useMemo(
-    () => orders.filter((o) => String(o?.status || '').toLowerCase() === 'pending'),
+    () => orders.filter((o) => String(o?.status || '').toLowerCase() === 'ordered'),
     [orders]
   );
 
@@ -1014,6 +1162,66 @@ function Admin({ user }) {
         <h2>Admin Panel</h2>
       </div>
 
+      <aside className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`} aria-label="Admin desktop navigation">
+        <div className="admin-sidebar-rail">
+          <div className="admin-sidebar-rail-top">
+            <button
+              type="button"
+              className="rail-item rail-collapse-toggle"
+              onClick={() => setDesktopPanelCollapsed((prev) => !prev)}
+              aria-label={desktopPanelCollapsed ? 'Expand sidebar panel' : 'Collapse sidebar panel'}
+              title={desktopPanelCollapsed ? 'Expand panel' : 'Collapse panel'}
+            >
+              {desktopPanelCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            </button>
+            {SIDEBAR_SECTIONS.map((section) => {
+              const SectionIcon = section.icon;
+              const isSectionActive = section.key === desktopActiveGroup;
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  className={`rail-item ${isSectionActive ? 'active' : ''}`}
+                  onClick={() => handleDesktopGroupSelect(section.key)}
+                  aria-label={section.label}
+                  title={section.label}
+                >
+                  <SectionIcon size={18} />
+                </button>
+              );
+            })}
+          </div>
+          <div className="admin-sidebar-rail-bottom">
+            <Link to="/" className="rail-item rail-home-link" aria-label="Back to Store" title="Back to Store">
+              <LogOut size={18} />
+            </Link>
+          </div>
+        </div>
+        <div className="admin-sidebar-panel" aria-hidden={desktopPanelCollapsed}>
+          <div className="sidebar-panel-header">
+            <h2>{desktopCurrentSection.label}</h2>
+          </div>
+          <nav className="sidebar-panel-nav">
+            {desktopCurrentSection.items.map((item) => {
+              const ItemIcon = item.icon;
+              const isActiveItem = activeTab === item.tab;
+              return (
+                <button
+                  key={item.tab}
+                  type="button"
+                  className={`panel-item ${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`}
+                  aria-current={isActiveItem ? 'page' : undefined}
+                  onClick={() => handleTabChange(item.tab)}
+                >
+                  <ItemIcon size={item.sub ? 16 : 18} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </aside>
+
       {isMobileSidebarOpen && (
         <button
           type="button"
@@ -1176,10 +1384,10 @@ function Admin({ user }) {
                   <CreditCard size={18} /> Credit Khata
                 </button>
                 <button
-                  className={`${activeTab === 'password-resets' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('password-resets')}
+                  className={`${activeTab === 'customer-requests' ? 'active' : ''} sub-item`}
+                  onClick={() => handleTabChange('customer-requests')}
                 >
-                  <KeyRound size={18} /> Account Actions
+                  <FileText size={18} /> Customer Requests
                 </button>
               </div>
             )}
@@ -1207,7 +1415,7 @@ function Admin({ user }) {
                 </div>
                 <div className="stat-group-metrics">
                   <div className="stat-group-metric"><span>Total Orders</span><strong>{asNumber(stats.totalOrders, 0)}</strong></div>
-                  <div className="stat-group-metric"><span>Pending Orders</span><strong>{pendingOrdersList.length}</strong></div>
+                  <div className="stat-group-metric"><span>Ordered (Pending Receive)</span><strong>{pendingOrdersList.length}</strong></div>
                 </div>
               </div>
 
@@ -1804,6 +2012,37 @@ function Admin({ user }) {
         {activeTab === 'orders' && (
           <div className="orders-management">
             <h1>Orders Management</h1>
+            <div className="orders-mobile-list">
+              {orders.map((order) => {
+                const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
+                return (
+                  <article key={`mobile-${order.id}`} className="order-mobile-card">
+                    <div className="order-mobile-head">
+                      <strong>#{order.order_number || order.id}</strong>
+                      <span className={`status ${order.status}`}>{order.status}</span>
+                    </div>
+                    <p><strong>Customer:</strong> {order.customer_name || '-'}</p>
+                    <p><strong>Email:</strong> {order.customer_email || '-'}</p>
+                    <p><strong>Amount:</strong> {formatCurrency(order.total_amount || 0)}</p>
+                    <p><strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
+                    {isOrdered ? (
+                      <div className="order-mobile-actions">
+                        <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                        <button
+                          className="admin-btn"
+                          onClick={() => handleProceedToBilling(order)}
+                          disabled={proceedBillingOrderId === Number(order.id)}
+                        >
+                          {proceedBillingOrderId === Number(order.id) ? 'Opening...' : 'Proceed Billing'}
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ opacity: 0.75 }}>No pending action</span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
             <div className="orders-table">
               <table>
                 <thead>
@@ -1828,10 +2067,16 @@ function Admin({ user }) {
                         <span className={`status ${order.status}`}>{order.status}</span>
                       </td>
                       <td>
-                        {order.status === 'pending' ? (
+                        {String(order.status || '').toLowerCase() === 'ordered' ? (
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button className="admin-btn" onClick={() => openApproveModal(order.id)}>Approve</button>
-                            <button className="admin-btn" onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>Cancel</button>
+                            <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                            <button
+                              className="admin-btn"
+                              onClick={() => handleProceedToBilling(order)}
+                              disabled={proceedBillingOrderId === Number(order.id)}
+                            >
+                              {proceedBillingOrderId === Number(order.id) ? 'Opening...' : 'Proceed Billing'}
+                            </button>
                           </div>
                         ) : (
                           <span style={{ opacity: 0.8 }}>—</span>
@@ -1990,7 +2235,12 @@ function Admin({ user }) {
           </div>
         )}
 
-        {activeTab === 'billing' && <BillingTab />}
+        {activeTab === 'billing' && (
+          <BillingTab
+            initialPrefill={billingPrefill}
+            onPrefillApplied={() => setBillingPrefill(null)}
+          />
+        )}
         {activeTab === 'view-bills' && <BillsViewer />}
 
         {activeTab === 'distributors' && (
@@ -2009,8 +2259,8 @@ function Admin({ user }) {
           <CreditAgingReport user={user} />
         )}
         {activeTab === 'credit-khata' && <CreditKhata user={user} />}
+        {activeTab === 'customer-requests' && <CustomerRequestsAdmin />}
         {activeTab === 'offers' && <OfferManagement />}
-        {activeTab === 'password-resets' && <PasswordResetRequests />}
       </div>
 
       {/* Product Form Modal */}
@@ -2027,7 +2277,7 @@ function Admin({ user }) {
       {showApproveModal && modalOrder && (
         <AppModal
           open={showApproveModal}
-          title={`Approve Order ${modalOrder.order_number || `#${modalOrder.id}`}`}
+          title={`Mark Received ${modalOrder.order_number || `#${modalOrder.id}`}`}
           onClose={() => setShowApproveModal(false)}
         >
           {modalLoading ? (
@@ -2059,7 +2309,14 @@ function Admin({ user }) {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
                 <button className="admin-btn" onClick={() => setShowApproveModal(false)} disabled={modalLoading}>Close</button>
-                <button className="admin-btn primary" onClick={confirmApprove} disabled={modalLoading}>Confirm Approve</button>
+                <button
+                  className="admin-btn"
+                  onClick={() => handleProceedToBilling(modalOrder)}
+                  disabled={modalLoading || proceedBillingOrderId === Number(modalOrder?.id || 0)}
+                >
+                  {proceedBillingOrderId === Number(modalOrder?.id || 0) ? 'Opening...' : 'Proceed Billing'}
+                </button>
+                <button className="admin-btn primary" onClick={confirmApprove} disabled={modalLoading}>Confirm Received</button>
               </div>
             </>
           )}

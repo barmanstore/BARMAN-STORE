@@ -119,6 +119,28 @@ const createSupabaseAuthProvider = ({
       useServiceRole: false,
       body: { email, password },
     }),
+    requestEmailOtp: async ({ email, shouldCreateUser = false }) => requestAuth({
+      path: '/auth/v1/otp',
+      method: 'POST',
+      useServiceRole: false,
+      body: {
+        email,
+        create_user: Boolean(shouldCreateUser),
+        ...(normalizedEmailRedirect ? { email_redirect_to: normalizedEmailRedirect } : {}),
+      },
+    }),
+    verifySignInOtp: async ({ email, token = '', tokenHash = '' }) => requestAuth({
+      path: '/auth/v1/verify',
+      method: 'POST',
+      useServiceRole: false,
+      body: {
+        type: 'email',
+        email,
+        ...(String(tokenHash || '').trim()
+          ? { token_hash: String(tokenHash || '').trim() }
+          : { token: String(token || '').trim() }),
+      },
+    }),
     resendSignupVerification: async ({ email }) => requestAuth({
       path: '/auth/v1/resend',
       method: 'POST',

@@ -204,6 +204,53 @@
   border-bottom: none;
 }
 
+.credit-history-page .credit-table tr.credit-row-issue.open td {
+  background: #f8fafc;
+}
+
+.credit-history-page .credit-table tr.credit-row-issue.review td {
+  background: #eff6ff;
+}
+
+.credit-history-page .credit-table tr.credit-row-issue.corrected td {
+  background: #f0fdf4;
+}
+
+.credit-history-page .credit-table tr.credit-row-issue.rejected td {
+  background: #fef2f2;
+}
+
+.credit-history-page .entry-issue-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.credit-history-page .entry-issue-pill.open {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.credit-history-page .entry-issue-pill.review {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.credit-history-page .entry-issue-pill.corrected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.credit-history-page .entry-issue-pill.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .credit-history-page .invoice-number {
   font-family: monospace;
   font-size: 12px;
@@ -716,6 +763,76 @@
   overflow: hidden;
 }
 
+.credit-history-page .admin-issue-list {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.credit-history-page .admin-issue-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.credit-history-page .admin-issue-card.focused {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.credit-history-page .admin-issue-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.credit-history-page .admin-issue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.credit-history-page .admin-issue-card p {
+  margin: 0;
+}
+
+.credit-history-page .admin-issue-card label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.credit-history-page .admin-issue-card select,
+.credit-history-page .admin-issue-card textarea,
+.credit-history-page .admin-issue-card input {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.credit-history-page .request-correction-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.credit-history-page .request-correction-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.credit-history-page .request-correction-actions .report-btn {
+  flex: 1 1 120px;
+}
+
 .credit-history-page .report-header {
   background: linear-gradient(135deg, #0f4fa8 0%, #1f6ed4 100%);
   color: white;
@@ -808,6 +925,122 @@
 .credit-history-page .report-btn.secondary-action {
   background: #eef2f7;
   color: #1f2937;
+}
+
+.credit-history-page .credit-issue-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border-top: 1px solid #e5e7eb;
+}
+
+.credit-history-page .credit-issue-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.credit-history-page .credit-issue-form select,
+.credit-history-page .credit-issue-form textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fff;
+}
+
+.credit-history-page .credit-issue-form textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.credit-history-page .credit-issue-form select:focus,
+.credit-history-page .credit-issue-form textarea:focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
+}
+
+.credit-history-page .credit-issues-list {
+  display: grid;
+  gap: 10px;
+  padding: 10px 16px 14px;
+  border-top: 1px dashed #d1d5db;
+  background: #fff;
+}
+
+.credit-history-page .credit-issue-row {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.credit-history-page .credit-issue-response {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.credit-history-page .credit-issue-response textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 58px;
+}
+
+.credit-history-page .credit-issue-response-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.credit-history-page .credit-issue-response-actions .report-btn {
+  min-width: 120px;
+}
+
+.credit-history-page .status-chip {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.credit-history-page .status-chip.open {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.credit-history-page .status-chip.in_review {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.credit-history-page .status-chip.resolved,
+.credit-history-page .status-chip.corrected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.credit-history-page .status-chip.rejected {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 /* Report Controls */
@@ -944,6 +1177,25 @@
 
   .credit-history-page .credit-transaction-bubble.bubble-right {
     background: #ecfdf3;
+  }
+
+  .credit-history-page .credit-transaction-bubble.has-issue.open {
+    border-color: #93c5fd;
+  }
+
+  .credit-history-page .credit-transaction-bubble.has-issue.review {
+    border-color: #93c5fd;
+    background: #eff6ff;
+  }
+
+  .credit-history-page .credit-transaction-bubble.has-issue.corrected {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+
+  .credit-history-page .credit-transaction-bubble.has-issue.rejected {
+    border-color: #fca5a5;
+    background: #fef2f2;
   }
 
   .credit-history-page .bubble-head {
@@ -1088,6 +1340,32 @@
 
   .credit-history-page .report-btn.primary-action {
     grid-column: span 2;
+  }
+
+  .credit-history-page .credit-issue-form {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .credit-history-page .credit-issue-form label {
+    font-size: 12px;
+  }
+
+  .credit-history-page .credit-issues-list {
+    padding: 10px 12px 12px;
+  }
+
+  .credit-history-page .credit-issue-row {
+    font-size: 12px;
+  }
+
+  .credit-history-page .credit-issue-response-actions .report-btn {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .credit-history-page .request-correction-grid {
+    grid-template-columns: 1fr;
   }
 
   .credit-history-page .credit-mobile-cta-bar {

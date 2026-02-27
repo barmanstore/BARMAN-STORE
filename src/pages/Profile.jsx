@@ -873,11 +873,14 @@ function Profile() {
           <button className="action-btn" onClick={() => navigate('/cart')}>
             View Cart
           </button>
-          <button className="action-btn" onClick={() => navigate('/change-password')}>
-            Change Password
-          </button>
           <button className="action-btn" onClick={() => navigate('/my-credit')}>
             View Credit History
+          </button>
+          <button className="action-btn" onClick={() => navigate('/my-bills')}>
+            View Bills
+          </button>
+          <button className="action-btn" onClick={() => navigate('/product-requests')}>
+            Request Missing Product
           </button>
         </div>
       </div>

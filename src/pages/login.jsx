@@ -1,43 +1,86 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
-import { validateEmail, validateStrongPassword } from '../utils/validation';
+import { validateEmail } from '../utils/validation';
 import './login.css';
+
+const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
+const parseOAuthCallbackParams = () => {
+  if (typeof window === 'undefined') {
+    return {
+      accessToken: '',
+      refreshToken: '',
+      oauthError: '',
+      authCode: '',
+      hasCallbackParams: false,
+    };
+  }
+
+  const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+  const queryParams = new URLSearchParams(window.location.search || '');
+
+  const pick = (...keys) => {
+    for (const key of keys) {
+      const fromHash = String(hashParams.get(key) || '').trim();
+      if (fromHash) return fromHash;
+      const fromQuery = String(queryParams.get(key) || '').trim();
+      if (fromQuery) return fromQuery;
+    }
+    return '';
+  };
+
+  const accessToken = pick('access_token');
+  const refreshToken = pick('refresh_token');
+  const oauthError = decodeURIComponent(pick('error_description', 'error'));
+  const authCode = pick('code');
+  const hasCallbackParams = [
+    accessToken,
+    refreshToken,
+    oauthError,
+    authCode,
+    pick('provider_token'),
+    pick('token_type'),
+    pick('expires_in'),
+    pick('state'),
+  ].some(Boolean);
+
+  return {
+    accessToken,
+    refreshToken,
+    oauthError,
+    authCode,
+    hasCallbackParams,
+  };
+};
+
+const isLikelyInAppBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = String(navigator.userAgent || '');
+  return /(FBAN|FBAV|Instagram|Line\/|WhatsApp|wv\)|\bwv\b)/i.test(ua);
+};
 
 const parseIdentifier = (rawValue) => {
   const raw = String(rawValue || '').trim();
-  if (!raw) return { error: 'Enter your email or phone number' };
-  if (raw.includes('@')) {
-    const email = raw.toLowerCase();
-    if (!validateEmail(email)) return { error: 'Please enter a valid email address' };
-    return { email, phone: null, type: 'email' };
-  }
-  if (!isValidIndianPhone(raw)) return { error: PHONE_POLICY_MESSAGE };
-  return { email: null, phone: normalizeIndianPhone(raw), type: 'phone' };
+  if (!raw) return { error: 'Enter your email address' };
+  const email = raw.toLowerCase();
+  if (!validateEmail(email)) return { error: 'Please enter a valid email address' };
+  return { type: 'email', email, phone: null };
 };
-
-const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
 
 function Login({ setUser }) {
   const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [name, setName] = useState('');
-  const [registerEmail, setRegisterEmail] = useState('');
-  const [registerPhone, setRegisterPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [resetReason, setResetReason] = useState('');
+  const [otp, setOtp] = useState('');
+  const [authMode, setAuthMode] = useState('login');
+  const [step, setStep] = useState('request');
+  const [pendingIdentifier, setPendingIdentifier] = useState(null);
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [authMeta, setAuthMeta] = useState({
     loaded: false,
-    resetMode: 'admin',
     supabaseEnabled: false,
-    supabaseMode: 'hybrid',
     supabaseClientReady: false,
     supabaseUrl: '',
   });
@@ -47,7 +90,6 @@ function Login({ setUser }) {
   const isSupabaseSocialReady = Boolean(
     authMeta.supabaseEnabled && authMeta.supabaseClientReady && authMeta.supabaseUrl
   );
-  const isAdminResetFlow = String(authMeta.resetMode || '').toLowerCase() === 'admin';
 
   useEffect(() => {
     let cancelled = false;
@@ -57,9 +99,7 @@ function Login({ setUser }) {
         if (cancelled) return;
         setAuthMeta({
           loaded: true,
-          resetMode: String(payload?.mode || 'admin').toLowerCase(),
           supabaseEnabled: Boolean(payload?.supabase_auth_enabled),
-          supabaseMode: String(payload?.supabase_auth_mode || 'hybrid').toLowerCase() === 'strict' ? 'strict' : 'hybrid',
           supabaseClientReady: Boolean(payload?.supabase_client_ready),
           supabaseUrl: sanitizeSupabaseUrl(payload?.supabase_url),
         });
@@ -79,39 +119,33 @@ function Login({ setUser }) {
     oauthHandledRef.current = true;
 
     const run = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
-      const qpEmail = String(params.get('email') || '').trim().toLowerCase();
-      const qpPhone = normalizeIndianPhone(params.get('phone') || '');
-      const qpToken = String(params.get('token') || '').trim();
-      const qpPhoneToken = String(params.get('phoneToken') || '').trim();
-      const hashType = String(hashParams.get('type') || '').trim().toLowerCase();
-      const accessToken = String(hashParams.get('access_token') || '').trim();
-      const refreshToken = String(hashParams.get('refresh_token') || '').trim();
-      const oauthError = decodeURIComponent(String(hashParams.get('error_description') || hashParams.get('error') || '').trim());
+      const {
+        accessToken,
+        refreshToken,
+        oauthError,
+        authCode,
+        hasCallbackParams,
+      } = parseOAuthCallbackParams();
+      const cleanUrl = `${window.location.pathname}${window.location.search}`;
 
-      if (qpEmail) setIdentifier(qpEmail);
-      if (!qpEmail && qpPhone) setIdentifier(qpPhone);
-      if (qpToken || qpPhoneToken) {
-        setSuccess('Verification token detected. Sign in and complete verification from your Profile page.');
-      }
       if (oauthError) {
+        window.history.replaceState({}, document.title, cleanUrl);
         setError(oauthError);
-      }
-      if (!accessToken) return;
-
-      const nextUrl = `${window.location.pathname}${window.location.search}`;
-      window.history.replaceState({}, document.title, nextUrl);
-
-      if (hashType === 'recovery') {
-        try {
-          sessionStorage.setItem('supabase_recovery_access_token', accessToken);
-        } catch (_) {
-          // Ignore storage failures and continue with query fallback.
-        }
-        navigate('/change-password?recovery=1', { replace: true });
         return;
       }
+      if (!accessToken) {
+        if (authCode || hasCallbackParams) {
+          window.history.replaceState({}, document.title, cleanUrl);
+          setError(
+            isLikelyInAppBrowser()
+              ? 'OAuth was blocked by the in-app browser. Open this site in Chrome or Safari and try again.'
+              : 'OAuth callback did not return an access token. Please retry login from a regular browser.'
+          );
+        }
+        return;
+      }
+
+      window.history.replaceState({}, document.title, cleanUrl);
 
       try {
         setLoading(true);
@@ -133,10 +167,6 @@ function Login({ setUser }) {
         };
         localStorage.setItem('user', JSON.stringify(nextUser));
         setUser(nextUser);
-        if (nextUser.must_change_password) {
-          navigate('/change-password?force=1', { replace: true });
-          return;
-        }
         if (nextUser.role === 'admin') {
           navigate('/admin', { replace: true });
           return;
@@ -152,93 +182,70 @@ function Login({ setUser }) {
     run();
   }, [navigate, setUser]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleRequestOtp = async (event) => {
+    event.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
-
+    setShowRegisterPrompt(false);
     try {
-      let data;
-      if (isRegistering) {
-        const normalizedRegisterEmail = String(registerEmail || '').trim().toLowerCase();
-        const normalizedRegisterPhone = registerPhone ? normalizeIndianPhone(registerPhone) : '';
-        if (!normalizedRegisterEmail && !normalizedRegisterPhone) {
-          throw new Error('Enter at least one contact: email or phone');
-        }
-        if (normalizedRegisterEmail && !validateEmail(normalizedRegisterEmail)) {
-          throw new Error('Please enter a valid email address');
-        }
-        if (password !== confirmPassword) {
-          throw new Error('Password and confirm password do not match');
-        }
-        if (registerPhone && !normalizedRegisterPhone) {
-          throw new Error(PHONE_POLICY_MESSAGE);
-        }
-        if (!validateStrongPassword(password)) {
-          throw new Error('Password must be at least 10 characters and include uppercase, lowercase, number, and special character');
-        }
-        data = await authApi.register(
-          normalizedRegisterEmail || null,
-          password,
-          confirmPassword,
-          name,
-          normalizedRegisterPhone || null,
-          address || null
-        );
-      } else {
-        const parsed = parseIdentifier(identifier);
-        if (parsed.error) throw new Error(parsed.error);
-        data = parsed.type === 'email'
-          ? await authApi.login(parsed.email, password)
-          : await authApi.loginWithPhone(parsed.phone, password);
-      }
-
-      const persisted = {
-        ...data.user,
-        token: data.token,
-        auth_provider: data.auth_provider || 'legacy',
-        supabase_session: data.supabase_session || null,
+      const parsed = parseIdentifier(identifier);
+      if (parsed.error) throw new Error(parsed.error);
+      const payload = {
+        email: parsed.email,
+        phone: null,
+        mode: authMode,
       };
-      localStorage.setItem('user', JSON.stringify(persisted));
-      setUser(persisted);
-
-      if (data.user.must_change_password) {
-        const forceParams = new URLSearchParams();
-        forceParams.set('force', '1');
-        const nextEmail = String(data.user?.email || '').trim().toLowerCase();
-        const nextPhone = normalizeIndianPhone(data.user?.phone || '');
-        if (nextEmail) forceParams.set('email', nextEmail);
-        if (!nextEmail && nextPhone) forceParams.set('phone', nextPhone);
-        navigate(`/change-password?${forceParams.toString()}`);
-      } else if (data.user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/');
-      }
+      await authApi.requestLoginOtp(payload);
+      setPendingIdentifier(parsed);
+      setStep('verify');
+      setSuccess('OTP sent to email.');
     } catch (err) {
-      setError(err?.message || 'Authentication failed');
+      if (err?.payload?.register_required) {
+        setShowRegisterPrompt(true);
+      }
+      if (err?.payload?.login_required) {
+        setAuthMode('login');
+      }
+      setError(err?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetRequest = async () => {
+  const handleVerifyOtp = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
     try {
-      setError('');
-      setSuccess('');
-      const parsed = parseIdentifier(identifier);
-      if (parsed.error) {
-        throw new Error('Enter your email or phone first to request reset');
+      const parsed = pendingIdentifier || parseIdentifier(identifier);
+      if (!parsed || parsed.error) throw new Error(parsed?.error || 'Enter your email first');
+      const code = String(otp || '').trim();
+      if (!code) throw new Error('Enter the OTP code');
+      const response = await authApi.verifyLoginOtp({
+        email: parsed.email,
+        phone: null,
+        otp: code,
+        mode: authMode,
+      });
+      const persisted = {
+        ...(response?.user || {}),
+        token: response?.token,
+        auth_provider: response?.auth_provider || 'otp',
+        supabase_session: response?.supabase_session || null,
+      };
+      localStorage.setItem('user', JSON.stringify(persisted));
+      setUser(persisted);
+      if (persisted.role === 'admin') {
+        navigate('/admin', { replace: true });
+        return;
       }
-      const reason = String(resetReason || '').trim();
-      if (isAdminResetFlow && reason.length < 5) {
-        throw new Error('Please provide a short reason (min 5 characters) for admin review');
-      }
-      const response = await authApi.requestPasswordReset(parsed.email, parsed.phone, reason || null);
-      setSuccess(response?.message || 'Password reset request submitted');
+      navigate('/', { replace: true });
     } catch (err) {
-      setError(err?.message || 'Failed to submit reset request');
+      setError(err?.message || 'Failed to verify OTP');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -269,34 +276,40 @@ function Login({ setUser }) {
     }
   };
 
-  const switchMode = (registerMode) => {
-    setIsRegistering(registerMode);
+  const switchToRequestStep = () => {
+    setStep('request');
+    setOtp('');
+    setPendingIdentifier(null);
+    setShowRegisterPrompt(false);
     setError('');
     setSuccess('');
   };
 
+  const switchAuthMode = (mode) => {
+    setAuthMode(mode === 'register' ? 'register' : 'login');
+    switchToRequestStep();
+  };
+
   return (
-    <div className="login-page">
-      <div className="login-container">
-        <h1>{isRegistering ? 'Create Account' : 'Welcome Back'}</h1>
-        <p className="login-subtitle">
-          {isRegistering
-            ? 'Create your account with email or phone'
-            : 'Sign in with email, phone, or social provider'}
-        </p>
+    <div className="otp-login-page">
+      <section className="otp-login-card">
+        <p className="otp-kicker">Secure Login</p>
+        <h1>{authMode === 'register' ? 'Register with OTP' : 'Sign in with OTP'}</h1>
 
         <div className="auth-view-switch">
           <button
             type="button"
-            className={`switch-btn ${!isRegistering ? 'active' : ''}`}
-            onClick={() => switchMode(false)}
+            className={`switch-btn ${authMode === 'login' ? 'active' : ''}`}
+            onClick={() => switchAuthMode('login')}
+            disabled={loading}
           >
             Sign In
           </button>
           <button
             type="button"
-            className={`switch-btn ${isRegistering ? 'active' : ''}`}
-            onClick={() => switchMode(true)}
+            className={`switch-btn ${authMode === 'register' ? 'active' : ''}`}
+            onClick={() => switchAuthMode('register')}
+            disabled={loading}
           >
             Register
           </button>
@@ -304,152 +317,81 @@ function Login({ setUser }) {
 
         {error ? <div className="error-message">{error}</div> : null}
         {success ? <div className="success-message">{success}</div> : null}
+        {showRegisterPrompt && authMode === 'login' ? (
+          <div className="register-prompt-box">
+            <p>Account not found. Please register first.</p>
+            <button type="button" className="login-button secondary" onClick={() => switchAuthMode('register')} disabled={loading}>
+              Register Now
+            </button>
+          </div>
+        ) : null}
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {isRegistering && (
-            <>
-              <div className="form-group">
-                <label htmlFor="name">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  required={isRegistering}
-                />
-              </div>
-
-              <div className="form-row-two">
-                <div className="form-group">
-                  <label htmlFor="registerEmail">Email (Optional)</label>
-                  <input
-                    type="email"
-                    id="registerEmail"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    placeholder="name@example.com"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="registerPhone">Phone (Optional)</label>
-                  <input
-                    type="tel"
-                    id="registerPhone"
-                    value={registerPhone}
-                    onChange={(e) => setRegisterPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="address">Address (Optional)</label>
-                <input
-                  type="text"
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Flat/Street/City"
-                />
-              </div>
-            </>
-          )}
-
-          {!isRegistering && (
+        {step === 'request' ? (
+          <form className="otp-form" onSubmit={handleRequestOtp}>
             <div className="form-group">
-              <label htmlFor="identifier">Email or Phone</label>
+              <label htmlFor="identifier">Email</label>
               <input
-                type="text"
                 id="identifier"
+                type="email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Email or India phone number"
+                placeholder="name@example.com"
                 required
+                autoComplete="username"
               />
             </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              required
-            />
-          </div>
-
-          {isRegistering && (
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? 'Sending OTP...' : 'Send OTP'}
+            </button>
+          </form>
+        ) : (
+          <form className="otp-form" onSubmit={handleVerifyOtp}>
+            <div className="otp-step-pill">
+              Code sent to {pendingIdentifier?.email || 'your email'}
+            </div>
             <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm Password</label>
+              <label htmlFor="otp">Enter OTP</label>
               <input
-                type="password"
-                id="confirmPassword"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter password"
+                id="otp"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                placeholder="6-digit OTP"
                 required
+                autoComplete="one-time-code"
               />
             </div>
-          )}
-
-          <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'Please wait...' : (isRegistering ? 'Create Account' : 'Sign In')}
-          </button>
-        </form>
-
-        {!isRegistering && (
-          <>
-            <div className="oauth-divider"><span>or continue with</span></div>
-            <div className="oauth-grid">
-              <button
-                type="button"
-                className="oauth-btn google"
-                disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
-                onClick={() => handleSocialLogin('google')}
-              >
-                {oauthLoading === 'google' ? 'Redirecting...' : 'Google'}
-              </button>
-              <button
-                type="button"
-                className="oauth-btn facebook"
-                disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
-                onClick={() => handleSocialLogin('facebook')}
-              >
-                {oauthLoading === 'facebook' ? 'Redirecting...' : 'Facebook'}
-              </button>
-            </div>
-
-            <div className="password-reset-box">
-              <h3>Password Reset</h3>
-              <p>
-                {isAdminResetFlow
-                  ? 'Enter your email/phone and a short reason for admin review.'
-                  : 'Enter your email/phone to receive reset instructions.'}
-              </p>
-              <textarea
-                value={resetReason}
-                onChange={(e) => setResetReason(e.target.value)}
-                placeholder={isAdminResetFlow ? 'Reason for reset request' : 'Optional note'}
-                rows={2}
-              />
-              <button type="button" className="login-button secondary" onClick={handleResetRequest}>
-                Request Password Reset
-              </button>
-            </div>
-          </>
+            <button type="submit" className="login-button" disabled={loading}>
+              {loading ? 'Verifying...' : (authMode === 'register' ? 'Verify and Register' : 'Verify and Sign In')}
+            </button>
+            <button type="button" className="login-button secondary" onClick={switchToRequestStep} disabled={loading}>
+              Edit Contact
+            </button>
+          </form>
         )}
 
-        <div className="login-footer">
-          <p>
-            <Link to="/change-password">Change Password</Link>
-          </p>
+        <div className="oauth-divider"><span>or continue with</span></div>
+        <div className="oauth-grid">
+          <button
+            type="button"
+            className="oauth-btn google"
+            disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
+            onClick={() => handleSocialLogin('google')}
+          >
+            {oauthLoading === 'google' ? 'Redirecting...' : 'Google'}
+          </button>
+          <button
+            type="button"
+            className="oauth-btn facebook"
+            disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
+            onClick={() => handleSocialLogin('facebook')}
+          >
+            {oauthLoading === 'facebook' ? 'Redirecting...' : 'Facebook'}
+          </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
