@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "crons": [
+    {
+      "path": "/api/internal/phone-change/process",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

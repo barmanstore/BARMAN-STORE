@@ -125,15 +125,6 @@ export const authApi = {
     apiFetch('/api/auth/email/verification/request-self', {
       method: 'POST',
     }),
-  requestPhoneVerification: (phone) =>
-    apiFetch('/api/auth/phone/verification/request', {
-      method: 'POST',
-      body: { phone },
-    }),
-  requestMyPhoneVerification: () =>
-    apiFetch('/api/auth/phone/verification/request-self', {
-      method: 'POST',
-    }),
   confirmEmailVerification: (email, token, options = {}) =>
     apiFetch('/api/auth/email/verification/confirm', {
       method: 'POST',
@@ -141,14 +132,13 @@ export const authApi = {
         ? { email, token_hash: options.tokenHash }
         : { email, token },
     }),
-  confirmPhoneVerification: (phone, code) =>
-    apiFetch('/api/auth/phone/verification/confirm', {
-      method: 'POST',
-      body: { phone, code },
-    }),
   getEmailVerificationStatus: () => apiFetch('/api/auth/email/verification/status'),
-  getPhoneVerificationStatus: () => apiFetch('/api/auth/phone/verification/status'),
   getMyPhoneChangeRequestStatus: () => apiFetch('/api/auth/phone-change-request/status'),
+  cancelMyPhoneChangeRequest: (payload = {}) =>
+    apiFetch('/api/auth/phone-change-request/cancel', {
+      method: 'POST',
+      body: payload,
+    }),
   getMyContactVerificationRequestStatus: () => apiFetch('/api/auth/contact-verification/status'),
   getSession: () => apiFetch('/api/auth/session'),
   getSessionFromToken: (token) =>

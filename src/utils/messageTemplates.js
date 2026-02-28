@@ -6,26 +6,47 @@ const toNumber = (value) => {
 };
 
 const formatDateTime = (value) => new Date(value || Date.now()).toLocaleString('en-IN');
-
 const formatDate = (value) => new Date(value || Date.now()).toLocaleDateString('en-IN');
 
-const localizeTypeLabel = (value) => {
+const normalizeLabel = (value, fallback = '-') => {
   const raw = String(value || '').trim();
-  const normalized = raw.toLowerCase();
-  if (normalized === 'given') return 'ধাৰ দিয়া';
-  if (normalized === 'payment') return 'পৰিশোধ';
-  return raw || '-';
+  return raw || fallback;
 };
 
-const localizePaymentStatus = (value) => {
+const toAssameseStoreTitle = (value) => {
   const raw = String(value || '').trim();
+  if (!raw) return 'বাৰ্মান ষ্ট' + 'ৰ';
+  if (raw.toUpperCase() === 'BARMAN STORE') return 'বাৰ্মান ষ্ট' + 'ৰ';
+  return raw;
+};
+
+const toAssameseThanks = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।';
   const normalized = raw.toLowerCase();
-  if (normalized === 'paid') return 'পরিশোধিত';
+  if (normalized === 'thank you for shopping with us.' || normalized === 'thank you for shopping with us') {
+    return 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।';
+  }
+  return raw;
+};
+
+const toEntryTypeLabel = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'given') return 'ধাৰ দিয়া';
+  if (normalized === 'payment') return 'পৰিশোধ';
+  return normalizeLabel(value);
+};
+
+const toPaymentStatusLabel = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'paid') return 'পৰিশোধিত';
   if (normalized === 'pending') return 'বকেয়া';
   if (normalized === 'partial') return 'আংশিক';
   if (normalized === 'cancelled') return 'বাতিল';
-  return raw;
+  return normalizeLabel(value, '');
 };
+
+const compactJoin = (lines) => lines.filter(Boolean).join('\n');
 
 export const buildBillShareText = ({
   companyTitle,
@@ -42,49 +63,39 @@ export const buildBillShareText = ({
   currentTotalCredit,
   paymentStatus = '',
   onlineStoreUrl,
-  thankYouLine
+  thankYouLine,
+  maxItemLines = 4,
 } = {}) => {
-  const lines = [];
-  if (companyTitle) {
-    lines.push(companyTitle);
-    lines.push('');
-  }
-  lines.push(`বিল: ${billNumber || ''}`);
-  lines.push(`তাৰিখ: ${formatDateTime(createdAt)}`);
-  if (customerName) lines.push(`গ্ৰাহক: ${customerName}`);
-  if (customerPhone) lines.push(`ফোন: ${customerPhone}`);
-  if (customerEmail) lines.push(`ইমেইল: ${customerEmail}`);
-  if (customerAddress) lines.push(`ঠিকনা: ${customerAddress}`);
-  lines.push('');
-  lines.push('সামগ্ৰীসমূহ:');
-  if (!Array.isArray(items) || items.length === 0) {
-    lines.push('- নাই');
-  } else {
-    items.forEach((it) => {
-      const name = it.product_name || it.name || 'সামগ্ৰী';
-      const qty = toNumber(it.qty || it.quantity || 0);
-      const unit = it.unit || '';
-      const amount = toNumber(it.amount || 0);
-      lines.push(`- ${name} ${qty}${unit ? ` ${unit}` : ''} : ${formatCurrency(amount)}`);
-    });
-  }
-  lines.push('');
-  lines.push(`মুঠ: ${formatCurrency(totalAmount)}`);
-  lines.push(`পরিশোধ: ${formatCurrency(paidAmount)}`);
-  lines.push(`ধাৰ: ${formatCurrency(creditAmount)}`);
-  if (currentTotalCredit !== undefined && currentTotalCredit !== null) {
-    lines.push(`বৰ্তমান মুঠ ধাৰ: ${formatCurrency(currentTotalCredit)}`);
-  }
-  lines.push(`স্থিতি: ${localizePaymentStatus(paymentStatus) || ''}`);
-  if (onlineStoreUrl) {
-    lines.push('');
-    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
-  }
-  if (thankYouLine) {
-    lines.push('');
-    lines.push(thankYouLine);
-  }
-  return lines.join('\n');
+  const safeItems = Array.isArray(items) ? items : [];
+  const itemLines = safeItems.slice(0, Math.max(1, maxItemLines)).map((it, index) => {
+    const name = normalizeLabel(it.product_name || it.name, 'সামগ্ৰী');
+    const qty = toNumber(it.qty ?? it.quantity ?? 0);
+    const unit = String(it.unit || '').trim();
+    const amount = toNumber(it.amount || 0);
+    return `${index + 1}. ${name} x${qty}${unit ? ` ${unit}` : ''} ${formatCurrency(amount)}`;
+  });
+  const remainingCount = Math.max(0, safeItems.length - itemLines.length);
+
+  const lines = [
+    toAssameseStoreTitle(companyTitle),
+    `বিল #${normalizeLabel(billNumber)}`,
+    `তাৰিখ: ${formatDateTime(createdAt)}`,
+    `গ্ৰাহক: ${normalizeLabel(customerName)}${customerPhone ? ` | ${customerPhone}` : ''}`,
+    customerEmail ? `ইমেইল: ${customerEmail}` : '',
+    customerAddress ? `ঠিকনা: ${customerAddress}` : '',
+    `সামগ্ৰী (${safeItems.length}):`,
+    ...itemLines,
+    remainingCount > 0 ? `+${remainingCount} টা অধিক সামগ্ৰী` : '',
+    `মুঠ ${formatCurrency(totalAmount)} | পৰিশোধ ${formatCurrency(paidAmount)} | ধাৰ ${formatCurrency(creditAmount)}`,
+    currentTotalCredit !== undefined && currentTotalCredit !== null
+      ? `বৰ্তমান ধাৰ: ${formatCurrency(currentTotalCredit)}`
+      : '',
+    toPaymentStatusLabel(paymentStatus) ? `স্থিতি: ${toPaymentStatusLabel(paymentStatus)}` : '',
+    onlineStoreUrl ? `দোকান: ${onlineStoreUrl}` : '',
+    toAssameseThanks(thankYouLine),
+  ];
+
+  return compactJoin(lines);
 };
 
 export const buildCreditReportText = ({
@@ -97,44 +108,55 @@ export const buildCreditReportText = ({
   periodEndingBalance = 0,
   currentDayBalance = 0,
   onlineStoreUrl,
-  thankYouLine
+  thankYouLine,
+  maxTransactionLines = 8,
 } = {}) => {
-  const lines = [];
-  lines.push(companyTitle || 'BARMAN STORE');
-  lines.push('');
-  lines.push(`ধাৰ প্ৰতিবেদন: ${customerName || 'গ্ৰাহক'}`);
-  lines.push(`তাৰিখৰ পৰিসৰ: ${fromDate || ''} পৰা ${toDate || ''}`);
-  lines.push(`প্ৰস্তুত কৰা সময়: ${formatDateTime(generatedAt)}`);
-  lines.push('');
-  if (!Array.isArray(transactions) || transactions.length === 0) {
-    lines.push('এই সময়সীমাত কোনো লেনদেন নাই।');
-    lines.push(`সময়সীমা শেষৰ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)}`);
-    lines.push(`বৰ্তমান দিনৰ বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`);
-  } else {
-    lines.push('লেনদেনসমূহ:');
-    let totalGiven = 0;
-    let totalPayment = 0;
-    transactions.forEach((t) => {
-      const amount = toNumber(t.amount);
-      if (String(t.type || '').toLowerCase() === 'given') totalGiven += amount;
-      if (String(t.type || '').toLowerCase() === 'payment') totalPayment += amount;
-      lines.push(`- ${t.dateLabel || '-'} | ${localizeTypeLabel(t.typeLabel || t.type)} | ${formatCurrency(amount)} | বেলেঞ্চ: ${formatCurrency(toNumber(t.balance))}`);
-      lines.push(`  বিৱৰণ: ${t.description || '-'}`);
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  let totalGiven = 0;
+  let totalPayment = 0;
+
+  const transactionLines = safeTransactions
+    .slice(0, Math.max(1, maxTransactionLines))
+    .map((transaction, index) => {
+      const amount = toNumber(transaction.amount);
+      const kind = String(transaction.type || transaction.typeLabel || '').toLowerCase();
+      if (kind === 'given') totalGiven += amount;
+      if (kind === 'payment') totalPayment += amount;
+      const dateLabel = normalizeLabel(transaction.dateLabel);
+      const typeLabel = toEntryTypeLabel(transaction.typeLabel || transaction.type);
+      const balance = formatCurrency(toNumber(transaction.balance));
+      const summary = normalizeLabel(transaction.description, 'টোকা নাই');
+      return `${index + 1}. ${dateLabel} | ${typeLabel} ${formatCurrency(amount)} | বেলেঞ্চ ${balance} | ${summary}`;
     });
-    lines.push('');
-    lines.push(`মুঠ ধাৰ দিয়া: ${formatCurrency(totalGiven)}`);
-    lines.push(`মুঠ পৰিশোধ: ${formatCurrency(totalPayment)}`);
-    lines.push(`নেট পৰিবর্তন: ${formatCurrency(totalGiven - totalPayment)}`);
-    lines.push(`সময়সীমা শেষৰ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)}`);
-    lines.push(`বৰ্তমান দিনৰ বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`);
+
+  if (safeTransactions.length > transactionLines.length) {
+    for (let index = transactionLines.length; index < safeTransactions.length; index += 1) {
+      const amount = toNumber(safeTransactions[index]?.amount);
+      const kind = String(
+        safeTransactions[index]?.type || safeTransactions[index]?.typeLabel || ''
+      ).toLowerCase();
+      if (kind === 'given') totalGiven += amount;
+      if (kind === 'payment') totalPayment += amount;
+    }
   }
-  lines.push('');
-  if (onlineStoreUrl) {
-    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
-    lines.push('');
-  }
-  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
-  return lines.join('\n');
+
+  const lines = [
+    toAssameseStoreTitle(companyTitle),
+    `ধাৰ ৰিপোৰ্ট: ${normalizeLabel(customerName, 'গ্ৰাহক')}`,
+    `সময়সীমা: ${normalizeLabel(fromDate, '-')} পৰা ${normalizeLabel(toDate, '-')} লৈ`,
+    `তৈয়াৰ: ${formatDateTime(generatedAt)}`,
+    safeTransactions.length ? `লেনদেন (${safeTransactions.length}):` : 'লেনদেন: নাই',
+    ...transactionLines,
+    safeTransactions.length > transactionLines.length
+      ? `+${safeTransactions.length - transactionLines.length} টা অধিক লেনদেন`
+      : '',
+    `মুঠ ধাৰ ${formatCurrency(totalGiven)} | মুঠ পৰিশোধ ${formatCurrency(totalPayment)} | নেট ${formatCurrency(totalGiven - totalPayment)}`,
+    `বন্ধ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)} | আজিৰ বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`,
+    onlineStoreUrl ? `দোকান: ${onlineStoreUrl}` : '',
+    toAssameseThanks(thankYouLine),
+  ];
+
+  return compactJoin(lines);
 };
 
 export const buildCreditEntryText = ({
@@ -147,28 +169,21 @@ export const buildCreditEntryText = ({
   previousBalance,
   updatedBalance,
   onlineStoreUrl,
-  thankYouLine
+  thankYouLine,
 } = {}) => {
-  const lines = [];
-  lines.push(companyTitle || 'BARMAN STORE');
-  lines.push('');
-  lines.push('ধাৰ লেজাৰ আপডেট');
-  lines.push(`তাৰিখ: ${formatDate(entryDate)}`);
-  lines.push('');
-  lines.push(`নতুন এণ্ট্রি: ${localizeTypeLabel(entryTypeLabel)} | ${formatCurrency(toNumber(amount))}`);
-  lines.push(`বিৱৰণ: ${description || 'অতিৰিক্ত টোকা নাই'}`);
-  if (reference) lines.push(`ৰেফাৰেন্স: ${reference}`);
-  lines.push('');
-  lines.push(`পূৰ্বৰ বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))}`);
-  lines.push(`আপডেটেড বেলেঞ্চ: ${formatCurrency(toNumber(updatedBalance))}`);
-  lines.push(`বৰ্তমান মুঠ ধাৰ: ${formatCurrency(toNumber(updatedBalance))}`);
-  lines.push('');
-  if (onlineStoreUrl) {
-    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
-    lines.push('');
-  }
-  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
-  return lines.join('\n');
+  const lines = [
+    toAssameseStoreTitle(companyTitle),
+    'ধাৰ লেজাৰ আপডেট',
+    `তাৰিখ: ${formatDate(entryDate)}`,
+    `ধৰণ: ${toEntryTypeLabel(entryTypeLabel)} | পৰিমাণ: ${formatCurrency(toNumber(amount))}`,
+    `টোকা: ${normalizeLabel(description, 'টোকা নাই')}`,
+    reference ? `ৰেফ: ${reference}` : '',
+    `বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))} -> ${formatCurrency(toNumber(updatedBalance))}`,
+    onlineStoreUrl ? `দোকান: ${onlineStoreUrl}` : '',
+    toAssameseThanks(thankYouLine),
+  ];
+
+  return compactJoin(lines);
 };
 
 export const buildCreditTransactionText = ({
@@ -181,24 +196,19 @@ export const buildCreditTransactionText = ({
   previousBalance,
   updatedBalance,
   onlineStoreUrl,
-  thankYouLine
+  thankYouLine,
 } = {}) => {
-  const lines = [];
-  lines.push(companyTitle || 'BARMAN STORE');
-  lines.push('');
-  lines.push('লেনদেন আপডেট');
-  lines.push(`তাৰিখ: ${dateLabel || '-'}`);
-  lines.push(`ধৰণ: ${localizeTypeLabel(typeLabel)}`);
-  lines.push(`পৰিমাণ: ${formatCurrency(toNumber(amount))}`);
-  lines.push(`বিৱৰণ: ${description || 'অতিৰিক্ত টোকা নাই'}`);
-  if (reference) lines.push(`ৰেফাৰেন্স: ${reference}`);
-  lines.push(`পূৰ্বৰ বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))}`);
-  lines.push(`আপডেটেড বেলেঞ্চ: ${formatCurrency(toNumber(updatedBalance))}`);
-  lines.push('');
-  if (onlineStoreUrl) {
-    lines.push(`অনলাইন চাওক: ${onlineStoreUrl}`);
-    lines.push('');
-  }
-  lines.push(thankYouLine || 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।');
-  return lines.join('\n');
+  const lines = [
+    toAssameseStoreTitle(companyTitle),
+    'লেনদেন আপডেট',
+    `তাৰিখ: ${normalizeLabel(dateLabel)}`,
+    `ধৰণ: ${toEntryTypeLabel(typeLabel)} | পৰিমাণ: ${formatCurrency(toNumber(amount))}`,
+    `টোকা: ${normalizeLabel(description, 'টোকা নাই')}`,
+    reference ? `ৰেফ: ${reference}` : '',
+    `বেলেঞ্চ: ${formatCurrency(toNumber(previousBalance))} -> ${formatCurrency(toNumber(updatedBalance))}`,
+    onlineStoreUrl ? `দোকান: ${onlineStoreUrl}` : '',
+    toAssameseThanks(thankYouLine),
+  ];
+
+  return compactJoin(lines);
 };

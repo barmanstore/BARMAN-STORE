@@ -16,7 +16,9 @@ echo 7. Deploy Vercel (preview)
 echo 8. Deploy by git push (origin main)
 echo 9. Exit
 echo.
+set "CHOICE="
 set /p CHOICE=Select option [1-9]: 
+if errorlevel 1 goto :done
 
 if "%CHOICE%"=="1" goto :git_status
 if "%CHOICE%"=="2" goto :git_quick
@@ -27,6 +29,7 @@ if "%CHOICE%"=="6" goto :deploy_vercel_prod
 if "%CHOICE%"=="7" goto :deploy_vercel_preview
 if "%CHOICE%"=="8" goto :deploy_git
 if "%CHOICE%"=="9" goto :done
+if "%CHOICE%"=="" goto :menu
 goto :menu
 
 :git_status

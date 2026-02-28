@@ -311,7 +311,6 @@ function Login({ setUser }) {
       const params = new URLSearchParams({
         provider: normalizedProvider,
         redirect_to: redirectTo,
-        response_type: 'token',
       });
       if (normalizedProvider === 'google') {
         params.set('scopes', 'email profile');

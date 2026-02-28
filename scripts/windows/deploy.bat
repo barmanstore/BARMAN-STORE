@@ -23,11 +23,16 @@ goto :help_error
 echo ========================================
 echo Deploy Prepare
 echo ========================================
-call "%~dp0health-check.bat" quick
-if errorlevel 1 goto :end_error
-echo [INFO] Creating production build...
-call npm run build
-if errorlevel 1 goto :end_error
+if /i "%OPS_DRY_RUN%"=="1" (
+  echo [DRY-RUN] call "%~dp0health-check.bat" quick
+  echo [DRY-RUN] npm run build
+) else (
+  call "%~dp0health-check.bat" quick
+  if errorlevel 1 goto :end_error
+  echo [INFO] Creating production build...
+  call npm run build
+  if errorlevel 1 goto :end_error
+)
 echo [SUCCESS] Deploy preparation completed.
 goto :end_success
 
@@ -37,19 +42,29 @@ if /i "%CHANNEL%"=="" set "CHANNEL=prod"
 echo ========================================
 echo Deploy to Vercel (%CHANNEL%)
 echo ========================================
-call "%~dp0health-check.bat" quick
-if errorlevel 1 goto :end_error
-echo [INFO] Creating production build...
-call npm run build
-if errorlevel 1 goto :end_error
-if /i "%CHANNEL%"=="preview" (
-  echo [INFO] Running: npx vercel
-  call npx vercel
+if /i "%OPS_DRY_RUN%"=="1" (
+  echo [DRY-RUN] call "%~dp0health-check.bat" quick
+  echo [DRY-RUN] npm run build
+  if /i "%CHANNEL%"=="preview" (
+    echo [DRY-RUN] npx vercel
+  ) else (
+    echo [DRY-RUN] npx vercel --prod
+  )
 ) else (
-  echo [INFO] Running: npx vercel --prod
-  call npx vercel --prod
+  call "%~dp0health-check.bat" quick
+  if errorlevel 1 goto :end_error
+  echo [INFO] Creating production build...
+  call npm run build
+  if errorlevel 1 goto :end_error
+  if /i "%CHANNEL%"=="preview" (
+    echo [INFO] Running: npx vercel
+    call npx vercel
+  ) else (
+    echo [INFO] Running: npx vercel --prod
+    call npx vercel --prod
+  )
+  if errorlevel 1 goto :end_error
 )
-if errorlevel 1 goto :end_error
 echo [SUCCESS] Vercel deployment command completed.
 goto :end_success
 
@@ -61,11 +76,16 @@ if "%BRANCH%"=="" set "BRANCH=main"
 echo ========================================
 echo Deploy via Git Push
 echo ========================================
-call "%~dp0health-check.bat" quick
-if errorlevel 1 goto :end_error
-echo [INFO] Pushing branch %BRANCH% to %REMOTE%...
-git push %REMOTE% %BRANCH%
-if errorlevel 1 goto :end_error
+if /i "%OPS_DRY_RUN%"=="1" (
+  echo [DRY-RUN] call "%~dp0health-check.bat" quick
+  echo [DRY-RUN] git push %REMOTE% %BRANCH%
+) else (
+  call "%~dp0health-check.bat" quick
+  if errorlevel 1 goto :end_error
+  echo [INFO] Pushing branch %BRANCH% to %REMOTE%...
+  git push %REMOTE% %BRANCH%
+  if errorlevel 1 goto :end_error
+)
 echo [SUCCESS] Git push completed.
 goto :end_success
 

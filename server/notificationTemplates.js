@@ -17,25 +17,19 @@ const formatExpiry = (value) => {
 
 const buildEmailVerificationTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'Customer').trim();
+  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
   const link = String(payload.link || '').trim();
   const token = String(payload.token || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const subject = `${businessName}: Verify your email`;
+  const subject = `${businessName}: ইমেইল যাচাই`;
   const lines = [
-    `Hello ${recipientName},`,
-    '',
-    `Please verify your email for ${businessName}.`,
-    '',
-    link ? `Verification link: ${link}` : '',
-    token ? `Verification code: ${token}` : '',
-    '',
-    `This link/code expires on ${expiresAt}.`,
-    '',
-    `If you did not request this, you can ignore this email.`,
-    '',
-    `Regards,`,
-    businessName,
+    `নমস্কাৰ ${recipientName},`,
+    `${businessName} ৰ বাবে আপোনাৰ ইমেইল যাচাই কৰক।`,
+    link ? `যাচাই লিংক: ${link}` : '',
+    token ? `যাচাই কোড: ${token}` : '',
+    `এই লিংক/কোডৰ মেয়াদ: ${expiresAt}`,
+    'আপুনি অনুৰোধ নকৰিলে এই মেছেজ উপেক্ষা কৰক।',
+    `শুভেচ্ছান্তে, ${businessName}`,
   ].filter(Boolean);
 
   return {
@@ -51,19 +45,12 @@ const buildPhoneVerificationTemplate = (payload = {}) => {
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
   const lines = [
-    `প্ৰিয় ${recipientName},`,
-    '',
-    `${businessName}ৰ বাবে আপোনাৰ ফোন নম্বৰ যাচাই কৰক।`,
-    '',
-    code ? `যাচাইকৰণ কোড: ${code}` : '',
-    link ? `যাচাইকৰণ লিংক: ${link}` : '',
-    '',
-    `এই কোড/লিংকৰ মেয়াদ ${expiresAt}ত শেষ হ'ব।`,
-    '',
-    `আপুনি এই অনুৰোধ কৰা নাছিলে এই মেছেজ উপেক্ষা কৰিব পাৰে।`,
-    '',
-    `শুভেচ্ছান্তে,`,
-    businessName,
+    `${businessName} ফোন যাচাই`,
+    `নমস্কাৰ ${recipientName}, আপোনাৰ ফোন নম্বৰ যাচাই কৰক।`,
+    code ? `কোড: ${code}` : '',
+    link ? `লিংক: ${link}` : '',
+    `মেয়াদ: ${expiresAt}`,
+    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
   ].filter(Boolean);
   return {
     text: lines.join('\n'),
@@ -75,12 +62,10 @@ const buildPasswordResetOtpTemplate = (payload = {}) => {
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
   const lines = [
-    `${businessName}ৰ বাবে পাসৱৰ্ড ৰিছেট অনুৰোধ।`,
-    '',
-    code ? `OTP কোড: ${code}` : '',
+    `${businessName} পাসৱৰ্ড ৰিছেট`,
+    code ? `OTP: ${code}` : '',
     `মেয়াদ: ${expiresAt}`,
-    '',
-    'আপুনি অনুৰোধ কৰা নাছিলে এই মেছেজ উপেক্ষা কৰক।',
+    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
   ].filter(Boolean);
   return {
     text: lines.join('\n'),
@@ -89,57 +74,49 @@ const buildPasswordResetOtpTemplate = (payload = {}) => {
 
 const buildAuthLoginOtpTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'Customer').trim();
+  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const subject = `${businessName}: Your login OTP`;
+  const subject = `${businessName}: লগইন OTP`;
   const body = [
-    `Hello ${recipientName},`,
-    '',
-    `Your ${businessName} login OTP is: ${code || '-'}`,
-    '',
-    `This OTP expires on ${expiresAt}.`,
-    'If you did not request this, ignore this message.',
+    `নমস্কাৰ ${recipientName},`,
+    `${businessName} লগইন OTP: ${code || '-'}`,
+    `OTP ৰ মেয়াদ: ${expiresAt}`,
+    'আপুনি অনুৰোধ নকৰিলে এই মেছেজ উপেক্ষা কৰক।',
   ].join('\n');
   const text = [
-    `${businessName} login OTP: ${code || '-'}`,
-    `Expires: ${expiresAt}`,
-    'If not requested, ignore this message.',
+    `${businessName} লগইন OTP: ${code || '-'}`,
+    `মেয়াদ: ${expiresAt}`,
+    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
   ].join('\n');
   return { subject, body, text };
 };
 
 const buildPasswordResetAdminTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'Customer').trim();
+  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
   const newPassword = String(payload.newPassword || '').trim();
   const loginIdentifier = String(payload.loginIdentifier || '').trim();
   const loginUrl = String(payload.loginUrl || '').trim();
   const supportLine = String(payload.supportLine || '').trim();
-  const subject = `${businessName}: Your password was reset by admin`;
+  const subject = `${businessName}: এডমিনে পাসৱৰ্ড ৰিছেট কৰিছে`;
   const bodyLines = [
-    `Hello ${recipientName},`,
-    '',
-    `Your account password for ${businessName} has been reset by admin.`,
-    newPassword ? `Temporary password: ${newPassword}` : '',
-    loginIdentifier ? `Login using: ${loginIdentifier}` : '',
-    loginUrl ? `Login link: ${loginUrl}` : '',
-    '',
-    'Please sign in and change your password immediately.',
-    supportLine ? `Support: ${supportLine}` : '',
-    '',
-    `Regards,`,
-    businessName,
-  ].filter(Boolean);
-  const textLines = [
-    `প্ৰিয় ${recipientName},`,
-    '',
-    `${businessName}: আপোনাৰ পাসৱৰ্ড এডমিনে ৰিছেট কৰিছে।`,
+    `নমস্কাৰ ${recipientName},`,
+    `${businessName} একাউণ্টৰ পাসৱৰ্ড এডমিনে ৰিছেট কৰিছে।`,
     newPassword ? `অস্থায়ী পাসৱৰ্ড: ${newPassword}` : '',
     loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
     loginUrl ? `লগইন লিংক: ${loginUrl}` : '',
-    '',
-    'অনুগ্ৰহ কৰি লগইন কৰি তৎক্ষণাত পাসৱৰ্ড সলনি কৰক।',
+    'তৎক্ষণাত লগইন কৰি পাসৱৰ্ড সলনি কৰক।',
+    supportLine ? `সহায়তা: ${supportLine}` : '',
+    `শুভেচ্ছান্তে, ${businessName}`,
+  ].filter(Boolean);
+  const textLines = [
+    `${businessName} এডমিন পাসৱৰ্ড ৰিছেট`,
+    `নমস্কাৰ ${recipientName}, আপোনাৰ পাসৱৰ্ড ৰিছেট কৰা হৈছে।`,
+    newPassword ? `অস্থায়ী পাসৱৰ্ড: ${newPassword}` : '',
+    loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
+    loginUrl ? `লিংক: ${loginUrl}` : '',
+    'লগইন কৰি তৎক্ষণাত পাসৱৰ্ড সলনি কৰক।',
     supportLine ? `সহায়তা: ${supportLine}` : '',
   ].filter(Boolean);
   return {

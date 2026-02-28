@@ -61,6 +61,20 @@ function CustomerRequestsAdmin() {
     };
   };
 
+  const formatMergeImpact = (impact) => {
+    if (!impact || typeof impact !== 'object') return '';
+    const total = Number(impact.total_records || 0);
+    const parts = [
+      `total ${total}`,
+      `credit ${Number(impact.credit_history || 0)}`,
+      `issues ${Number(impact.credit_entry_issues || 0)}`,
+      `bills ${Number(impact.bills || 0)}`,
+      `orders ${Number(impact.orders || 0)}`,
+      `reco ${Number(impact.product_recommendations || 0)}`,
+    ];
+    return parts.join(' | ');
+  };
+
   useEffect(() => {
     load();
   }, [recommendationStatusFilter, issueStatusFilter, phoneStatusFilter]);
@@ -108,12 +122,38 @@ function CustomerRequestsAdmin() {
     const requestId = Number(request?.id || 0);
     if (!requestId) return;
     const adminNote = window.prompt('Optional admin note for approval:', '') || '';
+    const hasConflict = Number(request?.conflict_user_id || 0) > 0;
+    let mergeIdentity = false;
+    if (hasConflict) {
+      const impactText = formatMergeImpact(request?.merge_impact);
+      const confirmation = window.prompt(
+        `Conflict detected. This approval will merge identity records.\n${impactText ? `Impact: ${impactText}\n` : ''}Type MERGE to continue:`,
+        ''
+      );
+      if (String(confirmation || '').trim().toUpperCase() !== 'MERGE') {
+        setError('Approval cancelled. Merge confirmation was not provided.');
+        return;
+      }
+      mergeIdentity = true;
+    }
     try {
       setPhoneSavingId(requestId);
-      await adminApi.approvePhoneChangeRequest(requestId, { admin_note: adminNote });
+      await adminApi.approvePhoneChangeRequest(requestId, {
+        admin_note: adminNote,
+        merge_identity: mergeIdentity,
+      });
       await load();
     } catch (err) {
-      setError(err.message || 'Failed to approve phone update request');
+      const requiresMerge = Boolean(err?.payload?.requires_merge_confirmation);
+      if (requiresMerge) {
+        const conflictUserId = Number(err?.payload?.conflict_user_id || 0) || null;
+        const impactText = formatMergeImpact(err?.payload?.merge_impact);
+        setError(
+          `Conflict requires explicit merge confirmation${conflictUserId ? ` (user #${conflictUserId})` : ''}${impactText ? ` | ${impactText}` : ''}.`
+        );
+      } else {
+        setError(err.message || 'Failed to approve phone update request');
+      }
     } finally {
       setPhoneSavingId(0);
     }
@@ -367,8 +407,12 @@ function CustomerRequestsAdmin() {
                     <p><strong>Old phone:</strong> {item.old_phone || '-'}</p>
                     <p><strong>Requested phone:</strong> {item.new_phone || '-'}</p>
                     {item.needs_admin_review ? <p><strong>Review:</strong> Admin review required</p> : <p><strong>Review:</strong> Waiting auto-validation</p>}
+                    {item.final_due_at ? <p><strong>Review due:</strong> {new Date(item.final_due_at).toLocaleString()}</p> : null}
                     {item.conflict_user_name ? (
                       <p><strong>Conflict user:</strong> {item.conflict_user_name} ({item.conflict_user_email || '-'})</p>
+                    ) : null}
+                    {item.merge_impact ? (
+                      <p><strong>Merge impact:</strong> {formatMergeImpact(item.merge_impact)}</p>
                     ) : null}
                     {item.rejection_reason ? <p><strong>Rejection reason:</strong> {item.rejection_reason}</p> : null}
                     {item.admin_note ? <p><strong>Admin note:</strong> {item.admin_note}</p> : null}

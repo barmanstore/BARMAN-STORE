@@ -784,14 +784,15 @@ const PHONE_CHANGE_STATUS_APPROVED = 'APPROVED';
 const PHONE_CHANGE_STATUS_REJECTED = 'REJECTED';
 const PHONE_CHANGE_DECISION_AUTO = 'AUTO';
 const PHONE_CHANGE_DECISION_ADMIN = 'ADMIN';
+const PHONE_CHANGE_MIN_AUTO_APPROVE_DELAY_MS = process.env.NODE_ENV === 'test' ? 500 : 5 * 60 * 1000;
 const PHONE_CHANGE_AUTO_APPROVE_DELAY_MS = Math.max(
-  5 * 60 * 1000,
+  PHONE_CHANGE_MIN_AUTO_APPROVE_DELAY_MS,
   Number(process.env.PHONE_CHANGE_AUTO_APPROVE_DELAY_MS || 60 * 60 * 1000)
 );
-const PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS = Math.max(
-  1,
-  Math.min(14, Number(process.env.PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS || 5))
-);
+const PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS_RAW = Number(process.env.PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS || 5);
+const PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS = process.env.NODE_ENV === 'test'
+  ? Math.max(0, PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS_RAW)
+  : Math.max(1, Math.min(14, PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS_RAW));
 const PHONE_CHANGE_PROCESS_INTERVAL_MS = Math.max(
   30 * 1000,
   Number(process.env.PHONE_CHANGE_PROCESS_INTERVAL_MS || 60 * 1000)
@@ -800,6 +801,11 @@ const PHONE_CHANGE_AUTO_BATCH_SIZE = Math.max(
   1,
   Math.min(100, Number(process.env.PHONE_CHANGE_AUTO_BATCH_SIZE || 25))
 );
+const PHONE_CHANGE_CRON_ENABLED = parseBooleanEnv(process.env.PHONE_CHANGE_CRON_ENABLED, true);
+const PHONE_CHANGE_CRON_SECRET = String(
+  process.env.PHONE_CHANGE_CRON_SECRET || process.env.CRON_SECRET || ''
+).trim();
+const PHONE_CHANGE_EXPIRED_REASON = 'Admin review window expired. Please submit phone update again.';
 const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim() || 'BARMAN STORE';
 const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://barmanstore.vercel.app/login'
@@ -1140,6 +1146,23 @@ const requireAdmin = async (req, res, next) => {
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Admin authentication failed' });
   }
+};
+
+const requireInternalCron = (req, res, next) => {
+  if (!PHONE_CHANGE_CRON_ENABLED) {
+    return res.status(503).json({ error: 'Phone change cron processing is disabled' });
+  }
+  if (!PHONE_CHANGE_CRON_SECRET) {
+    return res.status(503).json({ error: 'Cron secret is not configured' });
+  }
+  const headerSecret = String(req.headers['x-cron-secret'] || '').trim();
+  const authHeader = String(req.headers.authorization || '').trim();
+  const bearerSecret = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
+  const provided = headerSecret || bearerSecret;
+  if (!provided || provided !== PHONE_CHANGE_CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized cron request' });
+  }
+  return next();
 };
 const isSha256Hex = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
 
@@ -1644,6 +1667,36 @@ const queuePhoneChangeRequest = async ({
     : null;
 };
 
+const getPhoneMergeImpactSummary = async (sourceUserId) => {
+  const id = Number(sourceUserId || 0);
+  if (!id) return null;
+  const [
+    creditHistoryRow,
+    creditIssueRow,
+    billsRow,
+    ordersRow,
+    recommendationsRow,
+  ] = await Promise.all([
+    dbGetAsync(`SELECT COUNT(*) AS count FROM credit_history WHERE user_id = ?`, [id]),
+    dbGetAsync(`SELECT COUNT(*) AS count FROM credit_entry_issues WHERE user_id = ?`, [id]),
+    dbGetAsync(`SELECT COUNT(*) AS count FROM bills WHERE customer_id = ?`, [id]),
+    dbGetAsync(`SELECT COUNT(*) AS count FROM orders WHERE user_id = ?`, [id]),
+    dbGetAsync(`SELECT COUNT(*) AS count FROM product_recommendations WHERE user_id = ?`, [id]),
+  ]);
+  const summary = {
+    credit_history: Number(creditHistoryRow?.count || 0),
+    credit_entry_issues: Number(creditIssueRow?.count || 0),
+    bills: Number(billsRow?.count || 0),
+    orders: Number(ordersRow?.count || 0),
+    product_recommendations: Number(recommendationsRow?.count || 0),
+  };
+  return {
+    source_user_id: id,
+    ...summary,
+    total_records: Object.values(summary).reduce((total, value) => total + Number(value || 0), 0),
+  };
+};
+
 const movePhoneLinkedIdentityRecords = async ({ fromUserId, toUserId }) => {
   const sourceId = Number(fromUserId || 0);
   const targetId = Number(toUserId || 0);
@@ -1660,6 +1713,7 @@ const approvePhoneChangeRequest = async ({
   reviewedBy = null,
   decisionSource = PHONE_CHANGE_DECISION_ADMIN,
   adminNote = null,
+  allowConflictMerge = false,
 }) => {
   const requestId = Number(id || 0);
   if (!requestId) return null;
@@ -1707,6 +1761,21 @@ const approvePhoneChangeRequest = async ({
     }
 
     const conflictUserId = Number(conflictUser?.id || 0) || null;
+    let mergeImpact = null;
+    if (conflictUserId) {
+      mergeImpact = await getPhoneMergeImpactSummary(conflictUserId);
+    }
+    if (source === PHONE_CHANGE_DECISION_ADMIN && conflictUserId && !Boolean(allowConflictMerge)) {
+      const err = new Error('Conflict detected. Confirm identity merge to approve this request.');
+      err.status = 409;
+      err.code = 'PHONE_CONFLICT_REQUIRES_MERGE';
+      err.details = {
+        requires_merge_confirmation: true,
+        conflict_user_id: conflictUserId,
+        merge_impact: mergeImpact,
+      };
+      throw err;
+    }
     if (conflictUserId) {
       await movePhoneLinkedIdentityRecords({ fromUserId: conflictUserId, toUserId: owner.id });
       await dbRunAsync(
@@ -1755,6 +1824,8 @@ const approvePhoneChangeRequest = async ({
       request: updatedRequest,
       user: updatedUser,
       conflict_user_id: conflictUserId,
+      merge_impact: mergeImpact,
+      merge_identity_applied: Boolean(conflictUserId && allowConflictMerge),
     };
   });
 };
@@ -1815,11 +1886,11 @@ const movePhoneChangeRequestToAdminReview = async ({ requestId, conflictUserId =
   };
 };
 
-const notifyPhoneChangeSubmitted = async ({ userId, newPhone }) => {
+const notifyPhoneChangeSubmitted = async ({ userId }) => {
   await createAppNotification({
     userId,
     title: 'Phone update request received',
-    message: `Phone update to ${newPhone} is pending validation. It may auto-complete within 1 hour.`,
+    message: 'Phone update is pending. You will be notified once it is updated.',
     level: 'info',
     entityType: 'phone_change_request',
     metadata: {
@@ -1830,11 +1901,11 @@ const notifyPhoneChangeSubmitted = async ({ userId, newPhone }) => {
   });
 };
 
-const notifyPhoneChangeAdminReview = async ({ userId, requestId, newPhone }) => {
+const notifyPhoneChangeAdminReview = async ({ userId, requestId }) => {
   await createAppNotification({
     userId,
     title: 'Phone update under admin review',
-    message: `Phone update to ${newPhone} requires admin review (1-5 days).`,
+    message: 'Phone update is pending. You will be notified once it is updated.',
     level: 'warning',
     entityType: 'phone_change_request',
     entityId: requestId,
@@ -1898,9 +1969,18 @@ const notifyAdminsPhoneChangeReview = async ({ requestId, userName, newPhone }) 
 };
 
 const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BATCH_SIZE } = {}) => {
-  if (phoneChangeWorkerRunning) return;
+  if (phoneChangeWorkerRunning) return null;
   phoneChangeWorkerRunning = true;
+  const stats = {
+    auto_approved: 0,
+    escalated_admin_review: 0,
+    auto_rejected_invalid: 0,
+    expired_rejected: 0,
+    scanned_auto_candidates: 0,
+    scanned_overdue_candidates: 0,
+  };
   try {
+    const numericLimit = Number(limit || PHONE_CHANGE_AUTO_BATCH_SIZE);
     const rows = await dbAllAsync(
       `SELECT *
        FROM phone_change_requests
@@ -1910,8 +1990,9 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
          AND auto_check_at <= CURRENT_TIMESTAMP
        ORDER BY auto_check_at ASC, id ASC
        LIMIT ?`,
-      [PHONE_CHANGE_STATUS_PENDING, Number(limit || PHONE_CHANGE_AUTO_BATCH_SIZE)]
+      [PHONE_CHANGE_STATUS_PENDING, numericLimit]
     );
+    stats.scanned_auto_candidates = Array.isArray(rows) ? rows.length : 0;
     for (const row of rows || []) {
       const requestId = Number(row?.id || 0);
       const userId = Number(row?.user_id || 0);
@@ -1926,6 +2007,7 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
             rejectionReason: parsedPhone.error,
           });
           if (rejected) {
+            stats.auto_rejected_invalid += 1;
             await notifyPhoneChangeRejected({
               userId,
               requestId,
@@ -1947,6 +2029,7 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
             conflictUserId: conflict.id,
           });
           if (escalated?.notifyAdmins) {
+            stats.escalated_admin_review += 1;
             const owner = await dbGetAsync(`SELECT id, name FROM users WHERE id = ?`, [userId]);
             await notifyAdminsPhoneChangeReview({
               requestId,
@@ -1956,7 +2039,6 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
             await notifyPhoneChangeAdminReview({
               userId,
               requestId,
-              newPhone: parsedPhone.value,
             });
           }
           continue;
@@ -1969,6 +2051,7 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
           adminNote: 'Auto-approved after uniqueness validation window',
         });
         if (approved?.request) {
+          stats.auto_approved += 1;
           await notifyPhoneChangeApproved({
             userId,
             requestId,
@@ -1980,6 +2063,41 @@ const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BAT
         console.warn('[PHONE_CHANGE] Failed processing request:', error?.message || error);
       }
     }
+    const overdueRows = await dbAllAsync(
+      `SELECT *
+       FROM phone_change_requests
+       WHERE status = ?
+         AND COALESCE(needs_admin_review, 0) = 1
+         AND final_due_at IS NOT NULL
+         AND final_due_at <= CURRENT_TIMESTAMP
+       ORDER BY final_due_at ASC, id ASC
+       LIMIT ?`,
+      [PHONE_CHANGE_STATUS_PENDING, numericLimit]
+    );
+    stats.scanned_overdue_candidates = Array.isArray(overdueRows) ? overdueRows.length : 0;
+    for (const row of overdueRows || []) {
+      const requestId = Number(row?.id || 0);
+      const userId = Number(row?.user_id || 0);
+      if (!requestId || !userId) continue;
+      try {
+        const rejected = await rejectPhoneChangeRequest({
+          id: requestId,
+          reviewedBy: null,
+          adminNote: 'Auto-closed after review window expired',
+          rejectionReason: PHONE_CHANGE_EXPIRED_REASON,
+        });
+        if (!rejected) continue;
+        stats.expired_rejected += 1;
+        await notifyPhoneChangeRejected({
+          userId,
+          requestId,
+          reason: PHONE_CHANGE_EXPIRED_REASON,
+        });
+      } catch (error) {
+        console.warn('[PHONE_CHANGE] Failed expiring request:', error?.message || error);
+      }
+    }
+    return stats;
   } finally {
     phoneChangeWorkerRunning = false;
   }
@@ -3311,6 +3429,74 @@ app.get('/api/auth/phone-change-request/status', requireAuth, async (req, res) =
   }
 });
 
+app.post('/api/auth/phone-change-request/cancel', requireAuth, async (req, res) => {
+  try {
+    const userId = Number(req.authUser?.id || 0);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const openRequest = await getOpenPhoneChangeRequestForUser(userId);
+    if (!openRequest) {
+      return res.status(404).json({ error: 'No pending phone change request found' });
+    }
+    const reason = String(req.body?.reason || '').trim() || 'Cancelled by user';
+    const cancelled = await rejectPhoneChangeRequest({
+      id: openRequest.id,
+      reviewedBy: userId,
+      adminNote: 'Cancelled by user',
+      rejectionReason: reason,
+    });
+    if (!cancelled) {
+      return res.status(404).json({ error: 'No pending phone change request found' });
+    }
+    await createAppNotification({
+      userId,
+      title: 'Phone update request cancelled',
+      message: 'Your pending phone update request has been cancelled.',
+      level: 'info',
+      entityType: 'phone_change_request',
+      entityId: Number(cancelled.id || 0) || null,
+      metadata: {
+        route: '/profile',
+        status: PHONE_CHANGE_STATUS_REJECTED,
+      },
+      createdBy: userId,
+    });
+    return res.json({
+      success: true,
+      message: 'Pending phone update request cancelled',
+      request: serializePhoneChangeRequest(cancelled),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to cancel phone change request' });
+  }
+});
+
+const handleInternalPhoneChangeProcess = async (req, res) => {
+  try {
+    const rawLimit = Number(req.body?.limit ?? req.query?.limit ?? PHONE_CHANGE_AUTO_BATCH_SIZE);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(250, Math.floor(rawLimit)))
+      : PHONE_CHANGE_AUTO_BATCH_SIZE;
+    const result = await processPendingPhoneChangeRequests({ limit });
+    return res.json({
+      success: true,
+      limit,
+      result: result || {
+        auto_approved: 0,
+        escalated_admin_review: 0,
+        auto_rejected_invalid: 0,
+        expired_rejected: 0,
+        scanned_auto_candidates: 0,
+        scanned_overdue_candidates: 0,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to process phone change queue' });
+  }
+};
+
+app.get('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
+app.post('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
+
 app.get('/api/auth/contact-verification/status', requireAuth, async (req, res) => {
   try {
     const userId = Number(req.authUser?.id || 0);
@@ -3882,14 +4068,19 @@ app.get('/api/admin/phone-change-requests', requireAdmin, async (req, res) => {
          pcr.id DESC`,
       params
     );
-    const payload = (rows || []).map((row) => ({
-      ...serializePhoneChangeRequest(row),
-      user_name: row.user_name || null,
-      user_email: row.user_email || null,
-      user_phone: row.user_phone || null,
-      conflict_user_name: row.conflict_user_name || null,
-      conflict_user_email: row.conflict_user_email || null,
-      reviewed_by_name: row.reviewed_by_name || null,
+    const payload = await Promise.all((rows || []).map(async (row) => {
+      const conflictUserId = Number(row?.conflict_user_id || 0) || null;
+      const mergeImpact = conflictUserId ? await getPhoneMergeImpactSummary(conflictUserId) : null;
+      return {
+        ...serializePhoneChangeRequest(row),
+        user_name: row.user_name || null,
+        user_email: row.user_email || null,
+        user_phone: row.user_phone || null,
+        conflict_user_name: row.conflict_user_name || null,
+        conflict_user_email: row.conflict_user_email || null,
+        reviewed_by_name: row.reviewed_by_name || null,
+        merge_impact: mergeImpact,
+      };
     }));
     return res.json(payload);
   } catch (error) {
@@ -3909,11 +4100,13 @@ app.post('/api/admin/phone-change-requests/:id/approve', requireAdmin, async (re
 
     const adminId = Number(req.authUser?.id || 0) || null;
     const adminNote = String(req.body?.admin_note || '').trim() || null;
+    const mergeIdentity = parseBooleanEnv(req.body?.merge_identity, false);
     const approved = await approvePhoneChangeRequest({
       id: requestId,
       reviewedBy: adminId,
       decisionSource: PHONE_CHANGE_DECISION_ADMIN,
       adminNote: adminNote || 'Approved by admin',
+      allowConflictMerge: mergeIdentity,
     });
     if (!approved?.request) {
       return res.status(404).json({ error: 'Phone change request not found' });
@@ -3933,6 +4126,8 @@ app.post('/api/admin/phone-change-requests/:id/approve', requireAdmin, async (re
         user_id: serialized?.user_id || null,
         new_phone: serialized?.new_phone || null,
         conflict_user_id: approved?.conflict_user_id || null,
+        merge_identity_applied: Boolean(approved?.merge_identity_applied),
+        merge_impact: approved?.merge_impact || null,
       },
     });
     return res.json({
@@ -3940,10 +4135,16 @@ app.post('/api/admin/phone-change-requests/:id/approve', requireAdmin, async (re
       message: 'Phone change request approved',
       request: serialized,
       user: sanitizeUser(approved.user),
+      merge_identity_applied: Boolean(approved?.merge_identity_applied),
+      merge_impact: approved?.merge_impact || null,
     });
   } catch (error) {
     const status = Number(error?.status || 0) || 500;
-    return res.status(status).json({ error: error.message || 'Failed to approve phone change request' });
+    return res.status(status).json({
+      error: error.message || 'Failed to approve phone change request',
+      code: error?.code || null,
+      ...(error?.details && typeof error.details === 'object' ? error.details : {}),
+    });
   }
 });
 
@@ -4435,7 +4636,6 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
         phoneChangeRequest = serializePhoneChangeRequest(queued);
         await notifyPhoneChangeSubmitted({
           userId: Number(req.params.id),
-          newPhone: requestedPhone,
         });
       }
     }
@@ -4446,9 +4646,7 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
     return res.json({
       ...updated,
       phone_change_request: phoneChangeRequest,
-      message: phoneChangeRequest?.needs_admin_review
-        ? 'Phone update request is pending admin review (1-5 days)'
-        : 'Phone update request is pending validation and may auto-approve within 1 hour',
+      message: 'Phone update is pending. You will be notified once it is updated.',
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });

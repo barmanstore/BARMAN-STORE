@@ -14,8 +14,8 @@ const appendVisitUsFooter = (text) => {
   const normalizedUrl = storeUrl.toLowerCase();
   if (normalizedText.includes(normalizedUrl)) return baseText;
 
-  const footer = `আমাক ইয়াত ভিজিট কৰক: ${storeUrl}`;
-  return baseText ? `${baseText}\n\n${footer}` : footer;
+  const footer = `দোকান: ${storeUrl}`;
+  return baseText ? `${baseText}\n${footer}` : footer;
 };
 
 export const normalizePhoneForWhatsApp = (phone) => {
@@ -32,9 +32,7 @@ export const isValidWhatsAppPhone = (phone) => {
 export const buildWhatsAppUrl = ({ phone, text } = {}) => {
   const normalized = normalizePhoneForWhatsApp(phone);
   const encoded = encodeURIComponent(appendVisitUsFooter(text));
-  return normalized
-    ? `https://wa.me/${normalized}?text=${encoded}`
-    : `https://wa.me/?text=${encoded}`;
+  return normalized ? `https://wa.me/${normalized}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 };
 
 export const openWhatsApp = (params = {}) => {
@@ -45,11 +43,7 @@ export const openWhatsApp = (params = {}) => {
   return href;
 };
 
-export const sendWhatsAppSmart = async ({
-  phone,
-  text,
-  maxUrlLength = 1800,
-} = {}) => {
+export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = 1800 } = {}) => {
   const message = appendVisitUsFooter(text);
   const normalized = normalizePhoneForWhatsApp(phone);
   const hasValidPhone = isValidWhatsAppPhone(normalized);

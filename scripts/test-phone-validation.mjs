@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 
 const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
 const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
+const CRON_SECRET = 'phone-change-cron-secret';
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -22,6 +23,56 @@ const toJson = async (res) => {
   }
 };
 
+const makeRequest = (baseUrl, token = '') => async (pathname, init = {}, extraHeaders = {}) =>
+  fetch(`${baseUrl}${pathname}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...extraHeaders,
+      ...(init.headers || {}),
+    },
+  });
+
+const registerOtpUser = async (request) => {
+  const email = randomEmail();
+  const otpRequestRes = await request('/api/auth/otp/request', {
+    method: 'POST',
+    body: JSON.stringify({
+      mode: 'register',
+      email,
+    }),
+  });
+  const otpRequestJson = await toJson(otpRequestRes);
+  assert.equal(otpRequestRes.status, 201, `otp request failed: ${JSON.stringify(otpRequestJson)}`);
+  assert.equal(Boolean(otpRequestJson?.dev_otp_code), true, 'otp response should expose dev_otp_code in test mode');
+
+  const otpVerifyRes = await request('/api/auth/otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp: otpRequestJson.dev_otp_code }),
+  });
+  const otpVerifyJson = await toJson(otpVerifyRes);
+  assert.equal(otpVerifyRes.status, 200, `otp verify failed: ${JSON.stringify(otpVerifyJson)}`);
+  assert.equal(Boolean(otpVerifyJson?.token), true, 'otp verify should return token');
+  assert.equal(Boolean(otpVerifyJson?.user?.id), true, 'otp verify should return user');
+  return {
+    email,
+    userId: Number(otpVerifyJson.user.id || 0),
+    token: String(otpVerifyJson.token || ''),
+  };
+};
+
+const runInternalProcessor = async (request) => {
+  const res = await request(
+    '/api/internal/phone-change/process',
+    { method: 'POST', body: JSON.stringify({ limit: 50 }) },
+    { Authorization: `Bearer ${CRON_SECRET}` }
+  );
+  const json = await toJson(res);
+  assert.equal(res.status, 200, `internal processor failed: ${JSON.stringify(json)}`);
+  return json;
+};
+
 const main = async () => {
   const port = 5600 + Math.floor(Math.random() * 300);
   const server = spawn('node', ['server/index.js'], {
@@ -33,6 +84,10 @@ const main = async () => {
       PORT: String(port),
       AUTH_TOKEN_SECRET: 'test-secret-for-phone-validation',
       SUPABASE_AUTH_ENABLED: 'false',
+      PHONE_CHANGE_AUTO_APPROVE_DELAY_MS: '1000',
+      PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS: '0.00005',
+      PHONE_CHANGE_CRON_ENABLED: 'true',
+      PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
     },
   });
 
@@ -42,15 +97,7 @@ const main = async () => {
   server.stderr.on('data', (chunk) => { stderr += String(chunk); });
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  const request = async (pathname, init = {}, token = '') =>
-    fetch(`${baseUrl}${pathname}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(init.headers || {}),
-      },
-    });
+  const request = makeRequest(baseUrl);
 
   try {
     let ready = false;
@@ -87,85 +134,105 @@ const main = async () => {
     assert.equal(badOtpRequestRes.status, 400, `invalid phone otp request should fail: ${JSON.stringify(badOtpRequestJson)}`);
     assert.equal(badOtpRequestJson?.error, PHONE_POLICY_MESSAGE);
 
-    const email = randomEmail();
-    const otpRequestRes = await request('/api/auth/otp/request', {
-      method: 'POST',
-      body: JSON.stringify({
-        mode: 'register',
-        email,
-      }),
+    const userOne = await registerOtpUser(request);
+    assert.equal(userOne.userId > 0, true, 'user one id should be positive');
+    assert.equal(Boolean(userOne.token), true, 'user one token should be present');
+    const userOneRequest = makeRequest(baseUrl, userOne.token);
+
+    const invalidPhoneUpdateRes = await userOneRequest(`/api/users/${userOne.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ phone: '1111' }),
     });
-    const otpRequestJson = await toJson(otpRequestRes);
-    assert.equal(otpRequestRes.status, 201, `otp request failed: ${JSON.stringify(otpRequestJson)}`);
-    assert.equal(Boolean(otpRequestJson?.dev_otp_code), true, 'otp response should expose dev_otp_code in test mode');
-
-    const wrongOtpRes = await request('/api/auth/otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ email, otp: '000000' }),
-    });
-    const wrongOtpJson = await toJson(wrongOtpRes);
-    assert.equal(wrongOtpRes.status, 400, `wrong OTP should fail: ${JSON.stringify(wrongOtpJson)}`);
-
-    const otpVerifyRes = await request('/api/auth/otp/verify', {
-      method: 'POST',
-      body: JSON.stringify({ email, otp: otpRequestJson.dev_otp_code }),
-    });
-    const otpVerifyJson = await toJson(otpVerifyRes);
-    assert.equal(otpVerifyRes.status, 200, `otp verify failed: ${JSON.stringify(otpVerifyJson)}`);
-    assert.equal(Boolean(otpVerifyJson?.token), true, 'otp verify should return token');
-    assert.equal(Boolean(otpVerifyJson?.user?.id), true, 'otp verify should return user');
-
-    const userId = Number(otpVerifyJson.user.id || 0);
-    const token = String(otpVerifyJson.token || '');
-    assert.equal(userId > 0, true, 'user id should be positive');
-    assert.equal(Boolean(token), true, 'auth token should be present');
-
-    const invalidPhoneUpdateRes = await request(
-      `/api/users/${userId}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ phone: '1111' }),
-      },
-      token
-    );
     const invalidPhoneUpdateJson = await toJson(invalidPhoneUpdateRes);
     assert.equal(invalidPhoneUpdateRes.status, 400, `invalid phone update should fail: ${JSON.stringify(invalidPhoneUpdateJson)}`);
     assert.equal(invalidPhoneUpdateJson?.error, PHONE_POLICY_MESSAGE);
 
-    const firstRequestedPhone = randomIndianMobile();
-    const firstPhoneUpdateRes = await request(
-      `/api/users/${userId}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ phone: `+91 ${firstRequestedPhone}` }),
-      },
-      token
-    );
+    const sharedPhone = randomIndianMobile();
+    const firstPhoneUpdateRes = await userOneRequest(`/api/users/${userOne.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ phone: `+91 ${sharedPhone}` }),
+    });
     const firstPhoneUpdateJson = await toJson(firstPhoneUpdateRes);
     assert.equal(firstPhoneUpdateRes.status, 200, `phone update request should succeed: ${JSON.stringify(firstPhoneUpdateJson)}`);
     assert.equal(firstPhoneUpdateJson?.phone, null, 'phone should remain unchanged until approval');
     assert.equal(firstPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
-    assert.equal(firstPhoneUpdateJson?.phone_change_request?.new_phone, firstRequestedPhone);
+    assert.equal(firstPhoneUpdateJson?.phone_change_request?.new_phone, sharedPhone);
 
-    const requestStatusRes = await request('/api/auth/phone-change-request/status', { method: 'GET' }, token);
-    const requestStatusJson = await toJson(requestStatusRes);
-    assert.equal(requestStatusRes.status, 200, `phone change status fetch failed: ${JSON.stringify(requestStatusJson)}`);
-    assert.equal(requestStatusJson?.request?.status, 'PENDING_VALIDATION');
-    assert.equal(requestStatusJson?.request?.new_phone, firstRequestedPhone);
+    const unauthorizedCronRes = await request('/api/internal/phone-change/process', { method: 'POST' });
+    const unauthorizedCronJson = await toJson(unauthorizedCronRes);
+    assert.equal(unauthorizedCronRes.status, 401, `internal processor should require secret: ${JSON.stringify(unauthorizedCronJson)}`);
+
+    await delay(1400);
+    const firstProcessRun = await runInternalProcessor(request);
+    assert.equal(Boolean(firstProcessRun?.result), true, 'processor should return stats');
+
+    const userOneProfileRes = await userOneRequest(`/api/users/${userOne.userId}`, { method: 'GET' });
+    const userOneProfileJson = await toJson(userOneProfileRes);
+    assert.equal(userOneProfileRes.status, 200, `user one profile fetch failed: ${JSON.stringify(userOneProfileJson)}`);
+    assert.equal(userOneProfileJson?.phone, sharedPhone, 'user one phone should be auto-approved');
+
+    const userTwo = await registerOtpUser(request);
+    const userTwoRequest = makeRequest(baseUrl, userTwo.token);
+    const userTwoPhoneUpdateRes = await userTwoRequest(`/api/users/${userTwo.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ phone: sharedPhone }),
+    });
+    const userTwoPhoneUpdateJson = await toJson(userTwoPhoneUpdateRes);
+    assert.equal(userTwoPhoneUpdateRes.status, 200, `second user phone update should queue: ${JSON.stringify(userTwoPhoneUpdateJson)}`);
+    assert.equal(userTwoPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
+
+    await delay(1400);
+    const secondProcessRun = await runInternalProcessor(request);
+    assert.equal(Boolean(secondProcessRun?.result?.escalated_admin_review >= 1), true, 'second run should escalate conflict to admin review');
+
+    const userTwoStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', { method: 'GET' });
+    const userTwoStatusJson = await toJson(userTwoStatusRes);
+    assert.equal(userTwoStatusRes.status, 200, `user two status fetch failed: ${JSON.stringify(userTwoStatusJson)}`);
+    const secondStatus = String(userTwoStatusJson?.request?.status || '').trim().toUpperCase();
+    assert.equal(['PENDING_VALIDATION', 'REJECTED'].includes(secondStatus), true, 'status should be pending review or auto-rejected');
+    if (secondStatus === 'PENDING_VALIDATION') {
+      assert.equal(Boolean(userTwoStatusJson?.request?.needs_admin_review), true, 'request should require admin review');
+
+      await delay(4000);
+      const thirdProcessRun = await runInternalProcessor(request);
+      assert.equal(Boolean(thirdProcessRun?.result?.expired_rejected >= 1), true, 'third run should auto-reject overdue admin review');
+
+      const userTwoExpiredStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', { method: 'GET' });
+      const userTwoExpiredStatusJson = await toJson(userTwoExpiredStatusRes);
+      assert.equal(userTwoExpiredStatusRes.status, 200, `user two expired status fetch failed: ${JSON.stringify(userTwoExpiredStatusJson)}`);
+      assert.equal(userTwoExpiredStatusJson?.request?.status, 'REJECTED');
+      assert.equal(
+        String(userTwoExpiredStatusJson?.request?.rejection_reason || '').toLowerCase().includes('expired'),
+        true,
+        'rejection reason should indicate expiry'
+      );
+    } else {
+      assert.equal(
+        String(userTwoStatusJson?.request?.rejection_reason || '').toLowerCase().includes('expired'),
+        true,
+        'immediate rejection should indicate expiry'
+      );
+    }
 
     const secondRequestedPhone = randomIndianMobile();
-    const secondPhoneUpdateRes = await request(
-      `/api/users/${userId}`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ phone: secondRequestedPhone }),
-      },
-      token
+    const secondRequestRes = await userTwoRequest(`/api/users/${userTwo.userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ phone: secondRequestedPhone }),
+    });
+    const secondRequestJson = await toJson(secondRequestRes);
+    assert.equal(secondRequestRes.status, 200, `second pending request should succeed: ${JSON.stringify(secondRequestJson)}`);
+    assert.equal(secondRequestJson?.phone_change_request?.status, 'PENDING_VALIDATION');
+    assert.equal(secondRequestJson?.phone_change_request?.new_phone, secondRequestedPhone);
+
+    const cancelRes = await userTwoRequest('/api/auth/phone-change-request/cancel', { method: 'POST' });
+    const cancelJson = await toJson(cancelRes);
+    assert.equal(cancelRes.status, 200, `cancel request failed: ${JSON.stringify(cancelJson)}`);
+    assert.equal(cancelJson?.request?.status, 'REJECTED');
+    assert.equal(
+      String(cancelJson?.request?.rejection_reason || '').toLowerCase().includes('cancelled'),
+      true,
+      'cancel request should mark rejection reason'
     );
-    const secondPhoneUpdateJson = await toJson(secondPhoneUpdateRes);
-    assert.equal(secondPhoneUpdateRes.status, 200, `second phone update request should succeed: ${JSON.stringify(secondPhoneUpdateJson)}`);
-    assert.equal(secondPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
-    assert.equal(secondPhoneUpdateJson?.phone_change_request?.new_phone, secondRequestedPhone);
 
     console.log('Phone update workflow smoke test passed.');
   } finally {
