@@ -189,9 +189,19 @@
   color: #1e40af;
 }
 
+.status.pending_validation {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .status.fulfilled,
 .status.resolved,
 .status.corrected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.approved {
   background: #dcfce7;
   color: #166534;
 }

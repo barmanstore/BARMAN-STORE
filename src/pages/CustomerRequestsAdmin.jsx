@@ -4,6 +4,7 @@ import './CustomerRequestsAdmin.css';
 
 const recommendationStatuses = ['open', 'reviewed', 'fulfilled', 'rejected'];
 const issueStatuses = ['open', 'in_review', 'corrected', 'rejected'];
+const phoneStatuses = ['open', 'pending_validation', 'approved', 'rejected', 'all'];
 
 function CustomerRequestsAdmin() {
   const [activeView, setActiveView] = useState('recommendations');
@@ -11,22 +12,27 @@ function CustomerRequestsAdmin() {
   const [error, setError] = useState('');
   const [recommendationStatusFilter, setRecommendationStatusFilter] = useState('open');
   const [issueStatusFilter, setIssueStatusFilter] = useState('open');
+  const [phoneStatusFilter, setPhoneStatusFilter] = useState('open');
   const [recommendations, setRecommendations] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [phoneRequests, setPhoneRequests] = useState([]);
   const [issueDrafts, setIssueDrafts] = useState({});
   const [issueSavingId, setIssueSavingId] = useState(0);
+  const [phoneSavingId, setPhoneSavingId] = useState(0);
   const [activeIssueEditorId, setActiveIssueEditorId] = useState(0);
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [recommendationRows, issueRows] = await Promise.all([
+      const [recommendationRows, issueRows, phoneRows] = await Promise.all([
         adminApi.getProductRecommendations(recommendationStatusFilter),
         adminApi.getCreditIssues(issueStatusFilter),
+        adminApi.getPhoneChangeRequests(phoneStatusFilter),
       ]);
       setRecommendations(Array.isArray(recommendationRows) ? recommendationRows : []);
       setIssues(Array.isArray(issueRows) ? issueRows : []);
+      setPhoneRequests(Array.isArray(phoneRows) ? phoneRows : []);
     } catch (err) {
       setError(err.message || 'Failed to load customer requests');
     } finally {
@@ -57,7 +63,7 @@ function CustomerRequestsAdmin() {
 
   useEffect(() => {
     load();
-  }, [recommendationStatusFilter, issueStatusFilter]);
+  }, [recommendationStatusFilter, issueStatusFilter, phoneStatusFilter]);
 
   const updateRecommendation = async (id, status) => {
     const adminNote = window.prompt('Optional admin note:', '') || '';
@@ -98,6 +104,40 @@ function CustomerRequestsAdmin() {
     }
   };
 
+  const approvePhoneRequest = async (request) => {
+    const requestId = Number(request?.id || 0);
+    if (!requestId) return;
+    const adminNote = window.prompt('Optional admin note for approval:', '') || '';
+    try {
+      setPhoneSavingId(requestId);
+      await adminApi.approvePhoneChangeRequest(requestId, { admin_note: adminNote });
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to approve phone update request');
+    } finally {
+      setPhoneSavingId(0);
+    }
+  };
+
+  const rejectPhoneRequest = async (request) => {
+    const requestId = Number(request?.id || 0);
+    if (!requestId) return;
+    const rejectionReason = window.prompt('Reason for rejection (shown to user):', '') || '';
+    const adminNote = window.prompt('Optional internal admin note:', '') || '';
+    try {
+      setPhoneSavingId(requestId);
+      await adminApi.rejectPhoneChangeRequest(requestId, {
+        rejection_reason: rejectionReason,
+        admin_note: adminNote,
+      });
+      await load();
+    } catch (err) {
+      setError(err.message || 'Failed to reject phone update request');
+    } finally {
+      setPhoneSavingId(0);
+    }
+  };
+
   return (
     <div className="customer-requests-admin">
       <div className="customer-requests-header">
@@ -116,6 +156,13 @@ function CustomerRequestsAdmin() {
             onClick={() => setActiveView('issues')}
           >
             Credit Issues
+          </button>
+          <button
+            type="button"
+            className={activeView === 'phone-updates' ? 'active' : ''}
+            onClick={() => setActiveView('phone-updates')}
+          >
+            Phone Updates
           </button>
         </div>
       </div>
@@ -288,6 +335,69 @@ function CustomerRequestsAdmin() {
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {!loading && activeView === 'phone-updates' && (
+        <section className="customer-requests-panel">
+          <div className="panel-head">
+            <h2>Phone Update Requests</h2>
+            <select value={phoneStatusFilter} onChange={(e) => setPhoneStatusFilter(e.target.value)}>
+              {phoneStatuses.map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+          {phoneRequests.length === 0 ? (
+            <p className="muted">No phone update requests found.</p>
+          ) : (
+            <div className="request-grid">
+              {phoneRequests.map((item) => {
+                const status = String(item.status || '').trim().toLowerCase();
+                const isPending = status === 'pending_validation';
+                return (
+                  <article key={item.id} className="request-card">
+                    <div className="request-head">
+                      <strong>{item.user_name || `User #${item.user_id}`}</strong>
+                      <span className={`status ${status}`}>{status.replace(/_/g, ' ')}</span>
+                    </div>
+                    <p><strong>User:</strong> {item.user_email || '-'}</p>
+                    <p><strong>Old phone:</strong> {item.old_phone || '-'}</p>
+                    <p><strong>Requested phone:</strong> {item.new_phone || '-'}</p>
+                    {item.needs_admin_review ? <p><strong>Review:</strong> Admin review required</p> : <p><strong>Review:</strong> Waiting auto-validation</p>}
+                    {item.conflict_user_name ? (
+                      <p><strong>Conflict user:</strong> {item.conflict_user_name} ({item.conflict_user_email || '-'})</p>
+                    ) : null}
+                    {item.rejection_reason ? <p><strong>Rejection reason:</strong> {item.rejection_reason}</p> : null}
+                    {item.admin_note ? <p><strong>Admin note:</strong> {item.admin_note}</p> : null}
+                    <small>
+                      Requested: {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                    </small>
+                    {isPending ? (
+                      <div className="request-actions">
+                        <button
+                          type="button"
+                          onClick={() => approvePhoneRequest(item)}
+                          disabled={phoneSavingId === Number(item.id)}
+                        >
+                          {phoneSavingId === Number(item.id) ? 'Updating...' : 'Approve'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rejectPhoneRequest(item)}
+                          disabled={phoneSavingId === Number(item.id)}
+                        >
+                          {phoneSavingId === Number(item.id) ? 'Updating...' : 'Reject'}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="muted">No pending action.</p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

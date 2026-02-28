@@ -292,6 +292,22 @@
   color: #047857;
 }
 
+.verification-note.phone-change-status {
+  font-weight: 600;
+}
+
+.verification-note.phone-change-status.pending_validation {
+  color: #1d4ed8;
+}
+
+.verification-note.phone-change-status.approved {
+  color: #047857;
+}
+
+.verification-note.phone-change-status.rejected {
+  color: #b91c1c;
+}
+
 .verification-actions {
   display: flex;
   flex-wrap: wrap;

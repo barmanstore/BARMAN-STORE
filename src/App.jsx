@@ -7,7 +7,7 @@ import { analyticsApi, notificationsApi } from './services/api';
 import './index.css';
 import './App.css';
 import * as info from './pages/info.js';
-import logoImage from '../logo.png';
+import logoImage from '../logo1.png';
 
 const Home = lazy(() => import('./pages/Home'));
 const Products = lazy(() => import('./pages/Products'));

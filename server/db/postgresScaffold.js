@@ -6,11 +6,18 @@ const parseBooleanEnv = (value, fallback = false) => {
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
 
+const isVercelRuntime = () => (
+  parseBooleanEnv(process.env.VERCEL, false)
+  || Boolean(String(process.env.NOW_REGION || '').trim())
+);
+
 const buildPostgresConfigFromEnv = () => {
   const poolLimitRaw = Number(process.env.PG_POOL_LIMIT || 10);
   const connectionString = String(
     process.env.SUPABASE_DB_URL
     || process.env.DATABASE_URL
+    || process.env.POSTGRES_URL
+    || process.env.POSTGRES_PRISMA_URL
     || process.env.PG_CONNECTION_STRING
     || ''
   ).trim();
@@ -38,14 +45,50 @@ const buildPostgresConfigFromEnv = () => {
     };
   }
 
-  const portRaw = Number(process.env.PGPORT || process.env.PG_PORT || 5432);
+  const host = String(
+    process.env.PGHOST
+    || process.env.PG_HOST
+    || process.env.POSTGRES_HOST
+    || ''
+  ).trim();
+  const user = String(
+    process.env.PGUSER
+    || process.env.PG_USER
+    || process.env.POSTGRES_USER
+    || ''
+  ).trim();
+  const password = String(
+    process.env.PGPASSWORD
+    || process.env.PG_PASSWORD
+    || process.env.POSTGRES_PASSWORD
+    || ''
+  );
+  const database = String(
+    process.env.PGDATABASE
+    || process.env.PG_DATABASE
+    || process.env.POSTGRES_DATABASE
+    || ''
+  ).trim();
+  const portRaw = Number(
+    process.env.PGPORT
+    || process.env.PG_PORT
+    || process.env.POSTGRES_PORT
+    || 5432
+  );
+
+  if (isVercelRuntime() && !host) {
+    throw new Error(
+      '[DB] Missing SUPABASE_DB_URL/DATABASE_URL/POSTGRES_URL (or PGHOST-based settings) in Vercel environment.'
+    );
+  }
+
   return {
     ...base,
-    host: process.env.PGHOST || process.env.PG_HOST || '127.0.0.1',
+    host: host || '127.0.0.1',
     port: Number.isFinite(portRaw) && portRaw > 0 ? portRaw : 5432,
-    user: process.env.PGUSER || process.env.PG_USER || 'postgres',
-    password: process.env.PGPASSWORD || process.env.PG_PASSWORD || '',
-    database: process.env.PGDATABASE || process.env.PG_DATABASE || 'postgres',
+    user: user || 'postgres',
+    password,
+    database: database || 'postgres',
     ...(sslEnabled ? { ssl: { rejectUnauthorized } } : {}),
   };
 };

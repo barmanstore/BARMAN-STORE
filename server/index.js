@@ -94,6 +94,7 @@ const toTimestampMs = (value) => {
   return Number.isFinite(ts) ? ts : 0;
 };
 
+let runtimeBootstrapError = null;
 const startDatabaseScaffolding = async () => {
   console.log(`[DB] Execution mode: ${DB_EXECUTION_MODE}`);
 
@@ -115,20 +116,34 @@ const startDatabaseScaffolding = async () => {
       generateSku,
     });
     console.log('[DB] Postgres schema/bootstrap completed');
+    runtimeBootstrapError = null;
     return true;
   } catch (error) {
-    console.error(`[DB] Postgres/Supabase initialization failed: ${error.message}`);
+    runtimeBootstrapError = error instanceof Error
+      ? error
+      : new Error(String(error || 'Unknown database initialization error'));
+    console.error(`[DB] Postgres/Supabase initialization failed: ${runtimeBootstrapError.message}`);
     await closePostgresScaffold();
     return false;
   }
 };
 const IS_VERCEL_RUNTIME = parseBooleanEnv(process.env.VERCEL, false) || process.env.NOW_REGION;
+const CANONICAL_HOST = String(process.env.CANONICAL_HOST || 'barmanstore.vercel.app').trim().toLowerCase();
+const LEGACY_HOSTS = new Set(
+  String(process.env.LEGACY_HOSTS || 'barman-store.vercel.app')
+    .split(',')
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)
+);
 let runtimeReadyPromise = null;
 const ensureRuntimeReady = async () => {
   if (runtimeReadyPromise) return runtimeReadyPromise;
   runtimeReadyPromise = (async () => {
     const ready = await startDatabaseScaffolding();
     if (!ready) {
+      if (runtimeBootstrapError?.message) {
+        throw new Error(`Database initialization failed: ${runtimeBootstrapError.message}`);
+      }
       throw new Error('Database initialization failed');
     }
   })();
@@ -171,6 +186,7 @@ const defaultAllowedOrigins = [
   'http://localhost',
   'http://127.0.0.1',
   'https://barman-store.vercel.app',
+  'https://barmanstore.vercel.app',
 ];
 
 const allowedOrigins = new Set(
@@ -191,6 +207,16 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  if (!IS_VERCEL_RUNTIME) return next();
+  const host = String(req.headers.host || '').split(':')[0].trim().toLowerCase();
+  if (!host || host === CANONICAL_HOST || !LEGACY_HOSTS.has(host)) return next();
+  const proto = String(req.headers['x-forwarded-proto'] || 'https')
+    .split(',')[0]
+    .trim()
+    .toLowerCase() || 'https';
+  return res.redirect(308, `${proto}://${CANONICAL_HOST}${req.originalUrl || '/'}`);
+});
 app.use(express.json({ limit: '5mb' }));
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(PROFILE_UPLOAD_DIR)) fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
@@ -753,14 +779,42 @@ const OTP_DELIVERY_MODE = String(
   : 'manual';
 const OTP_VERIFY_SESSION_TTL_SECONDS = Math.max(60, Number(process.env.OTP_VERIFY_SESSION_TTL_SECONDS || 900));
 const CREDIT_ENTRY_DEDUP_WINDOW_MS = Math.max(0, Number(process.env.CREDIT_ENTRY_DEDUP_WINDOW_MS || 15000));
+const PHONE_CHANGE_STATUS_PENDING = 'PENDING_VALIDATION';
+const PHONE_CHANGE_STATUS_APPROVED = 'APPROVED';
+const PHONE_CHANGE_STATUS_REJECTED = 'REJECTED';
+const PHONE_CHANGE_DECISION_AUTO = 'AUTO';
+const PHONE_CHANGE_DECISION_ADMIN = 'ADMIN';
+const PHONE_CHANGE_AUTO_APPROVE_DELAY_MS = Math.max(
+  5 * 60 * 1000,
+  Number(process.env.PHONE_CHANGE_AUTO_APPROVE_DELAY_MS || 60 * 60 * 1000)
+);
+const PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS = Math.max(
+  1,
+  Math.min(14, Number(process.env.PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS || 5))
+);
+const PHONE_CHANGE_PROCESS_INTERVAL_MS = Math.max(
+  30 * 1000,
+  Number(process.env.PHONE_CHANGE_PROCESS_INTERVAL_MS || 60 * 1000)
+);
+const PHONE_CHANGE_AUTO_BATCH_SIZE = Math.max(
+  1,
+  Math.min(100, Number(process.env.PHONE_CHANGE_AUTO_BATCH_SIZE || 25))
+);
 const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim() || 'BARMAN STORE';
 const PASSWORD_RESET_LOGIN_URL = String(
-  process.env.PASSWORD_RESET_LOGIN_URL || 'https://barman-store.vercel.app/login'
+  process.env.PASSWORD_RESET_LOGIN_URL || 'https://barmanstore.vercel.app/login'
 ).trim();
-const SUPABASE_AUTH_ENABLED = parseBooleanEnv(process.env.SUPABASE_AUTH_ENABLED, false);
+const SUPABASE_AUTH_ENABLED_RAW = String(process.env.SUPABASE_AUTH_ENABLED ?? '').trim();
+const SUPABASE_AUTH_ENABLED = SUPABASE_AUTH_ENABLED_RAW
+  ? parseBooleanEnv(SUPABASE_AUTH_ENABLED_RAW, false)
+  : Boolean(String(process.env.SUPABASE_URL || '').trim() || String(process.env.SUPABASE_DB_URL || '').trim());
 const SUPABASE_AUTH_MODE = String(process.env.SUPABASE_AUTH_MODE || 'hybrid').trim().toLowerCase() === 'strict'
   ? 'strict'
   : 'hybrid';
+const SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK = parseBooleanEnv(
+  process.env.SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK,
+  process.env.NODE_ENV !== 'production'
+);
 const SUPABASE_PASSWORD_RESET_REDIRECT = String(
   process.env.SUPABASE_PASSWORD_RESET_REDIRECT || PASSWORD_RESET_LOGIN_URL
 ).trim();
@@ -770,7 +824,7 @@ const SUPABASE_EMAIL_VERIFY_REDIRECT = String(
   || PASSWORD_RESET_LOGIN_URL
 ).trim();
 const PHONE_VERIFY_BASE_URL = String(
-  process.env.PHONE_VERIFY_BASE_URL || 'https://barman-store.vercel.app/login'
+  process.env.PHONE_VERIFY_BASE_URL || 'https://barmanstore.vercel.app/login'
 ).trim();
 const PHONE_VERIFY_TTL_SECONDS = Math.max(60, Number(process.env.PHONE_VERIFY_TTL_SECONDS || 900));
 const PHONE_VERIFY_MAX_ATTEMPTS = Math.max(1, Number(process.env.PHONE_VERIFY_MAX_ATTEMPTS || 5));
@@ -794,6 +848,7 @@ const supabaseAuthProvider = createSupabaseAuthProvider({
   serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   passwordResetRedirectTo: SUPABASE_PASSWORD_RESET_REDIRECT,
   emailRedirectTo: SUPABASE_EMAIL_VERIFY_REDIRECT,
+  allowAccessTokenDecodeFallback: SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK,
 });
 const otpProvider = createOtpProvider({
   OTP_PROVIDER,
@@ -928,7 +983,10 @@ const getBearerTokenFromRequest = (req) => {
   return header.slice(7).trim();
 };
 
-const isSupabaseEmailAuthUsable = () => supabaseAuthProvider.shouldUseClientAuth();
+const isSupabaseEmailAuthUsable = () => (
+  supabaseAuthProvider.shouldUseClientAuth()
+  || supabaseAuthProvider.shouldUseAccessTokenDecodeFallback()
+);
 const isSupabaseAuthStrictMode = () => supabaseAuthProvider.isStrictMode();
 const isSupabaseEmailVerified = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
 const toSupabaseSessionPayload = (session = null) => {
@@ -1035,6 +1093,17 @@ const getAuthUserFromRequest = async (req) => {
   }
 
   if (!isSupabaseEmailAuthUsable()) return null;
+  if (!supabaseAuthProvider.shouldUseClientAuth() && supabaseAuthProvider.shouldUseAccessTokenDecodeFallback()) {
+    const decoded = supabaseAuthProvider.decodeAccessTokenUnsafe({ accessToken: token });
+    const normalizedEmail = normalizeEmail(decoded?.email);
+    if (!normalizedEmail) return null;
+    const synced = await syncLocalUserFromSupabaseAuth({
+      email: normalizedEmail,
+      metadata: decoded?.metadata || {},
+      emailVerified: true,
+    });
+    return sanitizeUser(synced) || null;
+  }
   try {
     const supabaseUser = await supabaseAuthProvider.getUser({ accessToken: token });
     const normalizedEmail = normalizeEmail(supabaseUser?.email);
@@ -1447,6 +1516,492 @@ const completeContactVerificationRequests = async ({ userId, requestType }) => {
   );
 };
 
+const normalizePhoneChangeRequestStatus = (value, fallback = PHONE_CHANGE_STATUS_PENDING) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (
+    normalized === PHONE_CHANGE_STATUS_PENDING
+    || normalized === PHONE_CHANGE_STATUS_APPROVED
+    || normalized === PHONE_CHANGE_STATUS_REJECTED
+  ) return normalized;
+  return fallback;
+};
+
+const serializePhoneChangeRequest = (row) => {
+  if (!row) return null;
+  return {
+    id: Number(row.id || 0),
+    user_id: Number(row.user_id || 0),
+    old_phone: row.old_phone || null,
+    new_phone: row.new_phone || null,
+    status: normalizePhoneChangeRequestStatus(row.status),
+    needs_admin_review: Number(row.needs_admin_review || 0) === 1,
+    conflict_user_id: Number(row.conflict_user_id || 0) || null,
+    requested_by: Number(row.requested_by || 0) || null,
+    requested_from_ip: row.requested_from_ip || null,
+    auto_check_at: row.auto_check_at || null,
+    final_due_at: row.final_due_at || null,
+    admin_notified_at: row.admin_notified_at || null,
+    decision_source: row.decision_source || null,
+    admin_note: row.admin_note || null,
+    rejection_reason: row.rejection_reason || null,
+    reviewed_by: Number(row.reviewed_by || 0) || null,
+    reviewed_at: row.reviewed_at || null,
+    created_at: row.created_at || null,
+    updated_at: row.updated_at || null,
+  };
+};
+
+const getOpenPhoneChangeRequestForUser = async (userId) => dbGetAsync(
+  `SELECT *
+   FROM phone_change_requests
+   WHERE user_id = ? AND status = ?
+   ORDER BY id DESC
+   LIMIT 1`,
+  [Number(userId || 0), PHONE_CHANGE_STATUS_PENDING]
+);
+
+const getLatestPhoneChangeRequestForUser = async (userId) => dbGetAsync(
+  `SELECT *
+   FROM phone_change_requests
+   WHERE user_id = ?
+   ORDER BY id DESC
+   LIMIT 1`,
+  [Number(userId || 0)]
+);
+
+const queuePhoneChangeRequest = async ({
+  userId,
+  oldPhone = null,
+  newPhone,
+  requestedBy = null,
+  requestedFromIp = null,
+}) => {
+  const normalizedUserId = Number(userId || 0);
+  const parsedOldPhone = parsePhoneInput(oldPhone);
+  const parsedNewPhone = parsePhoneInput(newPhone, { required: true });
+  if (!normalizedUserId || parsedNewPhone.error) return null;
+
+  const oldPhoneValue = parsedOldPhone.value || null;
+  const newPhoneValue = parsedNewPhone.value;
+  const now = Date.now();
+  const autoCheckAt = new Date(now + PHONE_CHANGE_AUTO_APPROVE_DELAY_MS).toISOString();
+  const finalDueAt = new Date(
+    now + (PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  ).toISOString();
+  const existing = await getOpenPhoneChangeRequestForUser(normalizedUserId);
+  if (existing) {
+    await dbRunAsync(
+      `UPDATE phone_change_requests
+       SET old_phone = ?,
+           new_phone = ?,
+           status = ?,
+           requested_by = ?,
+           requested_from_ip = ?,
+           needs_admin_review = 0,
+           conflict_user_id = NULL,
+           auto_check_at = ?,
+           final_due_at = ?,
+           admin_notified_at = NULL,
+           decision_source = NULL,
+           admin_note = NULL,
+           rejection_reason = NULL,
+           reviewed_by = NULL,
+           reviewed_at = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        oldPhoneValue,
+        newPhoneValue,
+        PHONE_CHANGE_STATUS_PENDING,
+        Number(requestedBy || 0) || null,
+        requestedFromIp ? String(requestedFromIp) : null,
+        autoCheckAt,
+        finalDueAt,
+        existing.id,
+      ]
+    );
+    return (await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [existing.id])) || null;
+  }
+
+  const inserted = await dbRunAsync(
+    `INSERT INTO phone_change_requests
+     (user_id, old_phone, new_phone, status, requested_by, requested_from_ip, needs_admin_review, conflict_user_id, auto_check_at, final_due_at)
+     VALUES (?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`,
+    [
+      normalizedUserId,
+      oldPhoneValue,
+      newPhoneValue,
+      PHONE_CHANGE_STATUS_PENDING,
+      Number(requestedBy || 0) || null,
+      requestedFromIp ? String(requestedFromIp) : null,
+      autoCheckAt,
+      finalDueAt,
+    ]
+  );
+  const insertedId = Number(inserted.lastInsertRowid || 0);
+  return insertedId
+    ? (await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [insertedId])) || null
+    : null;
+};
+
+const movePhoneLinkedIdentityRecords = async ({ fromUserId, toUserId }) => {
+  const sourceId = Number(fromUserId || 0);
+  const targetId = Number(toUserId || 0);
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  await dbRunAsync(`UPDATE credit_history SET user_id = ? WHERE user_id = ?`, [targetId, sourceId]);
+  await dbRunAsync(`UPDATE credit_entry_issues SET user_id = ? WHERE user_id = ?`, [targetId, sourceId]);
+  await dbRunAsync(`UPDATE bills SET customer_id = ? WHERE customer_id = ?`, [targetId, sourceId]);
+  await dbRunAsync(`UPDATE orders SET user_id = ? WHERE user_id = ?`, [targetId, sourceId]);
+  await dbRunAsync(`UPDATE product_recommendations SET user_id = ? WHERE user_id = ?`, [targetId, sourceId]);
+};
+
+const approvePhoneChangeRequest = async ({
+  id,
+  reviewedBy = null,
+  decisionSource = PHONE_CHANGE_DECISION_ADMIN,
+  adminNote = null,
+}) => {
+  const requestId = Number(id || 0);
+  if (!requestId) return null;
+  const reviewedById = Number(reviewedBy || 0) || null;
+  const source = String(decisionSource || '').trim().toUpperCase() === PHONE_CHANGE_DECISION_AUTO
+    ? PHONE_CHANGE_DECISION_AUTO
+    : PHONE_CHANGE_DECISION_ADMIN;
+
+  return dbTxAsync(async () => {
+    const requestRow = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [requestId]);
+    if (!requestRow) return null;
+    if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
+      const err = new Error(`Cannot approve request in status "${requestRow.status}"`);
+      err.status = 400;
+      throw err;
+    }
+
+    const owner = await dbGetAsync(`SELECT id, phone FROM users WHERE id = ?`, [requestRow.user_id]);
+    if (!owner) {
+      const err = new Error('User not found for this phone change request');
+      err.status = 404;
+      throw err;
+    }
+
+    const newPhoneParsed = parsePhoneInput(requestRow.new_phone, { required: true });
+    if (newPhoneParsed.error) {
+      const err = new Error(newPhoneParsed.error);
+      err.status = 400;
+      throw err;
+    }
+    const newPhone = newPhoneParsed.value;
+    const currentOwnerPhone = normalizePhone(owner.phone);
+    const conflictUser = await dbGetAsync(
+      `SELECT id
+       FROM users
+       WHERE phone = ? AND id <> ?
+       LIMIT 1`,
+      [newPhone, owner.id]
+    );
+
+    if (source === PHONE_CHANGE_DECISION_AUTO && conflictUser) {
+      const err = new Error('Conflict detected, requires admin review');
+      err.status = 409;
+      throw err;
+    }
+
+    const conflictUserId = Number(conflictUser?.id || 0) || null;
+    if (conflictUserId) {
+      await movePhoneLinkedIdentityRecords({ fromUserId: conflictUserId, toUserId: owner.id });
+      await dbRunAsync(
+        `UPDATE users
+         SET phone = NULL,
+             phone_verified = 0
+         WHERE id = ?`,
+        [conflictUserId]
+      );
+    }
+
+    if (currentOwnerPhone !== newPhone) {
+      await dbRunAsync(
+        `UPDATE users
+         SET phone = ?, phone_verified = 0
+         WHERE id = ?`,
+        [newPhone, owner.id]
+      );
+    }
+
+    await dbRunAsync(
+      `UPDATE phone_change_requests
+       SET status = ?,
+           needs_admin_review = 0,
+           conflict_user_id = ?,
+           decision_source = ?,
+           admin_note = ?,
+           rejection_reason = NULL,
+           reviewed_by = ?,
+           reviewed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        PHONE_CHANGE_STATUS_APPROVED,
+        conflictUserId,
+        source,
+        adminNote ? String(adminNote).trim() : null,
+        reviewedById,
+        requestId,
+      ]
+    );
+
+    const updatedRequest = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [requestId]);
+    const updatedUser = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [owner.id]);
+    return {
+      request: updatedRequest,
+      user: updatedUser,
+      conflict_user_id: conflictUserId,
+    };
+  });
+};
+
+const rejectPhoneChangeRequest = async ({
+  id,
+  reviewedBy = null,
+  adminNote = null,
+  rejectionReason = null,
+}) => {
+  const requestId = Number(id || 0);
+  if (!requestId) return null;
+  await dbRunAsync(
+    `UPDATE phone_change_requests
+     SET status = ?,
+         admin_note = ?,
+         rejection_reason = ?,
+         reviewed_by = ?,
+         reviewed_at = CURRENT_TIMESTAMP,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND status = ?`,
+    [
+      PHONE_CHANGE_STATUS_REJECTED,
+      adminNote ? String(adminNote).trim() : null,
+      rejectionReason ? String(rejectionReason).trim() : null,
+      Number(reviewedBy || 0) || null,
+      requestId,
+      PHONE_CHANGE_STATUS_PENDING,
+    ]
+  );
+  const updated = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [requestId]);
+  if (!updated) return null;
+  if (normalizePhoneChangeRequestStatus(updated.status, '') !== PHONE_CHANGE_STATUS_REJECTED) return null;
+  return updated;
+};
+
+const movePhoneChangeRequestToAdminReview = async ({ requestId, conflictUserId = null }) => {
+  const id = Number(requestId || 0);
+  if (!id) return null;
+  const current = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [id]);
+  if (!current) return null;
+  if (normalizePhoneChangeRequestStatus(current.status, '') !== PHONE_CHANGE_STATUS_PENDING) return current;
+
+  const shouldStampAdminNotification = !current.admin_notified_at;
+  await dbRunAsync(
+    `UPDATE phone_change_requests
+     SET needs_admin_review = 1,
+         conflict_user_id = ?,
+         admin_notified_at = CASE WHEN admin_notified_at IS NULL THEN CURRENT_TIMESTAMP ELSE admin_notified_at END,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [Number(conflictUserId || 0) || null, id]
+  );
+  const updated = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [id]);
+  return {
+    row: updated,
+    notifyAdmins: shouldStampAdminNotification,
+  };
+};
+
+const notifyPhoneChangeSubmitted = async ({ userId, newPhone }) => {
+  await createAppNotification({
+    userId,
+    title: 'Phone update request received',
+    message: `Phone update to ${newPhone} is pending validation. It may auto-complete within 1 hour.`,
+    level: 'info',
+    entityType: 'phone_change_request',
+    metadata: {
+      route: '/profile',
+      status: PHONE_CHANGE_STATUS_PENDING,
+    },
+    createdBy: Number(userId || 0) || null,
+  });
+};
+
+const notifyPhoneChangeAdminReview = async ({ userId, requestId, newPhone }) => {
+  await createAppNotification({
+    userId,
+    title: 'Phone update under admin review',
+    message: `Phone update to ${newPhone} requires admin review (1-5 days).`,
+    level: 'warning',
+    entityType: 'phone_change_request',
+    entityId: requestId,
+    metadata: {
+      route: '/profile',
+      status: PHONE_CHANGE_STATUS_PENDING,
+      needs_admin_review: true,
+    },
+    createdBy: null,
+  });
+};
+
+const notifyPhoneChangeApproved = async ({ userId, requestId, newPhone, decisionSource }) => {
+  await createAppNotification({
+    userId,
+    title: 'Phone update approved',
+    message: `Your phone number has been updated to ${newPhone}.`,
+    level: 'success',
+    entityType: 'phone_change_request',
+    entityId: requestId,
+    metadata: {
+      route: '/profile',
+      status: PHONE_CHANGE_STATUS_APPROVED,
+      decision_source: decisionSource,
+    },
+    createdBy: null,
+  });
+};
+
+const notifyPhoneChangeRejected = async ({ userId, requestId, reason }) => {
+  await createAppNotification({
+    userId,
+    title: 'Phone update rejected',
+    message: reason
+      ? `Your phone update request was rejected: ${reason}`
+      : 'Your phone update request was rejected. Please contact support.',
+    level: 'error',
+    entityType: 'phone_change_request',
+    entityId: requestId,
+    metadata: {
+      route: '/profile',
+      status: PHONE_CHANGE_STATUS_REJECTED,
+    },
+    createdBy: null,
+  });
+};
+
+const notifyAdminsPhoneChangeReview = async ({ requestId, userName, newPhone }) => {
+  await notifyAdmins({
+    title: 'Phone update needs review',
+    message: `${userName || 'Customer'} requested phone ${newPhone}. Review pending request #${requestId}.`,
+    level: 'warning',
+    entityType: 'phone_change_request',
+    entityId: requestId,
+    metadata: {
+      route: '/admin?tab=customer-requests',
+      request_id: requestId,
+    },
+    createdBy: null,
+  });
+};
+
+const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BATCH_SIZE } = {}) => {
+  if (phoneChangeWorkerRunning) return;
+  phoneChangeWorkerRunning = true;
+  try {
+    const rows = await dbAllAsync(
+      `SELECT *
+       FROM phone_change_requests
+       WHERE status = ?
+         AND COALESCE(needs_admin_review, 0) = 0
+         AND auto_check_at IS NOT NULL
+         AND auto_check_at <= CURRENT_TIMESTAMP
+       ORDER BY auto_check_at ASC, id ASC
+       LIMIT ?`,
+      [PHONE_CHANGE_STATUS_PENDING, Number(limit || PHONE_CHANGE_AUTO_BATCH_SIZE)]
+    );
+    for (const row of rows || []) {
+      const requestId = Number(row?.id || 0);
+      const userId = Number(row?.user_id || 0);
+      if (!requestId || !userId) continue;
+      try {
+        const parsedPhone = parsePhoneInput(row.new_phone, { required: true });
+        if (parsedPhone.error) {
+          const rejected = await rejectPhoneChangeRequest({
+            id: requestId,
+            reviewedBy: null,
+            adminNote: 'Auto validation failed',
+            rejectionReason: parsedPhone.error,
+          });
+          if (rejected) {
+            await notifyPhoneChangeRejected({
+              userId,
+              requestId,
+              reason: parsedPhone.error,
+            });
+          }
+          continue;
+        }
+        const conflict = await dbGetAsync(
+          `SELECT id
+           FROM users
+           WHERE phone = ? AND id <> ?
+           LIMIT 1`,
+          [parsedPhone.value, userId]
+        );
+        if (conflict) {
+          const escalated = await movePhoneChangeRequestToAdminReview({
+            requestId,
+            conflictUserId: conflict.id,
+          });
+          if (escalated?.notifyAdmins) {
+            const owner = await dbGetAsync(`SELECT id, name FROM users WHERE id = ?`, [userId]);
+            await notifyAdminsPhoneChangeReview({
+              requestId,
+              userName: owner?.name || `User #${userId}`,
+              newPhone: parsedPhone.value,
+            });
+            await notifyPhoneChangeAdminReview({
+              userId,
+              requestId,
+              newPhone: parsedPhone.value,
+            });
+          }
+          continue;
+        }
+
+        const approved = await approvePhoneChangeRequest({
+          id: requestId,
+          reviewedBy: null,
+          decisionSource: PHONE_CHANGE_DECISION_AUTO,
+          adminNote: 'Auto-approved after uniqueness validation window',
+        });
+        if (approved?.request) {
+          await notifyPhoneChangeApproved({
+            userId,
+            requestId,
+            newPhone: parsedPhone.value,
+            decisionSource: PHONE_CHANGE_DECISION_AUTO,
+          });
+        }
+      } catch (error) {
+        console.warn('[PHONE_CHANGE] Failed processing request:', error?.message || error);
+      }
+    }
+  } finally {
+    phoneChangeWorkerRunning = false;
+  }
+};
+
+const startPhoneChangeWorker = () => {
+  if (IS_VERCEL_RUNTIME) return;
+  if (phoneChangeWorkerTimer) return;
+  phoneChangeWorkerTimer = setInterval(() => {
+    void processPendingPhoneChangeRequests().catch((error) => {
+      console.warn('[PHONE_CHANGE] Background worker failed:', error?.message || error);
+    });
+  }, PHONE_CHANGE_PROCESS_INTERVAL_MS);
+  void processPendingPhoneChangeRequests().catch(() => {});
+};
+
+const stopPhoneChangeWorker = () => {
+  if (!phoneChangeWorkerTimer) return;
+  clearInterval(phoneChangeWorkerTimer);
+  phoneChangeWorkerTimer = null;
+};
+
 const PRODUCT_IMPORT_BATCH_TTL_MS = Number(process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000);
 const PRODUCT_IMPORT_HEADERS = [
   'id',
@@ -1493,6 +2048,8 @@ const PRODUCT_IMPORT_SAMPLE = {
   is_active: 1,
 };
 const productImportBatches = new Map();
+let phoneChangeWorkerTimer = null;
+let phoneChangeWorkerRunning = false;
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -2737,6 +3294,23 @@ app.get('/api/auth/phone/verification/status', requireAuth, async (req, res) => 
   }
 });
 
+app.get('/api/auth/phone-change-request/status', requireAuth, async (req, res) => {
+  try {
+    await processPendingPhoneChangeRequests({ limit: 10 });
+    const row = await getLatestPhoneChangeRequestForUser(req.authUser.id);
+    if (!row) {
+      return res.json({
+        request: null,
+      });
+    }
+    return res.json({
+      request: serializePhoneChangeRequest(row),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load phone change request status' });
+  }
+});
+
 app.get('/api/auth/contact-verification/status', requireAuth, async (req, res) => {
   try {
     const userId = Number(req.authUser?.id || 0);
@@ -2804,7 +3378,7 @@ app.get('/api/auth/reset-mode', (_, res) => {
     mode: 'otp_login_only',
     auth_methods: {
       otp: true,
-      oauth: Boolean(supabaseAuthProvider?.isEnabled && supabaseAuthProvider?.clientReady),
+      oauth: Boolean(supabaseAuthProvider?.shouldUseOAuth?.()),
       password: false,
     },
     otp_provider: OTP_PROVIDER,
@@ -2821,6 +3395,7 @@ app.get('/api/auth/reset-mode', (_, res) => {
     supabase_auth_enabled: Boolean(supabaseAuthProvider?.isEnabled),
     supabase_auth_mode: SUPABASE_AUTH_MODE,
     supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
+    supabase_oauth_ready: Boolean(supabaseAuthProvider?.oauthReady),
     supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
     supabase_url: supabaseAuthProvider?.baseUrl || null,
     supabase_email_verify_redirect: SUPABASE_EMAIL_VERIFY_REDIRECT || null,
@@ -3260,6 +3835,164 @@ app.post('/api/notifications/messages/to-customers', requireAdmin, async (req, r
   }
 });
 
+app.get('/api/admin/phone-change-requests', requireAdmin, async (req, res) => {
+  try {
+    await processPendingPhoneChangeRequests();
+    const statusFilter = String(req.query?.status || 'open').trim().toLowerCase();
+    const params = [];
+    let whereClause = '';
+    if (statusFilter === 'open') {
+      whereClause = `WHERE pcr.status = ? AND COALESCE(pcr.needs_admin_review, 0) = 1`;
+      params.push(PHONE_CHANGE_STATUS_PENDING);
+    } else if (statusFilter === 'pending_validation') {
+      whereClause = `WHERE pcr.status = ?`;
+      params.push(PHONE_CHANGE_STATUS_PENDING);
+    } else if (statusFilter === 'approved') {
+      whereClause = `WHERE pcr.status = ?`;
+      params.push(PHONE_CHANGE_STATUS_APPROVED);
+    } else if (statusFilter === 'rejected') {
+      whereClause = `WHERE pcr.status = ?`;
+      params.push(PHONE_CHANGE_STATUS_REJECTED);
+    } else if (statusFilter !== 'all') {
+      return res.status(400).json({ error: 'Invalid status filter' });
+    }
+
+    const rows = await dbAllAsync(
+      `SELECT pcr.*,
+              u.name AS user_name,
+              u.email AS user_email,
+              u.phone AS user_phone,
+              cu.name AS conflict_user_name,
+              cu.email AS conflict_user_email,
+              r.name AS reviewed_by_name
+       FROM phone_change_requests pcr
+       LEFT JOIN users u ON u.id = pcr.user_id
+       LEFT JOIN users cu ON cu.id = pcr.conflict_user_id
+       LEFT JOIN users r ON r.id = pcr.reviewed_by
+       ${whereClause}
+       ORDER BY
+         CASE pcr.status
+           WHEN '${PHONE_CHANGE_STATUS_PENDING}' THEN 0
+           WHEN '${PHONE_CHANGE_STATUS_APPROVED}' THEN 1
+           WHEN '${PHONE_CHANGE_STATUS_REJECTED}' THEN 2
+           ELSE 9
+         END,
+         COALESCE(pcr.needs_admin_review, 0) DESC,
+         pcr.created_at DESC,
+         pcr.id DESC`,
+      params
+    );
+    const payload = (rows || []).map((row) => ({
+      ...serializePhoneChangeRequest(row),
+      user_name: row.user_name || null,
+      user_email: row.user_email || null,
+      user_phone: row.user_phone || null,
+      conflict_user_name: row.conflict_user_name || null,
+      conflict_user_email: row.conflict_user_email || null,
+      reviewed_by_name: row.reviewed_by_name || null,
+    }));
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load phone change requests' });
+  }
+});
+
+app.post('/api/admin/phone-change-requests/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const requestId = Number(req.params.id || 0);
+    if (!requestId) return res.status(400).json({ error: 'Invalid request id' });
+    const requestRow = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [requestId]);
+    if (!requestRow) return res.status(404).json({ error: 'Phone change request not found' });
+    if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
+      return res.status(400).json({ error: `Cannot approve request in status "${requestRow.status}"` });
+    }
+
+    const adminId = Number(req.authUser?.id || 0) || null;
+    const adminNote = String(req.body?.admin_note || '').trim() || null;
+    const approved = await approvePhoneChangeRequest({
+      id: requestId,
+      reviewedBy: adminId,
+      decisionSource: PHONE_CHANGE_DECISION_ADMIN,
+      adminNote: adminNote || 'Approved by admin',
+    });
+    if (!approved?.request) {
+      return res.status(404).json({ error: 'Phone change request not found' });
+    }
+    const serialized = serializePhoneChangeRequest(approved.request);
+    await notifyPhoneChangeApproved({
+      userId: Number(serialized?.user_id || 0),
+      requestId,
+      newPhone: serialized?.new_phone || '',
+      decisionSource: PHONE_CHANGE_DECISION_ADMIN,
+    });
+    await logAdminAuditAsync(req, {
+      action: 'phone_change.approve',
+      entityType: 'phone_change_request',
+      entityId: requestId,
+      details: {
+        user_id: serialized?.user_id || null,
+        new_phone: serialized?.new_phone || null,
+        conflict_user_id: approved?.conflict_user_id || null,
+      },
+    });
+    return res.json({
+      success: true,
+      message: 'Phone change request approved',
+      request: serialized,
+      user: sanitizeUser(approved.user),
+    });
+  } catch (error) {
+    const status = Number(error?.status || 0) || 500;
+    return res.status(status).json({ error: error.message || 'Failed to approve phone change request' });
+  }
+});
+
+app.post('/api/admin/phone-change-requests/:id/reject', requireAdmin, async (req, res) => {
+  try {
+    const requestId = Number(req.params.id || 0);
+    if (!requestId) return res.status(400).json({ error: 'Invalid request id' });
+    const requestRow = await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [requestId]);
+    if (!requestRow) return res.status(404).json({ error: 'Phone change request not found' });
+    if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
+      return res.status(400).json({ error: `Cannot reject request in status "${requestRow.status}"` });
+    }
+
+    const adminNote = String(req.body?.admin_note || '').trim() || null;
+    const rejectionReason = String(req.body?.rejection_reason || '').trim() || null;
+    const rejected = await rejectPhoneChangeRequest({
+      id: requestId,
+      reviewedBy: Number(req.authUser?.id || 0) || null,
+      adminNote: adminNote || 'Rejected by admin',
+      rejectionReason,
+    });
+    if (!rejected) return res.status(404).json({ error: 'Phone change request not found' });
+
+    const serialized = serializePhoneChangeRequest(rejected);
+    await notifyPhoneChangeRejected({
+      userId: Number(serialized?.user_id || 0),
+      requestId,
+      reason: rejectionReason || adminNote,
+    });
+    await logAdminAuditAsync(req, {
+      action: 'phone_change.reject',
+      entityType: 'phone_change_request',
+      entityId: requestId,
+      details: {
+        user_id: serialized?.user_id || null,
+        new_phone: serialized?.new_phone || null,
+        reason: rejectionReason || adminNote || null,
+      },
+    });
+    return res.json({
+      success: true,
+      message: 'Phone change request rejected',
+      request: serialized,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to reject phone change request' });
+  }
+});
+
 app.get('/api/admin/contact-verification-requests', requireAdmin, async (req, res) => {
   try {
     const statusFilter = String(req.query?.status || 'open').trim().toLowerCase();
@@ -3612,24 +4345,37 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
       const updated = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [req.params.id]));
       return res.json(updated);
     }
+
     const phoneParsed = phone !== undefined ? parsePhoneInput(phone) : { value: current.phone, error: null };
     if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
+    const requestedPhone = phoneParsed.value;
     const currentEmail = normalizeEmail(current.email);
     const currentPhone = normalizePhone(current.phone);
     const emailValue = email !== undefined ? normalizeEmail(email) : currentEmail;
+    const emailChanged = email !== undefined && emailValue !== currentEmail;
+    const phoneChangedRequested = phone !== undefined && requestedPhone !== currentPhone;
+
     if (emailValue) {
       const existing = await dbGetAsync(`SELECT id FROM users WHERE email = ? AND id != ?`, [emailValue, req.params.id]);
       if (existing) return res.status(400).json({ error: 'Email already in use' });
     }
-    if (normalizedPhone) {
-      const existing = await dbGetAsync(`SELECT id FROM users WHERE phone = ? AND id != ?`, [normalizedPhone, req.params.id]);
-      if (existing) return res.status(400).json({ error: 'Phone number already in use' });
+
+    if (requestedPhone) {
+      const existing = await dbGetAsync(`SELECT id FROM users WHERE phone = ? AND id != ?`, [requestedPhone, req.params.id]);
+      if (existing) {
+        const allowDeferredSelfFlow = isSelf && !isAdmin && phoneChangedRequested;
+        if (!allowDeferredSelfFlow) {
+          return res.status(400).json({ error: 'Phone number already in use' });
+        }
+      }
     }
+
+    const shouldQueuePhoneChangeRequest = isSelf && !isAdmin && phoneChangedRequested && Boolean(requestedPhone);
+    const persistedPhone = shouldQueuePhoneChangeRequest ? currentPhone : requestedPhone;
     let emailVerifiedValue = Number(current.email_verified || 0) === 1 ? 1 : 0;
     let phoneVerifiedValue = Number(current.phone_verified || 0) === 1 ? 1 : 0;
-    const emailChanged = email !== undefined && emailValue !== currentEmail;
-    const phoneChanged = phone !== undefined && normalizedPhone !== currentPhone;
+    const phoneChangedPersisted = phone !== undefined && persistedPhone !== currentPhone;
+
     if (!emailValue) {
       emailVerifiedValue = 0;
     } else if (emailChanged) {
@@ -3637,9 +4383,9 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
     } else if (isAdmin && email !== undefined && req.body?.email_verified !== undefined) {
       emailVerifiedValue = Number(req.body?.email_verified || 0) === 1 ? 1 : 0;
     }
-    if (!normalizedPhone) {
+    if (!persistedPhone) {
       phoneVerifiedValue = 0;
-    } else if (phoneChanged) {
+    } else if (phoneChangedPersisted) {
       phoneVerifiedValue = isAdmin && Number(req.body?.phone_verified || 0) === 1 ? 1 : 0;
     } else if (isAdmin && phone !== undefined && req.body?.phone_verified !== undefined) {
       phoneVerifiedValue = Number(req.body?.phone_verified || 0) === 1 ? 1 : 0;
@@ -3650,7 +4396,7 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
         name !== undefined ? String(name).trim() : current.name,
         emailValue,
         emailVerifiedValue,
-        normalizedPhone,
+        persistedPhone,
         phoneVerifiedValue,
         address !== undefined ? address : current.address,
         profile_image !== undefined ? (String(profile_image || '').trim() || null) : current.profile_image,
@@ -3667,15 +4413,43 @@ app.put('/api/users/:id', requireAuth, async (req, res) => {
         requestedBy: Number(req.authUser?.id || 0) || null,
       }).catch(() => {});
     }
-    if (phoneChanged && normalizedPhone && phoneVerifiedValue === 0) {
+    if (phoneChangedPersisted && persistedPhone && phoneVerifiedValue === 0) {
       sendPhoneVerificationChallenge({
         userId: Number(req.params.id),
-        phone: normalizedPhone,
+        phone: persistedPhone,
         recipientName: name !== undefined ? String(name).trim() : current.name,
         requestedBy: Number(req.authUser?.id || 0) || null,
       }).catch(() => {});
     }
-    return res.json(updated);
+
+    let phoneChangeRequest = null;
+    if (shouldQueuePhoneChangeRequest) {
+      const queued = await queuePhoneChangeRequest({
+        userId: Number(req.params.id),
+        oldPhone: currentPhone,
+        newPhone: requestedPhone,
+        requestedBy: Number(req.authUser?.id || 0) || null,
+        requestedFromIp: getRequestIp(req),
+      });
+      if (queued) {
+        phoneChangeRequest = serializePhoneChangeRequest(queued);
+        await notifyPhoneChangeSubmitted({
+          userId: Number(req.params.id),
+          newPhone: requestedPhone,
+        });
+      }
+    }
+
+    if (!phoneChangeRequest) {
+      return res.json(updated);
+    }
+    return res.json({
+      ...updated,
+      phone_change_request: phoneChangeRequest,
+      message: phoneChangeRequest?.needs_admin_review
+        ? 'Phone update request is pending admin review (1-5 days)'
+        : 'Phone update request is pending validation and may auto-approve within 1 hour',
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -7192,6 +7966,7 @@ app.get('/', (_, res) => {
 
 const startServer = async () => {
   await ensureRuntimeReady();
+  startPhoneChangeWorker();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
@@ -7209,6 +7984,7 @@ if (!IS_VERCEL_RUNTIME) {
 
 const shutdownServer = (signal) => {
   console.log(`[SYSTEM] Received ${signal}. Shutting down...`);
+  stopPhoneChangeWorker();
   void Promise.allSettled([closePostgresScaffold()]).finally(() => {
     process.exit(0);
   });

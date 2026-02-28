@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 
 const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
-const TEST_PASSWORD = 'Aa1!aaaaaa';
-const NEW_PASSWORD = 'Bb2@bbbbbb';
+const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -15,6 +11,8 @@ const randomIndianMobile = () => {
   const rest = String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0');
   return `${first}${rest}`;
 };
+
+const randomEmail = () => `phone-smoke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
 const toJson = async (res) => {
   try {
@@ -26,11 +24,6 @@ const toJson = async (res) => {
 
 const main = async () => {
   const port = 5600 + Math.floor(Math.random() * 300);
-  const tempRoot = mkdtempSync(path.join(tmpdir(), 'barman-phone-test-'));
-  const dbPath = path.join(tempRoot, 'test.db');
-  const backupDir = path.join(tempRoot, 'backups');
-  const uploadsDir = path.join(tempRoot, 'uploads');
-
   const server = spawn('node', ['server/index.js'], {
     cwd: process.cwd(),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -38,10 +31,8 @@ const main = async () => {
       ...process.env,
       NODE_ENV: 'test',
       PORT: String(port),
-      DB_PATH: dbPath,
-      BACKUP_DIR: backupDir,
-      UPLOADS_DIR: uploadsDir,
       AUTH_TOKEN_SECRET: 'test-secret-for-phone-validation',
+      SUPABASE_AUTH_ENABLED: 'false',
     },
   });
 
@@ -51,18 +42,19 @@ const main = async () => {
   server.stderr.on('data', (chunk) => { stderr += String(chunk); });
 
   const baseUrl = `http://127.0.0.1:${port}`;
-  const request = async (pathname, init = {}) =>
+  const request = async (pathname, init = {}, token = '') =>
     fetch(`${baseUrl}${pathname}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(init.headers || {}),
       },
     });
 
   try {
     let ready = false;
-    for (let i = 0; i < 50; i += 1) {
+    for (let i = 0; i < 120; i += 1) {
       try {
         const res = await request('/');
         if (res.ok) {
@@ -72,91 +64,113 @@ const main = async () => {
       } catch (_) {
         // keep polling
       }
-      await delay(150);
+      await delay(250);
     }
     assert.equal(ready, true, `Server did not start in time. stderr:\n${stderr}\nstdout:\n${stdout}`);
 
-    const mobile = randomIndianMobile();
-    const registerPhoneRaw = `+91 ${mobile}`;
-
-    const registerRes = await request('/api/auth/register', {
+    const disabledRegisterRes = await request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        email: null,
-        phone: registerPhoneRaw,
-        password: TEST_PASSWORD,
-        confirmPassword: TEST_PASSWORD,
-        name: 'Phone Test User',
-        address: 'Test Address',
+        email: randomEmail(),
+        password: 'Aa1!aaaaaa',
       }),
     });
-    const registerJson = await toJson(registerRes);
-    assert.equal(registerRes.status, 201, `register failed: ${JSON.stringify(registerJson)}`);
-    assert.equal(registerJson?.user?.phone, mobile, 'registered phone should be normalized to 10-digit local number');
+    const disabledRegisterJson = await toJson(disabledRegisterRes);
+    assert.equal(disabledRegisterRes.status, 410, `register expected 410: ${JSON.stringify(disabledRegisterJson)}`);
+    assert.equal(disabledRegisterJson?.error, PASSWORD_AUTH_DISABLED_ERROR);
 
-    const loginRes = await request('/api/auth/login', {
+    const badOtpRequestRes = await request('/api/auth/otp/request', {
       method: 'POST',
-      body: JSON.stringify({ phone: `0${mobile}`, password: TEST_PASSWORD }),
+      body: JSON.stringify({ phone: '12345' }),
     });
-    const loginJson = await toJson(loginRes);
-    assert.equal(loginRes.status, 200, `login with normalized phone failed: ${JSON.stringify(loginJson)}`);
-    assert.equal(Boolean(loginJson?.token), true, 'login should return token');
+    const badOtpRequestJson = await toJson(badOtpRequestRes);
+    assert.equal(badOtpRequestRes.status, 400, `invalid phone otp request should fail: ${JSON.stringify(badOtpRequestJson)}`);
+    assert.equal(badOtpRequestJson?.error, PHONE_POLICY_MESSAGE);
 
-    const badRegisterRes = await request('/api/auth/register', {
+    const email = randomEmail();
+    const otpRequestRes = await request('/api/auth/otp/request', {
       method: 'POST',
       body: JSON.stringify({
-        email: null,
-        phone: '12345',
-        password: TEST_PASSWORD,
-        confirmPassword: TEST_PASSWORD,
-        name: 'Bad Phone User',
+        mode: 'register',
+        email,
       }),
     });
-    const badRegisterJson = await toJson(badRegisterRes);
-    assert.equal(badRegisterRes.status, 400, 'register with invalid phone should fail');
-    assert.equal(badRegisterJson?.error, PHONE_POLICY_MESSAGE, 'invalid register phone should return policy message');
+    const otpRequestJson = await toJson(otpRequestRes);
+    assert.equal(otpRequestRes.status, 201, `otp request failed: ${JSON.stringify(otpRequestJson)}`);
+    assert.equal(Boolean(otpRequestJson?.dev_otp_code), true, 'otp response should expose dev_otp_code in test mode');
 
-    const badLoginRes = await request('/api/auth/login', {
+    const wrongOtpRes = await request('/api/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ phone: 'abc123', password: TEST_PASSWORD }),
+      body: JSON.stringify({ email, otp: '000000' }),
     });
-    const badLoginJson = await toJson(badLoginRes);
-    assert.equal(badLoginRes.status, 400, 'login with invalid phone should fail');
-    assert.equal(badLoginJson?.error, PHONE_POLICY_MESSAGE, 'invalid login phone should return policy message');
+    const wrongOtpJson = await toJson(wrongOtpRes);
+    assert.equal(wrongOtpRes.status, 400, `wrong OTP should fail: ${JSON.stringify(wrongOtpJson)}`);
 
-    const resetBadRes = await request('/api/auth/request-password-reset', {
+    const otpVerifyRes = await request('/api/auth/otp/verify', {
       method: 'POST',
-      body: JSON.stringify({ email: null, phone: '1111', reason: 'test' }),
+      body: JSON.stringify({ email, otp: otpRequestJson.dev_otp_code }),
     });
-    const resetBadJson = await toJson(resetBadRes);
-    assert.equal(resetBadRes.status, 400, 'reset request with invalid phone should fail');
-    assert.equal(resetBadJson?.error, PHONE_POLICY_MESSAGE, 'invalid reset phone should return policy message');
+    const otpVerifyJson = await toJson(otpVerifyRes);
+    assert.equal(otpVerifyRes.status, 200, `otp verify failed: ${JSON.stringify(otpVerifyJson)}`);
+    assert.equal(Boolean(otpVerifyJson?.token), true, 'otp verify should return token');
+    assert.equal(Boolean(otpVerifyJson?.user?.id), true, 'otp verify should return user');
 
-    const changeRes = await request('/api/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: null,
-        phone: `0091-${mobile}`,
-        currentPassword: TEST_PASSWORD,
-        newPassword: NEW_PASSWORD,
-        confirmPassword: NEW_PASSWORD,
-      }),
-    });
-    const changeJson = await toJson(changeRes);
-    assert.equal(changeRes.status, 200, `change-password with normalized India phone should pass: ${JSON.stringify(changeJson)}`);
+    const userId = Number(otpVerifyJson.user.id || 0);
+    const token = String(otpVerifyJson.token || '');
+    assert.equal(userId > 0, true, 'user id should be positive');
+    assert.equal(Boolean(token), true, 'auth token should be present');
 
-    const loginNewPassRes = await request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ phone: mobile, password: NEW_PASSWORD }),
-    });
-    const loginNewPassJson = await toJson(loginNewPassRes);
-    assert.equal(loginNewPassRes.status, 200, `login with new password failed: ${JSON.stringify(loginNewPassJson)}`);
+    const invalidPhoneUpdateRes = await request(
+      `/api/users/${userId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ phone: '1111' }),
+      },
+      token
+    );
+    const invalidPhoneUpdateJson = await toJson(invalidPhoneUpdateRes);
+    assert.equal(invalidPhoneUpdateRes.status, 400, `invalid phone update should fail: ${JSON.stringify(invalidPhoneUpdateJson)}`);
+    assert.equal(invalidPhoneUpdateJson?.error, PHONE_POLICY_MESSAGE);
 
-    console.log('Phone validation integration tests passed.');
+    const firstRequestedPhone = randomIndianMobile();
+    const firstPhoneUpdateRes = await request(
+      `/api/users/${userId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ phone: `+91 ${firstRequestedPhone}` }),
+      },
+      token
+    );
+    const firstPhoneUpdateJson = await toJson(firstPhoneUpdateRes);
+    assert.equal(firstPhoneUpdateRes.status, 200, `phone update request should succeed: ${JSON.stringify(firstPhoneUpdateJson)}`);
+    assert.equal(firstPhoneUpdateJson?.phone, null, 'phone should remain unchanged until approval');
+    assert.equal(firstPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
+    assert.equal(firstPhoneUpdateJson?.phone_change_request?.new_phone, firstRequestedPhone);
+
+    const requestStatusRes = await request('/api/auth/phone-change-request/status', { method: 'GET' }, token);
+    const requestStatusJson = await toJson(requestStatusRes);
+    assert.equal(requestStatusRes.status, 200, `phone change status fetch failed: ${JSON.stringify(requestStatusJson)}`);
+    assert.equal(requestStatusJson?.request?.status, 'PENDING_VALIDATION');
+    assert.equal(requestStatusJson?.request?.new_phone, firstRequestedPhone);
+
+    const secondRequestedPhone = randomIndianMobile();
+    const secondPhoneUpdateRes = await request(
+      `/api/users/${userId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ phone: secondRequestedPhone }),
+      },
+      token
+    );
+    const secondPhoneUpdateJson = await toJson(secondPhoneUpdateRes);
+    assert.equal(secondPhoneUpdateRes.status, 200, `second phone update request should succeed: ${JSON.stringify(secondPhoneUpdateJson)}`);
+    assert.equal(secondPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
+    assert.equal(secondPhoneUpdateJson?.phone_change_request?.new_phone, secondRequestedPhone);
+
+    console.log('Phone update workflow smoke test passed.');
   } finally {
     server.kill('SIGTERM');
-    await delay(250);
-    rmSync(tempRoot, { recursive: true, force: true });
+    await delay(300);
   }
 };
 

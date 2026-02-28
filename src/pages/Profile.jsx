@@ -26,6 +26,7 @@ function Profile() {
   const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
   const [verificationLoading, setVerificationLoading] = useState('');
   const [verificationRequestStatus, setVerificationRequestStatus] = useState({ email: null, phone: null });
+  const [phoneChangeRequest, setPhoneChangeRequest] = useState(null);
   const [authModeInfo, setAuthModeInfo] = useState({
     supabaseEnabled: false,
     supabaseMode: 'hybrid',
@@ -94,6 +95,41 @@ function Profile() {
     }
   };
 
+  const refreshPhoneChangeRequestStatus = async () => {
+    try {
+      const payload = await authApi.getMyPhoneChangeRequestStatus();
+      setPhoneChangeRequest(payload?.request || null);
+    } catch (_) {
+      // best effort only
+    }
+  };
+
+  const getPhoneChangeStatusClassName = () => {
+    const status = String(phoneChangeRequest?.status || '').trim().toLowerCase();
+    return status ? `phone-change-status ${status}` : '';
+  };
+
+  const getPhoneChangeStatusMessage = () => {
+    const status = String(phoneChangeRequest?.status || '').trim().toUpperCase();
+    const requestedPhone = String(phoneChangeRequest?.new_phone || '').trim();
+    if (!status || !requestedPhone) return '';
+    if (status === 'PENDING_VALIDATION') {
+      if (phoneChangeRequest?.needs_admin_review) {
+        return `Phone update to ${requestedPhone} is pending admin review (1-5 days).`;
+      }
+      return `Phone update to ${requestedPhone} is pending validation and may auto-complete within 1 hour.`;
+    }
+    if (status === 'APPROVED') {
+      return `Phone update to ${requestedPhone} was approved and applied.`;
+    }
+    if (status === 'REJECTED') {
+      return phoneChangeRequest?.rejection_reason
+        ? `Phone update was rejected: ${phoneChangeRequest.rejection_reason}`
+        : 'Latest phone update request was rejected.';
+    }
+    return '';
+  };
+
   const getRequestStatusClassName = (type) => {
     const status = String(verificationRequestStatus?.[type]?.status || '').trim().toLowerCase();
     return status ? `request-status ${status}` : '';
@@ -129,13 +165,15 @@ function Profile() {
       setUser(userData);
       
       // Load full profile from server
-      const [profile, requestStatusPayload, resetModePayload, emailStatusPayload] = await Promise.all([
+      const [profile, requestStatusPayload, phoneChangeStatusPayload, resetModePayload, emailStatusPayload] = await Promise.all([
         usersApi.getById(userData.id),
         authApi.getMyContactVerificationRequestStatus().catch(() => null),
+        authApi.getMyPhoneChangeRequestStatus().catch(() => null),
         authApi.getResetMode().catch(() => null),
         authApi.getEmailVerificationStatus().catch(() => null),
       ]);
       applyVerificationRequestStatus(requestStatusPayload || {});
+      setPhoneChangeRequest(phoneChangeStatusPayload?.request || null);
       const emailProvider = String(emailStatusPayload?.provider || '').trim().toLowerCase() || 'legacy';
       setAuthModeInfo({
         supabaseEnabled: Boolean(resetModePayload?.supabase_auth_enabled),
@@ -231,13 +269,18 @@ function Profile() {
         country: formData.country
       };
 
-      const updatedProfile = await usersApi.update(user.id, {
+      const updateResponse = await usersApi.update(user.id, {
         name: formData.name,
         email: normalizedEmail || null,
         phone: normalizeIndianPhone(formData.phone),
         profile_image: formData.profile_image || null,
         address: JSON.stringify(address)
       });
+      const {
+        phone_change_request: nextPhoneChangeRequest = null,
+        message: updateMessage = '',
+        ...updatedProfile
+      } = updateResponse || {};
 
       // Update local storage
       const updatedUser = {
@@ -248,19 +291,28 @@ function Profile() {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       window.dispatchEvent(new Event('user-updated'));
       setUser(updatedUser);
+      setFormData((prev) => ({
+        ...prev,
+        name: updatedProfile?.name ?? prev.name,
+        email: updatedProfile?.email ?? '',
+        phone: updatedProfile?.phone ?? '',
+        profile_image: updatedProfile?.profile_image || '',
+      }));
       setEmailVerified(Boolean(updatedProfile?.email_verified));
       setPhoneVerified(Boolean(updatedProfile?.phone_verified));
+      setPhoneChangeRequest(nextPhoneChangeRequest || null);
       setEmailVerificationToken('');
       setPhoneVerificationCode('');
       await refreshVerificationRequestStatus();
+      await refreshPhoneChangeRequestStatus();
       
-      setSuccess('Profile updated successfully!');
+      setSuccess(updateMessage || 'Profile updated successfully!');
       
       // Re-validate
       validateProfile(
         {
-          ...formData,
-          phone: normalizeIndianPhone(formData.phone),
+          ...updatedProfile,
+          phone: updatedProfile?.phone || '',
           email_verified: Boolean(updatedProfile?.email_verified),
           phone_verified: Boolean(updatedProfile?.phone_verified),
         },
@@ -376,6 +428,8 @@ function Profile() {
   const normalizedSavedPhone = normalizeIndianPhone(user?.phone || '');
   const emailDraftChanged = normalizedDraftEmail !== normalizedSavedEmail;
   const phoneDraftChanged = normalizedDraftPhone !== normalizedSavedPhone;
+  const phoneChangeStatus = String(phoneChangeRequest?.status || '').trim().toUpperCase();
+  const hasPendingPhoneChangeRequest = phoneChangeStatus === 'PENDING_VALIDATION';
 
   const handleRequestEmailVerification = async () => {
     try {
@@ -450,6 +504,10 @@ function Profile() {
     try {
       setError(null);
       setSuccess(null);
+      if (hasPendingPhoneChangeRequest) {
+        setError('Phone verification is temporarily disabled while phone update request is pending');
+        return;
+      }
       if (phoneDraftChanged) {
         setError('Save phone changes first, then request verification');
         return;
@@ -473,6 +531,10 @@ function Profile() {
     try {
       setError(null);
       setSuccess(null);
+      if (hasPendingPhoneChangeRequest) {
+        setError('Phone verification is temporarily disabled while phone update request is pending');
+        return;
+      }
       const code = String(phoneVerificationCode || '').trim();
       if (!normalizedSavedPhone) {
         setError(PHONE_POLICY_MESSAGE);
@@ -742,6 +804,11 @@ function Profile() {
                   placeholder="+91 98765 43210"
                   className={validationIssues.find(i => i.field === 'phone') ? 'error-field' : ''}
                 />
+                {phoneChangeRequest && (
+                  <span className={`verification-note ${getPhoneChangeStatusClassName()}`}>
+                    {getPhoneChangeStatusMessage()}
+                  </span>
+                )}
                 {formData.phone && (
                   <div className="verification-tools">
                     {phoneDraftChanged && (
@@ -757,7 +824,7 @@ function Profile() {
                             type="button"
                             className="verify-btn"
                             onClick={handleRequestPhoneVerification}
-                            disabled={verificationLoading === 'phone_request' || phoneDraftChanged}
+                            disabled={verificationLoading === 'phone_request' || phoneDraftChanged || hasPendingPhoneChangeRequest}
                           >
                             {verificationLoading === 'phone_request' ? 'Requesting...' : 'Request WhatsApp Verification'}
                           </button>
@@ -772,7 +839,7 @@ function Profile() {
                             type="button"
                             className="verify-btn secondary"
                             onClick={handleConfirmPhoneVerification}
-                            disabled={verificationLoading === 'phone_confirm' || phoneDraftChanged}
+                            disabled={verificationLoading === 'phone_confirm' || phoneDraftChanged || hasPendingPhoneChangeRequest}
                           >
                             {verificationLoading === 'phone_confirm' ? 'Confirming...' : 'Confirm Phone'}
                           </button>

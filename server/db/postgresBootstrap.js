@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+const canonicalizeSql = (content) => String(content || '')
+  .replace(/^\uFEFF/, '')
+  .replace(/\r\n/g, '\n');
+
 const ensureMigrationTable = async (pool) => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_schema_migrations (
@@ -30,15 +34,29 @@ const applyPostgresMigrations = async (pool, migrationsDir) => {
 
   for (const fileName of files) {
     const filePath = path.join(migrationsDir, fileName);
-    const sql = fs.readFileSync(filePath, 'utf8');
+    const sqlRaw = fs.readFileSync(filePath, 'utf8');
+    const sql = canonicalizeSql(sqlRaw);
     const sqlChecksum = checksum(sql);
+    const legacyChecksum = checksum(sqlRaw);
     const existing = await pool.query(
       `SELECT id, checksum FROM app_schema_migrations WHERE name = $1 LIMIT 1`,
       [fileName]
     );
     if (existing.rows[0]) {
-      if (String(existing.rows[0].checksum || '') !== sqlChecksum) {
-        throw new Error(`Migration checksum mismatch for ${fileName}. Refuse to continue.`);
+      const existingChecksum = String(existing.rows[0].checksum || '');
+      const matchesCanonical = existingChecksum === sqlChecksum;
+      const matchesLegacy = existingChecksum === legacyChecksum;
+      if (!matchesCanonical && !matchesLegacy) {
+        throw new Error(
+          `Migration checksum mismatch for ${fileName}. Refuse to continue. `
+          + `stored=${existingChecksum} expected=${sqlChecksum}`
+        );
+      }
+      if (!matchesCanonical && matchesLegacy) {
+        await pool.query(
+          `UPDATE app_schema_migrations SET checksum = $1 WHERE id = $2`,
+          [sqlChecksum, existing.rows[0].id]
+        );
       }
       skipped.push(fileName);
       continue;

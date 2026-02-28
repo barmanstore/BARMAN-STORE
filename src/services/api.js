@@ -148,6 +148,7 @@ export const authApi = {
     }),
   getEmailVerificationStatus: () => apiFetch('/api/auth/email/verification/status'),
   getPhoneVerificationStatus: () => apiFetch('/api/auth/phone/verification/status'),
+  getMyPhoneChangeRequestStatus: () => apiFetch('/api/auth/phone-change-request/status'),
   getMyContactVerificationRequestStatus: () => apiFetch('/api/auth/contact-verification/status'),
   getSession: () => apiFetch('/api/auth/session'),
   getSessionFromToken: (token) =>
@@ -499,6 +500,18 @@ export const offersApi = {
 
 export const adminApi = {
   getAnalyticsSummary: () => apiFetch('/api/admin/analytics/summary'),
+  getPhoneChangeRequests: (status = 'open') =>
+    apiFetch(`/api/admin/phone-change-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  approvePhoneChangeRequest: (id, payload = {}) =>
+    apiFetch(`/api/admin/phone-change-requests/${id}/approve`, {
+      method: 'POST',
+      body: payload,
+    }),
+  rejectPhoneChangeRequest: (id, payload = {}) =>
+    apiFetch(`/api/admin/phone-change-requests/${id}/reject`, {
+      method: 'POST',
+      body: payload,
+    }),
   getContactVerificationRequests: (status = 'open') =>
     apiFetch(`/api/admin/contact-verification-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   approveAndSendContactVerificationRequest: (id) =>

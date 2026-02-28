@@ -108,6 +108,7 @@ Notes:
 - `npm run secrets:scan:staged` scan staged files for secrets (used by pre-commit hook)
 - `npm run secrets:scan` scan tracked repository files for secrets (used by pre-push + CI)
 - `docs/SUPABASE_MIGRATION_START.md` Supabase migration runbook
+- `docs/WINDOWS_BAT_WORKFLOWS.md` Windows `.bat` automation guide (git/health/deploy)
 
 ## Secret Protection Guardrails
 - Local hooks are configured via `core.hooksPath=.githooks`.

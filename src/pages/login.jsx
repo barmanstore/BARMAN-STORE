@@ -5,6 +5,28 @@ import { validateEmail } from '../utils/validation';
 import './login.css';
 
 const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
+const normalizeBasePath = (value) => {
+  const raw = String(value || '/').trim();
+  if (!raw || raw === '/') return '';
+  return `/${raw.replace(/^\/+|\/+$/g, '')}`;
+};
+const resolveOAuthRedirectUrl = () => {
+  if (typeof window === 'undefined') return '';
+  const explicitRedirect = String(import.meta.env.VITE_OAUTH_REDIRECT_URL || '').trim();
+  if (explicitRedirect) return explicitRedirect;
+  const basePath = normalizeBasePath(import.meta.env.BASE_URL || '/');
+  return `${window.location.origin}${basePath}/login`;
+};
+const isValidAbsoluteHttpUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+};
 const parseOAuthCallbackParams = () => {
   if (typeof window === 'undefined') {
     return {
@@ -81,14 +103,15 @@ function Login({ setUser }) {
   const [authMeta, setAuthMeta] = useState({
     loaded: false,
     supabaseEnabled: false,
-    supabaseClientReady: false,
+    supabaseOauthReady: false,
     supabaseUrl: '',
   });
   const oauthHandledRef = useRef(false);
+  const oauthRedirectTimerRef = useRef(null);
   const navigate = useNavigate();
 
   const isSupabaseSocialReady = Boolean(
-    authMeta.supabaseEnabled && authMeta.supabaseClientReady && authMeta.supabaseUrl
+    authMeta.supabaseEnabled && authMeta.supabaseOauthReady && authMeta.supabaseUrl
   );
 
   useEffect(() => {
@@ -97,10 +120,11 @@ function Login({ setUser }) {
       try {
         const payload = await authApi.getResetMode();
         if (cancelled) return;
+        const oauthReady = payload?.supabase_oauth_ready ?? payload?.auth_methods?.oauth ?? payload?.supabase_client_ready;
         setAuthMeta({
           loaded: true,
           supabaseEnabled: Boolean(payload?.supabase_auth_enabled),
-          supabaseClientReady: Boolean(payload?.supabase_client_ready),
+          supabaseOauthReady: Boolean(oauthReady),
           supabaseUrl: sanitizeSupabaseUrl(payload?.supabase_url),
         });
       } catch (_) {
@@ -111,6 +135,15 @@ function Login({ setUser }) {
     loadAuthMeta();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (oauthRedirectTimerRef.current) {
+        clearTimeout(oauthRedirectTimerRef.current);
+        oauthRedirectTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -148,6 +181,10 @@ function Login({ setUser }) {
       window.history.replaceState({}, document.title, cleanUrl);
 
       try {
+        if (oauthRedirectTimerRef.current) {
+          clearTimeout(oauthRedirectTimerRef.current);
+          oauthRedirectTimerRef.current = null;
+        }
         setLoading(true);
         setError('');
         const sessionPayload = await authApi.getSessionFromToken(accessToken);
@@ -253,24 +290,45 @@ function Login({ setUser }) {
     const normalizedProvider = String(provider || '').trim().toLowerCase();
     if (normalizedProvider !== 'google' && normalizedProvider !== 'facebook') return;
     setError('');
+    if (isLikelyInAppBrowser()) {
+      setError('OAuth is usually blocked inside in-app browsers. Open this site in Chrome or Safari and try again.');
+      return;
+    }
     if (!isSupabaseSocialReady) {
       setError('Social login is not configured yet. Enable Supabase auth and provider keys first.');
       return;
     }
     try {
       setOauthLoading(normalizedProvider);
-      const redirectTo = `${window.location.origin}/login`;
+      const redirectTo = resolveOAuthRedirectUrl();
+      if (!isValidAbsoluteHttpUrl(redirectTo)) {
+        throw new Error('OAuth redirect URL is invalid. Set VITE_OAUTH_REDIRECT_URL correctly.');
+      }
+      const supabaseAuthBase = sanitizeSupabaseUrl(authMeta.supabaseUrl);
+      if (!isValidAbsoluteHttpUrl(supabaseAuthBase)) {
+        throw new Error('SUPABASE_URL is invalid. Check your environment configuration.');
+      }
       const params = new URLSearchParams({
         provider: normalizedProvider,
         redirect_to: redirectTo,
+        response_type: 'token',
       });
       if (normalizedProvider === 'google') {
         params.set('scopes', 'email profile');
       } else if (normalizedProvider === 'facebook') {
         params.set('scopes', 'email,public_profile');
       }
-      window.location.assign(`${sanitizeSupabaseUrl(authMeta.supabaseUrl)}/auth/v1/authorize?${params.toString()}`);
+      if (oauthRedirectTimerRef.current) clearTimeout(oauthRedirectTimerRef.current);
+      oauthRedirectTimerRef.current = window.setTimeout(() => {
+        setOauthLoading('');
+        setError('OAuth redirect did not start. Check mobile popup/redirect settings and browser tracking protection.');
+      }, 2500);
+      window.location.replace(`${supabaseAuthBase}/auth/v1/authorize?${params.toString()}`);
     } catch (err) {
+      if (oauthRedirectTimerRef.current) {
+        clearTimeout(oauthRedirectTimerRef.current);
+        oauthRedirectTimerRef.current = null;
+      }
       setOauthLoading('');
       setError(err?.message || 'Unable to start social sign-in');
     }

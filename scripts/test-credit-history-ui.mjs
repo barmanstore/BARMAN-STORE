@@ -19,11 +19,11 @@ const getTimestamp = (transaction) => new Date(transaction.created_at).getTime()
 
 const run = () => {
   const positive = getBalanceSummary(450);
-  assert.equal(positive.headline, 'You will get');
+  assert.equal(positive.headline, 'You will give');
   assert.equal(positive.toneClass, 'positive');
 
   const negative = getBalanceSummary(-10);
-  assert.equal(negative.headline, 'You will give');
+  assert.equal(negative.headline, 'You will get');
   assert.equal(negative.toneClass, 'negative');
 
   const settled = getBalanceSummary(0);

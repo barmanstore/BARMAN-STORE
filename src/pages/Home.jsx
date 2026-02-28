@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Coffee, ShoppingBag, Truck, Shield } from 'lucide-react';
+import logoImage from '../../logo1.png';
 import './Home.css';
 import * as info from './info';
 
@@ -9,6 +10,9 @@ function Home() {
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content fade-in-up">
+          <div className="hero-logo-wrap" aria-hidden="true">
+            <img src={logoImage} alt="" className="hero-logo-image" />
+          </div>
           <h1 className="hero-title">
             <span className="hero-title-main">{info.TITLE}</span>
             <span className="hero-title-sub">{info.SUB_TITLE}</span>
