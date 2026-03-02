@@ -30,6 +30,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const [lastShareNumber, setLastShareNumber] = useState('');
   const [lastSharePhone, setLastSharePhone] = useState('');
   const [prefillSummary, setPrefillSummary] = useState('');
+  const [linkedOrderId, setLinkedOrderId] = useState(0);
+  const [fulfillmentMode, setFulfillmentMode] = useState('available_now');
 
   const [customersList, setCustomersList] = useState([]);
   const [productsList, setProductsList] = useState([]);
@@ -128,10 +130,12 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     setLastShareText('');
     setLastShareNumber('');
     setLastSharePhone('');
+    setLinkedOrderId(Number(initialPrefill?.source?.order_id || 0) || 0);
+    setFulfillmentMode(Number(initialPrefill?.source?.order_id || 0) ? 'available_now' : 'full_now');
 
     const sourceOrderLabel = String(initialPrefill?.source?.order_number || '').trim()
       || (Number(initialPrefill?.source?.order_id || 0) ? `#${Number(initialPrefill.source.order_id)}` : '');
-    setPrefillSummary(sourceOrderLabel ? `Loaded from pending order ${sourceOrderLabel}` : 'Loaded from pending order');
+    setPrefillSummary(sourceOrderLabel ? `Order ${sourceOrderLabel} linked. Customer and items are auto-loaded.` : 'Order-linked billing loaded.');
     if (typeof onPrefillApplied === 'function') onPrefillApplied(initialPrefill);
   }, [initialPrefill, calculateAmount, onPrefillApplied]);
 
@@ -200,6 +204,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const totalBill = items.reduce((sum, item) => sum + item.amount, 0);
   const paidClamped = Math.max(0, Math.min(Number(paidAmount || 0), Number(totalBill || 0)));
   const creditAmount = Math.max(0, Number(totalBill) - paidClamped);
+  const isOrderLinked = Number(linkedOrderId || 0) > 0;
   const totalDiscount = items.reduce((sum, item) => {
     const priceNum = Number(item.price) || 0;
     const qtyNum = Math.max(1, Number(item.qty) || 1);
@@ -266,7 +271,11 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       alert('Please add at least one item to the bill.');
       return;
     }
-    if (!isValidIndianPhone(customer.phone)) {
+    if (!isOrderLinked && !isValidIndianPhone(customer.phone)) {
+      alert(PHONE_POLICY_MESSAGE);
+      return;
+    }
+    if (isOrderLinked && customer.phone && !isValidIndianPhone(customer.phone)) {
       alert(PHONE_POLICY_MESSAGE);
       return;
     }
@@ -274,20 +283,6 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     const paid = paidClamped;
     const normalizePhone = (value) => normalizeIndianPhone(value);
     const isSame = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
-    const findCustomerMatch = () => {
-      const phone = normalizePhone(customer.phone);
-      if (phone) {
-        const match = customersList.find((c) => normalizePhone(c.phone) === phone);
-        if (match) return match;
-      }
-      const name = String(customer.name || '').trim().toLowerCase();
-      if (!name) return null;
-      const email = String(customer.email || '').trim().toLowerCase();
-      return customersList.find((c) => {
-        if (email && String(c.email || '').trim().toLowerCase() === email) return true;
-        return String(c.name || '').trim().toLowerCase() === name;
-      }) || null;
-    };
 
     const payload = {
       customer_id: customer.id || null,
@@ -302,6 +297,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       payment_method: 'cash',
       payment_status: paid < Number(totalBill || 0) ? 'pending' : 'paid',
       bill_type: 'sales',
+      order_id: isOrderLinked ? Number(linkedOrderId || 0) : null,
+      fulfillment_mode: isOrderLinked ? fulfillmentMode : 'full_now',
       items: items
         .filter((it) => it.name && Number(it.amount) > 0)
         .map((it) => ({
@@ -321,78 +318,80 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     try {
       setIsSubmitting(true);
 
-      // Ensure customer exists (create or update) with phone/email/name checks
+      // Keep order-linked billing minimal: backend binds to order and skips stock checks.
       let resolvedCustomerId = payload.customer_id || null;
-      let customerRecord = null;
+      let itemsWithProducts = payload.items;
 
-      const phone = normalizePhone(payload.customer_phone);
+      if (!isOrderLinked) {
+        let customerRecord = null;
+        const phone = normalizePhone(payload.customer_phone);
 
-      // 1) If phone provided, check by phone first
-      if (phone) {
-        customerRecord = customersList.find((c) => normalizePhone(c.phone) === phone) || null;
+        if (phone) {
+          customerRecord = customersList.find((c) => normalizePhone(c.phone) === phone) || null;
+          if (customerRecord) {
+            const nameMatches = isSame(customerRecord.name, payload.customer_name);
+            const emailMatches = isSame(customerRecord.email, payload.customer_email);
+            if (nameMatches && emailMatches) {
+              resolvedCustomerId = customerRecord.id;
+            } else {
+              const confirmUpdate = window.confirm(
+                'A customer with this phone exists but name/email differ.\n' +
+                'OK to update existing customer, Cancel to continue with existing details.'
+              );
+              if (confirmUpdate) {
+                const updated = await usersApi.update(customerRecord.id, {
+                  name: payload.customer_name,
+                  email: payload.customer_email,
+                  phone: payload.customer_phone,
+                  address: payload.customer_address,
+                  role: 'customer'
+                });
+                const updatedUser = updated?.user || updated || null;
+                if (updatedUser) {
+                  setCustomersList((prev) => prev.map((c) => (c.id === customerRecord.id ? updatedUser : c)));
+                }
+              }
+              resolvedCustomerId = customerRecord.id;
+            }
+          }
+        }
 
-        if (customerRecord) {
-          const nameMatches = isSame(customerRecord.name, payload.customer_name);
-          const emailMatches = isSame(customerRecord.email, payload.customer_email);
+        if (!resolvedCustomerId) {
+          const email = String(payload.customer_email || '').trim().toLowerCase();
+          const emailMatch = email ? customersList.find((c) => String(c.email || '').trim().toLowerCase() === email) : null;
 
-          if (nameMatches && emailMatches) {
-            // exact match, reuse
-            resolvedCustomerId = customerRecord.id;
-          } else {
-            // phone exists but details differ -> ask user whether to update existing customer
-            const confirmUpdate = window.confirm(
-              'A customer with this phone number already exists but name/email differ.\n' +
-              'OK to update the existing customer with entered details, Cancel to use existing customer as-is.'
+          if (emailMatch) {
+            const confirmUpdatePhone = window.confirm(
+              'A customer with this email exists but phone differs.\n' +
+              'OK to update existing phone, Cancel to create a new customer.'
             );
-            if (confirmUpdate) {
-              // update on server and update local list
-              const updated = await usersApi.update(customerRecord.id, {
+            if (confirmUpdatePhone) {
+              const updated = await usersApi.update(emailMatch.id, {
+                name: payload.customer_name || emailMatch.name,
+                email: payload.customer_email || emailMatch.email,
+                phone: payload.customer_phone || emailMatch.phone,
+                address: payload.customer_address || emailMatch.address,
+                role: 'customer'
+              });
+              const updatedUser = updated?.user || updated || null;
+              if (updatedUser) {
+                setCustomersList((prev) => prev.map((c) => (c.id === emailMatch.id ? updatedUser : c)));
+              }
+              resolvedCustomerId = emailMatch.id;
+            } else {
+              const created = await usersApi.create({
                 name: payload.customer_name,
                 email: payload.customer_email,
                 phone: payload.customer_phone,
                 address: payload.customer_address,
                 role: 'customer'
               });
-              // handle different API shapes: try to extract user object
-              const updatedUser = updated?.user || updated || null;
-              if (updatedUser) {
-                setCustomersList((prev) => prev.map((c) => (c.id === customerRecord.id ? updatedUser : c)));
+              resolvedCustomerId = created?.user?.id || null;
+              if (created?.user) {
+                setCustomersList((prev) => [...prev, created.user]);
               }
-              resolvedCustomerId = customerRecord.id;
-            } else {
-              // use existing record without modification
-              resolvedCustomerId = customerRecord.id;
             }
-          }
-        }
-      }
-
-      // 2) If no phone-match found, and no resolved id yet, check if email is new or existing
-      if (!resolvedCustomerId) {
-        const email = String(payload.customer_email || '').trim().toLowerCase();
-        const emailMatch = email ? customersList.find((c) => String(c.email || '').trim().toLowerCase() === email) : null;
-
-        if (emailMatch) {
-          // Email exists but phone did not match - ask whether to update phone on existing record
-          const confirmUpdatePhone = window.confirm(
-            'A customer with this email already exists but phone number differs.\n' +
-            'OK to update the existing customer phone to the entered phone, Cancel to create a new customer.'
-          );
-          if (confirmUpdatePhone) {
-            const updated = await usersApi.update(emailMatch.id, {
-              name: payload.customer_name || emailMatch.name,
-              email: payload.customer_email || emailMatch.email,
-              phone: payload.customer_phone || emailMatch.phone,
-              address: payload.customer_address || emailMatch.address,
-              role: 'customer'
-            });
-            const updatedUser = updated?.user || updated || null;
-            if (updatedUser) {
-              setCustomersList((prev) => prev.map((c) => (c.id === emailMatch.id ? updatedUser : c)));
-            }
-            resolvedCustomerId = emailMatch.id;
           } else {
-            // create new customer (even though email exists) per request - but warn about possible duplicate
             const created = await usersApi.create({
               name: payload.customer_name,
               email: payload.customer_email,
@@ -405,82 +404,58 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
               setCustomersList((prev) => [...prev, created.user]);
             }
           }
-        } else {
-          // Neither phone nor email found -> create new customer
-          const created = await usersApi.create({
-            name: payload.customer_name,
-            email: payload.customer_email,
-            phone: payload.customer_phone,
-            address: payload.customer_address,
-            role: 'customer'
-          });
-          resolvedCustomerId = created?.user?.id || null;
-          if (created?.user) {
-            setCustomersList((prev) => [...prev, created.user]);
-          }
         }
+
+        const productUpdates = [];
+        itemsWithProducts = payload.items.map((it) => {
+          let product = null;
+          if (it.product_id) {
+            product = productsList.find((p) => p.id === it.product_id) || null;
+          }
+          if (!product) {
+            const name = String(it.product_name || '').trim().toLowerCase();
+            product = productsList.find((p) => String(p.name || '').trim().toLowerCase() === name) || null;
+          }
+          if (product) {
+            it.product_id = product.id;
+            return it;
+          }
+          productUpdates.push(productsApi.create({
+            name: it.product_name,
+            price: Number(it.mrp || 0),
+            mrp: Number(it.mrp) || 0,
+            uom: it.unit || 'pcs',
+            category: 'Groceries',
+            stock: 0
+          }).then((createdProduct) => {
+            if (createdProduct?.id) {
+              it.product_id = createdProduct.id;
+              setProductsList((prev) => [...prev, createdProduct]);
+            }
+            return it;
+          }));
+          return it;
+        });
+
+        if (productUpdates.length) {
+          await Promise.all(productUpdates);
+        }
+      } else if (!resolvedCustomerId) {
+        const phone = normalizePhone(payload.customer_phone);
+        const byPhone = phone ? customersList.find((c) => normalizePhone(c.phone) === phone) : null;
+        const byName = customersList.find((c) => String(c.name || '').trim().toLowerCase() === String(payload.customer_name || '').trim().toLowerCase());
+        resolvedCustomerId = byPhone?.id || byName?.id || null;
       }
 
-      // Ensure products exist (create or update)
-      const productUpdates = [];
-      const itemsWithProducts = payload.items.map((it) => {
-        let product = null;
-        if (it.product_id) {
-          product = productsList.find((p) => p.id === it.product_id) || null;
-        }
-        if (!product) {
-          const name = String(it.product_name || '').trim().toLowerCase();
-          product = productsList.find((p) => String(p.name || '').trim().toLowerCase() === name) || null;
-        }
-        if (product) {
-          it.product_id = product.id;
-          const needsUpdate =
-            Number(product.price || 0) !== Number(it.mrp || 0) ||
-            String(product.uom || '').toLowerCase() !== String(it.unit || '').toLowerCase();
-          if (needsUpdate) {
-            productUpdates.push(productsApi.update(product.id, {
-              name: product.name,
-              price: Number(it.mrp || 0),
-              mrp: Number(it.mrp || 0),
-              uom: it.unit || 'pcs',
-              category: product.category || 'Groceries'
-            }));
-          }
-          return it;
-        }
-        productUpdates.push(productsApi.create({
-          name: it.product_name,
-          price: Number(it.mrp || 0),
-          mrp: Number(it.mrp) || 0,
-          uom: it.unit || 'pcs',
-          category: 'Groceries',
-          stock: 0
-        }).then((createdProduct) => {
-          if (createdProduct?.id) {
-            it.product_id = createdProduct.id;
-            setProductsList((prev) => [...prev, createdProduct]);
-          }
-          return it;
-        }));
-        return it;
-      });
-
-      if (productUpdates.length) {
-        await Promise.all(productUpdates);
+      if (!isOrderLinked && !resolvedCustomerId) {
+        alert('Unable to resolve customer. Please verify customer details and try again.');
+        return;
       }
 
       payload.customer_id = resolvedCustomerId;
       payload.items = itemsWithProducts;
 
       const result = await billingApi.createBill(payload);
-      if (payload.customer_id && creditAmount > 0) {
-        await creditApi.addTransaction(payload.customer_id, {
-          type: 'given',
-          amount: Number(creditAmount.toFixed(2)),
-          description: `Bill credit | Paid: ${formatCurrency(Number(paid))} | Credit: ${formatCurrency(Number(creditAmount))}`,
-          reference: result?.bill_number || null
-        });
-      }
       let currentTotalCredit = Number(payload.credit_amount || 0);
       if (payload.customer_id) {
         try {
@@ -511,6 +486,10 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       setLastShareNumber(result?.bill_number || '');
       setLastSharePhone(payload.customer_phone || '');
       setPrefillSummary('');
+      if (isOrderLinked) {
+        setLinkedOrderId(0);
+        setFulfillmentMode('available_now');
+      }
       alert('Bill created successfully.');
       setCustomer({ name: '', email: '', phone: '', address: '' });
       setItems([createEmptyItem()]);
@@ -556,6 +535,11 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     <div className="billing-content">
       <h1>Billing Invoice</h1>
       {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
+      {isOrderLinked ? (
+        <div className="billing-prefill-note">
+          Linked order mode: customer details are locked. You can edit bill items, quantities, prices, and add/remove rows.
+        </div>
+      ) : null}
 
       {error && (
         <div className="error-message" role="alert">
@@ -574,7 +558,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
       <div className="form-section">
         <div className="form-row">
-          <label className="form-label" htmlFor="customerName">Customer Name *</label>
+          <label className="form-label" htmlFor="customerName">Customer Name {isOrderLinked ? '' : '*'}</label>
           <input
             id="customerName"
             list="customer-list"
@@ -585,7 +569,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             aria-label="Customer name"
             aria-autocomplete="list"
             autoComplete="name"
-            required
+            required={!isOrderLinked}
+            readOnly={isOrderLinked}
           />
           <datalist id="customer-list">
             {customersList.map((c) => (
@@ -604,10 +589,11 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             aria-label="Customer email"
             placeholder="email@example.com"
             autoComplete="email"
+            readOnly={isOrderLinked}
           />
         </div>
         <div>
-          <label className="form-label" htmlFor="customerPhone">Phone *</label>
+          <label className="form-label" htmlFor="customerPhone">Phone {isOrderLinked ? '' : '*'}</label>
           <input
             id="customerPhone"
             type="tel"
@@ -618,6 +604,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             placeholder="10-digit phone number"
             maxLength="10"
             autoComplete="tel"
+            readOnly={isOrderLinked}
           />
         </div>
         <div>
@@ -631,6 +618,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             aria-label="Customer address"
             placeholder="Full address"
             autoComplete="street-address"
+            readOnly={isOrderLinked}
           />
         </div>
       </div>
@@ -735,7 +723,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
       <div className="actions">
         <button onClick={addItem} className="add-btn" aria-label="Add new product">
-          <Plus size={18} /> Add Product
+          <Plus size={18} /> Add Item
         </button>
         <div className="total-section">
           <p>Total Payable:</p>
@@ -744,6 +732,20 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       </div>
 
       <div className="form-section">
+        {isOrderLinked ? (
+          <div className="form-row">
+            <label className="form-label" htmlFor="fulfillmentMode">Billing Mode</label>
+            <select
+              id="fulfillmentMode"
+              className="form-input"
+              value={fulfillmentMode}
+              onChange={(e) => setFulfillmentMode(String(e.target.value || 'available_now'))}
+            >
+              <option value="available_now">Bill available now</option>
+              <option value="full_now">Bill full now</option>
+            </select>
+          </div>
+        ) : null}
         <div className="form-row">
           <label className="form-label" htmlFor="paidAmount">Paid Amount</label>
           <input
@@ -771,6 +773,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           setItems([createEmptyItem()]);
           setPaidAmount(0);
           setPrefillSummary('');
+          setLinkedOrderId(0);
+          setFulfillmentMode('available_now');
         }}>
           Clear
         </button>

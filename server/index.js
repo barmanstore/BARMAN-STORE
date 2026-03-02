@@ -23,6 +23,10 @@ const {
   applyPostgresMigrations,
   ensurePostgresBootstrapData,
 } = require('./db/postgresBootstrap');
+const { registerOrderRoutes } = require('./routes/orderRoutes');
+const { registerBillingRoutes } = require('./routes/billingRoutes');
+const { registerAuthRoutes } = require('./routes/authRoutes');
+const { registerProductRoutes } = require('./routes/productRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -87,6 +91,18 @@ const parseBooleanEnv = (value, fallback = false) => {
   const raw = String(value ?? '').trim().toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
+};
+
+const FRONTEND_INFO_PATH = path.join(__dirname, '..', 'src', 'pages', 'info.js');
+const readBusinessNameFromFrontendInfo = () => {
+  try {
+    if (!fs.existsSync(FRONTEND_INFO_PATH)) return '';
+    const content = fs.readFileSync(FRONTEND_INFO_PATH, 'utf8');
+    const match = content.match(/export\s+const\s+TITLE\s*=\s*["'`]([^"'`]+)["'`]/);
+    return String(match?.[1] || '').trim();
+  } catch (_) {
+    return '';
+  }
 };
 
 const toTimestampMs = (value) => {
@@ -368,7 +384,6 @@ const normalizeEmail = (email) => {
   const v = String(email || '').trim().toLowerCase();
   return v || null;
 };
-const PASSWORD_POLICY_MESSAGE = 'Password must be at least 10 characters and include uppercase, lowercase, number, and special character.';
 const isStrongPassword = (password) => {
   const value = String(password || '');
   if (value.length < 10) return false;
@@ -405,7 +420,6 @@ const generatePhoneVerificationCode = (length = 6) => {
   }
   return code;
 };
-const generateOpaqueToken = (bytes = 24) => crypto.randomBytes(bytes).toString('hex');
 const hashOpaqueToken = (value) =>
   crypto.createHash('sha256').update(String(value || '')).digest('hex');
 const generateEmailVerificationToken = () => crypto.randomBytes(24).toString('hex');
@@ -805,8 +819,24 @@ const PHONE_CHANGE_CRON_ENABLED = parseBooleanEnv(process.env.PHONE_CHANGE_CRON_
 const PHONE_CHANGE_CRON_SECRET = String(
   process.env.PHONE_CHANGE_CRON_SECRET || process.env.CRON_SECRET || ''
 ).trim();
+const APP_NOTIFICATION_RETENTION_DAYS = Math.max(
+  1,
+  Math.min(365, Number(process.env.APP_NOTIFICATION_RETENTION_DAYS || 30))
+);
+const APP_NOTIFICATION_PURGE_INTERVAL_MS = Math.max(
+  60 * 60 * 1000,
+  Number(process.env.APP_NOTIFICATION_PURGE_INTERVAL_MS || 12 * 60 * 60 * 1000)
+);
+const APP_NOTIFICATION_PURGE_BATCH_LIMIT = Math.max(
+  100,
+  Math.min(20000, Number(process.env.APP_NOTIFICATION_PURGE_BATCH_LIMIT || 5000))
+);
 const PHONE_CHANGE_EXPIRED_REASON = 'Admin review window expired. Please submit phone update again.';
-const BUSINESS_NAME = String(process.env.BUSINESS_NAME || 'BARMAN STORE').trim() || 'BARMAN STORE';
+const BUSINESS_NAME = String(
+  readBusinessNameFromFrontendInfo()
+  || process.env.BUSINESS_NAME
+  || "বৰ্মন ষ্ট'ৰ"
+).trim() || "বৰ্মন ষ্ট'ৰ";
 const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://barmanstore.vercel.app/login'
 ).trim();
@@ -887,16 +917,6 @@ const emailVerificationLimiter = createRateLimiter({
   keyFn: (req) => {
     const email = normalizeEmail(req.body?.email);
     return `email-verify:${email || req.ip || req.connection?.remoteAddress || 'unknown'}`;
-  }
-});
-const passwordResetIdentifierLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 6,
-  keyFn: (req) => {
-    const email = normalizeEmail(req.body?.email);
-    const phone = normalizePhone(req.body?.phone);
-    const identifier = email || phone || `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
-    return `pwd-reset:${identifier}`;
   }
 });
 
@@ -1148,10 +1168,7 @@ const requireAdmin = async (req, res, next) => {
   }
 };
 
-const requireInternalCron = (req, res, next) => {
-  if (!PHONE_CHANGE_CRON_ENABLED) {
-    return res.status(503).json({ error: 'Phone change cron processing is disabled' });
-  }
+const requireCronSecret = (req, res, next) => {
   if (!PHONE_CHANGE_CRON_SECRET) {
     return res.status(503).json({ error: 'Cron secret is not configured' });
   }
@@ -1163,6 +1180,12 @@ const requireInternalCron = (req, res, next) => {
     return res.status(401).json({ error: 'Unauthorized cron request' });
   }
   return next();
+};
+const requireInternalCron = (req, res, next) => {
+  if (!PHONE_CHANGE_CRON_ENABLED) {
+    return res.status(503).json({ error: 'Phone change cron processing is disabled' });
+  }
+  return requireCronSecret(req, res, next);
 };
 const isSha256Hex = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
 
@@ -1180,7 +1203,7 @@ const generateReturnNumber = () => `RET-${Date.now()}-${Math.random().toString(3
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const ORDER_STATUS_ORDERED = 'ordered';
 const ORDER_STATUS_RECEIVED = 'received';
-const ORDER_ALLOWED_STATUSES = new Set([ORDER_STATUS_ORDERED, ORDER_STATUS_RECEIVED]);
+const ORDER_ALLOWED_PAYMENT_STATUSES = new Set(['pending', 'paid', 'partial', 'refunded', 'declined']);
 const normalizeOrderStatus = (status, fallback = ORDER_STATUS_ORDERED) => {
   const raw = String(status || '').trim().toLowerCase();
   if (!raw) return fallback;
@@ -1192,9 +1215,10 @@ const normalizeOrderStatus = (status, fallback = ORDER_STATUS_ORDERED) => {
 };
 
 const normalizeOrderPaymentStatus = (status, orderStatus) => {
+  const raw = String(status || '').trim().toLowerCase();
+  if (ORDER_ALLOWED_PAYMENT_STATUSES.has(raw)) return raw;
   const normalizedOrderStatus = normalizeOrderStatus(orderStatus, ORDER_STATUS_ORDERED);
-  if (normalizedOrderStatus === ORDER_STATUS_RECEIVED) return 'paid';
-  return 'pending';
+  return normalizedOrderStatus === ORDER_STATUS_RECEIVED ? 'pending' : 'pending';
 };
 
 const normalizePaymentMethod = (method) => {
@@ -1342,6 +1366,7 @@ const createAppNotification = async ({
   issueId = null,
   metadata = null,
   createdBy = null,
+  clientRequestId = null,
 }) => {
   const normalizedUserId = Number(userId || 0);
   if (!normalizedUserId) return 0;
@@ -1350,8 +1375,8 @@ const createAppNotification = async ({
   if (!normalizedTitle || !normalizedMessage) return 0;
   const result = await dbRunAsync(
     `INSERT INTO app_notifications
-    (user_id, title, message, level, entity_type, entity_id, issue_id, is_read, metadata, created_by, read_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL)`,
+    (user_id, title, message, level, entity_type, entity_id, issue_id, is_read, metadata, created_by, read_at, client_request_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, ?)`,
     [
       normalizedUserId,
       normalizedTitle,
@@ -1362,9 +1387,38 @@ const createAppNotification = async ({
       issueId ? Number(issueId || 0) : null,
       metadata ? safeSerializeJson(metadata) : null,
       createdBy ? Number(createdBy || 0) : null,
+      clientRequestId ? normalizeClientRequestId(clientRequestId) || null : null,
     ]
   );
   return Number(result.lastInsertRowid || 0);
+};
+
+const purgeOldAppNotificationsAsync = async ({
+  olderThanDays = APP_NOTIFICATION_RETENTION_DAYS,
+  limit = APP_NOTIFICATION_PURGE_BATCH_LIMIT,
+} = {}) => {
+  const normalizedDays = Math.max(1, Math.min(365, Number(olderThanDays || APP_NOTIFICATION_RETENTION_DAYS)));
+  const normalizedLimit = Math.max(1, Math.min(50000, Number(limit || APP_NOTIFICATION_PURGE_BATCH_LIMIT)));
+  const cutoffDate = new Date(Date.now() - (normalizedDays * 24 * 60 * 60 * 1000));
+  const cutoffIso = cutoffDate.toISOString();
+  const result = await dbRunAsync(
+    `WITH old_rows AS (
+      SELECT id
+      FROM app_notifications
+      WHERE created_at < ?
+      ORDER BY id ASC
+      LIMIT ?
+    )
+    DELETE FROM app_notifications
+    WHERE id IN (SELECT id FROM old_rows)`,
+    [cutoffIso, normalizedLimit]
+  );
+  return {
+    deleted: Number(result?.changes || 0),
+    cutoff: cutoffIso,
+    older_than_days: normalizedDays,
+    limit: normalizedLimit,
+  };
 };
 
 const notifyAdmins = async ({
@@ -2120,6 +2174,35 @@ const stopPhoneChangeWorker = () => {
   phoneChangeWorkerTimer = null;
 };
 
+const runAppNotificationPurge = async () => {
+  try {
+    const result = await purgeOldAppNotificationsAsync({
+      olderThanDays: APP_NOTIFICATION_RETENTION_DAYS,
+      limit: APP_NOTIFICATION_PURGE_BATCH_LIMIT,
+    });
+    if (Number(result?.deleted || 0) > 0) {
+      console.log(`[NOTIFY] Purged ${result.deleted} app notifications older than ${APP_NOTIFICATION_RETENTION_DAYS} days`);
+    }
+  } catch (error) {
+    console.warn('[NOTIFY] Notification purge failed:', error?.message || error);
+  }
+};
+
+const startAppNotificationPurgeWorker = () => {
+  if (IS_VERCEL_RUNTIME) return;
+  if (appNotificationPurgeTimer) return;
+  appNotificationPurgeTimer = setInterval(() => {
+    void runAppNotificationPurge();
+  }, APP_NOTIFICATION_PURGE_INTERVAL_MS);
+  void runAppNotificationPurge();
+};
+
+const stopAppNotificationPurgeWorker = () => {
+  if (!appNotificationPurgeTimer) return;
+  clearInterval(appNotificationPurgeTimer);
+  appNotificationPurgeTimer = null;
+};
+
 const PRODUCT_IMPORT_BATCH_TTL_MS = Number(process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000);
 const PRODUCT_IMPORT_HEADERS = [
   'id',
@@ -2168,6 +2251,7 @@ const PRODUCT_IMPORT_SAMPLE = {
 const productImportBatches = new Map();
 let phoneChangeWorkerTimer = null;
 let phoneChangeWorkerRunning = false;
+let appNotificationPurgeTimer = null;
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -2813,779 +2897,69 @@ const sanitizeUser = (row) => {
   };
 };
 
-app.get('/api/auth/session', requireAuth, async (req, res) => {
-  try {
-    const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [req.authUser.id]));
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json({
-      success: true,
-      user,
-      token: generateToken(user),
-      auth_provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to fetch session' });
-  }
-});
-
-const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
-
-app.post('/api/auth/otp/request', authIpLimiter, async (req, res) => {
-  try {
-    const authMode = String(req.body?.mode || req.body?.purpose || 'login').trim().toLowerCase() === 'register'
-      ? 'register'
-      : 'login';
-    const normalizedEmail = normalizeEmail(req.body?.email);
-    const phoneParsed = parsePhoneInput(req.body?.phone);
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    if (!normalizedEmail && !normalizedPhone) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    if (normalizedEmail && normalizedPhone) {
-      return res.status(400).json({ error: 'Provide either email or phone, not both' });
-    }
-    if (normalizedPhone) {
-      return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
-    }
-
-    if (isSupabaseEmailAuthUsable()) {
-      try {
-        await supabaseAuthProvider.requestEmailOtp({
-          email: normalizedEmail,
-          shouldCreateUser: authMode === 'register',
-        });
-        return res.status(201).json({
-          success: true,
-          message: 'OTP sent to email.',
-          delivery_channel: 'email',
-          delivery_mode: 'supabase',
-          otp_ttl_seconds: OTP_TTL_SECONDS,
-          provider: 'supabase',
-        });
-      } catch (error) {
-        return res.status(400).json({ error: error.message || 'Failed to send email OTP' });
-      }
-    }
-
-    let user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
-
-    if (authMode === 'login' && !user) {
-      return res.status(404).json({
-        error: 'Account not found. Please register first.',
-        register_required: true,
-      });
-    }
-    if (authMode === 'register' && user) {
-      return res.status(409).json({
-        error: 'Account already exists. Please sign in.',
-        login_required: true,
-      });
-    }
-
-    if (authMode === 'register' && !user) {
-      const displayName = normalizedEmail.split('@')[0];
-      try {
-        const created = await dbRunAsync(
-          `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            'customer',
-            displayName,
-            normalizedEmail || null,
-            0,
-            null,
-            0,
-            null,
-            hashPassword(generateTemporaryPassword()),
-            0,
-          ]
-        );
-        user = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [created.lastInsertRowid]);
-      } catch (error) {
-        if (!isUniqueViolationError(error)) throw error;
-        user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
-      }
-    }
-    if (!user) {
-      return res.status(500).json({ error: 'Unable to prepare OTP login for this account' });
-    }
-
-    const otpCode = generateOtpCode(6);
-    const otpHash = hashPassword(otpCode);
-    const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000).toISOString();
-    await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE email = ? AND used = 0`, [normalizedEmail]);
-    await dbRunAsync(
-      `INSERT INTO auth_login_otps (user_id, email, phone, otp_hash, expires_at, attempts, max_attempts, used)
-       VALUES (?, ?, ?, ?, ?, 0, ?, 0)`,
-      [user.id, normalizedEmail || null, null, otpHash, expiresAt, OTP_MAX_ATTEMPTS]
-    );
-
-    const responsePayload = {
-      success: true,
-      message: 'OTP sent to email.',
-      delivery_channel: 'email',
-      otp_ttl_seconds: OTP_TTL_SECONDS,
-    };
-    const preparedEmail = notificationService.prepareEmail({
-      type: 'auth_login_otp',
-      to: normalizedEmail,
-      payload: {
-        recipientName: user.name,
-        code: otpCode,
-        expiresAt,
-      },
-    });
-    const eventId = await createNotificationEvent({
-      type: 'auth_login_otp',
-      channel: 'email',
-      recipient: preparedEmail.to,
-      recipientUserId: Number(user.id || 0) || null,
-      subject: preparedEmail.subject,
-      body: preparedEmail.body,
-      metadata: {
-        mode: EMAIL_DELIVERY_MODE,
-        expires_at: expiresAt,
-        mailto_url: preparedEmail.mailto_url,
-      },
-      status: 'prepared',
-    });
-
-    if (EMAIL_DELIVERY_MODE === 'auto') {
-      if (!emailVerificationProvider?.isReady) {
-        await updateNotificationEventStatus(eventId, {
-          status: 'failed',
-          errorMessage: 'Email provider is not configured',
-        });
-        return res.status(503).json({ error: 'Email provider is not configured' });
-      }
-      await emailVerificationProvider.sendVerification({
-        to: normalizedEmail,
-        token: otpCode,
-        link: '',
-        expiresAt,
-        subject: preparedEmail.subject,
-        body: preparedEmail.body,
-      });
-      await updateNotificationEventStatus(eventId, { status: 'sent' });
-    }
-
-    responsePayload.delivery_mode = EMAIL_DELIVERY_MODE;
-    responsePayload.prepared_event_id = eventId;
-    if (AUTH_LOGIN_OTP_EXPOSE_CODE) {
-      responsePayload.dev_otp_code = otpCode;
-      responsePayload.manual_email = {
-        subject: preparedEmail.subject,
-        body: preparedEmail.body,
-        mailto_url: preparedEmail.mailto_url,
-      };
-    }
-    return res.status(201).json(responsePayload);
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to request OTP' });
-  }
-});
-
-app.post('/api/auth/otp/verify', authIpLimiter, async (req, res) => {
-  try {
-    const normalizedEmail = normalizeEmail(req.body?.email);
-    const phoneParsed = parsePhoneInput(req.body?.phone);
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    const otpCode = String(req.body?.otp || req.body?.code || '').trim();
-    if (!normalizedEmail && !normalizedPhone) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    if (normalizedEmail && normalizedPhone) {
-      return res.status(400).json({ error: 'Provide either email or phone, not both' });
-    }
-    if (normalizedPhone) {
-      return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
-    }
-    if (!otpCode) return res.status(400).json({ error: 'OTP is required' });
-
-    if (isSupabaseEmailAuthUsable()) {
-      try {
-        const verification = await supabaseAuthProvider.verifySignInOtp({
-          email: normalizedEmail,
-          token: otpCode,
-        });
-        const supabaseUser = verification?.user || null;
-        const resolvedEmail = normalizeEmail(supabaseUser?.email) || normalizedEmail;
-        const synced = await syncLocalUserFromSupabaseAuth({
-          email: resolvedEmail,
-          metadata: getSupabaseUserMetadata(supabaseUser),
-          emailVerified: true,
-        });
-        if (!synced) {
-          return res.status(401).json({ error: 'Unable to sync account after OTP verification' });
-        }
-        return res.json({
-          success: true,
-          user: sanitizeUser(synced),
-          token: generateToken(synced),
-          auth_provider: 'supabase_otp',
-          supabase_session: toSupabaseSessionPayload(verification?.session),
-        });
-      } catch (error) {
-        return res.status(400).json({ error: error.message || 'Invalid or expired OTP' });
-      }
-    }
-
-    const user = await dbGetAsync(`SELECT * FROM users WHERE email = ?`, [normalizedEmail]);
-    if (!user) return res.status(400).json({ error: 'Invalid or expired OTP' });
-
-    const otpRow = await dbGetAsync(
-      `SELECT * FROM auth_login_otps
-       WHERE user_id = ?
-         AND COALESCE(email, '') = COALESCE(?, '')
-         AND COALESCE(phone, '') = ''
-         AND used = 0
-       ORDER BY id DESC LIMIT 1`,
-      [user.id, normalizedEmail || null]
-    );
-    if (!otpRow) return res.status(400).json({ error: 'Invalid or expired OTP' });
-
-    const now = Date.now();
-    const expiresAt = new Date(otpRow.expires_at).getTime();
-    if (!Number.isFinite(expiresAt) || now > expiresAt) {
-      await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
-    if (Number(otpRow.attempts || 0) >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS)) {
-      await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-      return res.status(400).json({ error: 'OTP attempt limit reached' });
-    }
-
-    const otpOk = verifyPassword(otpCode, { password_hash: otpRow.otp_hash });
-    if (!otpOk) {
-      const nextAttempts = Number(otpRow.attempts || 0) + 1;
-      const exhausted = nextAttempts >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS);
-      await dbRunAsync(
-        `UPDATE auth_login_otps SET attempts = ?, used = ? WHERE id = ?`,
-        [nextAttempts, exhausted ? 1 : Number(otpRow.used || 0), otpRow.id]
-      );
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
-
-    await dbRunAsync(`UPDATE auth_login_otps SET used = 1 WHERE id = ?`, [otpRow.id]);
-    await dbRunAsync(`UPDATE users SET email_verified = 1 WHERE id = ?`, [user.id]);
-    const freshUser = await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [user.id]);
-    return res.json({
-      success: true,
-      user: sanitizeUser(freshUser),
-      token: generateToken(freshUser),
-      auth_provider: 'otp',
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to verify OTP' });
-  }
-});
-
-app.post('/api/auth/login', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-app.post('/api/auth/register', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-app.post('/api/auth/change-password', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-app.post('/api/auth/request-password-reset', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-app.post('/api/auth/password/recovery/complete', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-
-app.post('/api/auth/email/verification/request', authIpLimiter, emailVerificationLimiter, async (req, res) => {
-  try {
-    const normalizedEmail = normalizeEmail(req.body?.email);
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
-
-    if (isSupabaseEmailAuthUsable()) {
-      try {
-        await supabaseAuthProvider.resendSignupVerification({ email: normalizedEmail });
-        return res.status(201).json({
-          success: true,
-          provider: 'supabase',
-          message: 'If the account exists, a verification email was sent.',
-        });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(400).json({ error: error.message || 'Failed to send verification email' });
-        }
-      }
-    }
-
-    const user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE email = ?`, [normalizedEmail]);
-    if (!user) {
-      return res.status(201).json({
-        success: true,
-        message: 'If the account exists, verification request was submitted for admin review.',
-      });
-    }
-    if (Number(user.email_verified || 0) === 1) {
-      return res.status(200).json({ success: true, message: 'Email is already verified' });
-    }
-    const requestRow = await queueContactVerificationRequest({
-      userId: user.id,
-      requestType: 'email',
-      requestedFromIp: getRequestIp(req),
-    });
-    return res.status(201).json({
-      success: true,
-      message: 'Email verification request submitted to admin',
-      request: requestRow,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/email/verification/confirm', authIpLimiter, emailVerificationLimiter, async (req, res) => {
-  try {
-    const normalizedEmail = normalizeEmail(req.body?.email);
-    const token = String(req.body?.token || '').trim();
-    const tokenHash = String(req.body?.token_hash || req.body?.tokenHash || '').trim();
-    if (!normalizedEmail || (!token && !tokenHash)) {
-      return res.status(400).json({ error: 'Email and token are required' });
-    }
-
-    if (isSupabaseEmailAuthUsable()) {
-      try {
-        const verificationResult = await supabaseAuthProvider.verifyEmailOtp({
-          email: normalizedEmail,
-          token,
-          tokenHash,
-        });
-        const supabaseUser = verificationResult?.user || null;
-        const synced = await syncLocalUserFromSupabaseAuth({
-          email: normalizeEmail(supabaseUser?.email) || normalizedEmail,
-          metadata: getSupabaseUserMetadata(supabaseUser),
-          emailVerified: true,
-        });
-        if (!synced) {
-          await syncLocalEmailVerifiedFromSupabase(normalizedEmail);
-        }
-        const userToComplete = synced
-          || await dbGetAsync(`SELECT id FROM users WHERE email = ?`, [normalizedEmail]);
-        if (userToComplete?.id) {
-          await completeContactVerificationRequests({ userId: userToComplete.id, requestType: 'email' });
-        }
-        return res.json({
-          success: true,
-          provider: 'supabase',
-          message: 'Email verified successfully',
-        });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(400).json({ error: error.message || 'Invalid or expired verification token' });
-        }
-      }
-    }
-
-    if (!token) {
-      return res.status(400).json({ error: 'Email and token are required' });
-    }
-    const user = await dbGetAsync(`SELECT id, email_verified FROM users WHERE email = ?`, [normalizedEmail]);
-    if (!user) return res.status(400).json({ error: 'Invalid or expired verification token' });
-    if (Number(user.email_verified || 0) === 1) {
-      await completeContactVerificationRequests({ userId: user.id, requestType: 'email' });
-      return res.json({ success: true, message: 'Email is already verified' });
-    }
-
-    const tokenRow = await dbGetAsync(
-      `SELECT * FROM email_verification_tokens
-       WHERE user_id = ? AND email = ? AND used = 0
-       ORDER BY id DESC LIMIT 1`,
-      [user.id, normalizedEmail]
-    );
-    if (!tokenRow) return res.status(400).json({ error: 'Invalid or expired verification token' });
-
-    const now = Date.now();
-    const expiresAt = new Date(tokenRow.expires_at).getTime();
-    if (!Number.isFinite(expiresAt) || now > expiresAt) {
-      await dbRunAsync(`UPDATE email_verification_tokens SET used = 1 WHERE id = ?`, [tokenRow.id]);
-      return res.status(400).json({ error: 'Invalid or expired verification token' });
-    }
-    if (Number(tokenRow.attempts || 0) >= Number(tokenRow.max_attempts || EMAIL_VERIFY_MAX_ATTEMPTS)) {
-      await dbRunAsync(`UPDATE email_verification_tokens SET used = 1 WHERE id = ?`, [tokenRow.id]);
-      return res.status(400).json({ error: 'Verification token attempt limit reached' });
-    }
-
-    const providedHash = hashVerificationToken(token);
-    if (providedHash !== String(tokenRow.token_hash || '')) {
-      const nextAttempts = Number(tokenRow.attempts || 0) + 1;
-      const exhausted = nextAttempts >= Number(tokenRow.max_attempts || EMAIL_VERIFY_MAX_ATTEMPTS);
-      await dbRunAsync(
-        `UPDATE email_verification_tokens SET attempts = ?, used = ? WHERE id = ?`,
-        [nextAttempts, exhausted ? 1 : Number(tokenRow.used || 0), tokenRow.id]
-      );
-      return res.status(400).json({ error: 'Invalid or expired verification token' });
-    }
-
-    await dbRunAsync(`UPDATE users SET email_verified = 1 WHERE id = ?`, [user.id]);
-    await dbRunAsync(`UPDATE email_verification_tokens SET used = 1 WHERE user_id = ? AND email = ? AND used = 0`, [user.id, normalizedEmail]);
-    await completeContactVerificationRequests({ userId: user.id, requestType: 'email' });
-    return res.json({ success: true, message: 'Email verified successfully' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/auth/email/verification/status', requireAuth, async (req, res) => {
-  try {
-    let user = await dbGetAsync(`SELECT id, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    if (isSupabaseEmailAuthUsable() && user.email) {
-      const bearerToken = getBearerTokenFromRequest(req);
-      if (bearerToken) {
-        try {
-          const supabaseUser = await supabaseAuthProvider.getUser({ accessToken: bearerToken });
-          if (isSupabaseEmailVerified(supabaseUser) && Number(user.email_verified || 0) !== 1) {
-            await syncLocalEmailVerifiedFromSupabase(user.email);
-            user = await dbGetAsync(`SELECT id, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]) || user;
-            await completeContactVerificationRequests({ userId: user.id, requestType: 'email' });
-          }
-        } catch (_) {
-          // Ignore token mismatch (legacy token) and keep local status.
-        }
-      }
-    }
-    return res.json({
-      email: user.email || null,
-      email_verified: Number(user.email_verified || 0) === 1,
-      mode: EMAIL_VERIFICATION_MODE,
-      provider_ready: Boolean(emailVerificationProvider?.isReady),
-      provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
-      supabase_auth_enabled: Boolean(supabaseAuthProvider?.isEnabled),
-      supabase_auth_mode: SUPABASE_AUTH_MODE,
-      supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
-      supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/email/verification/request-self', requireAuth, async (req, res) => {
-  try {
-    const user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE id = ?`, [req.authUser.id]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    const normalizedEmail = normalizeEmail(user.email);
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: 'No email is set on your profile' });
-    }
-    if (Number(user.email_verified || 0) === 1) {
-      return res.status(200).json({ success: true, message: 'Email is already verified' });
-    }
-
-    if (isSupabaseEmailAuthUsable()) {
-      try {
-        await supabaseAuthProvider.resendSignupVerification({ email: normalizedEmail });
-        return res.status(201).json({
-          success: true,
-          provider: 'supabase',
-          message: 'Verification email sent.',
-        });
-      } catch (error) {
-        if (isSupabaseAuthStrictMode()) {
-          return res.status(400).json({ error: error.message || 'Failed to send verification email' });
-        }
-      }
-    }
-
-    const requestRow = await queueContactVerificationRequest({
-      userId: user.id,
-      requestedBy: Number(req.authUser?.id || 0) || null,
-      requestedFromIp: getRequestIp(req),
-      requestType: 'email',
-    });
-    return res.status(201).json({
-      success: true,
-      message: 'Email verification request submitted to admin',
-      request: requestRow,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/phone/verification/request', authIpLimiter, async (req, res) => {
-  try {
-    const phoneParsed = parsePhoneInput(req.body?.phone, { required: true });
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    const user = await dbGetAsync(`SELECT id, name, phone, phone_verified FROM users WHERE phone = ?`, [normalizedPhone]);
-    if (!user) {
-      return res.status(201).json({
-        success: true,
-        message: 'If the account exists, verification request was submitted for admin review.',
-      });
-    }
-    if (Number(user.phone_verified || 0) === 1) {
-      return res.status(200).json({ success: true, message: 'Phone is already verified' });
-    }
-    const requestRow = await queueContactVerificationRequest({
-      userId: user.id,
-      requestType: 'phone',
-      requestedFromIp: getRequestIp(req),
-    });
-    return res.status(201).json({
-      success: true,
-      message: 'Phone verification request submitted to admin',
-      request: requestRow,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/phone/verification/confirm', authIpLimiter, async (req, res) => {
-  try {
-    const phoneParsed = parsePhoneInput(req.body?.phone, { required: true });
-    if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
-    const normalizedPhone = phoneParsed.value;
-    const code = String(req.body?.code || req.body?.token || '').trim();
-    if (!code) return res.status(400).json({ error: 'Phone and code are required' });
-    const user = await dbGetAsync(`SELECT id, phone_verified FROM users WHERE phone = ?`, [normalizedPhone]);
-    if (!user) return res.status(400).json({ error: 'Invalid or expired verification code' });
-    if (Number(user.phone_verified || 0) === 1) {
-      await completeContactVerificationRequests({ userId: user.id, requestType: 'phone' });
-      return res.json({ success: true, message: 'Phone is already verified' });
-    }
-
-    const tokenRow = await dbGetAsync(
-      `SELECT * FROM phone_verification_tokens
-       WHERE user_id = ? AND phone = ? AND used = 0
-       ORDER BY id DESC LIMIT 1`,
-      [user.id, normalizedPhone]
-    );
-    if (!tokenRow) return res.status(400).json({ error: 'Invalid or expired verification code' });
-
-    const now = Date.now();
-    const expiresAt = new Date(tokenRow.expires_at).getTime();
-    if (!Number.isFinite(expiresAt) || now > expiresAt) {
-      await dbRunAsync(`UPDATE phone_verification_tokens SET used = 1 WHERE id = ?`, [tokenRow.id]);
-      return res.status(400).json({ error: 'Invalid or expired verification code' });
-    }
-    if (Number(tokenRow.attempts || 0) >= Number(tokenRow.max_attempts || PHONE_VERIFY_MAX_ATTEMPTS)) {
-      await dbRunAsync(`UPDATE phone_verification_tokens SET used = 1 WHERE id = ?`, [tokenRow.id]);
-      return res.status(400).json({ error: 'Verification code attempt limit reached' });
-    }
-
-    const providedHash = hashOpaqueToken(code);
-    if (providedHash !== String(tokenRow.token_hash || '')) {
-      const nextAttempts = Number(tokenRow.attempts || 0) + 1;
-      const exhausted = nextAttempts >= Number(tokenRow.max_attempts || PHONE_VERIFY_MAX_ATTEMPTS);
-      await dbRunAsync(
-        `UPDATE phone_verification_tokens SET attempts = ?, used = ? WHERE id = ?`,
-        [nextAttempts, exhausted ? 1 : Number(tokenRow.used || 0), tokenRow.id]
-      );
-      return res.status(400).json({ error: 'Invalid or expired verification code' });
-    }
-
-    await dbRunAsync(`UPDATE users SET phone_verified = 1 WHERE id = ?`, [user.id]);
-    await dbRunAsync(`UPDATE phone_verification_tokens SET used = 1 WHERE user_id = ? AND phone = ? AND used = 0`, [user.id, normalizedPhone]);
-    await completeContactVerificationRequests({ userId: user.id, requestType: 'phone' });
-    return res.json({ success: true, message: 'Phone verified successfully' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/auth/phone/verification/status', requireAuth, async (req, res) => {
-  try {
-    const user = await dbGetAsync(`SELECT id, phone, phone_verified FROM users WHERE id = ?`, [req.authUser.id]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json({
-      phone: user.phone || null,
-      phone_verified: Number(user.phone_verified || 0) === 1,
-      mode: WHATSAPP_DELIVERY_MODE,
-      provider_ready: Boolean(whatsappProvider?.isReady),
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/auth/phone-change-request/status', requireAuth, async (req, res) => {
-  try {
-    await processPendingPhoneChangeRequests({ limit: 10 });
-    const row = await getLatestPhoneChangeRequestForUser(req.authUser.id);
-    if (!row) {
-      return res.json({
-        request: null,
-      });
-    }
-    return res.json({
-      request: serializePhoneChangeRequest(row),
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to load phone change request status' });
-  }
-});
-
-app.post('/api/auth/phone-change-request/cancel', requireAuth, async (req, res) => {
-  try {
-    const userId = Number(req.authUser?.id || 0);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const openRequest = await getOpenPhoneChangeRequestForUser(userId);
-    if (!openRequest) {
-      return res.status(404).json({ error: 'No pending phone change request found' });
-    }
-    const reason = String(req.body?.reason || '').trim() || 'Cancelled by user';
-    const cancelled = await rejectPhoneChangeRequest({
-      id: openRequest.id,
-      reviewedBy: userId,
-      adminNote: 'Cancelled by user',
-      rejectionReason: reason,
-    });
-    if (!cancelled) {
-      return res.status(404).json({ error: 'No pending phone change request found' });
-    }
-    await createAppNotification({
-      userId,
-      title: 'Phone update request cancelled',
-      message: 'Your pending phone update request has been cancelled.',
-      level: 'info',
-      entityType: 'phone_change_request',
-      entityId: Number(cancelled.id || 0) || null,
-      metadata: {
-        route: '/profile',
-        status: PHONE_CHANGE_STATUS_REJECTED,
-      },
-      createdBy: userId,
-    });
-    return res.json({
-      success: true,
-      message: 'Pending phone update request cancelled',
-      request: serializePhoneChangeRequest(cancelled),
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to cancel phone change request' });
-  }
-});
-
-const handleInternalPhoneChangeProcess = async (req, res) => {
-  try {
-    const rawLimit = Number(req.body?.limit ?? req.query?.limit ?? PHONE_CHANGE_AUTO_BATCH_SIZE);
-    const limit = Number.isFinite(rawLimit)
-      ? Math.max(1, Math.min(250, Math.floor(rawLimit)))
-      : PHONE_CHANGE_AUTO_BATCH_SIZE;
-    const result = await processPendingPhoneChangeRequests({ limit });
-    return res.json({
-      success: true,
-      limit,
-      result: result || {
-        auto_approved: 0,
-        escalated_admin_review: 0,
-        auto_rejected_invalid: 0,
-        expired_rejected: 0,
-        scanned_auto_candidates: 0,
-        scanned_overdue_candidates: 0,
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to process phone change queue' });
-  }
-};
-
-app.get('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
-app.post('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
-
-app.get('/api/auth/contact-verification/status', requireAuth, async (req, res) => {
-  try {
-    const userId = Number(req.authUser?.id || 0);
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-
-    const rows = await dbAllAsync(
-      `SELECT id, request_type, status, admin_note, processed_at, completed_at, created_at, updated_at
-       FROM contact_verification_requests
-       WHERE user_id = ?
-       ORDER BY id DESC`,
-      [userId]
-    );
-
-    const latest = { email: null, phone: null };
-    rows.forEach((row) => {
-      const type = normalizeContactVerificationRequestType(row?.request_type);
-      if (!type || latest[type]) return;
-      latest[type] = row;
-    });
-
-    return res.json(latest);
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to load verification request status' });
-  }
-});
-
-app.post('/api/auth/phone/verification/request-self', requireAuth, async (req, res) => {
-  try {
-    const user = await dbGetAsync(`SELECT id, name, phone, phone_verified FROM users WHERE id = ?`, [req.authUser.id]);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    const normalizedPhone = normalizePhone(user.phone);
-    if (!normalizedPhone) {
-      return res.status(400).json({ error: 'No phone is set on your profile' });
-    }
-    if (Number(user.phone_verified || 0) === 1) {
-      return res.status(200).json({ success: true, message: 'Phone is already verified' });
-    }
-    const requestRow = await queueContactVerificationRequest({
-      userId: user.id,
-      requestedBy: Number(req.authUser?.id || 0) || null,
-      requestedFromIp: getRequestIp(req),
-      requestType: 'phone',
-    });
-    return res.status(201).json({
-      success: true,
-      message: 'Phone verification request submitted to admin',
-      request: requestRow,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/auth/reset-password/otp/verify', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-
-app.post('/api/auth/reset-password/otp/complete', authIpLimiter, async (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR })
-);
-
-app.get('/api/auth/reset-mode', (_, res) => {
-  return res.json({
-    auth_flow_mode: AUTH_FLOW_MODE,
-    mode: 'otp_login_only',
-    auth_methods: {
-      otp: true,
-      oauth: Boolean(supabaseAuthProvider?.shouldUseOAuth?.()),
-      password: false,
-    },
-    otp_provider: OTP_PROVIDER,
-    otp_delivery_mode: OTP_DELIVERY_MODE,
-    otp_ready: true,
-    otp_verify_session_ttl_seconds: OTP_VERIFY_SESSION_TTL_SECONDS,
-    phone_verification_required: PHONE_VERIFICATION_REQUIRED,
-    whatsapp_delivery_mode: WHATSAPP_DELIVERY_MODE,
-    whatsapp_provider: WHATSAPP_PROVIDER,
-    whatsapp_provider_ready: Boolean(whatsappProvider?.isReady),
-    email_verification_mode: EMAIL_VERIFICATION_MODE,
-    email_delivery_mode: EMAIL_DELIVERY_MODE,
-    email_provider_ready: Boolean(emailVerificationProvider?.isReady),
-    supabase_auth_enabled: Boolean(supabaseAuthProvider?.isEnabled),
-    supabase_auth_mode: SUPABASE_AUTH_MODE,
-    supabase_client_ready: Boolean(supabaseAuthProvider?.clientReady),
-    supabase_oauth_ready: Boolean(supabaseAuthProvider?.oauthReady),
-    supabase_admin_ready: Boolean(supabaseAuthProvider?.adminReady),
-    supabase_url: supabaseAuthProvider?.baseUrl || null,
-    supabase_email_verify_redirect: SUPABASE_EMAIL_VERIFY_REDIRECT || null,
-  });
+registerAuthRoutes({
+  app,
+  requireAuth,
+  authIpLimiter,
+  emailVerificationLimiter,
+  requireInternalCron,
+  dbGetAsync,
+  dbRunAsync,
+  dbAllAsync,
+  normalizeEmail,
+  parsePhoneInput,
+  normalizePhone,
+  hashPassword,
+  generateTemporaryPassword,
+  isUniqueViolationError,
+  generateOtpCode,
+  OTP_TTL_SECONDS,
+  OTP_MAX_ATTEMPTS,
+  notificationService,
+  createNotificationEvent,
+  EMAIL_DELIVERY_MODE,
+  emailVerificationProvider,
+  updateNotificationEventStatus,
+  AUTH_LOGIN_OTP_EXPOSE_CODE,
+  isSupabaseEmailAuthUsable,
+  supabaseAuthProvider,
+  syncLocalUserFromSupabaseAuth,
+  getSupabaseUserMetadata,
+  sanitizeUser,
+  generateToken,
+  toSupabaseSessionPayload,
+  verifyPassword,
+  isSupabaseAuthStrictMode,
+  queueContactVerificationRequest,
+  getRequestIp,
+  syncLocalEmailVerifiedFromSupabase,
+  completeContactVerificationRequests,
+  EMAIL_VERIFY_MAX_ATTEMPTS,
+  hashVerificationToken,
+  getBearerTokenFromRequest,
+  isSupabaseEmailVerified,
+  EMAIL_VERIFICATION_MODE,
+  SUPABASE_AUTH_MODE,
+  WHATSAPP_DELIVERY_MODE,
+  whatsappProvider,
+  processPendingPhoneChangeRequests,
+  getLatestPhoneChangeRequestForUser,
+  serializePhoneChangeRequest,
+  getOpenPhoneChangeRequestForUser,
+  rejectPhoneChangeRequest,
+  createAppNotification,
+  PHONE_CHANGE_STATUS_REJECTED,
+  PHONE_CHANGE_AUTO_BATCH_SIZE,
+  normalizeContactVerificationRequestType,
+  AUTH_FLOW_MODE,
+  OTP_PROVIDER,
+  OTP_DELIVERY_MODE,
+  OTP_VERIFY_SESSION_TTL_SECONDS,
+  PHONE_VERIFICATION_REQUIRED,
+  WHATSAPP_PROVIDER,
+  SUPABASE_EMAIL_VERIFY_REDIRECT,
+  PHONE_VERIFY_MAX_ATTEMPTS,
+  hashOpaqueToken,
 });
 
 app.post('/api/analytics/session/start', async (req, res) => {
@@ -3808,27 +3182,62 @@ app.post('/api/admin/notifications/:id/mark-sent', requireAdmin, async (req, res
 
 app.get('/api/notifications/me', requireAuth, async (req, res) => {
   try {
+    const userId = Number(req.authUser?.id || 0);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const unreadOnly = parseBooleanEnv(req.query?.unread_only, false);
+    const rawBeforeId = Number(req.query?.before_id || 0);
+    const beforeId = Number.isFinite(rawBeforeId) && rawBeforeId > 0 ? Math.floor(rawBeforeId) : 0;
     const requestedLimit = Number(req.query?.limit || 20);
     const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
-    const params = [Number(req.authUser?.id || 0)];
-    const rows = await dbAllAsync(
-      `SELECT *
-       FROM app_notifications
-       WHERE user_id = ?
-         ${unreadOnly ? 'AND COALESCE(is_read, 0) = 0' : ''}
-       ORDER BY created_at DESC
-       LIMIT ?`,
-      unreadOnly ? [params[0], limit] : [params[0], limit]
-    );
-    const payload = (rows || []).map((row) => ({
+    const params = [userId];
+    let sql = `SELECT *
+      FROM app_notifications
+      WHERE user_id = ?`;
+    if (unreadOnly) {
+      sql += ` AND COALESCE(is_read, 0) = 0`;
+    }
+    if (beforeId > 0) {
+      sql += ` AND id < ?`;
+      params.push(beforeId);
+    }
+    sql += ` ORDER BY id DESC LIMIT ?`;
+    params.push(limit);
+
+    const rows = await dbAllAsync(sql, params);
+    const items = (rows || []).map((row) => ({
       ...row,
       is_read: Number(row?.is_read || 0) === 1,
       metadata: parseJsonText(row?.metadata, null),
     }));
-    return res.json(payload);
+    const nextBeforeId = items.length === limit
+      ? Number(items[items.length - 1]?.id || 0) || null
+      : null;
+    return res.json({
+      items,
+      paging: {
+        limit,
+        next_before_id: nextBeforeId,
+        has_more: Boolean(nextBeforeId),
+      },
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Failed to load notifications' });
+  }
+});
+
+app.get('/api/notifications/me/unread-count', requireAuth, async (req, res) => {
+  try {
+    const userId = Number(req.authUser?.id || 0);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+    const row = await dbGetAsync(
+      `SELECT COUNT(*) AS count
+       FROM app_notifications
+       WHERE user_id = ? AND COALESCE(is_read, 0) = 0`,
+      [userId]
+    );
+    return res.json({ count: Number(row?.count || 0) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load unread notification count' });
   }
 });
 
@@ -3867,6 +3276,22 @@ app.post('/api/notifications/read-all', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/internal/notifications/purge', requireCronSecret, async (req, res) => {
+  try {
+    const rawDays = Number(req.body?.older_than_days ?? req.query?.older_than_days ?? APP_NOTIFICATION_RETENTION_DAYS);
+    const days = Number.isFinite(rawDays) ? Math.max(1, Math.min(365, Math.floor(rawDays))) : APP_NOTIFICATION_RETENTION_DAYS;
+    const rawLimit = Number(req.body?.limit ?? req.query?.limit ?? APP_NOTIFICATION_PURGE_BATCH_LIMIT);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(50000, Math.floor(rawLimit))) : APP_NOTIFICATION_PURGE_BATCH_LIMIT;
+    const result = await purgeOldAppNotificationsAsync({
+      olderThanDays: days,
+      limit,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to purge old notifications' });
+  }
+});
+
 app.get('/api/notifications/message-recipients', requireAdmin, async (req, res) => {
   try {
     const q = String(req.query?.q || '').trim();
@@ -3878,7 +3303,11 @@ app.get('/api/notifications/message-recipients', requireAdmin, async (req, res) 
         `SELECT id, name, email, phone
          FROM users
          WHERE role = 'customer'
-           AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)
+           AND (
+             LOWER(COALESCE(name, '')) LIKE LOWER(?)
+             OR LOWER(COALESCE(email, '')) LIKE LOWER(?)
+             OR LOWER(COALESCE(phone, '')) LIKE LOWER(?)
+           )
          ORDER BY name ASC
          LIMIT ?`,
         [like, like, like, limit]
@@ -3946,12 +3375,33 @@ app.post('/api/notifications/messages/to-admin', requireAuth, async (req, res) =
 });
 
 app.post('/api/notifications/messages/to-customers', requireAdmin, async (req, res) => {
+  let clientRequestId = null;
   try {
     const senderId = Number(req.authUser?.id || 0);
+    const idempotency = resolveClientRequestId(req);
+    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
+    clientRequestId = idempotency.value;
     const senderName = String(req.authUser?.name || '').trim() || 'Admin';
     const message = String(req.body?.message || '').trim();
     if (!message) return res.status(400).json({ error: 'Message is required' });
     if (message.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
+    if (clientRequestId) {
+      const existingBatch = await dbGetAsync(
+        `SELECT id, sent_count, recipient_names, recipient_count
+         FROM notification_send_batches
+         WHERE client_request_id = ? AND sender_user_id = ?
+         LIMIT 1`,
+        [clientRequestId, senderId]
+      );
+      if (existingBatch) {
+        return res.json({
+          success: true,
+          deduplicated: true,
+          sent_count: Number(existingBatch.sent_count || 0),
+          recipient_names: parseJsonText(existingBatch.recipient_names, []) || [],
+        });
+      }
+    }
     const recipientIds = Array.from(new Set(
       (Array.isArray(req.body?.recipient_user_ids) ? req.body.recipient_user_ids : [])
         .map((value) => Number(value || 0))
@@ -3976,47 +3426,108 @@ app.post('/api/notifications/messages/to-customers', requireAdmin, async (req, r
     if (!recipients.length) {
       return res.status(400).json({ error: 'No valid customer recipients found' });
     }
+    const recipientNames = recipients.map((row) => String(row?.name || '').trim()).filter(Boolean);
+    const sendResult = await dbTxAsync(async () => {
+      let batchId = null;
+      if (clientRequestId) {
+        const inserted = await dbRunAsync(
+          `INSERT INTO notification_send_batches
+          (client_request_id, sender_user_id, message, recipient_user_ids, recipient_names, recipient_count, sent_count, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            clientRequestId,
+            senderId,
+            message,
+            safeSerializeJson(recipientIds),
+            safeSerializeJson(recipientNames),
+            recipients.length,
+            0,
+            'processing',
+          ]
+        );
+        batchId = Number(inserted.lastInsertRowid || 0) || null;
+      }
 
-    for (const recipient of recipients) {
-      const recipientId = Number(recipient?.id || 0);
-      if (!recipientId) continue;
+      for (const recipient of recipients) {
+        const recipientId = Number(recipient?.id || 0);
+        if (!recipientId) continue;
+        const recipientRequestId = clientRequestId
+          ? `notif:${crypto.createHash('sha1').update(`${clientRequestId}:${recipientId}`).digest('hex').slice(0, 32)}`
+          : null;
+        await createAppNotification({
+          userId: recipientId,
+          title: `Message from ${senderName}`,
+          message,
+          level: 'info',
+          entityType: 'conversation',
+          metadata: {
+            kind: 'chat_message',
+            direction: 'admin_to_customer',
+            from_user_id: senderId,
+            from_user_name: senderName,
+            route: '/profile',
+          },
+          createdBy: senderId,
+          clientRequestId: recipientRequestId,
+        });
+      }
+
+      const senderRequestId = clientRequestId
+        ? `notif:${crypto.createHash('sha1').update(`${clientRequestId}:sender`).digest('hex').slice(0, 32)}`
+        : null;
       await createAppNotification({
-        userId: recipientId,
-        title: `Message from ${senderName}`,
-        message,
-        level: 'info',
+        userId: senderId,
+        title: 'Message sent',
+        message: `Message sent to ${recipients.length} customer${recipients.length === 1 ? '' : 's'}.`,
+        level: 'success',
         entityType: 'conversation',
         metadata: {
           kind: 'chat_message',
-          direction: 'admin_to_customer',
-          from_user_id: senderId,
-          from_user_name: senderName,
-          route: '/profile',
+          direction: 'outbound',
+          route: '/admin?tab=users',
         },
         createdBy: senderId,
+        clientRequestId: senderRequestId,
       });
-    }
 
-    await createAppNotification({
-      userId: senderId,
-      title: 'Message sent',
-      message: `Message sent to ${recipients.length} customer${recipients.length === 1 ? '' : 's'}.`,
-      level: 'success',
-      entityType: 'conversation',
-      metadata: {
-        kind: 'chat_message',
-        direction: 'outbound',
-        route: '/admin?tab=users',
-      },
-      createdBy: senderId,
+      if (batchId) {
+        await dbRunAsync(
+          `UPDATE notification_send_batches
+           SET status = ?, sent_count = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          ['sent', recipients.length, batchId]
+        );
+      }
+
+      return {
+        sentCount: recipients.length,
+      };
     });
 
     return res.json({
       success: true,
-      sent_count: recipients.length,
-      recipient_names: recipients.map((row) => String(row?.name || '').trim()).filter(Boolean),
+      sent_count: Number(sendResult?.sentCount || 0),
+      recipient_names: recipientNames,
     });
   } catch (error) {
+    if (clientRequestId && isUniqueViolationError(error)) {
+      const senderId = Number(req.authUser?.id || 0);
+      const existingBatch = await dbGetAsync(
+        `SELECT sent_count, recipient_names
+         FROM notification_send_batches
+         WHERE client_request_id = ? AND sender_user_id = ?
+         LIMIT 1`,
+        [clientRequestId, senderId]
+      );
+      if (existingBatch) {
+        return res.json({
+          success: true,
+          deduplicated: true,
+          sent_count: Number(existingBatch.sent_count || 0),
+          recipient_names: parseJsonText(existingBatch.recipient_names, []) || [],
+        });
+      }
+    }
     return res.status(500).json({ error: error.message || 'Failed to send messages' });
   }
 });
@@ -4435,13 +3946,12 @@ app.post('/api/admin/users/:id/phone/verify', requireAdmin, async (req, res) => 
   }
 });
 
-app.get('/api/admin/password-reset-requests', requireAdmin, async (_, res) => {
-  return res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
-});
-
-app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (_, res) => {
-  return res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
-});
+app.get('/api/admin/password-reset-requests', requireAdmin, async (_, res) =>
+  res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
+);
+app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (_, res) =>
+  res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
+);
 
 app.get('/api/users', requireAdmin, async (_, res) => {
   try {
@@ -4826,228 +4336,6 @@ app.post('/api/orders/validate-customer', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/products', async (req, res) => {
-  try {
-    const qName = String(req.query?.name || '').trim();
-    const qCategory = String(req.query?.category || '').trim();
-    const qLowStock = String(req.query?.low_stock || '').trim();
-    const includeInactive = String(req.query?.include_inactive || '').trim() === 'true';
-    const status = String(req.query?.status || '').trim().toLowerCase();
-    let sql = `SELECT * FROM products WHERE 1=1`;
-    const params = [];
-    if (status === 'active') {
-      sql += ` AND COALESCE(is_active, 1) = 1`;
-    } else if (status === 'inactive') {
-      sql += ` AND COALESCE(is_active, 1) = 0`;
-    } else if (!includeInactive) {
-      sql += ` AND COALESCE(is_active, 1) = 1`;
-    }
-    if (qName) {
-      sql += ` AND (name LIKE ? OR sku LIKE ? OR brand LIKE ? OR barcode LIKE ?)`;
-      const like = `%${qName}%`;
-      params.push(like, like, like, like);
-    }
-    if (qCategory) {
-      sql += ` AND category = ?`;
-      params.push(qCategory);
-    }
-    if (qLowStock === 'true') {
-      sql += ` AND stock <= 10`;
-    }
-    sql += ` ORDER BY created_at DESC`;
-    const rows = await dbAllAsync(sql, params);
-    return res.json(rows.map(normalizeProductRecord));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/products/:id(\\d+)/last-purchase', requireAdmin, async (req, res) => {
-  try {
-    const productId = Number(req.params.id);
-    if (!productId) return res.status(400).json({ error: 'Invalid product id' });
-
-    const row = await dbGetAsync(
-      `SELECT
-         poi.product_id,
-         COALESCE(NULLIF(poi.rate, 0), poi.unit_price, 0) as rate,
-         poi.unit_price,
-         poi.gst_rate,
-         poi.uom,
-         po.distributor_id,
-         d.name as distributor_name,
-         po.po_number,
-         po.created_at
-       FROM purchase_order_items poi
-       INNER JOIN purchase_orders po ON po.id = poi.order_id
-       LEFT JOIN distributors d ON d.id = po.distributor_id
-       WHERE poi.product_id = ?
-       ORDER BY po.created_at DESC, poi.id DESC
-       LIMIT 1`,
-      [productId]
-    );
-
-    if (!row) return res.json({ found: false, product_id: productId });
-    return res.json({ found: true, ...row });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/products/:id(\\d+)', async (req, res) => {
-  try {
-    const includeInactive = String(req.query?.include_inactive || '').trim() === 'true';
-    const product = await dbGetAsync(
-      `SELECT * FROM products WHERE id = ? ${includeInactive ? '' : 'AND COALESCE(is_active, 1) = 1'}`,
-      [req.params.id]
-    );
-    if (!product) return res.status(404).json({ error: 'Product not found' });
-    return res.json(normalizeProductRecord(product));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/products/category/:category', async (req, res) => {
-  try {
-    const includeInactive = String(req.query?.include_inactive || '').trim() === 'true';
-    const rows = await dbAllAsync(
-      `SELECT * FROM products WHERE category = ? ${includeInactive ? '' : 'AND COALESCE(is_active, 1) = 1'} ORDER BY created_at DESC`,
-      [req.params.category]
-    );
-    return res.json(rows.map(normalizeProductRecord));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/products', requireAdmin, async (req, res) => {
-  try {
-    const body = normalizeProductInput(req.body || {});
-    const errors = validateProductPayload(body);
-    if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
-    const duplicate = await findProductConflictAsync(body);
-    if (duplicate) {
-      const allowIdentical = Boolean(req.body?.allow_identical);
-      if (duplicate.severity === 'confirm' && allowIdentical) {
-        // allowed by explicit user choice
-      } else {
-        return res.status(409).json({
-          error: duplicate.message,
-          field: duplicate.field,
-          conflict_type: duplicate.conflict_type,
-          conflict: duplicate
-        });
-      }
-    }
-    const categoryName = await resolveOrCreateCategoryNameAsync(body.category || 'Groceries');
-    const result = await dbRunAsync(
-      `INSERT INTO products
-      (name, description, brand, sub_brand, content, color, price, mrp, uom, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        body.name,
-        body.description || null,
-        body.brand || null,
-        body.sub_brand || null,
-        body.content || null,
-        body.color || null,
-        Number(body.price || 0),
-        body.mrp != null ? Number(body.mrp) : Number(body.price || 0),
-        body.uom || 'pcs',
-        body.sku,
-        body.barcode,
-        body.image || null,
-        Number(body.stock || 0),
-        categoryName,
-        body.subcategory || null,
-        body.expiry_date || null,
-        Number(body.default_discount || 0),
-        body.discount_type || 'fixed',
-        Number(body.is_active ?? 1),
-      ]
-    );
-    return res.status(201).json(normalizeProductRecord(await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [result.lastInsertRowid])));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
-  try {
-    const current = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id]);
-    if (!current) return res.status(404).json({ error: 'Product not found' });
-    const body = normalizeProductInput(req.body || {}, current);
-    const errors = validateProductPayload(body);
-    if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
-    if (Number(current.is_active ?? 1) !== 1) {
-      body.is_active = 1;
-    }
-    const duplicate = await findProductConflictAsync(body, { excludeId: req.params.id });
-    if (duplicate) {
-      const allowIdentical = Boolean(req.body?.allow_identical);
-      if (duplicate.severity === 'confirm' && allowIdentical) {
-        // allowed by explicit user choice
-      } else {
-        return res.status(409).json({
-          error: duplicate.message,
-          field: duplicate.field,
-          conflict_type: duplicate.conflict_type,
-          conflict: duplicate
-        });
-      }
-    }
-    const categoryName = await resolveOrCreateCategoryNameAsync(body.category || current.category || 'Groceries');
-    await dbRunAsync(
-      `UPDATE products SET
-       name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
-       WHERE id=?`,
-      [
-        body.name,
-        body.description,
-        body.brand,
-        body.sub_brand,
-        body.content,
-        body.color,
-        Number(body.price),
-        Number(body.mrp),
-        body.uom,
-        body.sku,
-        body.barcode,
-        body.image,
-        Number(body.stock),
-        categoryName,
-        body.subcategory,
-        body.expiry_date,
-        Number(body.default_discount || 0),
-        body.discount_type || 'fixed',
-        Number(body.is_active ?? 1),
-        req.params.id,
-      ]
-    );
-    return res.json(normalizeProductRecord(await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id])));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
-  try {
-    const current = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id]);
-    if (!current) return res.status(404).json({ error: 'Product not found' });
-    await dbRunAsync(`UPDATE products SET is_active = 0 WHERE id = ?`, [req.params.id]);
-    await logAdminAuditAsync(req, {
-      action: 'product.deactivate',
-      entityType: 'product',
-      entityId: req.params.id,
-      details: { name: current.name || null },
-    });
-    return res.json({ success: true, message: 'Product deleted successfully' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
 const logStockLedgerAsync = async ({
   productId,
   transactionType,
@@ -5082,885 +4370,81 @@ const logStockLedgerAsync = async ({
   );
 };
 
-const doesTableExistAsync = async (tableName) => Boolean(
-  (await dbGetAsync(
-    `SELECT 1 AS ok
-     FROM information_schema.tables
-     WHERE table_schema = current_schema() AND table_name = ?
-     LIMIT 1`,
-    [tableName]
-  ))?.ok
-);
-
-app.delete('/api/products/:id(\\d+)/permanent', requireAdmin, async (req, res) => {
-  try {
-    const productId = Number(req.params.id);
-    const current = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [productId]);
-    if (!current) return res.status(404).json({ error: 'Product not found' });
-
-    const referenceChecks = [
-      { table: 'order_items', sql: `SELECT COUNT(*) as count FROM order_items WHERE product_id = ?` },
-      { table: 'purchase_order_items', sql: `SELECT COUNT(*) as count FROM purchase_order_items WHERE product_id = ?` },
-      { table: 'purchase_return_items', sql: `SELECT COUNT(*) as count FROM purchase_return_items WHERE product_id = ?` },
-      { table: 'stock_ledger', sql: `SELECT COUNT(*) as count FROM stock_ledger WHERE product_id = ?` },
-      { table: 'batch_stock', sql: `SELECT COUNT(*) as count FROM batch_stock WHERE product_id = ?` },
-    ];
-
-    const blockingRefs = [];
-    for (const check of referenceChecks) {
-      if (!await doesTableExistAsync(check.table)) continue;
-      const count = Number((await dbGetAsync(check.sql, [productId]))?.count || 0);
-      if (count > 0) blockingRefs.push(`${check.table} (${count})`);
-    }
-    if (blockingRefs.length) {
-      return res.status(409).json({
-        error: `Cannot permanently delete product. Referenced in: ${blockingRefs.join(', ')}`,
-        references: blockingRefs,
-      });
-    }
-
-    await dbRunAsync(`DELETE FROM products WHERE id = ?`, [productId]);
-    await logAdminAuditAsync(req, {
-      action: 'product.permanent_delete',
-      entityType: 'product',
-      entityId: productId,
-      details: { name: current.name || null },
-    });
-    return res.json({ success: true, message: 'Product permanently deleted' });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
+registerProductRoutes({
+  app,
+  requireAdmin,
+  dbAllAsync,
+  dbGetAsync,
+  dbRunAsync,
+  logAdminAuditAsync,
+  normalizeProductRecord,
+  normalizeProductInput,
+  validateProductPayload,
+  findProductConflictAsync,
+  resolveOrCreateCategoryNameAsync,
+  XLSX,
+  toProductExportRow,
+  PRODUCT_IMPORT_HEADERS,
+  PRODUCT_IMPORT_SAMPLE,
+  cleanupExpiredImportBatches,
+  parseProductFileToRows,
+  findExistingProductForImportAsync,
+  normalizeTextKey,
+  buildProductExactKey,
+  crypto,
+  createImportBatchChecksum,
+  PRODUCT_IMPORT_BATCH_TTL_MS,
+  productImportBatches,
+  SQL_UPSERT_IMPORT_BATCH,
+  applyProductImportBatch,
 });
 
-app.get('/api/products/template', requireAdmin, async (req, res) => {
-  try {
-    const format = String(req.query?.format || 'csv').trim().toLowerCase();
-    const rows = [PRODUCT_IMPORT_SAMPLE];
-    if (format === 'xlsx' || format === 'xls') {
-      const sheet = XLSX.utils.json_to_sheet(rows, { header: PRODUCT_IMPORT_HEADERS });
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, sheet, 'Products');
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="products-template.xlsx"');
-      return res.send(buffer);
-    }
-    const csv = XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows, { header: PRODUCT_IMPORT_HEADERS }));
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="products-template.csv"');
-    return res.send(`\uFEFF${csv}`);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
+registerOrderRoutes({
+  app,
+  requireAdmin,
+  requireAuth,
+  dbAllAsync,
+  dbGetAsync,
+  dbRunAsync,
+  dbTxAsync,
+  normalizeOrderStatus,
+  ORDER_STATUS_ORDERED,
+  ORDER_STATUS_RECEIVED,
+  normalizeOrderPaymentStatus,
+  parseOrderAddress,
+  normalizeEmail,
+  parsePhoneInput,
+  parseBooleanEnv,
+  normalizePaymentMethod,
+  generateOrderNumber,
+  validateCustomerProfile,
+  createAppNotification,
+  notifyAdmins,
+  logAdminAuditAsync,
+  logStockLedgerAsync,
 });
 
-app.get('/api/products/export', requireAdmin, async (req, res) => {
-  try {
-    const format = String(req.query?.format || 'csv').trim().toLowerCase();
-    const includeInactive = String(req.query?.include_inactive || '').trim() === 'true';
-    const rows = (await dbAllAsync(
-      `SELECT * FROM products ${includeInactive ? '' : 'WHERE COALESCE(is_active,1)=1'} ORDER BY created_at DESC`
-    )).map(toProductExportRow);
-    if (format === 'xlsx' || format === 'xls') {
-      const sheet = XLSX.utils.json_to_sheet(rows, { header: PRODUCT_IMPORT_HEADERS });
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, sheet, 'Products');
-      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename="products-export-${new Date().toISOString().slice(0, 10)}.xlsx"`);
-      return res.send(buffer);
-    }
-    const csv = XLSX.utils.sheet_to_csv(XLSX.utils.json_to_sheet(rows, { header: PRODUCT_IMPORT_HEADERS }));
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="products-export-${new Date().toISOString().slice(0, 10)}.csv"`);
-    return res.send(`\uFEFF${csv}`);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/products/import/preview', requireAdmin, async (req, res) => {
-  try {
-    cleanupExpiredImportBatches();
-    const mode = String(req.body?.mode || 'upsert').trim().toLowerCase();
-    const stockMode = String(req.body?.stock_mode || 'replace').trim().toLowerCase();
-    if (!['create_only', 'update_only', 'upsert'].includes(mode)) {
-      return res.status(400).json({ error: 'Invalid mode. Use create_only, update_only or upsert' });
-    }
-    if (!['replace', 'delta'].includes(stockMode)) {
-      return res.status(400).json({ error: 'Invalid stock_mode. Use replace or delta' });
-    }
-
-    const rows = parseProductFileToRows({
-      fileName: req.body?.file_name,
-      fileContentBase64: req.body?.file_content_base64,
-    });
-
-    const normalizedRows = [];
-    const preview = [];
-    let creates = 0;
-    let updates = 0;
-    let skips = 0;
-    let errors = 0;
-    let needsConfirmation = 0;
-    const seenInBatch = {
-      productIds: new Map(),
-      sku: new Map(),
-      barcode: new Map(),
-      identity: new Map(),
-    };
-
-    for (let index = 0; index < rows.length; index += 1) {
-      const row = rows[index];
-      const rowNo = index + 2;
-      const existing = await findExistingProductForImportAsync(row);
-      const action = existing ? 'update' : 'create';
-      const normalized = normalizeProductInput(
-        {
-          ...row,
-          stock: stockMode === 'delta' && existing
-            ? Number(existing.stock || 0) + Number(row.stock || 0)
-            : row.stock,
-        },
-        existing || null
-      );
-      const rowErrors = validateProductPayload(normalized);
-
-      if (mode === 'create_only' && existing) rowErrors.push('Row matches existing product but mode is create_only');
-      if (mode === 'update_only' && !existing) rowErrors.push('Row does not match an existing product but mode is update_only');
-      const duplicate = await findProductConflictAsync(normalized, { excludeId: existing?.id || null });
-      let requiresIdenticalConfirmation = false;
-      let warnings = [];
-      if (duplicate) {
-        if (duplicate.severity === 'confirm') {
-          requiresIdenticalConfirmation = true;
-          warnings = [duplicate.message];
-        } else {
-          rowErrors.push(duplicate.message);
-        }
-      }
-
-      const matchedId = existing?.id ? Number(existing.id) : null;
-      if (matchedId) {
-        const seenProductRow = seenInBatch.productIds.get(matchedId);
-        if (seenProductRow) rowErrors.push(`Duplicate update target in import file (also row ${seenProductRow})`);
-      }
-      const skuKey = normalizeTextKey(normalized.sku);
-      if (skuKey) {
-        const seenSkuRow = seenInBatch.sku.get(skuKey);
-        if (seenSkuRow) rowErrors.push(`Duplicate SKU in import file (also row ${seenSkuRow})`);
-      }
-      const barcodeKey = normalizeTextKey(normalized.barcode);
-      if (barcodeKey) {
-        const seenBarcodeRow = seenInBatch.barcode.get(barcodeKey);
-        if (seenBarcodeRow) rowErrors.push(`Duplicate barcode in import file (also row ${seenBarcodeRow})`);
-      }
-      const identityKey = buildProductExactKey(normalized);
-      if (identityKey) {
-        const seenIdentityRow = seenInBatch.identity.get(identityKey);
-        if (seenIdentityRow) rowErrors.push(`Exact duplicate in import file (also row ${seenIdentityRow})`);
-      }
-
-      if (rowErrors.length) {
-        errors += 1;
-        preview.push({ row: rowNo, action, status: 'error', errors: rowErrors, matched_product_id: existing?.id || null });
-        return;
-      }
-
-      if (matchedId) seenInBatch.productIds.set(matchedId, rowNo);
-      if (skuKey) seenInBatch.sku.set(skuKey, rowNo);
-      if (barcodeKey) seenInBatch.barcode.set(barcodeKey, rowNo);
-      if (identityKey) seenInBatch.identity.set(identityKey, rowNo);
-
-      normalizedRows.push({
-        row: rowNo,
-        action,
-        matched_product_id: existing?.id || null,
-        payload: normalized,
-        barcode: normalized.barcode,
-        requires_identical_confirmation: requiresIdenticalConfirmation,
-      });
-
-      if (action === 'create') creates += 1;
-      if (action === 'update') updates += 1;
-      if (requiresIdenticalConfirmation) {
-        needsConfirmation += 1;
-      }
-      preview.push({
-        row: rowNo,
-        action,
-        status: requiresIdenticalConfirmation ? 'needs_confirmation' : 'ready',
-        errors: [],
-        warnings,
-        matched_product_id: existing?.id || null
-      });
-    }
-
-    if (!normalizedRows.length) {
-      return res.status(400).json({
-        error: 'No valid rows found in import file',
-        preview,
-      });
-    }
-
-    const batchId = crypto.randomUUID();
-    const checksum = createImportBatchChecksum(normalizedRows, mode, stockMode);
-    const createdAt = Date.now();
-    const expiresAt = createdAt + PRODUCT_IMPORT_BATCH_TTL_MS;
-
-    const batchPayload = {
-      mode,
-      stockMode,
-      rows: normalizedRows,
-      createdBy: req.authUser?.id || null,
-      createdAt,
-      expiresAt,
-    };
-    productImportBatches.set(batchId, {
-      ...batchPayload,
-      checksum,
-    });
-    await dbRunAsync(SQL_UPSERT_IMPORT_BATCH, [
-      batchId,
-      'products',
-      req.authUser?.id || null,
-      JSON.stringify(batchPayload),
-      checksum,
-      errors ? 'staged_with_errors' : 'staged',
-      expiresAt,
-    ]);
-
-    const responsePayload = {
-      batch_id: batchId,
-      checksum,
-      expires_at: new Date(expiresAt).toISOString(),
-      summary: {
-        creates,
-        updates,
-        skips,
-        errors,
-        needs_confirmation: needsConfirmation,
-      },
-      preview,
-    };
-
-    if (Boolean(req.body?.auto_confirm)) {
-      const applied = await applyProductImportBatch({
-        batchId,
-        checksum,
-        authUser: req.authUser,
-      });
-      responsePayload.auto_confirmed = true;
-      responsePayload.apply_result = applied.result;
-      responsePayload.notification = {
-        type: 'success',
-        title: 'Product import completed',
-        message: `Created ${applied.result.created}, updated ${applied.result.updated}, failed ${applied.result.failed}`,
-      };
-    }
-
-    return res.json(responsePayload);
-  } catch (error) {
-    return res.status(error.status || 400).json({ error: error.message });
-  }
-});
-
-app.post('/api/products/import/confirm', requireAdmin, async (req, res) => {
-  try {
-    const applied = await applyProductImportBatch({
-      batchId: req.body?.batch_id,
-      checksum: req.body?.checksum,
-      authUser: req.authUser,
-      allowIdenticalRows: req.body?.allow_identical_rows,
-    });
-    return res.json({
-      success: true,
-      ...applied.result,
-      notification: {
-        type: 'success',
-        title: 'Product import completed',
-        message: `Created ${applied.result.created}, updated ${applied.result.updated}, failed ${applied.result.failed}`,
-      },
-    });
-  } catch (error) {
-    return res.status(error.status || 400).json({ error: error.message });
-  }
-});
-
-app.get('/api/categories', async (_, res) => {
-  try {
-    const rows = await dbAllAsync(`SELECT id, name, description, created_at FROM categories ORDER BY name ASC`);
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/categories', requireAdmin, async (req, res) => {
-  try {
-    const name = String(req.body?.name || '').trim();
-    if (!name) return res.status(400).json({ error: 'Category name is required' });
-    const result = await dbRunAsync(`INSERT INTO categories (name, description) VALUES (?, ?)`, [name, req.body?.description || null]);
-    return res.status(201).json(await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [result.lastInsertRowid]));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.put('/api/categories/:id', requireAdmin, async (req, res) => {
-  try {
-    const current = await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [req.params.id]);
-    if (!current) return res.status(404).json({ error: 'Category not found' });
-    await dbRunAsync(`UPDATE categories SET name=?, description=? WHERE id=?`, [
-      req.body?.name ?? current.name,
-      req.body?.description ?? current.description,
-      req.params.id,
-    ]);
-    return res.json(await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [req.params.id]));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
-  try {
-    await dbRunAsync(`DELETE FROM categories WHERE id = ?`, [req.params.id]);
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/orders', requireAdmin, async (_, res) => {
-  try {
-    const orders = await dbAllAsync(`SELECT * FROM orders ORDER BY created_at DESC`);
-    return res.json(orders.map((order) => ({
-      ...order,
-      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
-      payment_method: 'cash',
-      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
-      shipping_address: parseOrderAddress(order?.shipping_address),
-    })));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-const canAccessOrder = (authUser, order) => {
-  if (!authUser || !order) return false;
-  if (authUser.role === 'admin') return true;
-  const ownerId = Number(order.user_id || order.customer_id || 0);
-  return ownerId > 0 && Number(authUser.id) === ownerId;
-};
-
-app.get('/api/orders/:id', requireAuth, async (req, res) => {
-  try {
-    const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (!canAccessOrder(req.authUser, order)) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const items = await dbAllAsync(
-      `SELECT oi.*,
-              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name
-       FROM order_items oi
-       LEFT JOIN products p ON p.id = oi.product_id
-       WHERE oi.order_id = ?
-       ORDER BY oi.id ASC`,
-      [req.params.id]
-    );
-    return res.json({
-      ...order,
-      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
-      payment_method: 'cash',
-      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
-      shipping_address: parseOrderAddress(order?.shipping_address),
-      items,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/orders/:id/history', requireAuth, async (req, res) => {
-  try {
-    const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (!canAccessOrder(req.authUser, order)) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const rows = await dbAllAsync(
-      `SELECT h.id, h.order_id, h.status, h.description, h.created_by, h.created_at, u.name as created_by_name
-       FROM order_status_history h
-       LEFT JOIN users u ON u.id = h.created_by
-       WHERE h.order_id = ?
-       ORDER BY h.created_at DESC`,
-      [req.params.id]
-    );
-    return res.json(rows.map((row) => ({
-      ...row,
-      status: normalizeOrderStatus(row?.status, ORDER_STATUS_ORDERED),
-    })));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/orders/number/:orderNumber', requireAuth, async (req, res) => {
-  try {
-    const order = await dbGetAsync(`SELECT * FROM orders WHERE order_number = ?`, [req.params.orderNumber]);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (!canAccessOrder(req.authUser, order)) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const items = await dbAllAsync(
-      `SELECT oi.*,
-              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name
-       FROM order_items oi
-       LEFT JOIN products p ON p.id = oi.product_id
-       WHERE oi.order_id = ?
-       ORDER BY oi.id ASC`,
-      [order.id]
-    );
-    return res.json({
-      ...order,
-      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
-      payment_method: 'cash',
-      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
-      shipping_address: parseOrderAddress(order?.shipping_address),
-      items,
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/:userId/orders', requireAuth, async (req, res) => {
-  try {
-    const targetUserId = Number(req.params.userId);
-    if (!targetUserId) return res.status(400).json({ error: 'Invalid user id' });
-    if (req.authUser.role !== 'admin' && Number(req.authUser.id) !== targetUserId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const orders = await dbAllAsync(`SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`, [req.params.userId]);
-    return res.json(orders.map((order) => ({
-      ...order,
-      status: normalizeOrderStatus(order?.status, ORDER_STATUS_ORDERED),
-      payment_method: 'cash',
-      payment_status: normalizeOrderPaymentStatus(order?.payment_status, order?.status),
-      shipping_address: parseOrderAddress(order?.shipping_address),
-    })));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-const placeOrder = async (payload) => {
-  const {
-    user_id = null,
-    customer_name,
-    customer_email = '',
-    customer_phone = null,
-    shipping_address = {},
-    items = [],
-    payment_method = 'cash',
-  } = payload;
-
-  if (!customer_name || !items.length) {
-    throw new Error('Missing required fields');
-  }
-  if (!Number(user_id)) {
-    throw new Error('AUTH_REQUIRED: Login is required to place orders');
-  }
-  const normalizedCustomerEmail = normalizeEmail(customer_email) || '';
-  const account = await dbGetAsync(`SELECT id, role, email_verified, phone_verified FROM users WHERE id = ?`, [user_id]);
-  if (!account) {
-    throw new Error('CUSTOMER_NOT_FOUND');
-  }
-  if (
-    String(account.role || '').toLowerCase() !== 'admin' &&
-    Number(account.email_verified || 0) !== 1 &&
-    Number(account.phone_verified || 0) !== 1
-  ) {
-    throw new Error('INCOMPLETE_PROFILE: Verify at least one contact method (email or phone) before placing orders');
-  }
-  const phoneParsed = parsePhoneInput(customer_phone);
-  if (phoneParsed.error) {
-    throw new Error(phoneParsed.error);
-  }
-  const normalizedCustomerPhone = phoneParsed.value;
-
-  const parsedItems = items.map((it, index) => {
-    const parsedProductId = Number(it?.product_id ?? it?.id ?? 0);
-    const productId = Number.isFinite(parsedProductId) && parsedProductId > 0
-      ? Math.trunc(parsedProductId)
-      : null;
-    let quantity = Number(it?.quantity || 0);
-    const providedName = String(it?.product_name || it?.name || '').trim();
-    const quantityLabel = String(it?.quantity_label || it?.qty_text || '').trim();
-    const itemType = String(it?.item_type || '').trim().toLowerCase();
-    const manualHint = parseBooleanEnv(it?.is_manual, false) || itemType === 'manual';
-    const isManual = manualHint || !productId;
-    if ((!Number.isFinite(quantity) || quantity <= 0) && quantityLabel) {
-      const quantityFromLabel = Number(String(quantityLabel).match(/(\d+(?:\.\d+)?)/)?.[1] || 0);
-      if (Number.isFinite(quantityFromLabel) && quantityFromLabel > 0) {
-        quantity = quantityFromLabel;
-      }
-    }
-    const rawPrice = Number(it?.price);
-    const priceUnknownHint = parseBooleanEnv(it?.price_unknown, false) || parseBooleanEnv(it?.unknown_price, false);
-    let price = Number.isFinite(rawPrice) ? rawPrice : NaN;
-    if (isManual && (priceUnknownHint || !Number.isFinite(price) || price < 0)) {
-      price = 0;
-    }
-    return {
-      line_index: index,
-      // Keep backward compatibility for older schemas where product_id can still be NOT NULL.
-      // product_id=0 is treated as manual everywhere in this codebase.
-      product_id: isManual ? 0 : productId,
-      product_name: providedName,
-      quantity,
-      price,
-      is_manual: isManual ? 1 : 0,
-    };
-  });
-  if (parsedItems.some((it) => it.quantity <= 0 || !Number.isFinite(it.quantity))) {
-    throw new Error('Invalid order items');
-  }
-  if (parsedItems.some((it) => it.price < 0 || !Number.isFinite(it.price))) {
-    throw new Error('Invalid order items');
-  }
-  if (parsedItems.some((it) => it.is_manual === 1 && !it.product_name)) {
-    throw new Error('Manual order items must include a product name');
-  }
-
-  for (const it of parsedItems) {
-    if (it.is_manual === 1) continue;
-    const p = await dbGetAsync(`SELECT id, name, stock FROM products WHERE id = ?`, [it.product_id]);
-    if (!p) throw new Error(`Product ${it.product_id} not found`);
-    if (Number(p.stock) < it.quantity) throw new Error(`Insufficient stock for product ${it.product_id}`);
-    if (!it.product_name) {
-      it.product_name = String(p.name || '').trim() || 'Item';
-    }
-  }
-
-  const normalizedPaymentMethod = normalizePaymentMethod(payment_method);
-  const subtotal = parsedItems.reduce((s, it) => s + it.price * it.quantity, 0);
-  const tax = Math.round(subtotal * 0.1 * 100) / 100;
-  const total = subtotal + tax;
-  const orderNumber = generateOrderNumber();
-  const createdStatus = ORDER_STATUS_ORDERED;
-
-  return await dbTxAsync(async () => {
-    const orderInsert = await dbRunAsync(
-      `INSERT INTO orders
-      (order_number, user_id, customer_name, customer_email, customer_phone, shipping_address, total_amount, status, payment_method, payment_status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        orderNumber,
-        user_id,
-        customer_name,
-        normalizedCustomerEmail,
-        normalizedCustomerPhone,
-        JSON.stringify(shipping_address || {}),
-        total,
-        createdStatus,
-        normalizedPaymentMethod,
-        normalizeOrderPaymentStatus('pending', createdStatus),
-      ]
-    );
-    const orderId = orderInsert.lastInsertRowid;
-
-    for (const it of parsedItems) {
-      await dbRunAsync(
-        `INSERT INTO order_items (order_id, product_id, product_name, is_manual, quantity, price, total) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          orderId,
-          Number(it.is_manual || 0) === 1 ? 0 : (it.product_id || null),
-          it.product_name || null,
-          Number(it.is_manual || 0) === 1 ? 1 : 0,
-          it.quantity,
-          it.price,
-          it.price * it.quantity
-        ]
-      );
-    }
-    await dbRunAsync(
-      `INSERT INTO order_status_history (order_id, status, description, created_by) VALUES (?, ?, ?, ?)`,
-      [orderId, createdStatus, 'Order placed', user_id]
-    );
-
-    return { orderId, orderNumber, totalAmount: total };
-  });
-};
-
-app.post('/api/orders', requireAuth, async (_, res) =>
-  res.status(410).json({ error: 'Legacy order endpoint is disabled. Use /api/orders/create-validated.' })
-);
-
-app.post('/api/orders/create-validated', requireAuth, async (req, res) => {
-  try {
-    const body = req.body || {};
-    const authUser = req.authUser;
-    const isAdminOrder = Boolean(body.is_admin_order) && authUser.role === 'admin';
-    const effectiveUserId = isAdminOrder
-      ? (Number(body.selected_customer_id || body.user_id || 0) || null)
-      : Number(authUser.id);
-    if (body.is_admin_order && authUser.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required for admin order mode' });
-    }
-    if (isAdminOrder && !body.selected_customer_id) {
-      return res.status(400).json({ error: 'Selected customer is required for admin order' });
-    }
-    if (effectiveUserId) {
-      const customer = await dbGetAsync(
-        `SELECT id, name, email_verified, phone_verified, phone, address, role FROM users WHERE id = ?`,
-        [effectiveUserId]
-      );
-      if (!customer) {
-        return res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
-      }
-      let address = {};
-      if (customer.address) {
-        try {
-          address = JSON.parse(customer.address);
-        } catch (_) {
-          address = { street: customer.address };
-        }
-      }
-      if (String(customer.role || '').toLowerCase() !== 'admin') {
-        const submittedAddress = (body.shipping_address && typeof body.shipping_address === 'object')
-          ? body.shipping_address
-          : {};
-        const mergedAddress = {
-          street: String(submittedAddress.street || address.street || '').trim(),
-          city: String(submittedAddress.city || address.city || '').trim(),
-          state: String(submittedAddress.state || address.state || '').trim(),
-          zip: String(submittedAddress.zip || address.zip || '').trim(),
-          country: String(submittedAddress.country || address.country || '').trim(),
-        };
-        const profileForValidation = {
-          ...customer,
-          phone: String(body.customer_phone || customer.phone || '').trim(),
-        };
-        const validation = validateCustomerProfile(profileForValidation, mergedAddress);
-        if (!validation.complete) {
-          return res.status(400).json({
-            error: 'INCOMPLETE_PROFILE',
-            message: 'Customer profile is incomplete',
-            issues: validation.issues,
-          });
-        }
-      }
-    }
-
-    const result = await placeOrder({
-      ...body,
-      user_id: effectiveUserId,
-      customer_phone: body.customer_phone,
-      shipping_address: body.shipping_address || {},
-      payment_method: 'cash',
-    });
-    const orderId = Number(result?.orderId || 0);
-    const orderNumber = String(result?.orderNumber || '').trim();
-    const customerName = String(body.customer_name || '').trim() || `User #${effectiveUserId}`;
-    const actorName = String(authUser?.name || '').trim() || 'System';
-    try {
-      if (orderId && effectiveUserId) {
-        await createAppNotification({
-          userId: Number(effectiveUserId),
-          title: 'Order placed',
-          message: `Order ${orderNumber || `#${orderId}`} has been placed successfully.`,
-          level: 'success',
-          entityType: 'order',
-          entityId: orderId,
-          metadata: {
-            order_id: orderId,
-            order_number: orderNumber || null,
-            user_id: Number(effectiveUserId),
-          },
-          createdBy: Number(authUser?.id || 0) || null,
-        });
-      }
-      if (orderId) {
-        await notifyAdmins({
-          title: 'New order placed',
-          message: `${customerName} placed order ${orderNumber || `#${orderId}`}${isAdminOrder ? ` (created by ${actorName})` : ''}.`,
-          level: 'info',
-          entityType: 'order',
-          entityId: orderId,
-          metadata: {
-            order_id: orderId,
-            order_number: orderNumber || null,
-            user_id: Number(effectiveUserId || 0) || null,
-            created_by_admin: isAdminOrder ? Number(authUser?.id || 0) || null : null,
-          },
-          createdBy: Number(authUser?.id || 0) || null,
-        });
-      }
-    } catch (notifyError) {
-      console.warn('[NOTIFY] order placement notification failed:', notifyError?.message || notifyError);
-    }
-    return res.status(201).json({ success: true, ...result, message: 'Order placed successfully' });
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
-});
-
-app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
-  try {
-    const requestedStatus = normalizeOrderStatus(req.body?.status, '');
-    if (!requestedStatus) return res.status(400).json({ error: 'Status is required' });
-    if (requestedStatus !== ORDER_STATUS_RECEIVED) {
-      return res.status(400).json({ error: 'Only received confirmation is allowed' });
-    }
-    const order = await dbGetAsync(`SELECT * FROM orders WHERE id = ?`, [req.params.id]);
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    const currentStatus = normalizeOrderStatus(order.status, ORDER_STATUS_ORDERED);
-    if (currentStatus === ORDER_STATUS_RECEIVED) {
-      return res.json({ success: true, applied: false, message: 'Order is already marked as received' });
-    }
-    if (currentStatus !== ORDER_STATUS_ORDERED) {
-      return res.status(400).json({ error: 'Order is not in ordered state' });
-    }
-
-    // record status change in history
-    const createdBy = req.body?.created_by || null;
-    const description = req.body?.description || null;
-    const items = await dbAllAsync(`SELECT * FROM order_items WHERE order_id = ?`, [req.params.id]);
-    await dbTxAsync(async () => {
-      for (const item of items) {
-        const productId = Number(item?.product_id || 0);
-        const isManual = Number(item?.is_manual || 0) === 1 || !productId;
-        if (isManual) continue;
-        const current = await dbGetAsync(`SELECT id, stock FROM products WHERE id = ?`, [item.product_id]);
-        if (!current) throw new Error(`Product ${item.product_id} not found`);
-        if (Number(current.stock) < Number(item.quantity)) {
-          throw new Error(`Insufficient stock for product ${item.product_id}`);
-        }
-        const before = Number(current.stock);
-        await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [item.quantity, item.product_id]);
-        const after = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
-        await logStockLedgerAsync({
-          productId: item.product_id,
-          transactionType: 'SALE',
-          quantityChange: -Number(item.quantity),
-          previousBalance: before,
-          newBalance: Number(after),
-          referenceType: 'ORDER',
-          referenceId: String(req.params.id),
-          userId: order.user_id || null,
-        });
-      }
-
-      await dbRunAsync(
-        `INSERT INTO order_status_history (order_id, status, description, created_by) VALUES (?, ?, ?, ?)`,
-        [req.params.id, ORDER_STATUS_RECEIVED, description || 'Order received/confirmed', createdBy]
-      );
-      await dbRunAsync(
-        `UPDATE orders
-         SET status = ?, payment_method = ?, payment_status = ?, stock_applied = 1, credit_applied = 0
-          WHERE id = ?`,
-        [ORDER_STATUS_RECEIVED, 'cash', normalizeOrderPaymentStatus('paid', ORDER_STATUS_RECEIVED), req.params.id]
-      );
-    });
-
-    await logAdminAuditAsync(req, {
-      action: 'order.status_update',
-      entityType: 'order',
-      entityId: req.params.id,
-      details: {
-        status: ORDER_STATUS_RECEIVED,
-        applied: true,
-        stock_applied: 1,
-      },
-    });
-    try {
-      if (Number(order?.user_id || 0)) {
-        await createAppNotification({
-          userId: Number(order.user_id),
-          title: 'Order received',
-          message: `Order ${order.order_number || `#${order.id}`} has been marked as received.`,
-          level: 'success',
-          entityType: 'order',
-          entityId: Number(order.id || req.params.id),
-          metadata: {
-            order_id: Number(order.id || req.params.id),
-            order_number: order.order_number || null,
-            user_id: Number(order.user_id || 0) || null,
-          },
-          createdBy: Number(req.authUser?.id || 0) || null,
-        });
-      }
-    } catch (notifyError) {
-      console.warn('[NOTIFY] order status notification failed:', notifyError?.message || notifyError);
-    }
-    return res.json({ success: true, applied: true });
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
-});
-
-app.get('/api/stats/orders', requireAdmin, async (_, res) => {
-  try {
-    const totalOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders`))?.count || 0;
-    const totalRevenue = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) AS total FROM orders`))?.total || 0;
-    const pendingOrders = (await dbGetAsync(`SELECT COUNT(*) AS count FROM orders WHERE status = ?`, [ORDER_STATUS_ORDERED]))?.count || 0;
-    return res.json({
-      totalOrders,
-      totalRevenue,
-      pendingOrders,
-      byStatus: { ordered: pendingOrders },
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/:userId/bills', requireAuth, async (req, res) => {
-  try {
-    const requestUserId = Number(req.params.userId);
-    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
-    const isAdmin = req.authUser?.role === 'admin';
-    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const rows = await dbAllAsync(
-      `SELECT *
-       FROM bills
-       WHERE customer_id = ?
-       ORDER BY created_at DESC`,
-      [requestUserId]
-    );
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/:userId/bills/:identifier', requireAuth, async (req, res) => {
-  try {
-    const requestUserId = Number(req.params.userId);
-    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
-    const isAdmin = req.authUser?.role === 'admin';
-    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const identifier = String(req.params.identifier || '').trim();
-    const bill = await dbGetAsync(
-      `SELECT *
-       FROM bills
-       WHERE customer_id = ?
-         AND (id = ? OR bill_number = ?)
-       LIMIT 1`,
-      [requestUserId, identifier, identifier]
-    );
-    if (!bill) return res.status(404).json({ error: 'Bill not found' });
-    const items = await dbAllAsync(`SELECT * FROM bill_items WHERE bill_id = ? ORDER BY id ASC`, [bill.id]);
-    return res.json({ ...bill, items });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
+registerBillingRoutes({
+  app,
+  requireAuth,
+  requireAdmin,
+  dbAllAsync,
+  dbGetAsync,
+  dbRunAsync,
+  dbTxAsync,
+  normalizeEmail,
+  normalizePhone,
+  normalizeOrderStatus,
+  normalizePaymentMethod,
+  normalizeProductRecord,
+  ORDER_STATUS_ORDERED,
+  ORDER_STATUS_RECEIVED,
+  resolveClientRequestId,
+  isUniqueViolationError,
+  generateBillNumber,
+  logStockLedgerAsync,
+  logAdminAuditAsync,
+  createAppNotification,
 });
 
 app.post('/api/product-recommendations', requireAuth, async (req, res) => {
@@ -7713,337 +6197,6 @@ app.post('/api/stock/verify', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/billing/customers/search', requireAdmin, async (req, res) => {
-  try {
-    const q = String(req.query.q || '').trim();
-    const like = `%${q}%`;
-    const rows = q
-      ? await dbAllAsync(`SELECT id, name, email, phone, address FROM users WHERE role='customer' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?) ORDER BY name LIMIT 20`, [like, like, like])
-      : await dbAllAsync(`SELECT id, name, email, phone, address FROM users WHERE role='customer' ORDER BY name LIMIT 20`);
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/billing/products/search', requireAdmin, async (req, res) => {
-  try {
-    const q = String(req.query.q || '').trim();
-    const category = String(req.query.category || '').trim();
-    let sql = `SELECT * FROM products WHERE COALESCE(is_active, 1) = 1`;
-    const params = [];
-    if (q) {
-      sql += ` AND (name LIKE ? OR sku LIKE ? OR brand LIKE ? OR barcode LIKE ?)`;
-      const like = `%${q}%`;
-      params.push(like, like, like, like);
-    }
-    if (category) {
-      sql += ` AND category = ?`;
-      params.push(category);
-    }
-    sql += ` ORDER BY name LIMIT 50`;
-    return res.json((await dbAllAsync(sql, params)).map(normalizeProductRecord));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/bills/create', requireAdmin, async (req, res) => {
-  let clientRequestId = null;
-  try {
-    const b = req.body || {};
-    const idempotency = resolveClientRequestId(req);
-    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
-    clientRequestId = idempotency.value;
-    if (clientRequestId) {
-      const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
-      if (existing) {
-        return res.status(200).json({
-          success: true,
-          deduplicated: true,
-          bill_id: Number(existing.id),
-          bill_number: existing.bill_number,
-        });
-      }
-    }
-
-    const items = Array.isArray(b.items) ? b.items : [];
-    if (!items.length) return res.status(400).json({ error: 'items are required' });
-    const billTypeRaw = String(b.bill_type || 'sales').trim().toLowerCase();
-    const billType = billTypeRaw === 'purchase' ? 'purchase' : 'sales';
-
-    const customerId = Number(b.customer_id || 0);
-    if (!customerId) return res.status(400).json({ error: 'customer_id is required' });
-    const customer = await dbGetAsync(
-      `SELECT id, name, email, phone, address FROM users WHERE id = ? AND role = 'customer'`,
-      [customerId]
-    );
-    if (!customer) return res.status(400).json({ error: 'customer not found' });
-
-    const customerName = String(customer.name || '').trim();
-    const customerEmail = normalizeEmail(customer.email);
-    const customerPhone = normalizePhone(customer.phone);
-    const customerAddress = customer.address ? String(customer.address).trim() : null;
-    const productCache = new Map();
-    const itemErrors = [];
-    const sanitizedItems = [];
-    for (let index = 0; index < items.length; index += 1) {
-      const it = items[index];
-      const rowNo = index + 1;
-      const productId = Number(it.product_id || 0);
-      if (!productId) {
-        itemErrors.push(`Item ${rowNo}: product_id is required`);
-        continue;
-      }
-      if (!productCache.has(productId)) {
-        productCache.set(
-          productId,
-          (await dbGetAsync(`SELECT id, name, stock, is_active FROM products WHERE id = ?`, [productId])) || null
-        );
-      }
-      const product = productCache.get(productId);
-      if (!product) {
-        itemErrors.push(`Item ${rowNo}: Product ${productId} not found`);
-        continue;
-      }
-      if (Number(product.is_active ?? 1) !== 1) {
-        itemErrors.push(`Item ${rowNo}: Product ${productId} is inactive`);
-        continue;
-      }
-      const qty = Math.max(0, Number(it.qty || 0));
-      const mrp = Math.max(0, Number(it.mrp || 0));
-      const lineSubtotal = mrp * qty;
-      const discount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
-      const amount = Math.max(0, lineSubtotal - discount);
-      const productName =
-        String(it.product_name || '').trim() ||
-        product.name ||
-        'Unknown';
-      const normalized = {
-        product_id: Number(product.id),
-        product_name: productName,
-        mrp,
-        qty,
-        unit: String(it.unit || 'pcs'),
-        discount,
-        amount,
-      };
-      if (normalized.qty > 0 && normalized.amount >= 0) {
-        sanitizedItems.push(normalized);
-      }
-    }
-
-    if (itemErrors.length) {
-      return res.status(400).json({ error: 'Invalid bill items', details: itemErrors });
-    }
-
-    if (!sanitizedItems.length) return res.status(400).json({ error: 'At least one valid item is required' });
-    const salesQtyByProduct = new Map();
-    if (billType === 'sales') {
-      sanitizedItems.forEach((it) => {
-        salesQtyByProduct.set(
-          it.product_id,
-          Number(salesQtyByProduct.get(it.product_id) || 0) + Number(it.qty || 0)
-        );
-      });
-      const stockErrors = [];
-      for (const [productId, neededQty] of salesQtyByProduct.entries()) {
-        const product = productCache.get(productId);
-        const currentStock = Number(product?.stock || 0);
-        if (currentStock < neededQty) {
-          stockErrors.push(`Product ${productId}: requested ${neededQty}, in stock ${currentStock}`);
-        }
-      }
-      if (stockErrors.length) {
-        return res.status(400).json({
-          error: 'Insufficient stock for one or more items',
-          details: stockErrors,
-        });
-      }
-    }
-    const subtotal = sanitizedItems.reduce((sum, it) => sum + Number(it.amount || 0), 0);
-    const billDiscount = Math.min(subtotal, Math.max(0, Number(b.discount_amount || 0)));
-    const totalAmount = Math.max(0, subtotal - billDiscount);
-    const paidAmount = Math.max(0, Math.min(totalAmount, Number(b.paid_amount || 0)));
-    const creditAmount = Math.max(0, totalAmount - paidAmount);
-    const paymentStatus = creditAmount > 0 ? 'pending' : 'paid';
-    const createdBy = Number(req.authUser?.id || 0) || null;
-    const billNumber = generateBillNumber();
-    const billId = await dbTxAsync(async () => {
-      const header = await dbRunAsync(
-        `INSERT INTO bills (bill_number, customer_id, customer_name, customer_email, customer_phone, customer_address, subtotal, discount_amount, total_amount, paid_amount, credit_amount, payment_method, payment_status, bill_type, created_by, client_request_id, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          billNumber,
-          Number(customer.id),
-          customerName,
-          customerEmail,
-          customerPhone,
-          customerAddress,
-          subtotal,
-          billDiscount,
-          totalAmount,
-          paidAmount,
-          creditAmount,
-          normalizePaymentMethod(b.payment_method),
-          paymentStatus,
-          billType,
-          createdBy,
-          clientRequestId,
-          b.notes ? String(b.notes) : null,
-        ]
-      );
-      const billId = header.lastInsertRowid;
-      for (const it of sanitizedItems) {
-        await dbRunAsync(
-          `INSERT INTO bill_items (bill_id, product_id, product_name, mrp, qty, unit, discount, amount)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            billId,
-            it.product_id,
-            it.product_name,
-            it.mrp,
-            it.qty,
-            it.unit,
-            it.discount,
-            it.amount,
-          ]
-        );
-      }
-      if (billType === 'sales') {
-        for (const [productId, neededQty] of salesQtyByProduct.entries()) {
-          const before = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
-          if (before < neededQty) {
-            const err = new Error(`Insufficient stock for product ${productId}`);
-            err.status = 400;
-            throw err;
-          }
-          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [neededQty, productId]);
-          const after = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
-          await logStockLedgerAsync({
-            productId,
-            transactionType: 'out',
-            quantityChange: -Number(neededQty || 0),
-            previousBalance: before,
-            newBalance: after,
-            referenceType: 'bill',
-            referenceId: String(billId),
-            userId: createdBy,
-            userName: req.authUser?.name || null,
-            notes: `Sales bill ${billNumber}`,
-          });
-        }
-      }
-      return billId;
-    });
-    await logAdminAuditAsync(req, {
-      action: 'bill.create',
-      entityType: 'bill',
-      entityId: billId,
-      requestId: clientRequestId,
-      details: {
-        bill_number: billNumber,
-        customer_id: Number(customer.id),
-        bill_type: billType,
-        total_amount: Number(totalAmount || 0),
-        credit_amount: Number(creditAmount || 0),
-        items_count: sanitizedItems.length,
-      },
-    });
-    try {
-      const totalAmountText = `Rs ${Number(totalAmount || 0).toFixed(2)}`;
-      await createAppNotification({
-        userId: Number(customer.id),
-        title: `Bill ${billNumber} created`,
-        message: `A new bill of ${totalAmountText} was created for your account.`,
-        level: 'info',
-        entityType: 'bill',
-        entityId: billId,
-        metadata: {
-          route: '/my-bills',
-          bill_id: Number(billId || 0),
-          bill_number: billNumber,
-          total_amount: Number(totalAmount || 0),
-          credit_amount: Number(creditAmount || 0),
-          paid_amount: Number(paidAmount || 0),
-        },
-        createdBy,
-      });
-    } catch (notifyError) {
-      console.warn('[NOTIFY] bill creation notification failed:', notifyError?.message || notifyError);
-    }
-    return res.status(201).json({ success: true, bill_id: billId, bill_number: billNumber });
-  } catch (error) {
-    if (clientRequestId && isUniqueViolationError(error)) {
-      const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
-      if (existing) {
-        return res.status(200).json({
-          success: true,
-          deduplicated: true,
-          bill_id: Number(existing.id),
-          bill_number: existing.bill_number,
-        });
-      }
-    }
-    return res.status(error.status || 500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bills', requireAdmin, async (_, res) => {
-  try {
-    return res.json(await dbAllAsync(`SELECT * FROM bills ORDER BY created_at DESC`));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bills/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const bill = await dbGetAsync(`SELECT * FROM bills WHERE id = ? OR bill_number = ?`, [id, id]);
-    if (!bill) return res.status(404).json({ error: 'Bill not found' });
-    const items = await dbAllAsync(`SELECT * FROM bill_items WHERE bill_id = ?`, [bill.id]);
-    return res.json({ ...bill, items });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.put('/api/bills/:id/payment', requireAdmin, async (req, res) => {
-  try {
-    const cur = await dbGetAsync(`SELECT * FROM bills WHERE id = ?`, [req.params.id]);
-    if (!cur) return res.status(404).json({ error: 'Bill not found' });
-    await dbRunAsync(`UPDATE bills SET payment_status = ?, payment_method = ?, updated_at=CURRENT_TIMESTAMP WHERE id = ?`, [
-      req.body?.payment_status || cur.payment_status,
-      req.body?.payment_method || cur.payment_method,
-      req.params.id,
-    ]);
-    await logAdminAuditAsync(req, {
-      action: 'bill.payment_update',
-      entityType: 'bill',
-      entityId: req.params.id,
-      details: {
-        payment_status: req.body?.payment_status || cur.payment_status,
-        payment_method: req.body?.payment_method || cur.payment_method,
-      },
-    });
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bills/stats/summary', requireAdmin, async (_, res) => {
-  try {
-    const totalBills = (await dbGetAsync(`SELECT COUNT(*) as count FROM bills`))?.count || 0;
-    const totalSales = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) as total FROM bills WHERE bill_type = 'sales'`))?.total || 0;
-    const totalPurchase = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) as total FROM bills WHERE bill_type = 'purchase'`))?.total || 0;
-    return res.json({ totalBills, totalSales, totalPurchase });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
 app.get('/api/offers', async (_, res) => {
   try {
     return res.json(await dbAllAsync(`SELECT * FROM offers ORDER BY created_at DESC`));
@@ -8144,14 +6297,6 @@ app.delete('/api/offers/:id', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/product-versions/:internalId', (_, res) => res.json([]));
-app.get('/api/product-versions/sku/:sku', (_, res) => res.json([]));
-app.get('/api/uom-conversions/:productId', requireAdmin, (_, res) => res.json([]));
-app.post('/api/uom-conversions', requireAdmin, (_, res) => res.status(201).json({ success: true }));
-app.delete('/api/uom-conversions/:id', requireAdmin, (_, res) => res.json({ success: true }));
-app.get('/api/batch-stock', requireAdmin, (_, res) => res.json([]));
-app.post('/api/batch-stock', requireAdmin, (_, res) => res.status(201).json({ success: true }));
-
 // Root route
 app.get('/', (_, res) => {
   res.json({
@@ -8165,6 +6310,7 @@ app.get('/', (_, res) => {
 const startServer = async () => {
   await ensureRuntimeReady();
   startPhoneChangeWorker();
+  startAppNotificationPurgeWorker();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
@@ -8183,6 +6329,7 @@ if (!IS_VERCEL_RUNTIME) {
 const shutdownServer = (signal) => {
   console.log(`[SYSTEM] Received ${signal}. Shutting down...`);
   stopPhoneChangeWorker();
+  stopAppNotificationPurgeWorker();
   void Promise.allSettled([closePostgresScaffold()]).finally(() => {
     process.exit(0);
   });

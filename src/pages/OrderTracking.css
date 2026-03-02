@@ -776,3 +776,419 @@
     height: 80px;
   }
 }
+
+/* Mobile-first override layer */
+.order-tracking-page {
+  padding: 12px;
+}
+
+.search-section {
+  padding: 24px 12px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.search-section h1 {
+  font-size: 1.6rem;
+}
+
+.search-section p {
+  font-size: 0.9rem;
+  margin-bottom: 14px;
+}
+
+.search-form {
+  flex-direction: column;
+  gap: 10px;
+  max-width: 100%;
+}
+
+.search-form input {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 12px 14px;
+}
+
+.search-form button {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+}
+
+.error-container {
+  margin-top: 20px;
+  padding: 28px 14px;
+  border-radius: 12px;
+}
+
+.tracking-header {
+  padding: 20px 8px;
+}
+
+.tracking-header h1 {
+  font-size: 1.55rem;
+}
+
+.order-number-display {
+  font-size: 0.95rem;
+}
+
+.status-progress-section {
+  padding: 16px 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.progress-bar {
+  margin-bottom: 16px;
+}
+
+.progress-steps {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.progress-steps .step {
+  flex: 0 0 50%;
+}
+
+.progress-steps .step span {
+  font-size: 0.78rem;
+}
+
+.tracking-content {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.tracking-card {
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.tracking-card h2 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+}
+
+.tracking-item {
+  flex-direction: column;
+  text-align: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.item-image {
+  width: 80px;
+  height: 80px;
+}
+
+.item-details h4 {
+  font-size: 0.95rem;
+}
+
+.item-quantity,
+.item-price {
+  font-size: 0.8rem;
+}
+
+.item-total {
+  font-size: 0.95rem;
+}
+
+.timeline {
+  padding-left: 24px;
+}
+
+.timeline-marker {
+  left: -20px;
+}
+
+.timeline-content {
+  padding: 10px 12px;
+}
+
+.timeline-date {
+  font-size: 0.72rem;
+}
+
+.timeline-status {
+  font-size: 0.9rem;
+}
+
+.timeline-description {
+  font-size: 0.82rem;
+}
+
+.tracking-sidebar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.summary-card,
+.address-card,
+.contact-card,
+.payment-card,
+.shipping-card,
+.actions-card {
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.summary-row,
+.address-content p,
+.contact-item,
+.payment-item,
+.tracking-number,
+.estimated-delivery {
+  font-size: 0.84rem;
+}
+
+.summary-total {
+  font-size: 1rem;
+}
+
+.shipping-record {
+  font-size: 0.74rem;
+}
+
+.track-package-btn,
+.print-receipt-btn,
+.continue-shopping-btn {
+  width: 100%;
+  min-height: 42px;
+  padding: 11px;
+}
+
+.notification-item {
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+@media (min-width: 481px) {
+  .order-tracking-page {
+    padding: 16px;
+  }
+
+  .search-section {
+    padding: 36px 16px;
+  }
+
+  .search-section h1 {
+    font-size: 2rem;
+  }
+
+  .progress-steps .step {
+    flex: 0 0 33.33%;
+  }
+
+  .tracking-card {
+    padding: 18px;
+  }
+}
+
+@media (min-width: 769px) {
+  .order-tracking-page {
+    padding: 20px;
+  }
+
+  .search-section {
+    padding: 60px 20px;
+    border-radius: 16px;
+    margin-bottom: 40px;
+  }
+
+  .search-section h1 {
+    font-size: 2.5rem;
+  }
+
+  .search-section p {
+    font-size: 1rem;
+    margin-bottom: 30px;
+  }
+
+  .search-form {
+    flex-direction: row;
+    gap: 12px;
+    max-width: 500px;
+  }
+
+  .search-form button {
+    width: auto;
+    padding: 16px 32px;
+  }
+
+  .error-container {
+    margin-top: 40px;
+    padding: 60px 20px;
+    border-radius: 16px;
+  }
+
+  .tracking-header {
+    padding: 40px 20px;
+  }
+
+  .tracking-header h1 {
+    font-size: 2rem;
+  }
+
+  .order-number-display {
+    font-size: 1.2rem;
+  }
+
+  .status-progress-section {
+    padding: 30px;
+    border-radius: 16px;
+    margin-bottom: 30px;
+  }
+
+  .progress-bar {
+    margin-bottom: 30px;
+  }
+
+  .progress-steps {
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  .progress-steps .step {
+    flex: 1;
+  }
+
+  .progress-steps .step span {
+    font-size: 0.85rem;
+  }
+
+  .tracking-content {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .tracking-card {
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .tracking-card h2 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+
+  .tracking-item {
+    flex-direction: row;
+    text-align: left;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .item-image {
+    width: 70px;
+    height: 70px;
+  }
+
+  .item-details h4 {
+    font-size: 1rem;
+  }
+
+  .item-quantity,
+.item-price {
+    font-size: 0.85rem;
+  }
+
+  .item-total {
+    font-size: 1.1rem;
+  }
+
+  .timeline {
+    padding-left: 30px;
+  }
+
+  .timeline-marker {
+    left: -26px;
+  }
+
+  .timeline-content {
+    padding: 12px 16px;
+  }
+
+  .timeline-date {
+    font-size: 0.75rem;
+  }
+
+  .timeline-status {
+    font-size: 1rem;
+  }
+
+  .timeline-description {
+    font-size: 0.9rem;
+  }
+
+  .tracking-sidebar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .actions-card {
+    grid-column: span 2;
+  }
+
+  .summary-card,
+.address-card,
+.contact-card,
+.payment-card,
+.shipping-card,
+.actions-card {
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .summary-row,
+.address-content p,
+.contact-item,
+.payment-item,
+.tracking-number,
+.estimated-delivery {
+    font-size: 0.9rem;
+  }
+
+  .summary-total {
+    font-size: 1.2rem;
+  }
+
+  .shipping-record {
+    font-size: 0.8rem;
+  }
+
+  .track-package-btn,
+.print-receipt-btn,
+.continue-shopping-btn {
+    width: 100%;
+    padding: 12px 14px;
+  }
+
+  .notification-item {
+    grid-template-columns: 80px 1fr 80px auto;
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .tracking-content {
+    grid-template-columns: 1fr 400px;
+  }
+
+  .tracking-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .actions-card {
+    grid-column: auto;
+  }
+}

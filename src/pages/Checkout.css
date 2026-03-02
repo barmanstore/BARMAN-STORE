@@ -465,3 +465,349 @@
     height: 60px;
   }
 }
+
+/* Mobile-first override layer */
+.checkout-page {
+  padding: 1rem 0;
+}
+
+.checkout-header {
+  margin-bottom: 1.5rem;
+}
+
+.checkout-header h1 {
+  font-size: 2.1rem;
+}
+
+.checkout-header p {
+  font-size: 0.95rem;
+}
+
+.checkout-content {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.checkout-form-container {
+  padding: 1.1rem;
+}
+
+.checkout-form h2 {
+  font-size: 1.45rem;
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  font-size: 0.82rem;
+}
+
+.form-group input {
+  padding: 0.85rem 0.9rem;
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.payment-info {
+  margin: 1.2rem 0;
+  padding: 1rem;
+}
+
+.payment-info h3 {
+  font-size: 1.05rem;
+}
+
+.payment-note {
+  font-size: 0.82rem;
+}
+
+.place-order-btn {
+  padding: 1rem;
+  min-height: 46px;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+}
+
+.order-summary {
+  position: static;
+  padding: 1.1rem;
+}
+
+.order-summary h2 {
+  font-size: 1.45rem;
+  margin-bottom: 1rem;
+}
+
+.order-items {
+  max-height: 300px;
+  margin-bottom: 1rem;
+}
+
+.summary-item {
+  grid-template-columns: 48px 1fr auto;
+  gap: 0.6rem;
+  padding: 0.75rem;
+}
+
+.summary-item-image {
+  width: 48px;
+  height: 48px;
+}
+
+.summary-item-details h4 {
+  font-size: 0.88rem;
+}
+
+.summary-item-details p {
+  font-size: 0.74rem;
+}
+
+.summary-item-price {
+  font-size: 0.86rem;
+}
+
+.summary-total span:first-child {
+  font-size: 1.1rem;
+}
+
+.summary-total span:last-child {
+  font-size: 1.5rem;
+}
+
+.order-success {
+  padding: 2rem 0.75rem;
+}
+
+.order-success h1 {
+  font-size: 2rem;
+}
+
+.order-number {
+  font-size: 1rem;
+}
+
+.success-message {
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.success-icon {
+  width: 96px;
+  height: 96px;
+}
+
+.success-icon svg {
+  width: 56px;
+  height: 56px;
+}
+
+.success-details {
+  padding: 1rem;
+}
+
+.success-details h3 {
+  font-size: 1.15rem;
+  margin-bottom: 0.9rem;
+}
+
+.order-item-summary {
+  font-size: 0.86rem;
+}
+
+.order-total-summary {
+  font-size: 1rem;
+}
+
+.order-total-summary span:last-child {
+  font-size: 1.35rem;
+}
+
+.back-home-btn {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.9rem 1rem;
+  font-size: 0.92rem;
+}
+
+@media (min-width: 481px) {
+  .checkout-page {
+    padding: 1.5rem 0;
+  }
+
+  .checkout-header h1 {
+    font-size: 2.5rem;
+  }
+
+  .checkout-form-container,
+  .order-summary {
+    padding: 1.5rem;
+  }
+
+  .order-success h1 {
+    font-size: 2.3rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .checkout-page {
+    padding: 2rem 0;
+  }
+
+  .checkout-header {
+    margin-bottom: 3rem;
+  }
+
+  .checkout-header h1 {
+    font-size: 3.5rem;
+  }
+
+  .checkout-header p {
+    font-size: 1.1rem;
+  }
+
+  .checkout-content {
+    gap: 2rem;
+  }
+
+  .checkout-form-container {
+    padding: 2.5rem;
+  }
+
+  .checkout-form h2,
+  .order-summary h2 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group label {
+    font-size: 0.9rem;
+  }
+
+  .form-group input {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+
+  .payment-info {
+    margin: 2rem 0;
+    padding: 1.5rem;
+  }
+
+  .payment-info h3 {
+    font-size: 1.3rem;
+  }
+
+  .payment-note {
+    font-size: 0.9rem;
+  }
+
+  .place-order-btn {
+    padding: 1.5rem;
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+  }
+
+  .order-summary {
+    padding: 2rem;
+  }
+
+  .order-items {
+    max-height: 400px;
+    margin-bottom: 2rem;
+  }
+
+  .summary-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .summary-item-image {
+    width: 60px;
+    height: 60px;
+  }
+
+  .summary-item-details h4 {
+    font-size: 0.95rem;
+  }
+
+  .summary-item-details p {
+    font-size: 0.8rem;
+  }
+
+  .summary-item-price {
+    font-size: 1rem;
+  }
+
+  .summary-total span:first-child {
+    font-size: 1.4rem;
+  }
+
+  .summary-total span:last-child {
+    font-size: 2rem;
+  }
+
+  .order-success {
+    padding: 3rem 2rem;
+  }
+
+  .order-success h1 {
+    font-size: 3rem;
+  }
+
+  .order-number {
+    font-size: 1.2rem;
+  }
+
+  .success-message {
+    font-size: 1.1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .success-icon {
+    width: 140px;
+    height: 140px;
+  }
+
+  .success-icon svg {
+    width: 80px;
+    height: 80px;
+  }
+
+  .success-details {
+    padding: 2rem;
+  }
+
+  .success-details h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .order-item-summary {
+    font-size: 0.95rem;
+  }
+
+  .order-total-summary {
+    font-size: 1.2rem;
+  }
+
+  .order-total-summary span:last-child {
+    font-size: 1.8rem;
+  }
+
+  .back-home-btn {
+    width: auto;
+    padding: 1.2rem 3rem;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .checkout-content {
+    grid-template-columns: 1fr 400px;
+  }
+
+  .order-summary {
+    position: sticky;
+    top: 100px;
+  }
+}

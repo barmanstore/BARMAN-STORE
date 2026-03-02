@@ -587,3 +587,275 @@
     justify-content: center;
   }
 }
+
+/* Mobile-first override layer */
+.profile-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 12px;
+  min-height: 100vh;
+}
+
+.profile-header {
+  margin-bottom: 18px;
+}
+
+.back-btn {
+  position: relative;
+  top: 0;
+  margin-bottom: 14px;
+}
+
+.profile-header h1 {
+  font-size: 1.65rem;
+}
+
+.profile-header p {
+  font-size: 0.9rem;
+}
+
+.auth-mode-banner {
+  margin-bottom: 16px;
+}
+
+.validation-warning {
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.success-alert,
+.error-alert {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.profile-content {
+  gap: 16px;
+}
+
+.profile-form {
+  padding: 20px;
+  border-radius: 14px;
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section h2 {
+  font-size: 1.05rem;
+}
+
+.section-help {
+  margin-bottom: 14px;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  font-size: 0.84rem;
+}
+
+.form-group input {
+  padding: 12px 12px;
+  font-size: 16px;
+  min-height: 44px;
+}
+
+.verification-actions {
+  flex-direction: column;
+}
+
+.verification-actions input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.verify-token-group {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.verify-token-group select {
+  max-width: 95px;
+}
+
+.verify-token-group input {
+  min-width: 0;
+}
+
+.form-row {
+  flex-direction: column;
+  gap: 0;
+}
+
+.profile-image-section {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.image-adjust-note {
+  align-self: flex-start;
+}
+
+.form-actions {
+  flex-direction: column-reverse;
+  gap: 10px;
+  padding-top: 16px;
+  margin-top: 20px;
+}
+
+.cancel-btn,
+.save-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 44px;
+  padding: 12px 14px;
+}
+
+.quick-actions {
+  padding: 16px;
+}
+
+.quick-actions .action-btn {
+  margin-bottom: 10px;
+  min-height: 44px;
+}
+
+@media (min-width: 769px) {
+  .profile-page {
+    padding: 20px;
+  }
+
+  .profile-header {
+    margin-bottom: 30px;
+  }
+
+  .back-btn {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    margin-bottom: 0;
+  }
+
+  .profile-header h1 {
+    font-size: 2rem;
+  }
+
+  .profile-header p {
+    font-size: 1rem;
+  }
+
+  .auth-mode-banner {
+    margin-bottom: 20px;
+  }
+
+  .validation-warning {
+    flex-direction: row;
+    gap: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .success-alert,
+  .error-alert {
+    padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+
+  .profile-content {
+    gap: 24px;
+  }
+
+  .profile-form {
+    padding: 32px;
+    border-radius: 16px;
+  }
+
+  .form-section {
+    margin-bottom: 32px;
+  }
+
+  .form-section h2 {
+    font-size: 1.2rem;
+  }
+
+  .section-help {
+    margin-bottom: 20px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    font-size: 0.9rem;
+  }
+
+  .form-group input {
+    padding: 14px 16px;
+    font-size: 1rem;
+  }
+
+  .verification-actions {
+    flex-direction: row;
+  }
+
+  .verification-actions input {
+    flex: 1 1 220px;
+    min-width: 200px;
+  }
+
+  .verify-token-group {
+    flex: 1 1 320px;
+    min-width: 260px;
+  }
+
+  .verify-token-group select {
+    max-width: 120px;
+  }
+
+  .verify-token-group input {
+    min-width: 180px;
+  }
+
+  .form-row {
+    flex-direction: row;
+    gap: 16px;
+  }
+
+  .profile-image-section {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .image-adjust-note {
+    align-self: center;
+  }
+
+  .form-actions {
+    flex-direction: row;
+    gap: 12px;
+    padding-top: 24px;
+    margin-top: 32px;
+  }
+
+  .cancel-btn,
+  .save-btn {
+    width: auto;
+    min-height: 0;
+    padding: 14px 28px;
+  }
+
+  .quick-actions {
+    padding: 24px;
+  }
+
+  .quick-actions .action-btn {
+    margin-bottom: 12px;
+  }
+}

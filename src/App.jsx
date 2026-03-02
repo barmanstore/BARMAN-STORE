@@ -96,7 +96,11 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationsNextBeforeId, setNotificationsNextBeforeId] = useState(null);
+  const [notificationsHasMore, setNotificationsHasMore] = useState(false);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [expandedNotificationId, setExpandedNotificationId] = useState(null);
   const [messageDraft, setMessageDraft] = useState('');
   const [messageRecipients, setMessageRecipients] = useState([]);
   const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
@@ -200,17 +204,51 @@ function App() {
   useEffect(() => {
     let isCancelled = false;
     let timerId = null;
+
+    const unpackNotificationPayload = (payload) => {
+      if (Array.isArray(payload)) {
+        return {
+          items: payload,
+          nextBeforeId: null,
+          hasMore: false,
+        };
+      }
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      return {
+        items,
+        nextBeforeId: Number(payload?.paging?.next_before_id || 0) || null,
+        hasMore: Boolean(payload?.paging?.has_more),
+      };
+    };
+
     const loadNotifications = async (silent = false) => {
       if (!user?.id) {
-        if (!isCancelled) setNotifications([]);
+        if (!isCancelled) {
+          setNotifications([]);
+          setUnreadNotificationCount(0);
+          setNotificationsNextBeforeId(null);
+          setNotificationsHasMore(false);
+        }
         return;
       }
       try {
-        const rows = await notificationsApi.listMine({ unreadOnly: false, limit: 40 });
+        const [rows, unreadCount] = await Promise.all([
+          notificationsApi.listMine({ unreadOnly: false, limit: 40 }),
+          notificationsApi.getUnreadCount(),
+        ]);
         if (isCancelled) return;
-        setNotifications(Array.isArray(rows) ? rows : []);
+        const unpacked = unpackNotificationPayload(rows);
+        setNotifications(unpacked.items);
+        setNotificationsNextBeforeId(unpacked.nextBeforeId);
+        setNotificationsHasMore(unpacked.hasMore);
+        setUnreadNotificationCount(Number(unreadCount?.count || 0));
       } catch (_) {
-        if (!silent && !isCancelled) setNotifications([]);
+        if (!silent && !isCancelled) {
+          setNotifications([]);
+          setUnreadNotificationCount(0);
+          setNotificationsNextBeforeId(null);
+          setNotificationsHasMore(false);
+        }
       }
     };
 
@@ -219,6 +257,9 @@ function App() {
       timerId = window.setInterval(() => loadNotifications(true), 30000);
     } else {
       setNotifications([]);
+      setUnreadNotificationCount(0);
+      setNotificationsNextBeforeId(null);
+      setNotificationsHasMore(false);
     }
 
     return () => {
@@ -230,10 +271,48 @@ function App() {
   const reloadNotifications = async () => {
     if (!user?.id) return;
     try {
-      const rows = await notificationsApi.listMine({ unreadOnly: false, limit: 40 });
-      setNotifications(Array.isArray(rows) ? rows : []);
+      const [rows, unreadCount] = await Promise.all([
+        notificationsApi.listMine({ unreadOnly: false, limit: 40 }),
+        notificationsApi.getUnreadCount(),
+      ]);
+      const items = Array.isArray(rows)
+        ? rows
+        : (Array.isArray(rows?.items) ? rows.items : []);
+      setNotifications(items);
+      setNotificationsNextBeforeId(Number(rows?.paging?.next_before_id || 0) || null);
+      setNotificationsHasMore(Boolean(rows?.paging?.has_more));
+      setUnreadNotificationCount(Number(unreadCount?.count || 0));
     } catch (_) {
       // ignore refresh errors
+    }
+  };
+
+  const loadOlderNotifications = async () => {
+    if (!user?.id || !notificationsHasMore || !notificationsNextBeforeId) return;
+    try {
+      const rows = await notificationsApi.listMine({
+        unreadOnly: false,
+        limit: 40,
+        beforeId: notificationsNextBeforeId,
+      });
+      const items = Array.isArray(rows)
+        ? rows
+        : (Array.isArray(rows?.items) ? rows.items : []);
+      setNotifications((prev) => {
+        const seen = new Set((prev || []).map((row) => Number(row?.id || 0)));
+        const nextRows = [...prev];
+        items.forEach((row) => {
+          const id = Number(row?.id || 0);
+          if (!id || seen.has(id)) return;
+          nextRows.push(row);
+          seen.add(id);
+        });
+        return nextRows;
+      });
+      setNotificationsNextBeforeId(Number(rows?.paging?.next_before_id || 0) || null);
+      setNotificationsHasMore(Boolean(rows?.paging?.has_more));
+    } catch (_) {
+      // ignore load-more errors
     }
   };
 
@@ -263,10 +342,10 @@ function App() {
   useEffect(() => {
     if (!notificationPanelOpen) {
       setMessageFeedback({ type: '', text: '' });
+      setExpandedNotificationId(null);
     }
   }, [notificationPanelOpen]);
 
-  const unreadNotifications = notifications.filter((item) => !item?.is_read);
   const resolveNotificationHref = (notice) => {
     const metadata = notice?.metadata && typeof notice.metadata === 'object'
       ? notice.metadata
@@ -318,19 +397,19 @@ function App() {
           ? { ...row, is_read: true, read_at: row?.read_at || new Date().toISOString() }
           : row
       )));
+      setUnreadNotificationCount((prev) => Math.max(0, Number(prev || 0) - 1));
     } catch (_) {
       // ignore mark-read failures in inbox
     }
   };
 
-  const markAllNotificationsRead = async () => {
-    if (!unreadNotifications.length) return;
-    try {
-      await notificationsApi.markAllRead();
-      setNotifications((prev) => prev.map((row) => ({ ...row, is_read: true, read_at: row?.read_at || new Date().toISOString() })));
-      setNotificationPanelOpen(false);
-    } catch (_) {
-      // ignore mark-all failures in inbox
+  const toggleNotificationExpanded = async (notice) => {
+    const targetId = Number(notice?.id || 0);
+    if (!targetId) return;
+    const shouldExpand = Number(expandedNotificationId || 0) !== targetId;
+    setExpandedNotificationId((prev) => (Number(prev || 0) === targetId ? null : targetId));
+    if (shouldExpand && !notice?.is_read) {
+      await markNotificationRead(targetId);
     }
   };
 
@@ -358,11 +437,12 @@ function App() {
           setMessageFeedback({ type: 'error', text: 'Select at least one customer.' });
           return;
         }
-        await notificationsApi.sendMessageToCustomers({
+        const result = await notificationsApi.sendMessageToCustomers({
           recipient_user_ids: selectedRecipientIds,
           message,
         });
-        setMessageFeedback({ type: 'success', text: `Message sent to ${selectedRecipientIds.length} customer(s).` });
+        const sentCount = Number(result?.sent_count || selectedRecipientIds.length);
+        setMessageFeedback({ type: 'success', text: `Message sent to ${sentCount} customer(s).` });
         setSelectedRecipientIds([]);
         setRecipientSearch('');
       } else {
@@ -504,19 +584,14 @@ function App() {
                     aria-label="Notification Inbox"
                   >
                     <BellRing size={16} />
-                    {unreadNotifications.length > 0 && (
-                      <em className="notification-unread-count">{unreadNotifications.length}</em>
+                    {unreadNotificationCount > 0 && (
+                      <em className="notification-unread-count">{unreadNotificationCount}</em>
                     )}
                   </button>
                   {notificationPanelOpen ? (
                     <div className="notification-inbox-panel">
                       <div className="notification-inbox-head">
                         <strong>Notification Inbox</strong>
-                        {unreadNotifications.length > 0 ? (
-                          <button type="button" onClick={markAllNotificationsRead}>
-                            Mark all read
-                          </button>
-                        ) : null}
                       </div>
                       <div className="notification-compose-box">
                         <strong className="notification-compose-title">Conversation</strong>
@@ -529,6 +604,17 @@ function App() {
                               onChange={(e) => setRecipientSearch(e.target.value)}
                               placeholder="Search customers..."
                             />
+                            {selectedRecipientIds.length > 0 ? (
+                              <div className="notification-selected-strip">
+                                <span>{selectedRecipientIds.length} selected</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedRecipientIds([])}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            ) : null}
                             <div className="notification-recipient-list">
                               {messageRecipients.length === 0 ? (
                                 <p className="notification-recipients-empty">No customers found.</p>
@@ -556,12 +642,21 @@ function App() {
                         ) : (
                           <p className="notification-compose-helper">Send a message to admin.</p>
                         )}
-                        <textarea
-                          className="notification-compose-textarea"
+                        <input
+                          type="text"
+                          className="notification-compose-input notification-compose-message-input"
                           value={messageDraft}
                           onChange={(e) => setMessageDraft(e.target.value)}
                           placeholder={isAdminUser ? 'Write message to selected customers...' : 'Write message for admin...'}
-                          rows={3}
+                          maxLength={1000}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (!messageSending) {
+                                void sendInboxMessage();
+                              }
+                            }
+                          }}
                         />
                         <button
                           type="button"
@@ -583,35 +678,53 @@ function App() {
                         <div className="notification-inbox-list">
                           {notifications.map((notice) => {
                             const href = resolveNotificationHref(notice);
+                            const isExpanded = Number(expandedNotificationId || 0) === Number(notice?.id || 0);
                             return (
                               <article
                                 key={notice.id}
-                                className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'}`}
+                                className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => { void toggleNotificationExpanded(notice); }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    void toggleNotificationExpanded(notice);
+                                  }
+                                }}
                               >
                                 <div className="notification-item-head">
                                   <strong>{notice.title}</strong>
-                                  <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
+                                  <div className="notification-item-head-right">
+                                    <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
+                                    <ChevronDown size={14} className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`} />
+                                  </div>
                                 </div>
-                                <p>{notice.message}</p>
+                                <p className={`notification-item-message ${isExpanded ? 'expanded' : 'collapsed'}`}>{notice.message}</p>
                                 <div className="notification-item-actions">
                                   <Link
                                     to={href}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setNotificationPanelOpen(false);
                                       if (!notice?.is_read) markNotificationRead(notice.id);
                                     }}
                                   >
                                     Open
                                   </Link>
-                                  {!notice?.is_read ? (
-                                    <button type="button" onClick={() => markNotificationRead(notice.id)}>
-                                      Mark read
-                                    </button>
-                                  ) : null}
                                 </div>
                               </article>
                             );
                           })}
+                          {notificationsHasMore ? (
+                            <button
+                              type="button"
+                              className="notification-load-more"
+                              onClick={() => { void loadOlderNotifications(); }}
+                            >
+                              Load older
+                            </button>
+                          ) : null}
                         </div>
                       )}
                     </div>

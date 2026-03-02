@@ -206,6 +206,7 @@ function Admin({ user }) {
   const [importAllowIdenticalRows, setImportAllowIdenticalRows] = useState([]);
   const [importBusy, setImportBusy] = useState(false);
   const importFileInputRef = useRef(null);
+  const latestKnownOrderIdRef = useRef(0);
   const tabGroupMap = {
     dashboard: 'general',
     orders: 'general',
@@ -319,6 +320,23 @@ function Admin({ user }) {
     }
   };
 
+  const handleApplyPendingFulfillment = async (orderId) => {
+    if (!orderId) return;
+    try {
+      await ordersApi.updateStatus(
+        orderId,
+        'received',
+        'Pending fulfillment re-applied via admin panel',
+        user.id,
+        { reapply_pending: true }
+      );
+      await refreshAdminData();
+      showNotification('Pending quantity re-checked against current stock', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Failed to apply pending fulfillment', 'error');
+    }
+  };
+
   const buildAddressTextFromOrder = (order) => {
     const shipping = order?.shipping_address && typeof order.shipping_address === 'object'
       ? order.shipping_address
@@ -368,9 +386,20 @@ function Admin({ user }) {
     if (!orderId) return;
     try {
       setProceedBillingOrderId(orderId);
-      const fullOrder = Array.isArray(orderInput?.items)
+      let fullOrder = Array.isArray(orderInput?.items)
         ? orderInput
         : await ordersApi.getById(orderId);
+      const currentStatus = String(fullOrder?.status || '').trim().toLowerCase();
+      if (currentStatus === 'ordered') {
+        const confirmReceiveThenBill = window.confirm(
+          'This order is still pending receipt.\n\nMark as received and open billing now?'
+        );
+        if (!confirmReceiveThenBill) return;
+        await ordersApi.updateStatus(orderId, 'received', 'Auto-confirmed before billing', user.id);
+        await refreshAdminData();
+        fullOrder = await ordersApi.getById(orderId);
+        showNotification('Order marked received. Billing is now open.', 'success');
+      }
       const prefill = buildBillingPrefillFromOrder(fullOrder);
       setBillingPrefill(prefill);
       handleTabChange('billing');
@@ -392,6 +421,43 @@ function Admin({ user }) {
 
     fetchData();
   }, [user, navigate]);
+
+  useEffect(() => {
+    const maxOrderId = (Array.isArray(orders) ? orders : []).reduce(
+      (maxId, row) => Math.max(maxId, Number(row?.id || 0)),
+      0
+    );
+    if (maxOrderId > latestKnownOrderIdRef.current) {
+      latestKnownOrderIdRef.current = maxOrderId;
+    }
+  }, [orders]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'admin' || activeTab !== 'orders') return;
+    let cancelled = false;
+    const pollOrders = async (initialLoad = false) => {
+      try {
+        const rows = await ordersApi.getAll();
+        if (cancelled) return;
+        const list = Array.isArray(rows) ? rows : [];
+        const latestId = list.reduce((maxId, row) => Math.max(maxId, Number(row?.id || 0)), 0);
+        if (!initialLoad && latestId > latestKnownOrderIdRef.current) {
+          showNotification('New order received. List refreshed.', 'success');
+        }
+        latestKnownOrderIdRef.current = Math.max(latestKnownOrderIdRef.current, latestId);
+        setOrders(list);
+      } catch (_) {
+        // keep polling silent
+      }
+    };
+
+    pollOrders(true);
+    const timer = window.setInterval(() => pollOrders(false), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeTab, user]);
 
   useEffect(() => {
     const group = tabGroupMap[activeTab];
@@ -2015,6 +2081,10 @@ function Admin({ user }) {
             <div className="orders-mobile-list">
               {orders.map((order) => {
                 const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
+                const isReceived = String(order.status || '').toLowerCase() === 'received';
+                const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
+                const pendingQty = Math.max(0, Number(order?.pending_qty || 0));
+                const canProceedBilling = !isBilled && (isOrdered || isReceived);
                 return (
                   <article key={`mobile-${order.id}`} className="order-mobile-card">
                     <div className="order-mobile-head">
@@ -2025,16 +2095,36 @@ function Admin({ user }) {
                     <p><strong>Email:</strong> {order.customer_email || '-'}</p>
                     <p><strong>Amount:</strong> {formatCurrency(order.total_amount || 0)}</p>
                     <p><strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
-                    {isOrdered ? (
+                    {pendingQty > 0 ? <p><strong>Partial stock:</strong> Pending {pendingQty}</p> : null}
+                    {isBilled ? <p><strong>Bill:</strong> {order.linked_bill_number || `#${order.bill_id}`}</p> : null}
+                    {(isOrdered || isReceived) ? (
                       <div className="order-mobile-actions">
-                        <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
-                        <button
-                          className="admin-btn"
-                          onClick={() => handleProceedToBilling(order)}
-                          disabled={proceedBillingOrderId === Number(order.id)}
-                        >
-                          {proceedBillingOrderId === Number(order.id) ? 'Opening...' : 'Proceed Billing'}
-                        </button>
+                        {isOrdered ? (
+                          <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                        ) : null}
+                        {canProceedBilling ? (
+                          <button
+                            className="admin-btn"
+                            onClick={() => handleProceedToBilling(order)}
+                            disabled={proceedBillingOrderId === Number(order.id)}
+                          >
+                            {proceedBillingOrderId === Number(order.id)
+                              ? 'Opening...'
+                              : isOrdered
+                                ? 'Confirm + Billing'
+                                : 'Proceed Billing'}
+                          </button>
+                        ) : (
+                          <span style={{ opacity: 0.75 }}>Already billed</span>
+                        )}
+                        {isReceived && pendingQty > 0 ? (
+                          <button
+                            className="admin-btn"
+                            onClick={() => handleApplyPendingFulfillment(order.id)}
+                          >
+                            Apply Pending
+                          </button>
+                        ) : null}
                       </div>
                     ) : (
                       <span style={{ opacity: 0.75 }}>No pending action</span>
@@ -2057,34 +2147,69 @@ function Admin({ user }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map(order => (
-                    <tr key={order.id}>
-                      <td>{order.id}</td>
-                      <td>{order.customer_name}</td>
-                      <td>{order.customer_email}</td>
-                      <td>{formatCurrencyColored(order.total_amount)}</td>
-                      <td>
-                        <span className={`status ${order.status}`}>{order.status}</span>
-                      </td>
-                      <td>
-                        {String(order.status || '').toLowerCase() === 'ordered' ? (
-                          <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
-                            <button
-                              className="admin-btn"
-                              onClick={() => handleProceedToBilling(order)}
-                              disabled={proceedBillingOrderId === Number(order.id)}
-                            >
-                              {proceedBillingOrderId === Number(order.id) ? 'Opening...' : 'Proceed Billing'}
-                            </button>
-                          </div>
-                        ) : (
-                          <span style={{ opacity: 0.8 }}>—</span>
-                        )}
-                      </td>
-                      <td>{new Date(order.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
+                  {orders.map((order) => {
+                    const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
+                    const isReceived = String(order.status || '').toLowerCase() === 'received';
+                    const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
+                    const pendingQty = Math.max(0, Number(order?.pending_qty || 0));
+                    const canProceedBilling = !isBilled && (isOrdered || isReceived);
+                    return (
+                      <tr key={order.id}>
+                        <td>{order.id}</td>
+                        <td>{order.customer_name}</td>
+                        <td>{order.customer_email}</td>
+                        <td>{formatCurrencyColored(order.total_amount)}</td>
+                        <td>
+                          <span className={`status ${order.status}`}>{order.status}</span>
+                          {pendingQty > 0 ? (
+                            <div style={{ fontSize: '0.8rem', color: '#b45309', fontWeight: 700 }}>
+                              Partial stock: Pending {pendingQty}
+                            </div>
+                          ) : null}
+                          {isBilled ? (
+                            <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+                              Bill: {order.linked_bill_number || `#${order.bill_id}`}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td>
+                          {(isOrdered || isReceived) ? (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              {isOrdered ? (
+                                <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                              ) : null}
+                              {canProceedBilling ? (
+                                <button
+                                  className="admin-btn"
+                                  onClick={() => handleProceedToBilling(order)}
+                                  disabled={proceedBillingOrderId === Number(order.id)}
+                                >
+                                  {proceedBillingOrderId === Number(order.id)
+                                    ? 'Opening...'
+                                    : isOrdered
+                                      ? 'Confirm + Billing'
+                                      : 'Proceed Billing'}
+                                </button>
+                              ) : (
+                                <span style={{ opacity: 0.8 }}>Already billed</span>
+                              )}
+                              {isReceived && pendingQty > 0 ? (
+                                <button
+                                  className="admin-btn"
+                                  onClick={() => handleApplyPendingFulfillment(order.id)}
+                                >
+                                  Apply Pending
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span style={{ opacity: 0.8 }}>—</span>
+                          )}
+                        </td>
+                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2309,13 +2434,23 @@ function Admin({ user }) {
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
                 <button className="admin-btn" onClick={() => setShowApproveModal(false)} disabled={modalLoading}>Close</button>
-                <button
-                  className="admin-btn"
-                  onClick={() => handleProceedToBilling(modalOrder)}
-                  disabled={modalLoading || proceedBillingOrderId === Number(modalOrder?.id || 0)}
-                >
-                  {proceedBillingOrderId === Number(modalOrder?.id || 0) ? 'Opening...' : 'Proceed Billing'}
-                </button>
+                {!(Number(modalOrder?.bill_id || 0) || String(modalOrder?.linked_bill_number || '').trim()) ? (
+                  <button
+                    className="admin-btn"
+                    onClick={() => handleProceedToBilling(modalOrder)}
+                    disabled={modalLoading || proceedBillingOrderId === Number(modalOrder?.id || 0)}
+                  >
+                    {proceedBillingOrderId === Number(modalOrder?.id || 0)
+                      ? 'Opening...'
+                      : String(modalOrder?.status || '').toLowerCase() === 'ordered'
+                        ? 'Confirm + Billing'
+                        : 'Proceed Billing'}
+                  </button>
+                ) : (
+                  <span style={{ opacity: 0.75, alignSelf: 'center' }}>
+                    Bill: {modalOrder?.linked_bill_number || `#${modalOrder?.bill_id}`}
+                  </span>
+                )}
                 <button className="admin-btn primary" onClick={confirmApprove} disabled={modalLoading}>Confirm Received</button>
               </div>
             </>

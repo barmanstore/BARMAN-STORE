@@ -292,10 +292,10 @@ export const ordersApi = {
     }),
   
   // Update order status
-  updateStatus: (id, status, description, createdBy) => 
+  updateStatus: (id, status, description, createdBy, extras = {}) => 
     apiFetch(`/api/orders/${id}/status`, {
       method: 'PUT',
-      body: { status, description, created_by: createdBy },
+      body: { status, description, created_by: createdBy, ...extras },
     }),
 
   // Get order history (status changes and events)
@@ -414,8 +414,16 @@ export const creditApi = {
 };
 
 export const notificationsApi = {
-  listMine: ({ unreadOnly = true, limit = 20 } = {}) =>
-    apiFetch(`/api/notifications/me?unread_only=${unreadOnly ? '1' : '0'}&limit=${encodeURIComponent(limit)}`),
+  listMine: ({ unreadOnly = true, limit = 20, beforeId = null } = {}) => {
+    const params = new URLSearchParams();
+    params.set('unread_only', unreadOnly ? '1' : '0');
+    params.set('limit', String(limit));
+    if (beforeId && Number(beforeId) > 0) {
+      params.set('before_id', String(Number(beforeId)));
+    }
+    return apiFetch(`/api/notifications/me?${params.toString()}`);
+  },
+  getUnreadCount: () => apiFetch('/api/notifications/me/unread-count'),
   markRead: (id) =>
     apiFetch(`/api/notifications/${id}/read`, {
       method: 'POST',
@@ -431,10 +439,10 @@ export const notificationsApi = {
       method: 'POST',
       body: { message },
     }),
-  sendMessageToCustomers: ({ recipient_user_ids = [], message = '' } = {}) =>
+  sendMessageToCustomers: ({ recipient_user_ids = [], message = '', client_request_id = '' } = {}) =>
     apiFetch('/api/notifications/messages/to-customers', {
       method: 'POST',
-      body: { recipient_user_ids, message },
+      body: withClientRequestId({ recipient_user_ids, message, client_request_id }, 'notif'),
     }),
 };
 
@@ -887,44 +895,3 @@ export const stockLedgerApi = {
   getSummary: () => apiFetch('/api/stock-ledger/summary'),
 };
 
-// ============================================
-// PRODUCT VERSIONS API
-// ============================================
-
-export const productVersionsApi = {
-  getByInternalId: (internalId) => apiFetch(`/api/product-versions/${internalId}`),
-  getBySku: (sku) => apiFetch(`/api/product-versions/sku/${encodeURIComponent(sku)}`),
-};
-
-// ============================================
-// UOM CONVERSIONS API
-// ============================================
-
-export const uomConversionsApi = {
-  getByProduct: (productId) => apiFetch(`/api/uom-conversions/${productId}`),
-  create: (conversionData) =>
-    apiFetch('/api/uom-conversions', {
-      method: 'POST',
-      body: conversionData,
-    }),
-  delete: (id) =>
-    apiFetch(`/api/uom-conversions/${id}`, {
-      method: 'DELETE',
-    }),
-};
-
-// ============================================
-// BATCH STOCK API
-// ============================================
-
-export const batchStockApi = {
-  getAll: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return apiFetch(`/api/batch-stock${query ? '?' + query : ''}`);
-  },
-  create: (batchData) =>
-    apiFetch('/api/batch-stock', {
-      method: 'POST',
-      body: batchData,
-    }),
-};

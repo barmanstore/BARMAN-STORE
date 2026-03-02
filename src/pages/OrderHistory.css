@@ -554,3 +554,342 @@
     font-size: 0.8rem;
   }
 }
+
+/* Mobile-first override layer */
+.order-history-page {
+  padding: 12px;
+}
+
+.history-header {
+  padding: 20px 8px;
+}
+
+.history-header h1 {
+  font-size: 1.65rem;
+}
+
+.history-header p {
+  font-size: 0.9rem;
+}
+
+.filters-section {
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.search-box {
+  min-width: 100%;
+  padding: 12px 14px;
+}
+
+.search-box input {
+  font-size: 16px;
+}
+
+.filter-controls {
+  width: 100%;
+  gap: 8px;
+}
+
+.filter-group,
+.sort-group {
+  flex: 1;
+  padding: 10px 12px;
+}
+
+.filter-group select,
+.sort-group select {
+  min-width: 0;
+  width: 100%;
+}
+
+.status-tabs {
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+}
+
+.status-tab {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+
+.empty-state {
+  padding: 40px 14px;
+  margin-top: 14px;
+}
+
+.empty-state h2 {
+  font-size: 1.2rem;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+}
+
+.empty-state button {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+}
+
+.orders-list {
+  gap: 12px;
+}
+
+.order-card {
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.order-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+
+.order-number {
+  font-size: 0.98rem;
+}
+
+.order-date {
+  font-size: 0.8rem;
+}
+
+.order-items-preview {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.item-preview {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+.item-name {
+  max-width: 200px;
+  font-size: 0.86rem;
+}
+
+.order-footer {
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.order-actions {
+  width: 100%;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.view-btn,
+.retry-btn,
+.track-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 12px;
+}
+
+.total-amount {
+  font-size: 1.15rem;
+}
+
+.payment-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+}
+
+.export-section {
+  margin-top: 20px;
+}
+
+.export-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 42px;
+  padding: 12px;
+}
+
+@media (min-width: 481px) {
+  .order-history-page {
+    padding: 16px;
+  }
+
+  .history-header {
+    padding: 28px 12px;
+  }
+
+  .history-header h1 {
+    font-size: 1.85rem;
+  }
+
+  .status-tab {
+    font-size: 0.86rem;
+    padding: 9px 14px;
+  }
+
+  .order-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .view-btn,
+  .retry-btn,
+  .track-btn {
+    width: auto;
+    flex: 1;
+  }
+}
+
+@media (min-width: 769px) {
+  .order-history-page {
+    padding: 20px;
+  }
+
+  .history-header {
+    padding: 40px 20px;
+  }
+
+  .history-header h1 {
+    font-size: 2rem;
+  }
+
+  .history-header p {
+    font-size: 1rem;
+  }
+
+  .filters-section {
+    flex-direction: row;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .search-box {
+    min-width: 300px;
+    padding: 14px 18px;
+  }
+
+  .filter-controls {
+    width: auto;
+    gap: 12px;
+  }
+
+  .filter-group,
+  .sort-group {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+  }
+
+  .filter-group select,
+  .sort-group select {
+    min-width: 120px;
+    width: auto;
+  }
+
+  .status-tabs {
+    margin-bottom: 24px;
+    padding-bottom: 8px;
+  }
+
+  .status-tab {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    padding: 80px 20px;
+    margin-top: 20px;
+  }
+
+  .empty-state button {
+    width: auto;
+    padding: 14px 28px;
+  }
+
+  .orders-list {
+    gap: 16px;
+  }
+
+  .order-card {
+    padding: 24px;
+    border-radius: 16px;
+  }
+
+  .order-header {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+  }
+
+  .order-number {
+    font-size: 1.1rem;
+  }
+
+  .order-date {
+    font-size: 0.85rem;
+  }
+
+  .order-items-preview {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .item-preview {
+    width: auto;
+    padding: 8px 12px;
+  }
+
+  .item-name {
+    max-width: 260px;
+    font-size: 0.9rem;
+  }
+
+  .order-footer {
+    flex-direction: row;
+    gap: 16px;
+    align-items: center;
+  }
+
+  .order-actions {
+    width: auto;
+    justify-content: flex-end;
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .view-btn,
+  .retry-btn,
+  .track-btn {
+    width: auto;
+    min-height: 40px;
+    padding: 10px 16px;
+    flex: 0 0 auto;
+  }
+
+  .total-amount {
+    font-size: 1.3rem;
+  }
+
+  .payment-warning {
+    margin-top: 16px;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+  }
+
+  .export-section {
+    margin-top: 40px;
+  }
+
+  .export-btn {
+    width: auto;
+    padding: 14px 28px;
+  }
+}

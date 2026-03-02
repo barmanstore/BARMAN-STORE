@@ -224,7 +224,8 @@ function ProductDetailView({
 
   const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
   const selectedStock = Number(selectedVariation.stock || 0);
-  const isMaxed = selectedStock > 0 && selectedQty >= selectedStock;
+  const isMaxed = false;
+  const canIncreaseQty = true;
   const added = buttonStatus[selectedVariation.id] === 'added';
 
   return (
@@ -283,10 +284,16 @@ function ProductDetailView({
         type="button"
         className="add-to-cart-btn detail-add-btn"
         onClick={() => onIncreaseQty(family, selectedVariation)}
-        disabled={selectedStock === 0 || isMaxed}
+        disabled={!canIncreaseQty}
       >
         <Plus size={14} />
-        {selectedStock === 0 ? 'Out of stock' : isMaxed ? 'Max in cart' : added ? 'Added!' : 'Add to cart'}
+        {selectedStock === 0
+          ? (added ? 'Requested!' : 'Request item')
+          : isMaxed
+            ? 'Max in cart'
+            : added
+              ? 'Added!'
+              : 'Add to cart'}
       </button>
       <div className="detail-counter-row">
         <button
@@ -302,7 +309,7 @@ function ProductDetailView({
           type="button"
           className="qty-step-btn"
           onClick={() => onIncreaseQty(family, selectedVariation)}
-          disabled={selectedStock === 0 || isMaxed}
+          disabled={!canIncreaseQty}
         >
           +
         </button>
@@ -664,23 +671,19 @@ function Products({ setCartCount }) {
     if (!variation) return;
 
     const productStock = Number(variation.stock || 0);
-    if (productStock <= 0) {
-      setNotice({ type: 'error', message: 'This variation is out of stock.' });
-      return;
-    }
-
     const existingItem = cart.find((item) => item.id === variation.id);
     const currentQuantity = Number(existingItem?.quantity || 0);
-    if (currentQuantity >= productStock) {
-      setNotice({ type: 'error', message: 'Reached max quantity available in stock.' });
-      return;
-    }
 
     let newCart;
     if (existingItem) {
+      const nextQuantity = Number(existingItem.quantity || 0) + 1;
       newCart = cart.map((item) =>
         item.id === variation.id
-          ? { ...item, quantity: Math.min(Number(item.quantity || 0) + 1, productStock) }
+          ? {
+              ...item,
+              quantity: nextQuantity,
+              out_of_stock_request: (productStock <= 0 || nextQuantity > productStock) ? 1 : 0,
+            }
           : item
       );
     } else {
@@ -697,7 +700,8 @@ function Products({ setCartCount }) {
           price: Number(variation.price || 0),
           stock: productStock,
           uom: variation.uom || 'pcs',
-          quantity: 1
+          quantity: 1,
+          out_of_stock_request: productStock <= 0 ? 1 : 0,
         }
       ];
     }
@@ -706,6 +710,17 @@ function Products({ setCartCount }) {
     localStorage.setItem('barman_cart', JSON.stringify(newCart));
     setCartCount(newCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
     setButtonStatus((prev) => ({ ...prev, [variation.id]: 'added' }));
+    if (productStock <= 0) {
+      setNotice({
+        type: 'info',
+        message: 'Added as a requested item. Billing team will confirm availability.',
+      });
+    } else if (currentQuantity + 1 > productStock) {
+      setNotice({
+        type: 'info',
+        message: `Requested quantity exceeds stock (${productStock}). Extra quantity will stay pending.`,
+      });
+    }
     setTimeout(() => {
       setButtonStatus((prev) => ({ ...prev, [variation.id]: '' }));
     }, 900);
@@ -746,7 +761,6 @@ function Products({ setCartCount }) {
     const isActiveDesktop = !isMobile && activeDesktopFamilyId === family.id;
     const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
     const selectedStock = Number(selectedVariation.stock || 0);
-    const selectedMaxed = selectedStock > 0 && selectedQty >= selectedStock;
     const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
     const priceValue = family.variations.length > 1 ? family.minPrice : selectedVariation.price;
     const metaLine = String(family.brand || family.category || '').trim();
@@ -826,7 +840,6 @@ function Products({ setCartCount }) {
                     type="button"
                     className="qty-step-btn"
                     onClick={() => addToCart(family, selectedVariation)}
-                    disabled={selectedStock === 0 || selectedMaxed}
                   >
                     +
                   </button>
@@ -839,9 +852,8 @@ function Products({ setCartCount }) {
                     event.stopPropagation();
                     addToCart(family, selectedVariation);
                   }}
-                  disabled={selectedStock === 0}
                 >
-                  <Plus size={14} /> Add
+                  <Plus size={14} /> {selectedStock === 0 ? 'Request' : 'Add'}
                 </button>
               )
             )}

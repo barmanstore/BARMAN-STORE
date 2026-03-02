@@ -1,4 +1,4 @@
-const DEFAULT_BUSINESS_NAME = 'BARMAN STORE';
+const DEFAULT_BUSINESS_NAME = "বৰ্মন ষ্ট'ৰ";
 
 const asBusinessName = (value) => {
   const raw = String(value || '').trim();

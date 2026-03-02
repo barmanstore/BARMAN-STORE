@@ -21,12 +21,70 @@ const parseQuantityText = (rawValue) => {
   };
 };
 
+const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
+
+const getManualSearchScore = (product, query) => {
+  const q = normalizeSearchText(query);
+  if (!q) return 0;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  const name = normalizeSearchText(product?.name);
+  const category = normalizeSearchText(product?.category);
+  const brand = normalizeSearchText(product?.brand);
+  const content = normalizeSearchText(product?.content);
+  const color = normalizeSearchText(product?.color);
+  const sku = normalizeSearchText(product?.sku);
+  const barcode = normalizeSearchText(product?.barcode);
+  const haystack = [name, category, brand, content, color, sku, barcode].join(' ');
+
+  let score = 0;
+  if (name === q) score += 300;
+  else if (name.startsWith(q)) score += 220;
+  else if (name.includes(q)) score += 150;
+
+  if (category.startsWith(q)) score += 80;
+  if (brand.startsWith(q)) score += 70;
+  if (sku === q || barcode === q) score += 240;
+
+  for (const token of tokens) {
+    if (!token) continue;
+    if (name.startsWith(token)) score += 35;
+    else if (name.includes(token)) score += 22;
+    if (category.includes(token)) score += 12;
+    if (brand.includes(token)) score += 10;
+    if (content.includes(token) || color.includes(token)) score += 8;
+    if (sku.includes(token) || barcode.includes(token)) score += 15;
+  }
+
+  if (haystack.includes(q)) score += 20;
+  if (Number(product?.stock || 0) > 0) score += 6;
+  return score;
+};
+
+const rankManualMatches = (rows, query) => (
+  (Array.isArray(rows) ? rows : [])
+    .filter((product) => Number(product?.id || 0) > 0)
+    .map((product) => ({ product, score: getManualSearchScore(product, query) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const bStock = Number(b.product?.stock || 0);
+      const aStock = Number(a.product?.stock || 0);
+      if (bStock !== aStock) return bStock - aStock;
+      return String(a.product?.name || '').localeCompare(String(b.product?.name || ''));
+    })
+    .slice(0, 8)
+    .map((row) => row.product)
+);
+
+const QUICK_QTY_OPTIONS = ['1', '2', '5', '1kg', '500g'];
+
 function Cart({ cartCount, setCartCount }) {
   const [cart, setCart] = useState([]);
   const [recommendationNames, setRecommendationNames] = useState([]);
   const [manualDraft, setManualDraft] = useState({ name: '', qtyText: '1' });
   const [manualError, setManualError] = useState('');
   const [manualMatches, setManualMatches] = useState([]);
+  const [manualMatchCursor, setManualMatchCursor] = useState(-1);
   const [manualSearchLoading, setManualSearchLoading] = useState(false);
   const [manualSearchError, setManualSearchError] = useState('');
   const navigate = useNavigate();
@@ -59,6 +117,7 @@ function Cart({ cartCount, setCartCount }) {
     const query = String(manualDraft.name || '').trim();
     if (query.length < 2) {
       setManualMatches([]);
+      setManualMatchCursor(-1);
       setManualSearchError('');
       setManualSearchLoading(false);
       return;
@@ -69,15 +128,20 @@ function Cart({ cartCount, setCartCount }) {
     setManualSearchError('');
     const timer = setTimeout(async () => {
       try {
-        const rows = await productsApi.getAll({ name: query });
+        const rows = await productsApi.getAll({ name: query, status: 'active' });
         if (cancelled) return;
-        const list = (Array.isArray(rows) ? rows : [])
-          .filter((product) => Number(product?.id || 0) > 0)
-          .slice(0, 6);
+        const ranked = rankManualMatches(rows, query);
+        const list = ranked.length
+          ? ranked
+          : (Array.isArray(rows) ? rows : [])
+            .filter((product) => Number(product?.id || 0) > 0)
+            .slice(0, 8);
         setManualMatches(list);
+        setManualMatchCursor(list.length ? 0 : -1);
       } catch (_) {
         if (!cancelled) {
           setManualMatches([]);
+          setManualMatchCursor(-1);
           setManualSearchError('Unable to search products right now.');
         }
       } finally {
@@ -132,6 +196,12 @@ function Cart({ cartCount, setCartCount }) {
           const quantityLabelRaw = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim();
           const quantityLabel = quantityLabelRaw || String(quantity);
           const price = Math.max(0, Number(item?.price || 0));
+          const stock = manual ? null : Math.max(0, Number(item?.stock || 0));
+          const outOfStockRequest = !manual && (
+            Number(item?.out_of_stock_request || 0) === 1
+            || Number(stock || 0) <= 0
+            || Number(quantity || 0) > Number(stock || 0)
+          );
           return {
             ...item,
             id: item?.id ?? fallbackId,
@@ -143,7 +213,8 @@ function Cart({ cartCount, setCartCount }) {
             quantity_label: quantityLabel,
             price,
             price_unknown: manual ? Number(item?.price_unknown || (price <= 0 ? 1 : 0)) : 0,
-            stock: manual ? null : Math.max(0, Number(item?.stock || 0)),
+            stock,
+            out_of_stock_request: outOfStockRequest ? 1 : 0,
             image: String(item?.image || item?.product_image || '').trim(),
           };
         })
@@ -174,9 +245,16 @@ function Cart({ cartCount, setCartCount }) {
     const existingIndex = cart.findIndex((item) => getMergeKey(item) === mergeKey);
     if (existingIndex >= 0) {
       const nextCart = cart.map((item, index) => (
-        index === existingIndex
-          ? { ...item, quantity: Number(item.quantity || 0) + Number(itemToAdd.quantity || 0) }
-          : item
+        index === existingIndex ? (() => {
+          const nextQuantity = Number(item.quantity || 0) + Number(itemToAdd.quantity || 0);
+          const stock = Math.max(0, Number(item.stock || 0));
+          const manual = isManualItem(item);
+          return {
+            ...item,
+            quantity: nextQuantity,
+            out_of_stock_request: manual ? 0 : ((stock <= 0 || nextQuantity > stock) ? 1 : 0),
+          };
+        })() : item
       ));
       updateCart(nextCart);
       return;
@@ -191,7 +269,13 @@ function Cart({ cartCount, setCartCount }) {
       const manual = isManualItem(item);
       if (manual) return item;
       const nextQuantity = Math.max(1, Number(item.quantity || 1) + change);
-      return { ...item, quantity: nextQuantity, quantity_label: String(nextQuantity) };
+      const stock = Math.max(0, Number(item.stock || 0));
+      return {
+        ...item,
+        quantity: nextQuantity,
+        quantity_label: String(nextQuantity),
+        out_of_stock_request: stock <= 0 || nextQuantity > stock ? 1 : 0,
+      };
     });
     updateCart(newCart);
   };
@@ -243,6 +327,7 @@ function Cart({ cartCount, setCartCount }) {
     addOrMergeItem(manualItem);
     setManualDraft((prev) => ({ ...prev, name: '' }));
     setManualMatches([]);
+    setManualMatchCursor(-1);
   };
 
   const addMatchedProductToCart = (product) => {
@@ -250,6 +335,8 @@ function Cart({ cartCount, setCartCount }) {
     if (!productId) return;
     const productName = String(product?.name || '').trim() || 'Item';
     const { quantity, quantityLabel } = parseQuantityText(manualDraft.qtyText);
+    const stock = Math.max(0, Number(product?.stock || 0));
+    const outOfStock = stock <= 0 || quantity > stock;
     const productItem = {
       id: productId,
       product_id: productId,
@@ -260,14 +347,34 @@ function Cart({ cartCount, setCartCount }) {
       price_unknown: 0,
       quantity,
       quantity_label: quantityLabel,
-      stock: Math.max(0, Number(product?.stock || 0)),
+      stock,
       item_type: 'catalog',
       is_manual: 0,
+      out_of_stock_request: outOfStock ? 1 : 0,
     };
     setManualError('');
     addOrMergeItem(productItem);
     setManualDraft((prev) => ({ ...prev, name: '' }));
     setManualMatches([]);
+    setManualMatchCursor(-1);
+  };
+
+  const handleManualNameKeyDown = (event) => {
+    if (!manualMatches.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setManualMatchCursor((prev) => (prev + 1) % manualMatches.length);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setManualMatchCursor((prev) => (prev <= 0 ? manualMatches.length - 1 : prev - 1));
+      return;
+    }
+    if (event.key === 'Enter' && manualMatchCursor >= 0 && manualMatchCursor < manualMatches.length) {
+      event.preventDefault();
+      addMatchedProductToCart(manualMatches[manualMatchCursor]);
+    }
   };
 
   const renderManualEntryCard = () => (
@@ -279,8 +386,13 @@ function Cart({ cartCount, setCartCount }) {
         type="text"
         value={manualDraft.name}
         onChange={(e) => setManualDraft((prev) => ({ ...prev, name: e.target.value }))}
+        onKeyDown={handleManualNameKeyDown}
         placeholder="Type product name"
         list="manual-cart-suggestions"
+        autoCapitalize="words"
+        autoComplete="off"
+        spellCheck
+        aria-label="Manual product name"
         required
       />
       <datalist id="manual-cart-suggestions">
@@ -292,21 +404,38 @@ function Cart({ cartCount, setCartCount }) {
           value={manualDraft.qtyText}
           onChange={(e) => setManualDraft((prev) => ({ ...prev, qtyText: e.target.value }))}
           placeholder="Qty (example: 1kg or 2 pcs)"
+          inputMode="text"
+          aria-label="Manual quantity"
           required
         />
       </div>
-      <button type="submit" className="manual-entry-btn">Add Manual Item</button>
+      <div className="manual-qty-chips" role="group" aria-label="Quick quantity options">
+        {QUICK_QTY_OPTIONS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`manual-qty-chip ${String(manualDraft.qtyText || '').trim() === option ? 'active' : ''}`}
+            onClick={() => setManualDraft((prev) => ({ ...prev, qtyText: option }))}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+      <button type="submit" className="manual-entry-btn">Add Custom Item</button>
       <div className="manual-search-meta">
         {manualSearchLoading ? <span>Searching matching products...</span> : null}
         {!manualSearchLoading && manualSearchError ? <span className="manual-search-error">{manualSearchError}</span> : null}
       </div>
       {!manualSearchLoading && manualMatches.length > 0 && (
         <div className="manual-search-results">
-          {manualMatches.map((product) => {
+          {manualMatches.map((product, index) => {
             const productId = Number(product?.id || 0);
             const outOfStock = Number(product?.stock || 0) <= 0;
             return (
-              <div key={productId} className="manual-search-item">
+              <div
+                key={productId}
+                className={`manual-search-item ${index === manualMatchCursor ? 'active' : ''}`}
+              >
                 <div className="manual-search-item-meta">
                   <strong>{product.name}</strong>
                   <span>{product.category || 'Product'}</span>
@@ -317,9 +446,8 @@ function Cart({ cartCount, setCartCount }) {
                   type="button"
                   className="manual-search-add-btn"
                   onClick={() => addMatchedProductToCart(product)}
-                  disabled={outOfStock}
                 >
-                  {outOfStock ? 'Unavailable' : 'Add Product'}
+                  {outOfStock ? 'Request Product' : 'Add Product'}
                 </button>
               </div>
             );
@@ -359,8 +487,17 @@ function Cart({ cartCount, setCartCount }) {
           {renderManualEntryCard()}
           {cart.map((item, index) => {
             const manual = isManualItem(item);
+            const requestedCatalog = !manual && Number(item?.out_of_stock_request || 0) === 1;
             const unknownPrice = isUnknownPriceItem(item);
             const quantityLabel = getItemQuantityLabel(item);
+            const requestedQtyNumeric = Math.max(0, Number(item?.quantity || 0));
+            const stockQtyNumeric = Math.max(0, Number(item?.stock || 0));
+            const availableNowQty = requestedCatalog
+              ? Math.min(stockQtyNumeric, requestedQtyNumeric)
+              : requestedQtyNumeric;
+            const pendingQty = requestedCatalog
+              ? Math.max(0, requestedQtyNumeric - availableNowQty)
+              : 0;
             return (
               <div
                 key={getCartItemKey(item)}
@@ -376,8 +513,15 @@ function Cart({ cartCount, setCartCount }) {
                 </div>
                 <div className="cart-item-details">
                   <h3>{item.name}</h3>
-                  <p className="cart-item-category">{manual ? 'Requested / Manual' : item.category}</p>
+                  <p className="cart-item-category">
+                    {manual ? 'Requested / Manual' : requestedCatalog ? 'Requested / Out of Stock' : item.category}
+                  </p>
                   <p className="cart-item-quantity-text">Qty: {quantityLabel}</p>
+                  {requestedCatalog ? (
+                    <p className="cart-item-request-note">
+                      {`${Number(availableNowQty || 0)} available now, ${Number(pendingQty || 0)} pending.`}
+                    </p>
+                  ) : null}
                   {unknownPrice ? (
                     <p className="cart-item-price-unknown">Price: Unknown (set at billing)</p>
                   ) : (
@@ -402,7 +546,6 @@ function Cart({ cartCount, setCartCount }) {
                         type="button"
                         className="quantity-btn"
                         onClick={() => updateQuantity(getCartItemKey(item), 1)}
-                        disabled={Number(item.stock || 0) > 0 && Number(item.quantity || 0) >= Number(item.stock || 0)}
                       >
                         <Plus size={16} />
                       </button>

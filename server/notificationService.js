@@ -10,7 +10,7 @@ const encodeMailto = ({ to, subject, body }) => {
 };
 
 const createNotificationService = (config = {}) => {
-  const businessName = String(config.businessName || '').trim() || 'BARMAN STORE';
+  const businessName = String(config.businessName || '').trim() || "বৰ্মন ষ্ট'ৰ";
   const defaultCountryCode = String(config.defaultCountryCode || '91').trim() || '91';
 
   const prepareEmail = ({ type, to, payload = {} }) => {

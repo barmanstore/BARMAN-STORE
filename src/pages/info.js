@@ -1,4 +1,4 @@
-export const TITLE = "BARMAN STORE";
+export const TITLE = "বৰ্মন ষ্ট'ৰ";
 export const SUB_TITLE = "Quality Groceries & Everyday Essentials";
 export const DESCRIPTION =" A premier neighborhood retail store specializing in fresh produce, daily groceries, and a wide variety of school and office stationery.";
 export const LOGO_URL = "logo.png";

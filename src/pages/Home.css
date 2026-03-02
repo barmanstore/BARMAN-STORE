@@ -81,6 +81,32 @@
   margin-right: auto;
 }
 
+.hero-trust-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0 auto 0.9rem;
+  max-width: 760px;
+}
+
+.hero-trust-strip span {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.96);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+  padding: 0.5rem 0.55rem;
+}
+
+.hero-security-note {
+  margin: 0 0 1rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 .hero-cta {
   display: inline-block;
   padding: 1rem 2.5rem;
@@ -117,6 +143,22 @@
 .hero-cta:hover {
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 10px 30px rgba(212, 175, 55, 0.35);
+}
+
+.hero-policy-links {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.hero-policy-links a {
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
 .hero-decoration {
@@ -327,6 +369,17 @@
     font-size: 1rem;
   }
 
+  .hero-trust-strip {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    max-width: 420px;
+  }
+
+  .hero-trust-strip span {
+    font-size: 0.76rem;
+    padding: 0.45rem 0.55rem;
+  }
+
   .features {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -374,6 +427,10 @@
     margin-bottom: 1.5rem;
   }
 
+  .hero-security-note {
+    font-size: 0.8rem;
+  }
+
   .hero-cta {
     display: block;
     width: 100%;
@@ -381,6 +438,14 @@
     font-size: 1rem;
     border-radius: 12px;
     text-align: center;
+  }
+
+  .hero-policy-links {
+    gap: 0.7rem;
+  }
+
+  .hero-policy-links a {
+    font-size: 0.76rem;
   }
 
   .feature-card {
@@ -395,5 +460,273 @@
 
   .feature-icon svg { width: 28px; height: 28px; }
 
-  .decoration-circle, .decoration-line { display: none; }
+.decoration-circle, .decoration-line { display: none; }
+}
+
+/* Mobile-first override layer */
+.hero {
+  min-height: 46vh;
+  padding: 2rem 1rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.hero-content {
+  padding: 0 0.25rem;
+}
+
+.hero-logo-wrap {
+  width: clamp(78px, 24vw, 100px);
+  margin-bottom: 0.75rem;
+  padding: 0.38rem;
+  border-radius: 14px;
+}
+
+.hero-title {
+  gap: 0.8rem;
+  margin-bottom: 1.4rem;
+}
+
+.hero-title-main {
+  font-size: clamp(1.6rem, 10vw, 2.6rem);
+}
+
+.hero-title-sub {
+  font-size: 0.84rem;
+}
+
+.hero-description {
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero-trust-strip {
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  max-width: 420px;
+}
+
+.hero-trust-strip span {
+  font-size: 0.76rem;
+  padding: 0.45rem 0.55rem;
+}
+
+.hero-security-note {
+  font-size: 0.8rem;
+}
+
+.hero-cta {
+  display: block;
+  width: 100%;
+  padding: 1.1rem 1rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.hero-policy-links {
+  gap: 0.7rem;
+}
+
+.hero-policy-links a {
+  font-size: 0.76rem;
+}
+
+.decoration-circle,
+.decoration-line {
+  display: none;
+}
+
+.features {
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2.2rem;
+}
+
+.feature-card {
+  padding: 1.5rem;
+  border-radius: 10px;
+}
+
+.feature-icon {
+  width: 64px;
+  height: 64px;
+}
+
+.feature-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cta-section {
+  padding: 2.2rem 1rem;
+  border-radius: 12px;
+}
+
+.cta-content h2 {
+  font-size: 1.8rem;
+}
+
+.cta-content p {
+  font-size: 0.96rem;
+  margin-bottom: 1.25rem;
+}
+
+.cta-button {
+  display: block;
+  width: 100%;
+  padding: 0.95rem 1.1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+}
+
+@media (min-width: 481px) {
+  .hero {
+    min-height: 50vh;
+    padding: 3rem 1.5rem;
+  }
+
+  .hero-logo-wrap {
+    width: clamp(84px, 22vw, 128px);
+    margin-bottom: 0.9rem;
+    border-radius: 18px;
+  }
+
+  .hero-title-main {
+    font-size: clamp(2.2rem, 9vw, 3.2rem);
+  }
+
+  .hero-title-sub {
+    font-size: 0.9rem;
+  }
+
+  .hero-description {
+    font-size: 1rem;
+  }
+
+  .cta-content h2 {
+    font-size: 2rem;
+  }
+
+  .cta-content p {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 769px) {
+  .hero {
+    min-height: 70vh;
+    padding: 4rem 2rem;
+    border-radius: 16px;
+    margin-bottom: 4rem;
+  }
+
+  .hero-content {
+    padding: 0;
+  }
+
+  .hero-logo-wrap {
+    width: clamp(90px, 16vw, 168px);
+    margin-bottom: 1.1rem;
+    padding: 0.45rem;
+    border-radius: 22px;
+  }
+
+  .hero-title {
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .hero-title-main {
+    font-size: clamp(2rem, 8vw, 5rem);
+  }
+
+  .hero-title-sub {
+    font-size: clamp(0.75rem, 2.2vw, 1.2rem);
+  }
+
+  .hero-description {
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+    margin-bottom: 2rem;
+  }
+
+  .hero-trust-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+    max-width: 760px;
+  }
+
+  .hero-trust-strip span {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.55rem;
+  }
+
+  .hero-security-note {
+    font-size: 0.86rem;
+  }
+
+  .hero-cta {
+    display: inline-block;
+    width: auto;
+    border-radius: 10px;
+    padding: 1rem 2.5rem;
+    font-size: 1.05rem;
+  }
+
+  .hero-policy-links a {
+    font-size: 0.8rem;
+  }
+
+  .decoration-circle {
+    display: block;
+    width: 600px;
+    height: 600px;
+  }
+
+  .decoration-line {
+    display: block;
+  }
+
+  .features {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+  }
+
+  .feature-card {
+    padding: 2.5rem 2rem;
+    border-radius: 12px;
+  }
+
+  .feature-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .feature-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+
+  .cta-section {
+    padding: 4rem 2rem;
+    border-radius: 16px;
+  }
+
+  .cta-content h2 {
+    font-size: 3rem;
+  }
+
+  .cta-content p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+  }
+
+  .cta-button {
+    display: inline-block;
+    width: auto;
+    padding: 1.2rem 3.5rem;
+    border-radius: 50px;
+    font-size: 1.1rem;
+  }
 }
