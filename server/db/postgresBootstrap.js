@@ -175,8 +175,9 @@ const ensurePostgresBootstrapData = async ({
     const category = String(row.category || '').trim();
     if (!category) continue;
     await pool.query(
-      `INSERT INTO categories (name, description) VALUES ($1, $2)
-       ON CONFLICT (name) DO NOTHING`,
+      `INSERT INTO categories (name, description, parent_id)
+       VALUES ($1, $2, NULL)
+       ON CONFLICT DO NOTHING`,
       [category, `${category} products`]
     );
   }

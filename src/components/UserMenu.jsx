@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, Shield, LogOut, ChevronDown, X, CreditCard, FileText, Lightbulb } from 'lucide-react';
 import { resolveMediaSourceForDisplay } from '../services/api';
+import { truncateUserName } from '../utils/formatters';
 import './UserMenu.css';
 
 function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} }) {
@@ -157,7 +158,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                   <div className="dropdown-header">
                     {renderAvatar('dropdown-avatar')}
                     <div className="dropdown-user-info">
-                      <span className="dropdown-user-name">{user.name || 'User'}</span>
+                      <span className="dropdown-user-name">{truncateUserName(user.name || 'User', 15)}</span>
                       <span className="dropdown-user-email">{user.email || user.phone || 'No email'}</span>
                     </div>
                     <button
@@ -214,7 +215,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                     <div className="dropdown-header">
                       {renderAvatar('dropdown-avatar')}
                       <div className="dropdown-user-info">
-                        <span className="dropdown-user-name">{user.name || 'User'}</span>
+                        <span className="dropdown-user-name">{truncateUserName(user.name || 'User', 15)}</span>
                         <span className="dropdown-user-email">{user.email || user.phone || 'No email'}</span>
                       </div>
                       <button

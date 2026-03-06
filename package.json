@@ -32,7 +32,9 @@
         "build": "vite build",
         "test:phone": "node scripts/test-phone-validation.mjs",
         "test:order-flow": "node scripts/test-order-billing-flow.mjs",
+        "test:po-lifecycle": "node scripts/test-po-lifecycle-flow.mjs",
         "test:credit-ui": "node scripts/test-credit-history-ui.mjs",
+        "test:category-tree": "node scripts/test-category-tree-rules.mjs",
         "preview": "vite preview",
         "server": "node server/index.js",
         "start:prod": "node server/index.js",
@@ -41,7 +43,8 @@
         "hooks:install": "node scripts/install-hooks.mjs",
         "prepare": "node scripts/install-hooks.mjs",
         "db:supabase:check": "node scripts/check-supabase-connection.js",
-        "db:supabase:migrate": "node scripts/apply-supabase-migrations.js"
+        "db:supabase:migrate": "node scripts/apply-supabase-migrations.js",
+        "security:supabase:enable-leaked-password-protection": "node scripts/enable-supabase-leaked-password-protection.js"
     },
     "browserslist": {
         "production": [

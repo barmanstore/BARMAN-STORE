@@ -48,7 +48,7 @@ Source: ".env.example"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesn
 
 ; Optional files commonly useful in your repo
 Source: "index.html"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "vite.config.js"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "vite.config.mjs"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Barman Store React"; Filename: "{app}\{#MyAppExeName}"

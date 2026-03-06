@@ -1,13 +1,13 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Package, ClipboardList, Home as HomeIcon, Store, Shield, FileText, Lightbulb, BellRing, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Menu, X, Package, ClipboardList, Home as HomeIcon, Store, Shield, FileText, Lightbulb, BellRing, ChevronDown, MessageCircle, Phone } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense, useRef } from 'react';
 import UserMenu from './components/UserMenu';
 import ErrorBoundary from './components/ErrorBoundary';
 import { analyticsApi, notificationsApi } from './services/api';
+import { truncateUserName } from './utils/formatters';
 import './index.css';
 import './App.css';
 import * as info from './pages/info.js';
-import logoImage from '../logo1.png';
 
 const Home = lazy(() => import('./pages/Home'));
 const Products = lazy(() => import('./pages/Products'));
@@ -38,6 +38,32 @@ const getPublicFileUrl = (filename) => {
 
 const VISITOR_SESSION_STORAGE_KEY = 'visitor_session_id';
 
+const safeLocalStorageGet = (key) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (_) {
+    return null;
+  }
+};
+
+const safeLocalStorageSet = (key, value) => {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+const safeLocalStorageRemove = (key) => {
+  try {
+    window.localStorage.removeItem(key);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
 const createVisitorSessionId = () => {
   if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
     return window.crypto.randomUUID();
@@ -52,10 +78,10 @@ function VisitorTracker() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    let existingSessionId = String(window.localStorage.getItem(VISITOR_SESSION_STORAGE_KEY) || '').trim();
+    let existingSessionId = String(safeLocalStorageGet(VISITOR_SESSION_STORAGE_KEY) || '').trim();
     if (!existingSessionId) {
       existingSessionId = createVisitorSessionId();
-      window.localStorage.setItem(VISITOR_SESSION_STORAGE_KEY, existingSessionId);
+      safeLocalStorageSet(VISITOR_SESSION_STORAGE_KEY, existingSessionId);
     }
     sessionIdRef.current = existingSessionId;
     latestPathRef.current = `${location.pathname || '/'}${location.search || ''}`;
@@ -108,17 +134,26 @@ function App() {
   const [messageSending, setMessageSending] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState({ type: '', text: '' });
   const notificationInboxRef = useRef(null);
+  const logoImage = getPublicFileUrl(info.LOGO_URL || 'logo.png');
   const isAdminUser = String(user?.role || '').trim().toLowerCase() === 'admin';
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const callHref = `tel:${String(info.CONTACT || '').replace(/[^\d+]/g, '')}`;
+  const whatsappDigits = String(info.WHATSAPP_NUMBER || '').replace(/\D/g, '');
+  const whatsappText = encodeURIComponent(
+    String(info.WHATSAPP_DEFAULT_TEXT || 'Hello Barman Store, I need help with my order.')
+  );
+  const whatsappHref = whatsappDigits
+    ? `https://wa.me/${whatsappDigits}?text=${whatsappText}`
+    : '';
 
   useEffect(() => {
     // Check for existing user session
-    const savedUser = localStorage.getItem('user');
+    const savedUser = safeLocalStorageGet('user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (_) {
-        localStorage.removeItem('user');
+        safeLocalStorageRemove('user');
         setUser(null);
       }
     }
@@ -126,7 +161,7 @@ function App() {
 
   useEffect(() => {
     const syncUserFromStorage = () => {
-      const savedUser = localStorage.getItem('user');
+      const savedUser = safeLocalStorageGet('user');
       if (!savedUser) {
         setUser(null);
         return;
@@ -134,7 +169,7 @@ function App() {
       try {
         setUser(JSON.parse(savedUser));
       } catch (_) {
-        localStorage.removeItem('user');
+        safeLocalStorageRemove('user');
         setUser(null);
       }
     };
@@ -149,7 +184,7 @@ function App() {
   useEffect(() => {
     const syncCartCountFromStorage = () => {
       try {
-        const saved = JSON.parse(localStorage.getItem('barman_cart') || '[]');
+        const saved = JSON.parse(safeLocalStorageGet('barman_cart') || '[]');
         const rows = Array.isArray(saved) ? saved : [];
         const total = rows.reduce((sum, item) => sum + Math.max(0, Number(item?.quantity || 0)), 0);
         setCartCount(total);
@@ -511,9 +546,7 @@ function App() {
 
             <Link to="/" className="logo">
               <img src={logoImage} alt="Logo" className="logo-image" />
-              <span className="logo-bar">BAR</span>
-              <span className="logo-man">MAN</span>
-              <span className="logo-store">STORE</span>
+              <span className="logo-bar">{info.TITLE}</span>
             </Link>
 
             <nav id="app-mobile-nav" className={`nav ${mobileMenuOpen ? 'nav-open' : ''}`}>
@@ -598,6 +631,8 @@ function App() {
                         {isAdminUser ? (
                           <>
                             <input
+                              id="notification-recipient-search"
+                              name="recipient_search"
                               type="text"
                               className="notification-compose-input"
                               value={recipientSearch}
@@ -625,12 +660,14 @@ function App() {
                                   return (
                                     <label key={recipientId} className="notification-recipient-item">
                                       <input
+                                        id={`notification-recipient-${recipientId}`}
+                                        name="recipient_user_ids"
                                         type="checkbox"
                                         checked={checked}
                                         onChange={() => toggleRecipientSelection(recipientId)}
                                       />
                                       <span>
-                                        {recipient?.name || `Customer #${recipientId}`}
+                                        {truncateUserName(recipient?.name || `Customer #${recipientId}`, 15)}
                                         {recipient?.phone ? ` (${recipient.phone})` : ''}
                                       </span>
                                     </label>
@@ -643,6 +680,8 @@ function App() {
                           <p className="notification-compose-helper">Send a message to admin.</p>
                         )}
                         <input
+                          id="notification-compose-message"
+                          name="message"
                           type="text"
                           className="notification-compose-input notification-compose-message-input"
                           value={messageDraft}
@@ -762,6 +801,24 @@ function App() {
             </Routes>
           </Suspense>
         </main>
+        <div className="quick-contact-fab" aria-label="Quick contact options">
+          {whatsappHref ? (
+            <a
+              href={whatsappHref}
+              className="quick-contact-btn chat"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Chat on WhatsApp"
+            >
+              <MessageCircle size={18} />
+              <span>Chat</span>
+            </a>
+          ) : null}
+          <a href={callHref} className="quick-contact-btn call" aria-label="Call store">
+            <Phone size={18} />
+            <span>Call</span>
+          </a>
+        </div>
 
         {/* Footer */}
         <footer className="footer">
@@ -787,6 +844,28 @@ function App() {
               <div className="footer-contact-list">
                 <p>Email: {info.EMAIL}</p>
                 <p>Phone: {info.CONTACT}</p>
+                {info.SHOP_ADDRESS ? <p>Address: {info.SHOP_ADDRESS}</p> : null}
+                {info.COUNTER_HOURS ? <p>Counter Hours: {info.COUNTER_HOURS}</p> : null}
+                {whatsappHref ? (
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="footer-whatsapp-link"
+                  >
+                    WhatsApp Chat
+                  </a>
+                ) : null}
+                {info.SHOP_LOCATION_URL ? (
+                  <a
+                    href={info.SHOP_LOCATION_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="footer-location-link"
+                  >
+                    Shop Location
+                  </a>
+                ) : null}
               </div>
             </div>
           </div>

@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
-import { customersApi, productsApi, billingApi, creditApi, usersApi } from '../services/api';
+import { Plus, Trash2, UserPlus } from 'lucide-react';
+import { customersApi, productsApi, billingApi, creditApi } from '../services/api';
 import { sendWhatsAppSmart } from '../utils/whatsapp';
 import { formatCurrency } from '../utils/formatters';
 import { buildBillShareText } from '../utils/messageTemplates';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import * as info from './info';
+import UserEditModal from './UserEditModal';
 import './BillingTab.css';
 
 const createEmptyItem = () => ({
@@ -19,8 +19,102 @@ const createEmptyItem = () => ({
   amount: 0
 });
 
+const normalizeUomToken = (value, fallback = 'pcs') =>
+  String(value || fallback).trim().toLowerCase() || fallback;
+
+const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
+  pcs: 'pcs',
+  dozen: 'pcs',
+  kg: 'kg',
+  g: 'kg',
+  l: 'l',
+  ml: 'l',
+});
+
+const UNIT_FAMILY_MULTIPLIERS = Object.freeze({
+  pcs: Object.freeze({ pcs: 1, dozen: 12 }),
+  kg: Object.freeze({ kg: 1, g: 0.001 }),
+  l: Object.freeze({ l: 1, ml: 0.001 }),
+});
+
+const getUomFamily = (baseUnit = 'pcs') => {
+  const normalizedBase = normalizeUomToken(baseUnit, 'pcs');
+  const familyBase = UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
+  if (!familyBase) return null;
+  const multipliers = UNIT_FAMILY_MULTIPLIERS[familyBase];
+  if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
+  return {
+    normalizedBase,
+    multipliers,
+  };
+};
+
+const getAllowedUnitsFromBaseUnit = (baseUnit = 'pcs') => {
+  const family = getUomFamily(baseUnit);
+  if (!family) return [];
+  const allUnits = Object.keys(family.multipliers);
+  return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
+};
+
+const convertQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  const family = getUomFamily(baseUnit);
+  if (!family) return null;
+  const from = normalizeUomToken(fromUnit, family.normalizedBase);
+  const to = normalizeUomToken(toUnit, family.normalizedBase);
+  const fromMultiplier = family.multipliers[from];
+  const toMultiplier = family.multipliers[to];
+  if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
+    return null;
+  }
+  const qtyInCanonicalBase = numericQty * fromMultiplier;
+  return qtyInCanonicalBase / toMultiplier;
+};
+
+const getProductUomProfile = (product = null) => {
+  const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
+  const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
+  const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
+  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
+    ? conversionFactorRaw
+    : 1;
+  return { sellingUnit, baseUnit, conversionFactor };
+};
+
+const getAllowedUnitsForProduct = (product = null) => {
+  if (!product) return ['pcs'];
+  const profile = getProductUomProfile(product);
+  const familyUnits = getAllowedUnitsFromBaseUnit(profile.baseUnit);
+  if (familyUnits.length) return familyUnits;
+  if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
+  return [...new Set([profile.baseUnit, profile.sellingUnit])];
+};
+
+const resolveLineUnitForProduct = (product = null, unit = 'pcs') => {
+  if (!product) return normalizeUomToken(unit, 'pcs');
+  const allowedUnits = getAllowedUnitsForProduct(product);
+  const requestedUnit = normalizeUomToken(unit, allowedUnits[0] || 'pcs');
+  return allowedUnits.includes(requestedUnit) ? requestedUnit : (allowedUnits[0] || requestedUnit);
+};
+
+const toPricingQtyFromProduct = (qty, unit, product = null) => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  if (!product) return numericQty;
+  const profile = getProductUomProfile(product);
+  const inputUnit = resolveLineUnitForProduct(product, unit);
+  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
+  if (familyConverted !== null) return familyConverted;
+  if (inputUnit === profile.baseUnit) return numericQty;
+  if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+    return numericQty / profile.conversionFactor;
+  }
+  return numericQty;
+};
+
 const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
-  const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '' });
+  const [customer, setCustomer] = useState({ id: null, name: '', email: '', phone: '', address: '' });
   const [items, setItems] = useState([createEmptyItem()]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -32,6 +126,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const [prefillSummary, setPrefillSummary] = useState('');
   const [linkedOrderId, setLinkedOrderId] = useState(0);
   const [fulfillmentMode, setFulfillmentMode] = useState('available_now');
+  const [showCustomerCreateModal, setShowCustomerCreateModal] = useState(false);
 
   const [customersList, setCustomersList] = useState([]);
   const [productsList, setProductsList] = useState([]);
@@ -53,7 +148,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
         setProductsList(productsData || []);
       } catch (err) {
         console.error('Error fetching initial data:', err);
-        setError('Failed to load data. Please refresh the page.');
+        setError('Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -70,12 +165,26 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     };
   }, []);
 
-  const calculateAmount = useCallback((price, qty, disc, discType) => {
+  const getProductForLine = useCallback((line = {}) => {
+    const productId = Number(line?.productId || 0);
+    if (productId > 0) {
+      const byId = productsList.find((product) => Number(product?.id || 0) === productId);
+      if (byId) return byId;
+    }
+    const nameKey = String(line?.name || '').trim().toLowerCase();
+    if (!nameKey) return null;
+    return productsList.find(
+      (product) => String(product?.name || '').trim().toLowerCase() === nameKey
+    ) || null;
+  }, [productsList]);
+
+  const calculateAmount = useCallback((price, qty, disc, discType, unit = 'pcs', product = null) => {
     const priceNum = Number(price) || 0;
     const qtyNum = Math.max(1, Number(qty) || 1);
+    const pricingQty = toPricingQtyFromProduct(qtyNum, unit, product);
     const discNum = Number(disc) || 0;
 
-    const subtotal = priceNum * qtyNum;
+    const subtotal = priceNum * pricingQty;
 
     let discountAmount = 0;
     if (discType === 'percentage') {
@@ -113,7 +222,14 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           unit: String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
           disc,
           discType,
-          amount: calculateAmount(price, qty, disc, discType).amount,
+          amount: calculateAmount(
+            price,
+            qty,
+            disc,
+            discType,
+            String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
+            null
+          ).amount,
         };
       })
       : [createEmptyItem()];
@@ -152,6 +268,10 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           const price = Number(matchedProduct.price) || 0;
           const disc = Number(matchedProduct.defaultDiscount) || 0;
           const discType = matchedProduct.discountType || 'fixed';
+          const defaultUnit = resolveLineUnitForProduct(
+            matchedProduct,
+            matchedProduct.base_unit || matchedProduct.uom || matchedProduct.unit || 'pcs'
+          );
 
           newItems[index] = {
             ...newItems[index],
@@ -159,41 +279,50 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             productId: matchedProduct.id,
             price,
             qty: 1,
-            unit: matchedProduct.uom || matchedProduct.unit || 'pcs',
+            unit: defaultUnit,
             disc,
             discType,
-            amount: calculateAmount(price, 1, disc, discType).amount
+            amount: calculateAmount(
+              price,
+              1,
+              disc,
+              discType,
+              defaultUnit,
+              matchedProduct
+            ).amount
           };
         } else {
           newItems[index] = { ...newItems[index], name: value };
-          newItems[index].amount = calculateAmount(
-            newItems[index].price,
-            newItems[index].qty,
-            newItems[index].disc,
-            newItems[index].discType
-          ).amount;
         }
       } else if (field === 'price') {
         newItems[index].price = value;
-        newItems[index].amount = calculateAmount(value, newItems[index].qty, newItems[index].disc, newItems[index].discType).amount;
       } else if (field === 'qty') {
         const qty = Math.max(1, Number(value) || 1);
         newItems[index].qty = qty;
-        newItems[index].amount = calculateAmount(newItems[index].price, qty, newItems[index].disc, newItems[index].discType).amount;
       } else if (field === 'disc') {
         const disc = Number(value) || 0;
         newItems[index].disc = disc;
-        newItems[index].amount = calculateAmount(newItems[index].price, newItems[index].qty, disc, newItems[index].discType).amount;
       } else if (field === 'discType') {
         newItems[index].discType = value;
-        newItems[index].amount = calculateAmount(newItems[index].price, newItems[index].qty, newItems[index].disc, value).amount;
       } else {
         newItems[index][field] = value;
       }
 
+      const currentLine = newItems[index];
+      const productForAmount = getProductForLine(currentLine);
+      currentLine.unit = resolveLineUnitForProduct(productForAmount, currentLine.unit);
+      currentLine.amount = calculateAmount(
+        currentLine.price,
+        currentLine.qty,
+        currentLine.disc,
+        currentLine.discType,
+        currentLine.unit,
+        productForAmount
+      ).amount;
+
       return newItems;
     });
-  }, [calculateAmount, productsList]);
+  }, [calculateAmount, getProductForLine, productsList]);
 
   const addItem = () => setItems((prev) => [...prev, createEmptyItem()]);
 
@@ -208,32 +337,15 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const totalDiscount = items.reduce((sum, item) => {
     const priceNum = Number(item.price) || 0;
     const qtyNum = Math.max(1, Number(item.qty) || 1);
+    const product = getProductForLine(item);
+    const pricingQty = toPricingQtyFromProduct(qtyNum, item.unit, product);
     const discNum = Number(item.disc) || 0;
     if (item.discType === 'percentage') {
       const validDiscPercent = Math.min(100, Math.max(0, discNum));
-      return sum + (priceNum * qtyNum * validDiscPercent) / 100;
+      return sum + (priceNum * pricingQty * validDiscPercent) / 100;
     }
-    return sum + Math.min(priceNum * qtyNum, Math.max(0, discNum));
+    return sum + Math.min(priceNum * pricingQty, Math.max(0, discNum));
   }, 0);
-
-  const refreshData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const [customersData, productsData] = await Promise.all([
-        customersApi.getAll(),
-        productsApi.getAll()
-      ]);
-      setCustomersList(customersData || []);
-      setProductsList(productsData || []);
-    } catch (err) {
-      console.error('Error refreshing data:', err);
-      setError('Failed to refresh data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   const handleCustomerChange = useCallback((e) => {
     const { value } = e.target;
@@ -248,7 +360,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       return;
     }
 
-    setCustomer((prev) => ({ ...prev, name: value }));
+    setCustomer({ id: null, name: value, email: '', phone: '', address: '' });
 
     if (value.length >= 2) {
       customerSearchTimeout.current = setTimeout(async () => {
@@ -264,6 +376,47 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     }
   }, [customersList]);
 
+  const handleAddCustomer = useCallback(() => {
+    if (isOrderLinked) return;
+    const name = String(customer?.name || '').trim();
+    const existing = customersList.find(
+      (entry) => String(entry?.name || '').trim().toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      setCustomer({ ...existing });
+      alert('Existing customer selected.');
+      return;
+    }
+    setShowCustomerCreateModal(true);
+  }, [customer?.name, customersList, isOrderLinked]);
+
+  const handleCustomerModalSave = useCallback(async (createdUser = null) => {
+    try {
+      const latestCustomers = await customersApi.getAll();
+      const list = Array.isArray(latestCustomers) ? latestCustomers : [];
+      setCustomersList(list);
+
+      const createdId = Number(createdUser?.id || createdUser?.user_id || 0);
+      const createdName = String(createdUser?.name || '').trim().toLowerCase();
+
+      let matched = null;
+      if (createdId > 0) {
+        matched = list.find((entry) => Number(entry?.id || 0) === createdId) || null;
+      }
+      if (!matched && createdName) {
+        matched = list.find(
+          (entry) => String(entry?.name || '').trim().toLowerCase() === createdName
+        ) || null;
+      }
+
+      if (matched) {
+        setCustomer({ ...matched });
+      }
+    } catch (err) {
+      alert(`Customer created, but refresh failed: ${err.message || 'Unknown error'}`);
+    }
+  }, []);
+
   const handleCreateBill = async () => {
     const hasItems = items.some((it) => it.name && it.amount > 0);
 
@@ -271,24 +424,18 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       alert('Please add at least one item to the bill.');
       return;
     }
-    if (!isOrderLinked && !isValidIndianPhone(customer.phone)) {
-      alert(PHONE_POLICY_MESSAGE);
-      return;
-    }
-    if (isOrderLinked && customer.phone && !isValidIndianPhone(customer.phone)) {
-      alert(PHONE_POLICY_MESSAGE);
+    if (!String(customer?.name || '').trim()) {
+      alert('Please select or enter a customer name.');
       return;
     }
 
     const paid = paidClamped;
-    const normalizePhone = (value) => normalizeIndianPhone(value);
-    const isSame = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
     const payload = {
       customer_id: customer.id || null,
       customer_name: customer.name,
       customer_email: customer.email || null,
-      customer_phone: normalizeIndianPhone(customer.phone) || null,
+      customer_phone: customer.phone || null,
       customer_address: customer.address || null,
       discount_amount: Number(totalDiscount.toFixed(2)),
       total_amount: Number(totalBill.toFixed(2)),
@@ -301,18 +448,23 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       fulfillment_mode: isOrderLinked ? fulfillmentMode : 'full_now',
       items: items
         .filter((it) => it.name && Number(it.amount) > 0)
-        .map((it) => ({
-          product_id: it.productId || null,
-          product_name: it.name,
-          mrp: Number(it.price) || 0,
-          qty: Number(it.qty) || 0,
-          unit: it.unit || 'pcs',
-          discount:
-            it.discType === 'percentage'
-              ? (Number(it.price) || 0) * (Number(it.qty) || 0) * (Math.min(100, Math.max(0, Number(it.disc) || 0)) / 100)
-              : Number(it.disc) || 0,
-          amount: Number(it.amount) || 0
-        }))
+        .map((it) => {
+          const product = getProductForLine(it);
+          const pricingQty = toPricingQtyFromProduct(it.qty, it.unit, product);
+          const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
+          return {
+            product_id: it.productId || null,
+            product_name: it.name,
+            mrp: Number(it.price) || 0,
+            qty: Number(it.qty) || 0,
+            ...(normalizedUnit ? { unit: normalizedUnit } : {}),
+            discount:
+              it.discType === 'percentage'
+                ? (Number(it.price) || 0) * pricingQty * (Math.min(100, Math.max(0, Number(it.disc) || 0)) / 100)
+                : Number(it.disc) || 0,
+            amount: Number(it.amount) || 0
+          };
+        })
     };
 
     try {
@@ -323,87 +475,13 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       let itemsWithProducts = payload.items;
 
       if (!isOrderLinked) {
-        let customerRecord = null;
-        const phone = normalizePhone(payload.customer_phone);
-
-        if (phone) {
-          customerRecord = customersList.find((c) => normalizePhone(c.phone) === phone) || null;
-          if (customerRecord) {
-            const nameMatches = isSame(customerRecord.name, payload.customer_name);
-            const emailMatches = isSame(customerRecord.email, payload.customer_email);
-            if (nameMatches && emailMatches) {
-              resolvedCustomerId = customerRecord.id;
-            } else {
-              const confirmUpdate = window.confirm(
-                'A customer with this phone exists but name/email differ.\n' +
-                'OK to update existing customer, Cancel to continue with existing details.'
-              );
-              if (confirmUpdate) {
-                const updated = await usersApi.update(customerRecord.id, {
-                  name: payload.customer_name,
-                  email: payload.customer_email,
-                  phone: payload.customer_phone,
-                  address: payload.customer_address,
-                  role: 'customer'
-                });
-                const updatedUser = updated?.user || updated || null;
-                if (updatedUser) {
-                  setCustomersList((prev) => prev.map((c) => (c.id === customerRecord.id ? updatedUser : c)));
-                }
-              }
-              resolvedCustomerId = customerRecord.id;
-            }
-          }
-        }
-
         if (!resolvedCustomerId) {
-          const email = String(payload.customer_email || '').trim().toLowerCase();
-          const emailMatch = email ? customersList.find((c) => String(c.email || '').trim().toLowerCase() === email) : null;
-
-          if (emailMatch) {
-            const confirmUpdatePhone = window.confirm(
-              'A customer with this email exists but phone differs.\n' +
-              'OK to update existing phone, Cancel to create a new customer.'
-            );
-            if (confirmUpdatePhone) {
-              const updated = await usersApi.update(emailMatch.id, {
-                name: payload.customer_name || emailMatch.name,
-                email: payload.customer_email || emailMatch.email,
-                phone: payload.customer_phone || emailMatch.phone,
-                address: payload.customer_address || emailMatch.address,
-                role: 'customer'
-              });
-              const updatedUser = updated?.user || updated || null;
-              if (updatedUser) {
-                setCustomersList((prev) => prev.map((c) => (c.id === emailMatch.id ? updatedUser : c)));
-              }
-              resolvedCustomerId = emailMatch.id;
-            } else {
-              const created = await usersApi.create({
-                name: payload.customer_name,
-                email: payload.customer_email,
-                phone: payload.customer_phone,
-                address: payload.customer_address,
-                role: 'customer'
-              });
-              resolvedCustomerId = created?.user?.id || null;
-              if (created?.user) {
-                setCustomersList((prev) => [...prev, created.user]);
-              }
-            }
-          } else {
-            const created = await usersApi.create({
-              name: payload.customer_name,
-              email: payload.customer_email,
-              phone: payload.customer_phone,
-              address: payload.customer_address,
-              role: 'customer'
-            });
-            resolvedCustomerId = created?.user?.id || null;
-            if (created?.user) {
-              setCustomersList((prev) => [...prev, created.user]);
-            }
-          }
+          const byName = customersList.find(
+            (entry) =>
+              String(entry?.name || '').trim().toLowerCase() ===
+              String(payload.customer_name || '').trim().toLowerCase()
+          );
+          resolvedCustomerId = byName?.id || null;
         }
 
         const productUpdates = [];
@@ -441,18 +519,21 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           await Promise.all(productUpdates);
         }
       } else if (!resolvedCustomerId) {
-        const phone = normalizePhone(payload.customer_phone);
-        const byPhone = phone ? customersList.find((c) => normalizePhone(c.phone) === phone) : null;
         const byName = customersList.find((c) => String(c.name || '').trim().toLowerCase() === String(payload.customer_name || '').trim().toLowerCase());
-        resolvedCustomerId = byPhone?.id || byName?.id || null;
+        resolvedCustomerId = byName?.id || null;
       }
 
       if (!isOrderLinked && !resolvedCustomerId) {
-        alert('Unable to resolve customer. Please verify customer details and try again.');
+        alert('Please select an existing customer or click "Add Customer".');
         return;
       }
 
+      const resolvedCustomer =
+        customersList.find((entry) => Number(entry?.id || 0) === Number(resolvedCustomerId || 0)) || customer;
       payload.customer_id = resolvedCustomerId;
+      payload.customer_email = resolvedCustomer?.email || null;
+      payload.customer_phone = resolvedCustomer?.phone || null;
+      payload.customer_address = resolvedCustomer?.address || null;
       payload.items = itemsWithProducts;
 
       const result = await billingApi.createBill(payload);
@@ -491,7 +572,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
         setFulfillmentMode('available_now');
       }
       alert('Bill created successfully.');
-      setCustomer({ name: '', email: '', phone: '', address: '' });
+      setCustomer({ id: null, name: '', email: '', phone: '', address: '' });
       setItems([createEmptyItem()]);
       setPaidAmount(0);
     } catch (err) {
@@ -533,7 +614,21 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
   return (
     <div className="billing-content">
-      <h1>Billing Invoice</h1>
+      <div className="billing-header">
+        <h1>Billing Invoice</h1>
+        {!isOrderLinked ? (
+          <button
+            type="button"
+            className="add-customer-btn"
+            onClick={handleAddCustomer}
+            disabled={isSubmitting}
+            aria-label="Add customer"
+          >
+            <UserPlus size={16} />
+            Add Customer
+          </button>
+        ) : null}
+      </div>
       {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
       {isOrderLinked ? (
         <div className="billing-prefill-note">
@@ -544,17 +639,10 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       {error && (
         <div className="error-message" role="alert">
           {error}
-          <button onClick={refreshData} className="retry-btn">Retry</button>
         </div>
       )}
 
       {loading && <div className="loading-indicator">Loading...</div>}
-
-      {!loading && !error && (
-        <button onClick={refreshData} className="refresh-btn" aria-label="Refresh customer and product data">
-          Refresh Data
-        </button>
-      )}
 
       <div className="form-section">
         <div className="form-row">
@@ -578,49 +666,6 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             ))}
           </datalist>
         </div>
-        <div>
-          <label className="form-label" htmlFor="customerEmail">Email</label>
-          <input
-            id="customerEmail"
-            type="email"
-            className="form-input"
-            value={customer.email}
-            onChange={(e) => setCustomer((prev) => ({ ...prev, email: e.target.value }))}
-            aria-label="Customer email"
-            placeholder="email@example.com"
-            autoComplete="email"
-            readOnly={isOrderLinked}
-          />
-        </div>
-        <div>
-          <label className="form-label" htmlFor="customerPhone">Phone {isOrderLinked ? '' : '*'}</label>
-          <input
-            id="customerPhone"
-            type="tel"
-            className="form-input"
-            value={customer.phone}
-            onChange={(e) => setCustomer((prev) => ({ ...prev, phone: e.target.value }))}
-            aria-label="Customer phone"
-            placeholder="10-digit phone number"
-            maxLength="10"
-            autoComplete="tel"
-            readOnly={isOrderLinked}
-          />
-        </div>
-        <div>
-          <label className="form-label" htmlFor="customerAddress">Address</label>
-          <input
-            id="customerAddress"
-            type="text"
-            className="form-input"
-            value={customer.address}
-            onChange={(e) => setCustomer((prev) => ({ ...prev, address: e.target.value }))}
-            aria-label="Customer address"
-            placeholder="Full address"
-            autoComplete="street-address"
-            readOnly={isOrderLinked}
-          />
-        </div>
       </div>
 
       <div className="table-container">
@@ -637,7 +682,13 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             </tr>
           </thead>
           <tbody>
-            {items.map((item, index) => (
+            {items.map((item, index) => {
+              const rowProduct = getProductForLine(item);
+              const unitOptions = rowProduct ? getAllowedUnitsForProduct(rowProduct) : [];
+              const selectedUnit = rowProduct
+                ? resolveLineUnitForProduct(rowProduct, item.unit)
+                : (String(item.unit || '').trim() || 'pcs');
+              return (
               <tr key={item.id}>
                 <td data-label="Product Name">
                   <input
@@ -674,13 +725,27 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                   />
                 </td>
                 <td data-label="Unit">
-                  <input
-                    type="text"
-                    value={item.unit}
-                    onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
-                    aria-label="Unit of measurement"
-                    placeholder="pcs, kg, etc."
-                  />
+                  {rowProduct ? (
+                    <select
+                      value={selectedUnit}
+                      onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
+                      aria-label="Unit of measurement"
+                    >
+                      {unitOptions.map((unitOption) => (
+                        <option key={`${item.id}-unit-${unitOption}`} value={unitOption}>
+                          {unitOption}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={item.unit}
+                      onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
+                      aria-label="Unit of measurement"
+                      placeholder="pcs, kg, etc."
+                    />
+                  )}
                 </td>
                 <td data-label="Discount">
                   <div className="discount-field">
@@ -716,7 +781,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                   </button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -769,7 +835,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
       <div className="billing-form-controls">
         <button className="reset" onClick={() => {
-          setCustomer({ name: '', email: '', phone: '', address: '' });
+          setCustomer({ id: null, name: '', email: '', phone: '', address: '' });
           setItems([createEmptyItem()]);
           setPaidAmount(0);
           setPrefillSummary('');
@@ -805,6 +871,14 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           </div>
         </div>
       )}
+      {showCustomerCreateModal ? (
+        <UserEditModal
+          isCreate={true}
+          createPrefill={{ name: String(customer?.name || '').trim() }}
+          onClose={() => setShowCustomerCreateModal(false)}
+          onSave={handleCustomerModalSave}
+        />
+      ) : null}
     </div>
   );
 };

@@ -7,11 +7,19 @@ import {
 import { ordersApi, customersApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
+import { LOGO_URL } from './info';
 import './Checkout.css';
 
 // Generate session ID for guest users
 const generateSessionId = () => {
   return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+};
+
+const getStoreLogoPath = () => {
+  const base = String(import.meta.env.BASE_URL || '/');
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanFile = String(LOGO_URL || 'logo.png').replace(/^\/+/, '');
+  return `${normalizedBase}${cleanFile}`;
 };
 
 function Checkout() {
@@ -84,7 +92,7 @@ function Checkout() {
                 id: manual ? (item.id || `manual:retry:${index}`) : parsedProductId,
                 product_id: manual ? null : parsedProductId,
                 name: item.product_name || item.name || 'Item',
-                image: item.product_image || item.image || '/logo.png',
+                image: item.product_image || item.image || getStoreLogoPath(),
                 category: item.category || '',
                 uom: item.uom || 'pcs',
                 stock: manual ? null : Number(item.stock || quantity || 1),
@@ -299,6 +307,7 @@ function Checkout() {
             return baseName;
           })(),
           quantity: Math.max(1, Number(item.quantity || 1)),
+          uom: String(item?.uom || '').trim().toLowerCase() || 'pcs',
           quantity_label: getItemQuantityLabel(item),
           price: Math.max(0, Number(item.price || 0)),
           price_unknown: isUnknownPriceItem(item) ? 1 : 0,

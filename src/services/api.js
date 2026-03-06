@@ -169,7 +169,10 @@ export const productsApi = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/products${query ? `?${query}` : ''}`);
   },
-  getById: (id) => apiFetch(`/api/products/${id}`),
+  getById: (id, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/products/${id}${query ? `?${query}` : ''}`);
+  },
   getLastPurchase: (id) => apiFetch(`/api/products/${id}/last-purchase`),
   getByCategory: (category) => apiFetch(`/api/products/category/${category}`),
   create: (product) => 
@@ -451,8 +454,16 @@ export const notificationsApi = {
 // ============================================
 
 export const categoriesApi = {
-  getAll: () => apiFetch('/api/categories'),
+  getAll: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/categories${query ? `?${query}` : ''}`);
+  },
+  getTree: () => apiFetch('/api/categories/tree'),
   getById: (id) => apiFetch(`/api/categories/${id}`),
+  getProducts: (id, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/categories/${id}/products${query ? `?${query}` : ''}`);
+  },
   create: (category) => 
     apiFetch('/api/categories', {
       method: 'POST',
@@ -463,9 +474,19 @@ export const categoriesApi = {
       method: 'PUT',
       body: category,
     }),
+  move: (id, parent_id = null) =>
+    apiFetch(`/api/categories/${id}/move`, {
+      method: 'POST',
+      body: { parent_id },
+    }),
   delete: (id) => 
     apiFetch(`/api/categories/${id}`, {
       method: 'DELETE',
+    }),
+  assignProduct: (productId, category_id) =>
+    apiFetch(`/api/products/${productId}/category`, {
+      method: 'PATCH',
+      body: { category_id },
     }),
 };
 
@@ -843,6 +864,21 @@ export const purchaseOrdersApi = {
     apiFetch(`/api/purchase-orders/${id}/status`, {
       method: 'PUT',
       body: { status, ...extra },
+    }),
+  process: (id, processData = {}) =>
+    apiFetch(`/api/purchase-orders/${id}/status`, {
+      method: 'PUT',
+      body: { status: 'processed', ...processData },
+    }),
+  sendDistributorWhatsApp: (id, payload = {}) =>
+    apiFetch(`/api/purchase-orders/${id}/distributor-whatsapp`, {
+      method: 'POST',
+      body: payload,
+    }),
+  addPayment: (id, paymentData = {}) =>
+    apiFetch(`/api/purchase-orders/${id}/payments`, {
+      method: 'POST',
+      body: paymentData,
     }),
   delete: (id) =>
     apiFetch(`/api/purchase-orders/${id}`, {

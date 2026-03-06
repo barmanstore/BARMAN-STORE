@@ -15,6 +15,8 @@ const BillsViewer = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBill, setSelectedBill] = useState(null);
+  const [selectedBillLoading, setSelectedBillLoading] = useState(false);
+  const [selectedBillError, setSelectedBillError] = useState('');
 
   // Fetch all bills
   useEffect(() => {
@@ -32,6 +34,22 @@ const BillsViewer = () => {
       setError('Failed to load bills. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectBill = async (bill) => {
+    if (!bill?.id) return;
+    setSelectedBill(bill);
+    setSelectedBillError('');
+    setSelectedBillLoading(true);
+    try {
+      const detailed = await billingApi.getById(bill.id);
+      setSelectedBill(detailed || bill);
+    } catch (err) {
+      console.error('Error loading bill details:', err);
+      setSelectedBillError('Failed to load bill details. Showing summary only.');
+    } finally {
+      setSelectedBillLoading(false);
     }
   };
 
@@ -349,7 +367,7 @@ const BillsViewer = () => {
               <div
                 key={bill.id}
                 className={`bill-card ${selectedBill?.id === bill.id ? 'active' : ''}`}
-                onClick={() => setSelectedBill(bill)}
+                onClick={() => handleSelectBill(bill)}
               >
                 <div className="bill-card-header">
                   <span className="bill-number">{bill.bill_number}</span>
@@ -420,6 +438,9 @@ const BillsViewer = () => {
                   </button>
                 </div>
               </div>
+
+              {selectedBillLoading ? <div className="loading-indicator">Loading bill details...</div> : null}
+              {selectedBillError ? <div className="bills-viewer-error">{selectedBillError}</div> : null}
 
               <div className="bill-details-section">
                 <h3>Customer Information</h3>

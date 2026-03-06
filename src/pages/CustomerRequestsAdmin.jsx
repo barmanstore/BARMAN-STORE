@@ -20,6 +20,7 @@ function CustomerRequestsAdmin() {
   const [issueSavingId, setIssueSavingId] = useState(0);
   const [phoneSavingId, setPhoneSavingId] = useState(0);
   const [activeIssueEditorId, setActiveIssueEditorId] = useState(0);
+  const [expandedCards, setExpandedCards] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -75,6 +76,19 @@ function CustomerRequestsAdmin() {
     return parts.join(' | ');
   };
 
+  const getCardKey = (scope, id) => `${scope}:${Number(id || 0)}`;
+  const isCardExpanded = (scope, id) => Boolean(expandedCards[getCardKey(scope, id)]);
+  const toggleCard = (scope, id) => {
+    const key = getCardKey(scope, id);
+    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+  const handleCardKeyToggle = (event, scope, id) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleCard(scope, id);
+    }
+  };
+
   useEffect(() => {
     load();
   }, [recommendationStatusFilter, issueStatusFilter, phoneStatusFilter]);
@@ -122,15 +136,35 @@ function CustomerRequestsAdmin() {
     const requestId = Number(request?.id || 0);
     if (!requestId) return;
     const adminNote = window.prompt('Optional admin note for approval:', '') || '';
+    const promptForMergeConfirmation = ({ conflictUserId = null, impactText = '' } = {}) => {
+      const confirmation = window.prompt(
+        `Conflict detected. This approval will merge identity records${conflictUserId ? ` (user #${conflictUserId})` : ''}.\n${impactText ? `Impact: ${impactText}\n` : ''}Type MERGE to continue:`,
+        ''
+      );
+      return String(confirmation || '').trim().toUpperCase() === 'MERGE';
+    };
+    const applyApproval = async (mergeIdentity) => {
+      await adminApi.approvePhoneChangeRequest(requestId, {
+        admin_note: adminNote,
+        merge_identity: Boolean(mergeIdentity),
+      });
+      await load();
+    };
+    const applyErrorFromPayload = (payload, fallbackMessage) => {
+      const conflictUserId = Number(payload?.conflict_user_id || 0) || null;
+      const impactText = formatMergeImpact(payload?.merge_impact);
+      setError(
+        `Conflict requires explicit merge confirmation${conflictUserId ? ` (user #${conflictUserId})` : ''}${impactText ? ` | ${impactText}` : ''}.`
+      );
+      if (!payload?.requires_merge_confirmation) {
+        setError(fallbackMessage);
+      }
+    };
     const hasConflict = Number(request?.conflict_user_id || 0) > 0;
     let mergeIdentity = false;
     if (hasConflict) {
       const impactText = formatMergeImpact(request?.merge_impact);
-      const confirmation = window.prompt(
-        `Conflict detected. This approval will merge identity records.\n${impactText ? `Impact: ${impactText}\n` : ''}Type MERGE to continue:`,
-        ''
-      );
-      if (String(confirmation || '').trim().toUpperCase() !== 'MERGE') {
+      if (!promptForMergeConfirmation({ conflictUserId: request?.conflict_user_id, impactText })) {
         setError('Approval cancelled. Merge confirmation was not provided.');
         return;
       }
@@ -138,19 +172,26 @@ function CustomerRequestsAdmin() {
     }
     try {
       setPhoneSavingId(requestId);
-      await adminApi.approvePhoneChangeRequest(requestId, {
-        admin_note: adminNote,
-        merge_identity: mergeIdentity,
-      });
-      await load();
+      await applyApproval(mergeIdentity);
     } catch (err) {
       const requiresMerge = Boolean(err?.payload?.requires_merge_confirmation);
-      if (requiresMerge) {
+      if (requiresMerge && !mergeIdentity) {
         const conflictUserId = Number(err?.payload?.conflict_user_id || 0) || null;
         const impactText = formatMergeImpact(err?.payload?.merge_impact);
-        setError(
-          `Conflict requires explicit merge confirmation${conflictUserId ? ` (user #${conflictUserId})` : ''}${impactText ? ` | ${impactText}` : ''}.`
-        );
+        if (!promptForMergeConfirmation({ conflictUserId, impactText })) {
+          setError('Approval cancelled. Merge confirmation was not provided.');
+          return;
+        }
+        try {
+          await applyApproval(true);
+          return;
+        } catch (retryErr) {
+          applyErrorFromPayload(retryErr?.payload, retryErr.message || 'Failed to approve phone update request');
+          return;
+        }
+      }
+      if (requiresMerge) {
+        applyErrorFromPayload(err?.payload, err.message || 'Failed to approve phone update request');
       } else {
         setError(err.message || 'Failed to approve phone update request');
       }
@@ -181,7 +222,10 @@ function CustomerRequestsAdmin() {
   return (
     <div className="customer-requests-admin">
       <div className="customer-requests-header">
-        <h1>Customer Requests</h1>
+        <div>
+          <h1>Customer Requests</h1>
+          <p className="customer-requests-subtitle">Resolved and rejected requests are auto-deleted after retention period.</p>
+        </div>
         <div className="view-switch">
           <button
             type="button"
@@ -224,26 +268,46 @@ function CustomerRequestsAdmin() {
             <p className="muted">No requests found.</p>
           ) : (
             <div className="request-grid">
-              {recommendations.map((item) => (
-                <article key={item.id} className="request-card">
-                  <div className="request-head">
-                    <strong>{item.requested_name}</strong>
-                    <span className={`status ${item.status}`}>{item.status}</span>
-                  </div>
-                  <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
-                  {item.notes ? <p>{item.notes}</p> : null}
-                  {item.contact_phone ? <p>Phone: {item.contact_phone}</p> : null}
-                  {item.admin_note ? <p>Admin note: {item.admin_note}</p> : null}
-                  <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
-                  <div className="request-actions">
-                    {recommendationStatuses.map((status) => (
-                      <button key={status} type="button" onClick={() => updateRecommendation(item.id, status)} disabled={status === item.status}>
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              ))}
+              {recommendations.map((item) => {
+                const expanded = isCardExpanded('recommendation', item.id);
+                return (
+                  <article key={item.id} className={`request-card compact${expanded ? ' expanded' : ''}`}>
+                    <div
+                      className="request-compact-head"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={expanded}
+                      onClick={() => toggleCard('recommendation', item.id)}
+                      onKeyDown={(event) => handleCardKeyToggle(event, 'recommendation', item.id)}
+                    >
+                      <div className="request-compact-main">
+                        <strong>{item.requested_name}</strong>
+                        <small>{item.user_name || item.user_email || '-'}</small>
+                      </div>
+                      <div className="request-compact-meta">
+                        <span className={`status ${item.status}`}>{item.status}</span>
+                        <small>{new Date(item.created_at || Date.now()).toLocaleDateString()}</small>
+                      </div>
+                    </div>
+                    {expanded ? (
+                      <div className="request-expanded-body">
+                        <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
+                        {item.notes ? <p>{item.notes}</p> : null}
+                        {item.contact_phone ? <p>Phone: {item.contact_phone}</p> : null}
+                        {item.admin_note ? <p>Admin note: {item.admin_note}</p> : null}
+                        <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
+                        <div className="request-actions">
+                          {recommendationStatuses.map((status) => (
+                            <button key={status} type="button" onClick={() => updateRecommendation(item.id, status)} disabled={status === item.status}>
+                              {status}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -264,115 +328,132 @@ function CustomerRequestsAdmin() {
           ) : (
             <div className="request-grid">
               {issues.map((item) => (
-                <article key={item.id} className="request-card">
-                  <div className="request-head">
-                    <strong>{item.issue_type}</strong>
-                    <span className={`status ${item.status}`}>{item.status}</span>
+                <article key={item.id} className={`request-card compact${isCardExpanded('issue', item.id) ? ' expanded' : ''}`}>
+                  <div
+                    className="request-compact-head"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isCardExpanded('issue', item.id)}
+                    onClick={() => toggleCard('issue', item.id)}
+                    onKeyDown={(event) => handleCardKeyToggle(event, 'issue', item.id)}
+                  >
+                    <div className="request-compact-main">
+                      <strong>{item.issue_type}</strong>
+                      <small>{item.user_name || item.user_email || '-'}</small>
+                    </div>
+                    <div className="request-compact-meta">
+                      <span className={`status ${item.status}`}>{item.status}</span>
+                      <small>{new Date(item.created_at || Date.now()).toLocaleDateString()}</small>
+                    </div>
                   </div>
-                  <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
-                  <p>{item.message}</p>
-                  {item.credit_entry_id ? (
-                    <p>
-                      Entry #{item.credit_entry_id} | Ref: {item.credit_reference || '-'} | Amount: {item.credit_amount || 0}
-                    </p>
-                  ) : null}
-                  {(item.admin_reason || item.resolution_note) ? <p>Reason: {item.admin_reason || item.resolution_note}</p> : null}
-                  {item.correction_entry_id ? (
-                    <p>
-                      Correction: #{item.correction_entry_id}
-                      {item.correction_type ? ` | ${item.correction_type}` : ''}
-                      {item.correction_amount ? ` | ${item.correction_amount}` : ''}
-                    </p>
-                  ) : null}
-                  {item.customer_response_status ? (
-                    <p>
-                      Customer response: {item.customer_response_status}
-                      {item.customer_response_note ? ` - ${item.customer_response_note}` : ''}
-                    </p>
-                  ) : null}
-                  <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
-                  <div className="request-actions request-actions-column">
-                    <a className="request-link" href={`/admin/users/${item.user_id}/credit?returnTab=customer-requests&focusIssue=${encodeURIComponent(String(item.id || ''))}${item.credit_entry_id ? `&focusEntry=${encodeURIComponent(String(item.credit_entry_id))}` : ''}`}>
-                      Open Credit History
-                    </a>
-                    {activeIssueEditorId !== Number(item.id) ? (
-                      <button
-                        type="button"
-                        onClick={() => setActiveIssueEditorId(Number(item.id))}
-                        disabled={issueSavingId === Number(item.id)}
-                      >
-                        Take Action
-                      </button>
-                    ) : (
-                      <>
-                        <label>
-                          Reason
-                          <textarea
-                            value={getIssueDraft(item).admin_reason}
-                            onChange={(e) => setIssueDraft(item.id, { admin_reason: e.target.value })}
-                            rows={2}
-                            placeholder="Reason shown to customer"
-                          />
-                        </label>
-                        <div className="request-correction-grid">
-                          <label>
-                            Correction Type
-                            <select
-                              value={getIssueDraft(item).correction_type}
-                              onChange={(e) => setIssueDraft(item.id, { correction_type: e.target.value })}
-                            >
-                              <option value="">None</option>
-                              <option value="given">Credit</option>
-                              <option value="payment">Payment</option>
-                            </select>
-                          </label>
-                          <label>
-                            Correction Amount
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={getIssueDraft(item).correction_amount}
-                              onChange={(e) => setIssueDraft(item.id, { correction_amount: e.target.value })}
-                              placeholder="0"
-                            />
-                          </label>
-                        </div>
-                        <label>
-                          Correction Description
-                          <input
-                            type="text"
-                            value={getIssueDraft(item).correction_description}
-                            onChange={(e) => setIssueDraft(item.id, { correction_description: e.target.value })}
-                            placeholder="Optional"
-                          />
-                        </label>
-                        <div className="request-correction-actions">
+                  {isCardExpanded('issue', item.id) ? (
+                    <div className="request-expanded-body">
+                      <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
+                      <p>{item.message}</p>
+                      {item.credit_entry_id ? (
+                        <p>
+                          Entry #{item.credit_entry_id} | Ref: {item.credit_reference || '-'} | Amount: {item.credit_amount || 0}
+                        </p>
+                      ) : null}
+                      {(item.admin_reason || item.resolution_note) ? <p>Reason: {item.admin_reason || item.resolution_note}</p> : null}
+                      {item.correction_entry_id ? (
+                        <p>
+                          Correction: #{item.correction_entry_id}
+                          {item.correction_type ? ` | ${item.correction_type}` : ''}
+                          {item.correction_amount ? ` | ${item.correction_amount}` : ''}
+                        </p>
+                      ) : null}
+                      {item.customer_response_status ? (
+                        <p>
+                          Customer response: {item.customer_response_status}
+                          {item.customer_response_note ? ` - ${item.customer_response_note}` : ''}
+                        </p>
+                      ) : null}
+                      <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
+                      <div className="request-actions request-actions-column">
+                        <a className="request-link" href={`/admin/users/${item.user_id}/credit?returnTab=customer-requests&focusIssue=${encodeURIComponent(String(item.id || ''))}${item.credit_entry_id ? `&focusEntry=${encodeURIComponent(String(item.credit_entry_id))}` : ''}`}>
+                          Open Credit History
+                        </a>
+                        {activeIssueEditorId !== Number(item.id) ? (
                           <button
                             type="button"
-                            onClick={() => updateIssue(item, 'in_review')}
+                            onClick={() => setActiveIssueEditorId(Number(item.id))}
                             disabled={issueSavingId === Number(item.id)}
                           >
-                            {issueSavingId === Number(item.id) ? 'Updating...' : 'Needs Review'}
+                            Take Action
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => updateIssue(item, 'rejected')}
-                            disabled={issueSavingId === Number(item.id)}
-                          >
-                            {issueSavingId === Number(item.id) ? 'Updating...' : 'Reject'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateIssue(item, 'corrected')}
-                            disabled={issueSavingId === Number(item.id)}
-                          >
-                            {issueSavingId === Number(item.id) ? 'Updating...' : 'Submit Correction'}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                        ) : (
+                          <>
+                            <label>
+                              Reason
+                              <textarea
+                                value={getIssueDraft(item).admin_reason}
+                                onChange={(e) => setIssueDraft(item.id, { admin_reason: e.target.value })}
+                                rows={2}
+                                placeholder="Reason shown to customer"
+                              />
+                            </label>
+                            <div className="request-correction-grid">
+                              <label>
+                                Correction Type
+                                <select
+                                  value={getIssueDraft(item).correction_type}
+                                  onChange={(e) => setIssueDraft(item.id, { correction_type: e.target.value })}
+                                >
+                                  <option value="">None</option>
+                                  <option value="given">Credit</option>
+                                  <option value="payment">Payment</option>
+                                </select>
+                              </label>
+                              <label>
+                                Correction Amount
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={getIssueDraft(item).correction_amount}
+                                  onChange={(e) => setIssueDraft(item.id, { correction_amount: e.target.value })}
+                                  placeholder="0"
+                                />
+                              </label>
+                            </div>
+                            <label>
+                              Correction Description
+                              <input
+                                type="text"
+                                value={getIssueDraft(item).correction_description}
+                                onChange={(e) => setIssueDraft(item.id, { correction_description: e.target.value })}
+                                placeholder="Optional"
+                              />
+                            </label>
+                            <div className="request-correction-actions">
+                              <button
+                                type="button"
+                                onClick={() => updateIssue(item, 'in_review')}
+                                disabled={issueSavingId === Number(item.id)}
+                              >
+                                {issueSavingId === Number(item.id) ? 'Updating...' : 'Needs Review'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateIssue(item, 'rejected')}
+                                disabled={issueSavingId === Number(item.id)}
+                              >
+                                {issueSavingId === Number(item.id) ? 'Updating...' : 'Reject'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateIssue(item, 'corrected')}
+                                disabled={issueSavingId === Number(item.id)}
+                              >
+                                {issueSavingId === Number(item.id) ? 'Updating...' : 'Submit Correction'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -398,47 +479,64 @@ function CustomerRequestsAdmin() {
                 const status = String(item.status || '').trim().toLowerCase();
                 const isPending = status === 'pending_validation';
                 return (
-                  <article key={item.id} className="request-card">
-                    <div className="request-head">
-                      <strong>{item.user_name || `User #${item.user_id}`}</strong>
-                      <span className={`status ${status}`}>{status.replace(/_/g, ' ')}</span>
-                    </div>
-                    <p><strong>User:</strong> {item.user_email || '-'}</p>
-                    <p><strong>Old phone:</strong> {item.old_phone || '-'}</p>
-                    <p><strong>Requested phone:</strong> {item.new_phone || '-'}</p>
-                    {item.needs_admin_review ? <p><strong>Review:</strong> Admin review required</p> : <p><strong>Review:</strong> Waiting auto-validation</p>}
-                    {item.final_due_at ? <p><strong>Review due:</strong> {new Date(item.final_due_at).toLocaleString()}</p> : null}
-                    {item.conflict_user_name ? (
-                      <p><strong>Conflict user:</strong> {item.conflict_user_name} ({item.conflict_user_email || '-'})</p>
-                    ) : null}
-                    {item.merge_impact ? (
-                      <p><strong>Merge impact:</strong> {formatMergeImpact(item.merge_impact)}</p>
-                    ) : null}
-                    {item.rejection_reason ? <p><strong>Rejection reason:</strong> {item.rejection_reason}</p> : null}
-                    {item.admin_note ? <p><strong>Admin note:</strong> {item.admin_note}</p> : null}
-                    <small>
-                      Requested: {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
-                    </small>
-                    {isPending ? (
-                      <div className="request-actions">
-                        <button
-                          type="button"
-                          onClick={() => approvePhoneRequest(item)}
-                          disabled={phoneSavingId === Number(item.id)}
-                        >
-                          {phoneSavingId === Number(item.id) ? 'Updating...' : 'Approve'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => rejectPhoneRequest(item)}
-                          disabled={phoneSavingId === Number(item.id)}
-                        >
-                          {phoneSavingId === Number(item.id) ? 'Updating...' : 'Reject'}
-                        </button>
+                  <article key={item.id} className={`request-card compact${isCardExpanded('phone', item.id) ? ' expanded' : ''}`}>
+                    <div
+                      className="request-compact-head"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isCardExpanded('phone', item.id)}
+                      onClick={() => toggleCard('phone', item.id)}
+                      onKeyDown={(event) => handleCardKeyToggle(event, 'phone', item.id)}
+                    >
+                      <div className="request-compact-main">
+                        <strong>{item.user_name || `User #${item.user_id}`}</strong>
+                        <small>{item.new_phone || '-'}</small>
                       </div>
-                    ) : (
-                      <p className="muted">No pending action.</p>
-                    )}
+                      <div className="request-compact-meta">
+                        <span className={`status ${status}`}>{status.replace(/_/g, ' ')}</span>
+                        <small>{item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}</small>
+                      </div>
+                    </div>
+                    {isCardExpanded('phone', item.id) ? (
+                      <div className="request-expanded-body">
+                        <p><strong>User:</strong> {item.user_email || '-'}</p>
+                        <p><strong>Old phone:</strong> {item.old_phone || '-'}</p>
+                        <p><strong>Requested phone:</strong> {item.new_phone || '-'}</p>
+                        {item.needs_admin_review ? <p><strong>Review:</strong> Admin review required</p> : <p><strong>Review:</strong> Waiting auto-validation</p>}
+                        {item.final_due_at ? <p><strong>Review due:</strong> {new Date(item.final_due_at).toLocaleString()}</p> : null}
+                        {item.conflict_user_name ? (
+                          <p><strong>Conflict user:</strong> {item.conflict_user_name} ({item.conflict_user_email || '-'})</p>
+                        ) : null}
+                        {item.merge_impact ? (
+                          <p><strong>Merge impact:</strong> {formatMergeImpact(item.merge_impact)}</p>
+                        ) : null}
+                        {item.rejection_reason ? <p><strong>Rejection reason:</strong> {item.rejection_reason}</p> : null}
+                        {item.admin_note ? <p><strong>Admin note:</strong> {item.admin_note}</p> : null}
+                        <small>
+                          Requested: {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                        </small>
+                        {isPending ? (
+                          <div className="request-actions">
+                            <button
+                              type="button"
+                              onClick={() => approvePhoneRequest(item)}
+                              disabled={phoneSavingId === Number(item.id)}
+                            >
+                              {phoneSavingId === Number(item.id) ? 'Updating...' : 'Approve'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => rejectPhoneRequest(item)}
+                              disabled={phoneSavingId === Number(item.id)}
+                            >
+                              {phoneSavingId === Number(item.id) ? 'Updating...' : 'Reject'}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="muted">No pending action.</p>
+                        )}
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}

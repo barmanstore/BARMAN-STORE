@@ -71,6 +71,7 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
   };
 
   const providerLabel = useMemo(() => {
+    if (provider === 'serpapi-bing') return 'SerpApi Bing Images';
     if (provider === 'google-cse') return 'Google CSE';
     if (provider === 'unsplash') return 'Unsplash';
     if (provider === 'fallback') return 'Fallback (Picsum)';

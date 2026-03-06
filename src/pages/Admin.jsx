@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Package, ShoppingCart, Users, TrendingUp, LogOut, Plus, Edit, Trash2, X, FolderOpen, CreditCard, FileText, Truck, ShoppingBag, History, BarChart2, Gift, Eye, Menu, Upload, Download, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { statsApi, productsApi, ordersApi, usersApi, adminApi, resolveMediaUrl } from '../services/api';
+import { statsApi, productsApi, ordersApi, usersApi, adminApi, billingApi, resolveMediaUrl } from '../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../utils/productImage';
-import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
+import { formatCurrency, getSignedCurrencyClassName, truncateUserName } from '../utils/formatters';
 import ProductForm from './ProductForm';
 import CategoryManagement from './CategoryManagement';
 import DistributorManagement from './DistributorManagement';
@@ -18,6 +18,7 @@ import CreditKhata from './CreditKhata';
 import CustomerRequestsAdmin from './CustomerRequestsAdmin';
 import AppModal from '../components/AppModal';
 import './Admin.css';
+import './AdminStandard.css';
 
 // Currency formatter with conditional color styling
 const formatCurrencyColored = (amount) => {
@@ -28,6 +29,61 @@ const formatCurrencyColored = (amount) => {
 const asNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toLocalDateKey = (value) => {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const PRODUCT_TABLE_COLUMN_OPTIONS = [
+  { key: 'name', label: 'Name' },
+  { key: 'brand', label: 'Brand' },
+  { key: 'category', label: 'Category' },
+  { key: 'price', label: 'Price' },
+  { key: 'mrp', label: 'MRP' },
+  { key: 'stock', label: 'Stock' },
+  { key: 'sku', label: 'SKU' },
+  { key: 'barcode', label: 'Barcode' },
+  { key: 'status', label: 'Status' },
+  { key: 'description', label: 'Description' },
+  { key: 'content', label: 'Content' },
+  { key: 'color', label: 'Color' },
+  { key: 'uom', label: 'UOM' },
+  { key: 'expiry', label: 'Expiry' },
+  { key: 'discount', label: 'Discount' },
+  { key: 'discountType', label: 'Disc Type' },
+  { key: 'id', label: 'ID' },
+  { key: 'created', label: 'Created' },
+  { key: 'src', label: 'Src' },
+];
+
+const PRODUCT_TABLE_ALL_COLUMN_KEYS = PRODUCT_TABLE_COLUMN_OPTIONS.map((column) => column.key);
+const PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS = ['name', 'brand', 'category', 'price', 'stock', 'status'];
+const PRODUCT_TABLE_COLUMN_MIN_WIDTH = {
+  name: 130,
+  brand: 95,
+  category: 95,
+  price: 78,
+  mrp: 78,
+  stock: 60,
+  sku: 90,
+  barcode: 90,
+  status: 70,
+  description: 150,
+  content: 80,
+  color: 70,
+  uom: 55,
+  expiry: 90,
+  discount: 60,
+  discountType: 65,
+  id: 50,
+  created: 85,
+  src: 120,
 };
 
 const formatHierarchyPath = (parent, child) => {
@@ -77,6 +133,7 @@ const SIDEBAR_SECTIONS = [
     icon: FileText,
     items: [
       { tab: 'billing', label: 'Billing', icon: FileText },
+      { tab: 'daily-sales', label: 'Daily Sales', icon: BarChart2, sub: true },
       { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true },
     ],
   },
@@ -111,7 +168,7 @@ function Admin({ user }) {
     const allowedTabs = new Set([
       'dashboard', 'orders', 'offers', 'credit-aging',
       'products', 'categories',
-      'billing', 'view-bills',
+      'billing', 'daily-sales', 'view-bills',
       'purchases', 'distributors', 'stock-ledger',
       'users', 'credit-khata', 'customer-requests'
     ]);
@@ -128,6 +185,10 @@ function Admin({ user }) {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [bills, setBills] = useState([]);
+  const [dailySalesDate, setDailySalesDate] = useState(() => toLocalDateKey(new Date()) || '');
+  const [dailySalesLoading, setDailySalesLoading] = useState(false);
+  const [dailySalesError, setDailySalesError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -144,6 +205,15 @@ function Admin({ user }) {
   const [proceedBillingOrderId, setProceedBillingOrderId] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [userAvatarErrors, setUserAvatarErrors] = useState({});
+  const [ordersSearchQuery, setOrdersSearchQuery] = useState('');
+  const [usersSearchQuery, setUsersSearchQuery] = useState('');
+  const [expandedUsersMap, setExpandedUsersMap] = useState({});
+  const [dashboardDensity, setDashboardDensity] = useState(() => {
+    if (typeof window === 'undefined') return 'compact';
+    const saved = String(window.localStorage.getItem('admin-dashboard-density') || '').trim().toLowerCase();
+    if (saved === 'compact' || saved === 'standard') return saved;
+    return window.innerWidth <= 768 ? 'compact' : 'standard';
+  });
   const [productViewMode, setProductViewMode] = useState(() => {
     if (typeof window === 'undefined') return 'table';
     const saved = window.localStorage.getItem('admin-products-view');
@@ -173,13 +243,27 @@ function Admin({ user }) {
   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState('');
   const [productTableStatusFilter, setProductTableStatusFilter] = useState('all');
   const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(false);
-  const [productTableColumnPreset, setProductTableColumnPreset] = useState(() => {
-    if (typeof window === 'undefined') return 'primary';
-    const saved = window.localStorage.getItem('admin-products-columns');
-    return saved === 'full' ? 'full' : 'primary';
+  const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => {
+    if (typeof window === 'undefined') return PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
+    const fallback = window.localStorage.getItem('admin-products-columns') === 'full'
+      ? PRODUCT_TABLE_ALL_COLUMN_KEYS
+      : PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
+    try {
+      const savedRaw = window.localStorage.getItem('admin-products-visible-columns');
+      if (!savedRaw) return fallback;
+      const saved = JSON.parse(savedRaw);
+      if (!Array.isArray(saved)) return fallback;
+      const normalized = PRODUCT_TABLE_ALL_COLUMN_KEYS.filter((key) => saved.includes(key));
+      return normalized.length > 0 ? normalized : fallback;
+    } catch (_) {
+      return fallback;
+    }
   });
+  const [selectedProductId, setSelectedProductId] = useState(0);
   const [tableEditId, setTableEditId] = useState(null);
+  const [tableEditFocusField, setTableEditFocusField] = useState('name');
   const [tableEditSaving, setTableEditSaving] = useState(false);
+  const [productEditLoadingId, setProductEditLoadingId] = useState(null);
   const [tableEditForm, setTableEditForm] = useState({
     name: '',
     description: '',
@@ -206,6 +290,7 @@ function Admin({ user }) {
   const [importAllowIdenticalRows, setImportAllowIdenticalRows] = useState([]);
   const [importBusy, setImportBusy] = useState(false);
   const importFileInputRef = useRef(null);
+  const tableEditFieldRefs = useRef({});
   const latestKnownOrderIdRef = useRef(0);
   const tabGroupMap = {
     dashboard: 'general',
@@ -215,6 +300,7 @@ function Admin({ user }) {
     products: 'products',
     categories: 'products',
     billing: 'billing',
+    'daily-sales': 'billing',
     'view-bills': 'billing',
     purchases: 'purchase',
     distributors: 'purchase',
@@ -261,6 +347,19 @@ function Admin({ user }) {
       uniqueSessionsMonth: asNumber(analyticsData?.unique_sessions_month, 0),
       uniqueSessionsYear: asNumber(analyticsData?.unique_sessions_year, 0),
     });
+  };
+
+  const loadDailySalesBills = async ({ silent = false } = {}) => {
+    try {
+      if (!silent) setDailySalesLoading(true);
+      setDailySalesError('');
+      const rows = await billingApi.getAll();
+      setBills(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      if (!silent) setDailySalesError(error.message || 'Failed to load bills for daily summary');
+    } finally {
+      if (!silent) setDailySalesLoading(false);
+    }
   };
 
   const openApproveModal = async (orderId) => {
@@ -460,6 +559,11 @@ function Admin({ user }) {
   }, [activeTab, user]);
 
   useEffect(() => {
+    if (!user || user.role !== 'admin' || activeTab !== 'daily-sales') return;
+    void loadDailySalesBills({ silent: false });
+  }, [activeTab, user]);
+
+  useEffect(() => {
     const group = tabGroupMap[activeTab];
     if (!group) return;
     setExpandedGroups(prev => ({ ...prev, [group]: true }));
@@ -480,8 +584,24 @@ function Admin({ user }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem('admin-products-columns', productTableColumnPreset);
-  }, [productTableColumnPreset]);
+    window.localStorage.setItem('admin-dashboard-density', dashboardDensity);
+  }, [dashboardDensity]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('admin-products-visible-columns', JSON.stringify(productTableVisibleColumns));
+  }, [productTableVisibleColumns]);
+
+  useEffect(() => {
+    if (!tableEditId) return;
+    const node = tableEditFieldRefs.current[tableEditFocusField] || tableEditFieldRefs.current.name;
+    if (!node) return;
+    const frame = window.requestAnimationFrame(() => {
+      node.focus();
+      if (typeof node.select === 'function') node.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tableEditId, tableEditFocusField]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -540,6 +660,17 @@ function Admin({ user }) {
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
   };
 
+  const toggleUserCompactRow = (userId) => {
+    setExpandedUsersMap((prev) => ({ ...prev, [userId]: !prev[userId] }));
+  };
+
+  const handleCompactRowKeyToggle = (event, userId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleUserCompactRow(userId);
+    }
+  };
+
   const handleDeleteProduct = async (id) => {
     if (!window.confirm('Mark this product as inactive?')) return;
     
@@ -591,9 +722,21 @@ function Admin({ user }) {
     }
   };
 
-  const handleEditProduct = (product) => {
-    setEditingProduct(product);
-    setShowProductForm(true);
+  const handleEditProduct = async (product) => {
+    const productId = Number(product?.id || 0);
+    if (!productId) return;
+    try {
+      setProductEditLoadingId(productId);
+      const fullProduct = await productsApi.getById(productId, { include_inactive: 'true' });
+      setEditingProduct(fullProduct || product);
+      setShowProductForm(true);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load product details', 'error');
+      setEditingProduct(product);
+      setShowProductForm(true);
+    } finally {
+      setProductEditLoadingId(null);
+    }
   };
 
   const handleAddProduct = () => {
@@ -612,6 +755,9 @@ function Admin({ user }) {
 
       if (meta?.mode === 'create' && Number(meta?.createdCount) > 1) {
         showNotification(`${meta.createdCount} products added successfully`, 'success');
+      } else if (meta?.mode === 'edit_split') {
+        const created = Number(meta?.createdCount || 0);
+        showNotification(`Product updated and ${created} additional variant(s) created successfully`, 'success');
       } else if (meta?.mode === 'edit') {
         showNotification('Product updated successfully', 'success');
       } else if (meta?.mode === 'create') {
@@ -652,6 +798,54 @@ function Admin({ user }) {
     () => users.filter((u) => String(u?.role || '').toLowerCase() === 'admin'),
     [users]
   );
+  const filteredUsers = useMemo(() => {
+    const query = String(usersSearchQuery || '').trim().toLowerCase();
+    const matchesQuery = (entry) => {
+      if (!query) return true;
+      const searchable = [
+        entry?.id,
+        entry?.name,
+        entry?.email,
+        entry?.phone,
+      ]
+        .map((value) => String(value ?? '').toLowerCase())
+        .join(' ');
+      return searchable.includes(query);
+    };
+    return {
+      admins: adminUsers.filter(matchesQuery),
+      customers: customerUsers.filter(matchesQuery),
+    };
+  }, [adminUsers, customerUsers, usersSearchQuery]);
+  const filteredUsersCount = filteredUsers.admins.length + filteredUsers.customers.length;
+
+  const visibleOrders = useMemo(() => {
+    const query = String(ordersSearchQuery || '').trim().toLowerCase();
+    const list = Array.isArray(orders) ? [...orders] : [];
+
+    const sorted = list.sort(
+      (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+    );
+
+    if (!query) return sorted;
+
+    return sorted.filter((order) => {
+      const searchable = [
+        order?.id,
+        order?.order_number,
+        order?.customer_name,
+        order?.customer_email,
+        order?.status,
+        order?.total_amount,
+        order?.bill_id,
+        order?.linked_bill_number,
+        order?.created_at,
+      ]
+        .map((value) => String(value ?? '').toLowerCase())
+        .join(' ');
+      return searchable.includes(query);
+    });
+  }, [orders, ordersSearchQuery]);
 
   const pendingOrdersList = useMemo(
     () => orders.filter((o) => String(o?.status || '').toLowerCase() === 'ordered'),
@@ -680,6 +874,43 @@ function Admin({ user }) {
     [customerUsers]
   );
 
+  const selectedDateKey = String(dailySalesDate || '').trim() || toLocalDateKey(new Date());
+
+  const selectedSalesBills = useMemo(
+    () => (Array.isArray(bills) ? bills : [])
+      .filter((bill) => String(bill?.bill_type || 'sales').trim().toLowerCase() === 'sales')
+      .filter((bill) => toLocalDateKey(bill?.created_at) === selectedDateKey)
+      .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()),
+    [bills, selectedDateKey]
+  );
+
+  const dailySalesSummary = useMemo(() => {
+    const totals = selectedSalesBills.reduce((acc, bill) => {
+      acc.totalBilled += asNumber(bill?.total_amount, 0);
+      acc.cashCollected += asNumber(bill?.paid_amount, 0);
+      acc.creditIssued += asNumber(bill?.credit_amount, 0);
+      if (String(bill?.payment_status || '').trim().toLowerCase() === 'paid') {
+        acc.paidBills += 1;
+      } else {
+        acc.pendingBills += 1;
+      }
+      return acc;
+    }, {
+      totalBilled: 0,
+      cashCollected: 0,
+      creditIssued: 0,
+      paidBills: 0,
+      pendingBills: 0,
+    });
+    const txCount = selectedSalesBills.length;
+    return {
+      ...totals,
+      txCount,
+      expectedDrawerCash: totals.cashCollected,
+      avgTicket: txCount > 0 ? totals.totalBilled / txCount : 0,
+    };
+  }, [selectedSalesBills]);
+
   const visibleProducts = useMemo(() => {
     const query = String(productTableSearch || '').trim().toLowerCase();
     let list = Array.isArray(products) ? [...products] : [];
@@ -691,7 +922,12 @@ function Admin({ user }) {
     if (productTableStatusFilter !== 'all') {
       list = list.filter((product) => {
         const isActive = Number(product.is_active ?? 1) === 1;
-        return productTableStatusFilter === 'active' ? isActive : !isActive;
+        const stock = asNumber(product.stock, 0);
+        if (productTableStatusFilter === 'active') return isActive;
+        if (productTableStatusFilter === 'inactive') return !isActive;
+        if (productTableStatusFilter === 'available') return isActive && stock > 0;
+        if (productTableStatusFilter === 'out_of_stock') return isActive && stock <= 0;
+        return true;
       });
     }
 
@@ -706,20 +942,33 @@ function Admin({ user }) {
           product.name,
           product.description,
           getBrandPath(product),
+          product.sub_brand,
+          product.brand_path,
           product.content,
           product.color,
           getCategoryPath(product),
+          product.subcategory,
+          product.category_path,
           product.sku,
           product.barcode,
           product.price,
           product.mrp,
           product.uom,
+          product.base_unit,
+          product.uom_type,
+          product.conversion_factor,
           product.stock,
           product.expiry_date,
           product.defaultDiscount,
+          product.default_discount,
           product.discountType,
-          product.is_active,
-        ].map((value) => String(value ?? '').toLowerCase()).join(' ');
+          product.discount_type,
+          Number(product?.is_active ?? 1) === 1 ? 'active' : 'inactive',
+          product.created_at,
+          product.image,
+        ]
+          .map((value) => String(value ?? '').toLowerCase())
+          .join(' ');
         return searchable.includes(query);
       });
     }
@@ -776,6 +1025,48 @@ function Admin({ user }) {
     productTableSortDir
   ]);
 
+  const productTableAllColumnsSelected = productTableVisibleColumns.length === PRODUCT_TABLE_ALL_COLUMN_KEYS.length;
+  const isProductTableColumnVisible = (key) => productTableVisibleColumns.includes(key);
+
+  const toggleProductTableColumn = (key) => {
+    setProductTableVisibleColumns((prev) => {
+      if (prev.includes(key)) {
+        const next = prev.filter((item) => item !== key);
+        return next.length > 0 ? next : prev;
+      }
+      const nextSet = new Set([...prev, key]);
+      return PRODUCT_TABLE_ALL_COLUMN_KEYS.filter((item) => nextSet.has(item));
+    });
+  };
+
+  const toggleSelectAllProductTableColumns = (checked) => {
+    if (checked) {
+      setProductTableVisibleColumns(PRODUCT_TABLE_ALL_COLUMN_KEYS);
+      return;
+    }
+    setProductTableVisibleColumns(PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS);
+  };
+
+  const productTableCalculatedMinWidth = useMemo(() => {
+    const visibleTotal = productTableVisibleColumns.reduce(
+      (sum, key) => sum + (PRODUCT_TABLE_COLUMN_MIN_WIDTH[key] || 80),
+      0
+    );
+    return Math.max(420, visibleTotal + 80);
+  }, [productTableVisibleColumns]);
+
+  const selectedVisibleProduct = useMemo(() => {
+    const id = Number(selectedProductId || 0);
+    if (!id) return null;
+    return visibleProducts.find((product) => Number(product.id) === id) || null;
+  }, [selectedProductId, visibleProducts]);
+
+  const showProductsImportCard = Boolean(
+    importPreviewData?.batch_id
+    || importPreviewData?.summary
+    || (Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0)
+  );
+
   const toggleProductTableSort = (field) => {
     if (productTableSortField === field) {
       setProductTableSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -790,8 +1081,18 @@ function Admin({ user }) {
     return productTableSortDir === 'asc' ? ' ▲' : ' ▼';
   };
 
-  const openTableEdit = (product) => {
+  const setTableEditFieldRef = (field) => (node) => {
+    if (node) {
+      tableEditFieldRefs.current[field] = node;
+      return;
+    }
+    delete tableEditFieldRefs.current[field];
+  };
+
+  const openTableEdit = (product, focusField = 'name') => {
     setTableEditId(product.id);
+    setSelectedProductId(Number(product.id) || 0);
+    setTableEditFocusField(focusField);
     setTableEditForm({
       name: product.name || '',
       description: product.description || '',
@@ -814,8 +1115,19 @@ function Admin({ user }) {
     setQuickEditId(null);
   };
 
+  const handleTableCellClick = (product, field = 'name') => {
+    if (!product) return;
+    setSelectedProductId(Number(product.id) || 0);
+    if (tableEditId !== product.id) {
+      openTableEdit(product, field);
+      return;
+    }
+    setTableEditFocusField(field);
+  };
+
   const cancelTableEdit = () => {
     setTableEditId(null);
+    setTableEditFocusField('name');
     setTableEditSaving(false);
   };
 
@@ -1383,6 +1695,12 @@ function Admin({ user }) {
                 >
                   <FileText size={20} /> Billing
                 </button>
+                <button
+                  className={`${activeTab === 'daily-sales' ? 'active' : ''} sub-item`}
+                  onClick={() => handleTabChange('daily-sales')}
+                >
+                  <BarChart2 size={18} /> Daily Sales
+                </button>
                 <button 
                   className={`${activeTab === 'view-bills' ? 'active' : ''} sub-item`}
                   onClick={() => handleTabChange('view-bills')}
@@ -1467,8 +1785,26 @@ function Admin({ user }) {
 
       <div className="admin-content">
         {activeTab === 'dashboard' && (
-          <div className="dashboard">
-            <h1>Dashboard</h1>
+          <div className={`dashboard dashboard-${dashboardDensity}`}>
+            <div className="dashboard-header">
+              <h1>Dashboard</h1>
+              <div className="dashboard-density-toggle" role="group" aria-label="Dashboard density">
+                <button
+                  type="button"
+                  className={`dashboard-density-btn ${dashboardDensity === 'compact' ? 'active' : ''}`}
+                  onClick={() => setDashboardDensity('compact')}
+                >
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  className={`dashboard-density-btn ${dashboardDensity === 'standard' ? 'active' : ''}`}
+                  onClick={() => setDashboardDensity('standard')}
+                >
+                  Standard
+                </button>
+              </div>
+            </div>
             <div className="stats-grid grouped-stats-grid">
               <div className="stat-group-card">
                 <div className="stat-group-head">
@@ -1512,7 +1848,6 @@ function Admin({ user }) {
                 </div>
                 <div className="stat-group-metrics">
                   <div className="stat-group-metric"><span>Online Logged-In</span><strong>{visitorStats.onlineLoggedInUsers}</strong></div>
-                  <div className="stat-group-metric"><span>Admin Users</span><strong>{adminUsers.length}</strong></div>
                 </div>
               </div>
 
@@ -1527,8 +1862,6 @@ function Admin({ user }) {
                 </div>
                 <div className="stat-group-metrics">
                   <div className="stat-group-metric"><span>Unique Today</span><strong>{visitorStats.uniqueSessionsToday}</strong></div>
-                  <div className="stat-group-metric"><span>Unique Month</span><strong>{visitorStats.uniqueSessionsMonth}</strong></div>
-                  <div className="stat-group-metric"><span>Unique Year</span><strong>{visitorStats.uniqueSessionsYear}</strong></div>
                 </div>
               </div>
             </div>
@@ -1542,15 +1875,12 @@ function Admin({ user }) {
                   <button className="admin-btn" onClick={() => handleTabChange('orders')}>Manage Orders</button>
                   <button className="admin-btn" onClick={() => handleTabChange('products')}>Manage Products</button>
                   <button className="admin-btn" onClick={() => handleTabChange('billing')}>Create Bill</button>
-                  <button className="admin-btn" onClick={() => handleTabChange('credit-khata')}>Credit Khata</button>
-                  <button className="admin-btn" onClick={() => handleTabChange('purchases')}>Purchases</button>
                 </div>
               </div>
 
               <div className="dashboard-panel">
                 <div className="dashboard-panel-head">
                   <h3>Low Stock (≤ 10)</h3>
-                  <button className="admin-btn" onClick={() => handleTabChange('products')}>Open Products</button>
                 </div>
                 {lowStockProducts.length === 0 ? (
                   <p className="dashboard-empty">No low stock products.</p>
@@ -1558,8 +1888,8 @@ function Admin({ user }) {
                   <div className="dashboard-list">
                     {lowStockProducts.map((product) => (
                       <div className="dashboard-list-row" key={product.id}>
-                        <span>{product.name}</span>
-                        <strong>{asNumber(product.stock, 0)}</strong>
+                        <span className="dashboard-row-primary">{product.name}</span>
+                        <strong className="dashboard-row-value">Stock: {asNumber(product.stock, 0)}</strong>
                       </div>
                     ))}
                   </div>
@@ -1569,7 +1899,6 @@ function Admin({ user }) {
               <div className="dashboard-panel">
                 <div className="dashboard-panel-head">
                   <h3>Recent Orders</h3>
-                  <button className="admin-btn" onClick={() => handleTabChange('orders')}>View All</button>
                 </div>
                 {recentOrders.length === 0 ? (
                   <p className="dashboard-empty">No orders yet.</p>
@@ -1577,9 +1906,9 @@ function Admin({ user }) {
                   <div className="dashboard-list">
                     {recentOrders.map((order) => (
                       <div className="dashboard-list-row" key={order.id}>
-                        <span>{order.order_number || `#${order.id}`}</span>
-                        <span>{new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
-                        <span>{formatCurrency(order.total_amount || 0)}</span>
+                        <span className="dashboard-row-primary">{order.order_number || `#${order.id}`}</span>
+                        <span className="dashboard-row-secondary">Date: {new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
+                        <span className="dashboard-row-value">{formatCurrency(order.total_amount || 0)}</span>
                       </div>
                     ))}
                   </div>
@@ -1589,7 +1918,6 @@ function Admin({ user }) {
               <div className="dashboard-panel">
                 <div className="dashboard-panel-head">
                   <h3>Recent Customers</h3>
-                  <button className="admin-btn" onClick={() => handleTabChange('users')}>Open Users</button>
                 </div>
                 {recentCustomers.length === 0 ? (
                   <p className="dashboard-empty">No customers found.</p>
@@ -1597,8 +1925,8 @@ function Admin({ user }) {
                   <div className="dashboard-list">
                     {recentCustomers.map((customer) => (
                       <div className="dashboard-list-row" key={customer.id}>
-                        <span>{customer.name || '-'}</span>
-                        <span>{customer.phone || customer.email || '-'}</span>
+                        <span className="dashboard-row-primary">{truncateUserName(customer.name || '-', 15)}</span>
+                        <span className="dashboard-row-secondary">{customer.phone || customer.email || '-'}</span>
                         <Link
                           className="action-btn credit"
                           to={`/admin/users/${customer.id}/credit?returnTab=dashboard`}
@@ -1615,148 +1943,270 @@ function Admin({ user }) {
           </div>
         )}
 
+        {activeTab === 'daily-sales' && (
+          <div className="daily-sales-summary">
+            <div className="section-header">
+              <h1>Daily Sales Summary</h1>
+              <div className="daily-sales-controls">
+                <input
+                  type="date"
+                  className="daily-sales-date-input"
+                  value={selectedDateKey}
+                  onChange={(event) => setDailySalesDate(String(event.target.value || '').trim())}
+                />
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => { void loadDailySalesBills({ silent: false }); }}
+                  disabled={dailySalesLoading}
+                >
+                  {dailySalesLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {dailySalesError ? <p className="daily-sales-error">{dailySalesError}</p> : null}
+
+            <div className="stats-grid daily-sales-cards">
+              <div className="stat-card">
+                <BarChart2 size={22} />
+                <div>
+                  <h3>{formatCurrency(dailySalesSummary.totalBilled)}</h3>
+                  <p>Total Billed</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <ShoppingCart size={22} />
+                <div>
+                  <h3>{formatCurrency(dailySalesSummary.cashCollected)}</h3>
+                  <p>Cash Collected</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <CreditCard size={22} />
+                <div>
+                  <h3>{formatCurrency(dailySalesSummary.creditIssued)}</h3>
+                  <p>Credit Issued</p>
+                </div>
+              </div>
+              <div className="stat-card">
+                <TrendingUp size={22} />
+                <div>
+                  <h3>{formatCurrency(dailySalesSummary.expectedDrawerCash)}</h3>
+                  <p>Expected Cash In Drawer</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="daily-sales-meta-row">
+              <span>Transactions: <strong>{dailySalesSummary.txCount}</strong></span>
+              <span>Paid Bills: <strong>{dailySalesSummary.paidBills}</strong></span>
+              <span>Pending Bills: <strong>{dailySalesSummary.pendingBills}</strong></span>
+              <span>Avg Ticket: <strong>{formatCurrency(dailySalesSummary.avgTicket)}</strong></span>
+            </div>
+
+            <div className="orders-table daily-sales-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Bill</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                    <th>Paid</th>
+                    <th>Credit</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedSalesBills.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="orders-empty-row">No sales bills found for selected date.</td>
+                    </tr>
+                  ) : selectedSalesBills.map((bill) => (
+                    <tr key={bill.id}>
+                      <td>{new Date(bill.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td>{bill.bill_number || `#${bill.id}`}</td>
+                      <td>{truncateUserName(bill.customer_name || '-', 15)}</td>
+                      <td>{formatCurrency(asNumber(bill.total_amount, 0))}</td>
+                      <td>{formatCurrency(asNumber(bill.paid_amount, 0))}</td>
+                      <td>{formatCurrency(asNumber(bill.credit_amount, 0))}</td>
+                      <td>{String(bill.payment_status || '-').toUpperCase()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'products' && (
           <div className="products-management">
             <div className="section-header">
               <h1>Products Management</h1>
               <div className="products-actions">
-                <div className="view-toggle">
-                  <button
-                    className={`admin-btn ${productViewMode === 'table' ? 'primary' : ''}`}
-                    onClick={() => setProductViewMode('table')}
+                <div className="products-actions-right">
+                  <div className="products-io-icons">
+                    <button
+                      type="button"
+                      className="products-icon-btn products-icon-btn-add"
+                      onClick={handleAddProduct}
+                      title="Add product"
+                      aria-label="Add product"
+                    >
+                      <span className="products-icon-plus" aria-hidden="true">+</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="products-icon-btn"
+                      onClick={() => setShowExportDialog(true)}
+                      disabled={importBusy}
+                      title="Export products"
+                      aria-label="Export products"
+                    >
+                      <Download size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="products-icon-btn"
+                      onClick={handleStartImport}
+                      disabled={importBusy}
+                      title="Import products"
+                      aria-label="Import products"
+                    >
+                      <Upload size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="products-icon-btn"
+                      onClick={handleConfirmImport}
+                      disabled={importBusy || !importPreviewData?.batch_id}
+                      title="Confirm import"
+                      aria-label="Confirm import"
+                    >
+                      <CheckCircle2 size={16} />
+                    </button>
+                  </div>
+                  <div
+                    className={`products-view-switch ${productViewMode === 'grid' ? 'is-grid' : 'is-table'}`}
+                    role="group"
+                    aria-label="Product view mode"
                   >
-                    Table
-                  </button>
-                  <button
-                    className={`admin-btn ${productViewMode === 'grid' ? 'primary' : ''}`}
-                    onClick={() => setProductViewMode('grid')}
-                  >
-                    Grid
-                  </button>
-                </div>
-                <span className="products-view-hint">Table = expert mode, Grid = touch-friendly</span>
-                <button className="admin-btn primary" onClick={handleAddProduct}>
-                  <Plus size={20} /> Add Product
-                </button>
-                <div className="products-io-icons">
-                  <button
-                    type="button"
-                    className="products-icon-btn"
-                    onClick={() => setShowExportDialog(true)}
-                    disabled={importBusy}
-                    title="Export products"
-                    aria-label="Export products"
-                  >
-                    <Download size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="products-icon-btn"
-                    onClick={handleStartImport}
-                    disabled={importBusy}
-                    title="Import products"
-                    aria-label="Import products"
-                  >
-                    <Upload size={16} />
-                  </button>
-                  <button
-                    type="button"
-                    className="products-icon-btn"
-                    onClick={handleConfirmImport}
-                    disabled={importBusy || !importPreviewData?.batch_id}
-                    title="Confirm import"
-                    aria-label="Confirm import"
-                  >
-                    <CheckCircle2 size={16} />
-                  </button>
+                    <button
+                      type="button"
+                      className={`products-view-switch-option table ${productViewMode === 'table' ? 'active' : ''}`}
+                      onClick={() => setProductViewMode('table')}
+                      aria-pressed={productViewMode === 'table'}
+                    >
+                      Table
+                    </button>
+                    <button
+                      type="button"
+                      className={`products-view-switch-option grid ${productViewMode === 'grid' ? 'active' : ''}`}
+                      onClick={() => setProductViewMode('grid')}
+                      aria-pressed={productViewMode === 'grid'}
+                    >
+                      Grid
+                    </button>
+                    <span className="products-view-switch-knob" aria-hidden="true">
+                      {productViewMode === 'grid' ? <CheckCircle2 size={14} /> : <X size={14} />}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="products-import-export-card">
-              <div className="products-import-controls">
-                <input
-                  ref={importFileInputRef}
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileSelected}
-                  disabled={importBusy}
-                  style={{ display: 'none' }}
-                />
-                <span>{importFile ? `Selected: ${importFile.name}` : 'No file selected'}</span>
-              </div>
-              {importPreviewData?.summary && (
-                <div className="products-import-preview-summary">
-                  <span>Creates: {importPreviewData.summary.creates}</span>
-                  <span>Updates: {importPreviewData.summary.updates}</span>
-                  <span>Errors: {importPreviewData.summary.errors}</span>
-                  <span>Needs Choice: {importPreviewData.summary.needs_confirmation || 0}</span>
-                  <span>Expires: {new Date(importPreviewData.expires_at).toLocaleString()}</span>
-                </div>
-              )}
-              {Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0 && (
-                <div className="products-import-preview-table-wrap">
-                  <table className="products-import-preview-table">
-                    <thead>
-                      <tr>
-                        <th>Row</th>
-                        <th>Action</th>
-                        <th>Status</th>
-                        <th>Allow</th>
-                        <th>Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importPreviewData.preview.slice(0, 25).map((row) => (
-                        <tr key={`preview-${row.row}`}>
-                          <td>{row.row}</td>
-                          <td>{row.action}</td>
-                          <td>{row.status}</td>
-                          <td>
-                            {row.status === 'needs_confirmation' ? (
-                              <input
-                                type="checkbox"
-                                checked={importAllowIdenticalRows.includes(Number(row.row))}
-                                onChange={(e) => {
-                                  const rowNo = Number(row.row);
-                                  setImportAllowIdenticalRows((prev) => {
-                                    if (e.target.checked) return Array.from(new Set([...prev, rowNo]));
-                                    return prev.filter((v) => v !== rowNo);
-                                  });
-                                }}
-                              />
-                            ) : '-'}
-                          </td>
-                          <td>
-                            {row.errors?.length
-                              ? row.errors.join('; ')
-                              : row.warnings?.length
-                                ? row.warnings.join('; ')
-                                : 'Ready'}
-                          </td>
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileSelected}
+              disabled={importBusy}
+              style={{ display: 'none' }}
+            />
+            {showProductsImportCard ? (
+              <div className="products-import-export-card">
+                {importPreviewData?.batch_id ? (
+                  <div className="products-import-controls">
+                    <span>{importFile ? `Selected: ${importFile.name}` : 'No file selected'}</span>
+                  </div>
+                ) : null}
+                {importPreviewData?.summary && (
+                  <div className="products-import-preview-summary">
+                    <span>Creates: {importPreviewData.summary.creates}</span>
+                    <span>Updates: {importPreviewData.summary.updates}</span>
+                    <span>Errors: {importPreviewData.summary.errors}</span>
+                    <span>Needs Choice: {importPreviewData.summary.needs_confirmation || 0}</span>
+                    <span>Expires: {new Date(importPreviewData.expires_at).toLocaleString()}</span>
+                  </div>
+                )}
+                {Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0 && (
+                  <div className="products-import-preview-table-wrap">
+                    <table className="products-import-preview-table">
+                      <thead>
+                        <tr>
+                          <th>Row</th>
+                          <th>Action</th>
+                          <th>Status</th>
+                          <th>Allow</th>
+                          <th>Details</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {importPreviewData.preview.length > 25 && (
-                    <p className="products-import-preview-note">
-                      Showing first 25 rows of {importPreviewData.preview.length}. Confirm applies full validated batch.
-                    </p>
-                  )}
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {importPreviewData.preview.slice(0, 25).map((row) => (
+                          <tr key={`preview-${row.row}`}>
+                            <td>{row.row}</td>
+                            <td>{row.action}</td>
+                            <td>{row.status}</td>
+                            <td>
+                              {row.status === 'needs_confirmation' ? (
+                                <input
+                                  type="checkbox"
+                                  checked={importAllowIdenticalRows.includes(Number(row.row))}
+                                  onChange={(e) => {
+                                    const rowNo = Number(row.row);
+                                    setImportAllowIdenticalRows((prev) => {
+                                      if (e.target.checked) return Array.from(new Set([...prev, rowNo]));
+                                      return prev.filter((v) => v !== rowNo);
+                                    });
+                                  }}
+                                />
+                              ) : '-'}
+                            </td>
+                            <td>
+                              {row.errors?.length
+                                ? row.errors.join('; ')
+                                : row.warnings?.length
+                                  ? row.warnings.join('; ')
+                                  : 'Ready'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {importPreviewData.preview.length > 25 && (
+                      <p className="products-import-preview-note">
+                        Showing first 25 rows of {importPreviewData.preview.length}. Confirm applies full validated batch.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            <div className="products-common-toolbar">
+              <input
+                type="text"
+                className="products-table-search products-common-search"
+                placeholder="Search by name, SKU, barcode, category, brand..."
+                value={productTableSearch}
+                onChange={(e) => setProductTableSearch(e.target.value)}
+              />
+              <span className="products-table-count">Rows: {visibleProducts.length}</span>
             </div>
             {productViewMode === 'table' ? (
               <>
                 <div className="products-table-toolbar">
-                  <input
-                    type="text"
-                    className="products-table-search"
-                    placeholder="Search by name, SKU, barcode, category, brand..."
-                    value={productTableSearch}
-                    onChange={(e) => setProductTableSearch(e.target.value)}
-                  />
                   <select
-                    className="products-table-filter"
+                    className="products-table-filter products-table-filter-category"
                     value={productTableCategoryFilter}
                     onChange={(e) => setProductTableCategoryFilter(e.target.value)}
                   >
@@ -1765,13 +2215,40 @@ function Admin({ user }) {
                       <option key={`filter-${category}`} value={category}>{category}</option>
                     ))}
                   </select>
+                  <details className="products-column-picker">
+                    <summary>Columns ({productTableVisibleColumns.length}/{PRODUCT_TABLE_ALL_COLUMN_KEYS.length})</summary>
+                    <div className="products-column-picker-panel">
+                      <label className="products-column-option products-column-option-all">
+                        <input
+                          type="checkbox"
+                          checked={productTableAllColumnsSelected}
+                          onChange={(e) => toggleSelectAllProductTableColumns(e.target.checked)}
+                        />
+                        Select All
+                      </label>
+                      <div className="products-column-list">
+                        {PRODUCT_TABLE_COLUMN_OPTIONS.map((column) => (
+                          <label key={`column-toggle-${column.key}`} className="products-column-option">
+                            <input
+                              type="checkbox"
+                              checked={isProductTableColumnVisible(column.key)}
+                              onChange={() => toggleProductTableColumn(column.key)}
+                            />
+                            {column.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
                   <select
-                    className="products-table-filter"
+                    className="products-table-filter products-table-filter-status"
                     value={productTableStatusFilter}
                     onChange={(e) => setProductTableStatusFilter(e.target.value)}
                   >
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
+                    <option value="available">Available (In Stock)</option>
+                    <option value="out_of_stock">Out of Stock</option>
                     <option value="inactive">Inactive</option>
                   </select>
                   <label className="products-table-filter products-table-checkbox">
@@ -1782,129 +2259,237 @@ function Admin({ user }) {
                     />
                     Low Stock
                   </label>
-                  <div className="products-column-preset" role="group" aria-label="Product table columns">
-                    <button
-                      type="button"
-                      className={`admin-btn ${productTableColumnPreset === 'primary' ? 'primary' : ''}`}
-                      onClick={() => setProductTableColumnPreset('primary')}
-                    >
-                      Primary
-                    </button>
-                    <button
-                      type="button"
-                      className={`admin-btn ${productTableColumnPreset === 'full' ? 'primary' : ''}`}
-                      onClick={() => setProductTableColumnPreset('full')}
-                    >
-                      Full
-                    </button>
-                  </div>
-                  <span className="products-table-count">Rows: {visibleProducts.length}</span>
                 </div>
-                <div className={`products-table ${productTableColumnPreset === 'primary' ? 'preset-primary' : 'preset-full'}`}>
-                  <table>
+                {selectedVisibleProduct ? (
+                  <div className="products-selected-actions">
+                    <div className="products-selected-meta">
+                      Selected: <strong title={selectedVisibleProduct.name || '-'}>
+                        {selectedVisibleProduct.name || '-'}
+                      </strong>
+                    </div>
+                    <div className="products-selected-buttons">
+                      {tableEditId === selectedVisibleProduct.id ? (
+                        <>
+                          <button className="action-btn edit" onClick={() => handleTableEditSave(selectedVisibleProduct)} disabled={tableEditSaving}>
+                            {tableEditSaving ? '...' : 'Save'}
+                          </button>
+                          <button className="action-btn delete" onClick={cancelTableEdit} disabled={tableEditSaving}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button className="action-btn edit" onClick={() => openTableEdit(selectedVisibleProduct)} title="Inline edit">
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            className="action-btn edit"
+                            onClick={() => handleEditProduct(selectedVisibleProduct)}
+                            title={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
+                            disabled={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0)}
+                          >
+                            <FolderOpen size={16} />
+                          </button>
+                          <button className="action-btn delete" onClick={() => handleDeleteProduct(selectedVisibleProduct.id)}>
+                            <Trash2 size={16} />
+                          </button>
+                          {Number(selectedVisibleProduct.is_active ?? 1) === 0 ? (
+                            <button
+                              className="action-btn delete"
+                              title="Permanent delete"
+                              onClick={() => handlePermanentDeleteProduct(selectedVisibleProduct)}
+                            >
+                              <X size={16} />
+                            </button>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="products-table">
+                  <table style={{ minWidth: `${productTableCalculatedMinWidth}px` }}>
                     <thead>
                       <tr>
-                        <th className="sortable" onClick={() => toggleProductTableSort('name')}>Name{getSortIndicator('name')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('brand')}>Brand{getSortIndicator('brand')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('category')}>Category{getSortIndicator('category')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('price')}>Price{getSortIndicator('price')}</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('mrp')}>MRP{getSortIndicator('mrp')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('stock')}>Stock{getSortIndicator('stock')}</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('sku')}>SKU{getSortIndicator('sku')}</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('barcode')}>Barcode{getSortIndicator('barcode')}</th>
-                        <th className="sortable" onClick={() => toggleProductTableSort('is_active')}>Status{getSortIndicator('is_active')}</th>
-                        <th className="col-extended">Description</th>
-                        <th className="col-extended">Content</th>
-                        <th className="col-extended">Color</th>
-                        <th className="col-extended">UOM</th>
-                        <th className="col-extended">Expiry</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('defaultDiscount')}>Discount{getSortIndicator('defaultDiscount')}</th>
-                        <th className="col-extended">Disc Type</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('id')}>ID{getSortIndicator('id')}</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('created_at')}>Created{getSortIndicator('created_at')}</th>
-                        <th className="sortable col-extended" onClick={() => toggleProductTableSort('src')}>Src{getSortIndicator('src')}</th>
-                        <th>Actions</th>
+                        <th className="col-pick">Pick</th>
+                        {isProductTableColumnVisible('name') ? <th className="sortable col-name" onClick={() => toggleProductTableSort('name')}>Name{getSortIndicator('name')}</th> : null}
+                        {isProductTableColumnVisible('brand') ? <th className="sortable col-brand" onClick={() => toggleProductTableSort('brand')}>Brand{getSortIndicator('brand')}</th> : null}
+                        {isProductTableColumnVisible('category') ? <th className="sortable col-category" onClick={() => toggleProductTableSort('category')}>Category{getSortIndicator('category')}</th> : null}
+                        {isProductTableColumnVisible('price') ? <th className="sortable col-price" onClick={() => toggleProductTableSort('price')}>Price{getSortIndicator('price')}</th> : null}
+                        {isProductTableColumnVisible('mrp') ? <th className="sortable col-mrp" onClick={() => toggleProductTableSort('mrp')}>MRP{getSortIndicator('mrp')}</th> : null}
+                        {isProductTableColumnVisible('stock') ? <th className="sortable col-stock" onClick={() => toggleProductTableSort('stock')}>Stock{getSortIndicator('stock')}</th> : null}
+                        {isProductTableColumnVisible('sku') ? <th className="sortable col-sku" onClick={() => toggleProductTableSort('sku')}>SKU{getSortIndicator('sku')}</th> : null}
+                        {isProductTableColumnVisible('barcode') ? <th className="sortable col-barcode" onClick={() => toggleProductTableSort('barcode')}>Barcode{getSortIndicator('barcode')}</th> : null}
+                        {isProductTableColumnVisible('status') ? <th className="sortable col-status" onClick={() => toggleProductTableSort('is_active')}>Status{getSortIndicator('is_active')}</th> : null}
+                        {isProductTableColumnVisible('description') ? <th className="col-description">Description</th> : null}
+                        {isProductTableColumnVisible('content') ? <th className="col-content">Content</th> : null}
+                        {isProductTableColumnVisible('color') ? <th className="col-color">Color</th> : null}
+                        {isProductTableColumnVisible('uom') ? <th className="col-uom">UOM</th> : null}
+                        {isProductTableColumnVisible('expiry') ? <th className="col-expiry">Expiry</th> : null}
+                        {isProductTableColumnVisible('discount') ? <th className="sortable col-discount" onClick={() => toggleProductTableSort('defaultDiscount')}>Discount{getSortIndicator('defaultDiscount')}</th> : null}
+                        {isProductTableColumnVisible('discountType') ? <th className="col-discountType">Disc Type</th> : null}
+                        {isProductTableColumnVisible('id') ? <th className="sortable col-id" onClick={() => toggleProductTableSort('id')}>ID{getSortIndicator('id')}</th> : null}
+                        {isProductTableColumnVisible('created') ? <th className="sortable col-created" onClick={() => toggleProductTableSort('created_at')}>Created{getSortIndicator('created_at')}</th> : null}
+                        {isProductTableColumnVisible('src') ? <th className="sortable col-src" onClick={() => toggleProductTableSort('src')}>Src{getSortIndicator('src')}</th> : null}
                       </tr>
                     </thead>
                     <tbody>
                       {visibleProducts.map(product => {
                         const isEditingRow = tableEditId === product.id;
+                        const cellClassName = (base = '') => [base, !isEditingRow ? 'cell-editable' : ''].filter(Boolean).join(' ');
                         return (
-                          <tr key={product.id}>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.name} onChange={(e) => handleTableEditChange('name', e.target.value)} /> : product.name}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} /> : (getBrandPath(product) || '-')}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} /> : getCategoryPath(product)}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}</td>
-                            <td>{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} /> : (product.sku || '-')}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} /> : (product.barcode || '-')}</td>
-                            <td>
-                              {isEditingRow ? (
-                                <select className="table-edit-input" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
-                                  <option value="1">Active</option>
-                                  <option value="0">Inactive</option>
-                                </select>
-                              ) : (Number(product.is_active ?? 1) === 1 ? 'Active' : 'Inactive')}
+                          <tr key={product.id} className={Number(selectedProductId) === Number(product.id) ? 'product-row-selected' : ''}>
+                            <td className="col-pick">
+                              <button
+                                type="button"
+                                className={`row-pick-btn ${Number(selectedProductId) === Number(product.id) ? 'active' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedProductId(Number(product.id) || 0);
+                                }}
+                                title="Select product"
+                                aria-label={`Select ${product.name || 'product'}`}
+                              />
                             </td>
-                            <td className="col-extended">
-                              {isEditingRow ? (
-                                <input className="table-edit-input" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
-                              ) : (
-                                <span className="description-snippet" title={product.description || '-'}>
-                                  {product.description || '-'}
-                                </span>
-                              )}
-                            </td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} /> : (product.content || '-')}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} /> : (product.color || '-')}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} /> : (product.uom || '-')}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}</td>
-                            <td className="col-extended">
-                              {isEditingRow ? (
-                                <select className="table-edit-input" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
-                                  <option value="fixed">fixed</option>
-                                  <option value="percentage">percentage</option>
-                                </select>
-                              ) : (product.discountType || 'fixed')}
-                            </td>
-                            <td className="col-extended">{product.id}</td>
-                            <td className="col-extended">{product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}</td>
-                            <td className="col-extended">{isEditingRow ? <input className="table-edit-input" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}</td>
-                            <td>
-                              {isEditingRow ? (
-                                <div className="table-edit-actions">
-                                  <button className="action-btn edit" onClick={() => handleTableEditSave(product)} disabled={tableEditSaving}>
-                                    {tableEditSaving ? '...' : 'Save'}
-                                  </button>
-                                  <button className="action-btn delete" onClick={cancelTableEdit} disabled={tableEditSaving}>
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <button className="action-btn edit" onClick={() => openTableEdit(product)} title="Inline edit">
-                                    <Edit size={16} />
-                                  </button>
-                                  <button className="action-btn edit" onClick={() => handleEditProduct(product)} title="Advanced edit">
-                                    <FolderOpen size={16} />
-                                  </button>
-                                  <button className="action-btn delete" onClick={() => handleDeleteProduct(product.id)}>
-                                    <Trash2 size={16} />
-                                  </button>
-                                  {Number(product.is_active ?? 1) === 0 && (
-                                    <button
-                                      className="action-btn delete"
-                                      title="Permanent delete"
-                                      onClick={() => handlePermanentDeleteProduct(product)}
-                                    >
-                                      <X size={16} />
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </td>
+                            {isProductTableColumnVisible('name') ? (
+                              <td className={cellClassName('col-name')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'name') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('name')} className="table-edit-input" value={tableEditForm.name} onChange={(e) => handleTableEditChange('name', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate cell-name" title={product.name || '-'}>{product.name || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('brand') ? (
+                              <td className={cellClassName('col-brand')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'brand') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('brand')} className="table-edit-input" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate cell-brand" title={getBrandPath(product) || '-'}>{getBrandPath(product) || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('category') ? (
+                              <td className={cellClassName('col-category')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'category') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('category')} className="table-edit-input" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate cell-category" title={getCategoryPath(product) || '-'}>{getCategoryPath(product) || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('price') ? (
+                              <td className={cellClassName('col-price')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'price') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('price')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('mrp') ? (
+                              <td className={cellClassName('col-mrp')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'mrp') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('mrp')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('stock') ? (
+                              <td className={cellClassName('col-stock')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'stock') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('stock')} className="table-edit-input" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('sku') ? (
+                              <td className={cellClassName('col-sku')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'sku') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('sku')} className="table-edit-input" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate cell-code" title={product.sku || '-'}>{product.sku || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('barcode') ? (
+                              <td className={cellClassName('col-barcode')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'barcode') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('barcode')} className="table-edit-input" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate cell-code" title={product.barcode || '-'}>{product.barcode || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('status') ? (
+                              <td className={cellClassName('col-status')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'is_active') : undefined}>
+                                {isEditingRow ? (
+                                  <select ref={setTableEditFieldRef('is_active')} className="table-edit-input" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
+                                    <option value="1">Active</option>
+                                    <option value="0">Inactive</option>
+                                  </select>
+                                ) : (Number(product.is_active ?? 1) === 1 ? 'Active' : 'Inactive')}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('description') ? (
+                              <td className={cellClassName('col-description')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'description') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('description')} className="table-edit-input" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
+                                ) : (
+                                  <span className="description-snippet" title={product.description || '-'}>{product.description || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('content') ? (
+                              <td className={cellClassName('col-content')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'content') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('content')} className="table-edit-input" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate" title={product.content || '-'}>{product.content || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('color') ? (
+                              <td className={cellClassName('col-color')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'color') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('color')} className="table-edit-input" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate" title={product.color || '-'}>{product.color || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('uom') ? (
+                              <td className={cellClassName('col-uom')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'uom') : undefined}>
+                                {isEditingRow ? (
+                                  <input ref={setTableEditFieldRef('uom')} className="table-edit-input" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} />
+                                ) : (
+                                  <span className="cell-truncate" title={product.uom || '-'}>{product.uom || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('expiry') ? (
+                              <td className={cellClassName('col-expiry')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'expiry_date') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('expiry_date')} className="table-edit-input" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('discount') ? (
+                              <td className={cellClassName('col-discount')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'defaultDiscount') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('defaultDiscount')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('discountType') ? (
+                              <td className={cellClassName('col-discountType')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'discountType') : undefined}>
+                                {isEditingRow ? (
+                                  <select ref={setTableEditFieldRef('discountType')} className="table-edit-input" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
+                                    <option value="fixed">fixed</option>
+                                    <option value="percentage">percentage</option>
+                                  </select>
+                                ) : (
+                                  <span className="cell-truncate" title={product.discountType || 'fixed'}>{product.discountType || 'fixed'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('id') ? (
+                              <td className={cellClassName('col-id')} onClick={() => handleTableCellClick(product, 'name')}>{product.id}</td>
+                            ) : null}
+                            {isProductTableColumnVisible('created') ? (
+                              <td className={cellClassName('col-created')} onClick={() => handleTableCellClick(product, 'name')}>{product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}</td>
+                            ) : null}
+                            {isProductTableColumnVisible('src') ? (
+                              <td className={cellClassName('col-src')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'image') : undefined}>
+                                {isEditingRow ? <input ref={setTableEditFieldRef('image')} className="table-edit-input" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}
+                              </td>
+                            ) : null}
                           </tr>
                         );
                       })}
@@ -2053,7 +2638,12 @@ function Admin({ user }) {
                             <button className="action-btn edit" onClick={() => startQuickEdit(product)} title="Quick edit">
                               <Edit size={16} />
                             </button>
-                            <button className="action-btn edit" onClick={() => handleEditProduct(product)} title="Advanced edit">
+                            <button
+                              className="action-btn edit"
+                              onClick={() => handleEditProduct(product)}
+                              title={Number(productEditLoadingId || 0) === Number(product.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
+                              disabled={Number(productEditLoadingId || 0) === Number(product.id || 0)}
+                            >
                               <FolderOpen size={16} />
                             </button>
                             <button className="action-btn delete" onClick={() => handleDeleteProduct(product.id)} title="Delete">
@@ -2078,8 +2668,23 @@ function Admin({ user }) {
         {activeTab === 'orders' && (
           <div className="orders-management">
             <h1>Orders Management</h1>
+            <div className="orders-toolbar">
+              <input
+                type="text"
+                className="orders-search-input"
+                aria-label="Search orders"
+                placeholder="Search order #, customer, email, status..."
+                value={ordersSearchQuery}
+                onChange={(e) => setOrdersSearchQuery(e.target.value)}
+              />
+              <span className="orders-search-count">
+                Showing {visibleOrders.length} of {orders.length} orders
+              </span>
+            </div>
             <div className="orders-mobile-list">
-              {orders.map((order) => {
+              {visibleOrders.length === 0 ? (
+                <p className="orders-empty-text">No orders match your search.</p>
+              ) : visibleOrders.map((order) => {
                 const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
                 const isReceived = String(order.status || '').toLowerCase() === 'received';
                 const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
@@ -2088,23 +2693,30 @@ function Admin({ user }) {
                 return (
                   <article key={`mobile-${order.id}`} className="order-mobile-card">
                     <div className="order-mobile-head">
-                      <strong>#{order.order_number || order.id}</strong>
+                      <div className="order-mobile-title">
+                        <strong>#{order.order_number || order.id}</strong>
+                        <span className="order-mobile-date">{new Date(order.created_at).toLocaleDateString()}</span>
+                      </div>
                       <span className={`status ${order.status}`}>{order.status}</span>
                     </div>
-                    <p><strong>Customer:</strong> {order.customer_name || '-'}</p>
-                    <p><strong>Email:</strong> {order.customer_email || '-'}</p>
-                    <p><strong>Amount:</strong> {formatCurrency(order.total_amount || 0)}</p>
-                    <p><strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
-                    {pendingQty > 0 ? <p><strong>Partial stock:</strong> Pending {pendingQty}</p> : null}
-                    {isBilled ? <p><strong>Bill:</strong> {order.linked_bill_number || `#${order.bill_id}`}</p> : null}
+                    <div className="order-mobile-meta">
+                      <p><strong>{truncateUserName(order.customer_name || '-', 15)}</strong></p>
+                      <p>{formatCurrency(order.total_amount || 0)}</p>
+                    </div>
+                    {pendingQty > 0 ? (
+                      <p className="order-mobile-subtle">Partial stock: Pending {pendingQty}</p>
+                    ) : null}
+                    {isBilled ? (
+                      <p className="order-mobile-subtle">Bill: {order.linked_bill_number || `#${order.bill_id}`}</p>
+                    ) : null}
                     {(isOrdered || isReceived) ? (
                       <div className="order-mobile-actions">
                         {isOrdered ? (
-                          <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                          <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>Mark Received</button>
                         ) : null}
                         {canProceedBilling ? (
                           <button
-                            className="admin-btn"
+                            className="admin-btn order-action-btn"
                             onClick={() => handleProceedToBilling(order)}
                             disabled={proceedBillingOrderId === Number(order.id)}
                           >
@@ -2115,11 +2727,11 @@ function Admin({ user }) {
                                 : 'Proceed Billing'}
                           </button>
                         ) : (
-                          <span style={{ opacity: 0.75 }}>Already billed</span>
+                          <span className="order-mobile-muted">Already billed</span>
                         )}
                         {isReceived && pendingQty > 0 ? (
                           <button
-                            className="admin-btn"
+                            className="admin-btn order-action-btn"
                             onClick={() => handleApplyPendingFulfillment(order.id)}
                           >
                             Apply Pending
@@ -2127,7 +2739,7 @@ function Admin({ user }) {
                         ) : null}
                       </div>
                     ) : (
-                      <span style={{ opacity: 0.75 }}>No pending action</span>
+                      <span className="order-mobile-muted">No pending action</span>
                     )}
                   </article>
                 );
@@ -2137,17 +2749,20 @@ function Admin({ user }) {
               <table>
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th>Order</th>
                     <th>Customer</th>
-                    <th>Email</th>
                     <th>Amount</th>
                     <th>Status</th>
-                    <th>Actions</th>
                     <th>Date</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => {
+                  {visibleOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="orders-empty-row">No orders match your search.</td>
+                    </tr>
+                  ) : visibleOrders.map((order) => {
                     const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
                     const isReceived = String(order.status || '').toLowerCase() === 'received';
                     const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
@@ -2155,32 +2770,37 @@ function Admin({ user }) {
                     const canProceedBilling = !isBilled && (isOrdered || isReceived);
                     return (
                       <tr key={order.id}>
-                        <td>{order.id}</td>
-                        <td>{order.customer_name}</td>
-                        <td>{order.customer_email}</td>
+                        <td>#{order.order_number || order.id}</td>
+                        <td>
+                          <div className="order-customer-cell">
+                            <strong>{truncateUserName(order.customer_name || '-', 15)}</strong>
+                            <span>{order.customer_email || '-'}</span>
+                          </div>
+                        </td>
                         <td>{formatCurrencyColored(order.total_amount)}</td>
                         <td>
                           <span className={`status ${order.status}`}>{order.status}</span>
                           {pendingQty > 0 ? (
-                            <div style={{ fontSize: '0.8rem', color: '#b45309', fontWeight: 700 }}>
+                            <div className="order-status-detail pending">
                               Partial stock: Pending {pendingQty}
                             </div>
                           ) : null}
                           {isBilled ? (
-                            <div style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+                            <div className="order-status-detail billed">
                               Bill: {order.linked_bill_number || `#${order.bill_id}`}
                             </div>
                           ) : null}
                         </td>
+                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
                         <td>
                           {(isOrdered || isReceived) ? (
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div className="order-actions">
                               {isOrdered ? (
-                                <button className="admin-btn primary" onClick={() => openApproveModal(order.id)}>Mark Received</button>
+                                <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>Mark Received</button>
                               ) : null}
                               {canProceedBilling ? (
                                 <button
-                                  className="admin-btn"
+                                  className="admin-btn order-action-btn"
                                   onClick={() => handleProceedToBilling(order)}
                                   disabled={proceedBillingOrderId === Number(order.id)}
                                 >
@@ -2191,11 +2811,11 @@ function Admin({ user }) {
                                       : 'Proceed Billing'}
                                 </button>
                               ) : (
-                                <span style={{ opacity: 0.8 }}>Already billed</span>
+                                <span className="order-mobile-muted">Already billed</span>
                               )}
                               {isReceived && pendingQty > 0 ? (
                                 <button
-                                  className="admin-btn"
+                                  className="admin-btn order-action-btn"
                                   onClick={() => handleApplyPendingFulfillment(order.id)}
                                 >
                                   Apply Pending
@@ -2203,10 +2823,9 @@ function Admin({ user }) {
                               ) : null}
                             </div>
                           ) : (
-                            <span style={{ opacity: 0.8 }}>—</span>
+                            <span className="order-mobile-muted">-</span>
                           )}
                         </td>
-                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
                       </tr>
                     );
                   })}
@@ -2238,123 +2857,129 @@ function Admin({ user }) {
                 <Plus size={20} /> Add Customer
               </button>
             </div>
+            <div className="users-toolbar">
+              <input
+                type="text"
+                className="users-search-input"
+                placeholder="Search users by name, email, phone, id..."
+                value={usersSearchQuery}
+                onChange={(e) => setUsersSearchQuery(e.target.value)}
+              />
+              <span className="users-search-count">
+                Showing {filteredUsersCount} of {users.length} users
+              </span>
+            </div>
             <div className="users-group">
-              <h2>Admins ({adminUsers.length})</h2>
-              <div className="users-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adminUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan="3">No admins found.</td>
-                      </tr>
-                    ) : adminUsers.map((u) => (
-                      <tr key={u.id}>
-                        <td>
-                          <div className="admin-user-cell">
-                            <div className="admin-user-name-cell">
-                              {u.profile_image && !userAvatarErrors[u.id] ? (
-                                <img
-                                  src={resolveMediaUrl(u.profile_image)}
-                                  alt={u.name || 'User'}
-                                  className="admin-user-avatar"
-                                  onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
-                                />
-                              ) : (
-                                <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
-                              )}
-                              <span>{u.name || '-'}</span>
-                            </div>
-                            <div className="admin-user-meta-row">
-                              <span className="admin-user-joined">Joined: {formatJoinedDate(u.created_at)}</span>
-                              <div className="admin-user-actions">
-                                <span className="admin-badge">Admin</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>{u.email || '-'}</td>
-                        <td>{u.phone || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <h2>Admins ({filteredUsers.admins.length}/{adminUsers.length})</h2>
+              <div className="users-compact-list">
+                {filteredUsers.admins.length === 0 ? (
+                  <p className="users-empty">No admins found.</p>
+                ) : filteredUsers.admins.map((u) => {
+                  const isExpanded = Boolean(expandedUsersMap[u.id]);
+                  return (
+                    <article className={`user-compact-card${isExpanded ? ' expanded' : ''}`} key={u.id}>
+                      <div
+                        className="user-compact-summary"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleUserCompactRow(u.id)}
+                        onKeyDown={(event) => handleCompactRowKeyToggle(event, u.id)}
+                      >
+                        <div className="user-compact-name-wrap">
+                          {u.profile_image && !userAvatarErrors[u.id] ? (
+                            <img
+                              src={resolveMediaUrl(u.profile_image)}
+                              alt={u.name || 'User'}
+                              className="admin-user-avatar"
+                              onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
+                            />
+                          ) : (
+                            <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
+                          )}
+                          <span className="user-compact-name">{truncateUserName(u.name || '-', 15)}</span>
+                        </div>
+                        <span className="admin-badge">Admin</span>
+                      </div>
+                      {isExpanded && (
+                        <div className="user-compact-details">
+                          <p><strong>Email:</strong> {u.email || '-'}</p>
+                          <p><strong>Phone:</strong> {u.phone || '-'}</p>
+                          <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </div>
             <div className="users-group">
-              <h2>Customers ({customerUsers.length})</h2>
-              <div className="users-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {customerUsers.length === 0 ? (
-                      <tr>
-                        <td colSpan="3">No customers found.</td>
-                      </tr>
-                    ) : customerUsers.map((u) => (
-                      <tr key={u.id}>
-                        <td>
-                          <div className="admin-user-cell">
-                            <div className="admin-user-name-cell">
-                              {u.profile_image && !userAvatarErrors[u.id] ? (
-                                <img
-                                  src={resolveMediaUrl(u.profile_image)}
-                                  alt={u.name || 'User'}
-                                  className="admin-user-avatar"
-                                  onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
-                                />
-                              ) : (
-                                <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
-                              )}
-                              <span>{u.name || '-'}</span>
-                            </div>
-                            <div className="admin-user-meta-row">
-                              <span className="admin-user-joined">Joined: {formatJoinedDate(u.created_at)}</span>
-                              <div className="admin-user-actions">
-                                <Link
-                                  to={`/admin/users/${u.id}/credit?returnTab=users`}
-                                  className="action-btn credit"
-                                  title="Credit History"
-                                >
-                                  <CreditCard size={16} />
-                                </Link>
-                                <button
-                                  className="action-btn edit"
-                                  onClick={() => handleEditUser(u)}
-                                  title={u.email_verified && u.phone_verified ? 'Change user type' : 'Requires verified email and phone'}
-                                  disabled={!u.email_verified || !u.phone_verified}
-                                >
-                                  <Edit size={16} />
-                                </button>
-                                <button
-                                  className="action-btn delete"
-                                  onClick={() => handleDeleteUser(u.id)}
-                                  title="Delete user"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
+              <h2>Customers ({filteredUsers.customers.length}/{customerUsers.length})</h2>
+              <div className="users-compact-list">
+                {filteredUsers.customers.length === 0 ? (
+                  <p className="users-empty">No customers found.</p>
+                ) : filteredUsers.customers.map((u) => {
+                  const isExpanded = Boolean(expandedUsersMap[u.id]);
+                  return (
+                    <article className={`user-compact-card${isExpanded ? ' expanded' : ''}`} key={u.id}>
+                      <div
+                        className="user-compact-summary"
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleUserCompactRow(u.id)}
+                        onKeyDown={(event) => handleCompactRowKeyToggle(event, u.id)}
+                      >
+                        <div className="user-compact-name-wrap">
+                          {u.profile_image && !userAvatarErrors[u.id] ? (
+                            <img
+                              src={resolveMediaUrl(u.profile_image)}
+                              alt={u.name || 'User'}
+                              className="admin-user-avatar"
+                              onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
+                            />
+                          ) : (
+                            <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
+                          )}
+                          <span className="user-compact-name">{truncateUserName(u.name || '-', 15)}</span>
+                        </div>
+                        <Link
+                          to={`/admin/users/${u.id}/credit?returnTab=users`}
+                          className="action-btn credit user-compact-credit-btn"
+                          title="Credit Khata"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <CreditCard size={15} />
+                          <span>Credit Khata</span>
+                        </Link>
+                      </div>
+                      {isExpanded && (
+                        <div className="user-compact-details">
+                          <p><strong>Email:</strong> {u.email || '-'}</p>
+                          <p><strong>Phone:</strong> {u.phone || '-'}</p>
+                          <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
+                          <div className="user-compact-actions">
+                            <button
+                              className="action-btn edit"
+                              onClick={() => handleEditUser(u)}
+                              title={u.email_verified && u.phone_verified ? 'Change user type' : 'Requires verified email and phone'}
+                              disabled={!u.email_verified || !u.phone_verified}
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="action-btn delete"
+                              onClick={() => handleDeleteUser(u.id)}
+                              title="Delete user"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
-                        </td>
-                        <td>{u.email || '-'}</td>
-                        <td>{u.phone || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -2409,7 +3034,7 @@ function Admin({ user }) {
             <p>Loading...</p>
           ) : (
             <>
-              <p>Customer: {modalOrder.customer_name} ({modalOrder.customer_email})</p>
+              <p>Customer: {truncateUserName(modalOrder.customer_name || '-', 15)} ({modalOrder.customer_email})</p>
               <div style={{ maxHeight: 300, overflow: 'auto', marginTop: 8 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>

@@ -10,6 +10,7 @@ import './Products.css';
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
 const getInitialVisibleCount = (isMobile) => (isMobile ? 12 : 16);
+const LOW_STOCK_THRESHOLD = 5;
 const GROUP_BY_OPTIONS = {
   category: 'category',
   brand: 'brand'
@@ -224,6 +225,7 @@ function ProductDetailView({
 
   const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
   const selectedStock = Number(selectedVariation.stock || 0);
+  const isSpecialOrder = selectedStock > 0 && selectedStock <= LOW_STOCK_THRESHOLD;
   const isMaxed = false;
   const canIncreaseQty = true;
   const added = buttonStatus[selectedVariation.id] === 'added';
@@ -274,9 +276,10 @@ function ProductDetailView({
           <small className="mrp-price">MRP: {formatCurrency(selectedVariation.mrp)}</small>
         )}
         <div className="detail-stock-line">
-          <span className={selectedStock > 0 ? 'in-stock' : 'out-of-stock'}>
-            {selectedStock > 0 ? 'In stock' : 'Out of stock'}
+          <span className={selectedStock > 0 ? (isSpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
+            {selectedStock > 0 ? (isSpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}
           </span>
+          {isSpecialOrder ? <small>Limited stock. May take longer.</small> : null}
         </div>
       </div>
 
@@ -761,6 +764,7 @@ function Products({ setCartCount }) {
     const isActiveDesktop = !isMobile && activeDesktopFamilyId === family.id;
     const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
     const selectedStock = Number(selectedVariation.stock || 0);
+    const familySpecialOrder = family.totalStock > 0 && family.totalStock <= LOW_STOCK_THRESHOLD;
     const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
     const priceValue = family.variations.length > 1 ? family.minPrice : selectedVariation.price;
     const metaLine = String(family.brand || family.category || '').trim();
@@ -809,8 +813,8 @@ function Products({ setCartCount }) {
           )}
           <div className="product-footer compact">
             <div className="product-stock">
-              <span className={familyInStock ? 'in-stock' : 'out-of-stock'}>
-                {familyInStock ? 'In stock' : 'Out of stock'}
+              <span className={familyInStock ? (familySpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
+                {familyInStock ? (familySpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}
               </span>
               {familyCartQty > 0 && <small className="cart-qty-indicator">In cart: {familyCartQty}</small>}
             </div>
@@ -896,6 +900,10 @@ function Products({ setCartCount }) {
       <div className="products-header fade-in-up">
         <h1>Our Collection</h1>
         <p>Discover premium products for your needs</p>
+      </div>
+
+      <div className="products-price-disclaimer" role="note" aria-live="polite">
+        Listed prices are indicative. Final billed price may differ at checkout/invoice.
       </div>
 
       {error && <div className="products-error">{error}</div>}

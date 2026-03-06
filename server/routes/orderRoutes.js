@@ -250,6 +250,9 @@ const placeOrder = async (payload) => {
   }
   const normalizedCustomerPhone = phoneParsed.value;
 
+  const normalizeUomToken = (value, fallback = 'pcs') =>
+    String(value || fallback).trim().toLowerCase() || fallback;
+
   const parsedItems = items.map((it, index) => {
     const parsedProductId = Number(it?.product_id ?? it?.id ?? 0);
     const productId = Number.isFinite(parsedProductId) && parsedProductId > 0
@@ -282,6 +285,7 @@ const placeOrder = async (payload) => {
       quantity,
       price,
       is_manual: isManual ? 1 : 0,
+      uom: normalizeUomToken(it?.uom, 'pcs'),
     };
   });
   if (parsedItems.some((it) => it.quantity <= 0 || !Number.isFinite(it.quantity))) {
@@ -297,12 +301,13 @@ const placeOrder = async (payload) => {
   const stockSnapshotByProductId = new Map();
   for (const it of parsedItems) {
     if (it.is_manual === 1) continue;
-    const p = await dbGetAsync(`SELECT id, name, stock FROM products WHERE id = ?`, [it.product_id]);
+    const p = await dbGetAsync(`SELECT id, name, stock, uom FROM products WHERE id = ?`, [it.product_id]);
     if (!p) throw new Error(`Product ${it.product_id} not found`);
     stockSnapshotByProductId.set(Number(p.id), Math.max(0, Number(p.stock || 0)));
     if (!it.product_name) {
       it.product_name = String(p.name || '').trim() || 'Item';
     }
+    it.uom = normalizeUomToken(p.uom, it.uom || 'pcs');
   }
 
   const normalizedPaymentMethod = normalizePaymentMethod(payment_method);
@@ -346,16 +351,18 @@ const placeOrder = async (payload) => {
       const pendingQty = Math.max(0, requestedQty - availableNowQty);
       availableNowTotal += availableNowQty;
       pendingTotal += pendingQty;
+      const lineUom = normalizeUomToken(it.uom, 'pcs');
       await dbRunAsync(
         `INSERT INTO order_items
-         (order_id, product_id, product_name, is_manual, quantity, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, price, total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (order_id, product_id, product_name, is_manual, quantity, uom, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, price, total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           productId,
           it.product_name || null,
           isManual ? 1 : 0,
           requestedQty,
+          lineUom,
           requestedQty,
           availableNowQty,
           fulfilledQty,

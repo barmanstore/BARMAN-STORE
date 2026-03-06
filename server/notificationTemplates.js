@@ -126,6 +126,42 @@ const buildPasswordResetAdminTemplate = (payload = {}) => {
   };
 };
 
+const formatPoNoticeRate = (value) => Number(value || 0).toFixed(2);
+
+const formatPoNoticeQuantity = (value) => {
+  const qty = Number(value || 0);
+  if (!Number.isFinite(qty)) return '0';
+  if (Math.abs(qty - Math.trunc(qty)) < 1e-9) return String(Math.trunc(qty));
+  return qty.toFixed(2).replace(/\.?0+$/, '');
+};
+
+const normalizePoNoticeDate = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return new Date().toISOString().slice(0, 10);
+  return raw.slice(0, 10);
+};
+
+const buildPurchaseOrderDistributorNoticeTemplate = (payload = {}) => {
+  const orderDate = normalizePoNoticeDate(payload.orderDate || payload.order_date || payload.date || payload.messageDate);
+  const title = String(payload.title || `Order for ${orderDate}`).trim() || `Order for ${orderDate}`;
+  const items = Array.isArray(payload.items) ? payload.items : [];
+  const lines = [title];
+
+  items.forEach((item, index) => {
+    const itemName = String(item?.product_name || item?.name || `Item ${index + 1}`).trim();
+    const rate = Number(item?.rate ?? item?.unit_price ?? item?.price ?? 0);
+    const quantity = Number(item?.quantity ?? 0);
+    lines.push(`${index + 1}. ${itemName} | Price: Rs ${formatPoNoticeRate(rate)} | Qty: ${formatPoNoticeQuantity(quantity)}`);
+  });
+
+  if (!items.length) lines.push('No items');
+  lines.push('Thank you.');
+
+  return {
+    text: lines.join('\n'),
+  };
+};
+
 const buildNotificationTemplate = (type, payload = {}) => {
   const normalizedType = String(type || '').trim().toLowerCase();
   if (normalizedType === 'email_verification') {
@@ -142,6 +178,9 @@ const buildNotificationTemplate = (type, payload = {}) => {
   }
   if (normalizedType === 'password_reset_admin') {
     return buildPasswordResetAdminTemplate(payload);
+  }
+  if (normalizedType === 'purchase_order_distributor_notice') {
+    return buildPurchaseOrderDistributorNoticeTemplate(payload);
   }
   throw new Error(`Unsupported notification type: ${type}`);
 };

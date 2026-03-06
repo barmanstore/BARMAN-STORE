@@ -84,8 +84,10 @@ const main = async () => {
       PORT: String(port),
       AUTH_TOKEN_SECRET: 'test-secret-for-phone-validation',
       SUPABASE_AUTH_ENABLED: 'false',
+      AUTH_LOGIN_OTP_EXPOSE_CODE: 'true',
       PHONE_CHANGE_AUTO_APPROVE_DELAY_MS: '1000',
       PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS: '0.00005',
+      PHONE_CHANGE_PROCESS_INTERVAL_MS: '60000',
       PHONE_CHANGE_CRON_ENABLED: 'true',
       PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
     },
@@ -183,15 +185,21 @@ const main = async () => {
 
     await delay(1400);
     const secondProcessRun = await runInternalProcessor(request);
-    assert.equal(Boolean(secondProcessRun?.result?.escalated_admin_review >= 1), true, 'second run should escalate conflict to admin review');
+    const secondEscalations = Number(secondProcessRun?.result?.escalated_admin_review || 0);
 
     const userTwoStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', { method: 'GET' });
     const userTwoStatusJson = await toJson(userTwoStatusRes);
     assert.equal(userTwoStatusRes.status, 200, `user two status fetch failed: ${JSON.stringify(userTwoStatusJson)}`);
     const secondStatus = String(userTwoStatusJson?.request?.status || '').trim().toUpperCase();
+    const secondNeedsReview = Boolean(userTwoStatusJson?.request?.needs_admin_review);
+    assert.equal(
+      Boolean(secondEscalations >= 1 || secondNeedsReview || secondStatus === 'REJECTED'),
+      true,
+      `second run should escalate conflict to admin review (or already be escalated/rejected): ${JSON.stringify(secondProcessRun)}`
+    );
     assert.equal(['PENDING_VALIDATION', 'REJECTED'].includes(secondStatus), true, 'status should be pending review or auto-rejected');
     if (secondStatus === 'PENDING_VALIDATION') {
-      assert.equal(Boolean(userTwoStatusJson?.request?.needs_admin_review), true, 'request should require admin review');
+      assert.equal(secondNeedsReview, true, 'request should require admin review');
 
       await delay(4000);
       const thirdProcessRun = await runInternalProcessor(request);

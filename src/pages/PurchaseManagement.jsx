@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Edit, Trash2, X, Search, Package, Truck, RotateCcw, Eye, Check, Clock, ArrowUpDown, Printer } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Search, Package, Truck, RotateCcw, Eye, Check, Clock, ArrowUpDown, Printer, DollarSign, MessageCircle } from 'lucide-react';
 import { purchaseOrdersApi, distributorsApi, productsApi, purchaseReturnsApi, stockLedgerApi, distributorLedgerApi } from '../services/api';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -10,6 +10,116 @@ import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import './PurchaseManagement.css';
 
 const GST_RATE_OPTIONS = [0, 5, 18];
+const normalizeUomToken = (value, fallback = 'pcs') =>
+  String(value || fallback).trim().toLowerCase() || fallback;
+
+const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
+  pcs: 'pcs',
+  dozen: 'pcs',
+  kg: 'kg',
+  g: 'kg',
+  l: 'l',
+  ml: 'l',
+});
+
+const UNIT_FAMILY_MULTIPLIERS = Object.freeze({
+  pcs: Object.freeze({ pcs: 1, dozen: 12 }),
+  kg: Object.freeze({ kg: 1, g: 0.001 }),
+  l: Object.freeze({ l: 1, ml: 0.001 }),
+});
+
+const getUomFamily = (baseUnit = 'pcs') => {
+  const normalizedBase = normalizeUomToken(baseUnit, 'pcs');
+  const familyBase = UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
+  if (!familyBase) return null;
+  const multipliers = UNIT_FAMILY_MULTIPLIERS[familyBase];
+  if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
+  return {
+    normalizedBase,
+    multipliers,
+  };
+};
+
+const getAllowedUnitsFromBaseUnit = (baseUnit = 'pcs') => {
+  const family = getUomFamily(baseUnit);
+  if (!family) return [];
+  const allUnits = Object.keys(family.multipliers);
+  return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
+};
+
+const convertQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  const family = getUomFamily(baseUnit);
+  if (!family) return null;
+  const from = normalizeUomToken(fromUnit, family.normalizedBase);
+  const to = normalizeUomToken(toUnit, family.normalizedBase);
+  const fromMultiplier = family.multipliers[from];
+  const toMultiplier = family.multipliers[to];
+  if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
+    return null;
+  }
+  const qtyInCanonicalBase = numericQty * fromMultiplier;
+  return qtyInCanonicalBase / toMultiplier;
+};
+
+const getProductUomProfile = (product = null) => {
+  const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
+  const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
+  const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
+  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
+    ? conversionFactorRaw
+    : 1;
+  return {
+    sellingUnit,
+    baseUnit,
+    conversionFactor,
+  };
+};
+
+const getAllowedPurchaseUnitsForProduct = (product = null) => {
+  if (!product) return ['pcs'];
+  const profile = getProductUomProfile(product);
+  const familyUnits = getAllowedUnitsFromBaseUnit(profile.baseUnit);
+  if (familyUnits.length) return familyUnits;
+  if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
+  return [...new Set([profile.baseUnit, profile.sellingUnit])];
+};
+
+const resolvePurchaseUnitForProduct = (product = null, unit = 'pcs') => {
+  if (!product) return normalizeUomToken(unit, 'pcs');
+  const allowedUnits = getAllowedPurchaseUnitsForProduct(product);
+  const requestedUnit = normalizeUomToken(unit, allowedUnits[0] || 'pcs');
+  return allowedUnits.includes(requestedUnit) ? requestedUnit : (allowedUnits[0] || requestedUnit);
+};
+
+const toBaseQtyForProduct = (qty, unit, product = null) => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  if (!product) return numericQty;
+  const profile = getProductUomProfile(product);
+  const resolvedUnit = resolvePurchaseUnitForProduct(product, unit);
+  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, resolvedUnit, profile.baseUnit, profile.baseUnit);
+  if (familyConverted !== null) return familyConverted;
+  if (resolvedUnit === profile.baseUnit) return numericQty;
+  if (resolvedUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+    return numericQty / profile.conversionFactor;
+  }
+  return numericQty;
+};
+
+const findProductForItem = (products = [], item = {}) => {
+  const productId = Number(item?.product_id || 0);
+  if (productId > 0) {
+    const byId = products.find((product) => Number(product?.id || 0) === productId);
+    if (byId) return byId;
+  }
+  const nameKey = String(item?.product_name || '').trim().toLowerCase();
+  if (!nameKey) return null;
+  return products.find(
+    (product) => String(product?.name || '').trim().toLowerCase() === nameKey
+  ) || null;
+};
 
 function PurchaseManagement({ user }) {
   const isMobile = useIsMobile();
@@ -21,6 +131,21 @@ function PurchaseManagement({ user }) {
     order_date: getTodayDate(),
     notes: '',
     items: []
+  });
+  const getDefaultProcessFormData = () => ({
+    bill_number: '',
+    paid_amount: '',
+    payment_mode: 'cash',
+    payment_reference: '',
+    payment_date: getTodayDate(),
+    payment_notes: '',
+  });
+  const getDefaultPoPaymentFormData = () => ({
+    amount: '',
+    payment_mode: 'cash',
+    reference: '',
+    transaction_date: getTodayDate(),
+    notes: '',
   });
 
   const getDefaultLedgerFormData = () => ({
@@ -57,6 +182,23 @@ function PurchaseManagement({ user }) {
     return GST_RATE_OPTIONS.includes(numeric) ? numeric : 5;
   };
   const normalizeTextKey = (value) => String(value || '').trim().toLowerCase();
+  const normalizePoLifecycleStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (!raw) return 'registered';
+    if (raw === 'registered' || raw === 'pending' || raw === 'draft') return 'registered';
+    if (raw === 'processed' || raw === 'confirmed' || raw === 'received' || raw === 'shipped') return 'processed';
+    if (raw === 'cancelled' || raw === 'canceled') return 'cancelled';
+    return 'registered';
+  };
+  const normalizePoPaymentStatus = (status) => {
+    const raw = String(status || '').trim().toLowerCase();
+    if (!raw) return 'unpaid';
+    if (raw === 'paid') return 'paid';
+    if (raw === 'part_paid' || raw === 'partpaid' || raw === 'partial') return 'part_paid';
+    if (raw === 'pending') return 'unpaid';
+    if (raw === 'unpaid') return 'unpaid';
+    return 'unpaid';
+  };
   const getEntryTypeKey = (entry) => String(entry?.type || entry?.transaction_type || '').trim().toLowerCase();
   const isCreditLikeEntry = (entry) => {
     const typeKey = getEntryTypeKey(entry);
@@ -144,6 +286,18 @@ function PurchaseManagement({ user }) {
     return calculateOrderBalanceAmount(order);
   };
 
+  const getPoLifecycleStatus = (order) => normalizePoLifecycleStatus(order?.po_status || order?.status);
+  const getPoPaymentStatus = (order) => normalizePoPaymentStatus(order?.payment_status);
+  const getPoPaidAmount = (order) => Math.max(0, toNumber(order?.paid_amount));
+  const getPoBalanceDue = (order) => {
+    const explicitBalance = toNumber(order?.balance_due);
+    if (explicitBalance > 0) return explicitBalance;
+    const total = Math.max(0, getOrderDisplayTotal(order));
+    const paid = Math.min(total, getPoPaidAmount(order));
+    return Math.max(0, total - paid);
+  };
+  const isPoEditable = (order) => getPoLifecycleStatus(order) === 'registered';
+
   const getLocalLedgerEntries = () => {
     try {
       const raw = localStorage.getItem(LOCAL_LEDGER_KEY);
@@ -168,9 +322,13 @@ function PurchaseManagement({ user }) {
   };
 
   const getDerivedLedgerFromOrders = (orders, selectedDistributorId) => {
-    const validStatuses = new Set(['confirmed']);
+    const validStatuses = new Set(['confirmed', 'received', 'shipped', 'processed']);
     const derived = (orders || [])
-      .filter(order => validStatuses.has(String(order.status || '').toLowerCase()))
+      .filter((order) => {
+        const lifecycle = getPoLifecycleStatus(order);
+        if (lifecycle === 'processed') return true;
+        return validStatuses.has(String(order.status || '').toLowerCase());
+      })
       .map(order => ({
       id: `po-${order.id}`,
       distributor_id: order.distributor_id,
@@ -291,11 +449,15 @@ function PurchaseManagement({ user }) {
   };
 
   const calculateOrderItem = (item) => {
-    const quantity = toNumber(item.quantity);
-    const rate = toNumber(item.rate ?? item.unit_price);
-    const grossAmount = quantity * rate;
+    const product = findProductForItem(products, item);
+    const profile = getProductUomProfile(product);
+    const quantity = Math.max(0, toNumber(item.quantity));
+    const uom = resolvePurchaseUnitForProduct(product, item.uom || profile.baseUnit);
+    const quantityInBase = toBaseQtyForProduct(quantity, uom, product);
+    const rate = Math.max(0, toNumber(item.rate ?? item.unit_price));
+    const grossAmount = quantityInBase * rate;
     const discountType = item.discount_type === 'fixed' ? 'fixed' : 'percent';
-    const discountValue = toNumber(item.discount_value);
+    const discountValue = Math.max(0, toNumber(item.discount_value));
     const discountAmountRaw = discountType === 'percent'
       ? (grossAmount * discountValue) / 100
       : discountValue;
@@ -307,6 +469,9 @@ function PurchaseManagement({ user }) {
 
     return {
       quantity,
+      quantityInBase,
+      uom,
+      baseUnit: profile.baseUnit,
       rate,
       grossAmount,
       discountType,
@@ -344,11 +509,13 @@ function PurchaseManagement({ user }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Filters
   const [filters, setFilters] = useState({
     distributor_id: '',
     status: '',
+    payment_status: '',
     start_date: '',
     end_date: ''
   });
@@ -360,6 +527,15 @@ function PurchaseManagement({ user }) {
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [showLedgerForm, setShowLedgerForm] = useState(false);
   const [showPoCorrectionForm, setShowPoCorrectionForm] = useState(false);
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [processSubmitting, setProcessSubmitting] = useState(false);
+  const [sendingWhatsAppOrderId, setSendingWhatsAppOrderId] = useState(null);
+  const [processingOrder, setProcessingOrder] = useState(null);
+  const [processFormData, setProcessFormData] = useState(getDefaultProcessFormData());
+  const [showPoPaymentModal, setShowPoPaymentModal] = useState(false);
+  const [poPaymentSubmitting, setPoPaymentSubmitting] = useState(false);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [poPaymentFormData, setPoPaymentFormData] = useState(getDefaultPoPaymentFormData());
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [selectedReturn, setSelectedReturn] = useState(null);
   const [selectedCorrectionOrder, setSelectedCorrectionOrder] = useState(null);
@@ -425,6 +601,12 @@ function PurchaseManagement({ user }) {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!success) return undefined;
+    const timerId = window.setTimeout(() => setSuccess(''), 3200);
+    return () => window.clearTimeout(timerId);
+  }, [success]);
 
   useEffect(() => {
     fetchOrders();
@@ -677,25 +859,6 @@ function PurchaseManagement({ user }) {
     }
   };
 
-  const createAutoDistributorCredit = async ({ distributorId, amount, poNumber, orderId, billNumber }) => {
-    if (!distributorId || amount <= 0) return;
-
-    await distributorLedgerApi.addTransaction(distributorId, {
-      type: 'credit',
-      transaction_type: 'credit',
-      amount: Number(amount.toFixed(2)),
-      payment_mode: 'credit',
-      reference: poNumber || (orderId ? `PO-${orderId}` : ''),
-      bill_number: billNumber || null,
-      description: `Purchase Order ${poNumber || ''}${billNumber ? ` (Bill: ${billNumber})` : ''}`.trim(),
-      transactionDate: getTodayDate(),
-      source: 'purchase_order',
-      source_id: orderId,
-      mode: 'automatic',
-      created_by: user?.id
-    });
-  };
-
   const handleOrderItemChange = async (index, field, value) => {
     const items = [...orderFormData.items];
     const nextValue = field === 'gst_rate' ? normalizeGstRateOption(value) : value;
@@ -706,15 +869,17 @@ function PurchaseManagement({ user }) {
       const product = products.find(p => String(p.id) === selectedProductId);
       if (product) {
         const baseRate = toNumber(product.price);
+        const defaultUom = resolvePurchaseUnitForProduct(product, product.base_unit || product.uom || 'pcs');
         items[index].product_name = product.name;
         items[index].product_query = getProductSearchLabel(product);
         items[index].unit_price = baseRate;
         items[index].rate = baseRate;
-        items[index].uom = product.uom || 'pcs';
+        items[index].uom = defaultUom;
         items[index].last_purchase_hint = '';
       } else {
         items[index].product_query = '';
         items[index].product_name = '';
+        items[index].uom = 'pcs';
         items[index].last_purchase_hint = '';
       }
       setOrderFormData(prev => ({ ...prev, items }));
@@ -729,18 +894,23 @@ function PurchaseManagement({ user }) {
           const nextItems = [...prev.items];
           const current = nextItems[index];
           if (!current || String(current.product_id) !== selectedProductId) return prev;
+          const selectedProduct = products.find((p) => String(p.id) === selectedProductId) || null;
 
           const suggestedRate = toNumber(suggestion.rate ?? suggestion.unit_price ?? current.rate ?? current.unit_price);
           const suggestedGst = normalizeGstRateOption(suggestion.gst_rate ?? current.gst_rate ?? 5);
           const suggestedDate = suggestion.created_at ? new Date(suggestion.created_at).toLocaleDateString() : '';
           const suggestedPo = suggestion.po_number || 'last PO';
+          const suggestedUom = resolvePurchaseUnitForProduct(
+            selectedProduct,
+            suggestion.uom || current.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
+          );
 
           nextItems[index] = {
             ...current,
             unit_price: suggestedRate,
             rate: suggestedRate,
             gst_rate: suggestedGst,
-            uom: suggestion.uom || current.uom || 'pcs',
+            uom: suggestedUom,
             last_purchase_hint: `Suggested from ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
           };
           return { ...prev, items: nextItems };
@@ -749,6 +919,11 @@ function PurchaseManagement({ user }) {
         // keep product defaults when suggestion API is unavailable
       }
       return;
+    }
+
+    if (field === 'uom') {
+      const selectedProduct = findProductForItem(products, items[index]);
+      items[index].uom = resolvePurchaseUnitForProduct(selectedProduct, value);
     }
 
     if (field === 'rate') {
@@ -846,6 +1021,7 @@ function PurchaseManagement({ user }) {
         return {
           ...item,
           quantity: line.quantity,
+          uom: line.uom,
           unit_price: line.rate,
           rate: line.rate,
           gst_rate: line.gstRate,
@@ -875,7 +1051,18 @@ function PurchaseManagement({ user }) {
       if (editingOrderId) {
         await purchaseOrdersApi.update(editingOrderId, payload);
       } else {
-        await purchaseOrdersApi.create(payload);
+        const created = await purchaseOrdersApi.create(payload);
+        const notice = created?.distributor_notice || null;
+        const noticeReason = String(notice?.reason || '').trim().toLowerCase();
+        const noticeMode = String(notice?.mode || '').trim().toLowerCase();
+        const whatsappUrl = String(notice?.whatsapp?.whatsapp_url || '').trim();
+        const shouldOpenManualLink = noticeMode === 'manual'
+          || noticeReason === 'manual_send_required'
+          || noticeReason === 'provider_not_ready'
+          || noticeReason === 'send_failed';
+        if (whatsappUrl && shouldOpenManualLink) {
+          window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        }
       }
 
       closeOrderForm();
@@ -889,24 +1076,27 @@ function PurchaseManagement({ user }) {
     try {
       setError('');
       const order = await purchaseOrdersApi.getById(orderId);
-      if (!order || String(order.status || '').toLowerCase() !== 'pending') {
-        setError('Only pending orders can be edited');
+      if (!order || !isPoEditable(order)) {
+        setError('Only registered orders can be edited');
         return;
       }
 
-      const mappedItems = (order.items || []).map(item => ({
-        product_id: item.product_id ? String(item.product_id) : '',
-        product_query: item.product_name || '',
-        product_name: item.product_name || '',
-        quantity: toNumber(item.quantity),
-        uom: item.uom || 'pcs',
-        unit_price: toNumber(item.unit_price ?? item.rate),
-        rate: toNumber(item.rate ?? item.unit_price),
-        gst_rate: normalizeGstRateOption(item.gst_rate),
-        discount_type: item.discount_type === 'fixed' ? 'fixed' : 'percent',
-        discount_value: toNumber(item.discount_value),
-        last_purchase_hint: ''
-      }));
+      const mappedItems = (order.items || []).map((item) => {
+        const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
+        return {
+          product_id: item.product_id ? String(item.product_id) : '',
+          product_query: item.product_name || '',
+          product_name: item.product_name || '',
+          quantity: toNumber(item.quantity),
+          uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
+          unit_price: toNumber(item.unit_price ?? item.rate),
+          rate: toNumber(item.rate ?? item.unit_price),
+          gst_rate: normalizeGstRateOption(item.gst_rate),
+          discount_type: item.discount_type === 'fixed' ? 'fixed' : 'percent',
+          discount_value: toNumber(item.discount_value),
+          last_purchase_hint: ''
+        };
+      });
 
       setOrderFormData({
         distributor_id: order.distributor_id ? String(order.distributor_id) : '',
@@ -950,13 +1140,20 @@ function PurchaseManagement({ user }) {
       const selectedProductId = String(value || '');
       const product = products.find(p => String(p.id) === selectedProductId);
       if (product) {
+        const defaultUom = resolvePurchaseUnitForProduct(product, product.base_unit || product.uom || 'pcs');
         items[index].product_name = product.name;
         items[index].product_query = getProductSearchLabel(product);
-        items[index].uom = product.uom || 'pcs';
+        items[index].uom = defaultUom;
       } else {
         items[index].product_query = '';
         items[index].product_name = '';
+        items[index].uom = 'pcs';
       }
+    }
+
+    if (field === 'uom') {
+      const selectedProduct = findProductForItem(products, items[index]);
+      items[index].uom = resolvePurchaseUnitForProduct(selectedProduct, value);
     }
 
     setQuickOrderFormData(prev => ({ ...prev, items }));
@@ -1006,20 +1203,23 @@ function PurchaseManagement({ user }) {
         return;
       }
 
-      const mappedItems = validItems.map(item => ({
-        product_id: Number(item.product_id),
-        product_name: item.product_name,
-        quantity: toNumber(item.quantity),
-        uom: item.uom || 'pcs',
-        unit_price: 0,
-        rate: 0,
-        gst_rate: 0,
-        discount_type: 'percent',
-        discount_value: 0,
-        taxable_value: 0,
-        tax_amount: 0,
-        line_total: 0
-      }));
+      const mappedItems = validItems.map((item) => {
+        const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
+        return {
+          product_id: Number(item.product_id),
+          product_name: item.product_name,
+          quantity: Math.max(0, toNumber(item.quantity)),
+          uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
+          unit_price: 0,
+          rate: 0,
+          gst_rate: 0,
+          discount_type: 'percent',
+          discount_value: 0,
+          taxable_value: 0,
+          tax_amount: 0,
+          line_total: 0
+        };
+      });
 
       await purchaseOrdersApi.create({
         distributor_id: Number(quickOrderFormData.distributor_id),
@@ -1100,21 +1300,14 @@ function PurchaseManagement({ user }) {
   };
 
   // Status update
-  const handleUpdateStatus = async (orderId, status) => {
+  const handleUpdateStatus = async (orderId, status, extra = {}) => {
     try {
       setError('');
-      let order = purchaseOrders.find(po => String(po.id) === String(orderId));
-      let billNumber = '';
-
-      if (status === 'confirmed') {
-        const existingBill = String(order?.bill_number || order?.invoice_number || '').trim();
-        const inputValue = window.prompt('Enter Bill No (optional). Leave blank to continue.', existingBill);
-        if (inputValue === null) return;
-        billNumber = String(inputValue).trim();
-      }
-
-      const statusResult = await purchaseOrdersApi.updateStatus(orderId, status, billNumber ? { bill_number: billNumber } : {});
-      if (status === 'confirmed' && Number(statusResult?.cap_applied_count || 0) > 0) {
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      const statusResult = normalizedStatus === 'processed'
+        ? await purchaseOrdersApi.process(orderId, extra)
+        : await purchaseOrdersApi.updateStatus(orderId, status, extra);
+      if (normalizedStatus === 'processed' && Number(statusResult?.cap_applied_count || 0) > 0) {
         const lines = (statusResult.cap_adjustments || [])
           .slice(0, 5)
           .map((row) => {
@@ -1127,33 +1320,146 @@ function PurchaseManagement({ user }) {
           `Stock cap (${Number(statusResult?.stock_cap || 50)}) was applied to ${statusResult.cap_applied_count} item(s).\n\n${lines.join('\n')}${moreText}`
         );
       }
-      if (status === 'confirmed') {
-        try {
-          const detailedOrder = await purchaseOrdersApi.getById(orderId);
-          if (detailedOrder) {
-            order = detailedOrder;
-          }
-        } catch (detailErr) {
-          // keep list-order fallback
-        }
-        if (order) {
-          try {
-            await createAutoDistributorCredit({
-              distributorId: order.distributor_id,
-              amount: calculateOrderBalanceAmount(order),
-              poNumber: order.po_number,
-              orderId: order.id,
-              billNumber: billNumber || order.bill_number || order.invoice_number || ''
-            });
-          } catch (ledgerErr) {
-            console.warn('Auto distributor credit entry failed on confirmation:', ledgerErr);
-          }
-        }
+      await fetchOrders();
+      await fetchDistributorLedger();
+    } catch (err) {
+      setError(err?.message || 'Failed to update status');
+      throw err;
+    }
+  };
+
+  const handleSendDistributorWhatsApp = async (order) => {
+    if (!order?.id) return;
+    try {
+      setError('');
+      setSuccess('');
+      setSendingWhatsAppOrderId(order.id);
+      const response = await purchaseOrdersApi.sendDistributorWhatsApp(order.id);
+      const notice = response?.distributor_notice || null;
+      const whatsappUrl = String(notice?.whatsapp?.whatsapp_url || '').trim();
+      if (!whatsappUrl) {
+        setError('WhatsApp message link is not available for this distributor.');
+        return;
       }
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      setSuccess('Distributor WhatsApp message is ready.');
+    } catch (err) {
+      setSuccess('');
+      setError(err.message || 'Failed to prepare distributor WhatsApp message');
+    } finally {
+      setSendingWhatsAppOrderId(null);
+    }
+  };
+
+  const handleOpenProcessModal = (order) => {
+    if (!order) return;
+    setError('');
+    setProcessingOrder(order);
+    setProcessFormData({
+      ...getDefaultProcessFormData(),
+      bill_number: String(order.bill_number || order.invoice_number || '').trim(),
+      paid_amount: '',
+      payment_reference: String(order.bill_number || order.invoice_number || '').trim(),
+      payment_date: getTodayDate(),
+      payment_notes: '',
+    });
+    setShowProcessModal(true);
+  };
+
+  const closeProcessModal = () => {
+    setShowProcessModal(false);
+    setProcessingOrder(null);
+    setProcessFormData(getDefaultProcessFormData());
+    setProcessSubmitting(false);
+  };
+
+  const handleProcessSubmit = async (e) => {
+    e.preventDefault();
+    if (!processingOrder) return;
+    const billNumber = String(processFormData.bill_number || '').trim();
+    if (!billNumber) {
+      setError('Bill number is required to process PO');
+      return;
+    }
+    const paidAmount = Math.max(0, toNumber(processFormData.paid_amount));
+    const poTotal = Math.max(0, getOrderDisplayTotal(processingOrder));
+    if (paidAmount > poTotal) {
+      setError('Initial paid amount cannot exceed PO total');
+      return;
+    }
+
+    try {
+      setError('');
+      setProcessSubmitting(true);
+      await handleUpdateStatus(processingOrder.id, 'processed', {
+        bill_number: billNumber,
+        paid_amount: Number(paidAmount.toFixed(2)),
+        payment_mode: processFormData.payment_mode,
+        payment_reference: processFormData.payment_reference || billNumber,
+        payment_date: processFormData.payment_date || getTodayDate(),
+        payment_notes: processFormData.payment_notes,
+        updated_by: user?.id,
+      });
+      closeProcessModal();
+    } catch (err) {
+      setError(err?.message || 'Failed to process purchase order');
+      setProcessSubmitting(false);
+    }
+  };
+
+  const handleOpenPoPaymentModal = (order) => {
+    if (!order) return;
+    const balanceDue = getPoBalanceDue(order);
+    setError('');
+    setPaymentOrder(order);
+    setPoPaymentFormData({
+      ...getDefaultPoPaymentFormData(),
+      amount: balanceDue > 0 ? balanceDue.toFixed(2) : '',
+      reference: String(order.bill_number || order.invoice_number || order.po_number || '').trim(),
+      transaction_date: getTodayDate(),
+      notes: '',
+    });
+    setShowPoPaymentModal(true);
+  };
+
+  const closePoPaymentModal = () => {
+    setShowPoPaymentModal(false);
+    setPaymentOrder(null);
+    setPoPaymentFormData(getDefaultPoPaymentFormData());
+    setPoPaymentSubmitting(false);
+  };
+
+  const handlePoPaymentSubmit = async (e) => {
+    e.preventDefault();
+    if (!paymentOrder) return;
+    const amount = Math.max(0, toNumber(poPaymentFormData.amount));
+    const balanceDue = getPoBalanceDue(paymentOrder);
+    if (amount <= 0) {
+      setError('Payment amount must be greater than 0');
+      return;
+    }
+    if (amount > balanceDue) {
+      setError('Payment amount cannot exceed current balance due');
+      return;
+    }
+
+    try {
+      setError('');
+      setPoPaymentSubmitting(true);
+      await purchaseOrdersApi.addPayment(paymentOrder.id, {
+        amount: Number(amount.toFixed(2)),
+        payment_mode: poPaymentFormData.payment_mode,
+        reference: poPaymentFormData.reference,
+        transaction_date: poPaymentFormData.transaction_date || getTodayDate(),
+        notes: poPaymentFormData.notes,
+        created_by: user?.id,
+      });
+      closePoPaymentModal();
       fetchOrders();
       fetchDistributorLedger();
     } catch (err) {
-      setError(err?.message || 'Failed to update status');
+      setError(err?.message || 'Failed to add PO payment');
+      setPoPaymentSubmitting(false);
     }
   };
 
@@ -1211,10 +1517,16 @@ function PurchaseManagement({ user }) {
     if (field === 'product_id') {
       const product = products.find(p => p.id === parseInt(value));
       if (product) {
+        const defaultUom = resolvePurchaseUnitForProduct(product, product.base_unit || product.uom || 'pcs');
         items[index].product_name = product.name;
-        items[index].unit_price = product.price;
-        items[index].uom = product.uom || 'pcs';
+        items[index].unit_price = toNumber(product.price);
+        items[index].uom = defaultUom;
       }
+    }
+
+    if (field === 'uom') {
+      const product = findProductForItem(products, items[index]);
+      items[index].uom = resolvePurchaseUnitForProduct(product, value);
     }
 
     setReturnFormData(prev => ({ ...prev, items }));
@@ -1238,12 +1550,23 @@ function PurchaseManagement({ user }) {
         return;
       }
 
+      const normalizedItems = validItems.map((item) => {
+        const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
+        return {
+          ...item,
+          product_id: Number(item.product_id),
+          quantity: Math.max(0, toNumber(item.quantity)),
+          unit_price: Math.max(0, toNumber(item.unit_price)),
+          uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
+        };
+      });
+
       await purchaseReturnsApi.create({
         distributor_id: returnFormData.distributor_id,
         reference_po: returnFormData.reference_po,
         return_type: returnFormData.return_type,
         reason: returnFormData.reason,
-        items: validItems,
+        items: normalizedItems,
         created_by: user?.id
       });
 
@@ -1255,16 +1578,37 @@ function PurchaseManagement({ user }) {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (order) => {
+    const lifecycleStatus = getPoLifecycleStatus(order);
     const statusConfig = {
-      pending: { label: 'Pending', class: 'pending' },
-      confirmed: { label: 'Confirmed', class: 'confirmed' },
-      shipped: { label: 'Shipped', class: 'shipped' },
-      received: { label: 'Received', class: 'received' },
+      registered: { label: 'Pending', class: 'registered' },
+      processed: { label: 'Processed', class: 'processed' },
       cancelled: { label: 'Cancelled', class: 'cancelled' }
     };
-    const config = statusConfig[status] || { label: status, class: '' };
+    const config = statusConfig[lifecycleStatus] || { label: lifecycleStatus || '-', class: '' };
     return <span className={`status-badge ${config.class}`}>{config.label}</span>;
+  };
+
+  const getPoPaymentBadge = (order) => {
+    const paymentStatus = getPoPaymentStatus(order);
+    const paymentConfig = {
+      unpaid: { label: 'Unpaid', class: 'unpaid' },
+      part_paid: { label: 'Part Paid', class: 'part-paid' },
+      paid: { label: 'Paid', class: 'paid' },
+    };
+    const config = paymentConfig[paymentStatus] || paymentConfig.unpaid;
+    return <span className={`payment-status-badge ${config.class}`}>{config.label}</span>;
+  };
+
+  const getLedgerRowStatusClass = (entry) => {
+    const rawLinkedStatus = entry?.linked_po_payment_status ?? entry?.po_payment_status;
+    if (rawLinkedStatus === undefined || rawLinkedStatus === null || String(rawLinkedStatus).trim() === '') return '';
+    const linkedStatus = normalizePoPaymentStatus(rawLinkedStatus);
+    if (!linkedStatus) return '';
+    if (linkedStatus === 'paid') return 'ledger-row-paid';
+    if (linkedStatus === 'part_paid') return 'ledger-row-part-paid';
+    if (linkedStatus === 'unpaid') return 'ledger-row-unpaid';
+    return '';
   };
 
   const getDistributorPhoneFromContacts = (contacts) => {
@@ -1294,21 +1638,28 @@ function PurchaseManagement({ user }) {
   };
 
   const getItemFinancials = (item) => {
-    const quantity = toNumber(item?.quantity);
+    const product = findProductForItem(products, item);
+    const profile = getProductUomProfile(product);
+    const quantity = Math.max(0, toNumber(item?.quantity));
+    const uom = resolvePurchaseUnitForProduct(product, item?.uom || profile.baseUnit);
+    const quantityInBase = toBaseQtyForProduct(quantity, uom, product);
     const rate = toNumber(item?.rate ?? item?.unit_price);
-    const fallbackLine = quantity * rate;
+    const fallbackLine = quantityInBase * rate;
     const taxableValue = toNumber(item?.taxable_value);
     const taxAmount = toNumber(item?.tax_amount);
-    const lineTotal = toNumber(item?.line_total ?? item?.total ?? (taxableValue + taxAmount) ?? fallbackLine);
+    const lineTotal = toNumber(item?.line_total ?? item?.total);
     const resolvedTaxable = taxableValue > 0 ? taxableValue : (taxAmount > 0 ? Math.max(0, lineTotal - taxAmount) : lineTotal);
     const gstRate = toNumber(item?.gst_rate);
     return {
       quantity,
+      quantityInBase,
+      uom,
       rate,
       taxableValue: resolvedTaxable,
       taxAmount,
       lineTotal: lineTotal > 0 ? lineTotal : fallbackLine,
-      gstRate
+      gstRate,
+      baseUnit: profile.baseUnit,
     };
   };
 
@@ -1322,8 +1673,8 @@ function PurchaseManagement({ user }) {
           <td>${index + 1}</td>
           <td>${escapeHtml(item?.product_name || '-')}</td>
           <td>${line.quantity}</td>
-          <td>${escapeHtml(item?.uom || '-')}</td>
-          <td>${formatCurrency(line.rate)}</td>
+          <td>${escapeHtml(line.uom || '-')}</td>
+          <td>${formatCurrency(line.rate)} / ${escapeHtml(line.baseUnit || 'pcs')}</td>
           <td>${line.gstRate.toFixed(2)}%</td>
           <td>${formatCurrency(line.taxableValue)}</td>
           <td>${formatCurrency(line.taxAmount)}</td>
@@ -1344,7 +1695,10 @@ function PurchaseManagement({ user }) {
             <div class="muted">PO #${order?.po_number || '-'}</div>
           </div>
           <div class="meta">
-            <div><strong>Status:</strong> ${String(order?.status || '-').toUpperCase()}</div>
+            <div><strong>PO Status:</strong> ${String(getPoLifecycleStatus(order) || '-').toUpperCase()}</div>
+            <div><strong>Payment:</strong> ${String(getPoPaymentStatus(order) || '-').toUpperCase()}</div>
+            <div><strong>Paid:</strong> ${formatCurrency(getPoPaidAmount(order))}</div>
+            <div><strong>Balance:</strong> ${formatCurrency(getPoBalanceDue(order))}</div>
             <div><strong>Date:</strong> ${formatDate(order?.created_at || order?.order_date)}</div>
             <div><strong>Expected:</strong> ${formatDate(order?.expected_delivery)}</div>
             <div><strong>Bill No:</strong> ${order?.bill_number || order?.invoice_number || '-'}</div>
@@ -1639,6 +1993,7 @@ function PurchaseManagement({ user }) {
   return (
     <div className="purchase-management">
       {error && <div className="error-message">{error}</div>}
+      {success && <div className="success-message">{success}</div>}
 
       {/* Sub Navigation */}
       <div className="sub-nav">
@@ -1670,14 +2025,21 @@ function PurchaseManagement({ user }) {
               </select>
             </div>
             <div className="filter-group">
-              <label>Status:</label>
+              <label>PO Status:</label>
               <select name="status" value={filters.status} onChange={handleFilterChange}>
-                <option value="">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="shipped">Shipped</option>
-                <option value="received">Received</option>
+                <option value="">All PO Status</option>
+                <option value="registered">Pending (Registered)</option>
+                <option value="processed">Processed</option>
                 <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Payment:</label>
+              <select name="payment_status" value={filters.payment_status} onChange={handleFilterChange}>
+                <option value="">All Payment</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="part_paid">Part Paid</option>
+                <option value="paid">Paid</option>
               </select>
             </div>
             <div className="filter-group">
@@ -1715,7 +2077,9 @@ function PurchaseManagement({ user }) {
                   <th>Distributor</th>
                   <th>Items</th>
                   <th>Total</th>
-                  <th>Status</th>
+                  <th>PO Status</th>
+                  <th>Payment</th>
+                  <th>Balance Due</th>
                   <th>Expected</th>
                   <th>Actions</th>
                 </tr>
@@ -1723,40 +2087,56 @@ function PurchaseManagement({ user }) {
               <tbody>
                 {purchaseOrders.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="empty-state">No purchase orders found</td>
+                    <td colSpan="9" className="empty-state">No purchase orders found</td>
                   </tr>
                 ) : (
-                  purchaseOrders.map(order => (
+                  purchaseOrders.map(order => {
+                    const isEditableOrder = isPoEditable(order);
+                    const isProcessedOrder = getPoLifecycleStatus(order) === 'processed';
+                    const poPaymentStatus = getPoPaymentStatus(order);
+                    return (
                     <tr key={order.id}>
                       <td data-label="PO Number"><strong>{order.po_number}</strong></td>
                       <td data-label="Distributor">{order.distributor_name}</td>
                       <td data-label="Items">{order.items?.length || 0}</td>
                       <td data-label="Total">{formatCurrency(getOrderDisplayTotal(order))}</td>
-                      <td data-label="Status">{getStatusBadge(order.status)}</td>
+                      <td data-label="PO Status">{getStatusBadge(order)}</td>
+                      <td data-label="Payment">{getPoPaymentBadge(order)}</td>
+                      <td data-label="Balance Due">{formatCurrency(getPoBalanceDue(order))}</td>
                       <td data-label="Expected">{order.expected_delivery ? new Date(order.expected_delivery).toLocaleDateString() : '-'}</td>
                        <td className="actions-cell" data-label="Actions">
                          <button className="action-btn view" title="View Details" onClick={() => handleViewOrder(order.id)}>
                            <Eye size={16} />
                          </button>
-                         {order.status === 'pending' && (
+                         {isEditableOrder && (
                            <>
-                             <button className="action-btn edit" title="Edit" onClick={() => handleEditOrder(order.id)}>
-                               <Edit size={16} />
-                             </button>
-                             <button className="action-btn" title="Confirm" onClick={() => handleUpdateStatus(order.id, 'confirmed')}>
-                               <Check size={16} />
-                             </button>
-                             {/*<button className="action-btn" title="Ship" onClick={() => handleUpdateStatus(order.id, 'shipped')}>
-                               <Truck size={16} />
-                             </button>*/}
-                           </>
-                         )}
-                        {order.status === 'shipped' && (
-                          <button className="action-btn receive" title="Receive" onClick={() => handleReceiveClick(order)}>
-                            <Package size={16} />
+                              <button className="action-btn edit" title="Edit" onClick={() => handleEditOrder(order.id)}>
+                                <Edit size={16} />
+                              </button>
+                              <button className="action-btn" title="Process" onClick={() => handleOpenProcessModal(order)}>
+                                <Check size={16} />
+                              </button>
+                              <button
+                                className="action-btn whatsapp"
+                                title={sendingWhatsAppOrderId === order.id ? 'Preparing WhatsApp...' : 'WhatsApp Distributor'}
+                                aria-label="WhatsApp Distributor"
+                                onClick={() => handleSendDistributorWhatsApp(order)}
+                                disabled={sendingWhatsAppOrderId === order.id}
+                              >
+                                <MessageCircle size={16} />
+                              </button>
+                            </>
+                          )}
+                        {isProcessedOrder && poPaymentStatus !== 'paid' && (
+                          <button
+                            className="action-btn receive"
+                            title="Add Payment"
+                            onClick={() => handleOpenPoPaymentModal(order)}
+                          >
+                            <DollarSign size={16} />
                           </button>
                         )}
-                        {order.status === 'confirmed' && (
+                        {isProcessedOrder && (
                           <button
                             className="action-btn correction"
                             title="Correct Ledger Impact"
@@ -1766,14 +2146,15 @@ function PurchaseManagement({ user }) {
                             <ArrowUpDown size={16} />
                           </button>
                         )}
-                        {order.status === 'pending' && (
+                        {isEditableOrder && (
                           <button className="action-btn delete" title="Delete" onClick={() => handleDeleteOrder(order.id)}>
                             <Trash2 size={16} />
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))
+                  );
+                  })
                 )}
               </tbody>
             </table>
@@ -1815,7 +2196,7 @@ function PurchaseManagement({ user }) {
                   </tr>
                 ) : (
                   ledgerRecords.map((entry, index) => (
-                    <tr key={entry.id || index}>
+                    <tr key={entry.id || index} className={getLedgerRowStatusClass(entry)}>
                       <td data-label="Date">{new Date(entry.created_at || entry.transaction_date || Date.now()).toLocaleDateString()}</td>
                       <td data-label="Distributor">{getDistributorName(entry)}</td>
                       <td data-label="Type">{getLedgerTypeLabel(entry)}</td>
@@ -1967,7 +2348,14 @@ function PurchaseManagement({ user }) {
                         <tr>
                           <td colSpan="4" className="empty-state">No rows added</td>
                         </tr>
-                      ) : quickOrderFormData.items.map((item, index) => (
+                      ) : quickOrderFormData.items.map((item, index) => {
+                        const selectedProduct = findProductForItem(products, item);
+                        const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                        const selectedUom = resolvePurchaseUnitForProduct(
+                          selectedProduct,
+                          item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
+                        );
+                        return (
                         <tr key={index}>
                           <td>
                             <input
@@ -1995,7 +2383,16 @@ function PurchaseManagement({ user }) {
                             />
                           </td>
                           <td>
-                            <input type="text" value={item.uom || 'pcs'} readOnly />
+                            <select
+                              value={selectedUom}
+                              onChange={e => handleQuickOrderItemChange(index, 'uom', e.target.value)}
+                            >
+                              {uomOptions.map((uomOption) => (
+                                <option key={`quick-item-${index}-uom-${uomOption}`} value={uomOption}>
+                                  {uomOption}
+                                </option>
+                              ))}
+                            </select>
                           </td>
                           <td>
                             <button type="button" className="remove-item-btn" onClick={() => handleQuickOrderItemRemove(index)}>
@@ -2003,7 +2400,8 @@ function PurchaseManagement({ user }) {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2107,7 +2505,9 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="items-list">
                   {orderFormData.items.map((item, index) => {
+                    const selectedProduct = findProductForItem(products, item);
                     const line = calculateOrderItem(item);
+                    const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
                     const netCostPerItem = line.quantity > 0 ? (line.totalAmount / line.quantity) : 0;
                     return (
                       <div key={index} className="item-row order-item-row po-item-row">
@@ -2144,12 +2544,21 @@ function PurchaseManagement({ user }) {
                           </div>
                           <div className="item-field uom">
                             <label>UOM</label>
-                            <input type="text" value={item.uom} readOnly />
+                            <select
+                              value={line.uom}
+                              onChange={e => handleOrderItemChange(index, 'uom', e.target.value)}
+                            >
+                              {uomOptions.map((uomOption) => (
+                                <option key={`order-item-${index}-uom-${uomOption}`} value={uomOption}>
+                                  {uomOption}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           {orderEntryMode !== 'quick' && (
                             <>
                               <div className="item-field price">
-                                <label>Rate</label>
+                                <label>{`Rate (per ${line.baseUnit})`}</label>
                                 <input
                                   type="number"
                                   step="0.01"
@@ -2454,7 +2863,10 @@ function PurchaseManagement({ user }) {
                     <p>PO #{orderDetail.po_number}</p>
                   </div>
                   <div className="po-invoice-meta">
-                    <div><span>Status</span><strong>{String(orderDetail.status || '-').toUpperCase()}</strong></div>
+                    <div><span>PO Status</span><strong>{String(getPoLifecycleStatus(orderDetail) || '-').toUpperCase()}</strong></div>
+                    <div><span>Payment</span><strong>{String(getPoPaymentStatus(orderDetail) || '-').toUpperCase()}</strong></div>
+                    <div><span>Paid</span><strong>{formatCurrency(getPoPaidAmount(orderDetail))}</strong></div>
+                    <div><span>Balance</span><strong>{formatCurrency(getPoBalanceDue(orderDetail))}</strong></div>
                     <div><span>Created</span><strong>{formatDateTime(orderDetail.created_at || orderDetail.order_date)}</strong></div>
                     <div><span>Expected</span><strong>{formatDate(orderDetail.expected_delivery)}</strong></div>
                     <div><span>Bill No</span><strong>{orderDetail.bill_number || orderDetail.invoice_number || '-'}</strong></div>
@@ -2541,6 +2953,194 @@ function PurchaseManagement({ user }) {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showProcessModal && processingOrder && (
+        <div className="modal-overlay" onClick={closeProcessModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Process Purchase Order</h2>
+              <button className="close-btn" onClick={closeProcessModal}>
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleProcessSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>PO Number</label>
+                  <input type="text" value={processingOrder.po_number || '-'} readOnly />
+                </div>
+                <div className="form-group">
+                  <label>Distributor</label>
+                  <input type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Total Amount</label>
+                  <input type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
+                </div>
+                <div className="form-group">
+                  <label>Bill No *</label>
+                  <input
+                    type="text"
+                    value={processFormData.bill_number}
+                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, bill_number: e.target.value }))}
+                    placeholder="Enter bill number"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Initial Paid Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={processFormData.paid_amount}
+                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, paid_amount: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Payment Mode</label>
+                  <select
+                    value={processFormData.payment_mode}
+                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Payment Date</label>
+                  <input
+                    type="date"
+                    value={processFormData.payment_date}
+                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_date: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Payment Reference</label>
+                  <input
+                    type="text"
+                    value={processFormData.payment_reference}
+                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_reference: e.target.value }))}
+                    placeholder="Bank ref / UPI ref"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Notes</label>
+                <textarea
+                  rows="2"
+                  value={processFormData.payment_notes}
+                  onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_notes: e.target.value }))}
+                  placeholder="Optional payment note"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn" disabled={processSubmitting}>
+                  {processSubmitting ? 'Processing...' : 'Process PO'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPoPaymentModal && paymentOrder && (
+        <div className="modal-overlay" onClick={closePoPaymentModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add PO Payment</h2>
+              <button className="close-btn" onClick={closePoPaymentModal}>
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handlePoPaymentSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>PO Number</label>
+                  <input type="text" value={paymentOrder.po_number || '-'} readOnly />
+                </div>
+                <div className="form-group">
+                  <label>Current Balance</label>
+                  <input type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Amount *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={poPaymentFormData.amount}
+                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Payment Mode</label>
+                  <select
+                    value={poPaymentFormData.payment_mode}
+                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="bank">Bank Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={poPaymentFormData.transaction_date}
+                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Reference</label>
+                  <input
+                    type="text"
+                    value={poPaymentFormData.reference}
+                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, reference: e.target.value }))}
+                    placeholder="Bank ref / UPI ref"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Notes</label>
+                <textarea
+                  rows="2"
+                  value={poPaymentFormData.notes}
+                  onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Optional note"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn" disabled={poPaymentSubmitting}>
+                  {poPaymentSubmitting ? 'Saving...' : 'Save Payment'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2837,7 +3437,17 @@ function PurchaseManagement({ user }) {
                   </button>
                 </div>
                 <div className="items-list">
-                  {returnFormData.items.map((item, index) => (
+                  {returnFormData.items.map((item, index) => {
+                    const selectedProduct = findProductForItem(products, item);
+                    const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                    const selectedUom = resolvePurchaseUnitForProduct(
+                      selectedProduct,
+                      item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
+                    );
+                    const quantityInBase = toBaseQtyForProduct(item.quantity, selectedUom, selectedProduct);
+                    const lineTotal = quantityInBase * Math.max(0, toNumber(item.unit_price));
+                    const baseUnitLabel = getProductUomProfile(selectedProduct).baseUnit;
+                    return (
                     <div key={index} className="item-row">
                       <div className="item-field product">
                         <label>Product</label>
@@ -2862,10 +3472,19 @@ function PurchaseManagement({ user }) {
                       </div>
                       <div className="item-field uom">
                         <label>UOM</label>
-                        <input type="text" value={item.uom} readOnly />
+                        <select
+                          value={selectedUom}
+                          onChange={e => handleReturnItemChange(index, 'uom', e.target.value)}
+                        >
+                          {uomOptions.map((uomOption) => (
+                            <option key={`return-item-${index}-uom-${uomOption}`} value={uomOption}>
+                              {uomOption}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="item-field price">
-                        <label>Unit Price</label>
+                        <label>{`Unit Price (per ${baseUnitLabel})`}</label>
                         <input
                           type="number"
                           step="0.01"
@@ -2875,13 +3494,14 @@ function PurchaseManagement({ user }) {
                       </div>
                       <div className="item-field total">
                         <label>Total</label>
-                        <span>{formatCurrency(item.quantity * item.unit_price)}</span>
+                        <span>{formatCurrency(lineTotal)}</span>
                       </div>
                       <button type="button" className="remove-item-btn" onClick={() => handleReturnItemRemove(index)}>
                         <X size={16} />
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

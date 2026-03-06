@@ -1,3 +1,17 @@
 .credit-khata .actions-bar.ledger-header {
   margin-top: 12px;
 }
+
+.credit-khata .amount-live-result {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.credit-khata .amount-live-result.ok {
+  color: #166534;
+}
+
+.credit-khata .amount-live-result.error {
+  color: #b91c1c;
+}

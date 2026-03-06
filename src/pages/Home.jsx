@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Package, ShoppingBag, Truck, Shield } from 'lucide-react';
-import logoImage from '../../logo1.png';
 import './Home.css';
 import * as info from './info';
 
@@ -12,6 +12,20 @@ const getPublicFileUrl = (filename) => {
 };
 
 function Home() {
+  const navigate = useNavigate();
+  const [heroSearch, setHeroSearch] = useState('');
+  const logoImage = getPublicFileUrl(info.LOGO_URL || 'logo.png');
+
+  const handleHeroSearch = (event) => {
+    event.preventDefault();
+    const query = String(heroSearch || '').trim();
+    if (query) {
+      navigate(`/products?q=${encodeURIComponent(query)}`);
+      return;
+    }
+    navigate('/products');
+  };
+
   return (
     <div className="home">
       {/* Hero Section */}
@@ -31,9 +45,33 @@ function Home() {
             <span role="listitem">Clear data deletion process</span>
           </div>
           <p className="hero-security-note">No password required, OTP-based login, your data is protected.</p>
-          <Link to="/products" className="hero-cta">
-            Explore Collection
-          </Link>
+          <div className="hero-local-info">
+            <span>{info.COUNTER_HOURS}</span>
+            {info.SHOP_LOCATION_URL ? (
+              <a href={info.SHOP_LOCATION_URL} target="_blank" rel="noreferrer">
+                Shop Location
+              </a>
+            ) : null}
+          </div>
+          <form className="hero-search-wrap" onSubmit={handleHeroSearch}>
+            <input
+              type="text"
+              className="hero-search-input"
+              placeholder="Search groceries, notebooks, brands..."
+              value={heroSearch}
+              onChange={(event) => setHeroSearch(event.target.value)}
+              aria-label="Search products from home"
+            />
+            <button type="submit" className="hero-search-btn">Search</button>
+          </form>
+          <div className="hero-cta-row">
+            <Link to="/products" className="hero-cta primary">
+              Buy Now
+            </Link>
+            <Link to="/products" className="hero-cta">
+              Explore Collection
+            </Link>
+          </div>
           <div className="hero-policy-links">
             <a href={getPublicFileUrl('privacy-policy.html')}>Privacy Policy</a>
             <a href={getPublicFileUrl('terms-of-service.html')}>Terms</a>

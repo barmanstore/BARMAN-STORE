@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Clock, CheckCircle, 
@@ -43,11 +43,53 @@ const extractQtyLabelFromName = (value) => {
   };
 };
 
-function HistoryHeader() {
+const buildCartItemFromOrderItem = (item, index) => {
+  const productId = Number(item?.product_id || item?.id || 0);
+  const isManual = !(productId > 0);
+  const quantity = Math.max(1, Number(item?.quantity || 1));
+  const qtyLabel = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim() || String(quantity);
+  const price = Math.max(0, Number(item?.price || item?.mrp || 0));
+  const name = String(item?.product_name || item?.name || 'Item').trim() || 'Item';
+  return {
+    id: isManual
+      ? `manual:last-order:${index}:${name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'item'}`
+      : productId,
+    product_id: isManual ? null : productId,
+    name,
+    category: String(item?.category || (isManual ? 'Requested / Manual' : 'Product')).trim(),
+    image: String(item?.image || item?.product_image || '').trim(),
+    price,
+    price_unknown: isManual && price <= 0 ? 1 : 0,
+    quantity,
+    quantity_label: qtyLabel,
+    stock: null,
+    item_type: isManual ? 'manual' : 'catalog',
+    is_manual: isManual ? 1 : 0,
+    out_of_stock_request: 0,
+  };
+};
+
+const buildRepeatCartFromOrder = (order) => {
+  const items = Array.isArray(order?.items) ? order.items : [];
+  return items.map((item, index) => buildCartItemFromOrderItem(item, index));
+};
+
+function HistoryHeader({ latestOrder, onRepeatLastOrder, repeatLoading, repeatMessage }) {
   return (
     <div className="history-header fade-in-up">
       <h1>Order History</h1>
       <p>View and manage all your orders</p>
+      {latestOrder ? (
+        <button
+          type="button"
+          className="repeat-last-order-btn"
+          onClick={onRepeatLastOrder}
+          disabled={repeatLoading}
+        >
+          {repeatLoading ? 'Adding Last Order...' : 'Last Order'}
+        </button>
+      ) : null}
+      {repeatMessage ? <p className="repeat-last-order-msg">{repeatMessage}</p> : null}
     </div>
   );
 }
@@ -213,7 +255,14 @@ function OrderHistory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date_desc');
+  const [repeatLoading, setRepeatLoading] = useState(false);
+  const [repeatMessage, setRepeatMessage] = useState('');
   const navigate = useNavigate();
+
+  const latestOrder = useMemo(() => {
+    if (!Array.isArray(orders) || orders.length === 0) return null;
+    return [...orders].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+  }, [orders]);
 
   const getCurrentUser = () => {
     try {
@@ -304,6 +353,25 @@ function OrderHistory() {
     navigate(`/orders/${orderId}`);
   };
 
+  const handleRepeatLastOrder = () => {
+    if (!latestOrder) return;
+    const repeatCart = buildRepeatCartFromOrder(latestOrder).filter((item) => String(item?.name || '').trim());
+    if (repeatCart.length === 0) {
+      setRepeatMessage('Last order has no repeatable items.');
+      return;
+    }
+    try {
+      setRepeatLoading(true);
+      localStorage.setItem('barman_cart', JSON.stringify(repeatCart));
+      setRepeatMessage(`Added ${repeatCart.length} items from ${latestOrder.order_number || `#${latestOrder.id}`}.`);
+      navigate('/cart');
+    } catch (_) {
+      setRepeatMessage('Unable to repeat last order right now.');
+    } finally {
+      setRepeatLoading(false);
+    }
+  };
+
   const handleExportOrders = () => {
     const rows = filteredOrders.map((order) => ({
       order_number: order.order_number || `#${order.id}`,
@@ -380,7 +448,12 @@ function OrderHistory() {
 
   return (
     <div className="order-history-page">
-      <HistoryHeader />
+      <HistoryHeader
+        latestOrder={latestOrder}
+        onRepeatLastOrder={handleRepeatLastOrder}
+        repeatLoading={repeatLoading}
+        repeatMessage={repeatMessage}
+      />
       <OrderFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}

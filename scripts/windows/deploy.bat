@@ -9,6 +9,7 @@ if errorlevel 1 (
 )
 
 set "MODE=%~1"
+set "VERCEL_NPX=npx --yes vercel@50.26.0"
 if /i "%MODE%"=="" set "MODE=vercel"
 if /i "%MODE%"=="help" goto :help_success
 if /i "%MODE%"=="prepare" goto :prepare
@@ -46,9 +47,9 @@ if /i "%OPS_DRY_RUN%"=="1" (
   echo [DRY-RUN] call "%~dp0health-check.bat" quick
   echo [DRY-RUN] npm run build
   if /i "%CHANNEL%"=="preview" (
-    echo [DRY-RUN] npx vercel
+    echo [DRY-RUN] %VERCEL_NPX%
   ) else (
-    echo [DRY-RUN] npx vercel --prod
+    echo [DRY-RUN] %VERCEL_NPX% --prod
   )
 ) else (
   call "%~dp0health-check.bat" quick
@@ -57,11 +58,11 @@ if /i "%OPS_DRY_RUN%"=="1" (
   call npm run build
   if errorlevel 1 goto :end_error
   if /i "%CHANNEL%"=="preview" (
-    echo [INFO] Running: npx vercel
-    call npx vercel
+    echo [INFO] Running: %VERCEL_NPX%
+    call %VERCEL_NPX%
   ) else (
-    echo [INFO] Running: npx vercel --prod
-    call npx vercel --prod
+    echo [INFO] Running: %VERCEL_NPX% --prod
+    call %VERCEL_NPX% --prod
   )
   if errorlevel 1 goto :end_error
 )

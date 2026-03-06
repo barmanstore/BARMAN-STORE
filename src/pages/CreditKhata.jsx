@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { creditApi, usersApi } from '../services/api';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, truncateUserName } from '../utils/formatters';
 import { getTodayDate } from '../utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../utils/ledger';
 import './CreditKhata.css';
@@ -19,6 +19,87 @@ const getDefaultFormData = () => ({
   description: ''
 });
 
+const tokenizeMathExpression = (raw) => {
+  const value = String(raw || '').replace(/,/g, '').trim();
+  if (!value) return [];
+  if (!/^[\d+\-*/().\s]+$/.test(value)) {
+    throw new Error('Only numbers and + - * / ( ) are allowed');
+  }
+  const tokens = [];
+  const compact = value.replace(/\s+/g, '');
+  let i = 0;
+  while (i < compact.length) {
+    const ch = compact[i];
+    if ('+-*/()'.includes(ch)) {
+      tokens.push(ch);
+      i += 1;
+      continue;
+    }
+    if (/\d|\./.test(ch)) {
+      let j = i + 1;
+      while (j < compact.length && /[\d.]/.test(compact[j])) j += 1;
+      const numText = compact.slice(i, j);
+      if (!/^\d*\.?\d+$/.test(numText)) throw new Error('Invalid number format');
+      const num = Number(numText);
+      if (!Number.isFinite(num)) throw new Error('Invalid number');
+      tokens.push(num);
+      i = j;
+      continue;
+    }
+    throw new Error('Invalid expression');
+  }
+  return tokens;
+};
+
+const evaluateMathExpression = (raw) => {
+  const tokens = tokenizeMathExpression(raw);
+  if (!tokens.length) return { valid: false, value: 0, message: '' };
+  const prec = { '+': 1, '-': 1, '*': 2, '/': 2 };
+  const output = [];
+  const ops = [];
+  tokens.forEach((token) => {
+    if (typeof token === 'number') {
+      output.push(token);
+      return;
+    }
+    if (token === '(') {
+      ops.push(token);
+      return;
+    }
+    if (token === ')') {
+      while (ops.length && ops[ops.length - 1] !== '(') output.push(ops.pop());
+      if (ops.pop() !== '(') throw new Error('Mismatched parentheses');
+      return;
+    }
+    while (ops.length && prec[ops[ops.length - 1]] >= prec[token]) output.push(ops.pop());
+    ops.push(token);
+  });
+  while (ops.length) {
+    const op = ops.pop();
+    if (op === '(' || op === ')') throw new Error('Mismatched parentheses');
+    output.push(op);
+  }
+  const stack = [];
+  output.forEach((token) => {
+    if (typeof token === 'number') {
+      stack.push(token);
+      return;
+    }
+    const b = Number(stack.pop());
+    const a = Number(stack.pop());
+    if (!Number.isFinite(a) || !Number.isFinite(b)) throw new Error('Invalid expression');
+    if (token === '+') stack.push(a + b);
+    else if (token === '-') stack.push(a - b);
+    else if (token === '*') stack.push(a * b);
+    else if (token === '/') {
+      if (b === 0) throw new Error('Cannot divide by zero');
+      stack.push(a / b);
+    }
+  });
+  if (stack.length !== 1 || !Number.isFinite(stack[0])) throw new Error('Invalid expression');
+  return { valid: true, value: stack[0], message: '' };
+};
+
 function CreditKhata({ user }) {
   const [loading, setLoading] = useState(true);
   const [ledgerLoading, setLedgerLoading] = useState(false);
@@ -29,6 +110,13 @@ function CreditKhata({ user }) {
   const [showLedgerForm, setShowLedgerForm] = useState(false);
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultFormData());
   const [editingLedgerEntryId, setEditingLedgerEntryId] = useState(null);
+  const amountPreview = useMemo(() => {
+    try {
+      return evaluateMathExpression(ledgerFormData.amount);
+    } catch (error) {
+      return { valid: false, value: 0, message: error.message || 'Invalid expression' };
+    }
+  }, [ledgerFormData.amount]);
 
   const usersById = useMemo(() => {
     const map = {};
@@ -177,13 +265,13 @@ function CreditKhata({ user }) {
     e.preventDefault();
     setError('');
 
-    const amount = toNumber(ledgerFormData.amount);
+    const amount = amountPreview.valid ? Number(amountPreview.value) : 0;
     if (!ledgerFormData.user_id) {
       setError('Please select a customer');
       return;
     }
-    if (amount <= 0) {
-      setError('Please enter a valid amount');
+    if (!amountPreview.valid || amount <= 0) {
+      setError(amountPreview.message || 'Please enter a valid amount');
       return;
     }
     if (!ledgerFormData.description.trim()) {
@@ -281,7 +369,7 @@ function CreditKhata({ user }) {
           <select name="user_id" value={filters.user_id} onChange={handleFilterChange}>
             <option value="">All Customers</option>
             {users.map((customer) => (
-              <option key={customer.id} value={customer.id}>{customer.name}</option>
+              <option key={customer.id} value={customer.id}>{truncateUserName(customer.name, 15)}</option>
             ))}
           </select>
         </div>
@@ -334,7 +422,7 @@ function CreditKhata({ user }) {
                 return (
                   <tr key={entry.id || index}>
                     <td>{getRecordDateLabel(entry)}</td>
-                    <td>{usersById[userKey]?.name || entry.customer_name || '-'}</td>
+                    <td>{truncateUserName(usersById[userKey]?.name || entry.customer_name || '-', 15)}</td>
                     <td>{getLedgerTypeLabel(entry)}</td>
                     <td>{formatCurrency(toNumber(entry.amount))}</td>
                     <td>{formatCurrency(toNumber(entry.computed_balance ?? entry.balance))}</td>
@@ -384,7 +472,7 @@ function CreditKhata({ user }) {
                   >
                     <option value="">Select customer</option>
                     {users.map((customer) => (
-                      <option key={customer.id} value={customer.id}>{customer.name}</option>
+                      <option key={customer.id} value={customer.id}>{truncateUserName(customer.name, 15)}</option>
                     ))}
                   </select>
                 </div>
@@ -404,14 +492,20 @@ function CreditKhata({ user }) {
                 <div className="form-group">
                   <label>Amount *</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={ledgerFormData.amount}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount"
+                    placeholder="Enter amount or expression (example: 2+5)"
                     required
                   />
+                  {String(ledgerFormData.amount || '').trim() ? (
+                    <div className={`amount-live-result ${amountPreview.valid ? 'ok' : 'error'}`}>
+                      {amountPreview.valid
+                        ? `Result: ${Number(amountPreview.value).toFixed(2)}`
+                        : `Result: ${amountPreview.message || 'Invalid expression'}`}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="form-group">
                   <label>Transaction Date</label>

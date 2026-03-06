@@ -1239,6 +1239,8 @@ function CreditHistory({ user }) {
                         <label>
                           Resolution Reason
                           <textarea
+                            id={`issue-admin-reason-${issueId}`}
+                            name={`issue_admin_reason_${issueId}`}
                             value={draft.admin_reason}
                             onChange={(e) => setAdminIssueDraft(issueId, { admin_reason: e.target.value })}
                             rows={2}
@@ -1249,6 +1251,8 @@ function CreditHistory({ user }) {
                           <label>
                             Correction Type
                             <select
+                              id={`issue-correction-type-${issueId}`}
+                              name={`issue_correction_type_${issueId}`}
                               value={draft.correction_type}
                               onChange={(e) => setAdminIssueDraft(issueId, { correction_type: e.target.value })}
                             >
@@ -1260,6 +1264,8 @@ function CreditHistory({ user }) {
                           <label>
                             Correction Amount
                             <input
+                              id={`issue-correction-amount-${issueId}`}
+                              name={`issue_correction_amount_${issueId}`}
                               type="number"
                               min="0"
                               step="0.01"
@@ -1272,6 +1278,8 @@ function CreditHistory({ user }) {
                         <label>
                           Correction Description
                           <input
+                            id={`issue-correction-description-${issueId}`}
+                            name={`issue_correction_description_${issueId}`}
                             type="text"
                             value={draft.correction_description}
                             onChange={(e) => setAdminIssueDraft(issueId, { correction_description: e.target.value })}
@@ -1334,13 +1342,13 @@ function CreditHistory({ user }) {
             <table className="credit-table">
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th className="credit-col-date">Date</th>
                   <th>Invoice #</th>
                   <th>Type</th>
                   <th>Amount</th>
                   <th>Balance</th>
                   <th>Description</th>
-                  <th>Actions</th>
+                  <th className="credit-col-actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1420,7 +1428,7 @@ function CreditHistory({ user }) {
               {groupedTransactions.map((group) => (
                 <section key={group.dateKey} className="credit-day-group">
                   <h3 className="credit-day-title">{group.dateLabel}</h3>
-                  <div className="credit-bubble-stack">
+                  <div className="credit-tile-stack">
                     {group.transactions.map((transaction) => {
                       const description = String(transaction.description || '').trim();
                       const reference = String(transaction.reference || '').trim();
@@ -1434,85 +1442,87 @@ function CreditHistory({ user }) {
                         <article
                           key={`mobile-${transaction.id}`}
                           data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                          className={`credit-transaction-bubble ${transaction.type === 'payment' ? 'bubble-right payment' : 'bubble-left given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
+                          className={`credit-transaction-tile ${transaction.type === 'payment' ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
                         >
-                          <header className="bubble-head">
-                            <span className="bubble-type">
-                              <span className={`bubble-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
+                          <header className="tile-top-row">
+                            <span className="tile-type-wrap">
+                              <span className={`tile-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
                                 {getTypeLabel(transaction.type)}
                               </span>
-                              <span className="bubble-date">{formatTransactionDate(transaction, { long: true })}</span>
                               {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
                             </span>
-                            <span className="bubble-amount-wrap">
-                              <span className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
-                                {formatCurrencyColored(signedAmount)}
-                              </span>
-                              <span className="bubble-balance-pill">
-                                Balance: {formatCurrencyColored(parseFloat(transaction.balance))}
-                              </span>
+                            <span className={`tile-amount ${transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}`}>
+                              {formatCurrencyColored(signedAmount)}
                             </span>
                           </header>
 
-                          <div className="bubble-description">
-                            {truncateCreditDescription(description || 'No description', 56)}
+                          <div className="tile-meta-row">
+                            <span>{formatTransactionDate(transaction, { long: true })}</span>
+                            <span>Invoice: {transaction.invoice_number || '-'}</span>
                           </div>
 
-                          <div className="bubble-summary-actions">
+                          <div className="tile-description">
+                            {truncateCreditDescription(description || 'No description', 52)}
+                          </div>
+
+                          <div className="tile-footer-row">
+                            <span className="tile-balance-pill">
+                              Balance: {formatCurrencyColored(parseFloat(transaction.balance))}
+                            </span>
                             <button
                               type="button"
-                              className="bubble-expand-btn"
+                              className="tile-expand-btn"
                               onClick={() => setExpandedTransactionId(isExpanded ? null : transaction.id)}
                             >
-                              {isExpanded ? 'Hide details' : 'Details'}
+                              {isExpanded ? 'Less' : 'More'}
                             </button>
                           </div>
 
                           {isExpanded && (
-                            <div className="bubble-expanded">
-                              <div className="bubble-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
-                              {reference && <div className="bubble-detail"><strong>Ref:</strong> {reference}</div>}
-                              <div className="bubble-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
-                              <div className="bubble-actions">
-                            {!isAdminView && (
-                              <button
-                                className="action-icon"
-                                onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
-                                title="Report issue on this entry"
-                              >
-                                <FileText size={16} />
-                              </button>
-                            )}
-                            {transaction.image_path && (
-                              <a
-                                href={transaction.image_path}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="action-icon view"
-                                title="View Invoice"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Eye size={16} />
-                              </a>
-                            )}
-                            <button
-                              className="action-icon print mobile-hide-print"
-                              onClick={() => handlePrintInvoice(transaction)}
-                              title="Print Invoice"
-                              disabled={isMobile}
-                              aria-disabled={isMobile}
-                            >
-                              <Printer size={16} />
-                            </button>
-                            {canShareTransaction && (
-                              <button
-                                className="action-icon whatsapp"
-                                onClick={() => handleSendTransactionWhatsApp(transaction)}
-                                title="Share on WhatsApp"
-                              >
-                                <MessageCircle size={16} />
-                              </button>
-                            )}
+                            <div className="tile-expanded">
+                              <div className="tile-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
+                              {reference ? <div className="tile-detail"><strong>Ref:</strong> {reference}</div> : null}
+                              <div className="tile-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
+                              <div className="tile-actions">
+                                {!isAdminView && (
+                                  <button
+                                    className="action-icon"
+                                    onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
+                                    title="Report issue on this entry"
+                                  >
+                                    <FileText size={16} />
+                                  </button>
+                                )}
+                                {transaction.image_path && (
+                                  <a
+                                    href={transaction.image_path}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="action-icon view"
+                                    title="View Invoice"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Eye size={16} />
+                                  </a>
+                                )}
+                                <button
+                                  className="action-icon print mobile-hide-print"
+                                  onClick={() => handlePrintInvoice(transaction)}
+                                  title="Print Invoice"
+                                  disabled={isMobile}
+                                  aria-disabled={isMobile}
+                                >
+                                  <Printer size={16} />
+                                </button>
+                                {canShareTransaction && (
+                                  <button
+                                    className="action-icon whatsapp"
+                                    onClick={() => handleSendTransactionWhatsApp(transaction)}
+                                    title="Share on WhatsApp"
+                                  >
+                                    <MessageCircle size={16} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1534,6 +1544,8 @@ function CreditHistory({ user }) {
                 <label>
                   Entry
                   <select
+                    id="credit-issue-entry"
+                    name="credit_entry_id"
                     value={issueForm.credit_entry_id}
                     onChange={(e) => setIssueForm((prev) => ({ ...prev, credit_entry_id: e.target.value }))}
                   >
@@ -1548,6 +1560,8 @@ function CreditHistory({ user }) {
                 <label>
                   Issue Type
                   <select
+                    id="credit-issue-type"
+                    name="issue_type"
                     value={issueForm.issue_type}
                     onChange={(e) => setIssueForm((prev) => ({ ...prev, issue_type: e.target.value }))}
                   >
@@ -1560,6 +1574,8 @@ function CreditHistory({ user }) {
                 <label>
                   Message
                   <textarea
+                    id="credit-issue-message"
+                    name="issue_message"
                     value={issueForm.message}
                     onChange={(e) => setIssueForm((prev) => ({ ...prev, message: e.target.value }))}
                     placeholder="Explain what is wrong so admin can correct it."
@@ -1592,6 +1608,8 @@ function CreditHistory({ user }) {
                       {(issue.status === 'corrected' || issue.status === 'rejected') && !issue.customer_response_status ? (
                         <div className="credit-issue-response">
                           <textarea
+                            id={`credit-issue-response-${issue.id}`}
+                            name={`credit_issue_response_${issue.id}`}
                             value={issueResponseDrafts[issue.id] || ''}
                             onChange={(e) => setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: e.target.value }))}
                             placeholder="Optional note. Required if you still disagree."
@@ -1624,13 +1642,17 @@ function CreditHistory({ user }) {
             </div>
          )}
          {isAdminView && (
-            <div className="report-controls secondary-tools">
-               <label> From:<input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <div id="credit-report-controls" className="report-controls credit-secondary-tools report-controls-light">
+               <label htmlFor="credit-report-from-date">
+                 <span>From:</span>
+                 <input id="credit-report-from-date" name="from_date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
                </label>
-               <label> To:<input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+               <label htmlFor="credit-report-to-date">
+                 <span>To:</span>
+                 <input id="credit-report-to-date" name="to_date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
               </label>
-              <button className="admin-btn" onClick={handleGenerateReport} title="Generate credit report for date range">
-              Generate Report
+              <button type="button" className="report-btn primary-action" onClick={handleGenerateReport} title="Generate credit report for date range">
+                Generate Report
               </button>
            </div>
          )}
@@ -1650,7 +1672,7 @@ function CreditHistory({ user }) {
               <span>Ending balance: {formatCurrencyColored(reportSummary.endingBalance)}</span>
             </div>
           )}
-          <textarea className="report-text" readOnly value={reportText} />
+          <textarea id="credit-report-preview" name="credit_report_preview" className="report-text" readOnly value={reportText} />
           <div className="report-actions">
             <button className="report-btn primary-action" onClick={handleCopyReport}>Copy Text</button>
             <button className="report-btn whatsapp primary-action" onClick={handleSendWhatsApp}>Share on WhatsApp</button>
@@ -1665,7 +1687,7 @@ function CreditHistory({ user }) {
           <div className="report-header">
             <strong>Manual Entry Message</strong>
           </div>
-          <textarea className="report-text" readOnly value={entryShareText} />
+          <textarea id="credit-entry-share-text" name="credit_entry_share_text" className="report-text" readOnly value={entryShareText} />
           <div className="report-actions">
             <button className="report-btn" onClick={handleCopyEntryShare}>Copy</button>
             <button className="report-btn whatsapp" onClick={handleSendEntryWhatsApp}>WhatsApp</button>
@@ -1705,6 +1727,8 @@ function CreditHistory({ user }) {
               <div className="form-group">
                 <label>Transaction Type</label>
                 <select
+                  id="credit-tx-type"
+                  name="transaction_type"
                   value={newTransaction.type}
                   onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
                 >
@@ -1715,6 +1739,8 @@ function CreditHistory({ user }) {
               <div className="form-group">
                 <label>Amount (₹)</label>
                 <input
+                  id="credit-tx-amount"
+                  name="amount"
                   type="number"
                   step="0.01"
                   min="0.01"
@@ -1727,6 +1753,8 @@ function CreditHistory({ user }) {
               <div className="form-group">
                 <label>Date</label>
                 <input
+                  id="credit-tx-date"
+                  name="transaction_date"
                   type="date"
                   value={newTransaction.transactionDate}
                   onChange={(e) => setNewTransaction({ ...newTransaction, transactionDate: e.target.value })}
@@ -1736,6 +1764,8 @@ function CreditHistory({ user }) {
               <div className="form-group">
                 <label>Description *</label>
                 <input
+                  id="credit-tx-description"
+                  name="description"
                   type="text"
                   value={newTransaction.description}
                   onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
@@ -1746,6 +1776,8 @@ function CreditHistory({ user }) {
               <div className="form-group">
                 <label>Reference</label>
                 <input
+                  id="credit-tx-reference"
+                  name="reference"
                   type="text"
                   value={newTransaction.reference}
                   onChange={(e) => setNewTransaction({ ...newTransaction, reference: e.target.value })}
@@ -1756,6 +1788,8 @@ function CreditHistory({ user }) {
                 <label>Upload Invoice/Bill</label>
                 <div className="file-upload-area">
                   <input
+                    id="credit-tx-invoice-file"
+                    name="invoice_file"
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileUpload}

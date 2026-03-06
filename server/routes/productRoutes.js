@@ -10,7 +10,6 @@
     normalizeProductInput,
     validateProductPayload,
     findProductConflictAsync,
-    resolveOrCreateCategoryNameAsync,
     XLSX,
     toProductExportRow,
     PRODUCT_IMPORT_HEADERS,
@@ -27,6 +26,326 @@
     SQL_UPSERT_IMPORT_BATCH,
     applyProductImportBatch
   } = deps;
+
+  const clampInt = (value, fallback, min, max) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, Math.round(parsed)));
+  };
+
+  const normalizeSearchText = (value, maxLength = 160) => (
+    String(value || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, maxLength)
+  );
+
+  const toSearchImage = (row, index = 0) => {
+    const thumbUrl = String(
+      row?.thumbnail
+      || row?.thumbnail_url
+      || row?.image
+      || row?.original
+      || row?.link
+      || ''
+    ).trim();
+    const fullUrl = String(
+      row?.original
+      || row?.image
+      || row?.link
+      || row?.thumbnail
+      || ''
+    ).trim();
+    if (!fullUrl) return null;
+    const position = Number(row?.position || 0) || (index + 1);
+    return {
+      id: `serpapi-bing-${position}`,
+      thumbUrl: thumbUrl || fullUrl,
+      fullUrl,
+      source: 'serpapi-bing',
+      title: String(row?.title || row?.source || row?.source_name || `Suggestion ${index + 1}`).trim(),
+    };
+  };
+
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+  const toNullablePositiveInt = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
+  const normalizeCategoryName = (value) => String(value || '').trim();
+  const isSameParent = (left, right) => {
+    const a = toNullablePositiveInt(left);
+    const b = toNullablePositiveInt(right);
+    return a === b;
+  };
+
+  const findCategoryByNameAndParentAsync = async ({ name, parentId = null, excludeId = null }) => {
+    const trimmedName = normalizeCategoryName(name);
+    if (!trimmedName) return null;
+    const normalizedParentId = toNullablePositiveInt(parentId);
+    const normalizedExcludeId = toNullablePositiveInt(excludeId);
+    const parentFilter = normalizedParentId == null
+      ? `parent_id IS NULL`
+      : `parent_id = ?`;
+    const parentParams = normalizedParentId == null ? [] : [normalizedParentId];
+    const row = await dbGetAsync(
+      `SELECT id, name, description, parent_id, created_at
+       FROM categories
+       WHERE lower(name) = lower(?)
+         AND ${parentFilter}
+         ${normalizedExcludeId ? 'AND id <> ?' : ''}
+       LIMIT 1`,
+      normalizedExcludeId
+        ? [trimmedName, ...parentParams, normalizedExcludeId]
+        : [trimmedName, ...parentParams]
+    );
+    return row ? normalizeCategoryRow(row) : null;
+  };
+
+  const splitHierarchySegments = (value) => (
+    String(value || '')
+      .split('->')
+      .map((part) => normalizeCategoryName(part))
+      .filter(Boolean)
+  );
+  const isCategoryNameUniqueViolation = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    if (!message) return false;
+    return (
+      message.includes('uq_categories_parent_name_ci')
+      || (
+        message.includes('duplicate key')
+        && message.includes('categories')
+      )
+    );
+  };
+
+  const normalizeCategoryRow = (row) => ({
+    ...row,
+    id: Number(row?.id || 0),
+    parent_id: row?.parent_id == null ? null : Number(row.parent_id),
+    product_count: Number(row?.product_count || 0),
+    total_product_count: Number(row?.total_product_count || 0),
+  });
+
+  const getCategoryByIdAsync = async (id) => {
+    if (!Number.isInteger(Number(id)) || Number(id) <= 0) return null;
+    const row = await dbGetAsync(
+      `SELECT id, name, description, parent_id, created_at
+       FROM categories
+       WHERE id = ?`,
+      [Number(id)]
+    );
+    return row ? normalizeCategoryRow(row) : null;
+  };
+
+  const ensureCategoryNodeAsync = async ({ name, parentId = null, description = null }) => {
+    const trimmedName = normalizeCategoryName(name);
+    if (!trimmedName) return null;
+    const normalizedParentId = toNullablePositiveInt(parentId);
+    const existing = await findCategoryByNameAndParentAsync({
+      name: trimmedName,
+      parentId: normalizedParentId,
+    });
+    if (existing) return existing;
+    const inserted = await dbRunAsync(
+      `INSERT INTO categories (name, description, parent_id)
+       VALUES (?, ?, ?)`,
+      [trimmedName, description || null, normalizedParentId]
+    );
+    const created = await dbGetAsync(`SELECT id, name, description, parent_id, created_at FROM categories WHERE id = ?`, [inserted.lastInsertRowid]);
+    return created ? normalizeCategoryRow(created) : null;
+  };
+
+  const resolveOrCreateCategoryHierarchyAsync = async ({ category, subcategory }) => {
+    const categorySegments = splitHierarchySegments(category);
+    const subcategorySegments = splitHierarchySegments(subcategory);
+
+    let fullPath = [];
+    if (categorySegments.length === 0 && subcategorySegments.length === 0) {
+      fullPath = ['Groceries'];
+    } else if (categorySegments.length === 0) {
+      fullPath = ['Groceries', ...subcategorySegments];
+    } else if (subcategorySegments.length === 0) {
+      fullPath = categorySegments;
+    } else if (categorySegments.length === 1) {
+      // Legacy payloads commonly send category root + subcategory path separately.
+      fullPath = [categorySegments[0], ...subcategorySegments];
+    } else {
+      // If category already contains a full path, keep it authoritative.
+      fullPath = categorySegments;
+    }
+
+    const rootName = normalizeCategoryName(fullPath[0]) || 'Groceries';
+    const rootNode = await ensureCategoryNodeAsync({
+      name: rootName,
+      parentId: null,
+      description: 'Product category',
+    });
+
+    let leafNode = rootNode;
+    const subPathNames = [];
+    for (const segment of fullPath.slice(1)) {
+      const childNode = await ensureCategoryNodeAsync({
+        name: segment,
+        parentId: leafNode?.id || null,
+        description: 'Product subcategory',
+      });
+      if (!childNode) continue;
+      subPathNames.push(String(childNode.name || '').trim());
+      leafNode = childNode;
+    }
+
+    return {
+      categoryName: rootName,
+      subcategoryName: subPathNames.length ? subPathNames.join(' -> ') : null,
+      categoryId: Number(leafNode?.id || rootNode?.id || 0) || null,
+    };
+  };
+
+  const listCategoryRowsWithCountsAsync = async () => (
+    await dbAllAsync(
+      `SELECT
+         c.id,
+         c.name,
+         c.description,
+         c.parent_id,
+         c.created_at,
+         p.name AS parent_name,
+         COALESCE(pc.direct_count, 0) AS product_count
+       FROM categories c
+       LEFT JOIN categories p ON p.id = c.parent_id
+       LEFT JOIN (
+         SELECT category_id, COUNT(*) AS direct_count
+         FROM products
+         WHERE category_id IS NOT NULL
+         GROUP BY category_id
+       ) pc ON pc.category_id = c.id
+       ORDER BY LOWER(c.name) ASC`
+    )
+  ).map(normalizeCategoryRow);
+
+  const buildCategoryTree = (rows) => {
+    const byId = new Map();
+    rows.forEach((row) => {
+      byId.set(row.id, {
+        ...row,
+        children: [],
+        path: String(row.name || '').trim(),
+        total_product_count: Number(row.product_count || 0),
+      });
+    });
+
+    const roots = [];
+    byId.forEach((node) => {
+      if (node.parent_id && byId.has(node.parent_id) && node.parent_id !== node.id) {
+        byId.get(node.parent_id).children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    const walk = (node, parentPath = '') => {
+      const currentPath = parentPath ? `${parentPath} -> ${node.name}` : String(node.name || '').trim();
+      node.path = currentPath;
+      node.children.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+      let subtotal = Number(node.product_count || 0);
+      node.children.forEach((child) => {
+        subtotal += walk(child, currentPath);
+      });
+      node.total_product_count = subtotal;
+      return subtotal;
+    };
+
+    roots.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+    roots.forEach((node) => walk(node, ''));
+    return roots;
+  };
+
+  const getCategoryAncestryAsync = async (categoryId) => {
+    let currentId = toNullablePositiveInt(categoryId);
+    const seen = new Set();
+    const chain = [];
+    while (currentId && !seen.has(currentId)) {
+      seen.add(currentId);
+      const node = await getCategoryByIdAsync(currentId);
+      if (!node) break;
+      chain.unshift(node);
+      currentId = node.parent_id;
+    }
+    return chain;
+  };
+
+  const detectParentCycle = (rows, sourceId, nextParentId) => {
+    if (!nextParentId) return false;
+    const rowMap = new Map(rows.map((row) => [Number(row.id), row]));
+    const visited = new Set();
+    let cursor = Number(nextParentId);
+    while (cursor && !visited.has(cursor)) {
+      if (cursor === Number(sourceId)) return true;
+      visited.add(cursor);
+      const row = rowMap.get(cursor);
+      cursor = row?.parent_id == null ? 0 : Number(row.parent_id);
+    }
+    return false;
+  };
+
+  app.get('/api/products/image-search', requireAdmin, async (req, res) => {
+    try {
+      const apiKey = String(process.env.SERPAPI_KEY || '').trim();
+      if (!apiKey) {
+        return res.status(503).json({ error: 'SERPAPI_KEY is not configured' });
+      }
+
+      const query = normalizeSearchText(req.query?.q || req.query?.query || '');
+      if (!query) {
+        return res.status(400).json({ error: 'Query is required' });
+      }
+      const limit = clampInt(req.query?.limit, 4, 1, 8);
+
+      const params = new URLSearchParams({
+        engine: 'bing_images',
+        q: query,
+        count: String(limit),
+        safeSearch: 'Strict',
+        api_key: apiKey,
+      });
+
+      const upstream = await fetch(`https://serpapi.com/search.json?${params.toString()}`);
+      const payload = await upstream.json().catch(() => ({}));
+
+      if (!upstream.ok) {
+        const upstreamError = String(payload?.error || payload?.message || '').trim();
+        const status = upstream.status === 429 ? 429 : 502;
+        return res.status(status).json({ error: upstreamError || 'Image provider request failed' });
+      }
+
+      const rows = Array.isArray(payload?.images_results) ? payload.images_results : [];
+      const images = [];
+      const seen = new Set();
+      for (let i = 0; i < rows.length; i += 1) {
+        const mapped = toSearchImage(rows[i], i);
+        if (!mapped) continue;
+        const dedupeKey = mapped.fullUrl.toLowerCase();
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        images.push(mapped);
+        if (images.length >= limit) break;
+      }
+
+      return res.json({
+        query,
+        provider: 'serpapi-bing',
+        images,
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Image search failed' });
+    }
+  });
 
 app.get('/api/products', async (req, res) => {
   try {
@@ -151,11 +470,14 @@ app.post('/api/products', requireAdmin, async (req, res) => {
         });
       }
     }
-    const categoryName = await resolveOrCreateCategoryNameAsync(body.category || 'Groceries');
+    const categoryResolution = await resolveOrCreateCategoryHierarchyAsync({
+      category: body.category || 'Groceries',
+      subcategory: body.subcategory || null,
+    });
     const result = await dbRunAsync(
       `INSERT INTO products
-      (name, description, brand, sub_brand, content, color, price, mrp, uom, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, sku, barcode, image, stock, category, subcategory, category_id, expiry_date, default_discount, discount_type, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         body.name,
         body.description || null,
@@ -166,12 +488,16 @@ app.post('/api/products', requireAdmin, async (req, res) => {
         Number(body.price || 0),
         body.mrp != null ? Number(body.mrp) : Number(body.price || 0),
         body.uom || 'pcs',
+        body.base_unit || body.uom || 'pcs',
+        body.uom_type || 'selling',
+        Number(body.conversion_factor || 1),
         body.sku,
         body.barcode,
         body.image || null,
         Number(body.stock || 0),
-        categoryName,
-        body.subcategory || null,
+        categoryResolution.categoryName,
+        categoryResolution.subcategoryName || null,
+        categoryResolution.categoryId,
         body.expiry_date || null,
         Number(body.default_discount || 0),
         body.discount_type || 'fixed',
@@ -208,10 +534,13 @@ app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
         });
       }
     }
-    const categoryName = await resolveOrCreateCategoryNameAsync(body.category || current.category || 'Groceries');
+    const categoryResolution = await resolveOrCreateCategoryHierarchyAsync({
+      category: body.category || current.category || 'Groceries',
+      subcategory: body.subcategory ?? current.subcategory ?? null,
+    });
     await dbRunAsync(
       `UPDATE products SET
-       name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
+       name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, category_id=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
        WHERE id=?`,
       [
         body.name,
@@ -223,12 +552,16 @@ app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
         Number(body.price),
         Number(body.mrp),
         body.uom,
+        body.base_unit || body.uom || 'pcs',
+        body.uom_type || 'selling',
+        Number(body.conversion_factor || 1),
         body.sku,
         body.barcode,
         body.image,
         Number(body.stock),
-        categoryName,
-        body.subcategory,
+        categoryResolution.categoryName,
+        categoryResolution.subcategoryName,
+        categoryResolution.categoryId,
         body.expiry_date,
         Number(body.default_discount || 0),
         body.discount_type || 'fixed',
@@ -238,6 +571,57 @@ app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
     );
     return res.json(normalizeProductRecord(await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id])));
   } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/products/:id(\\d+)/category', requireAdmin, async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      return res.status(400).json({ error: 'Invalid product id' });
+    }
+    const categoryId = toNullablePositiveInt(req.body?.category_id);
+    if (!categoryId) {
+      return res.status(400).json({ error: 'category_id is required' });
+    }
+
+    const current = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [productId]);
+    if (!current) return res.status(404).json({ error: 'Product not found' });
+
+    const targetCategory = await getCategoryByIdAsync(categoryId);
+    if (!targetCategory) return res.status(404).json({ error: 'Target category not found' });
+
+    const ancestry = await getCategoryAncestryAsync(categoryId);
+    if (!ancestry.length) {
+      return res.status(400).json({ error: 'Unable to resolve target category hierarchy' });
+    }
+
+    const rootCategory = ancestry[0];
+    const childPath = ancestry.slice(1).map((node) => String(node.name || '').trim()).filter(Boolean).join(' -> ');
+
+    await dbRunAsync(
+      `UPDATE products
+       SET category_id = ?, category = ?, subcategory = ?
+       WHERE id = ?`,
+      [categoryId, rootCategory.name, childPath || null, productId]
+    );
+
+    const updated = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [productId]);
+    await logAdminAuditAsync(req, {
+      action: 'product.category_reassign',
+      entityType: 'product',
+      entityId: productId,
+      details: {
+        from_category_id: current.category_id || null,
+        to_category_id: categoryId,
+      },
+    });
+    return res.json(normalizeProductRecord(updated));
+  } catch (error) {
+    if (isCategoryNameUniqueViolation(error)) {
+      return res.status(409).json({ error: 'Category name already exists' });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -564,10 +948,59 @@ app.post('/api/products/import/confirm', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/categories', async (_, res) => {
+app.get('/api/categories', async (req, res) => {
   try {
-    const rows = await dbAllAsync(`SELECT id, name, description, created_at FROM categories ORDER BY name ASC`);
+    const includeAll = String(req.query?.scope || '').trim().toLowerCase() === 'all';
+    let rows = await listCategoryRowsWithCountsAsync();
+    if (!includeAll) {
+      rows = rows.filter((row) => row.parent_id == null);
+    }
     return res.json(rows);
+  } catch (error) {
+    if (isCategoryNameUniqueViolation(error)) {
+      return res.status(409).json({ error: 'Category name already exists' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/categories/tree', async (_, res) => {
+  try {
+    const rows = await listCategoryRowsWithCountsAsync();
+    return res.json(buildCategoryTree(rows));
+  } catch (error) {
+    if (isCategoryNameUniqueViolation(error)) {
+      return res.status(409).json({ error: 'A sibling category with this name already exists in the target parent' });
+    }
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/categories/:id(\\d+)', async (req, res) => {
+  try {
+    const category = await getCategoryByIdAsync(req.params.id);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+    return res.json(category);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/categories/:id(\\d+)/products', requireAdmin, async (req, res) => {
+  try {
+    const categoryId = toNullablePositiveInt(req.params.id);
+    if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
+    const category = await getCategoryByIdAsync(categoryId);
+    if (!category) return res.status(404).json({ error: 'Category not found' });
+    const includeInactive = String(req.query?.include_inactive || '').trim() === 'true';
+    const rows = await dbAllAsync(
+      `SELECT *
+       FROM products
+       WHERE category_id = ? ${includeInactive ? '' : 'AND COALESCE(is_active, 1) = 1'}
+       ORDER BY name ASC, id DESC`,
+      [categoryId]
+    );
+    return res.json(rows.map(normalizeProductRecord));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -575,33 +1008,168 @@ app.get('/api/categories', async (_, res) => {
 
 app.post('/api/categories', requireAdmin, async (req, res) => {
   try {
-    const name = String(req.body?.name || '').trim();
+    const name = normalizeCategoryName(req.body?.name);
     if (!name) return res.status(400).json({ error: 'Category name is required' });
-    const result = await dbRunAsync(`INSERT INTO categories (name, description) VALUES (?, ?)`, [name, req.body?.description || null]);
-    return res.status(201).json(await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [result.lastInsertRowid]));
+
+    let parentId = null;
+    if (hasOwn(req.body, 'parent_id')) {
+      const rawParent = req.body?.parent_id;
+      if (rawParent !== null && rawParent !== '') {
+        parentId = toNullablePositiveInt(rawParent);
+        if (!parentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+      }
+    }
+
+    if (parentId) {
+      const parent = await getCategoryByIdAsync(parentId);
+      if (!parent) return res.status(404).json({ error: 'Parent category not found' });
+    }
+
+    const duplicate = await findCategoryByNameAndParentAsync({ name, parentId });
+    if (duplicate) return res.status(409).json({ error: 'Category name already exists' });
+
+    const result = await dbRunAsync(
+      `INSERT INTO categories (name, description, parent_id)
+       VALUES (?, ?, ?)`,
+      [
+        name,
+        req.body?.description == null ? null : (String(req.body.description).trim() || null),
+        parentId,
+      ]
+    );
+    return res.status(201).json(await getCategoryByIdAsync(result.lastInsertRowid));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/api/categories/:id', requireAdmin, async (req, res) => {
+app.put('/api/categories/:id(\\d+)', requireAdmin, async (req, res) => {
   try {
-    const current = await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [req.params.id]);
+    const categoryId = toNullablePositiveInt(req.params.id);
+    if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
+    const current = await getCategoryByIdAsync(categoryId);
     if (!current) return res.status(404).json({ error: 'Category not found' });
-    await dbRunAsync(`UPDATE categories SET name=?, description=? WHERE id=?`, [
-      req.body?.name ?? current.name,
-      req.body?.description ?? current.description,
-      req.params.id,
-    ]);
-    return res.json(await dbGetAsync(`SELECT * FROM categories WHERE id = ?`, [req.params.id]));
+
+    const nextName = hasOwn(req.body, 'name')
+      ? normalizeCategoryName(req.body?.name)
+      : normalizeCategoryName(current.name);
+    if (!nextName) return res.status(400).json({ error: 'Category name is required' });
+
+    let nextParentId = current.parent_id == null ? null : Number(current.parent_id);
+    if (hasOwn(req.body, 'parent_id')) {
+      const rawParent = req.body?.parent_id;
+      if (rawParent === null || rawParent === '') {
+        nextParentId = null;
+      } else {
+        nextParentId = toNullablePositiveInt(rawParent);
+        if (!nextParentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+      }
+    }
+    if (nextParentId === categoryId) {
+      return res.status(400).json({ error: 'A category cannot be its own parent' });
+    }
+
+    if (nextParentId) {
+      const parent = await getCategoryByIdAsync(nextParentId);
+      if (!parent) return res.status(404).json({ error: 'Parent category not found' });
+      const allRows = await dbAllAsync(`SELECT id, parent_id FROM categories`);
+      if (detectParentCycle(allRows, categoryId, nextParentId)) {
+        return res.status(400).json({ error: 'Cannot move category inside its own subtree' });
+      }
+    }
+
+    const duplicate = await findCategoryByNameAndParentAsync({
+      name: nextName,
+      parentId: nextParentId,
+      excludeId: categoryId,
+    });
+    if (duplicate) return res.status(409).json({ error: 'Category name already exists' });
+
+    const nextDescription = hasOwn(req.body, 'description')
+      ? (req.body?.description == null ? null : (String(req.body.description).trim() || null))
+      : current.description;
+
+    await dbRunAsync(
+      `UPDATE categories
+       SET name = ?, description = ?, parent_id = ?
+       WHERE id = ?`,
+      [nextName, nextDescription, nextParentId, categoryId]
+    );
+    return res.json(await getCategoryByIdAsync(categoryId));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.delete('/api/categories/:id', requireAdmin, async (req, res) => {
+app.post('/api/categories/:id(\\d+)/move', requireAdmin, async (req, res) => {
   try {
-    await dbRunAsync(`DELETE FROM categories WHERE id = ?`, [req.params.id]);
+    const categoryId = toNullablePositiveInt(req.params.id);
+    if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
+    const current = await getCategoryByIdAsync(categoryId);
+    if (!current) return res.status(404).json({ error: 'Category not found' });
+
+    const rawParent = req.body?.parent_id;
+    let nextParentId = null;
+    if (rawParent !== null && rawParent !== '') {
+      nextParentId = toNullablePositiveInt(rawParent);
+      if (!nextParentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+    }
+    if (nextParentId === categoryId) return res.status(400).json({ error: 'A category cannot be its own parent' });
+    if (nextParentId) {
+      const parent = await getCategoryByIdAsync(nextParentId);
+      if (!parent) return res.status(404).json({ error: 'Parent category not found' });
+    }
+    const allRows = await dbAllAsync(`SELECT id, parent_id FROM categories`);
+    if (detectParentCycle(allRows, categoryId, nextParentId)) {
+      return res.status(400).json({ error: 'Cannot move category inside its own subtree' });
+    }
+    if (!isSameParent(current.parent_id, nextParentId)) {
+      const duplicate = await findCategoryByNameAndParentAsync({
+        name: current.name,
+        parentId: nextParentId,
+        excludeId: categoryId,
+      });
+      if (duplicate) {
+        return res.status(409).json({ error: 'A sibling category with this name already exists in the target parent' });
+      }
+    }
+
+    await dbRunAsync(`UPDATE categories SET parent_id = ? WHERE id = ?`, [nextParentId, categoryId]);
+    return res.json(await getCategoryByIdAsync(categoryId));
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/categories/:id(\\d+)', requireAdmin, async (req, res) => {
+  try {
+    const categoryId = toNullablePositiveInt(req.params.id);
+    if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
+    const current = await getCategoryByIdAsync(categoryId);
+    if (!current) return res.status(404).json({ error: 'Category not found' });
+
+    const childrenCount = Number((await dbGetAsync(`SELECT COUNT(*) AS count FROM categories WHERE parent_id = ?`, [categoryId]))?.count || 0);
+    const directProductsCount = Number((await dbGetAsync(`SELECT COUNT(*) AS count FROM products WHERE category_id = ?`, [categoryId]))?.count || 0);
+    const legacyProductsCount = Number((await dbGetAsync(
+      `SELECT COUNT(*) AS count
+       FROM products
+       WHERE category_id IS NULL
+         AND (lower(category) = lower(?) OR lower(COALESCE(subcategory, '')) = lower(?))`,
+      [current.name, current.name]
+    ))?.count || 0);
+
+    if (childrenCount > 0 || directProductsCount > 0 || legacyProductsCount > 0) {
+      return res.status(409).json({
+        error: 'Cannot delete category with child categories or linked products',
+        details: {
+          children: childrenCount,
+          direct_products: directProductsCount,
+          legacy_products: legacyProductsCount,
+        },
+      });
+    }
+
+    await dbRunAsync(`DELETE FROM categories WHERE id = ?`, [categoryId]);
     return res.json({ success: true });
   } catch (error) {
     return res.status(500).json({ error: error.message });

@@ -6,14 +6,14 @@ import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
 
-function UserEditModal({ user, onClose, onSave, isCreate = false }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
+function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill = null }) {
+  const [formData, setFormData] = useState(() => ({
+    name: isCreate ? String(createPrefill?.name || '') : '',
+    email: isCreate ? String(createPrefill?.email || '') : '',
+    phone: isCreate ? String(createPrefill?.phone || '') : '',
+    address: isCreate ? String(createPrefill?.address || '') : '',
     role: 'customer',
-  });
+  }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -80,22 +80,24 @@ function UserEditModal({ user, onClose, onSave, isCreate = false }) {
     setSuccess('');
 
     try {
+      let createdUser = null;
       if (isCreate) {
         const normalizedPhone = formData.phone ? normalizeIndianPhone(formData.phone) : '';
-        await usersApi.create({
+        const created = await usersApi.create({
           name: formData.name.trim(),
           email: formData.email.trim() || null,
           phone: normalizedPhone || null,
           address: formData.address.trim() || null,
           role: 'customer',
         });
+        createdUser = created?.user || created || null;
         setSuccess('Customer created successfully');
       } else {
         await usersApi.update(user.id, { role: formData.role === 'admin' ? 'admin' : 'customer' });
         setSuccess('User type updated successfully');
       }
       setTimeout(() => {
-        onSave();
+        onSave(createdUser);
         onClose();
       }, 700);
     } catch (err) {

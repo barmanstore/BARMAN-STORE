@@ -19,6 +19,15 @@
   font-size: 14px;
 }
 
+.purchase-management .success-message {
+  background: #dcfce7;
+  color: #166534;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 /* Sub Navigation */
 .purchase-management .sub-nav {
   display: flex;
@@ -232,12 +241,14 @@
   font-weight: 500;
 }
 
-.purchase-management .status-badge.pending {
+.purchase-management .status-badge.pending,
+.purchase-management .status-badge.registered {
   background: #fef3c7;
   color: #92400e;
 }
 
-.purchase-management .status-badge.confirmed {
+.purchase-management .status-badge.confirmed,
+.purchase-management .status-badge.processed {
   background: #dbeafe;
   color: #1d4ed8;
 }
@@ -255,6 +266,42 @@
 .purchase-management .status-badge.cancelled {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.purchase-management .payment-status-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.purchase-management .payment-status-badge.unpaid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.purchase-management .payment-status-badge.part-paid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.purchase-management .payment-status-badge.paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.purchase-management .data-table tr.ledger-row-unpaid td {
+  background: #fff1f2;
+}
+
+.purchase-management .data-table tr.ledger-row-part-paid td {
+  background: #fffbeb;
+}
+
+.purchase-management .data-table tr.ledger-row-paid td {
+  background: #ecfdf5;
 }
 
 .purchase-management .type-badge {
@@ -300,6 +347,11 @@
   color: #374151;
 }
 
+.purchase-management .action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .purchase-management .action-btn.receive {
   background: #d1fae5;
   color: #065f46;
@@ -342,6 +394,15 @@
 
 .purchase-management .action-btn.correction:hover {
   background: #fde68a;
+}
+
+.purchase-management .action-btn.whatsapp {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.purchase-management .action-btn.whatsapp:hover {
+  background: #bbf7d0;
 }
 
 /* Order Detail Modal */
@@ -964,6 +1025,7 @@
 }
 
 body.po-modal-resizing {
+  -webkit-user-select: none;
   user-select: none;
   cursor: nwse-resize;
 }

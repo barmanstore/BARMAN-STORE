@@ -58,7 +58,7 @@ const dbTxAsync = (handler, ...args) => dbQuery.transactionAsync(
   async (tx, ...handlerArgs) => txStorage.run(tx, () => handler(...handlerArgs)),
   ...args
 );
-const SQL_INSERT_IGNORE_CATEGORY = `INSERT INTO categories (name, description) VALUES (?, ?) ON CONFLICT (name) DO NOTHING`;
+const SQL_INSERT_IGNORE_CATEGORY = `INSERT INTO categories (name, description, parent_id) VALUES (?, ?, NULL) ON CONFLICT DO NOTHING`;
 const SQL_UPSERT_VISITOR_SESSION = `INSERT INTO visitor_sessions (session_id, user_id, started_at, last_seen_at, last_path, referrer, user_agent, ip_hash)
    VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
    ON CONFLICT(session_id) DO UPDATE SET
@@ -93,17 +93,6 @@ const parseBooleanEnv = (value, fallback = false) => {
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
 
-const FRONTEND_INFO_PATH = path.join(__dirname, '..', 'src', 'pages', 'info.js');
-const readBusinessNameFromFrontendInfo = () => {
-  try {
-    if (!fs.existsSync(FRONTEND_INFO_PATH)) return '';
-    const content = fs.readFileSync(FRONTEND_INFO_PATH, 'utf8');
-    const match = content.match(/export\s+const\s+TITLE\s*=\s*["'`]([^"'`]+)["'`]/);
-    return String(match?.[1] || '').trim();
-  } catch (_) {
-    return '';
-  }
-};
 
 const toTimestampMs = (value) => {
   const ts = new Date(value || '').getTime();
@@ -784,8 +773,13 @@ const PHONE_VERIFICATION_REQUIRED = parseBooleanEnv(process.env.PHONE_VERIFICATI
 const OTP_PROVIDER = String(process.env.OTP_PROVIDER || 'twilio').trim().toLowerCase();
 const OTP_TTL_SECONDS = Math.max(60, Number(process.env.OTP_TTL_SECONDS || 300));
 const OTP_MAX_ATTEMPTS = Math.max(1, Number(process.env.OTP_MAX_ATTEMPTS || 5));
-const AUTH_LOGIN_OTP_EXPOSE_CODE = process.env.NODE_ENV !== 'production'
-  || parseBooleanEnv(process.env.AUTH_LOGIN_OTP_EXPOSE_CODE, false);
+const AUTH_LOGIN_OTP_EXPOSE_CODE_REQUESTED = parseBooleanEnv(
+  process.env.AUTH_LOGIN_OTP_EXPOSE_CODE,
+  process.env.NODE_ENV === 'test'
+);
+const AUTH_LOGIN_OTP_EXPOSE_CODE = process.env.NODE_ENV === 'production'
+  ? false
+  : AUTH_LOGIN_OTP_EXPOSE_CODE_REQUESTED;
 const OTP_DELIVERY_MODE = String(
   process.env.OTP_DELIVERY_MODE || (AUTH_FLOW_MODE === 'provider' ? 'auto' : 'manual')
 ).trim().toLowerCase() === 'auto'
@@ -831,12 +825,24 @@ const APP_NOTIFICATION_PURGE_BATCH_LIMIT = Math.max(
   100,
   Math.min(20000, Number(process.env.APP_NOTIFICATION_PURGE_BATCH_LIMIT || 5000))
 );
+const CUSTOMER_REQUEST_RETENTION_DAYS = Math.max(
+  7,
+  Math.min(365, Number(process.env.CUSTOMER_REQUEST_RETENTION_DAYS || 60))
+);
+const CUSTOMER_REQUEST_PURGE_INTERVAL_MS = Math.max(
+  60 * 60 * 1000,
+  Number(process.env.CUSTOMER_REQUEST_PURGE_INTERVAL_MS || 12 * 60 * 60 * 1000)
+);
+const CUSTOMER_REQUEST_PURGE_BATCH_LIMIT = Math.max(
+  50,
+  Math.min(10000, Number(process.env.CUSTOMER_REQUEST_PURGE_BATCH_LIMIT || 500))
+);
 const PHONE_CHANGE_EXPIRED_REASON = 'Admin review window expired. Please submit phone update again.';
 const BUSINESS_NAME = String(
-  readBusinessNameFromFrontendInfo()
-  || process.env.BUSINESS_NAME
-  || "বৰ্মন ষ্ট'ৰ"
-).trim() || "বৰ্মন ষ্ট'ৰ";
+  process.env.BUSINESS_NAME
+  || process.env.PUBLIC_BUSINESS_NAME
+  || 'BARMAN STORE'
+).trim() || 'BARMAN STORE';
 const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://barmanstore.vercel.app/login'
 ).trim();
@@ -847,10 +853,13 @@ const SUPABASE_AUTH_ENABLED = SUPABASE_AUTH_ENABLED_RAW
 const SUPABASE_AUTH_MODE = String(process.env.SUPABASE_AUTH_MODE || 'hybrid').trim().toLowerCase() === 'strict'
   ? 'strict'
   : 'hybrid';
-const SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK = parseBooleanEnv(
+const SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK_REQUESTED = parseBooleanEnv(
   process.env.SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK,
-  process.env.NODE_ENV !== 'production'
+  false
 );
+const SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK = process.env.NODE_ENV === 'production'
+  ? false
+  : SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK_REQUESTED;
 const SUPABASE_PASSWORD_RESET_REDIRECT = String(
   process.env.SUPABASE_PASSWORD_RESET_REDIRECT || PASSWORD_RESET_LOGIN_URL
 ).trim();
@@ -886,6 +895,14 @@ const supabaseAuthProvider = createSupabaseAuthProvider({
   emailRedirectTo: SUPABASE_EMAIL_VERIFY_REDIRECT,
   allowAccessTokenDecodeFallback: SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK,
 });
+if (process.env.NODE_ENV === 'production') {
+  if (AUTH_LOGIN_OTP_EXPOSE_CODE_REQUESTED) {
+    console.warn('[AUTH] AUTH_LOGIN_OTP_EXPOSE_CODE=true ignored in production for security.');
+  }
+  if (SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK_REQUESTED) {
+    console.warn('[AUTH] SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK=true ignored in production for security.');
+  }
+}
 const otpProvider = createOtpProvider({
   OTP_PROVIDER,
   OTP_API_KEY: process.env.OTP_API_KEY || '',
@@ -1201,6 +1218,12 @@ const generateOrderNumber = () => {
 const generatePONumber = () => `PO-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateReturnNumber = () => `RET-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+const PO_LIFECYCLE_REGISTERED = 'registered';
+const PO_LIFECYCLE_PROCESSED = 'processed';
+const PO_LIFECYCLE_CANCELLED = 'cancelled';
+const PO_PAYMENT_UNPAID = 'unpaid';
+const PO_PAYMENT_PART_PAID = 'part_paid';
+const PO_PAYMENT_PAID = 'paid';
 const ORDER_STATUS_ORDERED = 'ordered';
 const ORDER_STATUS_RECEIVED = 'received';
 const ORDER_ALLOWED_PAYMENT_STATUSES = new Set(['pending', 'paid', 'partial', 'refunded', 'declined']);
@@ -1219,6 +1242,54 @@ const normalizeOrderPaymentStatus = (status, orderStatus) => {
   if (ORDER_ALLOWED_PAYMENT_STATUSES.has(raw)) return raw;
   const normalizedOrderStatus = normalizeOrderStatus(orderStatus, ORDER_STATUS_ORDERED);
   return normalizedOrderStatus === ORDER_STATUS_RECEIVED ? 'pending' : 'pending';
+};
+
+const normalizePoLifecycleStatus = (status, fallback = PO_LIFECYCLE_REGISTERED) => {
+  const raw = String(status || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === PO_LIFECYCLE_REGISTERED || raw === 'pending' || raw === 'draft') return PO_LIFECYCLE_REGISTERED;
+  if (raw === PO_LIFECYCLE_PROCESSED || raw === 'confirmed' || raw === 'shipped' || raw === 'received') return PO_LIFECYCLE_PROCESSED;
+  if (raw === PO_LIFECYCLE_CANCELLED || raw === 'canceled') return PO_LIFECYCLE_CANCELLED;
+  return fallback;
+};
+
+const getPurchaseOrderLifecycleStatus = (order, fallback = PO_LIFECYCLE_REGISTERED) => {
+  if (!order) return fallback;
+  return normalizePoLifecycleStatus(order.po_status || order.status, fallback);
+};
+
+const normalizePoPaymentStatus = (value, fallback = PO_PAYMENT_UNPAID) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === PO_PAYMENT_UNPAID || raw === 'pending') return PO_PAYMENT_UNPAID;
+  if (raw === PO_PAYMENT_PART_PAID || raw === 'partpaid' || raw === 'partial') return PO_PAYMENT_PART_PAID;
+  if (raw === PO_PAYMENT_PAID) return PO_PAYMENT_PAID;
+  return fallback;
+};
+
+const calculatePoPaymentSnapshot = (totalAmountValue, paidAmountValue = 0) => {
+  const totalAmount = Math.max(0, Number(totalAmountValue || 0));
+  const paidAmountRaw = Math.max(0, Number(paidAmountValue || 0));
+  const paidAmount = Math.min(totalAmount, paidAmountRaw);
+  const balanceDue = Math.max(0, totalAmount - paidAmount);
+  let paymentStatus = PO_PAYMENT_UNPAID;
+  if (totalAmount > 0 && paidAmount >= totalAmount) {
+    paymentStatus = PO_PAYMENT_PAID;
+  } else if (paidAmount > 0) {
+    paymentStatus = PO_PAYMENT_PART_PAID;
+  }
+  return {
+    totalAmount,
+    paidAmount,
+    balanceDue,
+    paymentStatus,
+  };
+};
+
+const normalizeTransactionDate = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  return raw.slice(0, 10);
 };
 
 const normalizePaymentMethod = (method) => {
@@ -1246,6 +1317,200 @@ const normalizeDistributorLedgerType = (type) => {
   if (raw === 'payment' || raw === 'paid') return 'payment';
   if (raw === 'credit' || raw === 'given' || raw === 'due') return 'credit';
   return 'credit';
+};
+
+const getNormalizedPhoneFromUnknownText = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const direct = normalizePhone(raw);
+  if (direct) return direct;
+  const candidates = raw.match(/\+?[0-9][0-9\s().-]{8,}/g) || [];
+  for (const candidate of candidates) {
+    const normalized = normalizePhone(candidate);
+    if (normalized) return normalized;
+  }
+  return '';
+};
+
+const getDistributorWhatsappPhone = (distributor = null) => {
+  if (!distributor) return '';
+  const direct = getNormalizedPhoneFromUnknownText(distributor.phone);
+  if (direct) return direct;
+
+  const contactsRaw = distributor.contacts;
+  if (!contactsRaw) return '';
+  if (typeof contactsRaw === 'object') {
+    const objectCandidates = [
+      contactsRaw.phone,
+      contactsRaw.mobile,
+      contactsRaw.whatsapp,
+      contactsRaw.primary_phone,
+      contactsRaw.contact,
+    ];
+    for (const candidate of objectCandidates) {
+      const normalized = getNormalizedPhoneFromUnknownText(candidate);
+      if (normalized) return normalized;
+    }
+    if (Array.isArray(contactsRaw.phones)) {
+      for (const candidate of contactsRaw.phones) {
+        const normalized = getNormalizedPhoneFromUnknownText(candidate);
+        if (normalized) return normalized;
+      }
+    }
+  }
+
+  const contactsText = String(contactsRaw || '').trim();
+  if (!contactsText) return '';
+  try {
+    const parsed = JSON.parse(contactsText);
+    if (parsed && typeof parsed === 'object') {
+      const parsedCandidates = [
+        parsed.phone,
+        parsed.mobile,
+        parsed.whatsapp,
+        parsed.primary_phone,
+        parsed.contact,
+      ];
+      for (const candidate of parsedCandidates) {
+        const normalized = getNormalizedPhoneFromUnknownText(candidate);
+        if (normalized) return normalized;
+      }
+      if (Array.isArray(parsed.phones)) {
+        for (const candidate of parsed.phones) {
+          const normalized = getNormalizedPhoneFromUnknownText(candidate);
+          if (normalized) return normalized;
+        }
+      }
+    }
+  } catch (_) {
+    // plain-text contacts are handled below
+  }
+
+  return getNormalizedPhoneFromUnknownText(contactsText);
+};
+
+const normalizeWhatsAppRecipientPhone = (phone) => {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return digits;
+  return digits;
+};
+
+const notifyDistributorPurchaseOrderAsync = async ({
+  purchaseOrderId = null,
+  distributorId,
+  poNumber,
+  totalAmount,
+  paymentStatus = PO_PAYMENT_UNPAID,
+  balanceDue = 0,
+  expectedDelivery = null,
+  notes = '',
+  billNumber = '',
+  isUpdate = false,
+  items = [],
+  messageDate = null,
+  title = '',
+  preparedBy = null,
+} = {}) => {
+  const normalizedDistributorId = Number(distributorId || 0);
+  if (!normalizedDistributorId) return { queued: false, reason: 'missing_distributor' };
+  const distributor = await dbGetAsync(`SELECT id, name, contacts FROM distributors WHERE id = ?`, [normalizedDistributorId]);
+  if (!distributor) return { queued: false, reason: 'distributor_not_found' };
+  const normalizedPhone = getDistributorWhatsappPhone(distributor);
+  if (!normalizedPhone) return { queued: false, reason: 'missing_phone' };
+
+  const recipientPhone = normalizeWhatsAppRecipientPhone(normalizedPhone);
+  if (!recipientPhone) return { queued: false, reason: 'invalid_phone' };
+
+  const normalizedPurchaseOrderId = Number(purchaseOrderId || 0);
+  let noticeItems = Array.isArray(items) ? items : [];
+  if (!noticeItems.length && normalizedPurchaseOrderId) {
+    noticeItems = await dbAllAsync(
+      `SELECT product_name, quantity, rate, unit_price
+       FROM purchase_order_items
+       WHERE order_id = ?
+       ORDER BY id ASC`,
+      [normalizedPurchaseOrderId]
+    );
+  }
+
+  const orderDate = normalizeTransactionDate(messageDate) || new Date().toISOString().slice(0, 10);
+  const preparedWhatsApp = notificationService.prepareWhatsApp({
+    type: 'purchase_order_distributor_notice',
+    to: recipientPhone,
+    payload: {
+      title: String(title || '').trim() || `Order for ${orderDate}`,
+      order_date: orderDate,
+      items: noticeItems,
+    },
+  });
+  const text = preparedWhatsApp.text;
+  const normalizedRecipientPhone = preparedWhatsApp.to;
+  const whatsappUrl = preparedWhatsApp.whatsapp_url;
+
+  const eventId = await createNotificationEvent({
+    type: 'purchase_order_distributor_notice',
+    channel: 'whatsapp',
+    recipient: normalizedRecipientPhone,
+    recipientUserId: null,
+    subject: `PO ${isUpdate ? 'update' : 'register'} ${poNumber || ''}`.trim(),
+    body: text,
+    metadata: {
+      mode: WHATSAPP_DELIVERY_MODE,
+      po_number: poNumber || null,
+      distributor_id: normalizedDistributorId,
+      items_count: noticeItems.length,
+      order_date: orderDate,
+      title: String(title || '').trim() || `Order for ${orderDate}`,
+      balance_due: Number(balanceDue || 0),
+      payment_status: normalizePoPaymentStatus(paymentStatus, PO_PAYMENT_UNPAID),
+      bill_number: billNumber || null,
+      expected_delivery: expectedDelivery ? String(expectedDelivery).slice(0, 10) : null,
+    },
+    status: 'prepared',
+    preparedBy,
+  });
+
+  if (WHATSAPP_DELIVERY_MODE !== 'auto') {
+    return {
+      queued: false,
+      reason: 'manual_send_required',
+      mode: 'manual',
+      event_id: eventId,
+      whatsapp: {
+        to: normalizedRecipientPhone,
+        text,
+        whatsapp_url: whatsappUrl,
+      },
+    };
+  }
+
+  if (!whatsappProvider?.isReady) {
+    await updateNotificationEventStatus(eventId, {
+      status: 'failed',
+      errorMessage: 'WhatsApp provider is not configured',
+    });
+    return { queued: false, reason: 'provider_not_ready', event_id: eventId, whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl } };
+  }
+
+  try {
+    await whatsappProvider.sendMessage({ to: normalizedRecipientPhone, text });
+    await updateNotificationEventStatus(eventId, { status: 'sent' });
+    return { queued: true, mode: 'auto', event_id: eventId, whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl } };
+  } catch (error) {
+    await updateNotificationEventStatus(eventId, {
+      status: 'failed',
+      errorMessage: error?.message || String(error || 'WhatsApp send failed'),
+    });
+    return {
+      queued: false,
+      reason: 'send_failed',
+      event_id: eventId,
+      error: error?.message || String(error || 'WhatsApp send failed'),
+      whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl },
+    };
+  }
 };
 
 const normalizeCreditType = (type) => {
@@ -1284,12 +1549,12 @@ const recalculateCreditBalancesForUser = async (userId) => dbTxAsync(async () =>
   return runningBalance;
 });
 
-const generateSku = (name, brand, content, mrp) => {
+const generateSku = (name, brand, content, price, mrp) => {
   const part = (v) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const n = part(name).slice(0, 4).padEnd(4, 'X');
   const b = part(brand).slice(0, 4).padEnd(4, 'X');
   const c = part(content).slice(0, 2).padEnd(2, 'X');
-  const p = String(Math.round(Number(mrp || 0))).replace(/\D/g, '').slice(-4).padStart(4, '0');
+  const p = String(Math.round(Number(price || mrp || 0))).replace(/\D/g, '').slice(-4).padStart(4, '0');
   return `${n}${b}${c}${p}`;
 };
 
@@ -1419,6 +1684,90 @@ const purgeOldAppNotificationsAsync = async ({
     older_than_days: normalizedDays,
     limit: normalizedLimit,
   };
+};
+
+const purgeOldCustomerRequestsAsync = async ({
+  olderThanDays = CUSTOMER_REQUEST_RETENTION_DAYS,
+  limit = CUSTOMER_REQUEST_PURGE_BATCH_LIMIT,
+} = {}) => {
+  const normalizedDays = Math.max(7, Math.min(365, Number(olderThanDays || CUSTOMER_REQUEST_RETENTION_DAYS)));
+  const normalizedLimit = Math.max(1, Math.min(20000, Number(limit || CUSTOMER_REQUEST_PURGE_BATCH_LIMIT)));
+  const cutoffDate = new Date(Date.now() - (normalizedDays * 24 * 60 * 60 * 1000));
+  const cutoffIso = cutoffDate.toISOString();
+
+  const productResult = await dbRunAsync(
+    `WITH old_rows AS (
+      SELECT id
+      FROM product_recommendations
+      WHERE status IN ('fulfilled', 'rejected')
+        AND COALESCE(resolved_at, updated_at, created_at) < ?
+      ORDER BY id ASC
+      LIMIT ?
+    )
+    DELETE FROM product_recommendations
+    WHERE id IN (SELECT id FROM old_rows)`,
+    [cutoffIso, normalizedLimit]
+  );
+
+  const creditIssueResult = await dbRunAsync(
+    `WITH old_rows AS (
+      SELECT id
+      FROM credit_entry_issues
+      WHERE status IN ('corrected', 'rejected')
+        AND COALESCE(resolved_at, updated_at, created_at) < ?
+      ORDER BY id ASC
+      LIMIT ?
+    )
+    DELETE FROM credit_entry_issues
+    WHERE id IN (SELECT id FROM old_rows)`,
+    [cutoffIso, normalizedLimit]
+  );
+
+  const phoneRequestResult = await dbRunAsync(
+    `WITH old_rows AS (
+      SELECT id
+      FROM phone_change_requests
+      WHERE status IN (?, ?)
+        AND COALESCE(reviewed_at, updated_at, created_at) < ?
+      ORDER BY id ASC
+      LIMIT ?
+    )
+    DELETE FROM phone_change_requests
+    WHERE id IN (SELECT id FROM old_rows)`,
+    [PHONE_CHANGE_STATUS_APPROVED, PHONE_CHANGE_STATUS_REJECTED, cutoffIso, normalizedLimit]
+  );
+
+  const deletedProductRecommendations = Number(productResult?.changes || 0);
+  const deletedCreditIssues = Number(creditIssueResult?.changes || 0);
+  const deletedPhoneRequests = Number(phoneRequestResult?.changes || 0);
+
+  return {
+    deleted_product_recommendations: deletedProductRecommendations,
+    deleted_credit_issues: deletedCreditIssues,
+    deleted_phone_requests: deletedPhoneRequests,
+    total_deleted: deletedProductRecommendations + deletedCreditIssues + deletedPhoneRequests,
+    cutoff: cutoffIso,
+    older_than_days: normalizedDays,
+    limit: normalizedLimit,
+  };
+};
+
+const runCustomerRequestPurge = async () => {
+  try {
+    const result = await purgeOldCustomerRequestsAsync({
+      olderThanDays: CUSTOMER_REQUEST_RETENTION_DAYS,
+      limit: CUSTOMER_REQUEST_PURGE_BATCH_LIMIT,
+    });
+    if (Number(result?.total_deleted || 0) > 0) {
+      console.log(
+        `[CUSTOMER_REQUESTS] Purged ${result.total_deleted} rows older than ${CUSTOMER_REQUEST_RETENTION_DAYS} days`
+      );
+    }
+    return result;
+  } catch (error) {
+    console.warn('[CUSTOMER_REQUESTS] Retention purge failed:', error?.message || error);
+    return null;
+  }
 };
 
 const notifyAdmins = async ({
@@ -2203,6 +2552,21 @@ const stopAppNotificationPurgeWorker = () => {
   appNotificationPurgeTimer = null;
 };
 
+const startCustomerRequestPurgeWorker = () => {
+  if (IS_VERCEL_RUNTIME) return;
+  if (customerRequestPurgeTimer) return;
+  customerRequestPurgeTimer = setInterval(() => {
+    void runCustomerRequestPurge();
+  }, CUSTOMER_REQUEST_PURGE_INTERVAL_MS);
+  void runCustomerRequestPurge();
+};
+
+const stopCustomerRequestPurgeWorker = () => {
+  if (!customerRequestPurgeTimer) return;
+  clearInterval(customerRequestPurgeTimer);
+  customerRequestPurgeTimer = null;
+};
+
 const PRODUCT_IMPORT_BATCH_TTL_MS = Number(process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000);
 const PRODUCT_IMPORT_HEADERS = [
   'id',
@@ -2216,6 +2580,9 @@ const PRODUCT_IMPORT_HEADERS = [
   'content',
   'color',
   'uom',
+  'base_unit',
+  'uom_type',
+  'conversion_factor',
   'price',
   'mrp',
   'stock',
@@ -2238,6 +2605,9 @@ const PRODUCT_IMPORT_SAMPLE = {
   content: '250g',
   color: '',
   uom: 'pcs',
+  base_unit: 'pcs',
+  uom_type: 'selling',
+  conversion_factor: 1,
   price: 99,
   mrp: 120,
   stock: 25,
@@ -2252,6 +2622,7 @@ const productImportBatches = new Map();
 let phoneChangeWorkerTimer = null;
 let phoneChangeWorkerRunning = false;
 let appNotificationPurgeTimer = null;
+let customerRequestPurgeTimer = null;
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -2307,10 +2678,11 @@ const splitHierarchyInput = (value) => {
     return { parent: raw, child: '', invalid: false };
   }
   const parts = raw.split(HIERARCHY_SEPARATOR).map((part) => String(part || '').trim());
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+  if (parts.length < 2 || parts.some((part) => !part)) {
     return { parent: raw, child: '', invalid: true };
   }
-  return { parent: parts[0], child: parts[1], invalid: false };
+  const [parent, ...tail] = parts;
+  return { parent, child: tail.join(` ${HIERARCHY_SEPARATOR} `), invalid: false };
 };
 
 const composeHierarchyPath = (parent, child) => {
@@ -2336,6 +2708,12 @@ const normalizeProductRecord = (row) => {
 
   out.category_path = composeHierarchyPath(out.category, out.subcategory);
   out.brand_path = composeHierarchyPath(out.brand, out.sub_brand);
+  out.uom = String(out.uom || 'pcs').trim() || 'pcs';
+  out.base_unit = String(out.base_unit || out.uom || 'pcs').trim() || 'pcs';
+  const uomType = String(out.uom_type || 'selling').trim().toLowerCase();
+  out.uom_type = ['selling', 'purchasing', 'both'].includes(uomType) ? uomType : 'selling';
+  const conversionFactor = Number(out.conversion_factor ?? 1);
+  out.conversion_factor = Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
   out.defaultDiscount = Number(out.default_discount ?? 0);
   out.discountType = String(out.discount_type || 'fixed');
   out.is_active = Number(out.is_active ?? 1);
@@ -2410,6 +2788,9 @@ const normalizeProductInput = (input = {}, current = null) => {
   const priceRaw = body.price ?? existing.price ?? 0;
   const mrpRaw = body.mrp ?? existing.mrp ?? priceRaw;
   const uom = body.uom ?? existing.uom ?? 'pcs';
+  const baseUnitRaw = body.base_unit ?? existing.base_unit ?? uom ?? 'pcs';
+  const uomTypeRaw = body.uom_type ?? existing.uom_type ?? 'selling';
+  const conversionFactorRaw = body.conversion_factor ?? existing.conversion_factor ?? 1;
   const skuCandidate = body.sku ?? existing.sku ?? '';
   const barcodeCandidate = body.barcode ?? existing.barcode ?? null;
   const image = body.image ?? existing.image ?? null;
@@ -2425,7 +2806,16 @@ const normalizeProductInput = (input = {}, current = null) => {
   const defaultDiscount = Number(defaultDiscountRaw || 0);
   const discountType = normalizeDiscountType(discountTypeRaw);
   const isActive = normalizeBooleanish(isActiveRaw, 1);
-  const sku = String(skuCandidate || '').trim() || generateSku(name, brandFromInput, content, mrp || price);
+  const normalizedUom = String(uom || 'pcs').trim() || 'pcs';
+  const normalizedBaseUnit = String(baseUnitRaw || normalizedUom || 'pcs').trim() || 'pcs';
+  const normalizedUomType = ['selling', 'purchasing', 'both'].includes(String(uomTypeRaw || '').trim().toLowerCase())
+    ? String(uomTypeRaw || '').trim().toLowerCase()
+    : 'selling';
+  const conversionFactor = Number(conversionFactorRaw);
+  const normalizedConversionFactor = Number.isFinite(conversionFactor) && conversionFactor > 0
+    ? conversionFactor
+    : 1;
+  const sku = String(skuCandidate || '').trim() || generateSku(name, brandFromInput, content, price, mrp);
   const barcode = String(barcodeCandidate || '').trim() || null;
 
   return {
@@ -2438,7 +2828,10 @@ const normalizeProductInput = (input = {}, current = null) => {
     color: color === null || color === undefined ? null : String(color).trim() || null,
     price,
     mrp: Number.isFinite(mrp) ? mrp : price,
-    uom: String(uom || 'pcs').trim() || 'pcs',
+    uom: normalizedUom,
+    base_unit: normalizedBaseUnit,
+    uom_type: normalizedUomType,
+    conversion_factor: normalizedConversionFactor,
     sku,
     barcode,
     image: normalizeHttpImageUrl(image),
@@ -2470,6 +2863,20 @@ const validateProductPayload = (payload, { partial = false } = {}) => {
   }
   if (!partial || payload.stock !== undefined) {
     if (!Number.isFinite(Number(payload.stock)) || Number(payload.stock) < 0) errors.push('stock must be 0 or more');
+  }
+  if (!partial || payload.uom !== undefined) {
+    if (!String(payload.uom || '').trim()) errors.push('uom is required');
+  }
+  if (!partial || payload.base_unit !== undefined) {
+    if (!String(payload.base_unit || '').trim()) errors.push('base_unit is required');
+  }
+  if (payload.uom_type !== undefined) {
+    const uomType = String(payload.uom_type || '').trim().toLowerCase();
+    if (!['selling', 'purchasing', 'both'].includes(uomType)) errors.push('uom_type must be selling, purchasing or both');
+  }
+  if (payload.conversion_factor !== undefined) {
+    const factor = Number(payload.conversion_factor);
+    if (!Number.isFinite(factor) || factor <= 0) errors.push('conversion_factor must be greater than 0');
   }
   if (payload.mrp !== undefined && (!Number.isFinite(Number(payload.mrp)) || Number(payload.mrp) < 0)) {
     errors.push('mrp must be 0 or more');
@@ -2522,11 +2929,13 @@ const findProductConflictAsync = async (payload, { excludeId = null } = {}) => {
   const nameKey = normalizeTextKey(payload?.name);
   const brandKey = normalizeTextKey(payload?.brand);
   const subBrandKey = normalizeTextKey(payload?.sub_brand);
+  const contentKey = normalizeTextKey(payload?.content);
+  const colorKey = normalizeTextKey(payload?.color);
   if (!nameKey) return null;
 
   const byNameBrand = excludeId
     ? await dbAllAsync(
-      `SELECT id, name, brand, sub_brand, price, mrp
+      `SELECT id, name, brand, sub_brand, content, color, price, mrp
        FROM products
        WHERE lower(trim(name)) = ?
          AND lower(trim(COALESCE(brand, ''))) = ?
@@ -2536,7 +2945,7 @@ const findProductConflictAsync = async (payload, { excludeId = null } = {}) => {
       [nameKey, brandKey, subBrandKey, Number(excludeId)]
     )
     : await dbAllAsync(
-      `SELECT id, name, brand, sub_brand, price, mrp
+      `SELECT id, name, brand, sub_brand, content, color, price, mrp
        FROM products
        WHERE lower(trim(name)) = ?
          AND lower(trim(COALESCE(brand, ''))) = ?
@@ -2549,28 +2958,54 @@ const findProductConflictAsync = async (payload, { excludeId = null } = {}) => {
   const price = normalizeMoneyValue(payload?.price);
   const mrp = normalizeMoneyValue(payload?.mrp);
 
-  const exact = byNameBrand.find((row) =>
+  if (contentKey) {
+    const sameContentDifferentPrice = byNameBrand.find((row) =>
+      normalizeTextKey(row?.content) === contentKey
+        && (
+          normalizeMoneyValue(row?.price) !== price
+          || normalizeMoneyValue(row?.mrp) !== mrp
+        )
+    );
+    if (sameContentDifferentPrice) {
+      return {
+        field: 'content_price',
+        conflict_type: 'exact',
+        severity: 'block',
+        product_id: sameContentDifferentPrice.id,
+        product_name: sameContentDifferentPrice.name,
+        message: `Same content/size already exists with a different price/MRP (Product #${sameContentDifferentPrice.id}: ${sameContentDifferentPrice.name}). Use a different content value for a different price.`
+      };
+    }
+  }
+
+  const matchingVariantRows = byNameBrand.filter((row) =>
+    normalizeTextKey(row?.content) === contentKey
+      && normalizeTextKey(row?.color) === colorKey
+  );
+  if (!matchingVariantRows.length) return null;
+
+  const exact = matchingVariantRows.find((row) =>
     normalizeMoneyValue(row?.price) === price && normalizeMoneyValue(row?.mrp) === mrp
   );
   if (exact) {
     return {
-      field: 'name_brand_price_mrp',
+      field: 'name_brand_content_color_price_mrp',
       conflict_type: 'exact',
       severity: 'block',
       product_id: exact.id,
       product_name: exact.name,
-      message: `Exact duplicate exists (Product #${exact.id}: ${exact.name}) for name + brand/sub-brand + price + MRP`
+      message: `Exact duplicate exists (Product #${exact.id}: ${exact.name}) for name + brand/sub-brand + content + color + price + MRP`
     };
   }
 
-  const firstMatch = byNameBrand[0];
+  const firstMatch = matchingVariantRows[0];
   return {
-    field: 'name_brand',
+    field: 'name_brand_content_color',
     conflict_type: 'identical',
     severity: 'confirm',
     product_id: firstMatch.id,
     product_name: firstMatch.name,
-    message: `Identical product name + brand/sub-brand exists (Product #${firstMatch.id}: ${firstMatch.name}). Choose to allow or cancel.`
+    message: `Identical product variant exists (Product #${firstMatch.id}: ${firstMatch.name}) for name + brand/sub-brand + content + color. Choose to allow or cancel.`
   };
 };
 
@@ -2579,9 +3014,11 @@ const buildProductExactKey = (payload) => {
   if (!nameKey) return '';
   const brandKey = normalizeTextKey(payload?.brand);
   const subBrandKey = normalizeTextKey(payload?.sub_brand);
+  const contentKey = normalizeTextKey(payload?.content);
+  const colorKey = normalizeTextKey(payload?.color);
   const price = normalizeMoneyValue(payload?.price);
   const mrp = normalizeMoneyValue(payload?.mrp);
-  return `${nameKey}::${brandKey}::${subBrandKey}::${price ?? ''}::${mrp ?? ''}`;
+  return `${nameKey}::${brandKey}::${subBrandKey}::${contentKey}::${colorKey}::${price ?? ''}::${mrp ?? ''}`;
 };
 
 const findExistingProductForImportAsync = async (row) => {
@@ -2605,7 +3042,13 @@ const findExistingProductForImportAsync = async (row) => {
 
 const resolveOrCreateCategoryNameAsync = async (inputCategory) => {
   const requested = String(inputCategory || '').trim() || 'Groceries';
-  const existing = await dbGetAsync(`SELECT name FROM categories WHERE lower(name) = lower(?)`, [requested]);
+  const existing = await dbGetAsync(
+    `SELECT name
+     FROM categories
+     WHERE parent_id IS NULL
+       AND lower(name) = lower(?)`,
+    [requested]
+  );
   if (existing?.name) return existing.name;
   await dbRunAsync(SQL_INSERT_IGNORE_CATEGORY, [requested, 'Product category']);
   return requested;
@@ -2726,8 +3169,8 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
         if (row.action === 'create') {
           await dbRunAsync(
             `INSERT INTO products
-            (name, description, brand, sub_brand, content, color, price, mrp, uom, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               payload.name,
               payload.description,
@@ -2738,6 +3181,9 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
               payload.price,
               payload.mrp,
               payload.uom,
+              payload.base_unit,
+              payload.uom_type,
+              payload.conversion_factor,
               payload.sku,
               payload.barcode,
               payload.image,
@@ -2755,7 +3201,7 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
         } else {
           await dbRunAsync(
             `UPDATE products SET
-             name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
+             name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
              WHERE id=?`,
             [
               payload.name,
@@ -2767,6 +3213,9 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
               payload.price,
               payload.mrp,
               payload.uom,
+              payload.base_unit,
+              payload.uom_type,
+              payload.conversion_factor,
               payload.sku,
               payload.barcode,
               payload.image,
@@ -2836,6 +3285,9 @@ const toProductExportRow = (row) => ({
   content: row.content || '',
   color: row.color || '',
   uom: row.uom || 'pcs',
+  base_unit: row.base_unit || row.uom || 'pcs',
+  uom_type: row.uom_type || 'selling',
+  conversion_factor: Number(row.conversion_factor || 1),
   price: Number(row.price || 0),
   mrp: Number(row.mrp || 0),
   stock: Number(row.stock || 0),
@@ -3534,6 +3986,7 @@ app.post('/api/notifications/messages/to-customers', requireAdmin, async (req, r
 
 app.get('/api/admin/phone-change-requests', requireAdmin, async (req, res) => {
   try {
+    await runCustomerRequestPurge();
     await processPendingPhoneChangeRequests();
     const statusFilter = String(req.query?.status || 'open').trim().toLowerCase();
     const params = [];
@@ -4506,6 +4959,7 @@ app.post('/api/product-recommendations', requireAuth, async (req, res) => {
 
 app.get('/api/product-recommendations/mine', requireAuth, async (req, res) => {
   try {
+    await runCustomerRequestPurge();
     const rows = await dbAllAsync(
       `SELECT *
        FROM product_recommendations
@@ -4521,6 +4975,7 @@ app.get('/api/product-recommendations/mine', requireAuth, async (req, res) => {
 
 app.get('/api/admin/product-recommendations', requireAdmin, async (req, res) => {
   try {
+    await runCustomerRequestPurge();
     const status = String(req.query?.status || '').trim().toLowerCase();
     const allowed = new Set(['open', 'reviewed', 'fulfilled', 'rejected']);
     const rows = await dbAllAsync(
@@ -4678,6 +5133,7 @@ app.post('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
 
 app.get('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
   try {
+    await runCustomerRequestPurge();
     const requestUserId = Number(req.params.userId);
     if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
     const isAdmin = req.authUser?.role === 'admin';
@@ -4711,6 +5167,7 @@ app.get('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
 
 app.get('/api/admin/credit-issues', requireAdmin, async (req, res) => {
   try {
+    await runCustomerRequestPurge();
     const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
     const normalizedStatus = requestedStatus
       ? normalizeCreditIssueStatus(requestedStatus, { fallback: '' })
@@ -5361,14 +5818,27 @@ app.delete('/api/distributors/:id', requireAdmin, async (req, res) => {
 const getDistributorLedgerRows = async (req, distributorIdOverride = null) => {
   let sql = `
     SELECT dl.*, d.name as distributor_name,
+           pop.purchase_order_id as payment_purchase_order_id,
+           po.id as linked_po_id,
+           po.po_status as linked_po_status,
+           po.payment_status as linked_po_payment_status,
            po.bill_number as po_bill_number,
            po.invoice_number as po_invoice_number,
            COALESCE(dl.bill_number, po.bill_number, po.invoice_number) as linked_bill_number
     FROM distributor_ledger dl
     LEFT JOIN distributors d ON d.id = dl.distributor_id
+    LEFT JOIN purchase_order_payments pop
+      ON dl.source = 'po_payment'
+     AND ${SQL_CAST_TO_INT} = pop.id
     LEFT JOIN purchase_orders po
-      ON dl.source = 'purchase_order'
-     AND ${SQL_CAST_TO_INT} = po.id
+      ON (
+        dl.source IN ('purchase_order', 'po_correction')
+        AND ${SQL_CAST_TO_INT} = po.id
+      )
+      OR (
+        dl.source = 'po_payment'
+        AND pop.purchase_order_id = po.id
+      )
     WHERE 1=1
   `;
   const params = [];
@@ -5448,14 +5918,27 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
 
   return await dbGetAsync(
     `SELECT dl.*, d.name as distributor_name,
+            pop.purchase_order_id as payment_purchase_order_id,
+            po.id as linked_po_id,
+            po.po_status as linked_po_status,
+            po.payment_status as linked_po_payment_status,
             po.bill_number as po_bill_number,
             po.invoice_number as po_invoice_number,
             COALESCE(dl.bill_number, po.bill_number, po.invoice_number) as linked_bill_number
      FROM distributor_ledger dl
      LEFT JOIN distributors d ON d.id = dl.distributor_id
+     LEFT JOIN purchase_order_payments pop
+       ON dl.source = 'po_payment'
+      AND ${SQL_CAST_TO_INT} = pop.id
      LEFT JOIN purchase_orders po
-       ON dl.source = 'purchase_order'
-      AND ${SQL_CAST_TO_INT} = po.id
+       ON (
+         dl.source IN ('purchase_order', 'po_correction')
+         AND ${SQL_CAST_TO_INT} = po.id
+       )
+       OR (
+         dl.source = 'po_payment'
+         AND pop.purchase_order_id = po.id
+       )
      WHERE dl.id = ?`,
     [result.lastInsertRowid]
   );
@@ -5512,6 +5995,184 @@ app.post('/api/distributors/:id/ledger', requireAdmin, async (req, res) => handl
 app.post('/api/distributors/:id/transactions', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
 app.post('/api/distributors/:id/credit', requireAdmin, async (req, res) => handleDistributorLedgerCreate(req, res, req.params.id));
 
+const normalizePurchaseUomToken = (value, fallback = 'pcs') =>
+  String(value || fallback).trim().toLowerCase() || fallback;
+
+const PURCHASE_UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
+  pcs: 'pcs',
+  dozen: 'pcs',
+  kg: 'kg',
+  g: 'kg',
+  l: 'l',
+  ml: 'l',
+});
+
+const PURCHASE_UNIT_FAMILY_MULTIPLIERS = Object.freeze({
+  pcs: Object.freeze({ pcs: 1, dozen: 12 }),
+  kg: Object.freeze({ kg: 1, g: 0.001 }),
+  l: Object.freeze({ l: 1, ml: 0.001 }),
+});
+
+const getPurchaseUnitFamily = (baseUnit = 'pcs') => {
+  const normalizedBase = normalizePurchaseUomToken(baseUnit, 'pcs');
+  const familyBase = PURCHASE_UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
+  if (!familyBase) return null;
+  const multipliers = PURCHASE_UNIT_FAMILY_MULTIPLIERS[familyBase];
+  if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
+  return {
+    normalizedBase,
+    multipliers,
+  };
+};
+
+const getAllowedPurchaseUnitsFromBaseUnit = (baseUnit = 'pcs') => {
+  const family = getPurchaseUnitFamily(baseUnit);
+  if (!family) return [];
+  const allUnits = Object.keys(family.multipliers);
+  return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
+};
+
+const convertPurchaseQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  const family = getPurchaseUnitFamily(baseUnit);
+  if (!family) return null;
+  const from = normalizePurchaseUomToken(fromUnit, family.normalizedBase);
+  const to = normalizePurchaseUomToken(toUnit, family.normalizedBase);
+  const fromMultiplier = family.multipliers[from];
+  const toMultiplier = family.multipliers[to];
+  if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
+    return null;
+  }
+  const qtyInCanonicalBase = numericQty * fromMultiplier;
+  return qtyInCanonicalBase / toMultiplier;
+};
+
+const getPurchaseProductUomProfile = (product = null) => {
+  const sellingUnit = normalizePurchaseUomToken(product?.uom, 'pcs');
+  const baseUnit = normalizePurchaseUomToken(product?.base_unit, sellingUnit);
+  const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
+  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
+    ? conversionFactorRaw
+    : 1;
+  return {
+    sellingUnit,
+    baseUnit,
+    conversionFactor,
+  };
+};
+
+const getAllowedPurchaseUnitsForProductRow = (product = null) => {
+  const profile = getPurchaseProductUomProfile(product);
+  const familyUnits = getAllowedPurchaseUnitsFromBaseUnit(profile.baseUnit);
+  if (familyUnits.length) return familyUnits;
+  if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
+  return [...new Set([profile.baseUnit, profile.sellingUnit])];
+};
+
+const toPurchaseBaseQty = (qty, unit, product = null) => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  const profile = getPurchaseProductUomProfile(product);
+  const requestedUnit = normalizePurchaseUomToken(unit, profile.baseUnit);
+  const familyConverted = convertPurchaseQtyBetweenFamilyUnits(numericQty, requestedUnit, profile.baseUnit, profile.baseUnit);
+  if (familyConverted !== null) return familyConverted;
+  if (requestedUnit === profile.baseUnit) return numericQty;
+  if (requestedUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+    return numericQty / profile.conversionFactor;
+  }
+  return numericQty;
+};
+
+const createPurchaseValidationError = (message, details = []) => {
+  const error = new Error(message);
+  error.status = 400;
+  if (details.length) error.details = details;
+  return error;
+};
+
+const normalizePurchaseOrderItems = async (rawItems = []) => {
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  const productCache = new Map();
+  const itemErrors = [];
+  const normalizedItems = [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const rowNo = index + 1;
+    const it = items[index] || {};
+    const productId = Number(it.product_id || 0) || 0;
+    if (productId && !productCache.has(productId)) {
+      const product = await dbGetAsync(
+        `SELECT id, name, uom, base_unit, conversion_factor FROM products WHERE id = ?`,
+        [productId]
+      );
+      productCache.set(productId, product || null);
+    }
+    const product = productId ? productCache.get(productId) : null;
+    if (productId && !product) {
+      itemErrors.push(`Item ${rowNo}: product ${productId} not found`);
+      continue;
+    }
+
+    const quantity = Math.max(0, Number(it.quantity || 0));
+    if (quantity <= 0) {
+      itemErrors.push(`Item ${rowNo}: quantity must be greater than 0`);
+      continue;
+    }
+
+    const providedUomRaw = String(it.uom || '').trim();
+    let normalizedUom = normalizePurchaseUomToken(providedUomRaw, 'pcs');
+    if (product) {
+      const allowedUnits = getAllowedPurchaseUnitsForProductRow(product);
+      if (providedUomRaw) {
+        const requestedUnit = normalizePurchaseUomToken(providedUomRaw, allowedUnits[0] || 'pcs');
+        if (!allowedUnits.includes(requestedUnit)) {
+          itemErrors.push(
+            `Item ${rowNo}: unit "${providedUomRaw}" is invalid for product ${product.id}. Allowed: ${allowedUnits.join(', ')}`
+          );
+          continue;
+        }
+        normalizedUom = requestedUnit;
+      } else {
+        normalizedUom = allowedUnits[0] || getPurchaseProductUomProfile(product).baseUnit;
+      }
+    }
+
+    const quantityBase = product ? toPurchaseBaseQty(quantity, normalizedUom, product) : quantity;
+    const rate = Math.max(0, Number(it.rate ?? it.unit_price ?? 0));
+    const gross = quantityBase * rate;
+    const discountType = String(it.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
+    const discountValue = Math.max(0, Number(it.discount_value || 0));
+    const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
+    const discountAmount = Math.max(0, Math.min(discountAmountRaw, gross));
+    const taxableValue = Math.max(0, gross - discountAmount);
+    const gstRate = Math.max(0, Number(it.gst_rate || 0));
+    const taxAmount = (taxableValue * gstRate) / 100;
+    const lineTotal = taxableValue + taxAmount;
+
+    normalizedItems.push({
+      ...it,
+      product_id: productId || null,
+      product_name: String(it.product_name || '').trim() || String(product?.name || '').trim() || 'Unknown',
+      quantity,
+      quantity_base: quantityBase,
+      uom: normalizedUom,
+      rate,
+      unit_price: rate,
+      discount_type: discountType,
+      discount_value: discountValue,
+      taxable_value: taxableValue,
+      gst_rate: gstRate,
+      tax_amount: taxAmount,
+      line_total: lineTotal,
+      total: lineTotal,
+    });
+  }
+
+  if (itemErrors.length) throw createPurchaseValidationError('Invalid purchase order items', itemErrors);
+  return normalizedItems;
+};
+
 app.get('/api/purchase-orders', requireAdmin, async (req, res) => {
   try {
     let sql = `
@@ -5526,8 +6187,18 @@ app.get('/api/purchase-orders', requireAdmin, async (req, res) => {
       params.push(req.query.distributor_id);
     }
     if (req.query.status) {
-      sql += ` AND po.status = ?`;
-      params.push(req.query.status);
+      const lifecycleStatus = normalizePoLifecycleStatus(req.query.status, '');
+      if (lifecycleStatus) {
+        sql += ` AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)`;
+        params.push(lifecycleStatus);
+      } else {
+        sql += ` AND po.status = ?`;
+        params.push(req.query.status);
+      }
+    }
+    if (req.query.payment_status) {
+      sql += ` AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)`;
+      params.push(normalizePoPaymentStatus(req.query.payment_status));
     }
     if (req.query.start_date) {
       sql += ` AND date(po.created_at) >= date(?)`;
@@ -5560,9 +6231,61 @@ app.get('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
     );
     if (!row) return res.status(404).json({ error: 'Purchase order not found' });
     const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [row.id]);
-    return res.json({ ...row, items });
+    const payments = await dbAllAsync(
+      `SELECT *
+       FROM purchase_order_payments
+       WHERE purchase_order_id = ?
+       ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC`,
+      [row.id]
+    );
+    return res.json({ ...row, items, payments });
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/purchase-orders/:id/distributor-whatsapp', requireAdmin, async (req, res) => {
+  try {
+    const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+
+    const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+    if (lifecycleStatus !== PO_LIFECYCLE_REGISTERED) {
+      return res.status(400).json({ error: 'WhatsApp action is available only for registered purchase orders' });
+    }
+
+    const items = await dbAllAsync(
+      `SELECT product_name, quantity, rate, unit_price
+       FROM purchase_order_items
+       WHERE order_id = ?
+       ORDER BY id ASC`,
+      [req.params.id]
+    );
+
+    const orderDate = normalizeTransactionDate(order.created_at || order.order_date) || new Date().toISOString().slice(0, 10);
+    const distributorNotice = await notifyDistributorPurchaseOrderAsync({
+      purchaseOrderId: Number(req.params.id || 0),
+      distributorId: Number(order.distributor_id || 0),
+      poNumber: order.po_number,
+      totalAmount: Number(order.total_amount ?? order.total ?? 0),
+      paymentStatus: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+      balanceDue: Number(order.balance_due || 0),
+      expectedDelivery: order.expected_delivery || null,
+      notes: order.notes || '',
+      billNumber: order.bill_number || order.invoice_number || '',
+      isUpdate: false,
+      items,
+      messageDate: orderDate,
+      title: `Order for ${orderDate}`,
+      preparedBy: req?.authUser?.id || req.body?.created_by || null,
+    });
+
+    return res.json({
+      success: true,
+      distributor_notice: distributorNotice || undefined,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to prepare distributor WhatsApp message' });
   }
 });
 
@@ -5589,48 +6312,34 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
     const items = Array.isArray(b.items) ? b.items : [];
     if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
 
-    const normalizedItems = items.map((it) => {
-      const qty = Number(it.quantity || 0);
-      const rate = Number(it.rate ?? it.unit_price ?? 0);
-      const gross = qty * rate;
-      const discountType = String(it.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
-      const discountValue = Number(it.discount_value || 0);
-      const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
-      const discountAmount = Math.max(0, Math.min(discountAmountRaw, gross));
-      const taxableValue = Number(it.taxable_value ?? (gross - discountAmount));
-      const gstRate = Number(it.gst_rate || 0);
-      const taxAmount = Number(it.tax_amount ?? ((taxableValue * gstRate) / 100));
-      const lineTotal = Number(it.line_total ?? (taxableValue + taxAmount));
-
-      return {
-        ...it,
-        quantity: qty,
-        rate,
-        unit_price: rate,
-        discount_type: discountType,
-        discount_value: discountValue,
-        taxable_value: taxableValue,
-        gst_rate: gstRate,
-        tax_amount: taxAmount,
-        line_total: lineTotal
-      };
-    });
-
-    const subtotal = Number(b.subtotal ?? b.taxable_value ?? normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0));
-    const taxAmount = Number(b.tax_amount ?? normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0));
-    const totalAmount = Number(
-      b.total_amount ??
-      b.grand_total ??
-      b.total ??
-      normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
-    );
+    const normalizedItems = await normalizePurchaseOrderItems(items);
+    const subtotal = normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0);
+    const taxAmount = normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0);
+    const totalAmount = normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
+    const paymentSnapshot = calculatePoPaymentSnapshot(totalAmount, 0);
 
     const poNumber = generatePONumber();
     const orderId = await dbTxAsync(async () => {
       const header = await dbRunAsync(
-        `INSERT INTO purchase_orders (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, notes, expected_delivery, created_by, client_request_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [poNumber, b.distributor_id, subtotal, taxAmount, totalAmount, totalAmount, 'pending', b.notes || null, b.expected_delivery || null, b.created_by || null, clientRequestId]
+        `INSERT INTO purchase_orders (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, po_status, payment_status, paid_amount, balance_due, notes, expected_delivery, created_by, client_request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          poNumber,
+          b.distributor_id,
+          subtotal,
+          taxAmount,
+          totalAmount,
+          totalAmount,
+          'pending',
+          PO_LIFECYCLE_REGISTERED,
+          paymentSnapshot.paymentStatus,
+          paymentSnapshot.paidAmount,
+          paymentSnapshot.balanceDue,
+          b.notes || null,
+          b.expected_delivery || null,
+          b.created_by || null,
+          clientRequestId,
+        ]
       );
       const orderId = header.lastInsertRowid;
       for (const it of normalizedItems) {
@@ -5673,7 +6382,36 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
         items_count: normalizedItems.length,
       },
     });
-    return res.status(201).json({ success: true, id: orderId, po_number: poNumber });
+    let distributorNotice = null;
+    try {
+      distributorNotice = await notifyDistributorPurchaseOrderAsync({
+        purchaseOrderId: Number(orderId || 0),
+        distributorId: Number(b.distributor_id || 0),
+        poNumber,
+        totalAmount,
+        paymentStatus: paymentSnapshot.paymentStatus,
+        balanceDue: paymentSnapshot.balanceDue,
+        expectedDelivery: b.expected_delivery || null,
+        notes: b.notes || '',
+        items: normalizedItems,
+        messageDate: new Date().toISOString().slice(0, 10),
+        isUpdate: false,
+        preparedBy: req?.authUser?.id || b.created_by || null,
+      });
+    } catch (notifyError) {
+      console.warn('[NOTIFY] purchase order distributor notification failed:', notifyError?.message || notifyError);
+    }
+
+    return res.status(201).json({
+      success: true,
+      id: orderId,
+      po_number: poNumber,
+      po_status: PO_LIFECYCLE_REGISTERED,
+      payment_status: paymentSnapshot.paymentStatus,
+      paid_amount: paymentSnapshot.paidAmount,
+      balance_due: paymentSnapshot.balanceDue,
+      distributor_notice: distributorNotice || undefined,
+    });
   } catch (error) {
     if (clientRequestId && isUniqueViolationError(error)) {
       const existing = await dbGetAsync(`SELECT id, po_number FROM purchase_orders WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
@@ -5686,6 +6424,9 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
         });
       }
     }
+    if (error.status === 400) {
+      return res.status(400).json({ error: error.message, details: error.details || undefined });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -5694,78 +6435,57 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     const cur = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Purchase order not found' });
+    const currentPoStatus = getPurchaseOrderLifecycleStatus(cur);
+    if (currentPoStatus !== PO_LIFECYCLE_REGISTERED) {
+      return res.status(400).json({ error: 'Only registered purchase orders can be edited' });
+    }
     const b = req.body || {};
     const items = Array.isArray(b.items) ? b.items : null;
-    if (items && cur.status === 'received') {
-      return res.status(400).json({ error: 'Cannot modify items for a received purchase order' });
-    }
 
-    const normalizeItems = (rawItems) => rawItems.map((it) => {
-      const qty = Number(it.quantity || 0);
-      const rate = Number(it.rate ?? it.unit_price ?? 0);
-      const gross = qty * rate;
-      const discountType = String(it.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
-      const discountValue = Number(it.discount_value || 0);
-      const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
-      const discountAmount = Math.max(0, Math.min(discountAmountRaw, gross));
-      const taxableValue = Number(it.taxable_value ?? (gross - discountAmount));
-      const gstRate = Number(it.gst_rate || 0);
-      const taxAmount = Number(it.tax_amount ?? ((taxableValue * gstRate) / 100));
-      const lineTotal = Number(it.line_total ?? (taxableValue + taxAmount));
-      return {
-        ...it,
-        quantity: qty,
-        rate,
-        unit_price: rate,
-        discount_type: discountType,
-        discount_value: discountValue,
-        taxable_value: taxableValue,
-        gst_rate: gstRate,
-        tax_amount: taxAmount,
-        line_total: lineTotal
-      };
-    });
-
+    let finalTotalAmount = Number(cur.total_amount ?? cur.total ?? 0);
+    let updatedDistributorId = Number(b.distributor_id ?? cur.distributor_id ?? 0) || null;
+    let updatedNotes = b.notes ?? cur.notes ?? '';
+    let updatedExpectedDelivery = b.expected_delivery ?? cur.expected_delivery ?? null;
+    let noticeItems = [];
     if (items) {
       if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
-      const normalizedItems = normalizeItems(items);
-      const subtotal = Number(b.subtotal ?? b.taxable_value ?? normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0));
-      const taxAmount = Number(b.tax_amount ?? normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0));
-      const totalAmount = Number(
-        b.total_amount ??
-        b.grand_total ??
-        b.total ??
-        normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
-      );
+      const normalizedItems = await normalizePurchaseOrderItems(items);
+      noticeItems = normalizedItems;
+      const subtotal = normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0);
+      const taxAmount = normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0);
+      const totalAmount = normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
+      const paymentSnapshot = calculatePoPaymentSnapshot(totalAmount, Number(cur.paid_amount || 0));
+      finalTotalAmount = totalAmount;
       await dbTxAsync(async () => {
         await dbRunAsync(
           `UPDATE purchase_orders
-           SET distributor_id=?, notes=?, expected_delivery=?, status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, updated_at=CURRENT_TIMESTAMP
+           SET distributor_id=?, notes=?, expected_delivery=?, status=?, po_status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
            WHERE id=?`,
           [
-            b.distributor_id ?? cur.distributor_id,
-            b.notes ?? cur.notes,
-            b.expected_delivery ?? cur.expected_delivery,
-            b.status ?? cur.status,
+            updatedDistributorId,
+            updatedNotes || null,
+            updatedExpectedDelivery || null,
+            'pending',
+            PO_LIFECYCLE_REGISTERED,
             subtotal,
             taxAmount,
             totalAmount,
             totalAmount,
+            paymentSnapshot.paymentStatus,
+            paymentSnapshot.paidAmount,
+            paymentSnapshot.balanceDue,
             req.params.id
           ]
         );
         await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
         for (const it of normalizedItems) {
-          const fallbackName = it.product_id
-            ? (await dbGetAsync(`SELECT name FROM products WHERE id = ?`, [it.product_id]))?.name
-            : null;
           await dbRunAsync(
             `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               req.params.id,
               it.product_id || null,
-              it.product_name || fallbackName || 'Unknown',
+              it.product_name || 'Unknown',
               Number(it.quantity || 0),
               Number(it.received_quantity || 0),
               it.uom || 'pcs',
@@ -5783,19 +6503,28 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
         }
       });
     } else {
+      const nextSubtotal = Number(b.subtotal ?? cur.subtotal ?? 0);
+      const nextTaxAmount = Number(b.tax_amount ?? cur.tax_amount ?? 0);
+      const nextTotalAmount = Number(b.total_amount ?? cur.total_amount ?? cur.total ?? 0);
+      const paymentSnapshot = calculatePoPaymentSnapshot(nextTotalAmount, Number(cur.paid_amount || 0));
+      finalTotalAmount = nextTotalAmount;
       await dbRunAsync(
         `UPDATE purchase_orders
-         SET distributor_id=?, notes=?, expected_delivery=?, status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, updated_at=CURRENT_TIMESTAMP
+         SET distributor_id=?, notes=?, expected_delivery=?, status=?, po_status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
          WHERE id=?`,
         [
-          b.distributor_id ?? cur.distributor_id,
-          b.notes ?? cur.notes,
-          b.expected_delivery ?? cur.expected_delivery,
-          b.status ?? cur.status,
-          Number(b.subtotal ?? cur.subtotal ?? 0),
-          Number(b.tax_amount ?? cur.tax_amount ?? 0),
-          Number(b.total_amount ?? cur.total_amount ?? cur.total ?? 0),
-          Number(b.total_amount ?? cur.total_amount ?? cur.total ?? 0),
+          updatedDistributorId,
+          updatedNotes || null,
+          updatedExpectedDelivery || null,
+          'pending',
+          PO_LIFECYCLE_REGISTERED,
+          nextSubtotal,
+          nextTaxAmount,
+          nextTotalAmount,
+          nextTotalAmount,
+          paymentSnapshot.paymentStatus,
+          paymentSnapshot.paidAmount,
+          paymentSnapshot.balanceDue,
           req.params.id
         ]
       );
@@ -5809,8 +6538,31 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
         has_items_payload: Array.isArray(req.body?.items),
       },
     });
-    return res.json({ success: true });
+    let distributorNotice = null;
+    try {
+      distributorNotice = await notifyDistributorPurchaseOrderAsync({
+        purchaseOrderId: Number(req.params.id || 0),
+        distributorId: updatedDistributorId,
+        poNumber: cur.po_number,
+        totalAmount: finalTotalAmount,
+        paymentStatus: PO_PAYMENT_UNPAID,
+        balanceDue: finalTotalAmount,
+        expectedDelivery: updatedExpectedDelivery || null,
+        notes: updatedNotes || '',
+        items: noticeItems,
+        messageDate: new Date().toISOString().slice(0, 10),
+        isUpdate: true,
+        preparedBy: req?.authUser?.id || b.created_by || null,
+      });
+    } catch (notifyError) {
+      console.warn('[NOTIFY] purchase order update distributor notification failed:', notifyError?.message || notifyError);
+    }
+
+    return res.json({ success: true, distributor_notice: distributorNotice || undefined });
   } catch (error) {
+    if (error.status === 400) {
+      return res.status(400).json({ error: error.message, details: error.details || undefined });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -5823,21 +6575,53 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
     if (!status) return res.status(400).json({ error: 'status is required' });
     const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+    const currentPoStatus = getPurchaseOrderLifecycleStatus(order);
+    const normalizedRequestedPoStatus = normalizePoLifecycleStatus(status, currentPoStatus);
+    const requestedStatusRaw = String(status || '').trim().toLowerCase();
+    const isProcessRequest = normalizedRequestedPoStatus === PO_LIFECYCLE_PROCESSED || requestedStatusRaw === 'confirmed';
 
-    if (status === 'confirmed') {
+    if (isProcessRequest) {
+      if (currentPoStatus === PO_LIFECYCLE_PROCESSED) {
+        return res.status(400).json({ error: 'Purchase order is already processed' });
+      }
+      if (currentPoStatus === PO_LIFECYCLE_CANCELLED) {
+        return res.status(400).json({ error: 'Cancelled purchase order cannot be processed' });
+      }
+      if (!billNumber) {
+        return res.status(400).json({ error: 'bill_number is required when processing a purchase order' });
+      }
+
+      const initialPaidAmountRaw = Number(
+        req.body?.paid_amount ?? req.body?.initial_paid_amount ?? req.body?.payment_amount ?? 0
+      );
+      const initialPaidAmount = Math.max(0, initialPaidAmountRaw);
+      const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
+      const paymentReference = String(req.body?.payment_reference || req.body?.reference || billNumber || '').trim() || null;
+      const paymentNotes = String(req.body?.payment_notes || req.body?.notes || '').trim() || null;
+      const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || null);
+
+      const totalSnapshot = calculatePoPaymentSnapshot(Number(order.total_amount ?? order.total ?? 0), initialPaidAmount);
+      if (initialPaidAmount > totalSnapshot.totalAmount) {
+        return res.status(400).json({ error: 'Initial paid amount cannot exceed PO total amount' });
+      }
+
       const stockAlreadyApplied = Number(order.stock_applied_on_confirm || 0) === 1;
       const capAdjustments = [];
-
-      if (!stockAlreadyApplied) {
-        const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
-        await dbTxAsync(async () => {
+      let createdPaymentId = null;
+      await dbTxAsync(async () => {
+        if (!stockAlreadyApplied) {
+          const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
           for (const item of items) {
             const productId = Number(item.product_id || 0);
             if (!productId) continue;
-            const product = await dbGetAsync(`SELECT id, stock FROM products WHERE id = ?`, [productId]);
+            const product = await dbGetAsync(
+              `SELECT id, stock, uom, base_unit, conversion_factor FROM products WHERE id = ?`,
+              [productId]
+            );
             if (!product) continue;
 
-            const orderedQty = Math.max(0, Number(item.quantity || 0));
+            const orderedQtyInput = Math.max(0, Number(item.quantity || 0));
+            const orderedQty = toPurchaseBaseQty(orderedQtyInput, item.uom, product);
             const beforeStock = Number(product.stock || 0);
             const intendedStock = beforeStock + orderedQty;
             const finalStock = Math.min(PURCHASE_STOCK_CAP, Math.max(0, intendedStock));
@@ -5846,7 +6630,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
 
             if (quantityChange !== 0) {
               await dbRunAsync(`UPDATE products SET stock = ? WHERE id = ?`, [finalStock, productId]);
-              const noteLines = ['Auto stock update on PO confirmation'];
+              const noteLines = ['Auto stock update on PO processing'];
               if (capHit) {
                 noteLines.push(`Stock cap ${PURCHASE_STOCK_CAP} applied (intended ${intendedStock}, final ${finalStock})`);
               }
@@ -5867,36 +6651,122 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
               capAdjustments.push({
                 product_id: productId,
                 product_name: item.product_name || null,
-                ordered_quantity: orderedQty,
+                ordered_quantity: orderedQtyInput,
+                ordered_quantity_base: orderedQty,
                 before_stock: beforeStock,
                 intended_stock: intendedStock,
                 final_stock: finalStock,
                 discarded_quantity: Math.max(0, intendedStock - finalStock),
+                discarded_quantity_base: Math.max(0, intendedStock - finalStock),
               });
             }
           }
+        }
 
-          await dbRunAsync(
-            `UPDATE purchase_orders
-             SET status = ?,
-                 bill_number = COALESCE(?, bill_number),
-                 invoice_number = COALESCE(?, invoice_number),
-                 stock_applied_on_confirm = 1,
-                 updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?`,
-            [status, billNumber || null, billNumber || null, req.params.id]
+        const existingPoCredit = await dbGetAsync(
+          `SELECT id
+           FROM distributor_ledger
+           WHERE distributor_id = ?
+             AND source = 'purchase_order'
+             AND LOWER(type) = 'credit'
+             AND (source_id = ? OR source_id = ?)
+           ORDER BY id DESC
+           LIMIT 1`,
+          [order.distributor_id, String(req.params.id), `${req.params.id}.0`]
+        );
+        if (!existingPoCredit && Number(order.distributor_id || 0) > 0 && totalSnapshot.totalAmount > 0) {
+          await createDistributorLedgerEntry(order.distributor_id, {
+            type: 'credit',
+            transaction_type: 'credit',
+            amount: totalSnapshot.totalAmount,
+            payment_mode: 'credit',
+            reference: order.po_number || `PO-${req.params.id}`,
+            bill_number: billNumber || null,
+            description: `Purchase Order ${order.po_number || req.params.id}${billNumber ? ` (Bill: ${billNumber})` : ''}`.trim(),
+            transaction_date: normalizeTransactionDate(req.body?.transaction_date) || new Date().toISOString().slice(0, 10),
+            source: 'purchase_order',
+            source_id: req.params.id,
+            created_by: req.body?.updated_by || req.body?.created_by || null,
+          });
+        }
+
+        if (totalSnapshot.paidAmount > 0 && Number(order.distributor_id || 0) > 0) {
+          const paymentResult = await dbRunAsync(
+            `INSERT INTO purchase_order_payments
+             (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              req.params.id,
+              order.distributor_id,
+              totalSnapshot.paidAmount,
+              paymentMode,
+              paymentReference,
+              paymentNotes,
+              paymentDate,
+              req.body?.updated_by || req.body?.created_by || null,
+            ]
           );
-        });
-      } else {
+          createdPaymentId = Number(paymentResult.lastInsertRowid || 0) || null;
+          if (createdPaymentId) {
+            await createDistributorLedgerEntry(order.distributor_id, {
+              type: 'payment',
+              transaction_type: 'payment',
+              amount: totalSnapshot.paidAmount,
+              payment_mode: paymentMode,
+              reference: paymentReference || order.po_number || `PO-${req.params.id}`,
+              bill_number: billNumber || null,
+              description: `PO payment on processing ${order.po_number || req.params.id}`,
+              transaction_date: paymentDate || new Date().toISOString().slice(0, 10),
+              source: 'po_payment',
+              source_id: createdPaymentId,
+              created_by: req.body?.updated_by || req.body?.created_by || null,
+            });
+          }
+        }
+
         await dbRunAsync(
           `UPDATE purchase_orders
-           SET status = ?,
+           SET status = 'confirmed',
+               po_status = ?,
+               payment_status = ?,
+               paid_amount = ?,
+               balance_due = ?,
                bill_number = COALESCE(?, bill_number),
                invoice_number = COALESCE(?, invoice_number),
+               stock_applied_on_confirm = 1,
+               processed_at = COALESCE(processed_at, CURRENT_TIMESTAMP),
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
-          [status, billNumber || null, billNumber || null, req.params.id]
+             WHERE id = ?`,
+          [
+            PO_LIFECYCLE_PROCESSED,
+            totalSnapshot.paymentStatus,
+            totalSnapshot.paidAmount,
+            totalSnapshot.balanceDue,
+            billNumber || null,
+            billNumber || null,
+            req.params.id,
+          ]
         );
+      });
+
+      let distributorNotice = null;
+      try {
+        distributorNotice = await notifyDistributorPurchaseOrderAsync({
+          purchaseOrderId: Number(req.params.id || 0),
+          distributorId: Number(order.distributor_id || 0),
+          poNumber: order.po_number,
+          totalAmount: totalSnapshot.totalAmount,
+          paymentStatus: totalSnapshot.paymentStatus,
+          balanceDue: totalSnapshot.balanceDue,
+          expectedDelivery: order.expected_delivery || null,
+          notes: order.notes || '',
+          billNumber: billNumber || '',
+          messageDate: new Date().toISOString().slice(0, 10),
+          isUpdate: true,
+          preparedBy: req?.authUser?.id || req.body?.updated_by || req.body?.created_by || null,
+        });
+      } catch (notifyError) {
+        console.warn('[NOTIFY] processed purchase order distributor notification failed:', notifyError?.message || notifyError);
       }
 
       await logAdminAuditAsync(req, {
@@ -5904,35 +6774,181 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
         entityType: 'purchase_order',
         entityId: req.params.id,
         details: {
-          status,
+          status: 'processed',
+          po_status: PO_LIFECYCLE_PROCESSED,
           bill_number: billNumber || null,
+          initial_paid_amount: totalSnapshot.paidAmount,
+          balance_due: totalSnapshot.balanceDue,
+          payment_status: totalSnapshot.paymentStatus,
           stock_applied: !stockAlreadyApplied,
           stock_already_applied: stockAlreadyApplied,
           cap_applied_count: capAdjustments.length,
+          process_payment_id: createdPaymentId,
         },
       });
       return res.json({
         success: true,
+        po_status: PO_LIFECYCLE_PROCESSED,
+        payment_status: totalSnapshot.paymentStatus,
+        paid_amount: totalSnapshot.paidAmount,
+        balance_due: totalSnapshot.balanceDue,
         stock_cap: PURCHASE_STOCK_CAP,
         stock_applied: !stockAlreadyApplied,
         stock_already_applied: stockAlreadyApplied,
         cap_applied_count: capAdjustments.length,
         cap_adjustments: capAdjustments,
+        distributor_notice: distributorNotice || undefined,
       });
-    } else {
-      await dbRunAsync(`UPDATE purchase_orders SET status = ?, updated_at=CURRENT_TIMESTAMP WHERE id = ?`, [status, req.params.id]);
+    }
+
+    if (normalizedRequestedPoStatus === PO_LIFECYCLE_CANCELLED) {
+      if (currentPoStatus === PO_LIFECYCLE_PROCESSED) {
+        return res.status(400).json({ error: 'Processed purchase order cannot be cancelled' });
+      }
+      await dbRunAsync(
+        `UPDATE purchase_orders
+         SET status = 'cancelled',
+             po_status = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [PO_LIFECYCLE_CANCELLED, req.params.id]
+      );
       await logAdminAuditAsync(req, {
         action: 'purchase_order.status_update',
         entityType: 'purchase_order',
         entityId: req.params.id,
         details: {
-          status,
+          status: 'cancelled',
+          po_status: PO_LIFECYCLE_CANCELLED,
           bill_number: billNumber || null,
-          stock_applied_on_confirm: Number(order.stock_applied_on_confirm || 0),
         },
       });
-      return res.json({ success: true });
+      return res.json({ success: true, po_status: PO_LIFECYCLE_CANCELLED });
     }
+
+    if (currentPoStatus !== PO_LIFECYCLE_REGISTERED) {
+      return res.status(400).json({ error: 'Only registered purchase orders can be set to pending' });
+    }
+
+    await dbRunAsync(
+      `UPDATE purchase_orders
+       SET status = 'pending',
+           po_status = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [PO_LIFECYCLE_REGISTERED, req.params.id]
+    );
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.status_update',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      details: {
+        status: 'pending',
+        po_status: PO_LIFECYCLE_REGISTERED,
+        bill_number: billNumber || null,
+      },
+    });
+    return res.json({ success: true, po_status: PO_LIFECYCLE_REGISTERED });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => {
+  try {
+    const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
+    if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+    const poStatus = getPurchaseOrderLifecycleStatus(order);
+    if (poStatus !== PO_LIFECYCLE_PROCESSED) {
+      return res.status(400).json({ error: 'Payments are allowed only for processed purchase orders' });
+    }
+
+    const amount = Math.max(0, Number(req.body?.amount || 0));
+    if (amount <= 0) return res.status(400).json({ error: 'amount must be greater than 0' });
+
+    const totalSnapshotBefore = calculatePoPaymentSnapshot(
+      Number(order.total_amount ?? order.total ?? 0),
+      Number(order.paid_amount || 0)
+    );
+    if (amount > totalSnapshotBefore.balanceDue) {
+      return res.status(400).json({ error: 'Payment amount cannot exceed balance due' });
+    }
+
+    const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
+    const reference = String(req.body?.reference || req.body?.payment_reference || order.bill_number || order.po_number || '').trim() || null;
+    const notes = String(req.body?.notes || req.body?.description || '').trim() || null;
+    const transactionDate = normalizeTransactionDate(req.body?.transaction_date || req.body?.payment_date || null);
+    let paymentId = null;
+    let nextSnapshot = totalSnapshotBefore;
+
+    await dbTxAsync(async () => {
+      const paymentResult = await dbRunAsync(
+        `INSERT INTO purchase_order_payments
+         (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          req.params.id,
+          order.distributor_id,
+          amount,
+          paymentMode,
+          reference,
+          notes,
+          transactionDate,
+          req.body?.created_by || req?.authUser?.id || null,
+        ]
+      );
+      paymentId = Number(paymentResult.lastInsertRowid || 0) || null;
+
+      if (paymentId && Number(order.distributor_id || 0) > 0) {
+        await createDistributorLedgerEntry(order.distributor_id, {
+          type: 'payment',
+          transaction_type: 'payment',
+          amount,
+          payment_mode: paymentMode,
+          reference: reference || order.po_number || `PO-${req.params.id}`,
+          bill_number: order.bill_number || order.invoice_number || null,
+          description: `PO payment for ${order.po_number || req.params.id}`,
+          transaction_date: transactionDate || new Date().toISOString().slice(0, 10),
+          source: 'po_payment',
+          source_id: paymentId,
+          created_by: req.body?.created_by || req?.authUser?.id || null,
+        });
+      }
+
+      nextSnapshot = calculatePoPaymentSnapshot(totalSnapshotBefore.totalAmount, totalSnapshotBefore.paidAmount + amount);
+      await dbRunAsync(
+        `UPDATE purchase_orders
+         SET payment_status = ?,
+             paid_amount = ?,
+             balance_due = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [nextSnapshot.paymentStatus, nextSnapshot.paidAmount, nextSnapshot.balanceDue, req.params.id]
+      );
+    });
+
+    await logAdminAuditAsync(req, {
+      action: 'purchase_order.payment_add',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      details: {
+        amount,
+        payment_mode: paymentMode,
+        reference,
+        payment_id: paymentId,
+        payment_status: nextSnapshot.paymentStatus,
+        paid_amount: nextSnapshot.paidAmount,
+        balance_due: nextSnapshot.balanceDue,
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      payment_id: paymentId,
+      payment_status: nextSnapshot.paymentStatus,
+      paid_amount: nextSnapshot.paidAmount,
+      balance_due: nextSnapshot.balanceDue,
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -5949,24 +6965,59 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
       for (const it of items) {
         const item = await dbGetAsync(`SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?`, [it.item_id, req.params.id]);
         if (!item) continue;
-        const qty = Number(it.received_quantity || 0);
-        if (qty <= 0) continue;
-        const newReceived = Number(item.received_quantity || 0) + qty;
-        const unitPrice = Number(it.unit_price || item.unit_price || 0);
-        await dbRunAsync(`UPDATE purchase_order_items SET received_quantity = ?, unit_price = ?, total = quantity * ? WHERE id = ?`, [
+        const receivedQty = Math.max(0, Number(it.received_quantity || 0));
+        if (receivedQty <= 0) continue;
+        const orderedQtyLimit = Math.max(0, Number(item.quantity || 0));
+        const newReceived = Math.min(orderedQtyLimit, Number(item.received_quantity || 0) + receivedQty);
+        const appliedReceivedQty = Math.max(0, newReceived - Number(item.received_quantity || 0));
+        if (appliedReceivedQty <= 0) continue;
+        const product = item.product_id
+          ? await dbGetAsync(
+            `SELECT id, stock, uom, base_unit, conversion_factor FROM products WHERE id = ?`,
+            [item.product_id]
+          )
+          : null;
+        const receivedQtyBase = product ? toPurchaseBaseQty(appliedReceivedQty, item.uom, product) : appliedReceivedQty;
+        const unitPrice = Math.max(0, Number(it.unit_price || item.unit_price || item.rate || 0));
+        const orderedQtyBase = product ? toPurchaseBaseQty(Number(item.quantity || 0), item.uom, product) : Number(item.quantity || 0);
+        const gross = orderedQtyBase * unitPrice;
+        const discountType = String(item.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
+        const discountValue = Math.max(0, Number(item.discount_value || 0));
+        const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
+        const discountAmount = Math.max(0, Math.min(discountAmountRaw, gross));
+        const taxableValue = Math.max(0, gross - discountAmount);
+        const gstRate = Math.max(0, Number(item.gst_rate || 0));
+        const taxAmount = (taxableValue * gstRate) / 100;
+        const lineTotal = taxableValue + taxAmount;
+        await dbRunAsync(
+          `UPDATE purchase_order_items
+           SET received_quantity = ?,
+               unit_price = ?,
+               rate = ?,
+               taxable_value = ?,
+               tax_amount = ?,
+               line_total = ?,
+               total = ?
+           WHERE id = ?`,
+          [
           newReceived,
           unitPrice,
           unitPrice,
+          taxableValue,
+          taxAmount,
+          lineTotal,
+          lineTotal,
           item.id,
-        ]);
-        if (item.product_id && shouldApplyStockOnReceive) {
+          ]
+        );
+        if (item.product_id && shouldApplyStockOnReceive && product) {
           const before = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
-          await dbRunAsync(`UPDATE products SET stock = stock + ? WHERE id = ?`, [qty, item.product_id]);
+          await dbRunAsync(`UPDATE products SET stock = stock + ? WHERE id = ?`, [receivedQtyBase, item.product_id]);
           const after = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
           await logStockLedgerAsync({
             productId: item.product_id,
             transactionType: 'PURCHASE',
-            quantityChange: qty,
+            quantityChange: receivedQtyBase,
             previousBalance: before,
             newBalance: after,
             referenceType: 'PO',
@@ -5975,9 +7026,45 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
           });
         }
       }
+      const totals = await dbGetAsync(
+        `SELECT
+           COALESCE(SUM(taxable_value), 0) AS subtotal,
+           COALESCE(SUM(tax_amount), 0) AS tax_amount,
+           COALESCE(SUM(line_total), 0) AS total_amount
+         FROM purchase_order_items
+         WHERE order_id = ?`,
+        [req.params.id]
+      );
+      const receivePaymentSnapshot = calculatePoPaymentSnapshot(
+        Number(totals?.total_amount || 0),
+        Number(order.paid_amount || 0)
+      );
       await dbRunAsync(
-        `UPDATE purchase_orders SET status = 'received', invoice_number = ?, updated_at=CURRENT_TIMESTAMP WHERE id = ?`,
-        [b.invoice_number || order.invoice_number || null, req.params.id]
+        `UPDATE purchase_orders
+         SET status = 'received',
+             po_status = ?,
+             invoice_number = ?,
+             subtotal = ?,
+             tax_amount = ?,
+             total_amount = ?,
+             total = ?,
+             payment_status = ?,
+             paid_amount = ?,
+             balance_due = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [
+          PO_LIFECYCLE_PROCESSED,
+          b.invoice_number || order.invoice_number || null,
+          Number(totals?.subtotal || 0),
+          Number(totals?.tax_amount || 0),
+          Number(totals?.total_amount || 0),
+          Number(totals?.total_amount || 0),
+          receivePaymentSnapshot.paymentStatus,
+          receivePaymentSnapshot.paidAmount,
+          receivePaymentSnapshot.balanceDue,
+          req.params.id
+        ]
       );
     });
     await logAdminAuditAsync(req, {
@@ -5997,6 +7084,12 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
 
 app.delete('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
+    const existing = await dbGetAsync(`SELECT id, po_status, status FROM purchase_orders WHERE id = ?`, [req.params.id]);
+    if (!existing) return res.status(404).json({ error: 'Purchase order not found' });
+    if (getPurchaseOrderLifecycleStatus(existing) !== PO_LIFECYCLE_REGISTERED) {
+      return res.status(400).json({ error: 'Only registered purchase orders can be deleted' });
+    }
+    await dbRunAsync(`DELETE FROM purchase_order_payments WHERE purchase_order_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_orders WHERE id = ?`, [req.params.id]);
     await logAdminAuditAsync(req, {
@@ -6053,7 +7146,66 @@ app.post('/api/purchase-returns', requireAdmin, async (req, res) => {
     const items = Array.isArray(b.items) ? b.items : [];
     if (!b.distributor_id) return res.status(400).json({ error: 'distributor_id is required' });
     if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
-    const total = items.reduce((sum, it) => sum + Number(it.quantity || 0) * Number(it.unit_price || 0), 0);
+    const productCache = new Map();
+    const itemErrors = [];
+    const normalizedItems = [];
+    for (let index = 0; index < items.length; index += 1) {
+      const rowNo = index + 1;
+      const it = items[index] || {};
+      const productId = Number(it.product_id || 0) || 0;
+      if (!productId) {
+        itemErrors.push(`Item ${rowNo}: product_id is required`);
+        continue;
+      }
+      if (!productCache.has(productId)) {
+        const product = await dbGetAsync(
+          `SELECT id, name, uom, base_unit, conversion_factor FROM products WHERE id = ?`,
+          [productId]
+        );
+        productCache.set(productId, product || null);
+      }
+      const product = productCache.get(productId);
+      if (!product) {
+        itemErrors.push(`Item ${rowNo}: product ${productId} not found`);
+        continue;
+      }
+      const quantity = Math.max(0, Number(it.quantity || 0));
+      if (quantity <= 0) {
+        itemErrors.push(`Item ${rowNo}: quantity must be greater than 0`);
+        continue;
+      }
+      const providedUomRaw = String(it.uom || '').trim();
+      const allowedUnits = getAllowedPurchaseUnitsForProductRow(product);
+      let normalizedUom = allowedUnits[0] || getPurchaseProductUomProfile(product).baseUnit;
+      if (providedUomRaw) {
+        const requestedUom = normalizePurchaseUomToken(providedUomRaw, normalizedUom);
+        if (!allowedUnits.includes(requestedUom)) {
+          itemErrors.push(
+            `Item ${rowNo}: unit "${providedUomRaw}" is invalid for product ${product.id}. Allowed: ${allowedUnits.join(', ')}`
+          );
+          continue;
+        }
+        normalizedUom = requestedUom;
+      }
+      const quantityBase = toPurchaseBaseQty(quantity, normalizedUom, product);
+      const unitPrice = Math.max(0, Number(it.unit_price || 0));
+      normalizedItems.push({
+        product_id: productId,
+        product_name: String(it.product_name || '').trim() || String(product.name || '').trim() || 'Unknown',
+        quantity,
+        quantity_base: quantityBase,
+        uom: normalizedUom,
+        unit_price: unitPrice,
+        total: quantityBase * unitPrice,
+        reason: it.reason || b.reason || null,
+      });
+    }
+
+    if (itemErrors.length) {
+      return res.status(400).json({ error: 'Invalid purchase return items', details: itemErrors });
+    }
+
+    const total = normalizedItems.reduce((sum, it) => sum + Number(it.total || 0), 0);
     const returnNumber = generateReturnNumber();
     const returnId = await dbTxAsync(async () => {
       const head = await dbRunAsync(
@@ -6062,32 +7214,29 @@ app.post('/api/purchase-returns', requireAdmin, async (req, res) => {
         [returnNumber, b.distributor_id, total, b.reason || null, b.return_type || 'return', b.reference_po || null, b.created_by || null]
       );
       const returnId = head.lastInsertRowid;
-      for (const it of items) {
-        const fallbackName = it.product_id
-          ? (await dbGetAsync(`SELECT name FROM products WHERE id = ?`, [it.product_id]))?.name
-          : null;
+      for (const it of normalizedItems) {
         await dbRunAsync(
           `INSERT INTO purchase_return_items (return_id, product_id, product_name, quantity, uom, unit_price, total, reason)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             returnId,
             it.product_id || null,
-            it.product_name || fallbackName || 'Unknown',
+            it.product_name || 'Unknown',
             Number(it.quantity || 0),
             it.uom || 'pcs',
             Number(it.unit_price || 0),
-            Number(it.quantity || 0) * Number(it.unit_price || 0),
+            Number(it.total || 0),
             it.reason || b.reason || null,
           ]
         );
         if (it.product_id) {
           const before = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [it.product_id]))?.stock || 0;
-          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [Number(it.quantity || 0), it.product_id]);
+          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [Number(it.quantity_base || 0), it.product_id]);
           const after = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [it.product_id]))?.stock || 0;
           await logStockLedgerAsync({
             productId: it.product_id,
             transactionType: 'PURCHASE_RETURN',
-            quantityChange: -Number(it.quantity || 0),
+            quantityChange: -Number(it.quantity_base || 0),
             previousBalance: before,
             newBalance: after,
             referenceType: 'PURCHASE_RETURN',
@@ -6311,6 +7460,7 @@ const startServer = async () => {
   await ensureRuntimeReady();
   startPhoneChangeWorker();
   startAppNotificationPurgeWorker();
+  startCustomerRequestPurgeWorker();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
@@ -6330,6 +7480,7 @@ const shutdownServer = (signal) => {
   console.log(`[SYSTEM] Received ${signal}. Shutting down...`);
   stopPhoneChangeWorker();
   stopAppNotificationPurgeWorker();
+  stopCustomerRequestPurgeWorker();
   void Promise.allSettled([closePostgresScaffold()]).finally(() => {
     process.exit(0);
   });

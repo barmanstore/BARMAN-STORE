@@ -4,35 +4,41 @@
 }
 
 .customer-requests-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .customer-requests-header h1 {
   margin: 0;
 }
 
+.customer-requests-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+  color: #64748b;
+}
+
 .view-switch {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1fr;
   background: #f1f5f9;
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 4px;
   gap: 4px;
+  width: 100%;
 }
 
 .view-switch button {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
-  border-radius: 999px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
 }
 
 .view-switch button.active {
   background: #fff;
-  border: 1px solid var(--color-border);
+  border-color: var(--color-border);
 }
 
 .customer-requests-error {
@@ -47,23 +53,22 @@
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: #fff;
-  padding: 12px;
+  padding: 10px;
 }
 
 .panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
   gap: 8px;
   margin-bottom: 10px;
 }
 
 .panel-head h2 {
   margin: 0;
-  font-size: 1.06rem;
+  font-size: 1rem;
 }
 
 .panel-head select {
+  width: 100%;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 6px 8px;
@@ -72,22 +77,13 @@
 .request-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 
 .request-card {
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 10px;
-  display: grid;
-  gap: 6px;
-}
-
-.request-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  background: #fff;
 }
 
 .request-card p {
@@ -98,10 +94,66 @@
   color: #64748b;
 }
 
+.request-card.compact .request-expanded-body {
+  border-top: 1px solid var(--color-border);
+  padding: 9px;
+  display: grid;
+  gap: 7px;
+}
+
+.request-compact-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.request-compact-head:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+.request-compact-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.request-compact-main strong,
+.request-compact-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-compact-meta {
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+}
+
+.request-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
 .request-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.request-actions button {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 5px 8px;
+  text-transform: capitalize;
 }
 
 .request-actions.request-actions-column {
@@ -136,7 +188,7 @@
 
 .request-correction-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
@@ -162,20 +214,13 @@
   text-decoration: none;
 }
 
-.request-actions button {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: #fff;
-  padding: 5px 8px;
-  text-transform: capitalize;
-}
-
 .status {
   text-transform: capitalize;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   border-radius: 999px;
   padding: 3px 8px;
   background: #e2e8f0;
+  white-space: nowrap;
 }
 
 .status.open {
@@ -215,14 +260,41 @@
   color: #64748b;
 }
 
-@media (min-width: 900px) {
-  .request-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (min-width: 640px) {
+  .panel-head {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .panel-head select {
+    width: auto;
+    min-width: 160px;
+  }
+
+  .request-correction-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 640px) {
-  .request-correction-grid {
-    grid-template-columns: 1fr;
+@media (min-width: 900px) {
+  .customer-requests-header {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .view-switch {
+    width: auto;
+    display: inline-flex;
+    grid-template-columns: none;
+    border-radius: 999px;
+  }
+
+  .view-switch button {
+    border-radius: 999px;
+    text-align: center;
+  }
+
+  .request-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

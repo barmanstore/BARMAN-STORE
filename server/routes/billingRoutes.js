@@ -22,6 +22,122 @@
     createAppNotification
   } = deps;
 
+  const normalizeUomToken = (value, fallback = 'pcs') =>
+    String(value || fallback).trim().toLowerCase() || fallback;
+
+  const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
+    pcs: 'pcs',
+    dozen: 'pcs',
+    kg: 'kg',
+    g: 'kg',
+    l: 'l',
+    ml: 'l',
+  });
+
+  const UNIT_FAMILY_MULTIPLIERS = Object.freeze({
+    pcs: Object.freeze({ pcs: 1, dozen: 12 }),
+    kg: Object.freeze({ kg: 1, g: 0.001 }),
+    l: Object.freeze({ l: 1, ml: 0.001 }),
+  });
+
+  const getUomFamily = (baseUnit = 'pcs') => {
+    const normalizedBase = normalizeUomToken(baseUnit, 'pcs');
+    const familyBase = UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
+    if (!familyBase) return null;
+    const multipliers = UNIT_FAMILY_MULTIPLIERS[familyBase];
+    if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
+    return {
+      normalizedBase,
+      multipliers,
+    };
+  };
+
+  const getAllowedUnitsFromBaseUnit = (baseUnit = 'pcs') => {
+    const family = getUomFamily(baseUnit);
+    if (!family) return [];
+    const allUnits = Object.keys(family.multipliers);
+    return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
+  };
+
+  const convertQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
+    const numericQty = Math.max(0, Number(qty || 0));
+    if (numericQty <= 0) return 0;
+    const family = getUomFamily(baseUnit);
+    if (!family) return null;
+    const from = normalizeUomToken(fromUnit, family.normalizedBase);
+    const to = normalizeUomToken(toUnit, family.normalizedBase);
+    const fromMultiplier = family.multipliers[from];
+    const toMultiplier = family.multipliers[to];
+    if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
+      return null;
+    }
+    const qtyInCanonicalBase = numericQty * fromMultiplier;
+    return qtyInCanonicalBase / toMultiplier;
+  };
+
+  const normalizeUomType = (value) => {
+    const token = String(value || '').trim().toLowerCase();
+    return ['selling', 'purchasing', 'both'].includes(token) ? token : 'selling';
+  };
+
+  const getProductUomProfile = (product = null) => {
+    const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
+    const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
+    const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
+    const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
+      ? conversionFactorRaw
+      : 1;
+    return {
+      sellingUnit,
+      baseUnit,
+      conversionFactor,
+      uomType: normalizeUomType(product?.uom_type),
+    };
+  };
+
+  const getAllowedBillingUnits = (product = null) => {
+    const profile = getProductUomProfile(product);
+    const familyUnits = getAllowedUnitsFromBaseUnit(profile.baseUnit);
+    if (familyUnits.length) return familyUnits;
+    if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
+    return [...new Set([profile.baseUnit, profile.sellingUnit])];
+  };
+
+  const toStockUnitQty = (qty, unit, product = null) => {
+    const numericQty = Math.max(0, Number(qty || 0));
+    if (numericQty <= 0) return 0;
+    const profile = getProductUomProfile(product);
+    const inputUnit = normalizeUomToken(unit, profile.sellingUnit);
+    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
+    if (familyConverted !== null) return familyConverted;
+    if (inputUnit === profile.baseUnit) return numericQty;
+    if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+      return numericQty / profile.conversionFactor;
+    }
+    return numericQty;
+  };
+
+  const fromStockUnitQty = (stockQty, unit, product = null) => {
+    const numericQty = Math.max(0, Number(stockQty || 0));
+    if (numericQty <= 0) return 0;
+    const profile = getProductUomProfile(product);
+    const outputUnit = normalizeUomToken(unit, profile.sellingUnit);
+    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, profile.baseUnit, outputUnit, profile.baseUnit);
+    if (familyConverted !== null) return familyConverted;
+    if (outputUnit === profile.baseUnit) return numericQty;
+    if (outputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+      return numericQty * profile.conversionFactor;
+    }
+    return numericQty;
+  };
+
+  const roundQty = (value) => Number((Number(value || 0)).toFixed(3));
+  const toPricingQty = (qty, unit, product = null) => {
+    const numericQty = Math.max(0, Number(qty || 0));
+    if (numericQty <= 0) return 0;
+    return product ? toStockUnitQty(numericQty, unit, product) : numericQty;
+  };
+
 app.get('/api/users/:userId/bills', requireAuth, async (req, res) => {
   try {
     const requestUserId = Number(req.params.userId);
@@ -182,7 +298,8 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
     const customerEmail = normalizeEmail(customer.email);
     const customerPhone = normalizePhone(customer.phone);
     const customerAddress = customer.address ? String(customer.address).trim() : null;
-    const allowOrderLinkedLineItemsWithoutProduct = linkedOrderId > 0;
+    // Uninterrupted billing: manual/unlisted lines are allowed for all bill flows.
+    const allowLineItemsWithoutProduct = true;
     const productCache = new Map();
     const itemErrors = [];
     const sanitizedItems = [];
@@ -190,28 +307,29 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
       const it = items[index];
       const rowNo = index + 1;
       const productId = Number(it.product_id || 0);
-      if (!productId && !allowOrderLinkedLineItemsWithoutProduct) {
+      if (!productId && !allowLineItemsWithoutProduct) {
         itemErrors.push(`Item ${rowNo}: product_id is required`);
         continue;
       }
       if (productId && !productCache.has(productId)) {
         productCache.set(
           productId,
-          (await dbGetAsync(`SELECT id, name, stock, is_active FROM products WHERE id = ?`, [productId])) || null
+          (await dbGetAsync(`SELECT id, name, stock, is_active, uom, base_unit, uom_type, conversion_factor FROM products WHERE id = ?`, [productId])) || null
         );
       }
       const product = productId ? productCache.get(productId) : null;
-      if (!product && productId && !allowOrderLinkedLineItemsWithoutProduct) {
+      if (!product && productId && !allowLineItemsWithoutProduct) {
         itemErrors.push(`Item ${rowNo}: Product ${productId} not found`);
         continue;
       }
-      if (product && Number(product.is_active ?? 1) !== 1 && !allowOrderLinkedLineItemsWithoutProduct) {
+      if (product && Number(product.is_active ?? 1) !== 1 && !allowLineItemsWithoutProduct) {
         itemErrors.push(`Item ${rowNo}: Product ${productId} is inactive`);
         continue;
       }
       const qty = Math.max(0, Number(it.qty || 0));
       const mrp = Math.max(0, Number(it.mrp || 0));
-      const lineSubtotal = mrp * qty;
+      const pricingQty = toPricingQty(qty, it.unit, product);
+      const lineSubtotal = mrp * pricingQty;
       const discount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
       const amount = Math.max(0, lineSubtotal - discount);
       const productName =
@@ -222,12 +340,30 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
         itemErrors.push(`Item ${rowNo}: product_name is required`);
         continue;
       }
+      const providedUnitRaw = String(it.unit || '').trim();
+      let normalizedUnit = normalizeUomToken(providedUnitRaw, 'pcs');
+      if (product) {
+        const profile = getProductUomProfile(product);
+        const allowedUnits = getAllowedBillingUnits(product);
+        if (providedUnitRaw) {
+          const requestedUnit = normalizeUomToken(providedUnitRaw, profile.sellingUnit);
+          if (!allowedUnits.includes(requestedUnit)) {
+            itemErrors.push(
+              `Item ${rowNo}: unit "${providedUnitRaw}" is invalid for product ${product.id}. Allowed: ${allowedUnits.join(', ')}`
+            );
+            continue;
+          }
+          normalizedUnit = requestedUnit;
+        } else {
+          normalizedUnit = allowedUnits[0] || profile.baseUnit;
+        }
+      }
       const normalized = {
         product_id: product ? Number(product.id) : null,
         product_name: productName,
         mrp,
         qty,
-        unit: String(it.unit || 'pcs'),
+        unit: normalizedUnit,
         discount,
         amount,
       };
@@ -258,64 +394,89 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
     const itemFulfillmentRows = sanitizedItems.map((it) => {
       const requestedQty = Math.max(0, Number(it.qty || 0));
       const productId = Number(it.product_id || 0);
-      const stockSnapshot = productId ? Math.max(0, Number(productCache.get(productId)?.stock || 0)) : 0;
-      if (!linkedOrderId || !productId) {
+      const product = productId ? productCache.get(productId) : null;
+      const stockSnapshotBase = productId ? Math.max(0, Number(product?.stock || 0)) : 0;
+      const requestedStockQty = product ? toStockUnitQty(requestedQty, it.unit, product) : requestedQty;
+      const stockSnapshot = product ? fromStockUnitQty(stockSnapshotBase, it.unit, product) : stockSnapshotBase;
+
+      if (!productId) {
         return {
           ...it,
-          requested_qty: requestedQty,
-          available_now_qty: requestedQty,
-          fulfilled_qty: requestedQty,
+          requested_qty: roundQty(requestedQty),
+          available_now_qty: roundQty(requestedQty),
+          fulfilled_qty: roundQty(requestedQty),
           pending_qty: 0,
-          stock_snapshot: stockSnapshot,
+          stock_snapshot: roundQty(stockSnapshot),
+          requested_stock_qty: roundQty(requestedStockQty),
+          fulfilled_stock_qty: roundQty(requestedStockQty),
+          pending_stock_qty: 0,
+          stock_snapshot_base: roundQty(stockSnapshotBase),
+        };
+      }
+      if (!linkedOrderId) {
+        const fulfilledStockQty = Math.min(requestedStockQty, stockSnapshotBase);
+        const fulfilledQtyConverted = fromStockUnitQty(fulfilledStockQty, it.unit, product);
+        const fulfilledQty = Math.min(requestedQty, fulfilledQtyConverted);
+        const pendingQty = Math.max(0, requestedQty - fulfilledQty);
+        const pendingStockQty = Math.max(0, requestedStockQty - fulfilledStockQty);
+        return {
+          ...it,
+          requested_qty: roundQty(requestedQty),
+          available_now_qty: roundQty(fulfilledQty),
+          fulfilled_qty: roundQty(fulfilledQty),
+          pending_qty: roundQty(pendingQty),
+          stock_snapshot: roundQty(stockSnapshot),
+          requested_stock_qty: roundQty(requestedStockQty),
+          fulfilled_stock_qty: roundQty(fulfilledStockQty),
+          pending_stock_qty: roundQty(pendingStockQty),
+          stock_snapshot_base: roundQty(stockSnapshotBase),
         };
       }
       if (fulfillmentMode === 'full_now') {
         return {
           ...it,
-          requested_qty: requestedQty,
-          available_now_qty: requestedQty,
-          fulfilled_qty: requestedQty,
+          requested_qty: roundQty(requestedQty),
+          available_now_qty: roundQty(requestedQty),
+          fulfilled_qty: roundQty(requestedQty),
           pending_qty: 0,
-          stock_snapshot: stockSnapshot,
+          stock_snapshot: roundQty(stockSnapshot),
+          requested_stock_qty: roundQty(requestedStockQty),
+          fulfilled_stock_qty: roundQty(requestedStockQty),
+          pending_stock_qty: 0,
+          stock_snapshot_base: roundQty(stockSnapshotBase),
         };
       }
       const fulfilledRemaining = Math.max(0, Number(linkedFulfilledRemainingByProductId.get(productId) || 0));
       const fulfilledQty = Math.min(requestedQty, fulfilledRemaining);
       const pendingQty = Math.max(0, requestedQty - fulfilledQty);
+      const fulfilledStockQty = product ? toStockUnitQty(fulfilledQty, it.unit, product) : fulfilledQty;
+      const pendingStockQty = Math.max(0, requestedStockQty - fulfilledStockQty);
       linkedFulfilledRemainingByProductId.set(productId, Math.max(0, fulfilledRemaining - fulfilledQty));
       return {
         ...it,
-        requested_qty: requestedQty,
-        available_now_qty: fulfilledQty,
-        fulfilled_qty: fulfilledQty,
-        pending_qty: pendingQty,
-        stock_snapshot: stockSnapshot,
+        requested_qty: roundQty(requestedQty),
+        available_now_qty: roundQty(fulfilledQty),
+        fulfilled_qty: roundQty(fulfilledQty),
+        pending_qty: roundQty(pendingQty),
+        stock_snapshot: roundQty(stockSnapshot),
+        requested_stock_qty: roundQty(requestedStockQty),
+        fulfilled_stock_qty: roundQty(fulfilledStockQty),
+        pending_stock_qty: roundQty(pendingStockQty),
+        stock_snapshot_base: roundQty(stockSnapshotBase),
       };
     });
     const salesQtyByProduct = new Map();
     const shouldApplySalesStock = billType === 'sales' && !linkedOrderId;
     if (shouldApplySalesStock) {
-      sanitizedItems.forEach((it) => {
+      itemFulfillmentRows.forEach((it) => {
         if (!it.product_id) return;
+        const fulfilledStockQty = Math.max(0, Number(it.fulfilled_stock_qty ?? it.fulfilled_qty ?? 0));
+        if (fulfilledStockQty <= 0) return;
         salesQtyByProduct.set(
           it.product_id,
-          Number(salesQtyByProduct.get(it.product_id) || 0) + Number(it.qty || 0)
+          Number(salesQtyByProduct.get(it.product_id) || 0) + fulfilledStockQty
         );
       });
-      const stockErrors = [];
-      for (const [productId, neededQty] of salesQtyByProduct.entries()) {
-        const product = productCache.get(productId);
-        const currentStock = Number(product?.stock || 0);
-        if (currentStock < neededQty) {
-          stockErrors.push(`Product ${productId}: requested ${neededQty}, in stock ${currentStock}`);
-        }
-      }
-      if (stockErrors.length) {
-        return res.status(400).json({
-          error: 'Insufficient stock for one or more items',
-          details: stockErrors,
-        });
-      }
     }
     const subtotal = itemFulfillmentRows.reduce((sum, it) => sum + Number(it.amount || 0), 0);
     const billDiscount = Math.min(subtotal, Math.max(0, Number(b.discount_amount || 0)));
@@ -377,17 +538,14 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
       if (shouldApplySalesStock) {
         for (const [productId, neededQty] of salesQtyByProduct.entries()) {
           const before = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
-          if (before < neededQty) {
-            const err = new Error(`Insufficient stock for product ${productId}`);
-            err.status = 400;
-            throw err;
-          }
-          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [neededQty, productId]);
+          const deductionQty = Math.min(Math.max(0, before), Math.max(0, Number(neededQty || 0)));
+          if (deductionQty <= 0) continue;
+          await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [deductionQty, productId]);
           const after = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
           await logStockLedgerAsync({
             productId,
             transactionType: 'out',
-            quantityChange: -Number(neededQty || 0),
+            quantityChange: -Number(deductionQty || 0),
             previousBalance: before,
             newBalance: after,
             referenceType: 'bill',

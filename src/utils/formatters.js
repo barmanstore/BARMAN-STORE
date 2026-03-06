@@ -46,3 +46,13 @@ export const formatDate = (value, locale = INR_LOCALE, options = {}) => {
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString(locale, options);
 };
+
+export const truncateText = (value, maxLength = 15) => {
+  const text = String(value || '').trim();
+  const limit = Number.isFinite(Number(maxLength)) ? Math.max(1, Number(maxLength)) : 15;
+  if (!text) return '';
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)}...`;
+};
+
+export const truncateUserName = (value, maxLength = 15) => truncateText(value, maxLength);

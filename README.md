@@ -13,7 +13,7 @@ Full-stack store, billing, purchase, credit, and inventory management app built 
 - `server/db/postgresScaffold.js` Supabase/Postgres connection scaffold
 - `server/db/postgresBootstrap.js` Supabase/Postgres migrations/bootstrap helpers
 - `supabase/migrations/` staged Supabase migration SQL
-- `vite.config.js` Vite dev server config
+- `vite.config.mjs` Vite dev server config
 
 ## Prerequisites
 - Node.js 18+
@@ -104,6 +104,7 @@ Notes:
 - `npm run preview` preview frontend build
 - `npm run db:supabase:check` verify Supabase/Postgres connectivity (reads `DB_EXECUTION_MODE` from env files)
 - `npm run db:supabase:migrate` apply staged Supabase/Postgres SQL migrations (reads `DB_EXECUTION_MODE` from env files)
+- `npm run security:supabase:enable-leaked-password-protection` enable Supabase Auth leaked-password protection (`password_hibp_enabled=true`) using Management API token
 - `npm run hooks:install` configure git hooks at `.githooks/`
 - `npm run secrets:scan:staged` scan staged files for secrets (used by pre-commit hook)
 - `npm run secrets:scan` scan tracked repository files for secrets (used by pre-push + CI)
@@ -125,6 +126,23 @@ Recommended account settings:
 - Supported sign-in methods:
   - OTP login (`email` only)
   - OAuth login (Supabase social providers when configured)
+
+### Secure OTP + OAuth Setup
+Use these production settings to keep OTP + Supabase auth secure:
+
+```env
+SUPABASE_AUTH_ENABLED=true
+SUPABASE_AUTH_MODE=strict
+AUTH_FLOW_MODE=provider
+OTP_DELIVERY_MODE=auto
+EMAIL_DELIVERY_MODE=auto
+AUTH_LOGIN_OTP_EXPOSE_CODE=false
+SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK=false
+```
+
+Notes:
+- `AUTH_LOGIN_OTP_EXPOSE_CODE` is force-disabled in production by the server.
+- `SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK` is force-disabled in production by the server.
 
 ## API Reference
 Base URL: `http://localhost:5000`
