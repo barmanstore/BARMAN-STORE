@@ -7,7 +7,8 @@ import useIsMobile from '../hooks/useIsMobile';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import './ProductForm.css';
 
-function ProductForm({ product, onClose, onSave }) {
+function ProductForm({ product, onClose, onSave, mode = 'full' }) {
+  const isQuickMode = mode === 'quick';
   const splitCommaValues = (value) => String(value ?? '')
     .split(',')
     .map((part) => String(part || '').trim())
@@ -115,9 +116,9 @@ function ProductForm({ product, onClose, onSave }) {
       setIsDescriptionAuto(true);
       setIsContentAutoFromPrice(false);
       setIsStockAutoFromPrice(false);
-      setShowAdvancedFields(!isMobile);
+      setShowAdvancedFields(isQuickMode ? false : !isMobile);
     }
-  }, [product, isMobile]);
+  }, [product, isMobile, isQuickMode]);
 
   const fetchCategories = async () => {
     try {
@@ -160,6 +161,24 @@ function ProductForm({ product, onClose, onSave }) {
     description += '. Quality product for daily use.';
 
     return description;
+  };
+
+  const prepareFormDataForSubmit = (data) => {
+    if (!isQuickMode) return data;
+    const prepared = { ...data };
+    if (!String(prepared.description || '').trim()) {
+      prepared.description = generateDescriptionSuggestion(prepared) || String(prepared.name || '').trim();
+    }
+    if (!String(prepared.stock || '').trim()) {
+      prepared.stock = '0';
+    }
+    if (!String(prepared.base_unit || '').trim()) {
+      prepared.base_unit = prepared.uom || 'pcs';
+    }
+    if (!String(prepared.mrp || '').trim()) {
+      prepared.mrp = prepared.price;
+    }
+    return prepared;
   };
 
   const handleSuggestDescription = () => {
@@ -302,7 +321,7 @@ function ProductForm({ product, onClose, onSave }) {
     setError('');
     let variantRows = [];
     try {
-      variantRows = buildVariantFormRows(formData);
+      variantRows = buildVariantFormRows(prepareFormDataForSubmit(formData));
     } catch (err) {
       setError(err.message || 'Invalid variant input');
       return;
@@ -444,9 +463,10 @@ function ProductForm({ product, onClose, onSave }) {
       };
 
       if (product) {
+        const savedProducts = [];
         let variantRows = [];
         try {
-          variantRows = buildVariantFormRows(formData);
+          variantRows = buildVariantFormRows(prepareFormDataForSubmit(formData));
         } catch (err) {
           setError(err.message || 'Invalid variant input');
           return;
@@ -464,21 +484,34 @@ function ProductForm({ product, onClose, onSave }) {
         }
 
         const payloads = variantRows.map((row) => buildProductData(row));
-        await submitWithIdenticalChoice({ mode: 'update', id: product.id, payload: payloads[0] });
+        const updatedProduct = await submitWithIdenticalChoice({ mode: 'update', id: product.id, payload: payloads[0] });
+        if (updatedProduct) savedProducts.push(updatedProduct);
         for (let i = 1; i < payloads.length; i += 1) {
-          await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+          const createdProduct = await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+          if (createdProduct) savedProducts.push(createdProduct);
         }
         if (payloads.length > 1) {
-          await onSave({ mode: 'edit_split', createdCount: payloads.length - 1, updatedCount: 1 });
+          await onSave({
+            mode: 'edit_split',
+            createdCount: payloads.length - 1,
+            updatedCount: 1,
+            savedProducts,
+            createdProducts: savedProducts.slice(1),
+          });
         } else {
-          await onSave({ mode: 'edit', createdCount: 0 });
+          await onSave({
+            mode: 'edit',
+            createdCount: 0,
+            savedProducts,
+            updatedProduct,
+          });
         }
       } else {
         const payloads = [...batchProducts];
         if (hasFormDraft(formData)) {
           let variantRows = [];
           try {
-            variantRows = buildVariantFormRows(formData);
+            variantRows = buildVariantFormRows(prepareFormDataForSubmit(formData));
           } catch (err) {
             setError(err.message || 'Invalid variant input');
             return;
@@ -501,20 +534,32 @@ function ProductForm({ product, onClose, onSave }) {
           return;
         }
 
+        const createdProducts = [];
         let createdCount = 0;
         for (let i = 0; i < payloads.length; i += 1) {
           try {
-            await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+            const createdProduct = await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+            if (createdProduct) createdProducts.push(createdProduct);
             createdCount += 1;
           } catch (err) {
             if (createdCount > 0) {
-              await onSave();
+              await onSave({
+                mode: 'create_partial',
+                createdCount,
+                createdProducts,
+                savedProducts: createdProducts,
+              });
             }
             setError(`Failed at product ${i + 1} (${payloads[i].name}): ${err.message || 'Create failed'}. Created ${createdCount} product(s).`);
             return;
           }
         }
-        await onSave({ mode: 'create', createdCount: payloads.length });
+        await onSave({
+          mode: 'create',
+          createdCount: payloads.length,
+          createdProducts,
+          savedProducts: createdProducts,
+        });
       }
       onClose();
     } catch (err) {
@@ -525,13 +570,15 @@ function ProductForm({ product, onClose, onSave }) {
   };
 
   const isEditing = !!product;
+  const visibleAdvancedFields = showAdvancedFields && !isQuickMode;
+  const formHeading = isEditing ? 'Edit Product' : (isQuickMode ? 'Quick Add Product' : 'Add New Product');
 
   const formContent = (
     <>
       {error && <div className="error-message">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="product-form">
-          {!isEditing && (
+      <form onSubmit={handleSubmit} className={`product-form${isQuickMode ? ' compact-product-form' : ''}`}>
+          {!isEditing && !isQuickMode && (
             <div className="form-section batch-section">
               <h3 className="section-title">Batch Add Products</h3>
               <p className="batch-help">
@@ -568,7 +615,8 @@ function ProductForm({ product, onClose, onSave }) {
             </div>
           )}
 
-          <div className="advanced-fields-toggle">
+          {!isQuickMode && (
+            <div className="advanced-fields-toggle">
             <button
               type="button"
               className="advanced-toggle-btn"
@@ -578,10 +626,11 @@ function ProductForm({ product, onClose, onSave }) {
             </button>
             <small className="field-help">Advanced: UOM conversion, SKU and barcode.</small>
           </div>
+          )}
 
           {/* Basic Information Section */}
           <div className="form-section">
-            <h3 className="section-title">Basic Information</h3>
+            <h3 className="section-title">{isQuickMode ? 'Quick Product Details' : 'Basic Information'}</h3>
             
             <div className="form-group">
               <label htmlFor="name">Product Name *</label>
@@ -597,6 +646,7 @@ function ProductForm({ product, onClose, onSave }) {
               {errors.name && <span className="field-error">{errors.name}</span>}
             </div>
 
+            {!isQuickMode ? (
             <div className="form-group">
               <div className="description-header">
                 <label htmlFor="description">Description *</label>
@@ -616,7 +666,74 @@ function ProductForm({ product, onClose, onSave }) {
               <small className="field-help">Description is auto-suggested from product name. You can edit it anytime.</small>
               {errors.description && <span className="field-error">{errors.description}</span>}
             </div>
+            ) : (
+            <div className="compact-product-grid">
+              <div className="form-group compact-span-2">
+                <label htmlFor="category">Category *</label>
+                <input
+                  type="text"
+                  id="category"
+                  name="category"
+                  list="product-form-category-list"
+                  value={formData.category}
+                  onChange={handleChange}
+                  placeholder="Groceries -> Dairy"
+                  className={`input-field ${errors.category ? 'error' : ''}`}
+                />
+                <datalist id="product-form-category-list">
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name} />
+                  ))}
+                </datalist>
+                {errors.category && <span className="field-error">{errors.category}</span>}
+              </div>
 
+              <div className="form-group">
+                <label htmlFor="brand">Brand</label>
+                <input
+                  type="text"
+                  id="brand"
+                  name="brand"
+                  value={formData.brand}
+                  onChange={handleChange}
+                  placeholder="Optional brand"
+                  className="input-field"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="price">Price *</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  id="price"
+                  name="price"
+                  value={formData.price}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  className={`input-field ${errors.price ? 'error' : ''}`}
+                />
+                {errors.price && <span className="field-error">{errors.price}</span>}
+              </div>
+
+              <div className="form-group compact-span-2">
+                <label htmlFor="uom">UOM *</label>
+                <select
+                  id="uom"
+                  name="uom"
+                  value={formData.uom}
+                  onChange={handleChange}
+                  className="input-field"
+                >
+                  {uomOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            )}
+
+            {!isQuickMode && (
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="brand">Brand</label>
@@ -646,7 +763,9 @@ function ProductForm({ product, onClose, onSave }) {
                 <small className="field-help">Multiple variants: use comma values, e.g. `250g,500g,1kg`.</small>
               </div>
             </div>
+            )}
 
+            {!isQuickMode && (
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="color">Color</label>
@@ -683,11 +802,12 @@ function ProductForm({ product, onClose, onSave }) {
                 {errors.category && <span className="field-error">{errors.category}</span>}
               </div>
             </div>
+            )}
           </div>
 
-          {/* Pricing Section */}
+          {!isQuickMode && (
           <div className="form-section">
-            <h3 className="section-title">Pricing</h3>
+            <h3 className="section-title">{isQuickMode ? 'Rates & Stock' : 'Pricing'}</h3>
             
             <div className="form-row">
               <div className="form-group">
@@ -722,6 +842,7 @@ function ProductForm({ product, onClose, onSave }) {
               </div>
             </div>
 
+            {!isQuickMode && (
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="defaultDiscount">Discount</label>
@@ -752,9 +873,12 @@ function ProductForm({ product, onClose, onSave }) {
                 </select>
               </div>
             </div>
+            )}
           </div>
+          )}
 
           {/* Inventory Section */}
+          {!isQuickMode && (
           <div className="form-section">
             <h3 className="section-title">Inventory</h3>
             
@@ -775,6 +899,22 @@ function ProductForm({ product, onClose, onSave }) {
                 <small className="field-help">Defaults to `0` per variant (e.g., `0,0,0`) and can be edited.</small>
               </div>
 
+              {isQuickMode ? (
+              <div className="form-group">
+                <label htmlFor="uom">Unit</label>
+                <select
+                  id="uom"
+                  name="uom"
+                  value={formData.uom}
+                  onChange={handleChange}
+                  className="input-field"
+                >
+                  {uomOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              ) : (
               <div className="form-group">
                 <label htmlFor="base_unit">Base Unit</label>
                 <select
@@ -790,38 +930,41 @@ function ProductForm({ product, onClose, onSave }) {
                 </select>
                 <small className="field-help">Primary unit for inventory</small>
               </div>
+              )}
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="uom">Selling UOM</label>
-                <select
-                  id="uom"
-                  name="uom"
-                  value={formData.uom}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  {uomOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
+            {!isQuickMode && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="uom">Selling UOM</label>
+                  <select
+                    id="uom"
+                    name="uom"
+                    value={formData.uom}
+                    onChange={handleChange}
+                    className="input-field"
+                  >
+                    {uomOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="expiry_date">Expiry Date</label>
-                <input
-                  type="date"
-                  id="expiry_date"
-                  name="expiry_date"
-                  value={formData.expiry_date}
-                  onChange={handleChange}
-                  className="input-field"
-                />
+                <div className="form-group">
+                  <label htmlFor="expiry_date">Expiry Date</label>
+                  <input
+                    type="date"
+                    id="expiry_date"
+                    name="expiry_date"
+                    value={formData.expiry_date}
+                    onChange={handleChange}
+                    className="input-field"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            {showAdvancedFields && (
+            {visibleAdvancedFields && (
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="uom_type">UOM Type</label>
@@ -857,8 +1000,9 @@ function ProductForm({ product, onClose, onSave }) {
               </div>
             )}
           </div>
+          )}
 
-          {showAdvancedFields && (
+          {visibleAdvancedFields && (
             <div className="form-section">
               <h3 className="section-title">SKU & Barcode</h3>
               
@@ -898,7 +1042,7 @@ function ProductForm({ product, onClose, onSave }) {
             </div>
           )}
 
-          {/* Image Section */}
+          {!isQuickMode && (
           <div className="form-section">
             <h3 className="section-title">Product Image</h3>
             
@@ -926,13 +1070,14 @@ function ProductForm({ product, onClose, onSave }) {
             )}
 
           </div>
+          )}
 
           <div className="form-actions">
             <button type="button" className="cancel-btn" onClick={onClose}>
               Cancel
             </button>
             <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Saving...' : (isEditing ? 'Update Product' : `Add Product${batchProducts.length ? ` (${batchProducts.length} queued)` : ''}`)}
+              {loading ? 'Saving...' : (isEditing ? 'Update Product' : (isQuickMode ? 'Add Now' : `Add Product${batchProducts.length ? ` (${batchProducts.length} queued)` : ''}`))}
             </button>
           </div>
       </form>
@@ -943,9 +1088,9 @@ function ProductForm({ product, onClose, onSave }) {
     return (
       <MobileBottomSheet
         open
-        title={isEditing ? 'Edit Product' : 'Add New Product'}
+        title={formHeading}
         onClose={onClose}
-        className="product-form-sheet"
+        className={`product-form-sheet${isQuickMode ? ' product-form-sheet-compact' : ''}`}
       >
         {formContent}
       </MobileBottomSheet>
@@ -954,9 +1099,9 @@ function ProductForm({ product, onClose, onSave }) {
 
   return (
     <div className="product-form-overlay">
-      <div className="product-form-container fade-in-up">
+      <div className={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}>
         <div className="product-form-header">
-          <h2>{isEditing ? 'Edit Product' : 'Add New Product'}</h2>
+          <h2>{formHeading}</h2>
           <button className="close-btn" onClick={onClose}>
             <X size={24} />
           </button>

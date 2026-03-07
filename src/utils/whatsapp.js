@@ -1,22 +1,8 @@
-import { ONLINE_STORE_URL } from '../pages/info';
 import { normalizeIndianPhone } from './phone';
 
 const INDIA_COUNTRY_CODE = '91';
 
-const getStoreUrl = () => String(ONLINE_STORE_URL || '').trim();
-
-const appendVisitUsFooter = (text) => {
-  const baseText = String(text || '').trim();
-  const storeUrl = getStoreUrl();
-  if (!storeUrl) return baseText;
-
-  const normalizedText = baseText.toLowerCase();
-  const normalizedUrl = storeUrl.toLowerCase();
-  if (normalizedText.includes(normalizedUrl)) return baseText;
-
-  const footer = `দোকান: ${storeUrl}`;
-  return baseText ? `${baseText}\n${footer}` : footer;
-};
+const normalizeMessageText = (text) => String(text || '').trim();
 
 export const normalizePhoneForWhatsApp = (phone) => {
   const localNumber = normalizeIndianPhone(phone);
@@ -31,7 +17,7 @@ export const isValidWhatsAppPhone = (phone) => {
 
 export const buildWhatsAppUrl = ({ phone, text } = {}) => {
   const normalized = normalizePhoneForWhatsApp(phone);
-  const encoded = encodeURIComponent(appendVisitUsFooter(text));
+  const encoded = encodeURIComponent(normalizeMessageText(text));
   return normalized ? `https://wa.me/${normalized}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 };
 
@@ -44,7 +30,7 @@ export const openWhatsApp = (params = {}) => {
 };
 
 export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = 1800 } = {}) => {
-  const message = appendVisitUsFooter(text);
+  const message = normalizeMessageText(text);
   const normalized = normalizePhoneForWhatsApp(phone);
   const hasValidPhone = isValidWhatsAppPhone(normalized);
   if (!hasValidPhone) {

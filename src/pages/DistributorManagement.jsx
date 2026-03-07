@@ -21,7 +21,16 @@ function DistributorManagement({ user }) {
     products_supplied: '',
     order_day: '',
     delivery_day: '',
+    visit_day: '',
+    order_cutoff_time: '',
+    preferred_whatsapp_time: '',
     payment_terms: 'Net 30',
+    payment_cycle_type: 'net',
+    payment_due_days: '30',
+    credit_limit: '',
+    inactive_reason: '',
+    auto_suggest_items: true,
+    auto_reminders_enabled: true,
     status: 'active'
   });
 
@@ -52,8 +61,8 @@ function DistributorManagement({ user }) {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -76,7 +85,16 @@ function DistributorManagement({ user }) {
         products_supplied: formData.products_supplied.trim(),
         order_day: formData.order_day,
         delivery_day: formData.delivery_day,
+        visit_day: formData.visit_day,
+        order_cutoff_time: formData.order_cutoff_time,
+        preferred_whatsapp_time: formData.preferred_whatsapp_time,
         payment_terms: formData.payment_terms,
+        payment_cycle_type: formData.payment_cycle_type,
+        payment_due_days: formData.payment_due_days,
+        credit_limit: formData.credit_limit,
+        inactive_reason: formData.inactive_reason.trim(),
+        auto_suggest_items: formData.auto_suggest_items,
+        auto_reminders_enabled: formData.auto_reminders_enabled,
         status: formData.status
       };
 
@@ -107,7 +125,16 @@ function DistributorManagement({ user }) {
       products_supplied: distributor.products_supplied || '',
       order_day: distributor.order_day || '',
       delivery_day: distributor.delivery_day || '',
+      visit_day: distributor.visit_day || distributor.order_day || '',
+      order_cutoff_time: distributor.order_cutoff_time || '',
+      preferred_whatsapp_time: distributor.preferred_whatsapp_time || '',
       payment_terms: distributor.payment_terms || 'Net 30',
+      payment_cycle_type: distributor.payment_cycle_type || 'net',
+      payment_due_days: distributor.payment_due_days ? String(distributor.payment_due_days) : '30',
+      credit_limit: distributor.credit_limit ? String(distributor.credit_limit) : '',
+      inactive_reason: distributor.inactive_reason || '',
+      auto_suggest_items: distributor.auto_suggest_items !== false,
+      auto_reminders_enabled: distributor.auto_reminders_enabled !== false,
       status: distributor.status || 'active'
     });
     setEditingDistributor(distributor);
@@ -135,7 +162,16 @@ function DistributorManagement({ user }) {
       products_supplied: '',
       order_day: '',
       delivery_day: '',
+      visit_day: '',
+      order_cutoff_time: '',
+      preferred_whatsapp_time: '',
       payment_terms: 'Net 30',
+      payment_cycle_type: 'net',
+      payment_due_days: '30',
+      credit_limit: '',
+      inactive_reason: '',
+      auto_suggest_items: true,
+      auto_reminders_enabled: true,
       status: 'active'
     });
   };
@@ -257,11 +293,23 @@ function DistributorManagement({ user }) {
                       <Calendar size={14} />
                       <span>Delivery: {distributor.delivery_day || '-'}</span>
                     </div>
+                    <div className="schedule-item">
+                      <Calendar size={14} />
+                      <span>Visit: {distributor.visit_day || distributor.order_day || '-'}</span>
+                    </div>
                   </div>
 
                   <div className="info-row">
                     <span className="label">Payment Terms:</span>
                     <span>{distributor.payment_terms || 'Net 30'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Due Days:</span>
+                    <span>{distributor.payment_due_days ?? '-'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Cutoff / WhatsApp:</span>
+                    <span>{distributor.order_cutoff_time || '-'} / {distributor.preferred_whatsapp_time || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -394,6 +442,40 @@ function DistributorManagement({ user }) {
 
                 <div className="form-row">
                   <div className="form-group">
+                    <label>Visit Day</label>
+                    <select name="visit_day" value={formData.visit_day} onChange={handleChange}>
+                      <option value="">Select day</option>
+                      <option value="Monday">Monday</option>
+                      <option value="Tuesday">Tuesday</option>
+                      <option value="Wednesday">Wednesday</option>
+                      <option value="Thursday">Thursday</option>
+                      <option value="Friday">Friday</option>
+                      <option value="Saturday">Saturday</option>
+                      <option value="Sunday">Sunday</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Order Cutoff Time</label>
+                    <input
+                      type="time"
+                      name="order_cutoff_time"
+                      value={formData.order_cutoff_time}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Preferred WhatsApp Time</label>
+                    <input
+                      type="time"
+                      name="preferred_whatsapp_time"
+                      value={formData.preferred_whatsapp_time}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className="form-group">
                     <label>Payment Terms</label>
                     <select name="payment_terms" value={formData.payment_terms} onChange={handleChange}>
                       <option value="Cash on Delivery">Cash on Delivery</option>
@@ -403,6 +485,41 @@ function DistributorManagement({ user }) {
                       <option value="Net 60">Net 60</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Payment Cycle</label>
+                    <select name="payment_cycle_type" value={formData.payment_cycle_type} onChange={handleChange}>
+                      <option value="net">Net Terms</option>
+                      <option value="cod">Cash / COD</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Payment Due Days</label>
+                    <input
+                      type="number"
+                      min="0"
+                      name="payment_due_days"
+                      value={formData.payment_due_days}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Credit Limit</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      name="credit_limit"
+                      value={formData.credit_limit}
+                      onChange={handleChange}
+                      placeholder="Optional credit cap"
+                    />
+                  </div>
 
                   <div className="form-group">
                     <label>Status</label>
@@ -411,6 +528,38 @@ function DistributorManagement({ user }) {
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Inactive Reason</label>
+                  <input
+                    type="text"
+                    name="inactive_reason"
+                    value={formData.inactive_reason}
+                    onChange={handleChange}
+                    placeholder="Optional note for inactive vendors"
+                  />
+                </div>
+
+                <div className="form-row">
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      name="auto_suggest_items"
+                      checked={formData.auto_suggest_items}
+                      onChange={handleChange}
+                    />
+                    <span>Enable smart item suggestions</span>
+                  </label>
+                  <label className="checkbox-group">
+                    <input
+                      type="checkbox"
+                      name="auto_reminders_enabled"
+                      checked={formData.auto_reminders_enabled}
+                      onChange={handleChange}
+                    />
+                    <span>Enable reminder warnings</span>
+                  </label>
                 </div>
               </div>
 

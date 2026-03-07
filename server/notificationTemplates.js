@@ -1,9 +1,23 @@
+const { buildPurchaseOrderDistributorNoticeText } = require('../shared/messageTemplates.cjs');
+
 const DEFAULT_BUSINESS_NAME = "বৰ্মন ষ্ট'ৰ";
+const DEFAULT_RECIPIENT_NAME = 'গ্ৰাহক';
+const MOJIBAKE_PATTERN = /(?:Ã.|Â.|à¦|à§|ðŸ)/;
+
+const cleanAssamese = (value, fallback) => {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  if (MOJIBAKE_PATTERN.test(raw)) return fallback;
+  return raw;
+};
 
 const asBusinessName = (value) => {
-  const raw = String(value || '').trim();
-  return raw || DEFAULT_BUSINESS_NAME;
+  const raw = cleanAssamese(value, DEFAULT_BUSINESS_NAME);
+  if (raw.toUpperCase() === 'BARMAN STORE') return DEFAULT_BUSINESS_NAME;
+  return raw;
 };
+
+const asRecipientName = (value) => cleanAssamese(value, DEFAULT_RECIPIENT_NAME);
 
 const formatExpiry = (value) => {
   const date = new Date(value);
@@ -15,45 +29,46 @@ const formatExpiry = (value) => {
   });
 };
 
+const joinLines = (lines) => lines.filter(Boolean).join('\n');
+
 const buildEmailVerificationTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
+  const recipientName = asRecipientName(payload.recipientName);
   const link = String(payload.link || '').trim();
   const token = String(payload.token || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const subject = `${businessName}: ইমেইল যাচাই`;
-  const lines = [
-    `নমস্কাৰ ${recipientName},`,
-    `${businessName} ৰ বাবে আপোনাৰ ইমেইল যাচাই কৰক।`,
-    link ? `যাচাই লিংক: ${link}` : '',
-    token ? `যাচাই কোড: ${token}` : '',
-    `এই লিংক/কোডৰ মেয়াদ: ${expiresAt}`,
-    'আপুনি অনুৰোধ নকৰিলে এই মেছেজ উপেক্ষা কৰক।',
-    `শুভেচ্ছান্তে, ${businessName}`,
-  ].filter(Boolean);
 
   return {
-    subject,
-    body: lines.join('\n'),
+    subject: `${businessName}: ইমেইল যাচাই`,
+    body: joinLines([
+      `নমস্কাৰ ${recipientName},`,
+      `${businessName}ৰ বাবে আপোনাৰ ইমেইল যাচাই কৰক।`,
+      link ? `যাচাই লিংক: ${link}` : '',
+      token ? `যাচাই কোড: ${token}` : '',
+      `মেয়াদ: ${expiresAt}`,
+      'আপুনি অনুৰোধ নকৰিলে এই বাৰ্তাটো উপেক্ষা কৰক।',
+      `শুভেচ্ছান্তে, ${businessName}`,
+    ]),
   };
 };
 
 const buildPhoneVerificationTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
+  const recipientName = asRecipientName(payload.recipientName);
   const link = String(payload.link || '').trim();
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const lines = [
-    `${businessName} ফোন যাচাই`,
-    `নমস্কাৰ ${recipientName}, আপোনাৰ ফোন নম্বৰ যাচাই কৰক।`,
-    code ? `কোড: ${code}` : '',
-    link ? `লিংক: ${link}` : '',
-    `মেয়াদ: ${expiresAt}`,
-    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
-  ].filter(Boolean);
+
   return {
-    text: lines.join('\n'),
+    text: joinLines([
+      businessName,
+      'ফোন যাচাই',
+      `নমস্কাৰ ${recipientName},`,
+      code ? `কোড: ${code}` : '',
+      link ? `লিংক: ${link}` : '',
+      `মেয়াদ: ${expiresAt}`,
+      'আপুনি অনুৰোধ নকৰিলে এই বাৰ্তাটো উপেক্ষা কৰক।',
+    ]),
   };
 };
 
@@ -61,78 +76,73 @@ const buildPasswordResetOtpTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const lines = [
-    `${businessName} পাসৱৰ্ড ৰিছেট`,
-    code ? `OTP: ${code}` : '',
-    `মেয়াদ: ${expiresAt}`,
-    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
-  ].filter(Boolean);
+
   return {
-    text: lines.join('\n'),
+    text: joinLines([
+      businessName,
+      'পাছৱৰ্ড ৰিছেট',
+      code ? `OTP: ${code}` : '',
+      `মেয়াদ: ${expiresAt}`,
+      'আপুনি অনুৰোধ নকৰিলে এই বাৰ্তাটো উপেক্ষা কৰক।',
+    ]),
   };
 };
 
 const buildAuthLoginOtpTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
+  const recipientName = asRecipientName(payload.recipientName);
   const code = String(payload.code || '').trim();
   const expiresAt = formatExpiry(payload.expiresAt);
-  const subject = `${businessName}: লগইন OTP`;
-  const body = [
-    `নমস্কাৰ ${recipientName},`,
-    `${businessName} লগইন OTP: ${code || '-'}`,
-    `OTP ৰ মেয়াদ: ${expiresAt}`,
-    'আপুনি অনুৰোধ নকৰিলে এই মেছেজ উপেক্ষা কৰক।',
-  ].join('\n');
-  const text = [
-    `${businessName} লগইন OTP: ${code || '-'}`,
-    `মেয়াদ: ${expiresAt}`,
-    'আপুনি অনুৰোধ নকৰিলে উপেক্ষা কৰক।',
-  ].join('\n');
-  return { subject, body, text };
+
+  return {
+    subject: `${businessName}: লগইন OTP`,
+    body: joinLines([
+      `নমস্কাৰ ${recipientName},`,
+      `${businessName} লগইন OTP: ${code || '-'}`,
+      `মেয়াদ: ${expiresAt}`,
+      'আপুনি অনুৰোধ নকৰিলে এই বাৰ্তাটো উপেক্ষা কৰক।',
+    ]),
+    text: joinLines([
+      businessName,
+      'লগইন OTP',
+      `কোড: ${code || '-'}`,
+      `মেয়াদ: ${expiresAt}`,
+      'আপুনি অনুৰোধ নকৰিলে এই বাৰ্তাটো উপেক্ষা কৰক।',
+    ]),
+  };
 };
 
 const buildPasswordResetAdminTemplate = (payload = {}) => {
   const businessName = asBusinessName(payload.businessName);
-  const recipientName = String(payload.recipientName || 'গ্ৰাহক').trim();
+  const recipientName = asRecipientName(payload.recipientName);
   const newPassword = String(payload.newPassword || '').trim();
   const loginIdentifier = String(payload.loginIdentifier || '').trim();
   const loginUrl = String(payload.loginUrl || '').trim();
   const supportLine = String(payload.supportLine || '').trim();
-  const subject = `${businessName}: এডমিনে পাসৱৰ্ড ৰিছেট কৰিছে`;
-  const bodyLines = [
-    `নমস্কাৰ ${recipientName},`,
-    `${businessName} একাউণ্টৰ পাসৱৰ্ড এডমিনে ৰিছেট কৰিছে।`,
-    newPassword ? `অস্থায়ী পাসৱৰ্ড: ${newPassword}` : '',
-    loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
-    loginUrl ? `লগইন লিংক: ${loginUrl}` : '',
-    'তৎক্ষণাত লগইন কৰি পাসৱৰ্ড সলনি কৰক।',
-    supportLine ? `সহায়তা: ${supportLine}` : '',
-    `শুভেচ্ছান্তে, ${businessName}`,
-  ].filter(Boolean);
-  const textLines = [
-    `${businessName} এডমিন পাসৱৰ্ড ৰিছেট`,
-    `নমস্কাৰ ${recipientName}, আপোনাৰ পাসৱৰ্ড ৰিছেট কৰা হৈছে।`,
-    newPassword ? `অস্থায়ী পাসৱৰ্ড: ${newPassword}` : '',
-    loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
-    loginUrl ? `লিংক: ${loginUrl}` : '',
-    'লগইন কৰি তৎক্ষণাত পাসৱৰ্ড সলনি কৰক।',
-    supportLine ? `সহায়তা: ${supportLine}` : '',
-  ].filter(Boolean);
+
   return {
-    subject,
-    body: bodyLines.join('\n'),
-    text: textLines.join('\n'),
+    subject: `${businessName}: এডমিনে পাছৱৰ্ড ৰিছেট কৰিছে`,
+    body: joinLines([
+      `নমস্কাৰ ${recipientName},`,
+      `${businessName} একাউণ্টৰ পাছৱৰ্ড এডমিনে ৰিছেট কৰিছে।`,
+      newPassword ? `অস্থায়ী পাছৱৰ্ড: ${newPassword}` : '',
+      loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
+      loginUrl ? `লগইন লিংক: ${loginUrl}` : '',
+      'লগইন কৰি তৎক্ষণাৎ পাছৱৰ্ড সলনি কৰক।',
+      supportLine ? `সহায়তা: ${supportLine}` : '',
+      `শুভেচ্ছান্তে, ${businessName}`,
+    ]),
+    text: joinLines([
+      businessName,
+      'এডমিন পাছৱৰ্ড ৰিছেট',
+      `নমস্কাৰ ${recipientName},`,
+      newPassword ? `অস্থায়ী পাছৱৰ্ড: ${newPassword}` : '',
+      loginIdentifier ? `লগইন: ${loginIdentifier}` : '',
+      loginUrl ? `লিংক: ${loginUrl}` : '',
+      'লগইন কৰি তৎক্ষণাৎ পাছৱৰ্ড সলনি কৰক।',
+      supportLine ? `সহায়তা: ${supportLine}` : '',
+    ]),
   };
-};
-
-const formatPoNoticeRate = (value) => Number(value || 0).toFixed(2);
-
-const formatPoNoticeQuantity = (value) => {
-  const qty = Number(value || 0);
-  if (!Number.isFinite(qty)) return '0';
-  if (Math.abs(qty - Math.trunc(qty)) < 1e-9) return String(Math.trunc(qty));
-  return qty.toFixed(2).replace(/\.?0+$/, '');
 };
 
 const normalizePoNoticeDate = (value) => {
@@ -143,22 +153,15 @@ const normalizePoNoticeDate = (value) => {
 
 const buildPurchaseOrderDistributorNoticeTemplate = (payload = {}) => {
   const orderDate = normalizePoNoticeDate(payload.orderDate || payload.order_date || payload.date || payload.messageDate);
-  const title = String(payload.title || `Order for ${orderDate}`).trim() || `Order for ${orderDate}`;
-  const items = Array.isArray(payload.items) ? payload.items : [];
-  const lines = [title];
-
-  items.forEach((item, index) => {
-    const itemName = String(item?.product_name || item?.name || `Item ${index + 1}`).trim();
-    const rate = Number(item?.rate ?? item?.unit_price ?? item?.price ?? 0);
-    const quantity = Number(item?.quantity ?? 0);
-    lines.push(`${index + 1}. ${itemName} | Price: Rs ${formatPoNoticeRate(rate)} | Qty: ${formatPoNoticeQuantity(quantity)}`);
-  });
-
-  if (!items.length) lines.push('No items');
-  lines.push('Thank you.');
-
   return {
-    text: lines.join('\n'),
+    text: buildPurchaseOrderDistributorNoticeText({
+      companyTitle: payload.businessName,
+      title: payload.title,
+      orderDate,
+      items: Array.isArray(payload.items) ? payload.items : [],
+      onlineStoreUrl: payload.onlineStoreUrl,
+      thankYouLine: payload.thankYouLine,
+    }),
   };
 };
 

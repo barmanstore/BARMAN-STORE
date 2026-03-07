@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Filter, Search, SlidersHorizontal } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles } from 'lucide-react';
 import { productsApi, categoriesApi, resolveMediaSourceForDisplay } from '../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../utils/productImage';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
@@ -9,12 +9,19 @@ import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import './Products.css';
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
-const getInitialVisibleCount = (isMobile) => (isMobile ? 12 : 16);
+const getProductPageSize = (isMobile) => (isMobile ? 12 : 16);
 const LOW_STOCK_THRESHOLD = 5;
+const RESTOCK_ALERT_THRESHOLD = 70;
+const CRITICAL_RESTOCK_THRESHOLD = 90;
+const USAGE_HISTORY_KEY = 'barman_product_usage_v1';
+const RECENTLY_BOUGHT_LIMIT = 12;
+const VIRTUALIZE_GROUP_THRESHOLD = 28;
 const GROUP_BY_OPTIONS = {
   category: 'category',
   brand: 'brand'
 };
+const LOGO_DEV_TOKEN = String(import.meta.env.VITE_LOGO_DEV_TOKEN || '').trim();
+const PRODUCTS_AUTOLOAD_ROOT_MARGIN = '720px 0px';
 
 const formatCurrencyColored = (amount) => {
   const formatted = formatCurrency(Math.abs(amount));
@@ -143,9 +150,252 @@ const getVariationPreviewLabel = (variation) => {
   return label || sku || 'Option';
 };
 
-function SafeProductImage({ src, alt, className, fallbackProduct, ...rest }) {
+const safeReadJson = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const safeWriteJson = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (_) {
+    // Ignore storage write failures to keep ordering flow responsive.
+  }
+};
+
+const getUsageWindowDays = (label = '', category = '', addCount = 0) => {
+  const text = `${normalizeText(label)} ${normalizeText(category)}`;
+  let baseDays = 7;
+  if (/(milk|dairy|egg|bread|curd|yogurt|paneer)/.test(text)) baseDays = 4;
+  else if (/(rice|atta|flour|oil|sugar|salt|tea)/.test(text)) baseDays = 12;
+  else if (/(biscuit|snack|noodle|personal|soap|shampoo)/.test(text)) baseDays = 9;
+  const frequencyTuning = Math.min(4, Math.floor(Number(addCount || 0) / 3));
+  return Math.max(3, baseDays - frequencyTuning);
+};
+
+const normalizePathTokens = (value = '') => {
+  return String(value || '')
+    .split('->')
+    .map((part) => normalizeText(part))
+    .filter(Boolean);
+};
+
+const normalizePathValue = (value = '') => normalizePathTokens(value).join(' ->');
+
+const BRAND_LOGO_DOMAIN_HINTS = {
+  amul: 'amul.com',
+  nestle: 'nestle.com',
+  britannia: 'britannia.co.in',
+  parle: 'parleproducts.com',
+  cadbury: 'cadbury.co.in',
+  patanjali: 'patanjaliayurved.org',
+  tata: 'tataconsumer.com',
+  fortune: 'adaniwilmar.com',
+  saffola: 'saffolalife.com',
+  surf: 'surfexcel.in',
+  colgate: 'colgate.com',
+  pepsodent: 'pepsodent.in',
+  dove: 'dove.com',
+  lifebuoy: 'lifebuoy.co.in',
+  maggi: 'maggi.in',
+  nescafe: 'nescafe.com',
+  horlicks: 'horlicks.in',
+  tropicana: 'tropicana.com',
+  coca: 'coca-cola.com',
+  pepsi: 'pepsi.com',
+  sprite: 'sprite.com',
+  sunfeast: 'sunfeast.com',
+  aashirvaad: 'aashirvaad.com',
+  kellogg: 'kelloggs.com',
+  himalaya: 'himalayawellness.com',
+  dettol: 'dettol.co.in',
+  harpic: 'harpic.com',
+  lizol: 'lizol.co.in',
+  whisper: 'whisper.co.in',
+  stayfree: 'stayfree.in',
+  pampers: 'pampers.com',
+  johnson: 'jnj.com',
+  nivea: 'nivea.in',
+  vaseline: 'vaseline.com',
+  gillette: 'gillette.com',
+  pantene: 'pantene.com'
+};
+
+const resolveBrandLogoUrl = (brandName = '') => {
+  const normalized = normalizeText(brandName).replace(/[^a-z0-9&\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!normalized || !LOGO_DEV_TOKEN) return '';
+
+  let domain = BRAND_LOGO_DOMAIN_HINTS[normalized] || '';
+  if (!domain) {
+    const matchEntry = Object.entries(BRAND_LOGO_DOMAIN_HINTS).find(([key]) => (
+      normalized.includes(key) || key.includes(normalized)
+    ));
+    domain = matchEntry?.[1] || '';
+  }
+
+  const baseParams = `token=${encodeURIComponent(LOGO_DEV_TOKEN)}&size=128&format=webp&fallback=monogram`;
+  if (domain) {
+    return `https://img.logo.dev/${domain}?${baseParams}`;
+  }
+  return `https://img.logo.dev/name/${encodeURIComponent(brandName)}?${baseParams}`;
+};
+
+function BrandFilterVisual({ logo, name }) {
+  const [failed, setFailed] = useState(false);
+  const resolvedName = String(name || '').trim() || 'Brand';
+  const resolvedLogo = String(logo || '').trim();
+  if (!resolvedLogo || failed) {
+    return <span className="brand-chip-name">{resolvedName}</span>;
+  }
+  return (
+    <img
+      src={resolvedLogo}
+      alt={resolvedName}
+      className="brand-chip-logo"
+      width={34}
+      height={34}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+const getDefaultCategoryIcon = (categoryName = '') => {
+  const text = normalizeText(categoryName);
+  if (!text || text === 'all') return '🛒';
+  if (/(dairy|milk|curd|paneer|cheese|butter|egg)/.test(text)) return '🥛';
+  if (/(biscuit|cookie|snack|chips|namkeen)/.test(text)) return '🍪';
+  if (/(rice|grain|atta|flour|dal|pulse)/.test(text)) return '🍚';
+  if (/(tea|coffee|beverage|drink|juice)/.test(text)) return '🍵';
+  if (/(oil|ghee)/.test(text)) return '🫗';
+  if (/(personal|care|soap|shampoo|tooth|cosmetic|beauty)/.test(text)) return '🧴';
+  if (/(fruit|fresh)/.test(text)) return '🍎';
+  if (/(vegetable|veggie)/.test(text)) return '🥦';
+  if (/(clean|home|household|detergent)/.test(text)) return '🧽';
+  if (/(baby|kids)/.test(text)) return '🧸';
+  if (/(medicine|pharma|health)/.test(text)) return '💊';
+  return '🧺';
+};
+
+const familyHasImage = (family) => {
+  const variations = Array.isArray(family?.variations) ? family.variations : [];
+  return variations.some((variation) => String(variation?.image || '').trim().length > 0);
+};
+
+const getFamilyPreviewVariation = (family, fallbackVariation = null) => {
+  if (fallbackVariation) {
+    const fallbackImage = String(fallbackVariation?.image || '').trim();
+    if (fallbackImage) return fallbackVariation;
+  }
+  const variations = Array.isArray(family?.variations) ? family.variations : [];
+  return variations.find((variation) => String(variation?.image || '').trim().length > 0) || fallbackVariation || variations[0] || null;
+};
+
+const getFirstAvailableVariation = (family) => {
+  const variations = Array.isArray(family?.variations) ? family.variations : [];
+  return variations.find((variation) => Number(variation?.stock || 0) > 0) || variations[0] || null;
+};
+
+const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
+  const resolvedVariation = selectedVariation || getFirstAvailableVariation(family);
+  if (!family || !resolvedVariation) {
+    return {
+      selectedVariation: null,
+      previewVariation: null,
+      hasMultipleVariations: false,
+      optionCount: 0,
+      familyInStock: false,
+      familyLowStock: false,
+      selectedStock: 0,
+      selectedQty: 0,
+      familyCartQty: 0,
+      selectedLabel: '',
+      previewLabels: [],
+      priceValue: 0,
+      showFromPrice: false,
+      minPrice: 0,
+      stockTone: 'out-of-stock',
+      stockText: 'Out of stock',
+      stockHint: 'Request item',
+      metaLine: '',
+      uomLabel: 'pcs',
+      stockActionLabel: 'Request'
+    };
+  }
+
+  const variations = Array.isArray(family.variations) ? family.variations : [];
+  const hasMultipleVariations = variations.length > 1;
+  const previewVariation = getFamilyPreviewVariation(family, resolvedVariation);
+  const familyInStock = variations.some((variation) => Number(variation.stock || 0) > 0);
+  const familyLowStock = Number(family?.totalStock || 0) > 0 && Number(family.totalStock || 0) <= LOW_STOCK_THRESHOLD;
+  const familyCartQty = variations.reduce((sum, variation) => sum + Number(cartQtyById[variation.id] || 0), 0);
+  const selectedQty = Number(cartQtyById[resolvedVariation.id] || 0);
+  const selectedStock = Number(resolvedVariation.stock || 0);
+  const selectedLowStock = selectedStock > 0 && selectedStock <= LOW_STOCK_THRESHOLD;
+  const inStockOptionCount = variations.filter((variation) => Number(variation.stock || 0) > 0).length;
+  const uniqueUoms = [...new Set(variations.map((variation) => String(variation.uom || 'pcs').trim()).filter(Boolean))];
+  const uomLabel = uniqueUoms.length === 1 ? uniqueUoms[0] : String(resolvedVariation.uom || 'pcs').trim();
+  const previewLabels = [...new Set(
+    variations
+      .slice(0, 3)
+      .map((variation) => getVariationPreviewLabel(variation))
+      .filter(Boolean)
+  )];
+  const priceValue = Number(resolvedVariation.price || 0);
+  const minPrice = Number(family?.minPrice || priceValue || 0);
+  const showFromPrice = hasMultipleVariations && minPrice > 0 && minPrice < priceValue;
+
+  let stockTone = 'out-of-stock';
+  let stockText = 'Out of stock';
+  let stockHint = 'Request item';
+  if (selectedStock > 0) {
+    stockTone = selectedLowStock ? 'special-order' : 'in-stock';
+    stockText = selectedLowStock ? 'Low stock' : 'Ready';
+    stockHint = hasMultipleVariations
+      ? `${inStockOptionCount || 1} option${inStockOptionCount === 1 ? '' : 's'} ready`
+      : 'Ready to add';
+  } else if (familyInStock && hasMultipleVariations) {
+    stockTone = 'in-stock';
+    stockText = 'Other options ready';
+    stockHint = 'Open options';
+  }
+
+  return {
+    selectedVariation: resolvedVariation,
+    previewVariation,
+    hasMultipleVariations,
+    optionCount: variations.length,
+    familyInStock,
+    familyLowStock,
+    selectedStock,
+    selectedQty,
+    familyCartQty,
+    selectedLabel: getVariationPreviewLabel(resolvedVariation),
+    previewLabels,
+    priceValue,
+    showFromPrice,
+    minPrice,
+    stockTone,
+    stockText,
+    stockHint,
+    metaLine: String(family.brand || family.category || '').trim(),
+    uomLabel: uomLabel || 'pcs',
+    stockActionLabel: selectedStock === 0 ? 'Request' : 'Add'
+  };
+};
+
+function SafeProductImage({ src, alt, className, fallbackProduct, width, height, ...rest }) {
   const [resolvedSrc, setResolvedSrc] = useState(() => src || getProductFallbackImage(fallbackProduct));
-  const preferredWidth = String(className || '').includes('detail-mobile-image') ? 960 : 520;
+  const isDetailImage = String(className || '').includes('detail-mobile-image');
+  const preferredWidth = isDetailImage ? 960 : 520;
+  const explicitWidth = Math.max(16, Math.round(Number(width || (isDetailImage ? 960 : 400))));
+  const explicitHeight = Math.max(16, Math.round(Number(height || (isDetailImage ? 600 : 400))));
   const responsiveSources = useMemo(
     () => buildResponsiveImageSources(resolvedSrc, preferredWidth),
     [resolvedSrc, preferredWidth]
@@ -187,6 +437,8 @@ function SafeProductImage({ src, alt, className, fallbackProduct, ...rest }) {
       sizes={responsiveSources.sizes || undefined}
       alt={alt}
       className={className}
+      width={explicitWidth}
+      height={explicitHeight}
       decoding="async"
       {...rest}
       onError={(event) => {
@@ -209,7 +461,7 @@ function ProductDetailView({
   buttonStatus,
   showImage = false
 }) {
-  const selectedVariation = family.variations.find((v) => v.id === selectedVariationId) || family.variations[0];
+  const selectedVariation = family.variations.find((v) => v.id === selectedVariationId) || getFirstAvailableVariation(family);
   if (!selectedVariation) return null;
   const hasMultipleVariations = family.variations.length > 1;
   const labelSeen = new Set();
@@ -321,6 +573,224 @@ function ProductDetailView({
   );
 }
 
+function FamilyProductCard({
+  family,
+  cardState,
+  variant = 'default',
+  isAddedState = false,
+  animationDelay = '0s',
+  onOpenDetails,
+  onAdd,
+  onDecrease,
+  detailContent = null,
+  onTouchStart,
+  onTouchEnd,
+  showMetaLine = true,
+  showSwipeHint = false
+}) {
+  const {
+    selectedVariation,
+    previewVariation,
+    hasMultipleVariations,
+    optionCount,
+    familyLowStock,
+    selectedStock,
+    selectedQty,
+    familyCartQty,
+    selectedLabel,
+    previewLabels,
+    priceValue,
+    showFromPrice,
+    minPrice,
+    stockTone,
+    stockText,
+    stockHint,
+    metaLine,
+    uomLabel,
+    stockActionLabel
+  } = cardState;
+
+  if (!selectedVariation) return null;
+
+  const detailLabel = hasMultipleVariations ? `Options (${optionCount})` : 'Details';
+
+  return (
+    <article
+      className={`product-card family-card fade-in-up glass-product-card glass-product-card--${variant} ${familyLowStock ? 'low-stock-card' : 'high-stock-card'} ${isAddedState ? 'is-added' : ''}`}
+      style={{ animationDelay }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <button
+        type="button"
+        className="product-card-hero"
+        onClick={onOpenDetails}
+        aria-label={`View ${family.name}`}
+      >
+        <div className="glass-oval-frame">
+          <div className="glass-oval-frame-inner">
+            <SafeProductImage
+              src={previewVariation?.image}
+              alt={family.name}
+              className="glass-product-image"
+              loading="lazy"
+              fallbackProduct={previewVariation?.raw || selectedVariation.raw}
+              width={variant === 'compact' ? 288 : 320}
+              height={variant === 'compact' ? 224 : 280}
+            />
+          </div>
+          <div className="glass-frame-sheen" aria-hidden="true" />
+        </div>
+        <div className="card-badges">
+          <span className="price-corner-tag">{formatPriceTag(priceValue)}</span>
+          {hasMultipleVariations ? (
+            <span className="card-option-pill">{optionCount} options</span>
+          ) : null}
+        </div>
+      </button>
+
+      <div className="product-card-body">
+        <div className="product-card-copy">
+          <div className="product-title-row">
+            <h3 className="product-name">{family.name}</h3>
+            {isAddedState ? <span className="card-added-pill">Added</span> : null}
+          </div>
+
+          {showMetaLine && metaLine ? <p className="product-meta-line">{metaLine}</p> : null}
+
+          <button
+            type="button"
+            className={`card-variation-chip ${hasMultipleVariations ? 'has-options' : 'single-option'}`}
+            onClick={onOpenDetails}
+          >
+            <span>{selectedLabel}</span>
+            {hasMultipleVariations ? <strong>Change</strong> : null}
+          </button>
+
+          {previewLabels.length > 1 ? (
+            <div className="product-variation-preview">
+              {previewLabels.map((label, index) => (
+                <span key={`${family.id}-preview-${index}`} className="variation-preview-tag">{label}</span>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="product-price-line glass-price-line">
+            <strong>{formatCurrencyColored(priceValue)}</strong>
+            <small>/ {uomLabel || 'pcs'}</small>
+          </div>
+
+          {showFromPrice ? (
+            <small className="card-from-price">From {formatCurrency(minPrice)}</small>
+          ) : null}
+        </div>
+
+        <div className="product-footer compact card-footer-stack">
+          <div className="product-stock">
+            <span className={stockTone}>{stockText}</span>
+            <small className="cart-qty-indicator">
+              {familyCartQty > 0 ? `Cart ${familyCartQty}` : stockHint}
+            </small>
+          </div>
+
+          <div className="card-action-row">
+            <button
+              type="button"
+              className="card-view-btn"
+              onClick={onOpenDetails}
+            >
+              {detailLabel}
+            </button>
+
+            {selectedQty > 0 ? (
+              <div className="card-qty-counter">
+                <button
+                  type="button"
+                  className="qty-step-btn"
+                  onClick={() => onDecrease(selectedVariation)}
+                  aria-label={`Decrease ${family.name}`}
+                >
+                  -
+                </button>
+                <span className="qty-step-value">{selectedQty}</span>
+                <button
+                  type="button"
+                  className="qty-step-btn"
+                  onClick={() => onAdd(family, selectedVariation)}
+                  aria-label={`Increase ${family.name}`}
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="add-to-cart-btn"
+                onClick={() => onAdd(family, selectedVariation)}
+              >
+                <Plus size={14} />
+                {selectedStock === 0 ? stockActionLabel : 'Add'}
+              </button>
+            )}
+          </div>
+
+          {showSwipeHint ? (
+            <span className="quick-add-swipe-hint">{isAddedState ? 'Added' : 'Swipe card to quick add'}</span>
+          ) : null}
+        </div>
+
+        {detailContent}
+      </div>
+    </article>
+  );
+}
+
+function VirtualizedFamilyGrid({
+  families,
+  renderFamilyCard,
+  estimatedColumns = 2,
+  estimatedCardHeight = 290,
+  shouldVirtualize = false
+}) {
+  const hostRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(!shouldVirtualize);
+
+  useEffect(() => {
+    if (!shouldVirtualize || isVisible) return undefined;
+    const node = hostRef.current;
+    if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+      setIsVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { root: null, rootMargin: '900px 0px 900px 0px', threshold: 0.01 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldVirtualize, isVisible]);
+
+  const rows = Math.max(1, Math.ceil((families?.length || 0) / Math.max(1, Number(estimatedColumns || 1))));
+  const placeholderHeight = Math.max(110, rows * estimatedCardHeight);
+
+  return (
+    <div ref={hostRef} className="virtual-grid-host">
+      {isVisible ? (
+        <div className="group-products-grid">
+          {families.map((family) => renderFamilyCard(family))}
+        </div>
+      ) : (
+        <div className="virtual-grid-placeholder" style={{ height: `${placeholderHeight}px` }} aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
 function Products({ setCartCount }) {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -329,6 +799,7 @@ function Products({ setCartCount }) {
     : GROUP_BY_OPTIONS.category;
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [recentlyBought, setRecentlyBought] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '');
@@ -336,20 +807,32 @@ function Products({ setCartCount }) {
   const [groupBy, setGroupBy] = useState(initialGroupBy);
   const [inStockOnly, setInStockOnly] = useState(searchParams.get('stock') === '1');
   const [loading, setLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [cart, setCart] = useState([]);
-  const [visibleCount, setVisibleCount] = useState(16);
+  const [productsPage, setProductsPage] = useState(0);
+  const [productsHasMore, setProductsHasMore] = useState(true);
   const [buttonStatus, setButtonStatus] = useState({});
   const [notice, setNotice] = useState(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [activeDesktopFamilyId, setActiveDesktopFamilyId] = useState(null);
   const [activeMobileFamilyId, setActiveMobileFamilyId] = useState(null);
   const [selectedVariationByFamily, setSelectedVariationByFamily] = useState({});
+  const [usageHistory, setUsageHistory] = useState({});
+  const [swipeAddedFamilyId, setSwipeAddedFamilyId] = useState('');
+  const quickTileTouchStartRef = useRef({});
+  const quickTileDidSwipeRef = useRef({});
+  const loadMoreProductsRef = useRef(() => {});
+  const productsLoadTriggerRef = useRef(null);
+  const latestProductsRequestRef = useRef(0);
+  const productsLoadingMoreRef = useRef(false);
+  const productPageSize = getProductPageSize(isMobile);
 
   useEffect(() => {
-    fetchProducts();
     fetchCategories();
+    fetchRecentlyBought();
     loadCart();
+    setUsageHistory(safeReadJson(USAGE_HISTORY_KEY, {}));
   }, []);
 
   useEffect(() => {
@@ -368,26 +851,70 @@ function Products({ setCartCount }) {
   }, [selectedCategory, debouncedQuery, sortBy, groupBy, inStockOnly, setSearchParams]);
 
   useEffect(() => {
-    setVisibleCount(getInitialVisibleCount(isMobile));
-  }, [selectedCategory, debouncedQuery, sortBy, groupBy, inStockOnly, isMobile]);
-
-  useEffect(() => {
     if (!notice) return undefined;
     const timer = setTimeout(() => setNotice(null), 2200);
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    if (!swipeAddedFamilyId) return undefined;
+    const timer = setTimeout(() => setSwipeAddedFamilyId(''), 850);
+    return () => clearTimeout(timer);
+  }, [swipeAddedFamilyId]);
+
+  const fetchProductsPage = async ({ page, append, requestId }) => {
     try {
-      const data = await productsApi.getAll();
-      setProducts(Array.isArray(data) ? data : []);
-      setLoading(false);
+      const params = {
+        page: String(page),
+        page_size: String(productPageSize),
+        sort: sortBy,
+      };
+      if (selectedCategory !== 'all') params.category = selectedCategory;
+      if (debouncedQuery) params.name = debouncedQuery;
+      if (inStockOnly) params.in_stock = 'true';
+
+      const data = await productsApi.getAll(params);
+      if (requestId !== latestProductsRequestRef.current) return;
+
+      const nextItems = Array.isArray(data)
+        ? data
+        : (Array.isArray(data?.items) ? data.items : []);
+      const nextPagination = Array.isArray(data) ? null : (data?.pagination || null);
+
+      setProducts((prev) => (append ? [...prev, ...nextItems] : nextItems));
+      setProductsPage(Number(nextPagination?.page || page));
+      setProductsHasMore(Boolean(nextPagination?.has_more));
+      setError('');
     } catch (fetchError) {
+      if (requestId !== latestProductsRequestRef.current) return;
       console.error('Error fetching products:', fetchError);
       setError('Failed to load products. Please refresh and try again.');
+      if (!append) {
+        setProducts([]);
+        setProductsHasMore(false);
+        setProductsPage(0);
+      } else {
+        setProductsHasMore(false);
+      }
+    } finally {
+      if (requestId !== latestProductsRequestRef.current) return;
+      productsLoadingMoreRef.current = false;
       setLoading(false);
+      setIsLoadingMore(false);
     }
   };
+
+  useEffect(() => {
+    const requestId = latestProductsRequestRef.current + 1;
+    latestProductsRequestRef.current = requestId;
+    productsLoadingMoreRef.current = false;
+    setLoading(true);
+    setIsLoadingMore(false);
+    setProducts([]);
+    setProductsPage(0);
+    setProductsHasMore(true);
+    fetchProductsPage({ page: 1, append: false, requestId });
+  }, [selectedCategory, debouncedQuery, sortBy, inStockOnly, productPageSize]);
 
   const fetchCategories = async () => {
     try {
@@ -395,6 +922,15 @@ function Products({ setCartCount }) {
       setCategories(Array.isArray(data) ? data : []);
     } catch (fetchError) {
       console.error('Error fetching categories:', fetchError);
+    }
+  };
+
+  const fetchRecentlyBought = async () => {
+    try {
+      const data = await productsApi.getRecentlyBought({ limit: RECENTLY_BOUGHT_LIMIT });
+      setRecentlyBought(Array.isArray(data) ? data : []);
+    } catch (_) {
+      setRecentlyBought([]);
     }
   };
 
@@ -446,11 +982,16 @@ function Products({ setCartCount }) {
           category: hierarchy.category || '',
           subcategory: hierarchy.subcategory || '',
           categoryPath: hierarchy.categoryPath || hierarchy.category || '',
+          categoryIds: new Set(),
           description: String(product.description || '').trim(),
           variations: []
         });
       }
       const family = familyMap.get(key);
+      const productCategoryId = Number(product?.category_id || 0);
+      if (Number.isInteger(productCategoryId) && productCategoryId > 0) {
+        family.categoryIds.add(productCategoryId);
+      }
       const existingVariation = family.variations.find((variation) => variation.signature === variationSignature);
       if (existingVariation) {
         existingVariation.stock = Number(existingVariation.stock || 0) + Number(product.stock || 0);
@@ -510,8 +1051,12 @@ function Products({ setCartCount }) {
       });
       const minPrice = sortedVariations.reduce((min, variation) => Math.min(min, Number(variation.price || 0)), Infinity);
       const totalStock = sortedVariations.reduce((sum, variation) => sum + Number(variation.stock || 0), 0);
+      const categoryIds = Array.from(family.categoryIds || [])
+        .map((value) => Number(value || 0))
+        .filter((value) => Number.isInteger(value) && value > 0);
       return {
         ...family,
+        categoryIds,
         variations: sortedVariations,
         minPrice: Number.isFinite(minPrice) ? minPrice : 0,
         totalStock
@@ -524,23 +1069,246 @@ function Products({ setCartCount }) {
       return categories
         .map((category) => ({
           id: category.id || category.name,
-          name: String(category.name || '').trim()
+          name: String(category.name || '').trim(),
+          parent_id: category.parent_id ?? null,
+          icon: String(category.icon || '').trim(),
+          image: String(category.image || '').trim(),
+          image_width: Number(category.image_width || 0) || null,
+          image_height: Number(category.image_height || 0) || null,
         }))
         .filter((category) => category.name);
     }
 
-    const unique = Array.from(new Set(productFamilies.map((family) => String(family.category || '').trim()).filter(Boolean)));
-    return unique.map((name) => ({ id: name, name }));
+    const unique = Array.from(new Set(
+      productFamilies
+        .map((family) => {
+          const parsed = splitHierarchyValue(family.categoryPath || family.category);
+          return String(parsed.parent || family.category || '').trim();
+        })
+        .filter(Boolean)
+    ));
+    return unique.map((name) => ({
+      id: name,
+      name,
+      parent_id: null,
+      icon: '',
+      image: '',
+      image_width: null,
+      image_height: null
+    }));
   }, [categories, productFamilies]);
+
+  const effectiveBrands = useMemo(() => {
+    const byName = new Map();
+    productFamilies.forEach((family) => {
+      const parsed = splitHierarchyValue(family.brandPath || family.brandRoot || family.brand);
+      const rootName = String(parsed.parent || family.brandRoot || family.brand || '').trim();
+      if (!rootName) return;
+      const key = normalizeText(rootName);
+      if (byName.has(key)) return;
+      byName.set(key, {
+        id: key,
+        name: rootName,
+        parent_id: null,
+        icon: '',
+        image: resolveBrandLogoUrl(rootName),
+        image_width: 34,
+        image_height: 34
+      });
+    });
+    return [...byName.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }, [productFamilies]);
+
+  const activeFilterOptions = useMemo(
+    () => (groupBy === GROUP_BY_OPTIONS.brand ? effectiveBrands : effectiveCategories),
+    [groupBy, effectiveBrands, effectiveCategories]
+  );
+
+  const categoryPathScopeSet = useMemo(() => {
+    const selected = normalizeText(selectedCategory);
+    if (selected === 'all' || groupBy !== GROUP_BY_OPTIONS.category) return new Set();
+    const scope = new Set();
+
+    if (effectiveCategories.length > 0) {
+      const byId = new Map(effectiveCategories.map((item) => [String(item.id), item]));
+      const childIdsByParent = new Map();
+      effectiveCategories.forEach((item) => {
+        const parentId = item.parent_id;
+        if (parentId === null || parentId === undefined || parentId === '') return;
+        const parentKey = String(parentId);
+        if (!childIdsByParent.has(parentKey)) childIdsByParent.set(parentKey, []);
+        childIdsByParent.get(parentKey).push(String(item.id));
+      });
+
+      const seedIds = effectiveCategories
+        .filter((item) => normalizeText(item.name) === selected)
+        .map((item) => String(item.id));
+      const queue = [...seedIds];
+      const visited = new Set();
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        if (!currentId || visited.has(currentId)) continue;
+        visited.add(currentId);
+        const pathTokens = [];
+        const pathSeen = new Set();
+        let cursor = currentId;
+        while (cursor && !pathSeen.has(cursor)) {
+          pathSeen.add(cursor);
+          const node = byId.get(cursor);
+          if (!node?.name) break;
+          pathTokens.unshift(normalizeText(node.name));
+          const parent = node.parent_id;
+          if (parent === null || parent === undefined || parent === '') break;
+          cursor = String(parent);
+        }
+        if (pathTokens.length > 0) {
+          for (let start = 0; start < pathTokens.length; start += 1) {
+            const normalizedPath = pathTokens.slice(start).join(' ->');
+            if (normalizedPath) scope.add(normalizedPath);
+          }
+        }
+        (childIdsByParent.get(currentId) || []).forEach((childId) => {
+          if (!visited.has(childId)) queue.push(childId);
+        });
+      }
+    }
+
+    if (scope.size === 0) scope.add(selected);
+
+    return scope;
+  }, [selectedCategory, groupBy, effectiveCategories]);
+
+  const categoryNameScopeSet = useMemo(() => {
+    const selected = normalizeText(selectedCategory);
+    if (selected === 'all' || groupBy !== GROUP_BY_OPTIONS.category) return new Set();
+    const scope = new Set([selected]);
+    if (effectiveCategories.length === 0) return scope;
+
+    const childIdsByParent = new Map();
+    effectiveCategories.forEach((item) => {
+      const parentId = item.parent_id;
+      if (parentId === null || parentId === undefined || parentId === '') return;
+      const parentKey = String(parentId);
+      if (!childIdsByParent.has(parentKey)) childIdsByParent.set(parentKey, []);
+      childIdsByParent.get(parentKey).push(String(item.id));
+    });
+
+    const selectedIds = effectiveCategories
+      .filter((item) => normalizeText(item.name) === selected)
+      .map((item) => String(item.id));
+
+    const queue = [...selectedIds];
+    const visited = new Set();
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current || visited.has(current)) continue;
+      visited.add(current);
+      const node = effectiveCategories.find((item) => String(item.id) === current);
+      if (node?.name) scope.add(normalizeText(node.name));
+      (childIdsByParent.get(current) || []).forEach((childId) => {
+        if (!visited.has(childId)) queue.push(childId);
+      });
+    }
+
+    return scope;
+  }, [selectedCategory, groupBy, effectiveCategories]);
+
+  const categoryIdScopeSet = useMemo(() => {
+    const selected = normalizeText(selectedCategory);
+    if (selected === 'all' || groupBy !== GROUP_BY_OPTIONS.category || effectiveCategories.length === 0) return new Set();
+
+    const childIdsByParent = new Map();
+    effectiveCategories.forEach((item) => {
+      const parentId = item.parent_id;
+      if (parentId === null || parentId === undefined || parentId === '') return;
+      const parentKey = String(parentId);
+      if (!childIdsByParent.has(parentKey)) childIdsByParent.set(parentKey, []);
+      childIdsByParent.get(parentKey).push(Number(item.id));
+    });
+
+    const selectedIds = effectiveCategories
+      .filter((item) => normalizeText(item.name) === selected)
+      .map((item) => Number(item.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+
+    const scope = new Set();
+    const queue = [...selectedIds];
+    const visited = new Set();
+    while (queue.length > 0) {
+      const current = Number(queue.shift() || 0);
+      if (!Number.isInteger(current) || current <= 0 || visited.has(current)) continue;
+      visited.add(current);
+      scope.add(current);
+      (childIdsByParent.get(String(current)) || []).forEach((childId) => {
+        if (!visited.has(childId)) queue.push(childId);
+      });
+    }
+    return scope;
+  }, [selectedCategory, groupBy, effectiveCategories]);
+
+  const brandPathScopeSet = useMemo(() => {
+    const selected = normalizeText(selectedCategory);
+    if (selected === 'all' || groupBy !== GROUP_BY_OPTIONS.brand) return new Set();
+    const scope = new Set();
+    activeFilterOptions.forEach((option) => {
+      if (normalizeText(option?.name) !== selected) return;
+      const basePath = normalizePathValue(option?.name || '');
+      if (basePath) scope.add(basePath);
+    });
+    if (scope.size === 0) scope.add(selected);
+    return scope;
+  }, [selectedCategory, groupBy, activeFilterOptions]);
 
   const filteredFamilies = useMemo(() => {
     const query = normalizeText(debouncedQuery);
     const selected = normalizeText(selectedCategory);
 
     let list = productFamilies.filter((family) => {
-      const familyCategory = normalizeText(family.category);
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
-      if (selected !== 'all' && familyCategory !== selected) return false;
+      if (selected !== 'all') {
+        if (groupBy === GROUP_BY_OPTIONS.brand) {
+          const familyBrandPath = normalizePathValue(family.brandPath || family.brandRoot || family.brand);
+          const familyBrandRoot = normalizeText(family.brandRoot || splitHierarchyValue(family.brandPath || '').parent || family.brand);
+          const matchesBrandPath = Array.from(brandPathScopeSet).some((scopePath) => (
+            familyBrandPath === scopePath || familyBrandPath.startsWith(`${scopePath} ->`)
+          ));
+          const matchesBrandRoot = familyBrandRoot === selected;
+          if (!matchesBrandPath && !matchesBrandRoot) return false;
+        } else {
+          const familyCategoryIds = Array.isArray(family.categoryIds) ? family.categoryIds : [];
+          const hasCategoryIds = familyCategoryIds.length > 0;
+          const matchesCategoryIdTree = categoryIdScopeSet.size > 0
+            && familyCategoryIds.some((id) => categoryIdScopeSet.has(Number(id)));
+          if (hasCategoryIds) {
+            if (!matchesCategoryIdTree) return false;
+          } else if (categoryIdScopeSet.size > 0) {
+            const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
+            const matchesCategoryPath = Array.from(categoryPathScopeSet).some((scopePath) => (
+              familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
+            ));
+            const familyCategoryTokens = new Set([
+              ...normalizePathTokens(familyCategoryPath),
+              normalizeText(family.category),
+              normalizeText(family.subcategory)
+            ].filter(Boolean));
+            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) => categoryNameScopeSet.has(token));
+            if (!matchesCategoryPath && !matchesCategoryNameScope) return false;
+          } else {
+            const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
+            const matchesCategoryPath = Array.from(categoryPathScopeSet).some((scopePath) => (
+              familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
+            ));
+            const familyCategoryRoot = normalizeText(family.category || splitHierarchyValue(family.categoryPath || '').parent);
+            const familyCategoryTokens = new Set([
+              ...normalizePathTokens(familyCategoryPath),
+              familyCategoryRoot,
+              normalizeText(family.subcategory)
+            ].filter(Boolean));
+            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) => categoryNameScopeSet.has(token));
+            if (!matchesCategoryPath && !matchesCategoryNameScope) return false;
+          }
+        }
+      }
       if (inStockOnly && !inStock) return false;
       if (!query) return true;
 
@@ -578,9 +1346,24 @@ function Products({ setCartCount }) {
     };
 
     const sortFn = sorters[sortBy] || sorters.relevance;
-    list = [...list].sort(sortFn);
+    list = [...list].sort((a, b) => {
+      const aHasImage = familyHasImage(a) ? 1 : 0;
+      const bHasImage = familyHasImage(b) ? 1 : 0;
+      if (aHasImage !== bHasImage) return bHasImage - aHasImage;
+      return sortFn(a, b);
+    });
     return list;
-  }, [productFamilies, debouncedQuery, selectedCategory, sortBy, inStockOnly]);
+  }, [productFamilies, debouncedQuery, selectedCategory, sortBy, inStockOnly, groupBy, categoryPathScopeSet, categoryIdScopeSet, categoryNameScopeSet, brandPathScopeSet]);
+
+  useEffect(() => {
+    setSelectedCategory('all');
+  }, [groupBy]);
+
+  useEffect(() => {
+    if (selectedCategory === 'all') return;
+    const exists = activeFilterOptions.some((option) => normalizeText(option.name) === normalizeText(selectedCategory));
+    if (!exists) setSelectedCategory('all');
+  }, [selectedCategory, activeFilterOptions]);
 
   useEffect(() => {
     setSelectedVariationByFamily((prev) => {
@@ -591,19 +1374,50 @@ function Products({ setCartCount }) {
         const current = next[family.id];
         const stillExists = family.variations.some((variation) => variation.id === current);
         if (!current || !stillExists) {
-          next[family.id] = family.variations[0].id;
-          changed = true;
+          const fallbackVariation = getFirstAvailableVariation(family);
+          if (fallbackVariation?.id) {
+            next[family.id] = fallbackVariation.id;
+            changed = true;
+          }
         }
       });
       return changed ? next : prev;
     });
   }, [filteredFamilies]);
 
-  const visibleFamilies = useMemo(() => filteredFamilies.slice(0, visibleCount), [filteredFamilies, visibleCount]);
-  const hasMoreProducts = visibleCount < filteredFamilies.length;
-  const groupingLabel = groupBy === GROUP_BY_OPTIONS.brand
-    ? 'Brand -> Sub-brand'
-    : 'Category -> Sub-category';
+  const visibleFamilies = filteredFamilies;
+  const hasMoreProducts = productsHasMore;
+
+  loadMoreProductsRef.current = () => {
+    if (loading || isLoadingMore || productsLoadingMoreRef.current || !productsHasMore) return;
+    const nextRequestId = latestProductsRequestRef.current;
+    productsLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    fetchProductsPage({
+      page: productsPage + 1,
+      append: true,
+      requestId: nextRequestId,
+    });
+  };
+
+  useEffect(() => {
+    if (loading || isLoadingMore || !productsHasMore) return undefined;
+    const node = productsLoadTriggerRef.current;
+    if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          loadMoreProductsRef.current();
+        }
+      },
+      { root: null, rootMargin: PRODUCTS_AUTOLOAD_ROOT_MARGIN, threshold: 0.01 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loading, isLoadingMore, productsHasMore, productsPage, selectedCategory, debouncedQuery, sortBy, inStockOnly, productPageSize]);
 
   const visibleFamilyIndexById = useMemo(() => {
     return visibleFamilies.reduce((acc, family, index) => {
@@ -663,85 +1477,173 @@ function Products({ setCartCount }) {
 
   const getSelectedVariation = (family) => {
     const selectedId = selectedVariationByFamily[family.id];
-    return family.variations.find((variation) => variation.id === selectedId) || family.variations[0];
+    return family.variations.find((variation) => variation.id === selectedId) || getFirstAvailableVariation(family);
   };
 
   const handleSelectVariation = (familyId, variationId) => {
     setSelectedVariationByFamily((prev) => ({ ...prev, [familyId]: variationId }));
   };
 
-  const addToCart = (family, variation) => {
-    if (!variation) return;
+  const persistCart = (nextCart) => {
+    setCart(nextCart);
+    safeWriteJson('barman_cart', nextCart);
+    setCartCount(nextCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+  };
 
-    const productStock = Number(variation.stock || 0);
-    const existingItem = cart.find((item) => item.id === variation.id);
-    const currentQuantity = Number(existingItem?.quantity || 0);
-
-    let newCart;
-    if (existingItem) {
-      const nextQuantity = Number(existingItem.quantity || 0) + 1;
-      newCart = cart.map((item) =>
-        item.id === variation.id
-          ? {
-              ...item,
-              quantity: nextQuantity,
-              out_of_stock_request: (productStock <= 0 || nextQuantity > productStock) ? 1 : 0,
-            }
-          : item
-      );
-    } else {
-      newCart = [
-        ...cart,
-        {
-          id: variation.id,
-          name: family.name,
-          brand: family.brand,
-          category: variation.category,
-          content: variation.content,
-          color: variation.color,
-          image: variation.image,
-          price: Number(variation.price || 0),
-          stock: productStock,
-          uom: variation.uom || 'pcs',
-          quantity: 1,
-          out_of_stock_request: productStock <= 0 ? 1 : 0,
-        }
-      ];
-    }
-
-    setCart(newCart);
-    localStorage.setItem('barman_cart', JSON.stringify(newCart));
-    setCartCount(newCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-    setButtonStatus((prev) => ({ ...prev, [variation.id]: 'added' }));
-    if (productStock <= 0) {
-      setNotice({
-        type: 'info',
-        message: 'Added as a requested item. Billing team will confirm availability.',
+  const markVariationIdsAsAdded = (variationIds = []) => {
+    const uniqueIds = [...new Set(variationIds.map((value) => Number(value || 0)).filter((value) => value > 0))];
+    if (!uniqueIds.length) return;
+    setButtonStatus((prev) => {
+      const next = { ...prev };
+      uniqueIds.forEach((id) => {
+        next[id] = 'added';
       });
-    } else if (currentQuantity + 1 > productStock) {
-      setNotice({
-        type: 'info',
-        message: `Requested quantity exceeds stock (${productStock}). Extra quantity will stay pending.`,
-      });
-    }
+      return next;
+    });
     setTimeout(() => {
-      setButtonStatus((prev) => ({ ...prev, [variation.id]: '' }));
+      setButtonStatus((prev) => {
+        const next = { ...prev };
+        uniqueIds.forEach((id) => {
+          next[id] = '';
+        });
+        return next;
+      });
     }, 900);
+  };
+
+  const recordUsageEntries = (entries = []) => {
+    if (!entries.length) return;
+    setUsageHistory((prev) => {
+      const next = { ...prev };
+      const nowIso = new Date().toISOString();
+      entries.forEach(({ family, variation, quantity }) => {
+        const familyId = String(family?.id || '').trim();
+        if (!familyId || !variation) return;
+        const existing = next[familyId] || {};
+        next[familyId] = {
+          familyId,
+          familyName: String(family?.name || existing.familyName || '').trim() || 'Product',
+          category: String(family?.category || variation?.category || existing.category || '').trim(),
+          variationId: Number(variation.id || existing.variationId || 0),
+          addCount: Number(existing.addCount || 0) + 1,
+          totalQty: Number(existing.totalQty || 0) + Math.max(1, Number(quantity || 1)),
+          lastAddedAt: nowIso
+        };
+      });
+      safeWriteJson(USAGE_HISTORY_KEY, next);
+      return next;
+    });
+  };
+
+  const buildCartWithAdditions = (baseCart, entries = []) => {
+    let nextCart = Array.isArray(baseCart) ? [...baseCart] : [];
+    let requestCount = 0;
+    const appliedEntries = [];
+
+    entries.forEach(({ family, variation, quantity }) => {
+      if (!family || !variation) return;
+      const qtyToAdd = Math.max(1, Number(quantity || 1));
+      const productStock = Math.max(0, Number(variation.stock || 0));
+      const existingIndex = nextCart.findIndex((item) => Number(item.id || 0) === Number(variation.id || 0));
+
+      if (existingIndex >= 0) {
+        const existingItem = nextCart[existingIndex];
+        const nextQuantity = Number(existingItem.quantity || 0) + qtyToAdd;
+        const nextOutOfStock = (productStock <= 0 || nextQuantity > productStock) ? 1 : 0;
+        nextCart[existingIndex] = {
+          ...existingItem,
+          quantity: nextQuantity,
+          out_of_stock_request: nextOutOfStock,
+        };
+        if (nextOutOfStock) requestCount += 1;
+      } else {
+        const outOfStockRequest = (productStock <= 0 || qtyToAdd > productStock) ? 1 : 0;
+        nextCart = [
+          ...nextCart,
+          {
+            id: variation.id,
+            name: family.name,
+            brand: family.brand,
+            category: variation.category,
+            content: variation.content,
+            color: variation.color,
+            image: variation.image,
+            price: Number(variation.price || 0),
+            stock: productStock,
+            uom: variation.uom || 'pcs',
+            quantity: qtyToAdd,
+            out_of_stock_request: outOfStockRequest,
+          }
+        ];
+        if (outOfStockRequest) requestCount += 1;
+      }
+
+      appliedEntries.push({ family, variation, quantity: qtyToAdd });
+    });
+
+    return { nextCart, requestCount, appliedEntries };
+  };
+
+  const addEntriesToCart = (entries = [], options = {}) => {
+    const validEntries = entries.filter((entry) => entry?.family && entry?.variation);
+    if (!validEntries.length) return;
+
+    const persistedCart = safeReadJson('barman_cart', cart);
+    const baseCart = Array.isArray(persistedCart) ? persistedCart : cart;
+    const { nextCart, requestCount, appliedEntries } = buildCartWithAdditions(baseCart, validEntries);
+    if (!appliedEntries.length) return;
+    persistCart(nextCart);
+    recordUsageEntries(appliedEntries);
+    markVariationIdsAsAdded(appliedEntries.map((entry) => entry.variation.id));
+
+    if (options?.markSwipeFamilyId) {
+      setSwipeAddedFamilyId(String(options.markSwipeFamilyId));
+    }
+
+    if (requestCount > 0) {
+      setNotice({
+        type: 'info',
+        message: requestCount > 1
+          ? `${requestCount} items are in request mode due to low stock.`
+          : 'Added as a requested item. Billing team will confirm availability.',
+      });
+    }
+  };
+
+  const addToCart = (family, variation, quantity = 1) => {
+    addEntriesToCart([{ family, variation, quantity }]);
   };
 
   const decreaseFromCart = (variation) => {
     if (!variation) return;
-    const existingItem = cart.find((item) => item.id === variation.id);
+    const existingItem = cart.find((item) => Number(item.id || 0) === Number(variation.id || 0));
     if (!existingItem) return;
 
     const nextQty = Math.max(0, Number(existingItem.quantity || 0) - 1);
     const newCart = nextQty === 0
-      ? cart.filter((item) => item.id !== variation.id)
-      : cart.map((item) => (item.id === variation.id ? { ...item, quantity: nextQty } : item));
+      ? cart.filter((item) => Number(item.id || 0) !== Number(variation.id || 0))
+      : cart.map((item) => (Number(item.id || 0) === Number(variation.id || 0) ? { ...item, quantity: nextQty } : item));
 
-    setCart(newCart);
-    localStorage.setItem('barman_cart', JSON.stringify(newCart));
-    setCartCount(newCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
+    persistCart(newCart);
+  };
+
+  const handleQuickTileTouchStart = (family, event) => {
+    const startX = Number(event?.touches?.[0]?.clientX || 0);
+    if (!family?.id || !startX) return;
+    quickTileTouchStartRef.current[family.id] = startX;
+    quickTileDidSwipeRef.current[family.id] = false;
+  };
+
+  const handleQuickTileTouchEnd = (family, event) => {
+    if (!family?.id) return;
+    const startX = Number(quickTileTouchStartRef.current[family.id] || 0);
+    delete quickTileTouchStartRef.current[family.id];
+    const endX = Number(event?.changedTouches?.[0]?.clientX || 0);
+    const deltaX = endX - startX;
+    if (deltaX < 56) return;
+    const variation = getSelectedVariation(family);
+    quickTileDidSwipeRef.current[family.id] = true;
+    addEntriesToCart([{ family, variation }], { markSwipeFamilyId: family.id });
   };
 
   const openFamilyDetails = (familyId) => {
@@ -757,126 +1659,282 @@ function Products({ setCartCount }) {
     [filteredFamilies, activeMobileFamilyId]
   );
 
+  const familyById = useMemo(
+    () => new Map(productFamilies.map((family) => [family.id, family])),
+    [productFamilies]
+  );
+
+  const cartItemCount = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
+    [cart]
+  );
+
+  const cartPreviewTotal = useMemo(
+    () => cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0),
+    [cart]
+  );
+
+  const familyByVariationId = useMemo(() => {
+    const byVariation = new Map();
+    productFamilies.forEach((family) => {
+      family.variations.forEach((variation) => {
+        byVariation.set(Number(variation.id || 0), family);
+      });
+    });
+    return byVariation;
+  }, [productFamilies]);
+
+  const recentlyBoughtFamilies = useMemo(() => {
+    const seen = new Set();
+    const rows = Array.isArray(recentlyBought) ? recentlyBought : [];
+    const list = [];
+    rows.forEach((row) => {
+      const productId = Number(row?.product_id || row?.product?.id || 0);
+      const family = familyByVariationId.get(productId);
+      if (!family) return;
+      if (seen.has(family.id)) return;
+      seen.add(family.id);
+      list.push(family);
+    });
+    return list;
+  }, [recentlyBought, familyByVariationId]);
+
+  const quickAddFamilies = useMemo(() => {
+    const sourceList = selectedCategory !== 'all' ? filteredFamilies : productFamilies;
+    if (!sourceList.length) return [];
+    const now = Date.now();
+    const scored = sourceList.map((family, index) => {
+      const history = usageHistory[family.id] || {};
+      const addCount = Number(history.addCount || 0);
+      const lastAddedAt = Date.parse(history.lastAddedAt || '');
+      const daysSince = Number.isFinite(lastAddedAt) ? Math.max(0, (now - lastAddedAt) / 86400000) : 30;
+      const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
+      const score = (addCount * 12) + (inStock ? 15 : 0) + (daysSince < 5 ? 6 : 0) - (index * 0.015);
+      return { family, score };
+    });
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, isMobile ? 8 : 10)
+      .map((entry) => entry.family);
+  }, [selectedCategory, filteredFamilies, productFamilies, usageHistory, isMobile]);
+
+  const repeatOrderFamilies = useMemo(() => {
+    if (recentlyBoughtFamilies.length > 0) return recentlyBoughtFamilies.slice(0, 6);
+    if (!quickAddFamilies.length) return [];
+    return quickAddFamilies.slice(0, 4);
+  }, [recentlyBoughtFamilies, quickAddFamilies]);
+
+  const smartRestockItems = useMemo(() => {
+    const now = Date.now();
+    return Object.values(usageHistory)
+      .map((entry) => {
+        const family = familyById.get(entry.familyId);
+        if (!family) return null;
+        const selectedVariation = getSelectedVariation(family);
+        if (!selectedVariation) return null;
+        const lastAddedAt = Date.parse(entry.lastAddedAt || '');
+        if (!Number.isFinite(lastAddedAt)) return null;
+        const daysSince = Math.max(0, (now - lastAddedAt) / 86400000);
+        const usageWindowDays = getUsageWindowDays(family.name, family.category, entry.addCount);
+        const depletionPercent = Math.min(100, Math.round((daysSince / usageWindowDays) * 100));
+        if (depletionPercent < RESTOCK_ALERT_THRESHOLD) return null;
+        return {
+          id: family.id,
+          family,
+          variation: selectedVariation,
+          depletionPercent,
+          usageWindowDays,
+          daysSince: Number(daysSince.toFixed(1)),
+          tone: depletionPercent >= CRITICAL_RESTOCK_THRESHOLD ? 'critical' : 'warning'
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.depletionPercent - a.depletionPercent)
+      .slice(0, isMobile ? 4 : 6);
+  }, [usageHistory, familyById, isMobile, selectedVariationByFamily]);
+
+  const comboSuggestions = useMemo(() => {
+    const pickByKeywords = (keywords = []) => {
+      const normalizedKeywords = keywords.map((keyword) => normalizeText(keyword));
+      return quickAddFamilies.find((family) => {
+        const haystack = `${family.name} ${family.category} ${family.brand}`.toLowerCase();
+        return normalizedKeywords.some((keyword) => haystack.includes(keyword));
+      });
+    };
+
+    const comboTemplates = [
+      {
+        id: 'breakfast-combo',
+        title: 'Breakfast Combo',
+        subtitle: 'Milk + Bread + Eggs',
+        matchers: [['milk', 'dairy'], ['bread'], ['egg']]
+      },
+      {
+        id: 'tea-time-pack',
+        title: 'Tea Time Pack',
+        subtitle: 'Tea + Biscuit + Sugar',
+        matchers: [['tea'], ['biscuit', 'cookie'], ['sugar']]
+      }
+    ];
+
+    const combos = comboTemplates.map((template) => {
+      const items = template.matchers
+        .map((group) => pickByKeywords(group))
+        .filter(Boolean)
+        .filter((family, index, arr) => arr.findIndex((item) => item.id === family.id) === index)
+        .slice(0, 3);
+      if (items.length < 2) return null;
+      const subtotal = items.reduce((sum, family) => sum + Number(getSelectedVariation(family)?.price || 0), 0);
+      const saveAmount = Math.max(2, Math.round(subtotal * 0.08));
+      return {
+        id: template.id,
+        title: template.title,
+        subtitle: template.subtitle,
+        items,
+        subtotal,
+        saveAmount,
+        finalPrice: Math.max(0, subtotal - saveAmount)
+      };
+    }).filter(Boolean);
+
+    if (combos.length > 0) return combos;
+
+    if (quickAddFamilies.length >= 3) {
+      const fallbackItems = quickAddFamilies.slice(0, 3);
+      const subtotal = fallbackItems.reduce((sum, family) => sum + Number(getSelectedVariation(family)?.price || 0), 0);
+      return [{
+        id: 'smart-bundle',
+        title: 'Smart Basket',
+        subtitle: fallbackItems.map((family) => family.name).join(' + '),
+        items: fallbackItems,
+        subtotal,
+        saveAmount: Math.max(1, Math.round(subtotal * 0.05)),
+        finalPrice: Math.max(0, subtotal - Math.max(1, Math.round(subtotal * 0.05)))
+      }];
+    }
+
+    return [];
+  }, [quickAddFamilies, selectedVariationByFamily]);
+
+  const addFamilyPackToCart = (families = [], options = {}) => {
+    const entries = families
+      .map((family) => ({ family, variation: getSelectedVariation(family), quantity: 1 }))
+      .filter((entry) => entry.variation);
+    addEntriesToCart(entries, options);
+  };
+
+  const handleRepeatOrder = () => {
+    addFamilyPackToCart(repeatOrderFamilies);
+  };
+
+  const handleRestockAll = () => {
+    const entries = smartRestockItems.map((item) => ({
+      family: item.family,
+      variation: item.variation,
+      quantity: 1
+    }));
+    addEntriesToCart(entries);
+  };
+
+  const handleAddCombo = (combo) => {
+    if (!combo?.items?.length) return;
+    addFamilyPackToCart(combo.items);
+  };
+
+  const estimatedGridColumns = isMobile ? 2 : 4;
+
   const renderFamilyCard = (family) => {
     const selectedVariation = getSelectedVariation(family);
-    const familyInStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
-    const familyCartQty = family.variations.reduce((sum, variation) => sum + Number(cartQtyById[variation.id] || 0), 0);
     const isActiveDesktop = !isMobile && activeDesktopFamilyId === family.id;
-    const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
-    const selectedStock = Number(selectedVariation.stock || 0);
-    const familySpecialOrder = family.totalStock > 0 && family.totalStock <= LOW_STOCK_THRESHOLD;
     const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
-    const priceValue = family.variations.length > 1 ? family.minPrice : selectedVariation.price;
-    const metaLine = String(family.brand || family.category || '').trim();
-    const variationPreview = family.variations.slice(0, 2).map((variation) => getVariationPreviewLabel(variation));
+    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
+    if (!cardState.selectedVariation) return null;
 
     return (
-      <div
+      <FamilyProductCard
         key={family.id}
-        className="product-card fade-in-up compact-mobile-card family-card"
-        style={{ animationDelay: `${animationIndex * 0.04}s` }}
-        onClick={() => openFamilyDetails(family.id)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') openFamilyDetails(family.id);
-        }}
-        role="button"
-        tabIndex={0}
-      >
-        <div className="product-image">
-          <SafeProductImage
-            src={selectedVariation.image}
-            alt={family.name}
-            loading="lazy"
-            fallbackProduct={selectedVariation.raw}
+        family={family}
+        cardState={cardState}
+        variant="default"
+        animationDelay={`${animationIndex * 0.04}s`}
+        onOpenDetails={() => openFamilyDetails(family.id)}
+        onAdd={addToCart}
+        onDecrease={decreaseFromCart}
+        showMetaLine={!isMobile}
+        detailContent={isActiveDesktop ? (
+          <ProductDetailView
+            family={family}
+            selectedVariationId={cardState.selectedVariation.id}
+            onSelectVariation={handleSelectVariation}
+            onIncreaseQty={addToCart}
+            onDecreaseQty={decreaseFromCart}
+            cartQtyById={cartQtyById}
+            buttonStatus={buttonStatus}
+            showImage={false}
           />
-          <div className="price-corner-tag">
-            {formatPriceTag(family.variations.length > 1 ? family.minPrice : selectedVariation.price)}
-          </div>
-        </div>
+        ) : null}
+      />
+    );
+  };
 
-        <div className="product-info">
-          <h3 className="product-name">{family.name}</h3>
-          {metaLine ? <p className="product-meta-line">{metaLine}</p> : null}
-          <div className="product-price-line">
-            <strong>{formatCurrencyColored(Number(priceValue || 0))}</strong>
-            <small>/ {selectedVariation.uom || 'pcs'}</small>
-          </div>
-          {variationPreview.length > 1 && (
-            <div className="product-variation-preview">
-              {variationPreview.map((label, index) => (
-                <span key={`${family.id}-preview-${index}`} className="variation-preview-tag">{label}</span>
-              ))}
-              {family.variations.length > 2 && (
-                <span className="variation-more-tag">+{family.variations.length - 2} more</span>
-              )}
-            </div>
-          )}
-          <div className="product-footer compact">
-            <div className="product-stock">
-              <span className={familyInStock ? (familySpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
-                {familyInStock ? (familySpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}
-              </span>
-              {familyCartQty > 0 && <small className="cart-qty-indicator">In cart: {familyCartQty}</small>}
-            </div>
-            {isMobile ? (
-              <button
-                type="button"
-                className="card-view-btn"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openFamilyDetails(family.id);
-                }}
-              >
-                View
-              </button>
-            ) : (
-              selectedQty > 0 ? (
-                <div className="card-qty-counter" onClick={(event) => event.stopPropagation()}>
-                  <button
-                    type="button"
-                    className="qty-step-btn"
-                    onClick={() => decreaseFromCart(selectedVariation)}
-                  >
-                    -
-                  </button>
-                  <span className="qty-step-value">{selectedQty}</span>
-                  <button
-                    type="button"
-                    className="qty-step-btn"
-                    onClick={() => addToCart(family, selectedVariation)}
-                  >
-                    +
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="add-to-cart-btn"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    addToCart(family, selectedVariation);
-                  }}
-                >
-                  <Plus size={14} /> {selectedStock === 0 ? 'Request' : 'Add'}
-                </button>
-              )
-            )}
-          </div>
+  const renderQuickAddTile = (family) => {
+    const selectedVariation = getSelectedVariation(family);
+    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
+    const isSwipeAdded = swipeAddedFamilyId === family.id;
+    const isButtonAdded = buttonStatus[cardState.selectedVariation?.id] === 'added';
+    const isAddedState = isSwipeAdded || isButtonAdded;
+    if (!cardState.selectedVariation) return null;
 
-          {isActiveDesktop && (
-            <ProductDetailView
-              family={family}
-              selectedVariationId={selectedVariation.id}
-              onSelectVariation={handleSelectVariation}
-              onIncreaseQty={addToCart}
-              onDecreaseQty={decreaseFromCart}
-              cartQtyById={cartQtyById}
-              buttonStatus={buttonStatus}
-              showImage={false}
-            />
-          )}
-        </div>
-      </div>
+    return (
+      <FamilyProductCard
+        key={family.id}
+        family={family}
+        cardState={cardState}
+        variant="compact"
+        isAddedState={isAddedState}
+        onTouchStart={(event) => handleQuickTileTouchStart(family, event)}
+        onTouchEnd={(event) => handleQuickTileTouchEnd(family, event)}
+        onOpenDetails={() => {
+          if (quickTileDidSwipeRef.current[family.id]) {
+            quickTileDidSwipeRef.current[family.id] = false;
+            return;
+          }
+          openFamilyDetails(family.id);
+        }}
+        onAdd={addToCart}
+        onDecrease={decreaseFromCart}
+        showMetaLine={false}
+        showSwipeHint
+      />
+    );
+  };
+
+  const renderCategoryChipLabel = (category, mode = 'category') => {
+    if (mode === 'brand') {
+      return <BrandFilterVisual logo={category?.image} name={category?.name} />;
+    }
+
+    const hasImage = String(category?.image || '').trim().length > 0;
+    const hasIcon = String(category?.icon || '').trim().length > 0;
+    const iconText = hasIcon ? String(category.icon || '').trim() : getDefaultCategoryIcon(category?.name);
+    const width = Math.max(16, Math.round(Number(category?.image_width || 18)));
+    const height = Math.max(16, Math.round(Number(category?.image_height || 18)));
+    return (
+      <>
+        {hasImage ? (
+          <img
+            src={String(category.image || '').trim()}
+            alt=""
+            className="category-chip-image"
+            width={width}
+            height={height}
+            loading="lazy"
+          />
+        ) : (
+          <span className="category-chip-icon">{iconText}</span>
+        )}
+        <span className="category-chip-label">{category.name}</span>
+      </>
     );
   };
 
@@ -898,12 +1956,16 @@ function Products({ setCartCount }) {
       )}
 
       <div className="products-header fade-in-up">
-        <h1>Our Collection</h1>
-        <p>Discover premium products for your needs</p>
-      </div>
-
-      <div className="products-price-disclaimer" role="note" aria-live="polite">
-        Listed prices are indicative. Final billed price may differ at checkout/invoice.
+        <div className="products-header-main">
+          <div>
+            <h1>Daily Needs, Fast</h1>
+            <p>Restock, repeat, and quick add in seconds.</p>
+          </div>
+          <Link to="/cart" className="products-cart-pill" aria-label="Open cart">
+            <ShoppingCart size={16} />
+            <span>{cartItemCount}</span>
+          </Link>
+        </div>
       </div>
 
       {error && <div className="products-error">{error}</div>}
@@ -914,12 +1976,16 @@ function Products({ setCartCount }) {
             <Search size={18} />
             <input
               type="text"
-              placeholder="Search by name, content, color..."
+              placeholder="Search milk, rice, biscuit..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               aria-label="Search products"
             />
           </div>
+        </div>
+        <div className="products-control-summary">
+          <span>{cartItemCount} items in cart</span>
+          <strong>{formatCurrency(cartPreviewTotal)}</strong>
         </div>
 
         {isMobile ? (
@@ -933,66 +1999,178 @@ function Products({ setCartCount }) {
             </label>
           </div>
         ) : (
-          <>
-            <div className="filter-row">
-              <div className="filter-header">
-                <Filter size={18} />
-                <span>Category</span>
-              </div>
-              <div className="category-buttons">
-                <button
-                  type="button"
-                  className={`category-btn ${selectedCategory === 'all' ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory('all')}
-                >
-                  All
-                </button>
-                {effectiveCategories.map((category) => (
-                  <button
-                    type="button"
-                    key={category.id}
-                    className={`category-btn ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
-                    onClick={() => setSelectedCategory(category.name)}
-                  >
-                    {category.name}
-                  </button>
-                ))}
-              </div>
+          <div className="desktop-sort-row">
+            <div className="sort-group">
+              <Filter size={16} />
+              <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} aria-label="Group products">
+                <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
+                <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
+              </select>
             </div>
-
-            <div className="sort-row">
-              <div className="sort-group">
-                <Filter size={16} />
-                <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} aria-label="Group products">
-                  <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
-                  <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
-                </select>
-              </div>
+            <div className="sort-group">
+              <SlidersHorizontal size={16} />
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort products">
+                <option value="relevance">Relevance</option>
+                <option value="newest">Newest</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="stock-desc">Stock: High to Low</option>
+              </select>
             </div>
-
-            <div className="sort-row">
-              <div className="sort-group">
-                <SlidersHorizontal size={16} />
-                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort products">
-                  <option value="relevance">Relevance</option>
-                  <option value="newest">Newest</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="stock-desc">Stock: High to Low</option>
-                </select>
-              </div>
-              <label className="stock-only-toggle">
-                <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
-                In-stock only
-              </label>
-            </div>
-          </>
+            <label className="stock-only-toggle">
+              <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
+              In-stock only
+            </label>
+          </div>
         )}
       </div>
 
+      <div className="products-category-strip sticky-category-strip">
+        <button
+          type="button"
+          className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
+          onClick={() => setSelectedCategory('all')}
+        >
+          {renderCategoryChipLabel(
+            { name: 'All', icon: '🛒', image: '' },
+            groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
+          )}
+        </button>
+        {activeFilterOptions.map((category) => (
+          <button
+            type="button"
+            key={category.id}
+            className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
+            onClick={() => setSelectedCategory(category.name)}
+            aria-label={category.name}
+          >
+            {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
+          </button>
+        ))}
+      </div>
+
+      {repeatOrderFamilies.length > 0 && (
+        <section className="products-feature-block repeat-order-block">
+          <div className="feature-block-header">
+            <h2><RotateCcw size={16} /> 1-Tap Repeat Order</h2>
+            <button type="button" className="feature-action-btn" onClick={handleRepeatOrder}>
+              Repeat Order
+            </button>
+          </div>
+          <small className="repeat-order-caption">
+            {recentlyBoughtFamilies.length > 0 ? 'From your recently bought products' : 'From your quick-add history'}
+          </small>
+          <div className="repeat-order-grid horizontal-group-row">
+            {repeatOrderFamilies.map((family) => {
+              const selectedVariation = getSelectedVariation(family);
+              const previewVariation = getFamilyPreviewVariation(family, selectedVariation);
+              return (
+                <article key={`repeat-${family.id}`} className="repeat-order-item">
+                  <div className="repeat-order-thumb" aria-hidden="true">
+                    <SafeProductImage
+                      src={previewVariation?.image}
+                      alt=""
+                      className="repeat-order-thumb-img"
+                      loading="lazy"
+                      fallbackProduct={previewVariation?.raw || selectedVariation?.raw}
+                      width={42}
+                      height={42}
+                    />
+                  </div>
+                  <span className="repeat-order-name">{family.name}</span>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="products-feature-block restock-block">
+        <div className="feature-block-header">
+          <h2><Sparkles size={16} /> Smart Restock</h2>
+          <button
+            type="button"
+            className="feature-action-btn"
+            onClick={handleRestockAll}
+            disabled={smartRestockItems.length === 0}
+          >
+            Restock All
+          </button>
+        </div>
+        {smartRestockItems.length === 0 ? (
+          <p className="feature-empty">
+            Add a few items to unlock restock prediction.
+          </p>
+        ) : (
+          <div className="restock-list horizontal-group-row">
+            {smartRestockItems.map((item) => (
+              <article key={item.id} className="restock-item">
+                <div className="restock-item-top">
+                  <div className="restock-item-media" aria-hidden="true">
+                    <SafeProductImage
+                      src={item.variation?.image}
+                      alt=""
+                      className="restock-item-media-img"
+                      loading="lazy"
+                      fallbackProduct={item.variation?.raw}
+                      width={46}
+                      height={46}
+                    />
+                  </div>
+                  <div className="restock-item-head">
+                    <strong>{item.family.name}</strong>
+                    <span>{item.depletionPercent}% low</span>
+                  </div>
+                </div>
+                <div className={`restock-progress ${item.tone}`}>
+                  <span style={{ width: `${item.depletionPercent}%` }} />
+                </div>
+                <div className="restock-item-footer">
+                  <small>{item.daysSince}d ago</small>
+                  <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Restock</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {quickAddFamilies.length > 0 && (
+        <section className="products-feature-block quick-add-block">
+          <div className="feature-block-header">
+            <h2>Quick Add</h2>
+            <small>Swipe or tap to add</small>
+          </div>
+          <div className="quick-add-grid horizontal-group-row">
+            {quickAddFamilies.map((family) => renderQuickAddTile(family))}
+          </div>
+        </section>
+      )}
+
+      {comboSuggestions.length > 0 && (
+        <section className="products-feature-block combo-block">
+          <div className="feature-block-header">
+            <h2>Combo Deals</h2>
+          </div>
+          <div className="combo-list horizontal-group-row">
+            {comboSuggestions.map((combo) => (
+              <article key={combo.id} className="combo-card">
+                <h3>{combo.title}</h3>
+                <p>{combo.subtitle}</p>
+                <div className="combo-price-row">
+                  <strong>{formatCurrency(combo.finalPrice)}</strong>
+                  <span>Save {formatCurrency(combo.saveAmount)}</span>
+                </div>
+                <button type="button" onClick={() => handleAddCombo(combo)}>Add Combo</button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="result-summary">
         <span>
-          Showing {visibleFamilies.length} of {filteredFamilies.length} products | Grouped by {groupingLabel}
+          {visibleFamilies.length} product groups
         </span>
       </div>
 
@@ -1010,9 +2188,13 @@ function Products({ setCartCount }) {
                     <h3>{subGroup.name}</h3>
                     <span>{subGroup.total}</span>
                   </div>
-                  <div className="group-products-grid">
-                    {subGroup.families.map((family) => renderFamilyCard(family))}
-                  </div>
+                  <VirtualizedFamilyGrid
+                    families={subGroup.families}
+                    renderFamilyCard={renderFamilyCard}
+                    estimatedColumns={estimatedGridColumns}
+                    shouldVirtualize={subGroup.families.length >= VIRTUALIZE_GROUP_THRESHOLD}
+                    estimatedCardHeight={isMobile ? 248 : 326}
+                  />
                 </div>
               ))}
             </div>
@@ -1022,13 +2204,17 @@ function Products({ setCartCount }) {
 
       {hasMoreProducts && (
         <div className="load-more-wrap">
-          <button type="button" className="load-more-btn" onClick={() => setVisibleCount((prev) => prev + getInitialVisibleCount(isMobile))}>
-            Load More
+          <div ref={productsLoadTriggerRef} className="products-infinite-sentinel" aria-hidden="true" />
+          <span className="load-more-status">
+            {isLoadingMore ? 'Loading more products...' : 'More products load automatically as you scroll.'}
+          </span>
+          <button type="button" className="load-more-btn" onClick={() => loadMoreProductsRef.current()}>
+            Load Now
           </button>
         </div>
       )}
 
-      {filteredFamilies.length === 0 && (
+      {!loading && filteredFamilies.length === 0 && (
         <div className="no-products">
           <p>No products matched your filters.</p>
           <button
@@ -1057,24 +2243,28 @@ function Products({ setCartCount }) {
           <div className="filter-row">
             <div className="filter-header">
               <Filter size={18} />
-              <span>Category</span>
+              <span>{groupBy === GROUP_BY_OPTIONS.brand ? 'Brand' : 'Category'}</span>
             </div>
             <div className="category-buttons">
               <button
                 type="button"
-                className={`category-btn ${selectedCategory === 'all' ? 'active' : ''}`}
+                className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
                 onClick={() => setSelectedCategory('all')}
               >
-                All
+                {renderCategoryChipLabel(
+                  { name: 'All', icon: '🛒', image: '' },
+                  groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
+                )}
               </button>
-              {effectiveCategories.map((category) => (
+              {activeFilterOptions.map((category) => (
                 <button
                   type="button"
                   key={category.id}
-                  className={`category-btn ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
+                  className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
                   onClick={() => setSelectedCategory(category.name)}
+                  aria-label={category.name}
                 >
-                  {category.name}
+                  {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
                 </button>
               ))}
             </div>

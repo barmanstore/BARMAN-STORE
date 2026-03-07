@@ -33,6 +33,10 @@ function CategoryManagement({ onClose }) {
     name: '',
     description: '',
     parent_id: '',
+    icon: '',
+    image: '',
+    image_width: '',
+    image_height: '',
   });
   const [formErrors, setFormErrors] = useState({});
   const formSectionRef = useRef(null);
@@ -248,7 +252,15 @@ function CategoryManagement({ onClose }) {
   const resetForm = () => {
     setIsEditing(false);
     setEditingId(null);
-    setFormData({ name: '', description: '', parent_id: '' });
+    setFormData({
+      name: '',
+      description: '',
+      parent_id: '',
+      icon: '',
+      image: '',
+      image_width: '',
+      image_height: '',
+    });
     setFormErrors({});
   };
 
@@ -259,6 +271,31 @@ function CategoryManagement({ onClose }) {
       nextErrors.name = 'Category name is required';
     } else if (trimmedName.length < 2) {
       nextErrors.name = 'Category name must be at least 2 characters';
+    }
+
+    const icon = String(formData.icon || '').trim();
+    if (icon.length > 32) {
+      nextErrors.icon = 'Icon text must be 32 characters or less';
+    }
+
+    const image = String(formData.image || '').trim();
+    if (image && !(/^https?:\/\//i.test(image) || image.startsWith('/'))) {
+      nextErrors.image = 'Use an absolute URL (http/https) or root-relative path (/...)';
+    }
+
+    const imageWidth = String(formData.image_width || '').trim();
+    const imageHeight = String(formData.image_height || '').trim();
+    if (imageWidth) {
+      const widthValue = Number(imageWidth);
+      if (!Number.isFinite(widthValue) || widthValue < 16 || widthValue > 4096) {
+        nextErrors.image_width = 'Width must be between 16 and 4096';
+      }
+    }
+    if (imageHeight) {
+      const heightValue = Number(imageHeight);
+      if (!Number.isFinite(heightValue) || heightValue < 16 || heightValue > 4096) {
+        nextErrors.image_height = 'Height must be between 16 and 4096';
+      }
     }
 
     const parentId = toNumericId(formData.parent_id);
@@ -293,6 +330,10 @@ function CategoryManagement({ onClose }) {
         name: String(formData.name || '').trim(),
         description: String(formData.description || '').trim() || null,
         parent_id: toNumericId(formData.parent_id),
+        icon: String(formData.icon || '').trim() || null,
+        image: String(formData.image || '').trim() || null,
+        image_width: String(formData.image_width || '').trim() ? Number(formData.image_width) : null,
+        image_height: String(formData.image_height || '').trim() ? Number(formData.image_height) : null,
       };
       if (isEditing && editingId) {
         await categoriesApi.update(editingId, payload);
@@ -318,6 +359,10 @@ function CategoryManagement({ onClose }) {
       name: String(category.name || ''),
       description: String(category.description || ''),
       parent_id: category.parent_id ? String(category.parent_id) : '',
+      icon: String(category.icon || ''),
+      image: String(category.image || ''),
+      image_width: category.image_width ? String(category.image_width) : '',
+      image_height: category.image_height ? String(category.image_height) : '',
     });
     setFormErrors({});
     focusCategoryForm();
@@ -353,6 +398,10 @@ function CategoryManagement({ onClose }) {
       name: '',
       description: '',
       parent_id: parentId ? String(parentId) : '',
+      icon: '',
+      image: '',
+      image_width: '',
+      image_height: '',
     });
     focusCategoryForm();
   };
@@ -530,7 +579,19 @@ function CategoryManagement({ onClose }) {
             onClick={() => handleSelectCategory(node.id)}
             title={node.path || node.name}
           >
-            {node.name}
+            {node.image ? (
+              <img
+                src={node.image}
+                alt=""
+                className="tree-node-media"
+                width={Number(node.image_width || 20)}
+                height={Number(node.image_height || 20)}
+                loading="lazy"
+              />
+            ) : node.icon ? (
+              <span className="tree-node-icon">{node.icon}</span>
+            ) : null}
+            <span className="tree-node-label">{node.name}</span>
           </button>
           <span className="tree-node-count" title="Direct products / Total subtree products">
             {Number(node.product_count || 0)} / {Number(node.total_product_count || 0)}
@@ -665,6 +726,78 @@ function CategoryManagement({ onClose }) {
                   rows="2"
                 />
               </div>
+
+               <div className="form-group">
+                <label htmlFor="icon">Category Icon (optional)</label>
+                <input
+                  id="icon"
+                  name="icon"
+                  value={formData.icon}
+                  onChange={handleChange}
+                  placeholder="Example: dairy or DRY"
+                  className={formErrors.icon ? 'error' : ''}
+                />
+                {formErrors.icon ? <span className="field-error">{formErrors.icon}</span> : null}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="image">Category Image URL (optional)</label>
+                <input
+                  id="image"
+                  name="image"
+                  value={formData.image}
+                  onChange={handleChange}
+                  placeholder="https://... or /uploads/..."
+                  className={formErrors.image ? 'error' : ''}
+                />
+                {formErrors.image ? <span className="field-error">{formErrors.image}</span> : null}
+              </div>
+
+              <div className="form-inline-grid">
+                <div className="form-group">
+                  <label htmlFor="image_width">Image Width</label>
+                  <input
+                    id="image_width"
+                    name="image_width"
+                    value={formData.image_width}
+                    onChange={handleChange}
+                    placeholder="32"
+                    inputMode="numeric"
+                    className={formErrors.image_width ? 'error' : ''}
+                  />
+                  {formErrors.image_width ? <span className="field-error">{formErrors.image_width}</span> : null}
+                </div>
+                <div className="form-group">
+                  <label htmlFor="image_height">Image Height</label>
+                  <input
+                    id="image_height"
+                    name="image_height"
+                    value={formData.image_height}
+                    onChange={handleChange}
+                    placeholder="32"
+                    inputMode="numeric"
+                    className={formErrors.image_height ? 'error' : ''}
+                  />
+                  {formErrors.image_height ? <span className="field-error">{formErrors.image_height}</span> : null}
+                </div>
+              </div>
+
+              {(String(formData.image || '').trim() || String(formData.icon || '').trim()) ? (
+                <div className="category-media-preview" aria-live="polite">
+                  {String(formData.image || '').trim() ? (
+                    <img
+                      src={String(formData.image || '').trim()}
+                      alt=""
+                      width={Number(formData.image_width || 28) || 28}
+                      height={Number(formData.image_height || 28) || 28}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span>{String(formData.icon || '').trim() || 'C'}</span>
+                  )}
+                  <small>Preview</small>
+                </div>
+              ) : null}
 
               <div className="form-actions">
                 <button type="button" className="cancel-btn" onClick={resetForm} disabled={loading}>

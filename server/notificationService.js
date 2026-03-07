@@ -11,6 +11,7 @@ const encodeMailto = ({ to, subject, body }) => {
 
 const createNotificationService = (config = {}) => {
   const businessName = String(config.businessName || '').trim() || "বৰ্মন ষ্ট'ৰ";
+  const onlineStoreUrl = String(config.onlineStoreUrl || '').trim();
   const defaultCountryCode = String(config.defaultCountryCode || '91').trim() || '91';
 
   const prepareEmail = ({ type, to, payload = {} }) => {
@@ -21,6 +22,7 @@ const createNotificationService = (config = {}) => {
     const template = buildNotificationTemplate(type, {
       ...payload,
       businessName,
+      onlineStoreUrl,
     });
     return {
       type: String(type || '').trim().toLowerCase(),
@@ -51,6 +53,7 @@ const createNotificationService = (config = {}) => {
     const template = buildNotificationTemplate(type, {
       ...payload,
       businessName,
+      onlineStoreUrl,
     });
     const text = String(template.text || template.body || '').trim();
     if (!text) {

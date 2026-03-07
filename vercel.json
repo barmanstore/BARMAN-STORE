@@ -4,6 +4,10 @@
     {
       "path": "/api/internal/phone-change/process",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/purchase-operations/notifications/run",
+      "schedule": "30 0 * * *"
     }
   ],
   "routes": [

@@ -1,7 +1,9 @@
-export {
+import messageTemplates from './messageTemplates.cjs';
+
+export const {
   buildBillShareText,
   buildCreditReportText,
   buildCreditEntryText,
   buildCreditTransactionText,
   buildPurchaseOrderDistributorNoticeText,
-} from '../../shared/messageTemplates';
+} = messageTemplates;

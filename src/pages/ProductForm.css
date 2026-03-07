@@ -24,6 +24,10 @@
   position: relative;
 }
 
+.product-form-container.compact {
+  max-width: 540px;
+}
+
 .product-form-header {
   display: flex;
   justify-content: space-between;
@@ -61,6 +65,44 @@
 
 .product-form {
   padding: 2rem;
+}
+
+.compact-product-form {
+  padding: 1.1rem 1.1rem 1.35rem;
+}
+
+.compact-product-form .form-section {
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.compact-product-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+
+.compact-product-grid .compact-span-2 {
+  grid-column: 1 / -1;
+}
+
+.compact-product-form .section-title {
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.compact-product-form .field-help {
+  font-size: 0.72rem;
+}
+
+.compact-product-form .form-actions {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+}
+
+.product-form-sheet-compact .product-form {
+  padding-top: 0;
 }
 
 /* Form Sections */
@@ -452,12 +494,17 @@
     padding: 1.25rem;
   }
 
+  .compact-product-form {
+    padding: 0.8rem 0 0.8rem;
+  }
+
   .form-section {
     padding: 1rem;
   }
 
   .form-row,
-  .form-row-3 {
+  .form-row-3,
+  .compact-product-grid {
     grid-template-columns: 1fr;
   }
 

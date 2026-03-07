@@ -179,6 +179,48 @@
   margin-top: 6px;
 }
 
+.form-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.category-media-preview {
+  margin-top: -2px;
+  margin-bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #d4deec;
+  background: #f7fbff;
+}
+
+.category-media-preview img {
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid #d2dced;
+}
+
+.category-media-preview span {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #d2dced;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  font-size: 1rem;
+}
+
+.category-media-preview small {
+  color: #4f6785;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .form-actions button {
   border: none;
   border-radius: 8px;
@@ -271,10 +313,34 @@
   color: #193c61;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tree-node-label {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tree-node-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.86rem;
+}
+
+.tree-node-media {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #d7e2f2;
 }
 
 .tree-node-count {
@@ -563,6 +629,10 @@
 
   .form-actions button {
     width: 100%;
+  }
+
+  .form-inline-grid {
+    grid-template-columns: 1fr;
   }
 
   .category-tree-node {

@@ -6,7 +6,7 @@ const getApiUrl = () => {
   return fromEnv ? fromEnv.replace(/\/+$/, '') : '';
 };
 
-const createClientRequestId = (prefix = 'req') => {
+export const createClientRequestId = (prefix = 'req') => {
   const safePrefix = String(prefix || 'req').replace(/[^a-zA-Z0-9_-]/g, '') || 'req';
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${safePrefix}_${crypto.randomUUID().replace(/-/g, '')}`;
@@ -172,6 +172,10 @@ export const productsApi = {
   getById: (id, params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/products/${id}${query ? `?${query}` : ''}`);
+  },
+  getRecentlyBought: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/products/recently-bought${query ? `?${query}` : ''}`);
   },
   getLastPurchase: (id) => apiFetch(`/api/products/${id}/last-purchase`),
   getByCategory: (category) => apiFetch(`/api/products/category/${category}`),
@@ -849,6 +853,10 @@ export const purchaseOrdersApi = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/purchase-orders${query ? '?' + query : ''}`);
   },
+  getOperationsSummary: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/purchase-operations/summary${query ? '?' + query : ''}`);
+  },
   getById: (id) => apiFetch(`/api/purchase-orders/${id}`),
   create: (orderData) =>
     apiFetch('/api/purchase-orders', {
@@ -878,7 +886,7 @@ export const purchaseOrdersApi = {
   addPayment: (id, paymentData = {}) =>
     apiFetch(`/api/purchase-orders/${id}/payments`, {
       method: 'POST',
-      body: paymentData,
+      body: withClientRequestId(paymentData, 'popay'),
     }),
   delete: (id) =>
     apiFetch(`/api/purchase-orders/${id}`, {

@@ -193,6 +193,9 @@ const defaultAllowedOrigins = [
   'https://barman-store.vercel.app',
   'https://barmanstore.vercel.app',
 ];
+const DEFAULT_ONLINE_STORE_URL = envAllowedOrigins.find((origin) => origin.startsWith('https://'))
+  || defaultAllowedOrigins.find((origin) => origin.startsWith('https://'))
+  || defaultAllowedOrigins[0];
 
 const allowedOrigins = new Set(
   (envAllowedOrigins.length ? envAllowedOrigins : defaultAllowedOrigins).map((origin) => normalizeOrigin(origin)),
@@ -837,6 +840,14 @@ const CUSTOMER_REQUEST_PURGE_BATCH_LIMIT = Math.max(
   50,
   Math.min(10000, Number(process.env.CUSTOMER_REQUEST_PURGE_BATCH_LIMIT || 500))
 );
+const PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED = parseBooleanEnv(
+  process.env.PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
+  true
+);
+const PURCHASE_OPERATIONS_NOTIFICATION_INTERVAL_MS = Math.max(
+  15 * 60 * 1000,
+  Number(process.env.PURCHASE_OPERATIONS_NOTIFICATION_INTERVAL_MS || 60 * 60 * 1000)
+);
 const PHONE_CHANGE_EXPIRED_REASON = 'Admin review window expired. Please submit phone update again.';
 const BUSINESS_NAME = String(
   process.env.BUSINESS_NAME
@@ -926,6 +937,7 @@ const whatsappProvider = createWhatsappProvider({
 });
 const notificationService = createNotificationService({
   businessName: BUSINESS_NAME,
+  onlineStoreUrl: DEFAULT_ONLINE_STORE_URL,
   defaultCountryCode: '91',
 });
 const emailVerificationLimiter = createRateLimiter({
@@ -1218,12 +1230,21 @@ const generateOrderNumber = () => {
 const generatePONumber = () => `PO-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateReturnNumber = () => `RET-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-const PO_LIFECYCLE_REGISTERED = 'registered';
-const PO_LIFECYCLE_PROCESSED = 'processed';
+const PO_LIFECYCLE_PREPARED = 'prepared';
+const PO_LIFECYCLE_SENT = 'sent';
+const PO_LIFECYCLE_REVISED = 'revised';
+const PO_LIFECYCLE_CONFIRMED = 'confirmed';
+const PO_LIFECYCLE_PART_PAID = 'part_paid';
+const PO_LIFECYCLE_FULLY_PAID = 'fully_paid';
+const PO_LIFECYCLE_CLOSED = 'closed';
 const PO_LIFECYCLE_CANCELLED = 'cancelled';
 const PO_PAYMENT_UNPAID = 'unpaid';
 const PO_PAYMENT_PART_PAID = 'part_paid';
 const PO_PAYMENT_PAID = 'paid';
+const PO_EDITABLE_STATUSES = new Set([PO_LIFECYCLE_PREPARED, PO_LIFECYCLE_SENT, PO_LIFECYCLE_REVISED]);
+const PO_PAYMENT_ALLOWED_STATUSES = new Set([PO_LIFECYCLE_CONFIRMED, PO_LIFECYCLE_PART_PAID, PO_LIFECYCLE_FULLY_PAID]);
+const PO_RECEIVE_ALLOWED_STATUSES = new Set([PO_LIFECYCLE_CONFIRMED, PO_LIFECYCLE_PART_PAID, PO_LIFECYCLE_FULLY_PAID]);
+const PURCHASE_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const ORDER_STATUS_ORDERED = 'ordered';
 const ORDER_STATUS_RECEIVED = 'received';
 const ORDER_ALLOWED_PAYMENT_STATUSES = new Set(['pending', 'paid', 'partial', 'refunded', 'declined']);
@@ -1244,16 +1265,21 @@ const normalizeOrderPaymentStatus = (status, orderStatus) => {
   return normalizedOrderStatus === ORDER_STATUS_RECEIVED ? 'pending' : 'pending';
 };
 
-const normalizePoLifecycleStatus = (status, fallback = PO_LIFECYCLE_REGISTERED) => {
+const normalizePoLifecycleStatus = (status, fallback = PO_LIFECYCLE_PREPARED) => {
   const raw = String(status || '').trim().toLowerCase();
   if (!raw) return fallback;
-  if (raw === PO_LIFECYCLE_REGISTERED || raw === 'pending' || raw === 'draft') return PO_LIFECYCLE_REGISTERED;
-  if (raw === PO_LIFECYCLE_PROCESSED || raw === 'confirmed' || raw === 'shipped' || raw === 'received') return PO_LIFECYCLE_PROCESSED;
+  if (raw === PO_LIFECYCLE_PREPARED || raw === 'registered' || raw === 'pending' || raw === 'draft') return PO_LIFECYCLE_PREPARED;
+  if (raw === PO_LIFECYCLE_SENT) return PO_LIFECYCLE_SENT;
+  if (raw === PO_LIFECYCLE_REVISED || raw === 'edited') return PO_LIFECYCLE_REVISED;
+  if (raw === PO_LIFECYCLE_CONFIRMED || raw === 'processed' || raw === 'shipped' || raw === 'received') return PO_LIFECYCLE_CONFIRMED;
+  if (raw === PO_LIFECYCLE_PART_PAID || raw === 'partial_paid') return PO_LIFECYCLE_PART_PAID;
+  if (raw === PO_LIFECYCLE_FULLY_PAID || raw === 'full_paid' || raw === 'paid') return PO_LIFECYCLE_FULLY_PAID;
+  if (raw === PO_LIFECYCLE_CLOSED) return PO_LIFECYCLE_CLOSED;
   if (raw === PO_LIFECYCLE_CANCELLED || raw === 'canceled') return PO_LIFECYCLE_CANCELLED;
   return fallback;
 };
 
-const getPurchaseOrderLifecycleStatus = (order, fallback = PO_LIFECYCLE_REGISTERED) => {
+const getPurchaseOrderLifecycleStatus = (order, fallback = PO_LIFECYCLE_PREPARED) => {
   if (!order) return fallback;
   return normalizePoLifecycleStatus(order.po_status || order.status, fallback);
 };
@@ -1284,6 +1310,247 @@ const calculatePoPaymentSnapshot = (totalAmountValue, paidAmountValue = 0) => {
     balanceDue,
     paymentStatus,
   };
+};
+
+const normalizeWeekdayLabel = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  const exactMatch = PURCHASE_WEEKDAYS.find((day) => day.toLowerCase() === raw);
+  if (exactMatch) return exactMatch;
+  const prefixMatch = PURCHASE_WEEKDAYS.find((day) => day.toLowerCase().startsWith(raw.slice(0, 3)));
+  return prefixMatch || '';
+};
+
+const addDaysToDateKey = (dateValue, days = 0) => {
+  const baseDate = new Date(`${String(dateValue || '').slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(baseDate.getTime())) return null;
+  baseDate.setDate(baseDate.getDate() + Number(days || 0));
+  return baseDate.toISOString().slice(0, 10);
+};
+
+const getWeekdayFromDateKey = (dateValue) => {
+  const baseDate = new Date(`${String(dateValue || '').slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(baseDate.getTime())) return '';
+  return PURCHASE_WEEKDAYS[baseDate.getDay()] || '';
+};
+
+const getDaysBetweenDateKeys = (fromDate, toDate) => {
+  const from = new Date(`${String(fromDate || '').slice(0, 10)}T00:00:00`);
+  const to = new Date(`${String(toDate || '').slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+  return Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
+};
+
+const normalizeBooleanFlag = (value, fallback = true) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const raw = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'off'].includes(raw)) return false;
+  return fallback;
+};
+
+const normalizeDistributorPaymentCycleType = (value, fallback = 'net') => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw === 'cod' || raw === 'cash' || raw === 'cash_on_delivery') return 'cod';
+  return 'net';
+};
+
+const inferPaymentDueDaysFromTerms = (paymentTerms, fallback = 30) => {
+  const raw = String(paymentTerms || '').trim().toLowerCase();
+  if (!raw) return fallback;
+  if (raw.includes('cash')) return 0;
+  const numericMatch = raw.match(/(\d{1,3})/);
+  if (numericMatch) {
+    const days = Number(numericMatch[1] || fallback);
+    return Number.isFinite(days) && days >= 0 ? days : fallback;
+  }
+  return fallback;
+};
+
+const getDistributorPaymentPlan = (distributor = {}, overrides = {}) => {
+  const paymentCycleType = normalizeDistributorPaymentCycleType(
+    overrides.payment_cycle_type ?? distributor.payment_cycle_type,
+    normalizeDistributorPaymentCycleType(
+      distributor.payment_terms,
+      'net'
+    )
+  );
+  const dueDaysRaw = Number(overrides.payment_due_days ?? distributor.payment_due_days);
+  const paymentDueDays = Number.isFinite(dueDaysRaw) && dueDaysRaw >= 0
+    ? Math.floor(dueDaysRaw)
+    : inferPaymentDueDaysFromTerms(distributor.payment_terms, paymentCycleType === 'cod' ? 0 : 30);
+  return {
+    paymentCycleType,
+    paymentDueDays,
+  };
+};
+
+const computePurchasePaymentDueDate = (distributor = {}, referenceDate = null, overrides = {}) => {
+  const referenceDateKey = normalizeTransactionDate(referenceDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  const plan = getDistributorPaymentPlan(distributor, overrides);
+  if (plan.paymentCycleType === 'cod' || plan.paymentDueDays <= 0) return referenceDateKey;
+  return addDaysToDateKey(referenceDateKey, plan.paymentDueDays) || referenceDateKey;
+};
+
+const getDistributorOrderScheduleDay = (distributor = {}) => (
+  normalizeWeekdayLabel(distributor.order_day || distributor.visit_day || distributor.delivery_day)
+);
+
+const getEffectivePurchaseDueDateKey = (order = {}, fallbackDate = null) => (
+  normalizeTransactionDate(
+    order.strict_due_date
+    || order.payment_due_date
+    || order.expected_delivery
+    || order.received_at
+    || order.confirmed_at
+    || order.created_at
+    || fallbackDate
+  ) || normalizeTransactionDate(fallbackDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10)
+);
+
+const parseDistributorProductsSupplied = (value = '') => {
+  const seen = new Set();
+  return String(value || '')
+    .split(/[\n,;|]+/)
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = part.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const buildDistributorProductsSuppliedText = (items = []) => {
+  const names = parseDistributorProductsSupplied(items.join(', '));
+  return names.join(', ');
+};
+
+const mergeDistributorProductKnowledge = ({
+  manualProductsSupplied = '',
+  likelyItems = [],
+  suggestedItems = [],
+} = {}) => {
+  const manualItems = parseDistributorProductsSupplied(manualProductsSupplied);
+  const historicalItems = parseDistributorProductsSupplied([
+    ...likelyItems,
+    ...(Array.isArray(suggestedItems) ? suggestedItems.map((item) => item?.product_name) : []),
+  ].filter(Boolean).join(', '));
+  const mergedItems = parseDistributorProductsSupplied([...manualItems, ...historicalItems].join(', '));
+  return {
+    manual_items: manualItems,
+    historical_items: historicalItems,
+    merged_items: mergedItems,
+    merged_text: buildDistributorProductsSuppliedText(mergedItems),
+  };
+};
+
+const syncDistributorProductsSuppliedAsync = async (distributorId, items = []) => {
+  const normalizedDistributorId = Number(distributorId || 0);
+  if (!normalizedDistributorId) return null;
+  const distributor = await dbGetAsync(`SELECT products_supplied FROM distributors WHERE id = ?`, [normalizedDistributorId]);
+  if (!distributor) return null;
+  const itemNames = (Array.isArray(items) ? items : [])
+    .map((item) => String(item?.product_name || item?.name || '').trim())
+    .filter(Boolean);
+  if (!itemNames.length) return distributor.products_supplied || null;
+  const merged = mergeDistributorProductKnowledge({
+    manualProductsSupplied: distributor.products_supplied || '',
+    likelyItems: itemNames,
+  });
+  const nextText = merged.merged_text;
+  if (String(distributor.products_supplied || '').trim() === nextText) {
+    return nextText;
+  }
+  await dbRunAsync(
+    `UPDATE distributors
+     SET products_supplied = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [nextText || null, normalizedDistributorId]
+  );
+  return nextText;
+};
+
+const buildPurchaseOrderFingerprint = (items = []) => {
+  const normalized = (Array.isArray(items) ? items : [])
+    .map((item) => {
+      const productKey = String(item?.product_id || item?.product_name || 'custom').trim().toLowerCase();
+      const quantity = Number(item?.quantity || 0).toFixed(3);
+      const uom = String(item?.uom || 'pcs').trim().toLowerCase();
+      return `${productKey}:${quantity}:${uom}`;
+    })
+    .filter(Boolean)
+    .sort();
+  return crypto.createHash('sha1').update(normalized.join('|')).digest('hex');
+};
+
+const buildPurchaseDuplicateKey = ({ distributorId, plannedOrderDate, items = [] } = {}) => {
+  if (!distributorId) return '';
+  const fingerprint = buildPurchaseOrderFingerprint(items);
+  const plannedDateKey = normalizeTransactionDate(plannedOrderDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  return `${distributorId}:${plannedDateKey}:${fingerprint}`;
+};
+
+const hashPurchaseLockKeyPart = (value) => {
+  const raw = String(value || '');
+  let hash = 0;
+  for (let index = 0; index < raw.length; index += 1) {
+    hash = ((hash * 31) + raw.charCodeAt(index)) | 0;
+  }
+  return hash;
+};
+
+const acquirePurchaseDuplicateLockAsync = async ({
+  distributorId,
+  plannedOrderDate,
+  duplicateKey,
+} = {}) => {
+  if (!duplicateKey || !distributorId) return;
+  const plannedDateKey = normalizeTransactionDate(plannedOrderDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  const lockScope = `purchase:${Number(distributorId || 0)}:${plannedDateKey}`;
+  await dbGetAsync(
+    `SELECT pg_advisory_xact_lock(CAST(? AS INTEGER), CAST(? AS INTEGER)) AS locked`,
+    [hashPurchaseLockKeyPart(lockScope), hashPurchaseLockKeyPart(duplicateKey)]
+  );
+};
+
+const derivePoLifecycleFromPaymentStatus = (baseStatus, paymentStatus) => {
+  const normalizedBase = normalizePoLifecycleStatus(baseStatus, PO_LIFECYCLE_CONFIRMED);
+  if (normalizedBase === PO_LIFECYCLE_CANCELLED || normalizedBase === PO_LIFECYCLE_CLOSED) return normalizedBase;
+  const normalizedPaymentStatus = normalizePoPaymentStatus(paymentStatus, PO_PAYMENT_UNPAID);
+  if (normalizedPaymentStatus === PO_PAYMENT_PAID) return PO_LIFECYCLE_FULLY_PAID;
+  if (normalizedPaymentStatus === PO_PAYMENT_PART_PAID) return PO_LIFECYCLE_PART_PAID;
+  if (PO_EDITABLE_STATUSES.has(normalizedBase)) return normalizedBase;
+  return PO_LIFECYCLE_CONFIRMED;
+};
+
+const isPoEditableLifecycle = (status) => PO_EDITABLE_STATUSES.has(normalizePoLifecycleStatus(status));
+const canPoAcceptPayment = (status) => PO_PAYMENT_ALLOWED_STATUSES.has(normalizePoLifecycleStatus(status));
+const canPoReceiveInventory = (status) => PO_RECEIVE_ALLOWED_STATUSES.has(normalizePoLifecycleStatus(status));
+
+const hasOrderBeenReceived = (order = {}) => {
+  if (String(order?.status || '').trim().toLowerCase() === 'received') return true;
+  if (order?.received_at) return true;
+  const items = Array.isArray(order?.items) ? order.items : [];
+  if (!items.length) return false;
+  return items.every((item) => Number(item?.received_quantity || 0) >= Number(item?.quantity || 0));
+};
+
+const derivePurchaseNextAction = (order = {}) => {
+  const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+  const paymentStatus = normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID);
+  const balanceDue = Math.max(0, Number(order.balance_due || 0));
+  if (lifecycleStatus === PO_LIFECYCLE_CANCELLED) return 'Cancelled';
+  if (lifecycleStatus === PO_LIFECYCLE_CLOSED) return 'Closed';
+  if (lifecycleStatus === PO_LIFECYCLE_PREPARED) return 'Send to distributor';
+  if (lifecycleStatus === PO_LIFECYCLE_SENT || lifecycleStatus === PO_LIFECYCLE_REVISED) return 'Confirm with bill';
+  if (!hasOrderBeenReceived(order)) return 'Receive delivery';
+  if (paymentStatus !== PO_PAYMENT_PAID && balanceDue > 0) return 'Collect payment';
+  if (lifecycleStatus === PO_LIFECYCLE_FULLY_PAID) return 'Close PO';
+  return 'Monitor';
 };
 
 const normalizeTransactionDate = (value) => {
@@ -1427,12 +1694,40 @@ const notifyDistributorPurchaseOrderAsync = async ({
   let noticeItems = Array.isArray(items) ? items : [];
   if (!noticeItems.length && normalizedPurchaseOrderId) {
     noticeItems = await dbAllAsync(
-      `SELECT product_name, quantity, rate, unit_price
-       FROM purchase_order_items
-       WHERE order_id = ?
-       ORDER BY id ASC`,
+      `SELECT poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, p.price AS product_price
+       FROM purchase_order_items poi
+       LEFT JOIN products p ON p.id = poi.product_id
+       WHERE poi.order_id = ?
+       ORDER BY poi.id ASC`,
       [normalizedPurchaseOrderId]
     );
+  }
+  const noticeProductIds = [...new Set(
+    noticeItems
+      .map((item) => Number(item?.product_id || 0))
+      .filter((value) => Number.isInteger(value) && value > 0)
+  )];
+  if (noticeProductIds.length > 0) {
+    const placeholders = noticeProductIds.map(() => '?').join(', ');
+    const productRows = await dbAllAsync(
+      `SELECT id, price
+       FROM products
+       WHERE id IN (${placeholders})`,
+      noticeProductIds
+    );
+    const productPriceById = new Map(
+      productRows.map((row) => [Number(row?.id || 0), Number(row?.price || 0)])
+    );
+    noticeItems = noticeItems.map((item) => {
+      const productId = Number(item?.product_id || 0);
+      const productPrice = productPriceById.get(productId);
+      if (!Number.isFinite(productPrice) || productPrice <= 0) return item;
+      return {
+        ...item,
+        price: productPrice,
+        product_price: productPrice,
+      };
+    });
   }
 
   const orderDate = normalizeTransactionDate(messageDate) || new Date().toISOString().slice(0, 10);
@@ -1638,24 +1933,49 @@ const createAppNotification = async ({
   const normalizedTitle = String(title || '').trim();
   const normalizedMessage = String(message || '').trim();
   if (!normalizedTitle || !normalizedMessage) return 0;
-  const result = await dbRunAsync(
-    `INSERT INTO app_notifications
-    (user_id, title, message, level, entity_type, entity_id, issue_id, is_read, metadata, created_by, read_at, client_request_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, ?)`,
-    [
-      normalizedUserId,
-      normalizedTitle,
-      normalizedMessage,
-      normalizeNotificationLevel(level),
-      entityType ? String(entityType).trim() : null,
-      entityId ? Number(entityId || 0) : null,
-      issueId ? Number(issueId || 0) : null,
-      metadata ? safeSerializeJson(metadata) : null,
-      createdBy ? Number(createdBy || 0) : null,
-      clientRequestId ? normalizeClientRequestId(clientRequestId) || null : null,
-    ]
-  );
-  return Number(result.lastInsertRowid || 0);
+  const normalizedClientRequestId = clientRequestId ? normalizeClientRequestId(clientRequestId) || null : null;
+  if (normalizedClientRequestId) {
+    const existing = await dbGetAsync(
+      `SELECT id
+       FROM app_notifications
+       WHERE client_request_id = ?
+       LIMIT 1`,
+      [normalizedClientRequestId]
+    );
+    if (existing) return Number(existing.id || 0);
+  }
+  try {
+    const result = await dbRunAsync(
+      `INSERT INTO app_notifications
+      (user_id, title, message, level, entity_type, entity_id, issue_id, is_read, metadata, created_by, read_at, client_request_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, ?)`,
+      [
+        normalizedUserId,
+        normalizedTitle,
+        normalizedMessage,
+        normalizeNotificationLevel(level),
+        entityType ? String(entityType).trim() : null,
+        entityId ? Number(entityId || 0) : null,
+        issueId ? Number(issueId || 0) : null,
+        metadata ? safeSerializeJson(metadata) : null,
+        createdBy ? Number(createdBy || 0) : null,
+        normalizedClientRequestId,
+      ]
+    );
+    return Number(result.lastInsertRowid || 0);
+  } catch (error) {
+    if (normalizedClientRequestId && isUniqueViolationError(error)) {
+      const existing = await dbGetAsync(
+        `SELECT id
+         FROM app_notifications
+         WHERE client_request_id = ?
+         LIMIT 1`,
+        [normalizedClientRequestId]
+      );
+      if (existing) return Number(existing.id || 0);
+    }
+    throw error;
+  }
 };
 
 const purgeOldAppNotificationsAsync = async ({
@@ -1779,12 +2099,14 @@ const notifyAdmins = async ({
   issueId = null,
   metadata = null,
   createdBy = null,
+  clientRequestIdPrefix = null,
 }) => {
   const admins = await dbAllAsync(`SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC`);
+  let createdCount = 0;
   for (const admin of admins || []) {
     const adminId = Number(admin?.id || 0);
     if (!adminId) continue;
-    await createAppNotification({
+    const notificationId = await createAppNotification({
       userId: adminId,
       title,
       message,
@@ -1794,8 +2116,11 @@ const notifyAdmins = async ({
       issueId,
       metadata,
       createdBy,
+      clientRequestId: clientRequestIdPrefix ? `${clientRequestIdPrefix}:${adminId}` : null,
     });
+    if (Number(notificationId || 0) > 0) createdCount += 1;
   }
+  return createdCount;
 };
 
 const normalizeCreditIssueStatus = (value, { fallback = 'open' } = {}) => {
@@ -2567,6 +2892,39 @@ const stopCustomerRequestPurgeWorker = () => {
   customerRequestPurgeTimer = null;
 };
 
+const runPurchaseOperationsNotificationWorker = async () => {
+  if (!PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) return null;
+  try {
+    const result = await runPurchaseOperationNotificationsAsync();
+    const totalNotifications = Number(result?.reminder_notifications || 0) + Number(result?.payment_notifications || 0);
+    if (totalNotifications > 0) {
+      console.log(
+        `[PURCHASE_OPS] Generated ${totalNotifications} purchase notifications for ${result.today}`
+      );
+    }
+    return result;
+  } catch (error) {
+    console.warn('[PURCHASE_OPS] Notification worker failed:', error?.message || error);
+    return null;
+  }
+};
+
+const startPurchaseOperationsNotificationWorker = () => {
+  if (IS_VERCEL_RUNTIME) return;
+  if (!PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) return;
+  if (purchaseOperationsNotificationTimer) return;
+  purchaseOperationsNotificationTimer = setInterval(() => {
+    void runPurchaseOperationsNotificationWorker();
+  }, PURCHASE_OPERATIONS_NOTIFICATION_INTERVAL_MS);
+  void runPurchaseOperationsNotificationWorker();
+};
+
+const stopPurchaseOperationsNotificationWorker = () => {
+  if (!purchaseOperationsNotificationTimer) return;
+  clearInterval(purchaseOperationsNotificationTimer);
+  purchaseOperationsNotificationTimer = null;
+};
+
 const PRODUCT_IMPORT_BATCH_TTL_MS = Number(process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000);
 const PRODUCT_IMPORT_HEADERS = [
   'id',
@@ -2623,6 +2981,7 @@ let phoneChangeWorkerTimer = null;
 let phoneChangeWorkerRunning = false;
 let appNotificationPurgeTimer = null;
 let customerRequestPurgeTimer = null;
+let purchaseOperationsNotificationTimer = null;
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -3744,6 +4103,25 @@ app.post('/api/internal/notifications/purge', requireCronSecret, async (req, res
   }
 });
 
+const handlePurchaseOperationNotificationsRun = async (req, res) => {
+  try {
+    if (!PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) {
+      return res.status(503).json({ error: 'Purchase operation notifications are disabled' });
+    }
+    const result = await runPurchaseOperationNotificationsAsync({
+      date: req.body?.date || req.query?.date || null,
+      distributorId: req.body?.distributor_id || req.query?.distributor_id || null,
+      createdBy: null,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to run purchase operation notifications' });
+  }
+};
+
+app.get('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
+app.post('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
+
 app.get('/api/notifications/message-recipients', requireAdmin, async (req, res) => {
   try {
     const q = String(req.query?.q || '').trim();
@@ -4826,6 +5204,7 @@ const logStockLedgerAsync = async ({
 registerProductRoutes({
   app,
   requireAdmin,
+  requireAuth,
   dbAllAsync,
   dbGetAsync,
   dbRunAsync,
@@ -5757,9 +6136,14 @@ app.post('/api/distributors', requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     if (!b.name || !String(b.name).trim()) return res.status(400).json({ error: 'Distributor name is required' });
+    const paymentPlan = getDistributorPaymentPlan(b, {
+      payment_cycle_type: b.payment_cycle_type,
+      payment_due_days: b.payment_due_days,
+    });
     const result = await dbRunAsync(
-      `INSERT INTO distributors (name, salesman_name, contacts, address, products_supplied, order_day, delivery_day, payment_terms, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO distributors
+       (name, salesman_name, contacts, address, products_supplied, order_day, delivery_day, visit_day, order_cutoff_time, preferred_whatsapp_time, payment_terms, payment_cycle_type, payment_due_days, credit_limit, inactive_reason, auto_suggest_items, auto_reminders_enabled, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         String(b.name).trim(),
         b.salesman_name || null,
@@ -5768,7 +6152,16 @@ app.post('/api/distributors', requireAdmin, async (req, res) => {
         b.products_supplied || null,
         b.order_day || null,
         b.delivery_day || null,
+        b.visit_day || b.order_day || null,
+        b.order_cutoff_time || null,
+        b.preferred_whatsapp_time || null,
         b.payment_terms || 'Net 30',
+        paymentPlan.paymentCycleType,
+        paymentPlan.paymentDueDays,
+        b.credit_limit === undefined || b.credit_limit === null || b.credit_limit === '' ? null : Number(b.credit_limit || 0),
+        b.inactive_reason || null,
+        normalizeBooleanFlag(b.auto_suggest_items, true),
+        normalizeBooleanFlag(b.auto_reminders_enabled, true),
         b.status || 'active',
       ]
     );
@@ -5783,9 +6176,13 @@ app.put('/api/distributors/:id', requireAdmin, async (req, res) => {
     const cur = await dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Distributor not found' });
     const b = req.body || {};
+    const paymentPlan = getDistributorPaymentPlan(cur, {
+      payment_cycle_type: b.payment_cycle_type ?? cur.payment_cycle_type,
+      payment_due_days: b.payment_due_days ?? cur.payment_due_days,
+    });
     await dbRunAsync(
       `UPDATE distributors
-       SET name=?, salesman_name=?, contacts=?, address=?, products_supplied=?, order_day=?, delivery_day=?, payment_terms=?, status=?, updated_at=CURRENT_TIMESTAMP
+       SET name=?, salesman_name=?, contacts=?, address=?, products_supplied=?, order_day=?, delivery_day=?, visit_day=?, order_cutoff_time=?, preferred_whatsapp_time=?, payment_terms=?, payment_cycle_type=?, payment_due_days=?, credit_limit=?, inactive_reason=?, auto_suggest_items=?, auto_reminders_enabled=?, status=?, updated_at=CURRENT_TIMESTAMP
        WHERE id=?`,
       [
         b.name ?? cur.name,
@@ -5795,7 +6192,16 @@ app.put('/api/distributors/:id', requireAdmin, async (req, res) => {
         b.products_supplied ?? cur.products_supplied,
         b.order_day ?? cur.order_day,
         b.delivery_day ?? cur.delivery_day,
+        b.visit_day ?? cur.visit_day ?? cur.order_day,
+        b.order_cutoff_time ?? cur.order_cutoff_time,
+        b.preferred_whatsapp_time ?? cur.preferred_whatsapp_time,
         b.payment_terms ?? cur.payment_terms,
+        paymentPlan.paymentCycleType,
+        paymentPlan.paymentDueDays,
+        b.credit_limit === undefined ? cur.credit_limit : (b.credit_limit === null || b.credit_limit === '' ? null : Number(b.credit_limit || 0)),
+        b.inactive_reason ?? cur.inactive_reason,
+        normalizeBooleanFlag(b.auto_suggest_items, cur.auto_suggest_items !== false),
+        normalizeBooleanFlag(b.auto_reminders_enabled, cur.auto_reminders_enabled !== false),
         b.status ?? cur.status,
         req.params.id,
       ]
@@ -6091,6 +6497,14 @@ const createPurchaseValidationError = (message, details = []) => {
   return error;
 };
 
+const createPurchaseConflictError = (message, conflictType, conflict = null) => {
+  const error = new Error(message);
+  error.status = 409;
+  error.conflictType = conflictType;
+  error.conflict = conflict;
+  return error;
+};
+
 const normalizePurchaseOrderItems = async (rawItems = []) => {
   const items = Array.isArray(rawItems) ? rawItems : [];
   const productCache = new Map();
@@ -6173,47 +6587,582 @@ const normalizePurchaseOrderItems = async (rawItems = []) => {
   return normalizedItems;
 };
 
+const getDistributorByIdAsync = async (distributorId) => {
+  const normalizedDistributorId = Number(distributorId || 0);
+  if (!normalizedDistributorId) return null;
+  return dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [normalizedDistributorId]);
+};
+
+const recordPurchaseOrderStatusHistoryAsync = async (purchaseOrderId, {
+  fromStatus = null,
+  toStatus,
+  note = null,
+  billNumber = null,
+  paymentStatus = null,
+  balanceDue = null,
+  createdBy = null,
+} = {}) => {
+  if (!purchaseOrderId || !toStatus) return;
+  await dbRunAsync(
+    `INSERT INTO purchase_order_status_history
+     (purchase_order_id, from_status, to_status, note, bill_number, payment_status, balance_due, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      purchaseOrderId,
+      fromStatus || null,
+      normalizePoLifecycleStatus(toStatus),
+      note || null,
+      billNumber || null,
+      paymentStatus ? normalizePoPaymentStatus(paymentStatus) : null,
+      balanceDue === null || balanceDue === undefined ? null : Number(balanceDue || 0),
+      createdBy || null,
+    ]
+  );
+};
+
+const saveDistributorPurchaseReminderAsync = async ({
+  distributorId,
+  purchaseOrderId = null,
+  reminderType,
+  scheduledFor,
+  status = 'pending',
+  title = null,
+  message = null,
+  whatsappUrl = null,
+  createdBy = null,
+} = {}) => {
+  if (!distributorId || !reminderType || !scheduledFor) return null;
+  const scheduledDate = normalizeTransactionDate(scheduledFor);
+  if (!scheduledDate) return null;
+  const existing = await dbGetAsync(
+    `SELECT * FROM distributor_purchase_reminders
+     WHERE distributor_id = ?
+       AND COALESCE(purchase_order_id, 0) = COALESCE(?, 0)
+       AND reminder_type = ?
+       AND scheduled_for = ?`,
+    [distributorId, purchaseOrderId || null, reminderType, scheduledDate]
+  );
+  if (existing) return existing;
+  const result = await dbRunAsync(
+    `INSERT INTO distributor_purchase_reminders
+     (distributor_id, purchase_order_id, reminder_type, scheduled_for, status, title, message, whatsapp_url, created_by, sent_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'prepared' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+    [
+      distributorId,
+      purchaseOrderId || null,
+      reminderType,
+      scheduledDate,
+      status,
+      title || null,
+      message || null,
+      whatsappUrl || null,
+      createdBy || null,
+      status,
+    ]
+  );
+  return dbGetAsync(`SELECT * FROM distributor_purchase_reminders WHERE id = ?`, [result.lastInsertRowid]);
+};
+
+const emitPurchaseOperationNotificationsAsync = async ({
+  todayKey,
+  reminders = [],
+  payables = [],
+  createdBy = null,
+} = {}) => {
+  const normalizedTodayKey = normalizeTransactionDate(todayKey || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  let reminderNotifications = 0;
+  let paymentNotifications = 0;
+
+  for (const reminder of Array.isArray(reminders) ? reminders : []) {
+    await saveDistributorPurchaseReminderAsync({
+      distributorId: reminder.distributor_id,
+      purchaseOrderId: null,
+      reminderType: 'order_day_warning',
+      scheduledFor: reminder.reminder_for,
+      status: 'pending',
+      title: `Order reminder for ${reminder.distributor_name}`,
+      message: reminder.message,
+      createdBy,
+    });
+    const createdId = await notifyAdmins({
+      title: `Order reminder tomorrow: ${reminder.distributor_name}`,
+      message: `${reminder.distributor_name} is scheduled for order/visit on ${reminder.reminder_for}. ${reminder.has_open_draft ? 'Open draft exists.' : 'No open draft yet.'}`,
+      level: 'warning',
+      entityType: 'purchase_distributor',
+      entityId: reminder.distributor_id,
+      metadata: reminder,
+      createdBy,
+      clientRequestIdPrefix: `purchase:order-reminder:${reminder.distributor_id}:${reminder.reminder_for}`,
+    });
+    reminderNotifications += Number(createdId || 0) > 0 ? 1 : 0;
+  }
+
+  for (const payable of (Array.isArray(payables) ? payables : []).filter((entry) => entry.payment_due_date <= normalizedTodayKey)) {
+    const reminderType = payable.payment_due_date < normalizedTodayKey ? 'payment_overdue' : 'payment_due_today';
+    await saveDistributorPurchaseReminderAsync({
+      distributorId: payable.distributor_id,
+      purchaseOrderId: payable.order_id,
+      reminderType,
+      scheduledFor: normalizedTodayKey,
+      status: 'pending',
+      title: `${payable.distributor_name} payment ${payable.payment_due_date < normalizedTodayKey ? 'overdue' : 'due today'}`,
+      message: `${payable.po_number} has ${payable.balance_due} pending against ${payable.distributor_name}`,
+      createdBy,
+    });
+    const createdId = await notifyAdmins({
+      title: payable.payment_due_date < normalizedTodayKey
+        ? `Overdue distributor payment: ${payable.distributor_name}`
+        : `Distributor payment due today: ${payable.distributor_name}`,
+      message: `${payable.po_number} has ${payable.balance_due} pending. Due date: ${payable.payment_due_date}.`,
+      level: payable.payment_due_date < normalizedTodayKey ? 'error' : 'warning',
+      entityType: 'purchase_order',
+      entityId: payable.order_id,
+      metadata: payable,
+      createdBy,
+      clientRequestIdPrefix: payable.payment_due_date < normalizedTodayKey
+        ? `purchase:payment-overdue:${payable.order_id}:${normalizedTodayKey}`
+        : `purchase:payment-due:${payable.order_id}:${normalizedTodayKey}`,
+    });
+    paymentNotifications += Number(createdId || 0) > 0 ? 1 : 0;
+  }
+
+  return {
+    reminder_notifications: reminderNotifications,
+    payment_notifications: paymentNotifications,
+  };
+};
+
+const loadPurchaseOperationAlertsAsync = async ({
+  date = null,
+  distributorId = null,
+} = {}) => {
+  const todayKey = normalizeTransactionDate(date || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  const tomorrowKey = addDaysToDateKey(todayKey, 1) || todayKey;
+  const normalizedDistributorId = Number(distributorId || 0) || null;
+  const distributorWhereSql = normalizedDistributorId ? ` WHERE id = ?` : '';
+  const orderWhereSql = normalizedDistributorId ? ` WHERE po.distributor_id = ?` : '';
+  const distributorParams = normalizedDistributorId ? [normalizedDistributorId] : [];
+  const orderParams = normalizedDistributorId ? [normalizedDistributorId] : [];
+  const distributors = await dbAllAsync(
+    `SELECT *
+     FROM distributors${distributorWhereSql}
+     ORDER BY name ASC`,
+    distributorParams
+  );
+  const orders = await dbAllAsync(
+    `SELECT po.*, d.name AS distributor_name, d.order_day, d.delivery_day, d.visit_day, d.payment_terms, d.payment_cycle_type, d.payment_due_days, d.auto_reminders_enabled
+     FROM purchase_orders po
+     LEFT JOIN distributors d ON d.id = po.distributor_id
+     ${orderWhereSql}
+     ORDER BY po.created_at DESC`,
+    orderParams
+  );
+  const items = await dbAllAsync(
+    `SELECT poi.order_id, poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, poi.gst_rate, poi.discount_type, poi.discount_value
+     FROM purchase_order_items poi
+     INNER JOIN purchase_orders po ON po.id = poi.order_id
+     ${normalizedDistributorId ? `WHERE po.distributor_id = ?` : ''}`,
+    orderParams
+  );
+
+  const itemsByOrderId = new Map();
+  for (const item of items || []) {
+    const key = Number(item.order_id || 0);
+    const list = itemsByOrderId.get(key) || [];
+    list.push(item);
+    itemsByOrderId.set(key, list);
+  }
+
+  const enrichedOrders = (orders || []).map((order) => ({
+    ...order,
+    items: itemsByOrderId.get(Number(order.id || 0)) || [],
+    po_status: getPurchaseOrderLifecycleStatus(order),
+    payment_status: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+    balance_due: Math.max(0, Number(order.balance_due || 0)),
+    next_action: derivePurchaseNextAction({ ...order, items: itemsByOrderId.get(Number(order.id || 0)) || [] }),
+  }));
+
+  const isOpenOrder = (order) => {
+    const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+    return lifecycleStatus !== PO_LIFECYCLE_CANCELLED && lifecycleStatus !== PO_LIFECYCLE_CLOSED;
+  };
+
+  const openOrders = enrichedOrders.filter(isOpenOrder);
+  const payables = openOrders
+    .filter((order) => Number(order.balance_due || 0) > 0)
+    .map((order) => {
+      const paymentDueDate = getEffectivePurchaseDueDateKey(order, todayKey);
+      const daysUntilDue = getDaysBetweenDateKeys(todayKey, paymentDueDate);
+      const overdueDays = paymentDueDate < todayKey ? Math.abs(getDaysBetweenDateKeys(paymentDueDate, todayKey) || 0) : 0;
+      return {
+        order_id: Number(order.id || 0),
+        po_number: order.po_number,
+        distributor_id: Number(order.distributor_id || 0),
+        distributor_name: order.distributor_name || '-',
+        balance_due: Number(order.balance_due || 0),
+        payment_due_date: paymentDueDate,
+        overdue_days: overdueDays,
+        due_today: paymentDueDate === todayKey,
+        days_until_due: daysUntilDue,
+        payment_status: order.payment_status,
+        po_status: order.po_status,
+        next_action: order.next_action,
+      };
+    })
+    .sort((a, b) => (b.overdue_days - a.overdue_days) || (a.days_until_due - b.days_until_due) || (b.balance_due - a.balance_due));
+
+  const ordersByDistributor = new Map();
+  for (const order of enrichedOrders) {
+    const key = Number(order.distributor_id || 0);
+    const list = ordersByDistributor.get(key) || [];
+    list.push(order);
+    ordersByDistributor.set(key, list);
+  }
+
+  const distributorInsights = (distributors || [])
+    .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
+    .map((distributor) => {
+      const distributorIdKey = Number(distributor.id || 0);
+      const distributorOrders = [...(ordersByDistributor.get(distributorIdKey) || [])]
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const completedOrders = distributorOrders.filter((order) => getPurchaseOrderLifecycleStatus(order) !== PO_LIFECYCLE_CANCELLED);
+      const cadenceSource = completedOrders;
+      const cadenceIntervals = [];
+      for (let index = 0; index < cadenceSource.length - 1; index += 1) {
+        const currentDate = normalizeTransactionDate(cadenceSource[index].created_at || cadenceSource[index].planned_order_date || cadenceSource[index].expected_delivery);
+        const nextDate = normalizeTransactionDate(cadenceSource[index + 1].created_at || cadenceSource[index + 1].planned_order_date || cadenceSource[index + 1].expected_delivery);
+        const diff = currentDate && nextDate ? Math.abs(getDaysBetweenDateKeys(nextDate, currentDate) || 0) : null;
+        if (diff && diff > 0) cadenceIntervals.push(diff);
+      }
+      const cadenceDays = cadenceIntervals.length
+        ? Math.max(1, Math.round(cadenceIntervals.reduce((sum, value) => sum + value, 0) / cadenceIntervals.length))
+        : null;
+      const lastOrder = completedOrders[0] || null;
+      const scheduleDay = getDistributorOrderScheduleDay(distributor);
+      let nextOrderDate = null;
+      if (scheduleDay) {
+        const todayWeekday = getWeekdayFromDateKey(todayKey);
+        const todayIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === todayWeekday);
+        const targetIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === scheduleDay);
+        const offset = todayIndex >= 0 && targetIndex >= 0
+          ? ((targetIndex - todayIndex + 7) % 7 || 7)
+          : 0;
+        nextOrderDate = addDaysToDateKey(todayKey, offset);
+      } else if (cadenceDays && lastOrder) {
+        nextOrderDate = addDaysToDateKey(
+          normalizeTransactionDate(lastOrder.planned_order_date || lastOrder.created_at || lastOrder.expected_delivery),
+          cadenceDays
+        );
+      }
+      const productCounts = new Map();
+      const suggestionMap = new Map();
+      completedOrders.forEach((order) => {
+        (order.items || []).forEach((item) => {
+          const key = String(item.product_name || item.product_id || '').trim();
+          if (!key) return;
+          productCounts.set(key, (productCounts.get(key) || 0) + 1);
+          const suggestionKey = String(item.product_id || item.product_name || '').trim().toLowerCase();
+          const existing = suggestionMap.get(suggestionKey) || {
+            product_id: item.product_id ? Number(item.product_id) : null,
+            product_name: item.product_name || 'Unknown',
+            quantity_total: 0,
+            quantity_count: 0,
+            latest_created_at: '',
+            uom: item.uom || 'pcs',
+            rate: Number(item.rate ?? item.unit_price ?? 0),
+            gst_rate: Number(item.gst_rate || 0),
+            discount_type: item.discount_type || 'percent',
+            discount_value: Number(item.discount_value || 0),
+          };
+          const orderCreatedAt = String(order.created_at || order.planned_order_date || order.expected_delivery || '');
+          const currentQuantity = Math.max(0, Number(item.quantity || 0));
+          const nextRecord = {
+            ...existing,
+            quantity_total: Number(existing.quantity_total || 0) + currentQuantity,
+            quantity_count: Number(existing.quantity_count || 0) + 1,
+          };
+          if (!existing.latest_created_at || orderCreatedAt > existing.latest_created_at) {
+            nextRecord.latest_created_at = orderCreatedAt;
+            nextRecord.uom = item.uom || existing.uom || 'pcs';
+            nextRecord.rate = Number(item.rate ?? item.unit_price ?? existing.rate ?? 0);
+            nextRecord.gst_rate = Number(item.gst_rate ?? existing.gst_rate ?? 0);
+            nextRecord.discount_type = item.discount_type || existing.discount_type || 'percent';
+            nextRecord.discount_value = Number(item.discount_value ?? existing.discount_value ?? 0);
+          }
+          suggestionMap.set(suggestionKey, nextRecord);
+        });
+      });
+      return {
+        distributor_id: distributorIdKey,
+        next_order_date: nextOrderDate,
+        likely_items: [...productCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name]) => name),
+        suggested_items: [...suggestionMap.values()]
+          .sort((a, b) => {
+            const countDiff = Number(b.quantity_count || 0) - Number(a.quantity_count || 0);
+            if (countDiff !== 0) return countDiff;
+            return String(b.latest_created_at || '').localeCompare(String(a.latest_created_at || ''));
+          })
+          .slice(0, 5)
+          .map((entry) => ({
+            product_id: entry.product_id,
+            product_name: entry.product_name,
+            quantity: Number(entry.quantity_count || 0) > 0
+              ? Math.max(1, Number((Number(entry.quantity_total || 0) / Number(entry.quantity_count || 1)).toFixed(2)))
+              : 1,
+            uom: entry.uom || 'pcs',
+            rate: Number(entry.rate || 0),
+            unit_price: Number(entry.rate || 0),
+            gst_rate: Number(entry.gst_rate || 0),
+            discount_type: entry.discount_type || 'percent',
+            discount_value: Number(entry.discount_value || 0),
+          })),
+        outstanding_amount: completedOrders.reduce((sum, order) => sum + Math.max(0, Number(order.balance_due || 0)), 0),
+      };
+    });
+
+  const reminders = (distributors || [])
+    .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
+    .filter((distributor) => normalizeBooleanFlag(distributor.auto_reminders_enabled, true))
+    .map((distributor) => {
+      const scheduleDay = getDistributorOrderScheduleDay(distributor);
+      if (!scheduleDay || scheduleDay !== getWeekdayFromDateKey(tomorrowKey)) return null;
+      const distributorOrders = ordersByDistributor.get(Number(distributor.id || 0)) || [];
+      const hasEditableOrder = distributorOrders.some((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)));
+      const insight = distributorInsights.find((entry) => entry.distributor_id === Number(distributor.id || 0)) || null;
+      return {
+        distributor_id: Number(distributor.id || 0),
+        distributor_name: distributor.name,
+        reminder_for: tomorrowKey,
+        schedule_day: scheduleDay,
+        order_cutoff_time: distributor.order_cutoff_time || null,
+        preferred_whatsapp_time: distributor.preferred_whatsapp_time || null,
+        has_open_draft: hasEditableOrder,
+        suggested_next_order_date: insight?.next_order_date || tomorrowKey,
+        likely_items: insight?.likely_items || [],
+        suggested_items: insight?.suggested_items || [],
+        outstanding_amount: insight?.outstanding_amount || 0,
+        message: hasEditableOrder
+          ? 'Order reminder due tomorrow, but there is already an open draft/sent PO'
+          : 'Order reminder due tomorrow',
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
+
+  return {
+    todayKey,
+    tomorrowKey,
+    reminders,
+    payables,
+  };
+};
+
+const runPurchaseOperationNotificationsAsync = async ({
+  date = null,
+  distributorId = null,
+  createdBy = null,
+} = {}) => {
+  const alertState = await loadPurchaseOperationAlertsAsync({
+    date,
+    distributorId,
+  });
+  const emitted = await emitPurchaseOperationNotificationsAsync({
+    todayKey: alertState.todayKey,
+    reminders: alertState.reminders,
+    payables: alertState.payables,
+    createdBy,
+  });
+  return {
+    today: alertState.todayKey,
+    tomorrow: alertState.tomorrowKey,
+    reminders_scanned: Number(alertState.reminders?.length || 0),
+    payables_scanned: Number(alertState.payables?.filter((entry) => entry.payment_due_date <= alertState.todayKey).length || 0),
+    ...emitted,
+  };
+};
+
+const findDuplicatePurchaseOrderAsync = async ({
+  distributorId,
+  plannedOrderDate,
+  duplicateKey,
+  excludeOrderId = null,
+} = {}) => {
+  if (!distributorId || !duplicateKey) return null;
+  let sql = `
+    SELECT id, po_number, po_status, created_at
+    FROM purchase_orders
+    WHERE distributor_id = ?
+      AND duplicate_key = ?
+      AND planned_order_date = ?
+      AND LOWER(COALESCE(po_status, status, '')) <> LOWER(?)
+  `;
+  const params = [
+    distributorId,
+    duplicateKey,
+    normalizeTransactionDate(plannedOrderDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10),
+    PO_LIFECYCLE_CANCELLED,
+  ];
+  if (excludeOrderId) {
+    sql += ` AND id <> ?`;
+    params.push(excludeOrderId);
+  }
+  sql += ` ORDER BY created_at DESC LIMIT 1`;
+  return dbGetAsync(sql, params);
+};
+
+const findDuplicateDistributorBillAsync = async ({ distributorId, billNumber, excludeOrderId = null } = {}) => {
+  const normalizedBillNumber = String(billNumber || '').trim();
+  if (!distributorId || !normalizedBillNumber) return null;
+  let sql = `
+    SELECT id, po_number, bill_number, invoice_number
+    FROM purchase_orders
+    WHERE distributor_id = ?
+      AND LOWER(COALESCE(bill_number, invoice_number, '')) = LOWER(?)
+      AND LOWER(COALESCE(po_status, status, '')) <> LOWER(?)
+  `;
+  const params = [distributorId, normalizedBillNumber, PO_LIFECYCLE_CANCELLED];
+  if (excludeOrderId) {
+    sql += ` AND id <> ?`;
+    params.push(excludeOrderId);
+  }
+  sql += ` ORDER BY created_at DESC LIMIT 1`;
+  return dbGetAsync(sql, params);
+};
+
+const findDuplicatePurchasePaymentAsync = async ({
+  purchaseOrderId,
+  distributorId,
+  amount,
+  reference,
+  transactionDate,
+  clientRequestId = null,
+} = {}) => {
+  const normalizedAmount = Math.max(0, Number(amount || 0));
+  const normalizedDate = normalizeTransactionDate(transactionDate);
+  const normalizedReference = String(reference || '').trim().toLowerCase();
+  if (clientRequestId) {
+    const byRequestId = await dbGetAsync(
+      `SELECT id, purchase_order_id, amount, payment_mode, reference, transaction_date
+       FROM purchase_order_payments
+       WHERE client_request_id = ?
+       LIMIT 1`,
+      [clientRequestId]
+    );
+    if (byRequestId) return byRequestId;
+  }
+  if (!purchaseOrderId || !distributorId || normalizedAmount <= 0 || !normalizedDate) return null;
+  return dbGetAsync(
+    `SELECT id, purchase_order_id, amount, payment_mode, reference, transaction_date
+     FROM purchase_order_payments
+     WHERE purchase_order_id = ?
+       AND distributor_id = ?
+       AND ABS(COALESCE(amount, 0) - ?) < 0.0001
+       AND LOWER(COALESCE(reference, '')) = ?
+       AND transaction_date = ?
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [purchaseOrderId, distributorId, normalizedAmount, normalizedReference, normalizedDate]
+  );
+};
+
 app.get('/api/purchase-orders', requireAdmin, async (req, res) => {
   try {
-    let sql = `
-      SELECT po.*, d.name as distributor_name
+    const requestedPageSize = Number(req.query?.page_size || req.query?.limit || 0);
+    const isPaginated = Number.isFinite(requestedPageSize) && requestedPageSize > 0;
+    const pageSize = isPaginated ? Math.max(1, Math.min(100, Math.floor(requestedPageSize))) : 0;
+    const page = isPaginated
+      ? Math.max(1, Math.floor(Number(req.query?.page || 1) || 1))
+      : 1;
+    const offset = isPaginated ? (page - 1) * pageSize : 0;
+    const includeItems = String(req.query?.include_items || '').trim().toLowerCase() === 'true'
+      || (!isPaginated && String(req.query?.include_items || '').trim().toLowerCase() !== 'false');
+
+    let whereSql = ` WHERE 1=1`;
+    let countSql = `
+      SELECT COUNT(*) AS count
       FROM purchase_orders po
-      LEFT JOIN distributors d ON d.id = po.distributor_id
       WHERE 1=1
     `;
     const params = [];
     if (req.query.distributor_id) {
-      sql += ` AND po.distributor_id = ?`;
+      whereSql += ` AND po.distributor_id = ?`;
+      countSql += ` AND po.distributor_id = ?`;
       params.push(req.query.distributor_id);
     }
     if (req.query.status) {
       const lifecycleStatus = normalizePoLifecycleStatus(req.query.status, '');
       if (lifecycleStatus) {
-        sql += ` AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)`;
+        whereSql += ` AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)`;
+        countSql += ` AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)`;
         params.push(lifecycleStatus);
       } else {
-        sql += ` AND po.status = ?`;
+        whereSql += ` AND po.status = ?`;
+        countSql += ` AND po.status = ?`;
         params.push(req.query.status);
       }
     }
     if (req.query.payment_status) {
-      sql += ` AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)`;
+      whereSql += ` AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)`;
+      countSql += ` AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)`;
       params.push(normalizePoPaymentStatus(req.query.payment_status));
     }
     if (req.query.start_date) {
-      sql += ` AND date(po.created_at) >= date(?)`;
+      whereSql += ` AND date(po.created_at) >= date(?)`;
+      countSql += ` AND date(po.created_at) >= date(?)`;
       params.push(req.query.start_date);
     }
     if (req.query.end_date) {
-      sql += ` AND date(po.created_at) <= date(?)`;
+      whereSql += ` AND date(po.created_at) <= date(?)`;
+      countSql += ` AND date(po.created_at) <= date(?)`;
       params.push(req.query.end_date);
     }
-    sql += ` ORDER BY po.created_at DESC`;
-    const baseRows = await dbAllAsync(sql, params);
-    const rows = await Promise.all(baseRows.map(async (row) => {
-      const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [row.id]);
-      return { ...row, items };
-    }));
+    let sql = `
+      SELECT po.*, d.name as distributor_name, COALESCE(poi.item_count, 0) AS item_count
+      FROM purchase_orders po
+      LEFT JOIN distributors d ON d.id = po.distributor_id
+      LEFT JOIN (
+        SELECT order_id, COUNT(*) AS item_count
+        FROM purchase_order_items
+        GROUP BY order_id
+      ) poi ON poi.order_id = po.id
+      ${whereSql}
+      ORDER BY po.created_at DESC
+    `;
+
+    let baseRows = [];
+    let total = 0;
+    if (isPaginated) {
+      const totalRow = await dbGetAsync(countSql, params);
+      total = Number(totalRow?.count || 0);
+      baseRows = await dbAllAsync(`${sql} LIMIT ? OFFSET ?`, [...params, pageSize, offset]);
+    } else {
+      baseRows = await dbAllAsync(sql, params);
+      total = baseRows.length;
+    }
+
+    const rows = includeItems
+      ? await Promise.all(baseRows.map(async (row) => {
+          const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [row.id]);
+          return { ...row, item_count: Number(row?.item_count || items.length || 0), items };
+        }))
+      : baseRows.map((row) => ({ ...row, item_count: Number(row?.item_count || 0) }));
+
+    if (isPaginated) {
+      return res.json({
+        items: rows,
+        pagination: {
+          page,
+          page_size: pageSize,
+          total,
+          total_pages: total > 0 ? Math.ceil(total / pageSize) : 0,
+          has_more: offset + rows.length < total,
+        },
+      });
+    }
+
     return res.json(rows);
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -6238,7 +7187,21 @@ app.get('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
        ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC`,
       [row.id]
     );
-    return res.json({ ...row, items, payments });
+    const history = await dbAllAsync(
+      `SELECT *
+       FROM purchase_order_status_history
+       WHERE purchase_order_id = ?
+       ORDER BY created_at DESC, id DESC`,
+      [row.id]
+    );
+    const reminders = await dbAllAsync(
+      `SELECT *
+       FROM distributor_purchase_reminders
+       WHERE purchase_order_id = ?
+       ORDER BY scheduled_for DESC, created_at DESC, id DESC`,
+      [row.id]
+    );
+    return res.json({ ...row, items, payments, history, reminders });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -6250,15 +7213,16 @@ app.post('/api/purchase-orders/:id/distributor-whatsapp', requireAdmin, async (r
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
 
     const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
-    if (lifecycleStatus !== PO_LIFECYCLE_REGISTERED) {
-      return res.status(400).json({ error: 'WhatsApp action is available only for registered purchase orders' });
+    if (!isPoEditableLifecycle(lifecycleStatus)) {
+      return res.status(400).json({ error: 'WhatsApp action is available only before confirmation' });
     }
 
     const items = await dbAllAsync(
-      `SELECT product_name, quantity, rate, unit_price
-       FROM purchase_order_items
-       WHERE order_id = ?
-       ORDER BY id ASC`,
+      `SELECT poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, p.price AS product_price
+       FROM purchase_order_items poi
+       LEFT JOIN products p ON p.id = poi.product_id
+       WHERE poi.order_id = ?
+       ORDER BY poi.id ASC`,
       [req.params.id]
     );
 
@@ -6280,9 +7244,43 @@ app.post('/api/purchase-orders/:id/distributor-whatsapp', requireAdmin, async (r
       preparedBy: req?.authUser?.id || req.body?.created_by || null,
     });
 
+    const whatsappUrl = distributorNotice?.whatsapp?.whatsapp_url || null;
+    const nextStatus = lifecycleStatus === PO_LIFECYCLE_REVISED ? PO_LIFECYCLE_SENT : PO_LIFECYCLE_SENT;
+    await dbRunAsync(
+      `UPDATE purchase_orders
+       SET po_status = ?,
+           status = 'sent',
+           sent_at = COALESCE(sent_at, CURRENT_TIMESTAMP),
+           last_reminder_at = CURRENT_TIMESTAMP,
+           next_action = ?,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [nextStatus, 'Confirm with bill', req.params.id]
+    );
+    await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+      fromStatus: lifecycleStatus,
+      toStatus: nextStatus,
+      note: 'Manual WhatsApp template prepared for distributor',
+      paymentStatus: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+      balanceDue: Number(order.balance_due || 0),
+      createdBy: req?.authUser?.id || req.body?.created_by || null,
+    });
+    await saveDistributorPurchaseReminderAsync({
+      distributorId: Number(order.distributor_id || 0),
+      purchaseOrderId: Number(req.params.id || 0),
+      reminderType: 'manual_whatsapp_prepare',
+      scheduledFor: new Date().toISOString().slice(0, 10),
+      status: 'prepared',
+      title: `PO ${order.po_number} ready for WhatsApp`,
+      message: `Manual WhatsApp template prepared for ${order.po_number}`,
+      whatsappUrl,
+      createdBy: req?.authUser?.id || req.body?.created_by || null,
+    });
+
     return res.json({
       success: true,
       distributor_notice: distributorNotice || undefined,
+      po_status: nextStatus,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Failed to prepare distributor WhatsApp message' });
@@ -6309,20 +7307,57 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
     }
 
     if (!b.distributor_id) return res.status(400).json({ error: 'distributor_id is required' });
+    const distributor = await getDistributorByIdAsync(b.distributor_id);
+    if (!distributor) return res.status(404).json({ error: 'Distributor not found' });
     const items = Array.isArray(b.items) ? b.items : [];
     if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
 
     const normalizedItems = await normalizePurchaseOrderItems(items);
+    const plannedOrderDate = normalizeTransactionDate(b.planned_order_date || b.expected_delivery || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const duplicateKey = buildPurchaseDuplicateKey({
+      distributorId: Number(b.distributor_id || 0),
+      plannedOrderDate,
+      items: normalizedItems,
+    });
     const subtotal = normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0);
     const taxAmount = normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0);
     const totalAmount = normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
     const paymentSnapshot = calculatePoPaymentSnapshot(totalAmount, 0);
+    const inferredPaymentDueDate = computePurchasePaymentDueDate(
+      distributor,
+      plannedOrderDate,
+      {
+        payment_cycle_type: b.payment_cycle_type,
+        payment_due_days: b.payment_due_days,
+      }
+    );
+    const strictDueDate = normalizeTransactionDate(b.strict_due_date || b.strict_payment_due_date || null);
+    const strictDueNote = String(b.strict_due_note || b.strict_deadline_note || '').trim() || null;
+    const paymentDueDate = strictDueDate || inferredPaymentDueDate;
 
     const poNumber = generatePONumber();
     const orderId = await dbTxAsync(async () => {
+      await acquirePurchaseDuplicateLockAsync({
+        distributorId: Number(b.distributor_id || 0),
+        plannedOrderDate,
+        duplicateKey,
+      });
+      const existingDuplicate = await findDuplicatePurchaseOrderAsync({
+        distributorId: Number(b.distributor_id || 0),
+        plannedOrderDate,
+        duplicateKey,
+      });
+      if (existingDuplicate) {
+        throw createPurchaseConflictError(
+          `Possible duplicate purchase order already exists (${existingDuplicate.po_number}) for the same distributor, planned date, and item basket`,
+          'purchase_order_duplicate',
+          existingDuplicate
+        );
+      }
       const header = await dbRunAsync(
-        `INSERT INTO purchase_orders (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, po_status, payment_status, paid_amount, balance_due, notes, expected_delivery, created_by, client_request_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO purchase_orders
+         (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, po_status, payment_status, paid_amount, balance_due, notes, expected_delivery, planned_order_date, payment_due_date, strict_due_date, strict_due_note, duplicate_key, next_action, created_by, client_request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           poNumber,
           b.distributor_id,
@@ -6331,12 +7366,18 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
           totalAmount,
           totalAmount,
           'pending',
-          PO_LIFECYCLE_REGISTERED,
+          PO_LIFECYCLE_PREPARED,
           paymentSnapshot.paymentStatus,
           paymentSnapshot.paidAmount,
           paymentSnapshot.balanceDue,
           b.notes || null,
           b.expected_delivery || null,
+          plannedOrderDate,
+          paymentDueDate,
+          strictDueDate,
+          strictDueNote,
+          duplicateKey,
+          'Send to distributor',
           b.created_by || null,
           clientRequestId,
         ]
@@ -6368,8 +7409,17 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
           ]
         );
       }
+      await recordPurchaseOrderStatusHistoryAsync(orderId, {
+        fromStatus: null,
+        toStatus: PO_LIFECYCLE_PREPARED,
+        note: 'Purchase order prepared',
+        paymentStatus: paymentSnapshot.paymentStatus,
+        balanceDue: paymentSnapshot.balanceDue,
+        createdBy: b.created_by || null,
+      });
       return orderId;
     });
+    await syncDistributorProductsSuppliedAsync(Number(b.distributor_id || 0), normalizedItems);
     await logAdminAuditAsync(req, {
       action: 'purchase_order.create',
       entityType: 'purchase_order',
@@ -6382,35 +7432,16 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
         items_count: normalizedItems.length,
       },
     });
-    let distributorNotice = null;
-    try {
-      distributorNotice = await notifyDistributorPurchaseOrderAsync({
-        purchaseOrderId: Number(orderId || 0),
-        distributorId: Number(b.distributor_id || 0),
-        poNumber,
-        totalAmount,
-        paymentStatus: paymentSnapshot.paymentStatus,
-        balanceDue: paymentSnapshot.balanceDue,
-        expectedDelivery: b.expected_delivery || null,
-        notes: b.notes || '',
-        items: normalizedItems,
-        messageDate: new Date().toISOString().slice(0, 10),
-        isUpdate: false,
-        preparedBy: req?.authUser?.id || b.created_by || null,
-      });
-    } catch (notifyError) {
-      console.warn('[NOTIFY] purchase order distributor notification failed:', notifyError?.message || notifyError);
-    }
-
     return res.status(201).json({
       success: true,
       id: orderId,
       po_number: poNumber,
-      po_status: PO_LIFECYCLE_REGISTERED,
+      po_status: PO_LIFECYCLE_PREPARED,
       payment_status: paymentSnapshot.paymentStatus,
       paid_amount: paymentSnapshot.paidAmount,
       balance_due: paymentSnapshot.balanceDue,
-      distributor_notice: distributorNotice || undefined,
+      payment_due_date: paymentDueDate,
+      strict_due_date: strictDueDate,
     });
   } catch (error) {
     if (clientRequestId && isUniqueViolationError(error)) {
@@ -6427,6 +7458,13 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
     if (error.status === 400) {
       return res.status(400).json({ error: error.message, details: error.details || undefined });
     }
+    if (error.status === 409) {
+      return res.status(409).json({
+        error: error.message,
+        conflict_type: error.conflictType || undefined,
+        conflict: error.conflict || undefined,
+      });
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -6436,37 +7474,82 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
     const cur = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!cur) return res.status(404).json({ error: 'Purchase order not found' });
     const currentPoStatus = getPurchaseOrderLifecycleStatus(cur);
-    if (currentPoStatus !== PO_LIFECYCLE_REGISTERED) {
-      return res.status(400).json({ error: 'Only registered purchase orders can be edited' });
+    if (!isPoEditableLifecycle(currentPoStatus)) {
+      return res.status(400).json({ error: 'Only prepared, sent, or revised purchase orders can be edited' });
     }
     const b = req.body || {};
     const items = Array.isArray(b.items) ? b.items : null;
 
-    let finalTotalAmount = Number(cur.total_amount ?? cur.total ?? 0);
     let updatedDistributorId = Number(b.distributor_id ?? cur.distributor_id ?? 0) || null;
     let updatedNotes = b.notes ?? cur.notes ?? '';
     let updatedExpectedDelivery = b.expected_delivery ?? cur.expected_delivery ?? null;
-    let noticeItems = [];
+    const distributor = await getDistributorByIdAsync(updatedDistributorId);
+    if (!distributor) return res.status(404).json({ error: 'Distributor not found' });
+    const nextLifecycleStatus = currentPoStatus === PO_LIFECYCLE_SENT ? PO_LIFECYCLE_REVISED : currentPoStatus;
+    const shouldIncrementRevision = currentPoStatus === PO_LIFECYCLE_SENT || currentPoStatus === PO_LIFECYCLE_REVISED;
+    const plannedOrderDate = normalizeTransactionDate(b.planned_order_date || updatedExpectedDelivery || cur.planned_order_date || cur.expected_delivery || cur.created_at) || new Date().toISOString().slice(0, 10);
+    const inferredPaymentDueDate = computePurchasePaymentDueDate(distributor, plannedOrderDate, {
+      payment_cycle_type: b.payment_cycle_type,
+      payment_due_days: b.payment_due_days,
+    });
+    const strictDueDate = normalizeTransactionDate(
+      b.strict_due_date
+      ?? b.strict_payment_due_date
+      ?? cur.strict_due_date
+      ?? null
+    );
+    const strictDueNote = (b.strict_due_note !== undefined || b.strict_deadline_note !== undefined)
+      ? (String(b.strict_due_note || b.strict_deadline_note || '').trim() || null)
+      : (String(cur.strict_due_note || '').trim() || null);
+    const paymentDueDate = strictDueDate || inferredPaymentDueDate;
     if (items) {
       if (!items.length) return res.status(400).json({ error: 'At least one item is required' });
       const normalizedItems = await normalizePurchaseOrderItems(items);
-      noticeItems = normalizedItems;
+      const duplicateKey = buildPurchaseDuplicateKey({
+        distributorId: updatedDistributorId,
+        plannedOrderDate,
+        items: normalizedItems,
+      });
       const subtotal = normalizedItems.reduce((sum, it) => sum + Number(it.taxable_value || 0), 0);
       const taxAmount = normalizedItems.reduce((sum, it) => sum + Number(it.tax_amount || 0), 0);
       const totalAmount = normalizedItems.reduce((sum, it) => sum + Number(it.line_total || 0), 0);
       const paymentSnapshot = calculatePoPaymentSnapshot(totalAmount, Number(cur.paid_amount || 0));
-      finalTotalAmount = totalAmount;
       await dbTxAsync(async () => {
+        await acquirePurchaseDuplicateLockAsync({
+          distributorId: updatedDistributorId,
+          plannedOrderDate,
+          duplicateKey,
+        });
+        const existingDuplicate = await findDuplicatePurchaseOrderAsync({
+          distributorId: updatedDistributorId,
+          plannedOrderDate,
+          duplicateKey,
+          excludeOrderId: Number(req.params.id || 0),
+        });
+        if (existingDuplicate) {
+          throw createPurchaseConflictError(
+            `Possible duplicate purchase order already exists (${existingDuplicate.po_number}) for the same distributor, planned date, and item basket`,
+            'purchase_order_duplicate',
+            existingDuplicate
+          );
+        }
         await dbRunAsync(
           `UPDATE purchase_orders
-           SET distributor_id=?, notes=?, expected_delivery=?, status=?, po_status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
+           SET distributor_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
            WHERE id=?`,
           [
             updatedDistributorId,
             updatedNotes || null,
             updatedExpectedDelivery || null,
-            'pending',
-            PO_LIFECYCLE_REGISTERED,
+            plannedOrderDate,
+            paymentDueDate,
+            strictDueDate,
+            strictDueNote,
+            duplicateKey,
+            nextLifecycleStatus === PO_LIFECYCLE_SENT ? 'sent' : 'pending',
+            nextLifecycleStatus,
+            shouldIncrementRevision ? Number(cur.revision_count || 0) + 1 : Number(cur.revision_count || 0),
+            nextLifecycleStatus === PO_LIFECYCLE_REVISED ? 'Resend updated PO' : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
             subtotal,
             taxAmount,
             totalAmount,
@@ -6502,22 +7585,44 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
           );
         }
       });
+      await syncDistributorProductsSuppliedAsync(updatedDistributorId, normalizedItems);
+      if (nextLifecycleStatus !== currentPoStatus) {
+        await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+          fromStatus: currentPoStatus,
+          toStatus: nextLifecycleStatus,
+          note: 'Purchase order revised after edits',
+          paymentStatus: paymentSnapshot.paymentStatus,
+          balanceDue: paymentSnapshot.balanceDue,
+          createdBy: req?.authUser?.id || b.created_by || null,
+        });
+      }
     } else {
       const nextSubtotal = Number(b.subtotal ?? cur.subtotal ?? 0);
       const nextTaxAmount = Number(b.tax_amount ?? cur.tax_amount ?? 0);
       const nextTotalAmount = Number(b.total_amount ?? cur.total_amount ?? cur.total ?? 0);
       const paymentSnapshot = calculatePoPaymentSnapshot(nextTotalAmount, Number(cur.paid_amount || 0));
-      finalTotalAmount = nextTotalAmount;
+      const duplicateKey = cur.duplicate_key || buildPurchaseDuplicateKey({
+        distributorId: updatedDistributorId,
+        plannedOrderDate,
+        items: await dbAllAsync(`SELECT product_id, product_name, quantity, uom FROM purchase_order_items WHERE order_id = ?`, [req.params.id]),
+      });
       await dbRunAsync(
         `UPDATE purchase_orders
-         SET distributor_id=?, notes=?, expected_delivery=?, status=?, po_status=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
+         SET distributor_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
          WHERE id=?`,
         [
           updatedDistributorId,
           updatedNotes || null,
           updatedExpectedDelivery || null,
-          'pending',
-          PO_LIFECYCLE_REGISTERED,
+          plannedOrderDate,
+          paymentDueDate,
+          strictDueDate,
+          strictDueNote,
+          duplicateKey,
+          nextLifecycleStatus === PO_LIFECYCLE_SENT ? 'sent' : 'pending',
+          nextLifecycleStatus,
+          shouldIncrementRevision ? Number(cur.revision_count || 0) + 1 : Number(cur.revision_count || 0),
+          nextLifecycleStatus === PO_LIFECYCLE_REVISED ? 'Resend updated PO' : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
           nextSubtotal,
           nextTaxAmount,
           nextTotalAmount,
@@ -6528,40 +7633,37 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
           req.params.id
         ]
       );
+      if (nextLifecycleStatus !== currentPoStatus) {
+        await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+          fromStatus: currentPoStatus,
+          toStatus: nextLifecycleStatus,
+          note: 'Purchase order revised after header edits',
+          paymentStatus: paymentSnapshot.paymentStatus,
+          balanceDue: paymentSnapshot.balanceDue,
+          createdBy: req?.authUser?.id || b.created_by || null,
+        });
+      }
     }
     await logAdminAuditAsync(req, {
       action: 'purchase_order.update',
       entityType: 'purchase_order',
       entityId: req.params.id,
       details: {
-        status: req.body?.status ?? cur.status,
+        status: nextLifecycleStatus,
         has_items_payload: Array.isArray(req.body?.items),
       },
     });
-    let distributorNotice = null;
-    try {
-      distributorNotice = await notifyDistributorPurchaseOrderAsync({
-        purchaseOrderId: Number(req.params.id || 0),
-        distributorId: updatedDistributorId,
-        poNumber: cur.po_number,
-        totalAmount: finalTotalAmount,
-        paymentStatus: PO_PAYMENT_UNPAID,
-        balanceDue: finalTotalAmount,
-        expectedDelivery: updatedExpectedDelivery || null,
-        notes: updatedNotes || '',
-        items: noticeItems,
-        messageDate: new Date().toISOString().slice(0, 10),
-        isUpdate: true,
-        preparedBy: req?.authUser?.id || b.created_by || null,
-      });
-    } catch (notifyError) {
-      console.warn('[NOTIFY] purchase order update distributor notification failed:', notifyError?.message || notifyError);
-    }
-
-    return res.json({ success: true, distributor_notice: distributorNotice || undefined });
+    return res.json({ success: true, po_status: nextLifecycleStatus, payment_due_date: paymentDueDate, strict_due_date: strictDueDate });
   } catch (error) {
     if (error.status === 400) {
       return res.status(400).json({ error: error.message, details: error.details || undefined });
+    }
+    if (error.status === 409) {
+      return res.status(409).json({
+        error: error.message,
+        conflict_type: error.conflictType || undefined,
+        conflict: error.conflict || undefined,
+      });
     }
     return res.status(500).json({ error: error.message });
   }
@@ -6578,17 +7680,29 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
     const currentPoStatus = getPurchaseOrderLifecycleStatus(order);
     const normalizedRequestedPoStatus = normalizePoLifecycleStatus(status, currentPoStatus);
     const requestedStatusRaw = String(status || '').trim().toLowerCase();
-    const isProcessRequest = normalizedRequestedPoStatus === PO_LIFECYCLE_PROCESSED || requestedStatusRaw === 'confirmed';
+    const isConfirmRequest = normalizedRequestedPoStatus === PO_LIFECYCLE_CONFIRMED
+      || normalizedRequestedPoStatus === PO_LIFECYCLE_PART_PAID
+      || normalizedRequestedPoStatus === PO_LIFECYCLE_FULLY_PAID
+      || requestedStatusRaw === 'processed';
 
-    if (isProcessRequest) {
-      if (currentPoStatus === PO_LIFECYCLE_PROCESSED) {
-        return res.status(400).json({ error: 'Purchase order is already processed' });
-      }
-      if (currentPoStatus === PO_LIFECYCLE_CANCELLED) {
-        return res.status(400).json({ error: 'Cancelled purchase order cannot be processed' });
+    if (isConfirmRequest) {
+      if (!isPoEditableLifecycle(currentPoStatus)) {
+        return res.status(400).json({ error: 'Only prepared, sent, or revised purchase orders can be confirmed' });
       }
       if (!billNumber) {
-        return res.status(400).json({ error: 'bill_number is required when processing a purchase order' });
+        return res.status(400).json({ error: 'bill_number is required when confirming a purchase order' });
+      }
+      const duplicateBill = await findDuplicateDistributorBillAsync({
+        distributorId: Number(order.distributor_id || 0),
+        billNumber,
+        excludeOrderId: Number(req.params.id || 0),
+      });
+      if (duplicateBill) {
+        return res.status(409).json({
+          error: `Bill number already exists for this distributor on ${duplicateBill.po_number}`,
+          conflict_type: 'purchase_bill_duplicate',
+          conflict: duplicateBill,
+        });
       }
 
       const initialPaidAmountRaw = Number(
@@ -6598,8 +7712,9 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
       const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
       const paymentReference = String(req.body?.payment_reference || req.body?.reference || billNumber || '').trim() || null;
       const paymentNotes = String(req.body?.payment_notes || req.body?.notes || '').trim() || null;
-      const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || null);
-
+      const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || new Date().toISOString());
+      const confirmedAt = new Date().toISOString();
+      const distributor = await getDistributorByIdAsync(order.distributor_id);
       const totalSnapshot = calculatePoPaymentSnapshot(Number(order.total_amount ?? order.total ?? 0), initialPaidAmount);
       if (initialPaidAmount > totalSnapshot.totalAmount) {
         return res.status(400).json({ error: 'Initial paid amount cannot exceed PO total amount' });
@@ -6608,6 +7723,19 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
       const stockAlreadyApplied = Number(order.stock_applied_on_confirm || 0) === 1;
       const capAdjustments = [];
       let createdPaymentId = null;
+      const nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(PO_LIFECYCLE_CONFIRMED, totalSnapshot.paymentStatus);
+      const nextAction = derivePurchaseNextAction({
+        ...order,
+        po_status: nextLifecycleStatus,
+        status: 'confirmed',
+        payment_status: totalSnapshot.paymentStatus,
+        balance_due: totalSnapshot.balanceDue,
+      });
+      const paymentDueDate = normalizeTransactionDate(order.strict_due_date)
+        || computePurchasePaymentDueDate(
+          distributor || {},
+          paymentDate || order.planned_order_date || order.expected_delivery || order.created_at,
+        );
       await dbTxAsync(async () => {
         if (!stockAlreadyApplied) {
           const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
@@ -6630,7 +7758,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
 
             if (quantityChange !== 0) {
               await dbRunAsync(`UPDATE products SET stock = ? WHERE id = ?`, [finalStock, productId]);
-              const noteLines = ['Auto stock update on PO processing'];
+              const noteLines = ['Auto stock update on PO confirmation'];
               if (capHit) {
                 noteLines.push(`Stock cap ${PURCHASE_STOCK_CAP} applied (intended ${intendedStock}, final ${finalStock})`);
               }
@@ -6683,7 +7811,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
             reference: order.po_number || `PO-${req.params.id}`,
             bill_number: billNumber || null,
             description: `Purchase Order ${order.po_number || req.params.id}${billNumber ? ` (Bill: ${billNumber})` : ''}`.trim(),
-            transaction_date: normalizeTransactionDate(req.body?.transaction_date) || new Date().toISOString().slice(0, 10),
+            transaction_date: paymentDate || new Date().toISOString().slice(0, 10),
             source: 'purchase_order',
             source_id: req.params.id,
             created_by: req.body?.updated_by || req.body?.created_by || null,
@@ -6715,7 +7843,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
               payment_mode: paymentMode,
               reference: paymentReference || order.po_number || `PO-${req.params.id}`,
               bill_number: billNumber || null,
-              description: `PO payment on processing ${order.po_number || req.params.id}`,
+              description: `PO payment on confirmation ${order.po_number || req.params.id}`,
               transaction_date: paymentDate || new Date().toISOString().slice(0, 10),
               source: 'po_payment',
               source_id: createdPaymentId,
@@ -6733,49 +7861,44 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
                balance_due = ?,
                bill_number = COALESCE(?, bill_number),
                invoice_number = COALESCE(?, invoice_number),
+               payment_due_date = ?,
+               next_action = ?,
                stock_applied_on_confirm = 1,
+               confirmed_at = COALESCE(confirmed_at, ?),
                processed_at = COALESCE(processed_at, CURRENT_TIMESTAMP),
                updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
           [
-            PO_LIFECYCLE_PROCESSED,
+            nextLifecycleStatus,
             totalSnapshot.paymentStatus,
             totalSnapshot.paidAmount,
             totalSnapshot.balanceDue,
             billNumber || null,
             billNumber || null,
+            paymentDueDate,
+            nextAction,
+            confirmedAt,
             req.params.id,
           ]
         );
       });
 
-      let distributorNotice = null;
-      try {
-        distributorNotice = await notifyDistributorPurchaseOrderAsync({
-          purchaseOrderId: Number(req.params.id || 0),
-          distributorId: Number(order.distributor_id || 0),
-          poNumber: order.po_number,
-          totalAmount: totalSnapshot.totalAmount,
-          paymentStatus: totalSnapshot.paymentStatus,
-          balanceDue: totalSnapshot.balanceDue,
-          expectedDelivery: order.expected_delivery || null,
-          notes: order.notes || '',
-          billNumber: billNumber || '',
-          messageDate: new Date().toISOString().slice(0, 10),
-          isUpdate: true,
-          preparedBy: req?.authUser?.id || req.body?.updated_by || req.body?.created_by || null,
-        });
-      } catch (notifyError) {
-        console.warn('[NOTIFY] processed purchase order distributor notification failed:', notifyError?.message || notifyError);
-      }
-
+      await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+        fromStatus: currentPoStatus,
+        toStatus: nextLifecycleStatus,
+        note: 'Purchase order confirmed with bill',
+        billNumber: billNumber || null,
+        paymentStatus: totalSnapshot.paymentStatus,
+        balanceDue: totalSnapshot.balanceDue,
+        createdBy: req.body?.updated_by || req.body?.created_by || null,
+      });
       await logAdminAuditAsync(req, {
         action: 'purchase_order.status_update',
         entityType: 'purchase_order',
         entityId: req.params.id,
         details: {
-          status: 'processed',
-          po_status: PO_LIFECYCLE_PROCESSED,
+          status: 'confirmed',
+          po_status: nextLifecycleStatus,
           bill_number: billNumber || null,
           initial_paid_amount: totalSnapshot.paidAmount,
           balance_due: totalSnapshot.balanceDue,
@@ -6788,31 +7911,41 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
       });
       return res.json({
         success: true,
-        po_status: PO_LIFECYCLE_PROCESSED,
+        po_status: nextLifecycleStatus,
         payment_status: totalSnapshot.paymentStatus,
         paid_amount: totalSnapshot.paidAmount,
         balance_due: totalSnapshot.balanceDue,
+        payment_due_date: paymentDueDate,
         stock_cap: PURCHASE_STOCK_CAP,
         stock_applied: !stockAlreadyApplied,
         stock_already_applied: stockAlreadyApplied,
         cap_applied_count: capAdjustments.length,
         cap_adjustments: capAdjustments,
-        distributor_notice: distributorNotice || undefined,
       });
     }
 
     if (normalizedRequestedPoStatus === PO_LIFECYCLE_CANCELLED) {
-      if (currentPoStatus === PO_LIFECYCLE_PROCESSED) {
-        return res.status(400).json({ error: 'Processed purchase order cannot be cancelled' });
+      if (!isPoEditableLifecycle(currentPoStatus)) {
+        return res.status(400).json({ error: 'Only unconfirmed purchase orders can be cancelled' });
       }
       await dbRunAsync(
         `UPDATE purchase_orders
          SET status = 'cancelled',
              po_status = ?,
+             next_action = 'Cancelled',
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [PO_LIFECYCLE_CANCELLED, req.params.id]
       );
+      await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+        fromStatus: currentPoStatus,
+        toStatus: PO_LIFECYCLE_CANCELLED,
+        note: 'Purchase order cancelled',
+        billNumber: billNumber || null,
+        paymentStatus: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+        balanceDue: Number(order.balance_due || 0),
+        createdBy: req.body?.updated_by || req.body?.created_by || null,
+      });
       await logAdminAuditAsync(req, {
         action: 'purchase_order.status_update',
         entityType: 'purchase_order',
@@ -6826,41 +7959,557 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
       return res.json({ success: true, po_status: PO_LIFECYCLE_CANCELLED });
     }
 
-    if (currentPoStatus !== PO_LIFECYCLE_REGISTERED) {
-      return res.status(400).json({ error: 'Only registered purchase orders can be set to pending' });
+    if (normalizedRequestedPoStatus === PO_LIFECYCLE_CLOSED) {
+      const balanceDue = Math.max(0, Number(order.balance_due || 0));
+      if (!canPoAcceptPayment(currentPoStatus) && currentPoStatus !== PO_LIFECYCLE_FULLY_PAID) {
+        return res.status(400).json({ error: 'Only confirmed purchase orders can be closed' });
+      }
+      if (balanceDue > 0 || normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID) !== PO_PAYMENT_PAID) {
+        return res.status(400).json({ error: 'Purchase order can be closed only after full payment' });
+      }
+      await dbRunAsync(
+        `UPDATE purchase_orders
+         SET po_status = ?,
+             next_action = 'Closed',
+             closed_at = COALESCE(closed_at, CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [PO_LIFECYCLE_CLOSED, req.params.id]
+      );
+      await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+        fromStatus: currentPoStatus,
+        toStatus: PO_LIFECYCLE_CLOSED,
+        note: 'Purchase order closed',
+        billNumber: order.bill_number || order.invoice_number || null,
+        paymentStatus: order.payment_status,
+        balanceDue: 0,
+        createdBy: req.body?.updated_by || req.body?.created_by || null,
+      });
+      await logAdminAuditAsync(req, {
+        action: 'purchase_order.status_update',
+        entityType: 'purchase_order',
+        entityId: req.params.id,
+        details: {
+          status: 'closed',
+          po_status: PO_LIFECYCLE_CLOSED,
+        },
+      });
+      return res.json({ success: true, po_status: PO_LIFECYCLE_CLOSED });
     }
 
-    await dbRunAsync(
-      `UPDATE purchase_orders
-       SET status = 'pending',
-           po_status = ?,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [PO_LIFECYCLE_REGISTERED, req.params.id]
-    );
-    await logAdminAuditAsync(req, {
-      action: 'purchase_order.status_update',
-      entityType: 'purchase_order',
-      entityId: req.params.id,
-      details: {
-        status: 'pending',
-        po_status: PO_LIFECYCLE_REGISTERED,
-        bill_number: billNumber || null,
-      },
-    });
-    return res.json({ success: true, po_status: PO_LIFECYCLE_REGISTERED });
+    return res.status(400).json({ error: 'Unsupported purchase order status transition' });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => {
+app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
   try {
+    const todayKey = normalizeTransactionDate(req.query?.date || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const tomorrowKey = addDaysToDateKey(todayKey, 1) || todayKey;
+    const distributorIdFilter = Number(req.query?.distributor_id || 0) || null;
+    const distributorWhereSql = distributorIdFilter ? ` WHERE id = ?` : '';
+    const orderWhereSql = distributorIdFilter ? ` WHERE po.distributor_id = ?` : '';
+    const distributors = await dbAllAsync(
+      `SELECT * FROM distributors${distributorWhereSql} ORDER BY name ASC`,
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
+    const orders = await dbAllAsync(
+      `SELECT po.*, d.name AS distributor_name, d.order_day, d.delivery_day, d.visit_day, d.payment_terms, d.payment_cycle_type, d.payment_due_days, d.auto_reminders_enabled
+       FROM purchase_orders po
+       LEFT JOIN distributors d ON d.id = po.distributor_id
+       ${orderWhereSql}
+       ORDER BY po.created_at DESC`,
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
+    const payments = await dbAllAsync(
+      `SELECT pop.*, po.po_number, po.payment_due_date, po.bill_number, po.invoice_number, d.name AS distributor_name
+       FROM purchase_order_payments pop
+       LEFT JOIN purchase_orders po ON po.id = pop.purchase_order_id
+       LEFT JOIN distributors d ON d.id = pop.distributor_id
+       ${distributorIdFilter ? `WHERE pop.distributor_id = ?` : ''}
+       ORDER BY COALESCE(pop.transaction_date, pop.created_at) DESC, pop.id DESC`,
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
+    const items = await dbAllAsync(
+      `SELECT poi.order_id, poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, poi.gst_rate, poi.discount_type, poi.discount_value
+       FROM purchase_order_items poi
+       INNER JOIN purchase_orders po ON po.id = poi.order_id
+       ${distributorIdFilter ? `WHERE po.distributor_id = ?` : ''}`,
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
+    const ledgerBalances = await dbAllAsync(
+      `SELECT distributor_id, balance, transaction_date, created_at, id
+       FROM distributor_ledger
+       ${distributorIdFilter ? `WHERE distributor_id = ?` : ''}
+       ORDER BY distributor_id ASC, COALESCE(transaction_date, created_at) DESC, id DESC`,
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
+
+    const itemsByOrderId = new Map();
+    for (const item of items) {
+      const key = Number(item.order_id || 0);
+      const list = itemsByOrderId.get(key) || [];
+      list.push(item);
+      itemsByOrderId.set(key, list);
+    }
+    const paymentsByOrderId = new Map();
+    for (const payment of payments) {
+      const key = Number(payment.purchase_order_id || 0);
+      const list = paymentsByOrderId.get(key) || [];
+      list.push(payment);
+      paymentsByOrderId.set(key, list);
+    }
+    const ledgerBalanceByDistributor = new Map();
+    for (const entry of ledgerBalances) {
+      const key = Number(entry.distributor_id || 0);
+      if (!key || ledgerBalanceByDistributor.has(key)) continue;
+      ledgerBalanceByDistributor.set(key, Number(entry.balance || 0));
+    }
+
+    const enrichedOrders = orders.map((order) => ({
+      ...order,
+      items: itemsByOrderId.get(Number(order.id || 0)) || [],
+      payments: paymentsByOrderId.get(Number(order.id || 0)) || [],
+      po_status: getPurchaseOrderLifecycleStatus(order),
+      payment_status: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+      balance_due: Math.max(0, Number(order.balance_due || 0)),
+      next_action: derivePurchaseNextAction({ ...order, items: itemsByOrderId.get(Number(order.id || 0)) || [] }),
+    }));
+    const orderById = new Map(enrichedOrders.map((order) => [Number(order.id || 0), order]));
+
+    const isOpenOrder = (order) => {
+      const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+      return lifecycleStatus !== PO_LIFECYCLE_CANCELLED && lifecycleStatus !== PO_LIFECYCLE_CLOSED;
+    };
+    const isDeliveryPending = (order) => {
+      if (!isOpenOrder(order)) return false;
+      if (hasOrderBeenReceived(order)) return false;
+      if (!order.expected_delivery) return false;
+      const expectedDate = normalizeTransactionDate(order.expected_delivery);
+      return Boolean(expectedDate) && expectedDate <= todayKey;
+    };
+    const openOrders = enrichedOrders.filter(isOpenOrder);
+    const payables = openOrders
+      .filter((order) => Number(order.balance_due || 0) > 0)
+      .map((order) => {
+        const paymentDueDate = getEffectivePurchaseDueDateKey(order, todayKey);
+        const daysUntilDue = getDaysBetweenDateKeys(todayKey, paymentDueDate);
+        const overdueDays = paymentDueDate < todayKey ? Math.abs(getDaysBetweenDateKeys(paymentDueDate, todayKey) || 0) : 0;
+        return {
+          order_id: Number(order.id || 0),
+          po_number: order.po_number,
+          distributor_id: Number(order.distributor_id || 0),
+          distributor_name: order.distributor_name || '-',
+          balance_due: Number(order.balance_due || 0),
+          payment_due_date: paymentDueDate,
+          overdue_days: overdueDays,
+          due_today: paymentDueDate === todayKey,
+          days_until_due: daysUntilDue,
+          payment_status: order.payment_status,
+          po_status: order.po_status,
+          next_action: order.next_action,
+        };
+      })
+      .sort((a, b) => (b.overdue_days - a.overdue_days) || (a.days_until_due - b.days_until_due) || (b.balance_due - a.balance_due));
+
+    const paidTodayAmount = payments.reduce((sum, payment) => {
+      const paymentDate = normalizeTransactionDate(payment.transaction_date || payment.created_at);
+      if (paymentDate !== todayKey) return sum;
+      return sum + Number(payment.amount || 0);
+    }, 0);
+
+    const ordersByDistributor = new Map();
+    for (const order of enrichedOrders) {
+      const key = Number(order.distributor_id || 0);
+      const list = ordersByDistributor.get(key) || [];
+      list.push(order);
+      ordersByDistributor.set(key, list);
+    }
+
+    const inferDistributorInsight = (distributor) => {
+      const distributorId = Number(distributor.id || 0);
+      const distributorOrders = [...(ordersByDistributor.get(distributorId) || [])]
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const completedOrders = distributorOrders.filter((order) => getPurchaseOrderLifecycleStatus(order) !== PO_LIFECYCLE_CANCELLED);
+      const cadenceSource = completedOrders;
+      const cadenceIntervals = [];
+      for (let index = 0; index < cadenceSource.length - 1; index += 1) {
+        const currentDate = normalizeTransactionDate(cadenceSource[index].created_at || cadenceSource[index].planned_order_date || cadenceSource[index].expected_delivery);
+        const nextDate = normalizeTransactionDate(cadenceSource[index + 1].created_at || cadenceSource[index + 1].planned_order_date || cadenceSource[index + 1].expected_delivery);
+        const diff = currentDate && nextDate ? Math.abs(getDaysBetweenDateKeys(nextDate, currentDate) || 0) : null;
+        if (diff && diff > 0) cadenceIntervals.push(diff);
+      }
+      const cadenceDays = cadenceIntervals.length
+        ? Math.max(1, Math.round(cadenceIntervals.reduce((sum, value) => sum + value, 0) / cadenceIntervals.length))
+        : null;
+      const lastOrder = completedOrders[0] || null;
+      const scheduleDay = getDistributorOrderScheduleDay(distributor);
+      let nextOrderDate = null;
+      if (scheduleDay) {
+        const todayWeekday = getWeekdayFromDateKey(todayKey);
+        const todayIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === todayWeekday);
+        const targetIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === scheduleDay);
+        const offset = todayIndex >= 0 && targetIndex >= 0
+          ? ((targetIndex - todayIndex + 7) % 7 || 7)
+          : 0;
+        nextOrderDate = addDaysToDateKey(todayKey, offset);
+      } else if (cadenceDays && lastOrder) {
+        nextOrderDate = addDaysToDateKey(
+          normalizeTransactionDate(lastOrder.planned_order_date || lastOrder.created_at || lastOrder.expected_delivery),
+          cadenceDays
+        );
+      }
+      const productCounts = new Map();
+      const suggestionMap = new Map();
+      const paymentLagDays = [];
+      completedOrders.forEach((order) => {
+        const orderPayments = paymentsByOrderId.get(Number(order.id || 0)) || [];
+        if (orderPayments.length > 0) {
+          const anchorDate = normalizeTransactionDate(
+            order.received_at
+            || order.confirmed_at
+            || order.planned_order_date
+            || order.expected_delivery
+            || order.created_at
+          );
+          const lastPaymentDate = orderPayments
+            .map((payment) => normalizeTransactionDate(payment.transaction_date || payment.created_at))
+            .filter(Boolean)
+            .sort()
+            .slice(-1)[0] || null;
+          const lagDays = anchorDate && lastPaymentDate ? getDaysBetweenDateKeys(anchorDate, lastPaymentDate) : null;
+          if (Number.isFinite(lagDays) && lagDays >= 0) {
+            paymentLagDays.push(lagDays);
+          }
+        }
+        (order.items || []).forEach((item) => {
+          const key = String(item.product_name || item.product_id || '').trim();
+          if (!key) return;
+          productCounts.set(key, (productCounts.get(key) || 0) + 1);
+          const suggestionKey = String(item.product_id || item.product_name || '').trim().toLowerCase();
+          const existing = suggestionMap.get(suggestionKey) || {
+            product_id: item.product_id ? Number(item.product_id) : null,
+            product_name: item.product_name || 'Unknown',
+            quantity_total: 0,
+            quantity_count: 0,
+            latest_created_at: '',
+            uom: item.uom || 'pcs',
+            rate: Number(item.rate ?? item.unit_price ?? 0),
+            gst_rate: Number(item.gst_rate || 0),
+            discount_type: item.discount_type || 'percent',
+            discount_value: Number(item.discount_value || 0),
+          };
+          const orderCreatedAt = String(order.created_at || order.planned_order_date || order.expected_delivery || '');
+          const currentQuantity = Math.max(0, Number(item.quantity || 0));
+          const nextRecord = {
+            ...existing,
+            quantity_total: Number(existing.quantity_total || 0) + currentQuantity,
+            quantity_count: Number(existing.quantity_count || 0) + 1,
+          };
+          if (!existing.latest_created_at || orderCreatedAt > existing.latest_created_at) {
+            nextRecord.latest_created_at = orderCreatedAt;
+            nextRecord.uom = item.uom || existing.uom || 'pcs';
+            nextRecord.rate = Number(item.rate ?? item.unit_price ?? existing.rate ?? 0);
+            nextRecord.gst_rate = Number(item.gst_rate ?? existing.gst_rate ?? 0);
+            nextRecord.discount_type = item.discount_type || existing.discount_type || 'percent';
+            nextRecord.discount_value = Number(item.discount_value ?? existing.discount_value ?? 0);
+          }
+          suggestionMap.set(suggestionKey, nextRecord);
+        });
+      });
+      const likelyItems = [...productCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name]) => name);
+      const suggestedItems = [...suggestionMap.values()]
+        .sort((a, b) => {
+          const countDiff = Number(b.quantity_count || 0) - Number(a.quantity_count || 0);
+          if (countDiff !== 0) return countDiff;
+          return String(b.latest_created_at || '').localeCompare(String(a.latest_created_at || ''));
+        })
+        .slice(0, 5)
+        .map((entry) => ({
+          product_id: entry.product_id,
+          product_name: entry.product_name,
+          quantity: Number(entry.quantity_count || 0) > 0
+            ? Math.max(1, Number((Number(entry.quantity_total || 0) / Number(entry.quantity_count || 1)).toFixed(2)))
+            : 1,
+          uom: entry.uom || 'pcs',
+          rate: Number(entry.rate || 0),
+          unit_price: Number(entry.rate || 0),
+          gst_rate: Number(entry.gst_rate || 0),
+          discount_type: entry.discount_type || 'percent',
+            discount_value: Number(entry.discount_value || 0),
+        }));
+      const outstandingAmount = completedOrders.reduce((sum, order) => sum + Math.max(0, Number(order.balance_due || 0)), 0);
+      const configuredPaymentPlan = getDistributorPaymentPlan(distributor);
+      const inferredPaymentDays = paymentLagDays.length
+        ? Math.max(0, Math.round(paymentLagDays.reduce((sum, value) => sum + value, 0) / paymentLagDays.length))
+        : null;
+      const paymentReferenceOrder = completedOrders.find((order) => Number(order.balance_due || 0) > 0) || completedOrders[0] || null;
+      const inferredDueDate = paymentReferenceOrder
+        ? addDaysToDateKey(
+          normalizeTransactionDate(
+            paymentReferenceOrder.received_at
+            || paymentReferenceOrder.confirmed_at
+            || paymentReferenceOrder.planned_order_date
+            || paymentReferenceOrder.expected_delivery
+            || paymentReferenceOrder.created_at
+          ),
+          inferredPaymentDays ?? configuredPaymentPlan.paymentDueDays
+        )
+        : null;
+      const mergedProductKnowledge = mergeDistributorProductKnowledge({
+        manualProductsSupplied: distributor.products_supplied || '',
+        likelyItems,
+        suggestedItems,
+      });
+      return {
+        distributor_id: distributorId,
+        distributor_name: distributor.name,
+        cadence_days: cadenceDays,
+        next_order_date: nextOrderDate,
+        schedule_day: scheduleDay || null,
+        po_balance_due: outstandingAmount,
+        ledger_balance: Number(ledgerBalanceByDistributor.get(distributorId) || 0),
+        outstanding_amount: outstandingAmount,
+        likely_items: mergedProductKnowledge.historical_items.slice(0, 3),
+        suggested_items: suggestedItems,
+        products_supplied_manual: mergedProductKnowledge.manual_items,
+        products_supplied_all: mergedProductKnowledge.merged_items,
+        products_supplied_text: mergedProductKnowledge.merged_text,
+        active_open_orders: completedOrders.filter(isOpenOrder).length,
+        next_payment_due_date: payables.find((entry) => Number(entry.distributor_id || 0) === distributorId)?.payment_due_date || null,
+        configured_payment_due_days: configuredPaymentPlan.paymentDueDays,
+        inferred_payment_due_days: inferredPaymentDays,
+        inferred_due_date: inferredDueDate || null,
+        strict_deadline_count: completedOrders.filter((order) => Boolean(normalizeTransactionDate(order.strict_due_date))).length,
+      };
+    };
+
+    const distributorInsights = distributors
+      .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
+      .map(inferDistributorInsight)
+      .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
+    const distributorInsightById = new Map(
+      distributorInsights.map((entry) => [Number(entry.distributor_id || 0), entry])
+    );
+    const payablesWithInsights = payables.map((entry) => {
+      const insight = distributorInsightById.get(Number(entry.distributor_id || 0)) || null;
+      const order = orderById.get(Number(entry.order_id || 0)) || null;
+      return {
+        ...entry,
+        configured_due_date: normalizeTransactionDate(order?.payment_due_date || null) || null,
+        strict_due_date: normalizeTransactionDate(order?.strict_due_date || null) || null,
+        inferred_due_date: insight?.inferred_due_date || null,
+        po_balance_due: Number(entry.balance_due || 0),
+        ledger_balance: Number(insight?.ledger_balance || 0),
+      };
+    });
+
+    const buildScheduledDistributorEntry = (distributor, scheduleDate) => {
+      const distributorId = Number(distributor.id || 0);
+      const insight = distributorInsightById.get(distributorId) || null;
+      const distributorOrders = ordersByDistributor.get(distributorId) || [];
+      const activePayables = payablesWithInsights.filter((entry) => Number(entry.distributor_id || 0) === distributorId);
+      const dueTodayAmount = activePayables
+        .filter((entry) => entry.payment_due_date === todayKey)
+        .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
+      const overdueAmountForDistributor = activePayables
+        .filter((entry) => entry.payment_due_date < todayKey)
+        .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
+      const strictDeadlineOrder = distributorOrders
+        .map((order) => normalizeTransactionDate(order.strict_due_date || null))
+        .filter(Boolean)
+        .sort()[0] || null;
+      return {
+        distributor_id: distributorId,
+        distributor_name: distributor.name,
+        schedule_date: scheduleDate,
+        schedule_day: getDistributorOrderScheduleDay(distributor),
+        order_cutoff_time: distributor.order_cutoff_time || null,
+        preferred_whatsapp_time: distributor.preferred_whatsapp_time || null,
+        payment_terms: distributor.payment_terms || null,
+        configured_payment_due_days: insight?.configured_payment_due_days ?? null,
+        inferred_payment_due_days: insight?.inferred_payment_due_days ?? null,
+        po_balance_due: Number(insight?.po_balance_due || 0),
+        ledger_balance: Number(insight?.ledger_balance || 0),
+        due_today_amount: dueTodayAmount,
+        overdue_amount: overdueAmountForDistributor,
+        likely_items: insight?.likely_items || [],
+        suggested_items: insight?.suggested_items || [],
+        products_supplied_all: insight?.products_supplied_all || parseDistributorProductsSupplied(distributor.products_supplied || ''),
+        next_payment_due_date: insight?.next_payment_due_date || null,
+        inferred_due_date: insight?.inferred_due_date || null,
+        strict_due_date: strictDeadlineOrder,
+        has_open_draft: distributorOrders.some((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order))),
+      };
+    };
+
+    const activeDistributors = distributors.filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active');
+    const todayWeekday = getWeekdayFromDateKey(todayKey);
+    const tomorrowWeekday = getWeekdayFromDateKey(tomorrowKey);
+    const todayDistributors = activeDistributors
+      .filter((distributor) => getDistributorOrderScheduleDay(distributor) === todayWeekday)
+      .map((distributor) => buildScheduledDistributorEntry(distributor, todayKey))
+      .sort((a, b) => Number(b.overdue_amount || 0) - Number(a.overdue_amount || 0) || Number(b.due_today_amount || 0) - Number(a.due_today_amount || 0) || String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')));
+    const tomorrowDistributors = activeDistributors
+      .filter((distributor) => getDistributorOrderScheduleDay(distributor) === tomorrowWeekday)
+      .map((distributor) => buildScheduledDistributorEntry(distributor, tomorrowKey))
+      .sort((a, b) => Number(b.po_balance_due || 0) - Number(a.po_balance_due || 0) || String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')));
+    const weeklyDistributors = activeDistributors
+      .map((distributor) => {
+        const scheduleDay = getDistributorOrderScheduleDay(distributor);
+        if (!scheduleDay) return null;
+        const targetIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === scheduleDay);
+        const sourceIndex = PURCHASE_WEEKDAYS.findIndex((day) => day === todayWeekday);
+        if (targetIndex < 0 || sourceIndex < 0) return null;
+        const offset = (targetIndex - sourceIndex + 7) % 7;
+        const scheduleDate = addDaysToDateKey(todayKey, offset);
+        if (!scheduleDate) return null;
+        return buildScheduledDistributorEntry(distributor, scheduleDate);
+      })
+      .filter(Boolean)
+      .sort((a, b) => String(a.schedule_date || '').localeCompare(String(b.schedule_date || '')) || String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')));
+
+    const predictedPaymentsToday = payablesWithInsights
+      .filter((entry) => entry.inferred_due_date === todayKey || entry.payment_due_date === todayKey || entry.payment_due_date < todayKey)
+      .map((entry) => ({
+        ...entry,
+        prediction_reason: entry.payment_due_date < todayKey
+          ? 'overdue'
+          : (entry.inferred_due_date === todayKey && entry.payment_due_date !== todayKey ? 'history_inferred_today' : 'due_today'),
+      }))
+      .sort((a, b) => Number(b.balance_due || 0) - Number(a.balance_due || 0) || String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')));
+
+    const reminders = distributors
+      .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
+      .filter((distributor) => normalizeBooleanFlag(distributor.auto_reminders_enabled, true))
+      .map((distributor) => {
+        const scheduleDay = getDistributorOrderScheduleDay(distributor);
+        if (!scheduleDay || scheduleDay !== getWeekdayFromDateKey(tomorrowKey)) return null;
+        const distributorOrders = ordersByDistributor.get(Number(distributor.id || 0)) || [];
+        const hasEditableOrder = distributorOrders.some((order) => {
+          const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+          return isPoEditableLifecycle(lifecycleStatus);
+        });
+        const insight = distributorInsightById.get(Number(distributor.id || 0)) || null;
+        return {
+          distributor_id: Number(distributor.id || 0),
+          distributor_name: distributor.name,
+          reminder_for: tomorrowKey,
+          schedule_day: scheduleDay,
+          order_cutoff_time: distributor.order_cutoff_time || null,
+          preferred_whatsapp_time: distributor.preferred_whatsapp_time || null,
+          has_open_draft: hasEditableOrder,
+          suggested_next_order_date: insight?.next_order_date || tomorrowKey,
+          likely_items: insight?.likely_items || [],
+          suggested_items: insight?.suggested_items || [],
+          outstanding_amount: insight?.outstanding_amount || 0,
+          message: hasEditableOrder
+            ? 'Order reminder due tomorrow, but there is already an open draft/sent PO'
+            : 'Order reminder due tomorrow',
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
+
+    const workflow = openOrders
+      .map((order) => {
+        const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+        const paymentDueDate = getEffectivePurchaseDueDateKey(order, todayKey);
+        const urgencyScore =
+          (paymentDueDate < todayKey ? 100 : 0)
+          + (order.next_action === 'Confirm with bill' ? 80 : 0)
+          + (order.next_action === 'Collect payment' ? 70 : 0)
+          + (order.next_action === 'Receive delivery' ? 60 : 0)
+          + (order.next_action === 'Close PO' ? 50 : 0)
+          + (lifecycleStatus === PO_LIFECYCLE_PREPARED ? 40 : 0);
+        return {
+          order_id: Number(order.id || 0),
+          po_number: order.po_number,
+          distributor_id: Number(order.distributor_id || 0),
+          distributor_name: order.distributor_name,
+          po_status: lifecycleStatus,
+          payment_status: order.payment_status,
+          balance_due: Number(order.balance_due || 0),
+          payment_due_date: paymentDueDate,
+          expected_delivery: normalizeTransactionDate(order.expected_delivery),
+          next_action: order.next_action,
+          urgency_score: urgencyScore,
+          bill_number: order.bill_number || order.invoice_number || null,
+        };
+      })
+      .filter((entry) => entry.next_action !== 'Monitor')
+      .sort((a, b) => b.urgency_score - a.urgency_score || Number(b.balance_due || 0) - Number(a.balance_due || 0))
+      .slice(0, 20);
+
+    const waitingBillCount = openOrders.filter((order) => {
+      const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+      return (lifecycleStatus === PO_LIFECYCLE_SENT || lifecycleStatus === PO_LIFECYCLE_REVISED || lifecycleStatus === PO_LIFECYCLE_PREPARED)
+        && !String(order.bill_number || order.invoice_number || '').trim();
+    }).length;
+    const waitingDeliveryCount = openOrders.filter(isDeliveryPending).length;
+    const closeReadyCount = openOrders.filter((order) => getPurchaseOrderLifecycleStatus(order) === PO_LIFECYCLE_FULLY_PAID).length;
+    const payableTodayAmount = payablesWithInsights
+      .filter((entry) => entry.payment_due_date === todayKey)
+      .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
+    const overdueAmount = payablesWithInsights
+      .filter((entry) => entry.payment_due_date < todayKey)
+      .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
+    const predictedPaymentTodayAmount = predictedPaymentsToday
+      .filter((entry) => entry.prediction_reason !== 'overdue')
+      .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
+    const outstandingAmount = openOrders.reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
+
+    return res.json({
+      today: todayKey,
+      tomorrow: tomorrowKey,
+      automation: {
+        notifications: PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED ? 'automatic' : 'disabled',
+        whatsapp: 'manual',
+        po_preparation: 'manual',
+      },
+      cards: {
+        outstanding_amount: outstandingAmount,
+        payable_today_amount: payableTodayAmount,
+        overdue_amount: overdueAmount,
+        predicted_payment_today_amount: predictedPaymentTodayAmount,
+        paid_today_amount: paidTodayAmount,
+        reminder_count: reminders.length,
+        waiting_bill_count: waitingBillCount,
+        waiting_delivery_count: waitingDeliveryCount,
+        close_ready_count: closeReadyCount,
+        today_distributor_count: todayDistributors.length,
+        tomorrow_distributor_count: tomorrowDistributors.length,
+        weekly_distributor_count: weeklyDistributors.length,
+      },
+      today_distributors: todayDistributors,
+      tomorrow_distributors: tomorrowDistributors,
+      weekly_distributors: weeklyDistributors,
+      predicted_payments_today: predictedPaymentsToday,
+      reminders,
+      payables: payablesWithInsights.slice(0, 20),
+      workflow,
+      distributor_insights: distributorInsights.slice(0, 20),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load purchase operations summary' });
+  }
+});
+
+app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => {
+  let clientRequestId = null;
+  try {
+    const idempotency = resolveClientRequestId(req);
+    if (idempotency.error) return res.status(400).json({ error: idempotency.error });
+    clientRequestId = idempotency.value;
     const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
     const poStatus = getPurchaseOrderLifecycleStatus(order);
-    if (poStatus !== PO_LIFECYCLE_PROCESSED) {
-      return res.status(400).json({ error: 'Payments are allowed only for processed purchase orders' });
+    if (!canPoAcceptPayment(poStatus)) {
+      return res.status(400).json({ error: 'Payments are allowed only for confirmed purchase orders' });
     }
 
     const amount = Math.max(0, Number(req.body?.amount || 0));
@@ -6878,14 +8527,34 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
     const reference = String(req.body?.reference || req.body?.payment_reference || order.bill_number || order.po_number || '').trim() || null;
     const notes = String(req.body?.notes || req.body?.description || '').trim() || null;
     const transactionDate = normalizeTransactionDate(req.body?.transaction_date || req.body?.payment_date || null);
+    const duplicatePayment = await findDuplicatePurchasePaymentAsync({
+      purchaseOrderId: Number(req.params.id || 0),
+      distributorId: Number(order.distributor_id || 0),
+      amount,
+      reference,
+      transactionDate,
+      clientRequestId,
+    });
+    if (duplicatePayment) {
+      return res.status(200).json({
+        success: true,
+        deduplicated: true,
+        payment_id: Number(duplicatePayment.id || 0),
+        payment_status: normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID),
+        paid_amount: Number(order.paid_amount || 0),
+        balance_due: Number(order.balance_due || 0),
+      });
+    }
     let paymentId = null;
     let nextSnapshot = totalSnapshotBefore;
+    let nextPoStatus = poStatus;
+    let nextAction = derivePurchaseNextAction(order);
 
     await dbTxAsync(async () => {
       const paymentResult = await dbRunAsync(
         `INSERT INTO purchase_order_payments
-         (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by, client_request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.params.id,
           order.distributor_id,
@@ -6895,6 +8564,7 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
           notes,
           transactionDate,
           req.body?.created_by || req?.authUser?.id || null,
+          clientRequestId,
         ]
       );
       paymentId = Number(paymentResult.lastInsertRowid || 0) || null;
@@ -6916,16 +8586,38 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
       }
 
       nextSnapshot = calculatePoPaymentSnapshot(totalSnapshotBefore.totalAmount, totalSnapshotBefore.paidAmount + amount);
+      nextPoStatus = derivePoLifecycleFromPaymentStatus(poStatus, nextSnapshot.paymentStatus);
+      nextAction = derivePurchaseNextAction({
+        ...order,
+        po_status: nextPoStatus,
+        payment_status: nextSnapshot.paymentStatus,
+        balance_due: nextSnapshot.balanceDue,
+      });
       await dbRunAsync(
         `UPDATE purchase_orders
-         SET payment_status = ?,
+         SET po_status = ?,
+             payment_status = ?,
              paid_amount = ?,
              balance_due = ?,
+             last_payment_at = CURRENT_TIMESTAMP,
+             next_action = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [nextSnapshot.paymentStatus, nextSnapshot.paidAmount, nextSnapshot.balanceDue, req.params.id]
+        [nextPoStatus, nextSnapshot.paymentStatus, nextSnapshot.paidAmount, nextSnapshot.balanceDue, nextAction, req.params.id]
       );
     });
+
+    if (nextPoStatus !== poStatus) {
+      await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+        fromStatus: poStatus,
+        toStatus: nextPoStatus,
+        note: 'Payment recorded for purchase order',
+        billNumber: order.bill_number || order.invoice_number || null,
+        paymentStatus: nextSnapshot.paymentStatus,
+        balanceDue: nextSnapshot.balanceDue,
+        createdBy: req.body?.created_by || req?.authUser?.id || null,
+      });
+    }
 
     await logAdminAuditAsync(req, {
       action: 'purchase_order.payment_add',
@@ -6945,11 +8637,25 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
     return res.status(201).json({
       success: true,
       payment_id: paymentId,
+      po_status: nextPoStatus,
       payment_status: nextSnapshot.paymentStatus,
       paid_amount: nextSnapshot.paidAmount,
       balance_due: nextSnapshot.balanceDue,
     });
   } catch (error) {
+    if (clientRequestId && isUniqueViolationError(error)) {
+      const existing = await dbGetAsync(
+        `SELECT id FROM purchase_order_payments WHERE client_request_id = ? LIMIT 1`,
+        [clientRequestId]
+      );
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          deduplicated: true,
+          payment_id: Number(existing.id || 0),
+        });
+      }
+    }
     return res.status(500).json({ error: error.message });
   }
 });
@@ -6958,9 +8664,15 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
   try {
     const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+    const poStatus = getPurchaseOrderLifecycleStatus(order);
+    if (!canPoReceiveInventory(poStatus)) {
+      return res.status(400).json({ error: 'Only confirmed purchase orders can receive inventory' });
+    }
     const b = req.body || {};
     const items = Array.isArray(b.items) ? b.items : [];
     const shouldApplyStockOnReceive = Number(order.stock_applied_on_confirm || 0) !== 1;
+    let nextLifecycleStatus = poStatus;
+    let nextAction = derivePurchaseNextAction(order);
     await dbTxAsync(async () => {
       for (const it of items) {
         const item = await dbGetAsync(`SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?`, [it.item_id, req.params.id]);
@@ -7039,6 +8751,15 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
         Number(totals?.total_amount || 0),
         Number(order.paid_amount || 0)
       );
+      nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(poStatus, receivePaymentSnapshot.paymentStatus);
+      nextAction = derivePurchaseNextAction({
+        ...order,
+        status: 'received',
+        received_at: new Date().toISOString(),
+        po_status: nextLifecycleStatus,
+        payment_status: receivePaymentSnapshot.paymentStatus,
+        balance_due: receivePaymentSnapshot.balanceDue,
+      });
       await dbRunAsync(
         `UPDATE purchase_orders
          SET status = 'received',
@@ -7051,10 +8772,12 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
              payment_status = ?,
              paid_amount = ?,
              balance_due = ?,
+             received_at = COALESCE(received_at, CURRENT_TIMESTAMP),
+             next_action = ?,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
         [
-          PO_LIFECYCLE_PROCESSED,
+          nextLifecycleStatus,
           b.invoice_number || order.invoice_number || null,
           Number(totals?.subtotal || 0),
           Number(totals?.tax_amount || 0),
@@ -7063,9 +8786,19 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
           receivePaymentSnapshot.paymentStatus,
           receivePaymentSnapshot.paidAmount,
           receivePaymentSnapshot.balanceDue,
+          nextAction,
           req.params.id
         ]
       );
+    });
+    await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
+      fromStatus: poStatus,
+      toStatus: nextLifecycleStatus,
+      note: 'Inventory received against purchase order',
+      billNumber: b.invoice_number || order.invoice_number || order.bill_number || null,
+      paymentStatus: order.payment_status,
+      balanceDue: Number(order.balance_due || 0),
+      createdBy: b.received_by || null,
     });
     await logAdminAuditAsync(req, {
       action: 'purchase_order.receive',
@@ -7076,7 +8809,7 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
         applied_stock_on_receive: shouldApplyStockOnReceive,
       },
     });
-    return res.json({ success: true });
+    return res.json({ success: true, po_status: nextLifecycleStatus, next_action: nextAction });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -7086,8 +8819,8 @@ app.delete('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
   try {
     const existing = await dbGetAsync(`SELECT id, po_status, status FROM purchase_orders WHERE id = ?`, [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Purchase order not found' });
-    if (getPurchaseOrderLifecycleStatus(existing) !== PO_LIFECYCLE_REGISTERED) {
-      return res.status(400).json({ error: 'Only registered purchase orders can be deleted' });
+    if (!isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(existing))) {
+      return res.status(400).json({ error: 'Only prepared, sent, or revised purchase orders can be deleted' });
     }
     await dbRunAsync(`DELETE FROM purchase_order_payments WHERE purchase_order_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
@@ -7461,6 +9194,7 @@ const startServer = async () => {
   startPhoneChangeWorker();
   startAppNotificationPurgeWorker();
   startCustomerRequestPurgeWorker();
+  startPurchaseOperationsNotificationWorker();
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`BARMAN STORE API running on http://localhost:${PORT}`);
@@ -7481,6 +9215,7 @@ const shutdownServer = (signal) => {
   stopPhoneChangeWorker();
   stopAppNotificationPurgeWorker();
   stopCustomerRequestPurgeWorker();
+  stopPurchaseOperationsNotificationWorker();
   void Promise.allSettled([closePostgresScaffold()]).finally(() => {
     process.exit(0);
   });
