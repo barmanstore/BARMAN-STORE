@@ -12,44 +12,44 @@ cls
 echo ========================================
 echo BARMAN STORE - Workbench
 echo ========================================
-echo 1. Git status
-echo 2. Git quick commit + push
-echo 3. Health check (quick)
-echo 4. Health check (full)
-echo 5. Deploy prepare
-echo 6. Deploy Vercel (prod)
-echo 7. Deploy Vercel (preview)
-echo 8. Deploy by git push (origin main)
-echo 9. Smoke suite (all)
-echo 10. Smoke cleanup (dry-run)
-echo 11. Exit
-echo 12. Transaction history smoke test
-echo 13. Smoke cleanup (delete all + verify)
-echo 14. Smoke suite + cleanup
-echo 15. Code cleanup (preview)
-echo 16. Code cleanup (apply)
+echo 1. Git quick commit + push
+echo 2. Deploy prepare
+echo 3. Deploy Vercel (prod)
+echo 4. Deploy Vercel (preview)
+echo 5. Deploy by git push (origin main)
+echo 6. Smoke suite (all)
+echo 7. Smoke cleanup (dry-run)
+echo 8. Smoke cleanup (delete all + verify)
+echo 9. Smoke suite + cleanup
+echo 10. Code cleanup (preview)
+echo 11. Code cleanup (apply)
+echo 12. Git status
+echo 13. Transaction history smoke test
+echo 14. Health check (quick)
+echo 15. Health check (full)
+echo 16. Exit
 echo.
 set "CHOICE="
 set /p CHOICE=Select option [1-16]: 
 if errorlevel 1 goto :done
 
 :dispatch
-if "%CHOICE%"=="1" goto :git_status
-if "%CHOICE%"=="2" goto :git_quick
-if "%CHOICE%"=="3" goto :health_quick
-if "%CHOICE%"=="4" goto :health_full
-if "%CHOICE%"=="5" goto :deploy_prepare
-if "%CHOICE%"=="6" goto :deploy_vercel_prod
-if "%CHOICE%"=="7" goto :deploy_vercel_preview
-if "%CHOICE%"=="8" goto :deploy_git
-if "%CHOICE%"=="9" goto :smoke_suite_all
-if "%CHOICE%"=="10" goto :smoke_cleanup_dry
-if "%CHOICE%"=="11" goto :done
-if "%CHOICE%"=="12" goto :transaction_history_smoke
-if "%CHOICE%"=="13" goto :smoke_cleanup_all_apply_verify
-if "%CHOICE%"=="14" goto :smoke_suite_and_cleanup
-if "%CHOICE%"=="15" goto :code_cleanup_preview
-if "%CHOICE%"=="16" goto :code_cleanup_apply
+if "%CHOICE%"=="1" goto :git_quick
+if "%CHOICE%"=="2" goto :deploy_prepare
+if "%CHOICE%"=="3" goto :deploy_vercel_prod
+if "%CHOICE%"=="4" goto :deploy_vercel_preview
+if "%CHOICE%"=="5" goto :deploy_git
+if "%CHOICE%"=="6" goto :smoke_suite_all
+if "%CHOICE%"=="7" goto :smoke_cleanup_dry
+if "%CHOICE%"=="8" goto :smoke_cleanup_all_apply_verify
+if "%CHOICE%"=="9" goto :smoke_suite_and_cleanup
+if "%CHOICE%"=="10" goto :code_cleanup_preview
+if "%CHOICE%"=="11" goto :code_cleanup_apply
+if "%CHOICE%"=="12" goto :git_status
+if "%CHOICE%"=="13" goto :transaction_history_smoke
+if "%CHOICE%"=="14" goto :health_quick
+if "%CHOICE%"=="15" goto :health_full
+if "%CHOICE%"=="16" goto :done
 if "%CHOICE%"=="" goto :menu
 goto :menu
 
@@ -136,11 +136,7 @@ call npm run cleanup:code:apply
 goto :pause_and_menu
 
 :run_smoke_suite
-call npm run test:phone || exit /b 1
-call npm run test:order-flow || exit /b 1
-call npm run test:po-lifecycle || exit /b 1
-call npm run test:credit-ui || exit /b 1
-call npm run test:category-tree || exit /b 1
+call npm test || exit /b 1
 exit /b 0
 
 :pause_and_menu

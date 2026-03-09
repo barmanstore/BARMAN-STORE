@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
 import { productRecommendationsApi, productsApi } from '../services/api';
+import { getProductImageSrc } from '../utils/productImage';
 import './Cart.css';
 
 const formatCurrencyColored = (amount) => {
@@ -128,12 +129,19 @@ function Cart({ cartCount, setCartCount }) {
     setManualSearchError('');
     const timer = setTimeout(async () => {
       try {
-        const rows = await productsApi.getAll({ name: query, status: 'active' });
+        const suggestResult = await productsApi.suggest({ q: query, limit: 8 });
+        const rawProducts = Array.isArray(suggestResult?.items)
+          ? suggestResult.items
+          : Array.isArray(suggestResult)
+            ? suggestResult
+            : [];
+
         if (cancelled) return;
-        const ranked = rankManualMatches(rows, query);
+
+        const ranked = rankManualMatches(rawProducts, query);
         const list = ranked.length
           ? ranked
-          : (Array.isArray(rows) ? rows : [])
+          : rawProducts
             .filter((product) => Number(product?.id || 0) > 0)
             .slice(0, 8);
         setManualMatches(list);
@@ -382,7 +390,9 @@ function Cart({ cartCount, setCartCount }) {
       <h3>Add Item Manually</h3>
       <p>Requested and manual items are allowed. Price is set later at billing.</p>
       {manualError ? <div className="manual-entry-error">{manualError}</div> : null}
+      <label htmlFor="manual-cart-product-name">Product name</label>
       <input
+        id="manual-cart-product-name"
         type="text"
         value={manualDraft.name}
         onChange={(e) => setManualDraft((prev) => ({ ...prev, name: e.target.value }))}
@@ -399,12 +409,15 @@ function Cart({ cartCount, setCartCount }) {
         {recommendationNames.map((name) => <option key={name} value={name} />)}
       </datalist>
       <div className="manual-entry-row">
+        <label htmlFor="manual-cart-qty-text">Quantity</label>
         <input
+          id="manual-cart-qty-text"
           type="text"
           value={manualDraft.qtyText}
           onChange={(e) => setManualDraft((prev) => ({ ...prev, qtyText: e.target.value }))}
           placeholder="Qty (example: 1kg or 2 pcs)"
           inputMode="text"
+          autoComplete="off"
           aria-label="Manual quantity"
           required
         />
@@ -425,17 +438,24 @@ function Cart({ cartCount, setCartCount }) {
       <div className="manual-search-meta">
         {manualSearchLoading ? <span>Searching matching products...</span> : null}
         {!manualSearchLoading && manualSearchError ? <span className="manual-search-error">{manualSearchError}</span> : null}
+        {!manualSearchLoading && !manualSearchError && manualDraft.name.trim().length >= 2 && manualMatches.length === 0 ? (
+          <span>No matching products found in inventory. Item will be added as a custom request.</span>
+        ) : null}
       </div>
       {!manualSearchLoading && manualMatches.length > 0 && (
         <div className="manual-search-results">
           {manualMatches.map((product, index) => {
             const productId = Number(product?.id || 0);
             const outOfStock = Number(product?.stock || 0) <= 0;
+            const imageSrc = getProductImageSrc(product);
             return (
               <div
                 key={productId}
                 className={`manual-search-item ${index === manualMatchCursor ? 'active' : ''}`}
               >
+                <div className="manual-search-item-thumb">
+                  <img src={imageSrc} alt={product.name} />
+                </div>
                 <div className="manual-search-item-meta">
                   <strong>{product.name}</strong>
                   <span>{product.category || 'Product'}</span>

@@ -193,6 +193,8 @@ const main = async () => {
     const leafId = Number(leafJson?.id || 0);
     createdCategoryIds.push(leafId);
 
+    const productSku = `CTREE-${randomSuffix()}`;
+
     const productRes = await adminRequest('/api/products', {
       method: 'POST',
       body: JSON.stringify({
@@ -206,6 +208,7 @@ const main = async () => {
         uom_type: 'selling',
         conversion_factor: 1,
         category: rootJson?.name || 'Groceries',
+        sku: productSku,
       }),
     });
     const productJson = await toJson(productRes);

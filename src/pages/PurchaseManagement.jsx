@@ -9,7 +9,7 @@ import useIsMobile from '../hooks/useIsMobile';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import ProductForm from './ProductForm';
-import { PurchaseOrderFormModal, QuickPurchaseOrderModal } from './purchase/PurchaseEntryModals';
+import { PurchaseOrderFormModal } from './purchase/PurchaseEntryModals';
 import {
   PurchaseDashboardSection,
   PurchaseOrdersSection,
@@ -146,14 +146,6 @@ const createEmptyOrderItem = () => ({
   last_purchase_hint: '',
 });
 
-const createEmptyQuickOrderItem = () => ({
-  product_id: '',
-  product_query: '',
-  product_name: '',
-  quantity: 1,
-  uom: 'pcs',
-});
-
 const mergeProductsById = (existingProducts = [], incomingProducts = []) => {
   const normalizedIncoming = Array.isArray(incomingProducts)
     ? incomingProducts.filter((product) => product && product.id !== undefined && product.id !== null)
@@ -169,12 +161,14 @@ function PurchaseManagement({ user }) {
   const isMobile = useIsMobile();
   const LOCAL_LEDGER_KEY = 'purchase_distributor_ledger_local_entries';
   const PO_MODAL_SIZE_KEY = 'po_entry_modal_size_v1';
-  const getDefaultQuickOrderFormData = () => ({
+  const getDefaultOrderFormData = () => ({
     distributor_id: '',
     distributor_name: '',
-    order_date: getTodayDate(),
+    expected_delivery: getTodayDate(),
+    strict_due_date: '',
+    strict_due_note: '',
     notes: '',
-    items: [createEmptyQuickOrderItem()]
+    items: [createEmptyOrderItem()]
   });
   const getDefaultProcessFormData = () => ({
     bill_number: '',
@@ -235,6 +229,28 @@ function PurchaseManagement({ user }) {
   const normalizeGstRateOption = (value) => {
     const numeric = toNumber(value);
     return GST_RATE_OPTIONS.includes(numeric) ? numeric : 5;
+  };
+  const buildOrderDraftItem = (product = null, overrides = {}) => {
+    const resolvedProduct = product || null;
+    const resolvedRate = Math.max(0, toNumber(overrides.rate ?? overrides.unit_price ?? resolvedProduct?.price));
+    const resolvedUom = resolvePurchaseUnitForProduct(
+      resolvedProduct,
+      overrides.uom || resolvedProduct?.base_unit || resolvedProduct?.uom || 'pcs'
+    );
+    return {
+      ...createEmptyOrderItem(),
+      product_id: resolvedProduct?.id ? String(resolvedProduct.id) : String(overrides.product_id || ''),
+      product_query: resolvedProduct ? getProductSearchLabel(resolvedProduct) : String(overrides.product_query || overrides.product_name || '').trim(),
+      product_name: String(overrides.product_name || resolvedProduct?.name || '').trim(),
+      quantity: Math.max(0, toNumber(overrides.quantity ?? 1)),
+      uom: resolvedUom,
+      unit_price: resolvedRate,
+      rate: resolvedRate,
+      gst_rate: normalizeGstRateOption(overrides.gst_rate ?? 5),
+      discount_type: overrides.discount_type === 'fixed' ? 'fixed' : 'percent',
+      discount_value: Math.max(0, toNumber(overrides.discount_value || 0)),
+      last_purchase_hint: String(overrides.last_purchase_hint || '').trim(),
+    };
   };
   const normalizeTextKey = (value) => String(value || '').trim().toLowerCase();
   const normalizePoLifecycleStatus = (status) => {
@@ -595,11 +611,8 @@ function PurchaseManagement({ user }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [orderSubmitting, setOrderSubmitting] = useState(false);
-  const [quickOrderSubmitting, setQuickOrderSubmitting] = useState(false);
   const [orderFormClientRequestId, setOrderFormClientRequestId] = useState(() => createClientRequestId('po'));
-  const [quickOrderFormClientRequestId, setQuickOrderFormClientRequestId] = useState(() => createClientRequestId('poquick'));
   const orderSubmitLockRef = useRef(false);
-  const quickOrderSubmitLockRef = useRef(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -612,7 +625,6 @@ function PurchaseManagement({ user }) {
 
   // Form states
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [showQuickOrderForm, setShowQuickOrderForm] = useState(false);
   const [showPoProductForm, setShowPoProductForm] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
@@ -673,8 +685,9 @@ function PurchaseManagement({ user }) {
   const [orderDetailSaving, setOrderDetailSaving] = useState(false);
   const [orderDetailDraft, setOrderDetailDraft] = useState(null);
   const [editingOrderId, setEditingOrderId] = useState(null);
-  const [orderEntryMode, setOrderEntryMode] = useState('detailed');
-  const [activePoProductField, setActivePoProductField] = useState({ mode: 'detailed', index: null });
+  const [orderFullMode, setOrderFullMode] = useState(false);
+  const [loadingDistributorItems, setLoadingDistributorItems] = useState(false);
+  const [activePoProductField, setActivePoProductField] = useState({ mode: 'entry', index: null });
   const [poProductFormTarget, setPoProductFormTarget] = useState(null);
   const [poModalSize, setPoModalSize] = useState(() => {
     try {
@@ -695,7 +708,6 @@ function PurchaseManagement({ user }) {
   const poModalSizeRef = useRef(poModalSize);
   useLockBodyScroll(
     showOrderForm
-    || showQuickOrderForm
     || showPoProductForm
     || showReceiveModal
     || showReturnForm
@@ -707,16 +719,7 @@ function PurchaseManagement({ user }) {
   );
 
   // Order form data
-  const [orderFormData, setOrderFormData] = useState({
-    distributor_id: '',
-    distributor_name: '',
-    expected_delivery: '',
-    strict_due_date: '',
-    strict_due_note: '',
-    notes: '',
-    items: []
-  });
-  const [quickOrderFormData, setQuickOrderFormData] = useState(getDefaultQuickOrderFormData());
+  const [orderFormData, setOrderFormData] = useState(getDefaultOrderFormData());
 
   // Receive form data
   const [receiveData, setReceiveData] = useState({
@@ -989,15 +992,6 @@ function PurchaseManagement({ user }) {
     }));
   };
 
-  const handleQuickDistributorInputChange = (value) => {
-    const match = resolveDistributorByInput(value);
-    setQuickOrderFormData(prev => ({
-      ...prev,
-      distributor_name: value,
-      distributor_id: match ? String(match.id) : ''
-    }));
-  };
-
   const toDateInputValue = (value) => {
     if (!value) return '';
     const raw = String(value);
@@ -1011,26 +1005,16 @@ function PurchaseManagement({ user }) {
     setOrderFormData((prev) => {
       const items = [...prev.items];
       while (items.length <= index) {
-        items.push({ ...createEmptyOrderItem(), gst_rate: normalizeGstRateOption(5) });
+        items.push(createEmptyOrderItem());
       }
       return { ...prev, items };
     });
   };
 
-  const ensureQuickOrderItemAtIndex = (index) => {
-    setQuickOrderFormData((prev) => {
-      const items = [...prev.items];
-      while (items.length <= index) {
-        items.push(createEmptyQuickOrderItem());
-      }
-      return { ...prev, items };
-    });
-  };
-
-  const getTargetPoProductField = (mode = 'detailed') => {
-    const items = mode === 'quick' ? quickOrderFormData.items : orderFormData.items;
+  const getTargetPoProductField = () => {
+    const items = Array.isArray(orderFormData.items) ? orderFormData.items : [];
     if (
-      activePoProductField?.mode === mode &&
+      activePoProductField?.mode === 'entry' &&
       Number.isInteger(activePoProductField?.index) &&
       activePoProductField.index >= 0
     ) {
@@ -1040,26 +1024,18 @@ function PurchaseManagement({ user }) {
       (item) => !String(item?.product_id || '').trim() && !String(item?.product_query || '').trim()
     );
     if (emptyIndex >= 0) {
-      return { mode, index: emptyIndex };
+      return { mode: 'entry', index: emptyIndex };
     }
-    return { mode, index: items.length };
+    return { mode: 'entry', index: items.length };
   };
 
   const handleOrderProductFieldFocus = (index) => {
-    setActivePoProductField({ mode: 'detailed', index });
+    setActivePoProductField({ mode: 'entry', index });
   };
 
-  const handleQuickProductFieldFocus = (index) => {
-    setActivePoProductField({ mode: 'quick', index });
-  };
-
-  const handleOpenPoProductForm = (mode = 'detailed') => {
-    const target = getTargetPoProductField(mode);
-    if (mode === 'quick') {
-      ensureQuickOrderItemAtIndex(target.index);
-    } else {
-      ensureOrderFormItemAtIndex(target.index);
-    }
+  const handleOpenPoProductForm = () => {
+    const target = getTargetPoProductField();
+    ensureOrderFormItemAtIndex(target.index);
     setPoProductFormTarget(target);
     setActivePoProductField(target);
     setShowPoProductForm(true);
@@ -1078,49 +1054,18 @@ function PurchaseManagement({ user }) {
   const applyCreatedProductToPoTarget = (product, target) => {
     if (!product || !target || !Number.isInteger(target.index) || target.index < 0) return;
 
-    if (target.mode === 'quick') {
-      setQuickOrderFormData((prev) => {
-        const items = [...prev.items];
-        while (items.length <= target.index) {
-          items.push(createEmptyQuickOrderItem());
-        }
-        const currentItem = items[target.index] || createEmptyQuickOrderItem();
-        items[target.index] = {
-          ...currentItem,
-          product_id: String(product.id),
-          product_name: String(product.name || '').trim(),
-          product_query: getProductSearchLabel(product),
-          uom: resolvePurchaseUnitForProduct(
-            product,
-            currentItem.uom || product.base_unit || product.uom || 'pcs'
-          ),
-        };
-        return { ...prev, items };
-      });
-      return;
-    }
-
     setOrderFormData((prev) => {
       const items = [...prev.items];
       while (items.length <= target.index) {
-        items.push({ ...createEmptyOrderItem(), gst_rate: normalizeGstRateOption(5) });
+        items.push(createEmptyOrderItem());
       }
       const currentItem = items[target.index] || createEmptyOrderItem();
-      const baseRate = toNumber(product.price);
-      items[target.index] = {
+      items[target.index] = buildOrderDraftItem(product, {
         ...currentItem,
-        product_id: String(product.id),
-        product_name: String(product.name || '').trim(),
-        product_query: getProductSearchLabel(product),
-        unit_price: baseRate,
-        rate: baseRate,
-        uom: resolvePurchaseUnitForProduct(
-          product,
-          currentItem.uom || product.base_unit || product.uom || 'pcs'
-        ),
-        gst_rate: normalizeGstRateOption(currentItem.gst_rate ?? 5),
+        quantity: currentItem.quantity,
+        uom: currentItem.uom,
         last_purchase_hint: '',
-      };
+      });
       return { ...prev, items };
     });
   };
@@ -1148,8 +1093,97 @@ function PurchaseManagement({ user }) {
   const handleOrderItemAdd = () => {
     setOrderFormData(prev => ({
       ...prev,
-      items: [...prev.items, { ...createEmptyOrderItem(), gst_rate: normalizeGstRateOption(5) }]
+      items: [...prev.items, createEmptyOrderItem()]
     }));
+  };
+
+  const getDistributorHistoryProducts = (distributorId) => {
+    const selectedDistributorId = String(distributorId || '').trim();
+    if (!selectedDistributorId) return [];
+
+    const productsById = new Map(products.map((product) => [String(product.id), product]));
+    const historyByProductId = new Map();
+
+    (purchaseOrders || []).forEach((order) => {
+      if (String(order?.distributor_id || '') !== selectedDistributorId) return;
+      const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+      const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
+      const items = Array.isArray(order?.items) ? order.items : [];
+      items.forEach((item) => {
+        const productId = String(item?.product_id || '').trim();
+        if (!productId) return;
+        const product = productsById.get(productId);
+        if (!product) return;
+        const existing = historyByProductId.get(productId);
+        if (!existing) {
+          historyByProductId.set(productId, {
+            product,
+            count: 1,
+            latest: normalizedOrderTime,
+            item,
+          });
+          return;
+        }
+        existing.count += 1;
+        if (normalizedOrderTime >= existing.latest) {
+          existing.latest = normalizedOrderTime;
+          existing.item = item;
+        }
+      });
+    });
+
+    return [...historyByProductId.values()]
+      .sort((left, right) => {
+        if (right.latest !== left.latest) return right.latest - left.latest;
+        return right.count - left.count;
+      })
+      .map((entry) => entry.product ? buildOrderDraftItem(entry.product, {
+        quantity: 0,
+        uom: entry.item?.uom || entry.product?.base_unit || entry.product?.uom || 'pcs',
+        rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+        unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
+        gst_rate: entry.item?.gst_rate ?? 5,
+        discount_type: entry.item?.discount_type,
+        discount_value: entry.item?.discount_value ?? 0,
+        last_purchase_hint: 'Loaded from distributor history',
+      }) : null)
+      .filter(Boolean);
+  };
+
+  const handleLoadDistributorItems = () => {
+    const selectedDistributor = distributors.find(
+      (entry) => String(entry.id) === String(orderFormData.distributor_id) && entry.status === 'active'
+    );
+    if (!selectedDistributor) {
+      setError('Select a valid distributor before loading items');
+      return;
+    }
+
+    setError('');
+    setLoadingDistributorItems(true);
+    try {
+      const existingProductIds = new Set(
+        (orderFormData.items || [])
+          .map((item) => String(item?.product_id || '').trim())
+          .filter(Boolean)
+      );
+      const nextItems = getDistributorHistoryProducts(selectedDistributor.id)
+        .filter((item) => !existingProductIds.has(String(item.product_id || '').trim()))
+        .slice(0, 10);
+
+      if (!nextItems.length) {
+        setSuccess('No more distributor history items are available to load.');
+        return;
+      }
+
+      setOrderFormData((prev) => ({
+        ...prev,
+        items: [...(prev.items || []), ...nextItems],
+      }));
+      setSuccess(`Loaded ${nextItems.length} distributor item${nextItems.length === 1 ? '' : 's'} with qty 0.`);
+    } finally {
+      setLoadingDistributorItems(false);
+    }
   };
 
   const fetchDistributorLedger = async () => {
@@ -1274,19 +1308,12 @@ function PurchaseManagement({ user }) {
   };
 
   const resetOrderForm = () => {
-    setOrderFormData({
-      distributor_id: '',
-      distributor_name: '',
-      expected_delivery: '',
-      strict_due_date: '',
-      strict_due_note: '',
-      notes: '',
-      items: [],
-    });
+    setOrderFormData(getDefaultOrderFormData());
     setEditingOrderId(null);
-    setOrderEntryMode('detailed');
+    setOrderFullMode(false);
     setOrderSubmitting(false);
-    setActivePoProductField({ mode: 'detailed', index: null });
+    setLoadingDistributorItems(false);
+    setActivePoProductField({ mode: 'entry', index: null });
     setPoProductFormTarget(null);
     orderSubmitLockRef.current = false;
     setOrderFormClientRequestId(createClientRequestId('po'));
@@ -1307,7 +1334,7 @@ function PurchaseManagement({ user }) {
     const suggestedItems = Array.isArray(options.suggested_items) ? options.suggested_items : [];
     setError('');
     setEditingOrderId(null);
-    setOrderEntryMode('quick');
+    setOrderFullMode(false);
     setOrderFormData({
       distributor_id: distributor ? String(distributor.id) : String(distributorId || ''),
       distributor_name: distributor?.name || '',
@@ -1315,24 +1342,16 @@ function PurchaseManagement({ user }) {
       strict_due_date: options.strict_due_date || '',
       strict_due_note: options.strict_due_note || '',
       notes: options.notes || '',
-      items: suggestedItems.map((item) => {
-        const product = products.find((entry) => String(entry.id) === String(item.product_id || '')) || null;
-        const resolvedUom = resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs');
-        const rate = Math.max(0, toNumber(item.rate ?? item.unit_price));
-        return {
-          product_id: item.product_id ? String(item.product_id) : '',
-          product_query: product ? getProductSearchLabel(product) : String(item.product_name || '').trim(),
-          product_name: String(item.product_name || product?.name || '').trim(),
-          quantity: Math.max(1, toNumber(item.quantity || 1)),
-          uom: resolvedUom,
-          unit_price: rate,
-          rate,
-          gst_rate: normalizeGstRateOption(item.gst_rate ?? 5),
-          discount_type: item.discount_type === 'fixed' ? 'fixed' : 'percent',
-          discount_value: Math.max(0, toNumber(item.discount_value || 0)),
-          last_purchase_hint: 'Suggested from recent distributor history',
-        };
-      }),
+      items: suggestedItems.length
+        ? suggestedItems.map((item) => {
+            const product = products.find((entry) => String(entry.id) === String(item.product_id || '')) || null;
+            return buildOrderDraftItem(product, {
+              ...item,
+              quantity: Math.max(1, toNumber(item.quantity || 1)),
+              last_purchase_hint: 'Suggested from recent distributor history',
+            });
+          })
+        : [createEmptyOrderItem()],
     });
     setShowOrderForm(true);
   };
@@ -1458,19 +1477,12 @@ function PurchaseManagement({ user }) {
 
       const mappedItems = (order.items || []).map((item) => {
         const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
-        return {
-          product_id: item.product_id ? String(item.product_id) : '',
+        return buildOrderDraftItem(product, {
+          ...item,
           product_query: item.product_name || '',
-          product_name: item.product_name || '',
           quantity: toNumber(item.quantity),
-          uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
-          unit_price: toNumber(item.unit_price ?? item.rate),
-          rate: toNumber(item.rate ?? item.unit_price),
-          gst_rate: normalizeGstRateOption(item.gst_rate),
-          discount_type: item.discount_type === 'fixed' ? 'fixed' : 'percent',
-          discount_value: toNumber(item.discount_value),
-          last_purchase_hint: ''
-        };
+          last_purchase_hint: '',
+        });
       });
 
       setOrderFormData({
@@ -1480,156 +1492,13 @@ function PurchaseManagement({ user }) {
         strict_due_date: toDateInputValue(order.strict_due_date),
         strict_due_note: order.strict_due_note || '',
         notes: order.notes || '',
-        items: mappedItems
+        items: mappedItems.length ? mappedItems : [createEmptyOrderItem()]
       });
+      setOrderFullMode(true);
       setEditingOrderId(order.id);
       setShowOrderForm(true);
     } catch (err) {
       setError(err.message || 'Failed to load order for edit');
-    }
-  };
-
-  const handleQuickOrderItemAdd = () => {
-    setQuickOrderFormData(prev => ({
-      ...prev,
-      items: [...prev.items, createEmptyQuickOrderItem()]
-    }));
-  };
-
-  const handleQuickOrderItemRemove = (index) => {
-    setQuickOrderFormData(prev => ({
-      ...prev,
-      items: prev.items.length <= 1
-        ? [createEmptyQuickOrderItem()]
-        : prev.items.filter((_, i) => i !== index)
-    }));
-  };
-
-  const handleQuickOrderItemChange = (index, field, value) => {
-    const items = [...quickOrderFormData.items];
-    items[index][field] = value;
-
-    if (field === 'product_id') {
-      const selectedProductId = String(value || '');
-      const product = products.find(p => String(p.id) === selectedProductId);
-      if (product) {
-        const defaultUom = resolvePurchaseUnitForProduct(product, product.base_unit || product.uom || 'pcs');
-        items[index].product_name = product.name;
-        items[index].product_query = getProductSearchLabel(product);
-        items[index].uom = defaultUom;
-      } else {
-        items[index].product_query = '';
-        items[index].product_name = '';
-        items[index].uom = 'pcs';
-      }
-    }
-
-    if (field === 'uom') {
-      const selectedProduct = findProductForItem(products, items[index]);
-      items[index].uom = resolvePurchaseUnitForProduct(selectedProduct, value);
-    }
-
-    setQuickOrderFormData(prev => ({ ...prev, items }));
-  };
-
-  const handleQuickOrderProductInputChange = (index, value) => {
-    const items = [...quickOrderFormData.items];
-    items[index].product_query = value;
-    const match = resolveProductByInput(value);
-    if (!match) {
-      items[index].product_id = '';
-      items[index].product_name = value;
-      setQuickOrderFormData(prev => ({ ...prev, items }));
-      return;
-    }
-    setQuickOrderFormData(prev => ({ ...prev, items }));
-    handleQuickOrderItemChange(index, 'product_id', String(match.id));
-  };
-
-  const closeQuickOrderForm = () => {
-    closePoProductForm();
-    setShowQuickOrderForm(false);
-    setQuickOrderFormData(getDefaultQuickOrderFormData());
-    setQuickOrderSubmitting(false);
-    setActivePoProductField({ mode: 'quick', index: null });
-    setPoProductFormTarget(null);
-    quickOrderSubmitLockRef.current = false;
-    setQuickOrderFormClientRequestId(createClientRequestId('poquick'));
-  };
-
-  const handleQuickOrderSubmit = async (e) => {
-    e.preventDefault();
-    if (quickOrderSubmitLockRef.current || quickOrderSubmitting) return;
-    quickOrderSubmitLockRef.current = true;
-    setError('');
-
-    try {
-      setQuickOrderSubmitting(true);
-      const selectedDistributor = distributors.find(d => String(d.id) === String(quickOrderFormData.distributor_id) && d.status === 'active');
-      if (!selectedDistributor) {
-        setError('Please select a valid distributor');
-        setQuickOrderSubmitting(false);
-        quickOrderSubmitLockRef.current = false;
-        return;
-      }
-
-      const invalidTypedProducts = quickOrderFormData.items.filter(item =>
-        String(item.product_query || '').trim() && !item.product_id
-      );
-      if (invalidTypedProducts.length > 0) {
-        setError('Please select valid products from suggestions for all typed product names');
-        setQuickOrderSubmitting(false);
-        quickOrderSubmitLockRef.current = false;
-        return;
-      }
-
-      const validItems = quickOrderFormData.items.filter(item => item.product_id && toNumber(item.quantity) > 0);
-      if (validItems.length === 0) {
-        setError('Please add at least one item');
-        setQuickOrderSubmitting(false);
-        quickOrderSubmitLockRef.current = false;
-        return;
-      }
-
-      const mappedItems = validItems.map((item) => {
-        const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
-        return {
-          product_id: Number(item.product_id),
-          product_name: item.product_name,
-          quantity: Math.max(0, toNumber(item.quantity)),
-          uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
-          unit_price: 0,
-          rate: 0,
-          gst_rate: 0,
-          discount_type: 'percent',
-          discount_value: 0,
-          taxable_value: 0,
-          tax_amount: 0,
-          line_total: 0
-        };
-      });
-
-      await purchaseOrdersApi.create({
-        distributor_id: Number(quickOrderFormData.distributor_id),
-        expected_delivery: quickOrderFormData.order_date,
-        notes: quickOrderFormData.notes || 'Quick entry draft',
-        subtotal: 0,
-        taxable_value: 0,
-        tax_amount: 0,
-        total_amount: 0,
-        grand_total: 0,
-        total: 0,
-        items: mappedItems,
-        created_by: user?.id,
-        client_request_id: quickOrderFormClientRequestId,
-      });
-
-      closeQuickOrderForm();
-      await fetchOrders();
-    } catch (err) {
-      setError(getPurchaseRequestErrorMessage(err, 'Failed to create quick purchase order'));
-      setQuickOrderSubmitting(false);
-      quickOrderSubmitLockRef.current = false;
     }
   };
 
@@ -2682,10 +2551,6 @@ function PurchaseManagement({ user }) {
     () => getDistributorProductOptions(orderFormData.distributor_id),
     [orderFormData.distributor_id, purchaseOrders, products]
   );
-  const quickOrderProductOptions = useMemo(
-    () => getDistributorProductOptions(quickOrderFormData.distributor_id),
-    [quickOrderFormData.distributor_id, purchaseOrders, products]
-  );
 
   if (loading) {
     return (
@@ -2801,41 +2666,19 @@ function PurchaseManagement({ user }) {
         />
       ) : null}
 
-      <QuickPurchaseOrderModal
-        open={showQuickOrderForm}
-        closeQuickOrderForm={closeQuickOrderForm}
-        poModalRef={poModalRef}
-        isMobile={isMobile}
-        poModalSize={poModalSize}
-        quickOrderFormData={quickOrderFormData}
-        setQuickOrderFormData={setQuickOrderFormData}
-        handleQuickOrderSubmit={handleQuickOrderSubmit}
-        handleQuickDistributorInputChange={handleQuickDistributorInputChange}
-        distributors={distributors}
-        handleQuickOrderItemAdd={handleQuickOrderItemAdd}
-        quickOrderProductOptions={quickOrderProductOptions}
-        products={products}
-        findProductForItem={findProductForItem}
-        getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
-        resolvePurchaseUnitForProduct={resolvePurchaseUnitForProduct}
-        handleQuickOrderProductInputChange={handleQuickOrderProductInputChange}
-        handleQuickProductFieldFocus={handleQuickProductFieldFocus}
-        handleQuickOrderItemChange={handleQuickOrderItemChange}
-        handleQuickOrderItemRemove={handleQuickOrderItemRemove}
-        handleOpenProductForm={handleOpenPoProductForm}
-        getProductSearchOptionLabel={getProductSearchOptionLabel}
-        toNumber={toNumber}
-        handlePoModalResizeStart={handlePoModalResizeStart}
-        quickOrderSubmitting={quickOrderSubmitting}
-      />
-
       <PurchaseOrderFormModal
         open={showOrderForm}
         closeOrderForm={closeOrderForm}
+        poModalRef={poModalRef}
+        isMobile={isMobile}
+        poModalSize={poModalSize}
+        handlePoModalResizeStart={handlePoModalResizeStart}
         editingOrderId={editingOrderId}
         handleOrderSubmit={handleOrderSubmit}
-        orderEntryMode={orderEntryMode}
-        setOrderEntryMode={setOrderEntryMode}
+        orderFullMode={orderFullMode}
+        setOrderFullMode={setOrderFullMode}
+        loadingDistributorItems={loadingDistributorItems}
+        handleLoadDistributorItems={handleLoadDistributorItems}
         orderFormData={orderFormData}
         setOrderFormData={setOrderFormData}
         handleDistributorInputChange={handleDistributorInputChange}
@@ -2889,8 +2732,10 @@ function PurchaseManagement({ user }) {
             <form id="receive-inventory-form" onSubmit={handleReceiveSubmit} className="mobile-receive-form">
               <div className="form-section">
                 <div className="form-group">
-                  <label>Invoice Number</label>
+                  <label htmlFor="receive-mobile-invoice-number">Invoice Number</label>
                   <input
+                    id="receive-mobile-invoice-number"
+                    name="invoice_number"
                     type="text"
                     value={receiveData.invoice_number}
                     onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
@@ -2934,8 +2779,10 @@ function PurchaseManagement({ user }) {
                         </button>
                       </div>
                       <div className="mobile-receive-row">
-                        <label>Unit Cost</label>
+                        <label htmlFor={`receive-mobile-unit-cost-${index}`}>Unit Cost</label>
                         <input
+                          id={`receive-mobile-unit-cost-${index}`}
+                          name={`unit_cost_${index}`}
                           type="number"
                           step="0.01"
                           value={item.unit_price}
@@ -2964,8 +2811,10 @@ function PurchaseManagement({ user }) {
               <form id="receive-inventory-form" onSubmit={handleReceiveSubmit}>
                 <div className="form-section">
                   <div className="form-group">
-                    <label>Invoice Number</label>
+                    <label htmlFor="receive-desktop-invoice-number">Invoice Number</label>
                     <input
+                      id="receive-desktop-invoice-number"
+                      name="invoice_number"
                       type="text"
                       value={receiveData.invoice_number}
                       onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
@@ -2980,16 +2829,18 @@ function PurchaseManagement({ user }) {
                     {receiveData.items.map((item, index) => (
                       <div key={index} className="item-row">
                         <div className="item-field product">
-                          <label>Product</label>
+                          <span className="field-label">Product</span>
                           <span>{item.product_name}</span>
                         </div>
                         <div className="item-field qty">
-                          <label>Ordered</label>
+                          <span className="field-label">Ordered</span>
                           <span>{item.ordered_quantity}</span>
                         </div>
                         <div className="item-field qty">
-                          <label>Received</label>
+                          <label htmlFor={`receive-desktop-qty-${index}`}>Received</label>
                           <input
+                            id={`receive-desktop-qty-${index}`}
+                            name={`received_quantity_${index}`}
                             type="number"
                             min="0"
                             max={item.ordered_quantity}
@@ -2998,8 +2849,10 @@ function PurchaseManagement({ user }) {
                           />
                         </div>
                         <div className="item-field price">
-                          <label>Unit Cost</label>
+                          <label htmlFor={`receive-desktop-unit-cost-${index}`}>Unit Cost</label>
                           <input
+                            id={`receive-desktop-unit-cost-${index}`}
+                            name={`unit_cost_${index}`}
                             type="number"
                             step="0.01"
                             value={item.unit_price}
@@ -3007,7 +2860,7 @@ function PurchaseManagement({ user }) {
                           />
                         </div>
                         <div className="item-field total">
-                          <label>Value</label>
+                          <span className="field-label">Value</span>
                           <span>{formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}</span>
                         </div>
                       </div>
@@ -3411,22 +3264,24 @@ function PurchaseManagement({ user }) {
             <form id="purchase-process-form" onSubmit={handleProcessSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>PO Number</label>
-                  <input type="text" value={processingOrder.po_number || '-'} readOnly />
+                  <label htmlFor="process-mobile-po-number">PO Number</label>
+                  <input id="process-mobile-po-number" name="po_number" type="text" value={processingOrder.po_number || '-'} readOnly />
                 </div>
                 <div className="form-group">
-                  <label>Distributor</label>
-                  <input type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
+                  <label htmlFor="process-mobile-distributor">Distributor</label>
+                  <input id="process-mobile-distributor" name="distributor_name" type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Total Amount</label>
-                  <input type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
+                  <label htmlFor="process-mobile-total-amount">Total Amount</label>
+                  <input id="process-mobile-total-amount" name="total_amount" type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
                 </div>
                 <div className="form-group">
-                  <label>Bill No *</label>
+                  <label htmlFor="process-mobile-bill-number">Bill No *</label>
                   <input
+                    id="process-mobile-bill-number"
+                    name="bill_number"
                     type="text"
                     value={processFormData.bill_number}
                     onChange={(e) => setProcessFormData((prev) => ({ ...prev, bill_number: e.target.value }))}
@@ -3437,8 +3292,10 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Initial Paid Amount</label>
+                  <label htmlFor="process-mobile-paid-amount">Initial Paid Amount</label>
                   <input
+                    id="process-mobile-paid-amount"
+                    name="paid_amount"
                     type="number"
                     step="0.01"
                     min="0"
@@ -3448,8 +3305,10 @@ function PurchaseManagement({ user }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Payment Mode</label>
+                  <label htmlFor="process-mobile-payment-mode">Payment Mode</label>
                   <select
+                    id="process-mobile-payment-mode"
+                    name="payment_mode"
                     value={processFormData.payment_mode}
                     onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                   >
@@ -3462,16 +3321,20 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Payment Date</label>
+                  <label htmlFor="process-mobile-payment-date">Payment Date</label>
                   <input
+                    id="process-mobile-payment-date"
+                    name="payment_date"
                     type="date"
                     value={processFormData.payment_date}
                     onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_date: e.target.value }))}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Payment Reference</label>
+                  <label htmlFor="process-mobile-payment-reference">Payment Reference</label>
                   <input
+                    id="process-mobile-payment-reference"
+                    name="payment_reference"
                     type="text"
                     value={processFormData.payment_reference}
                     onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_reference: e.target.value }))}
@@ -3480,8 +3343,10 @@ function PurchaseManagement({ user }) {
                 </div>
               </div>
               <div className="form-group">
-                <label>Notes</label>
+                <label htmlFor="process-mobile-payment-notes">Notes</label>
                 <textarea
+                  id="process-mobile-payment-notes"
+                  name="payment_notes"
                   rows="2"
                   value={processFormData.payment_notes}
                   onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_notes: e.target.value }))}
@@ -3502,22 +3367,24 @@ function PurchaseManagement({ user }) {
               <form onSubmit={handleProcessSubmit}>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>PO Number</label>
-                    <input type="text" value={processingOrder.po_number || '-'} readOnly />
+                    <label htmlFor="process-desktop-po-number">PO Number</label>
+                    <input id="process-desktop-po-number" name="po_number" type="text" value={processingOrder.po_number || '-'} readOnly />
                   </div>
                   <div className="form-group">
-                    <label>Distributor</label>
-                    <input type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
+                    <label htmlFor="process-desktop-distributor">Distributor</label>
+                    <input id="process-desktop-distributor" name="distributor_name" type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Total Amount</label>
-                    <input type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
+                    <label htmlFor="process-desktop-total-amount">Total Amount</label>
+                    <input id="process-desktop-total-amount" name="total_amount" type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
                   </div>
                   <div className="form-group">
-                    <label>Bill No *</label>
+                    <label htmlFor="process-desktop-bill-number">Bill No *</label>
                     <input
+                      id="process-desktop-bill-number"
+                      name="bill_number"
                       type="text"
                       value={processFormData.bill_number}
                       onChange={(e) => setProcessFormData((prev) => ({ ...prev, bill_number: e.target.value }))}
@@ -3528,8 +3395,10 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Initial Paid Amount</label>
+                    <label htmlFor="process-desktop-paid-amount">Initial Paid Amount</label>
                     <input
+                      id="process-desktop-paid-amount"
+                      name="paid_amount"
                       type="number"
                       step="0.01"
                       min="0"
@@ -3539,8 +3408,10 @@ function PurchaseManagement({ user }) {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Payment Mode</label>
+                    <label htmlFor="process-desktop-payment-mode">Payment Mode</label>
                     <select
+                      id="process-desktop-payment-mode"
+                      name="payment_mode"
                       value={processFormData.payment_mode}
                       onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                     >
@@ -3553,16 +3424,20 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Payment Date</label>
+                    <label htmlFor="process-desktop-payment-date">Payment Date</label>
                     <input
+                      id="process-desktop-payment-date"
+                      name="payment_date"
                       type="date"
                       value={processFormData.payment_date}
                       onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_date: e.target.value }))}
                     />
                   </div>
                   <div className="form-group">
-                    <label>Payment Reference</label>
+                    <label htmlFor="process-desktop-payment-reference">Payment Reference</label>
                     <input
+                      id="process-desktop-payment-reference"
+                      name="payment_reference"
                       type="text"
                       value={processFormData.payment_reference}
                       onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_reference: e.target.value }))}
@@ -3571,8 +3446,10 @@ function PurchaseManagement({ user }) {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Notes</label>
+                  <label htmlFor="process-desktop-payment-notes">Notes</label>
                   <textarea
+                    id="process-desktop-payment-notes"
+                    name="payment_notes"
                     rows="2"
                     value={processFormData.payment_notes}
                     onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_notes: e.target.value }))}
@@ -3614,29 +3491,34 @@ function PurchaseManagement({ user }) {
             <form id="po-payment-form" onSubmit={handlePoPaymentSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>PO Number</label>
-                  <input type="text" value={paymentOrder.po_number || '-'} readOnly />
+                  <label htmlFor="po-payment-mobile-po-number">PO Number</label>
+                  <input id="po-payment-mobile-po-number" type="text" value={paymentOrder.po_number || '-'} readOnly />
                 </div>
                 <div className="form-group">
-                  <label>Current Balance</label>
-                  <input type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
+                  <label htmlFor="po-payment-mobile-current-balance">Current Balance</label>
+                  <input id="po-payment-mobile-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Amount *</label>
+                  <label htmlFor="po-payment-mobile-amount">Amount *</label>
                   <input
+                    id="po-payment-mobile-amount"
+                    name="amount"
                     type="number"
                     step="0.01"
                     min="0.01"
                     value={poPaymentFormData.amount}
                     onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Payment Mode</label>
+                  <label htmlFor="po-payment-mobile-payment-mode">Payment Mode</label>
                   <select
+                    id="po-payment-mobile-payment-mode"
+                    name="payment_mode"
                     value={poPaymentFormData.payment_mode}
                     onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                   >
@@ -3649,26 +3531,33 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Date</label>
+                  <label htmlFor="po-payment-mobile-date">Date</label>
                   <input
+                    id="po-payment-mobile-date"
+                    name="transaction_date"
                     type="date"
                     value={poPaymentFormData.transaction_date}
                     onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Reference</label>
+                  <label htmlFor="po-payment-mobile-reference">Reference</label>
                   <input
+                    id="po-payment-mobile-reference"
+                    name="reference"
                     type="text"
                     value={poPaymentFormData.reference}
                     onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, reference: e.target.value }))}
                     placeholder="Bank ref / UPI ref"
+                    autoComplete="off"
                   />
                 </div>
               </div>
               <div className="form-group">
-                <label>Notes</label>
+                <label htmlFor="po-payment-mobile-notes">Notes</label>
                 <textarea
+                  id="po-payment-mobile-notes"
+                  name="notes"
                   rows="2"
                   value={poPaymentFormData.notes}
                   onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, notes: e.target.value }))}
@@ -3689,29 +3578,34 @@ function PurchaseManagement({ user }) {
               <form onSubmit={handlePoPaymentSubmit}>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>PO Number</label>
-                    <input type="text" value={paymentOrder.po_number || '-'} readOnly />
+                    <label htmlFor="po-payment-desktop-po-number">PO Number</label>
+                    <input id="po-payment-desktop-po-number" type="text" value={paymentOrder.po_number || '-'} readOnly />
                   </div>
                   <div className="form-group">
-                    <label>Current Balance</label>
-                    <input type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
+                    <label htmlFor="po-payment-desktop-current-balance">Current Balance</label>
+                    <input id="po-payment-desktop-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Amount *</label>
+                    <label htmlFor="po-payment-desktop-amount">Amount *</label>
                     <input
+                      id="po-payment-desktop-amount"
+                      name="amount"
                       type="number"
                       step="0.01"
                       min="0.01"
                       value={poPaymentFormData.amount}
                       onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
                       required
+                      autoComplete="off"
                     />
                   </div>
                   <div className="form-group">
-                    <label>Payment Mode</label>
+                    <label htmlFor="po-payment-desktop-payment-mode">Payment Mode</label>
                     <select
+                      id="po-payment-desktop-payment-mode"
+                      name="payment_mode"
                       value={poPaymentFormData.payment_mode}
                       onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                     >
@@ -3724,26 +3618,33 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Date</label>
+                    <label htmlFor="po-payment-desktop-date">Date</label>
                     <input
+                      id="po-payment-desktop-date"
+                      name="transaction_date"
                       type="date"
                       value={poPaymentFormData.transaction_date}
                       onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
                     />
                   </div>
                   <div className="form-group">
-                    <label>Reference</label>
+                    <label htmlFor="po-payment-desktop-reference">Reference</label>
                     <input
+                      id="po-payment-desktop-reference"
+                      name="reference"
                       type="text"
                       value={poPaymentFormData.reference}
                       onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, reference: e.target.value }))}
                       placeholder="Bank ref / UPI ref"
+                      autoComplete="off"
                     />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Notes</label>
+                  <label htmlFor="po-payment-desktop-notes">Notes</label>
                   <textarea
+                    id="po-payment-desktop-notes"
+                    name="notes"
                     rows="2"
                     value={poPaymentFormData.notes}
                     onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, notes: e.target.value }))}
@@ -3786,8 +3687,10 @@ function PurchaseManagement({ user }) {
             <form id="purchase-ledger-form" onSubmit={handleLedgerSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Distributor *</label>
+                  <label htmlFor="ledger-mobile-distributor">Distributor *</label>
                   <select
+                    id="ledger-mobile-distributor"
+                    name="distributor_id"
                     value={ledgerFormData.distributor_id}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
                     required
@@ -3799,8 +3702,10 @@ function PurchaseManagement({ user }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Type *</label>
+                  <label htmlFor="ledger-mobile-type">Type *</label>
                   <select
+                    id="ledger-mobile-type"
+                    name="type"
                     value={ledgerFormData.type}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
                   >
@@ -3811,8 +3716,10 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Amount *</label>
+                  <label htmlFor="ledger-mobile-amount">Amount *</label>
                   <input
+                    id="ledger-mobile-amount"
+                    name="amount"
                     type="number"
                     step="0.01"
                     min="0.01"
@@ -3820,11 +3727,14 @@ function PurchaseManagement({ user }) {
                     onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
                     placeholder="Enter amount"
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Payment Mode</label>
+                  <label htmlFor="ledger-mobile-payment-mode">Payment Mode</label>
                   <select
+                    id="ledger-mobile-payment-mode"
+                    name="payment_mode"
                     value={ledgerFormData.payment_mode}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
                   >
@@ -3838,26 +3748,33 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Transaction Date</label>
+                  <label htmlFor="ledger-mobile-transaction-date">Transaction Date</label>
                   <input
+                    id="ledger-mobile-transaction-date"
+                    name="transaction_date"
                     type="date"
                     value={ledgerFormData.transaction_date}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
                   />
                 </div>
                 <div className="form-group">
-                  <label>Reference</label>
+                  <label htmlFor="ledger-mobile-reference">Reference</label>
                   <input
+                    id="ledger-mobile-reference"
+                    name="reference"
                     type="text"
                     value={ledgerFormData.reference}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
                     placeholder="Invoice / PO / Bank ref"
+                    autoComplete="off"
                   />
                 </div>
               </div>
               <div className="form-group">
-                <label>Description</label>
+                <label htmlFor="ledger-mobile-description">Description</label>
                 <textarea
+                  id="ledger-mobile-description"
+                  name="description"
                   rows="2"
                   value={ledgerFormData.description}
                   onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -3878,8 +3795,10 @@ function PurchaseManagement({ user }) {
               <form onSubmit={handleLedgerSubmit}>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Distributor *</label>
+                    <label htmlFor="ledger-desktop-distributor">Distributor *</label>
                     <select
+                      id="ledger-desktop-distributor"
+                      name="distributor_id"
                       value={ledgerFormData.distributor_id}
                       onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
                       required
@@ -3891,8 +3810,10 @@ function PurchaseManagement({ user }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Type *</label>
+                    <label htmlFor="ledger-desktop-type">Type *</label>
                     <select
+                      id="ledger-desktop-type"
+                      name="type"
                       value={ledgerFormData.type}
                       onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
                     >
@@ -3903,20 +3824,25 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Amount *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={ledgerFormData.amount}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="Enter amount"
-                      required
-                    />
+                    <label htmlFor="ledger-desktop-amount">Amount *</label>
+                  <input
+                    id="ledger-desktop-amount"
+                    name="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={ledgerFormData.amount}
+                    onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    placeholder="Enter amount"
+                    required
+                    autoComplete="off"
+                  />
                   </div>
                   <div className="form-group">
-                    <label>Payment Mode</label>
+                    <label htmlFor="ledger-desktop-payment-mode">Payment Mode</label>
                     <select
+                      id="ledger-desktop-payment-mode"
+                      name="payment_mode"
                       value={ledgerFormData.payment_mode}
                       onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
                     >
@@ -3930,26 +3856,33 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Transaction Date</label>
+                    <label htmlFor="ledger-desktop-transaction-date">Transaction Date</label>
                     <input
+                      id="ledger-desktop-transaction-date"
+                      name="transaction_date"
                       type="date"
                       value={ledgerFormData.transaction_date}
                       onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
                     />
                   </div>
                   <div className="form-group">
-                    <label>Reference</label>
+                    <label htmlFor="ledger-desktop-reference">Reference</label>
                     <input
+                      id="ledger-desktop-reference"
+                      name="reference"
                       type="text"
                       value={ledgerFormData.reference}
                       onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
                       placeholder="Invoice / PO / Bank ref"
+                      autoComplete="off"
                     />
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Description</label>
+                  <label htmlFor="ledger-desktop-description">Description</label>
                   <textarea
+                    id="ledger-desktop-description"
+                    name="description"
                     rows="2"
                     value={ledgerFormData.description}
                     onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -3992,38 +3925,40 @@ function PurchaseManagement({ user }) {
             <form id="purchase-correction-form" onSubmit={handlePoCorrectionSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>PO Number</label>
-                  <input type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
+                  <label htmlFor="po-correction-mobile-po-number">PO Number</label>
+                  <input id="po-correction-mobile-po-number" type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
                 </div>
                 <div className="form-group">
-                  <label>Distributor</label>
-                  <input type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Expected PO Impact</label>
-                  <input type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
-                </div>
-                <div className="form-group">
-                  <label>Current Ledger Impact</label>
-                  <input type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
+                  <label htmlFor="po-correction-mobile-distributor">Distributor</label>
+                  <input id="po-correction-mobile-distributor" type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Adjustment Needed (Delta)</label>
-                  <input type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
+                  <label htmlFor="po-correction-mobile-expected-impact">Expected PO Impact</label>
+                  <input id="po-correction-mobile-expected-impact" type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
                 </div>
                 <div className="form-group">
-                  <label>Linked Entries</label>
-                  <input type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
+                  <label htmlFor="po-correction-mobile-current-impact">Current Ledger Impact</label>
+                  <input id="po-correction-mobile-current-impact" type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Correction Type *</label>
+                  <label htmlFor="po-correction-mobile-delta">Adjustment Needed (Delta)</label>
+                  <input id="po-correction-mobile-delta" type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="po-correction-mobile-linked-entries">Linked Entries</label>
+                  <input id="po-correction-mobile-linked-entries" type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="po-correction-mobile-type">Correction Type *</label>
                   <select
+                    id="po-correction-mobile-type"
+                    name="type"
                     value={poCorrectionFormData.type}
                     onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, type: e.target.value }))}
                   >
@@ -4032,8 +3967,10 @@ function PurchaseManagement({ user }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Amount *</label>
+                  <label htmlFor="po-correction-mobile-amount">Amount *</label>
                   <input
+                    id="po-correction-mobile-amount"
+                    name="amount"
                     type="number"
                     step="0.01"
                     min="0"
@@ -4045,8 +3982,10 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Mode</label>
+                  <label htmlFor="po-correction-mobile-mode">Mode</label>
                   <select
+                    id="po-correction-mobile-mode"
+                    name="payment_mode"
                     value={poCorrectionFormData.payment_mode}
                     onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                   >
@@ -4058,8 +3997,10 @@ function PurchaseManagement({ user }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Date</label>
+                  <label htmlFor="po-correction-mobile-date">Date</label>
                   <input
+                    id="po-correction-mobile-date"
+                    name="transaction_date"
                     type="date"
                     value={poCorrectionFormData.transaction_date}
                     onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
@@ -4068,8 +4009,10 @@ function PurchaseManagement({ user }) {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Reference</label>
+                  <label htmlFor="po-correction-mobile-reference">Reference</label>
                   <input
+                    id="po-correction-mobile-reference"
+                    name="reference"
                     type="text"
                     value={poCorrectionFormData.reference}
                     onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reference: e.target.value }))}
@@ -4078,8 +4021,10 @@ function PurchaseManagement({ user }) {
                 </div>
               </div>
               <div className="form-group">
-                <label>Correction Reason *</label>
+                <label htmlFor="po-correction-mobile-reason">Correction Reason *</label>
                 <textarea
+                  id="po-correction-mobile-reason"
+                  name="reason"
                   rows="3"
                   value={poCorrectionFormData.reason}
                   onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reason: e.target.value }))}
@@ -4101,38 +4046,40 @@ function PurchaseManagement({ user }) {
               <form onSubmit={handlePoCorrectionSubmit}>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>PO Number</label>
-                    <input type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
+                    <label htmlFor="po-correction-desktop-po-number">PO Number</label>
+                    <input id="po-correction-desktop-po-number" type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
                   </div>
                   <div className="form-group">
-                    <label>Distributor</label>
-                    <input type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Expected PO Impact</label>
-                    <input type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label>Current Ledger Impact</label>
-                    <input type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
+                    <label htmlFor="po-correction-desktop-distributor">Distributor</label>
+                    <input id="po-correction-desktop-distributor" type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Adjustment Needed (Delta)</label>
-                    <input type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
+                    <label htmlFor="po-correction-desktop-expected-impact">Expected PO Impact</label>
+                    <input id="po-correction-desktop-expected-impact" type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
                   </div>
                   <div className="form-group">
-                    <label>Linked Entries</label>
-                    <input type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
+                    <label htmlFor="po-correction-desktop-current-impact">Current Ledger Impact</label>
+                    <input id="po-correction-desktop-current-impact" type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Correction Type *</label>
+                    <label htmlFor="po-correction-desktop-delta">Adjustment Needed (Delta)</label>
+                    <input id="po-correction-desktop-delta" type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="po-correction-desktop-linked-entries">Linked Entries</label>
+                    <input id="po-correction-desktop-linked-entries" type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="po-correction-desktop-type">Correction Type *</label>
                     <select
+                      id="po-correction-desktop-type"
+                      name="type"
                       value={poCorrectionFormData.type}
                       onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, type: e.target.value }))}
                     >
@@ -4141,8 +4088,10 @@ function PurchaseManagement({ user }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Amount *</label>
+                    <label htmlFor="po-correction-desktop-amount">Amount *</label>
                     <input
+                      id="po-correction-desktop-amount"
+                      name="amount"
                       type="number"
                       step="0.01"
                       min="0"
@@ -4154,8 +4103,10 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Mode</label>
+                    <label htmlFor="po-correction-desktop-mode">Mode</label>
                     <select
+                      id="po-correction-desktop-mode"
+                      name="payment_mode"
                       value={poCorrectionFormData.payment_mode}
                       onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
                     >
@@ -4167,8 +4118,10 @@ function PurchaseManagement({ user }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Date</label>
+                    <label htmlFor="po-correction-desktop-date">Date</label>
                     <input
+                      id="po-correction-desktop-date"
+                      name="transaction_date"
                       type="date"
                       value={poCorrectionFormData.transaction_date}
                       onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
@@ -4177,8 +4130,10 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Reference</label>
+                    <label htmlFor="po-correction-desktop-reference">Reference</label>
                     <input
+                      id="po-correction-desktop-reference"
+                      name="reference"
                       type="text"
                       value={poCorrectionFormData.reference}
                       onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reference: e.target.value }))}
@@ -4187,8 +4142,10 @@ function PurchaseManagement({ user }) {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label>Correction Reason *</label>
+                  <label htmlFor="po-correction-desktop-reason">Correction Reason *</label>
                   <textarea
+                    id="po-correction-desktop-reason"
+                    name="reason"
                     rows="3"
                     value={poCorrectionFormData.reason}
                     onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reason: e.target.value }))}
@@ -4233,8 +4190,10 @@ function PurchaseManagement({ user }) {
               <div className="form-section">
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Distributor *</label>
+                    <label htmlFor="return-mobile-distributor">Distributor *</label>
                     <select
+                      id="return-mobile-distributor"
+                      name="distributor_id"
                       value={returnFormData.distributor_id}
                       onChange={e => setReturnFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
                       required
@@ -4246,8 +4205,10 @@ function PurchaseManagement({ user }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Reference PO</label>
+                    <label htmlFor="return-mobile-reference-po">Reference PO</label>
                     <input
+                      id="return-mobile-reference-po"
+                      name="reference_po"
                       type="text"
                       value={returnFormData.reference_po}
                       onChange={e => setReturnFormData(prev => ({ ...prev, reference_po: e.target.value }))}
@@ -4257,8 +4218,10 @@ function PurchaseManagement({ user }) {
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Return Type</label>
+                    <label htmlFor="return-mobile-return-type">Return Type</label>
                     <select
+                      id="return-mobile-return-type"
+                      name="return_type"
                       value={returnFormData.return_type}
                       onChange={e => setReturnFormData(prev => ({ ...prev, return_type: e.target.value }))}
                     >
@@ -4267,8 +4230,10 @@ function PurchaseManagement({ user }) {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Reason</label>
+                    <label htmlFor="return-mobile-reason">Reason</label>
                     <input
+                      id="return-mobile-reason"
+                      name="reason"
                       type="text"
                       value={returnFormData.reason}
                       onChange={e => setReturnFormData(prev => ({ ...prev, reason: e.target.value }))}
@@ -4299,8 +4264,10 @@ function PurchaseManagement({ user }) {
                     return (
                     <div key={index} className="item-row">
                       <div className="item-field product">
-                        <label>Product</label>
+                        <label htmlFor={`return-mobile-product-${index}`}>Product</label>
                         <select
+                          id={`return-mobile-product-${index}`}
+                          name={`return_items_${index}_product_id`}
                           value={item.product_id}
                           onChange={e => handleReturnItemChange(index, 'product_id', e.target.value)}
                         >
@@ -4311,8 +4278,10 @@ function PurchaseManagement({ user }) {
                         </select>
                       </div>
                       <div className="item-field qty">
-                        <label>Qty</label>
+                        <label htmlFor={`return-mobile-qty-${index}`}>Qty</label>
                         <input
+                          id={`return-mobile-qty-${index}`}
+                          name={`return_items_${index}_quantity`}
                           type="number"
                           min="1"
                           value={item.quantity}
@@ -4320,8 +4289,10 @@ function PurchaseManagement({ user }) {
                         />
                       </div>
                       <div className="item-field uom">
-                        <label>UOM</label>
+                        <label htmlFor={`return-mobile-uom-${index}`}>UOM</label>
                         <select
+                          id={`return-mobile-uom-${index}`}
+                          name={`return_items_${index}_uom`}
                           value={selectedUom}
                           onChange={e => handleReturnItemChange(index, 'uom', e.target.value)}
                         >
@@ -4333,8 +4304,10 @@ function PurchaseManagement({ user }) {
                         </select>
                       </div>
                       <div className="item-field price">
-                        <label>{`Unit Price (per ${baseUnitLabel})`}</label>
+                        <label htmlFor={`return-mobile-unit-price-${index}`}>{`Unit Price (per ${baseUnitLabel})`}</label>
                         <input
+                          id={`return-mobile-unit-price-${index}`}
+                          name={`return_items_${index}_unit_price`}
                           type="number"
                           step="0.01"
                           value={item.unit_price}
@@ -4342,7 +4315,7 @@ function PurchaseManagement({ user }) {
                         />
                       </div>
                       <div className="item-field total">
-                        <label>Total</label>
+                        <span className="field-label">Total</span>
                         <span>{formatCurrency(lineTotal)}</span>
                       </div>
                       <button type="button" className="remove-item-btn" onClick={() => handleReturnItemRemove(index)}>
@@ -4368,8 +4341,10 @@ function PurchaseManagement({ user }) {
                 <div className="form-section">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Distributor *</label>
+                      <label htmlFor="return-desktop-distributor">Distributor *</label>
                       <select
+                        id="return-desktop-distributor"
+                        name="distributor_id"
                         value={returnFormData.distributor_id}
                         onChange={e => setReturnFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
                         required
@@ -4381,8 +4356,10 @@ function PurchaseManagement({ user }) {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>Reference PO</label>
+                      <label htmlFor="return-desktop-reference-po">Reference PO</label>
                       <input
+                        id="return-desktop-reference-po"
+                        name="reference_po"
                         type="text"
                         value={returnFormData.reference_po}
                         onChange={e => setReturnFormData(prev => ({ ...prev, reference_po: e.target.value }))}
@@ -4392,8 +4369,10 @@ function PurchaseManagement({ user }) {
                   </div>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Return Type</label>
+                      <label htmlFor="return-desktop-return-type">Return Type</label>
                       <select
+                        id="return-desktop-return-type"
+                        name="return_type"
                         value={returnFormData.return_type}
                         onChange={e => setReturnFormData(prev => ({ ...prev, return_type: e.target.value }))}
                       >
@@ -4402,8 +4381,10 @@ function PurchaseManagement({ user }) {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>Reason</label>
+                      <label htmlFor="return-desktop-reason">Reason</label>
                       <input
+                        id="return-desktop-reason"
+                        name="reason"
                         type="text"
                         value={returnFormData.reason}
                         onChange={e => setReturnFormData(prev => ({ ...prev, reason: e.target.value }))}
@@ -4434,8 +4415,10 @@ function PurchaseManagement({ user }) {
                       return (
                       <div key={index} className="item-row">
                         <div className="item-field product">
-                          <label>Product</label>
+                          <label htmlFor={`return-desktop-product-${index}`}>Product</label>
                           <select
+                            id={`return-desktop-product-${index}`}
+                            name={`return_items_${index}_product_id`}
                             value={item.product_id}
                             onChange={e => handleReturnItemChange(index, 'product_id', e.target.value)}
                           >
@@ -4446,8 +4429,10 @@ function PurchaseManagement({ user }) {
                           </select>
                         </div>
                         <div className="item-field qty">
-                          <label>Qty</label>
+                          <label htmlFor={`return-desktop-qty-${index}`}>Qty</label>
                           <input
+                            id={`return-desktop-qty-${index}`}
+                            name={`return_items_${index}_quantity`}
                             type="number"
                             min="1"
                             value={item.quantity}
@@ -4455,8 +4440,10 @@ function PurchaseManagement({ user }) {
                           />
                         </div>
                         <div className="item-field uom">
-                          <label>UOM</label>
+                          <label htmlFor={`return-desktop-uom-${index}`}>UOM</label>
                           <select
+                            id={`return-desktop-uom-${index}`}
+                            name={`return_items_${index}_uom`}
                             value={selectedUom}
                             onChange={e => handleReturnItemChange(index, 'uom', e.target.value)}
                           >
@@ -4468,8 +4455,10 @@ function PurchaseManagement({ user }) {
                           </select>
                         </div>
                         <div className="item-field price">
-                          <label>{`Unit Price (per ${baseUnitLabel})`}</label>
+                          <label htmlFor={`return-desktop-unit-price-${index}`}>{`Unit Price (per ${baseUnitLabel})`}</label>
                           <input
+                            id={`return-desktop-unit-price-${index}`}
+                            name={`return_items_${index}_unit_price`}
                             type="number"
                             step="0.01"
                             value={item.unit_price}
@@ -4477,7 +4466,7 @@ function PurchaseManagement({ user }) {
                           />
                         </div>
                         <div className="item-field total">
-                          <label>Total</label>
+                          <span className="field-label">Total</span>
                           <span>{formatCurrency(lineTotal)}</span>
                         </div>
                         <button type="button" className="remove-item-btn" onClick={() => handleReturnItemRemove(index)}>

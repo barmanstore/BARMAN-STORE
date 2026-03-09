@@ -115,7 +115,7 @@ const PurchaseDashboardSection = ({
   );
 
   const renderSort = (value, onChange) => (
-    <select value={value} onChange={(event) => onChange(event.target.value)} aria-label="Sort section">
+    <select name="purchase_section_sort" value={value} onChange={(event) => onChange(event.target.value)} aria-label="Sort section">
       <option value="balance_desc">Highest balance</option>
       <option value="overdue_desc">Most overdue</option>
       <option value="date_asc">Earliest date</option>

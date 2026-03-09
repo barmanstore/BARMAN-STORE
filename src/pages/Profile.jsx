@@ -641,6 +641,7 @@ function Profile() {
                 onChange={handleInputChange}
                 required
                 placeholder="Your full name"
+                autoComplete="name"
                 className={validationIssues.find(i => i.field === 'name') ? 'error-field' : ''}
               />
             </div>
@@ -665,6 +666,7 @@ function Profile() {
                   value={formData.email}
                   onChange={handleInputChange}
                   placeholder="your@email.com"
+                autoComplete="email"
                   className={validationIssues.find(i => i.field === 'email') ? 'error-field' : ''}
                 />
                 {formData.email && (
@@ -741,6 +743,7 @@ function Profile() {
                   onChange={handleInputChange}
                   required
                   placeholder="+91 98765 43210"
+                autoComplete="tel"
                   className={validationIssues.find(i => i.field === 'phone') ? 'error-field' : ''}
                 />
                 {phoneChangeRequest && (
@@ -789,6 +792,7 @@ function Profile() {
                 value={formData.street}
                 onChange={handleInputChange}
                 placeholder="123 Main Street, Apartment 4B"
+                autoComplete="street-address"
                 className={validationIssues.find(i => i.field === 'street') ? 'error-field' : ''}
               />
             </div>
@@ -803,6 +807,7 @@ function Profile() {
                   value={formData.city}
                   onChange={handleInputChange}
                   placeholder="Mumbai"
+                autoComplete="address-level2"
                   className={validationIssues.find(i => i.field === 'city') ? 'error-field' : ''}
                 />
               </div>
@@ -815,6 +820,7 @@ function Profile() {
                   value={formData.state}
                   onChange={handleInputChange}
                   placeholder="Maharashtra"
+                autoComplete="address-level1"
                   className={validationIssues.find(i => i.field === 'state') ? 'error-field' : ''}
                 />
               </div>
@@ -827,6 +833,7 @@ function Profile() {
                   value={formData.zip}
                   onChange={handleInputChange}
                   placeholder="400001"
+                autoComplete="postal-code"
                   className={validationIssues.find(i => i.field === 'zip') ? 'error-field' : ''}
                 />
               </div>
@@ -841,6 +848,7 @@ function Profile() {
                 value={formData.country}
                 onChange={handleInputChange}
                 placeholder="India"
+                autoComplete="country"
               />
             </div>
           </div>

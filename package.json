@@ -30,6 +30,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "test": "npm run test:phone && npm run test:order-flow && npm run test:po-lifecycle && npm run test:credit-ui && npm run test:category-tree",
         "test:phone": "node scripts/test-phone-validation.mjs",
         "test:order-flow": "node scripts/test-order-billing-flow.mjs",
         "test:po-lifecycle": "node scripts/test-po-lifecycle-flow.mjs",

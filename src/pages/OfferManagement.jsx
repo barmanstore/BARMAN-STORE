@@ -60,15 +60,15 @@ function OfferManagement() {
       <form onSubmit={handleSubmit} className="form-section">
         <div className="form-row">
           <label className="form-label">Name</label>
-          <input className="form-input" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
+          <input className="form-input" id="offer-name" name="name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
         </div>
         <div className="form-row">
           <label className="form-label">Description</label>
-          <input className="form-input" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+          <input className="form-input" id="offer-description" name="description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
         </div>
         <div className="form-row">
           <label className="form-label">Type</label>
-          <select className="form-input" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
+          <select className="form-input" id="offer-type" name="type" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}>
             <option value="percentage">Percentage</option>
             <option value="bogo">Buy One Get One</option>
             <option value="bundle">Bundle</option>
@@ -77,7 +77,7 @@ function OfferManagement() {
         </div>
         <div className="form-row">
           <label className="form-label">Value</label>
-          <input type="number" className="form-input" value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: Number(e.target.value || 0) }))} />
+          <input type="number" className="form-input" id="offer-value" name="value" value={form.value} onChange={(e) => setForm((p) => ({ ...p, value: Number(e.target.value || 0) }))} />
         </div>
         <button type="submit" className="add-btn"><Plus size={16} /> Add Offer</button>
       </form>
@@ -115,4 +115,3 @@ function OfferManagement() {
 }
 
 export default OfferManagement;
-

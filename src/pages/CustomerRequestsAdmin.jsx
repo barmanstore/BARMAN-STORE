@@ -258,7 +258,7 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Product Availability Requests</h2>
-            <select value={recommendationStatusFilter} onChange={(e) => setRecommendationStatusFilter(e.target.value)}>
+            <select name="recommendation_status_filter" value={recommendationStatusFilter} onChange={(e) => setRecommendationStatusFilter(e.target.value)}>
               {recommendationStatuses.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
@@ -317,7 +317,7 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Credit Entry Issues</h2>
-            <select value={issueStatusFilter} onChange={(e) => setIssueStatusFilter(e.target.value)}>
+            <select name="issue_status_filter" value={issueStatusFilter} onChange={(e) => setIssueStatusFilter(e.target.value)}>
               {issueStatuses.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
@@ -465,7 +465,7 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Phone Update Requests</h2>
-            <select value={phoneStatusFilter} onChange={(e) => setPhoneStatusFilter(e.target.value)}>
+            <select name="phone_status_filter" value={phoneStatusFilter} onChange={(e) => setPhoneStatusFilter(e.target.value)}>
               {phoneStatuses.map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}

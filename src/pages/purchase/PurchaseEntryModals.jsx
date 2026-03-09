@@ -2,216 +2,19 @@ import { Plus, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
-export function QuickPurchaseOrderModal({
-  open,
-  closeQuickOrderForm,
-  poModalRef,
-  isMobile,
-  poModalSize,
-  quickOrderFormData,
-  setQuickOrderFormData,
-  handleQuickOrderSubmit,
-  handleQuickDistributorInputChange,
-  distributors,
-  handleQuickOrderItemAdd,
-  quickOrderProductOptions,
-  products,
-  findProductForItem,
-  getAllowedPurchaseUnitsForProduct,
-  resolvePurchaseUnitForProduct,
-  handleQuickOrderProductInputChange,
-  handleQuickProductFieldFocus,
-  handleQuickOrderItemChange,
-  handleQuickOrderItemRemove,
-  handleOpenProductForm,
-  getProductSearchOptionLabel,
-  toNumber,
-  handlePoModalResizeStart,
-  quickOrderSubmitting,
-}) {
-  useLockBodyScroll(open);
-
-  if (!open) return null;
-
-  return (
-    <div className="modal-overlay" onClick={closeQuickOrderForm}>
-      <div
-        ref={poModalRef}
-        className="modal-content large po-form-modal quick-po-modal"
-        onClick={(event) => event.stopPropagation()}
-        style={isMobile ? undefined : { width: `${Math.min(poModalSize.width, 760)}px` }}
-      >
-        <div className="modal-header">
-          <div className="quick-po-header-copy">
-            <h2>Quick Purchase Entry</h2>
-            <p>Distributor + items only. Save the draft fast.</p>
-          </div>
-          <div className="po-modal-header-actions">
-            <button
-              type="button"
-              className="po-header-product-btn"
-              onClick={() => handleOpenProductForm('quick')}
-            >
-              <Plus size={16} /> Add New Product
-            </button>
-            <button className="close-btn" onClick={closeQuickOrderForm}>
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-        <form onSubmit={handleQuickOrderSubmit} className="po-entry-form quick-po-entry-form">
-          <div className="form-section po-form-section po-form-header quick-po-topbar">
-            <div className="quick-po-topbar-row">
-              <div className="form-group quick-po-distributor-field">
-                <label>Distributor *</label>
-                <input
-                  type="text"
-                  list="po-distributor-list-quick"
-                  value={quickOrderFormData.distributor_name || ''}
-                  onChange={(event) => handleQuickDistributorInputChange(event.target.value)}
-                  placeholder="Type distributor name"
-                  required
-                />
-                <datalist id="po-distributor-list-quick">
-                  {distributors.filter((distributor) => distributor.status === 'active').map((distributor) => (
-                    <option key={distributor.id} value={distributor.name} />
-                  ))}
-                </datalist>
-              </div>
-              <div className="form-group quick-po-date-field">
-                <label>Date</label>
-                <input
-                  type="date"
-                  value={quickOrderFormData.order_date}
-                  onChange={(event) => setQuickOrderFormData((prev) => ({ ...prev, order_date: event.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="quick-po-secondary-row">
-              <div className="form-group quick-po-note-field">
-                <label>Note</label>
-                <input
-                  type="text"
-                  value={quickOrderFormData.notes}
-                  onChange={(event) => setQuickOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
-                  placeholder="Optional short note"
-                />
-              </div>
-              <div className="quick-po-stat-chip">
-                <span>Rows</span>
-                <strong>{quickOrderFormData.items.length}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section po-form-section quick-po-items-section">
-            <div className="section-header">
-              <h3>Items</h3>
-            </div>
-            <div className="quick-po-list-shell">
-              <div className="quick-po-grid-head" aria-hidden="true">
-                <span>#</span>
-                <span>Product</span>
-                <span>Qty</span>
-                <span>UOM</span>
-                <span />
-              </div>
-              <div className="quick-po-list">
-              {quickOrderFormData.items.map((item, index) => {
-                const selectedProduct = findProductForItem(products, item);
-                const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                const selectedUom = resolvePurchaseUnitForProduct(
-                  selectedProduct,
-                  item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
-                );
-                return (
-                  <div key={index} className="quick-po-row">
-                    <div className="quick-po-row-index">{index + 1}</div>
-                    <div className="quick-po-row-main">
-                      <input
-                        type="text"
-                        list={`quick-po-product-list-${index}`}
-                        value={item.product_query || ''}
-                        onChange={(event) => handleQuickOrderProductInputChange(index, event.target.value)}
-                        onFocus={() => handleQuickProductFieldFocus(index)}
-                        placeholder="Type product name / SKU"
-                      />
-                      <datalist id={`quick-po-product-list-${index}`}>
-                        {quickOrderProductOptions.prioritized.map((product) => (
-                          <option key={`quick-recent-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'recent')} />
-                        ))}
-                        {quickOrderProductOptions.all.map((product) => (
-                          <option key={`quick-all-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'all')} />
-                          ))}
-                        </datalist>
-                    </div>
-                    <div className="quick-po-row-side">
-                      <div className="quick-po-mini-field">
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(event) => handleQuickOrderItemChange(index, 'quantity', toNumber(event.target.value))}
-                        />
-                      </div>
-                      <div className="quick-po-mini-field">
-                        <select
-                          value={selectedUom}
-                          onChange={(event) => handleQuickOrderItemChange(index, 'uom', event.target.value)}
-                        >
-                          {uomOptions.map((uomOption) => (
-                            <option key={`quick-item-${index}-uom-${uomOption}`} value={uomOption}>
-                              {uomOption}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <button type="button" className="remove-item-btn quick-po-remove-btn" onClick={() => handleQuickOrderItemRemove(index)}>
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              </div>
-            </div>
-            <div className="po-products-actions">
-              <button type="button" className="add-item-btn" onClick={handleQuickOrderItemAdd}>
-                <Plus size={16} /> Add Row
-              </button>
-            </div>
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="cancel-btn" onClick={closeQuickOrderForm}>
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={quickOrderSubmitting}>
-              {quickOrderSubmitting ? 'Saving...' : 'Save Draft'}
-            </button>
-          </div>
-        </form>
-        {!isMobile && (
-          <button
-            type="button"
-            className="po-modal-resize-handle"
-            onMouseDown={handlePoModalResizeStart}
-            aria-label="Resize purchase order form"
-            title="Drag to resize"
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
 export function PurchaseOrderFormModal({
   open,
   closeOrderForm,
+  poModalRef,
+  isMobile,
+  poModalSize,
+  handlePoModalResizeStart,
   editingOrderId,
   handleOrderSubmit,
-  orderEntryMode,
-  setOrderEntryMode,
+  orderFullMode,
+  setOrderFullMode,
+  loadingDistributorItems,
+  handleLoadDistributorItems,
   orderFormData,
   setOrderFormData,
   handleDistributorInputChange,
@@ -237,16 +40,27 @@ export function PurchaseOrderFormModal({
 
   if (!open) return null;
 
+  const activeDistributors = distributors.filter((distributor) => distributor.status === 'active');
+  const canLoadDistributorItems = Boolean(String(orderFormData.distributor_id || '').trim());
+
   return (
     <div className="modal-overlay" onClick={closeOrderForm}>
-      <div className="modal-content large po-form-modal" onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={poModalRef}
+        className="modal-content large po-form-modal po-entry-view-modal"
+        onClick={(event) => event.stopPropagation()}
+        style={isMobile ? undefined : { width: `${Math.min(poModalSize.width, 1080)}px` }}
+      >
         <div className="modal-header">
-          <h2>{editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order'}</h2>
+          <div>
+            <h2>{editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order'}</h2>
+            <p className="po-entry-modal-subtitle">Quick entry first. Expand only when rate, GST, or discount details are needed.</p>
+          </div>
           <div className="po-modal-header-actions">
             <button
               type="button"
               className="po-header-product-btn"
-              onClick={() => handleOpenProductForm('detailed')}
+              onClick={() => handleOpenProductForm()}
             >
               <Plus size={16} /> Add New Product
             </button>
@@ -255,155 +69,240 @@ export function PurchaseOrderFormModal({
             </button>
           </div>
         </div>
-        <form onSubmit={handleOrderSubmit} className={`po-entry-form ${orderEntryMode === 'quick' ? 'quick-mode' : ''}`}>
-          <div className="po-entry-mode-tabs" role="tablist" aria-label="Purchase entry mode">
-            <button
-              type="button"
-              className={orderEntryMode === 'detailed' ? 'active' : ''}
-              onClick={() => setOrderEntryMode('detailed')}
-              role="tab"
-              aria-selected={orderEntryMode === 'detailed'}
-            >
-              Detailed Entry
-            </button>
-            <button
-              type="button"
-              className={orderEntryMode === 'quick' ? 'active' : ''}
-              onClick={() => setOrderEntryMode('quick')}
-              role="tab"
-              aria-selected={orderEntryMode === 'quick'}
-            >
-              Quick Entry
-            </button>
-          </div>
-          <div className="form-section po-form-section po-form-header">
-            <div className="form-row po-info-row">
-              <div className="form-group">
-                <label>Distributor *</label>
-                <input
-                  type="text"
-                  list="po-distributor-list"
-                  value={orderFormData.distributor_name || ''}
-                  onChange={(event) => handleDistributorInputChange(event.target.value)}
-                  placeholder="Type distributor name"
-                  required
-                />
-                <datalist id="po-distributor-list">
-                  {distributors.filter((distributor) => distributor.status === 'active').map((distributor) => (
-                    <option key={distributor.id} value={distributor.name} />
-                  ))}
-                </datalist>
-              </div>
-              <div className="form-group">
-                <label>Expected Delivery</label>
-                <input
-                  type="date"
-                  value={orderFormData.expected_delivery}
-                  onChange={(event) => setOrderFormData((prev) => ({ ...prev, expected_delivery: event.target.value }))}
-                />
-              </div>
-              <div className="form-group">
-                <label>Strict Due Date</label>
-                <input
-                  type="date"
-                  value={orderFormData.strict_due_date || ''}
-                  onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_date: event.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="form-row po-info-row">
-              <div className="form-group po-note-group">
-                <label>Notes</label>
-                <textarea
-                  value={orderFormData.notes}
-                  onChange={(event) => setOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
-                  rows="2"
-                />
-              </div>
-              <div className="form-group po-note-group">
-                <label>Strict Due Note</label>
-                <textarea
-                  value={orderFormData.strict_due_note || ''}
-                  onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_note: event.target.value }))}
-                  rows="2"
-                  placeholder="Optional hard deadline reason"
-                />
-              </div>
-            </div>
-          </div>
 
-          <div className="form-section po-form-section po-products-section">
-            <div className="section-header">
-              <h3>Order Items</h3>
+        <form onSubmit={handleOrderSubmit} className="po-entry-form po-entry-view-form">
+          <div className="po-invoice-preview po-entry-preview">
+            <div className="po-invoice-header po-entry-preview-header">
+              <div>
+                <h3>{editingOrderId ? `PO Edit ${editingOrderId ? `#${editingOrderId}` : ''}` : 'New Purchase Order'}</h3>
+                <p>{orderFullMode ? 'Full mode is active. Totals, tax, and discounts recalculate live.' : 'Quick mode shows only distributor, delivery, product, qty, and UOM.'}</p>
+              </div>
+              <div className="po-entry-toolbar">
+                <label className="po-entry-full-toggle">
+                  <input
+                    id="po-entry-full-mode"
+                    name="full_mode"
+                    type="checkbox"
+                    checked={orderFullMode}
+                    onChange={(event) => setOrderFullMode(event.target.checked)}
+                  />
+                  <span>Full Mode</span>
+                </label>
+                <button
+                  type="button"
+                  className="po-icon-action-btn"
+                  onClick={handleLoadDistributorItems}
+                  disabled={!canLoadDistributorItems || loadingDistributorItems}
+                  title={canLoadDistributorItems ? 'Load distributor history items' : 'Select distributor first'}
+                >
+                  {loadingDistributorItems ? '...' : 'Load'}
+                </button>
+                <button type="button" className="po-icon-action-btn" onClick={handleOrderItemAdd} title="Add row">
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
-            <div className="items-list">
-              {orderFormData.items.map((item, index) => {
-                const selectedProduct = findProductForItem(products, item);
-                const line = calculateOrderItem(item);
-                const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                const netCostPerItem = line.quantity > 0 ? (line.totalAmount / line.quantity) : 0;
-                return (
-                  <div key={index} className="item-row order-item-row po-item-row">
-                    <div className="po-item-main">
-                      <div className="item-field product">
-                        <label>Product</label>
-                        <input
-                          type="text"
-                          list={`po-product-list-${index}`}
-                          value={item.product_query || ''}
-                          onChange={(event) => handleOrderProductInputChange(index, event.target.value)}
-                          onFocus={() => handleOrderProductFieldFocus(index)}
-                          placeholder="Type product name / SKU"
-                        />
-                        <datalist id={`po-product-list-${index}`}>
-                          {orderProductOptions.prioritized.map((product) => (
-                            <option key={`order-recent-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'recent')} />
-                          ))}
-                          {orderProductOptions.all.map((product) => (
-                            <option key={`order-all-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'all')} />
-                          ))}
-                        </datalist>
-                        {item.last_purchase_hint && (
-                          <small className="field-hint">{item.last_purchase_hint}</small>
-                        )}
-                      </div>
-                      <div className="item-field qty">
-                        <label>Qty</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(event) => handleOrderItemChange(index, 'quantity', toNumber(event.target.value))}
-                        />
-                      </div>
-                      <div className="item-field uom">
-                        <label>UOM</label>
-                        <select
-                          value={line.uom}
-                          onChange={(event) => handleOrderItemChange(index, 'uom', event.target.value)}
-                        >
-                          {uomOptions.map((uomOption) => (
-                            <option key={`order-item-${index}-uom-${uomOption}`} value={uomOption}>
-                              {uomOption}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {orderEntryMode !== 'quick' && (
-                        <>
-                          <div className="item-field price">
-                            <label>{`Rate (per ${line.baseUnit})`}</label>
+
+            <div className="po-party-grid po-entry-header-grid">
+              <div className="po-party-card">
+                <h4>Supplier</h4>
+                <div className="form-group">
+                  <label htmlFor="po-entry-distributor">Distributor *</label>
+                  <input
+                    id="po-entry-distributor"
+                    name="distributor_name"
+                    type="text"
+                    list="po-distributor-list"
+                    value={orderFormData.distributor_name || ''}
+                    onChange={(event) => handleDistributorInputChange(event.target.value)}
+                    placeholder="Type distributor name"
+                    required
+                  />
+                  <datalist id="po-distributor-list">
+                    {activeDistributors.map((distributor) => (
+                      <option key={distributor.id} value={distributor.name} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="po-entry-expected-delivery">Expected Delivery</label>
+                  <input
+                    id="po-entry-expected-delivery"
+                    name="expected_delivery"
+                    type="date"
+                    value={orderFormData.expected_delivery || ''}
+                    onChange={(event) => setOrderFormData((prev) => ({ ...prev, expected_delivery: event.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="po-party-card">
+                <h4>Entry Controls</h4>
+                <div className="po-entry-stats">
+                  <div>
+                    <span>Rows</span>
+                    <strong>{orderFormData.items.length}</strong>
+                  </div>
+                  <div>
+                    <span>Grand Total</span>
+                    <strong>{formatCurrency(orderTotals.totalAmount)}</strong>
+                  </div>
+                </div>
+                {orderFullMode ? (
+                  <div className="po-entry-advanced-fields">
+                    <div className="form-group">
+                      <label htmlFor="po-entry-strict-due-date">Strict Due Date</label>
+                      <input
+                        id="po-entry-strict-due-date"
+                        name="strict_due_date"
+                        type="date"
+                        value={orderFormData.strict_due_date || ''}
+                        onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_date: event.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="po-entry-notes">Notes</label>
+                      <textarea
+                        id="po-entry-notes"
+                        name="notes"
+                        rows="2"
+                        value={orderFormData.notes || ''}
+                        onChange={(event) => setOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="po-entry-strict-due-note">Strict Due Note</label>
+                      <textarea
+                        id="po-entry-strict-due-note"
+                        name="strict_due_note"
+                        rows="2"
+                        value={orderFormData.strict_due_note || ''}
+                        onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_note: event.target.value }))}
+                        placeholder="Optional hard deadline reason"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="po-entry-table-shell">
+              <table className="po-invoice-table po-entry-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>UOM</th>
+                    {orderFullMode ? <th>Rate</th> : null}
+                    {orderFullMode ? <th>Discount Type</th> : null}
+                    {orderFullMode ? <th>Discount</th> : null}
+                    {orderFullMode ? <th>GST %</th> : null}
+                    {orderFullMode ? <th>Taxable</th> : null}
+                    {orderFullMode ? <th>Tax</th> : null}
+                    {orderFullMode ? <th>Total</th> : null}
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderFormData.items.map((item, index) => {
+                    const selectedProduct = findProductForItem(products, item);
+                    const line = calculateOrderItem(item);
+                    const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                    return (
+                      <tr key={`po-entry-row-${index}`} className={toNumber(item.quantity) === 0 ? 'po-entry-row-zero' : ''}>
+                        <td>{index + 1}</td>
+                        <td>
+                          <input
+                            id={`po-entry-product-${index}`}
+                            name={`product_query_${index}`}
+                            type="text"
+                            list={`po-product-list-${index}`}
+                            value={item.product_query || ''}
+                            onChange={(event) => handleOrderProductInputChange(index, event.target.value)}
+                            onFocus={() => handleOrderProductFieldFocus(index)}
+                            placeholder="Type product name / SKU"
+                          />
+                          <datalist id={`po-product-list-${index}`}>
+                            {orderProductOptions.prioritized.map((product) => (
+                              <option key={`order-recent-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'recent')} />
+                            ))}
+                            {orderProductOptions.all.map((product) => (
+                              <option key={`order-all-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'all')} />
+                            ))}
+                          </datalist>
+                          {item.last_purchase_hint ? (
+                            <small className="field-hint">{item.last_purchase_hint}</small>
+                          ) : null}
+                        </td>
+                        <td>
+                          <input
+                            id={`po-entry-qty-${index}`}
+                            name={`quantity_${index}`}
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={(event) => handleOrderItemChange(index, 'quantity', toNumber(event.target.value))}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            id={`po-entry-uom-${index}`}
+                            name={`uom_${index}`}
+                            value={line.uom}
+                            onChange={(event) => handleOrderItemChange(index, 'uom', event.target.value)}
+                          >
+                            {uomOptions.map((uomOption) => (
+                              <option key={`order-item-${index}-uom-${uomOption}`} value={uomOption}>
+                                {uomOption}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        {orderFullMode ? (
+                          <td>
                             <input
+                              id={`po-entry-rate-${index}`}
+                              name={`rate_${index}`}
                               type="number"
                               step="0.01"
                               min="0"
                               value={item.rate ?? item.unit_price}
                               onChange={(event) => handleOrderItemChange(index, 'rate', toNumber(event.target.value))}
                             />
-                          </div>
-                          <div className="item-field gst">
-                            <label>GST %</label>
+                          </td>
+                        ) : null}
+                        {orderFullMode ? (
+                          <td>
                             <select
+                              id={`po-entry-discount-type-${index}`}
+                              name={`discount_type_${index}`}
+                              value={item.discount_type || 'percent'}
+                              onChange={(event) => handleOrderItemChange(index, 'discount_type', event.target.value)}
+                            >
+                              <option value="percent">%</option>
+                              <option value="fixed">Fixed</option>
+                            </select>
+                          </td>
+                        ) : null}
+                        {orderFullMode ? (
+                          <td>
+                            <input
+                              id={`po-entry-discount-value-${index}`}
+                              name={`discount_value_${index}`}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={item.discount_value ?? 0}
+                              onChange={(event) => handleOrderItemChange(index, 'discount_value', toNumber(event.target.value))}
+                            />
+                          </td>
+                        ) : null}
+                        {orderFullMode ? (
+                          <td>
+                            <select
+                              id={`po-entry-gst-${index}`}
+                              name={`gst_rate_${index}`}
                               value={item.gst_rate}
                               onChange={(event) => handleOrderItemChange(index, 'gst_rate', toNumber(event.target.value))}
                             >
@@ -413,82 +312,43 @@ export function PurchaseOrderFormModal({
                                 </option>
                               ))}
                             </select>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {orderEntryMode !== 'quick' && (
-                      <div className="po-item-discount">
-                        <div className="item-field discount-type">
-                          <label>Discount Type</label>
-                          <select
-                            value={item.discount_type || 'percent'}
-                            onChange={(event) => handleOrderItemChange(index, 'discount_type', event.target.value)}
+                          </td>
+                        ) : null}
+                        {orderFullMode ? <td>{formatCurrency(line.taxableValue)}</td> : null}
+                        {orderFullMode ? <td>{formatCurrency(line.taxAmount)}</td> : null}
+                        {orderFullMode ? <td>{formatCurrency(line.totalAmount)}</td> : null}
+                        <td>
+                          <button
+                            type="button"
+                            className="remove-item-btn po-remove-btn"
+                            onClick={() => handleOrderItemRemove(index)}
+                            aria-label={`Remove row ${index + 1}`}
                           >
-                            <option value="percent">%</option>
-                            <option value="fixed">Fixed</option>
-                          </select>
-                        </div>
-                        <div className="item-field discount-value">
-                          <label>Discount</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={item.discount_value ?? 0}
-                            onChange={(event) => handleOrderItemChange(index, 'discount_value', toNumber(event.target.value))}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="po-item-amounts">
-                      <div className="item-field cost-per-item">
-                        <label>Cost Per Item (After Discount + Tax)</label>
-                        <span>{formatCurrency(netCostPerItem)}</span>
-                      </div>
-                      <div className="item-field taxable">
-                        <label>Taxable Value</label>
-                        <span>{formatCurrency(line.taxableValue)}</span>
-                      </div>
-                      <div className="item-field tax">
-                        <label>Tax</label>
-                        <span>{formatCurrency(line.taxAmount)}</span>
-                      </div>
-                      <div className="item-field total">
-                        <label>Total Amount</label>
-                        <span>{formatCurrency(line.totalAmount)}</span>
-                      </div>
-                    </div>
-
-                    <button type="button" className="remove-item-btn po-remove-btn" onClick={() => handleOrderItemRemove(index)}>
-                      <X size={16} />
-                    </button>
-                  </div>
-                );
-              })}
-              {orderFormData.items.length === 0 && (
-                <p className="no-items">No items added. Use Add Item below or Add New Product at the top.</p>
-              )}
-            </div>
-            <div className="po-products-actions">
-              <button type="button" className="add-item-btn" onClick={handleOrderItemAdd}>
-                <Plus size={16} /> Add Item
-              </button>
+                            <X size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 
           <div className="form-section po-form-section po-form-footer">
             <div className="order-summary">
-              <div className="summary-row">
-                <span>Total Taxable Value</span>
-                <strong>{formatCurrency(orderTotals.taxableValue)}</strong>
-              </div>
-              <div className="summary-row">
-                <span>Total Tax</span>
-                <strong>{formatCurrency(orderTotals.taxAmount)}</strong>
-              </div>
+              {orderFullMode ? (
+                <>
+                  <div className="summary-row">
+                    <span>Total Taxable Value</span>
+                    <strong>{formatCurrency(orderTotals.taxableValue)}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>Total Tax</span>
+                    <strong>{formatCurrency(orderTotals.taxAmount)}</strong>
+                  </div>
+                </>
+              ) : null}
               <div className="summary-row grand-total">
                 <span>Total Amount</span>
                 <strong>{formatCurrency(orderTotals.totalAmount)}</strong>
@@ -504,6 +364,16 @@ export function PurchaseOrderFormModal({
             </div>
           </div>
         </form>
+
+        {!isMobile && (
+          <button
+            type="button"
+            className="po-modal-resize-handle"
+            onMouseDown={handlePoModalResizeStart}
+            aria-label="Resize purchase order form"
+            title="Drag to resize"
+          />
+        )}
       </div>
     </div>
   );

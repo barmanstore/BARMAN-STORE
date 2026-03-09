@@ -487,6 +487,7 @@ function Checkout() {
                     onChange={handleInputChange}
                     required
                     placeholder="John Doe"
+                    autoComplete="name"
                     className={profileValidation?.issues?.find(i => i.field === 'name') ? 'error-field' : ''}
                   />
                 </div>
@@ -502,6 +503,7 @@ function Checkout() {
                     value={formData.customer_email}
                     onChange={handleInputChange}
                     placeholder="john@example.com"
+                    autoComplete="email"
                   />
                 </div>
                 <div className="form-group">
@@ -514,6 +516,7 @@ function Checkout() {
                     onChange={handleInputChange}
                     required
                     placeholder="+91 98765 43210"
+                    autoComplete="tel"
                   />
                 </div>
               </div>
@@ -533,21 +536,23 @@ function Checkout() {
                   onChange={handleInputChange}
                   required
                   placeholder="123 Main Street, Apartment 4B"
+                  autoComplete="street-address"
                 />
               </div>
 
               <div className="form-row three-col">
                 <div className="form-group">
                   <label htmlFor="city">City *</label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    required
-                    placeholder="Mumbai"
-                  />
+                <input
+                  type="text"
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="Mumbai"
+                  autoComplete="address-level2"
+                />
                 </div>
                 <div className="form-group">
                   <label htmlFor="state">State/Region *</label>
@@ -559,6 +564,7 @@ function Checkout() {
                     onChange={handleInputChange}
                     required
                     placeholder="Maharashtra"
+                    autoComplete="address-level1"
                   />
                 </div>
                 <div className="form-group">
@@ -571,6 +577,7 @@ function Checkout() {
                     onChange={handleInputChange}
                     required
                     placeholder="400001"
+                    autoComplete="postal-code"
                   />
                 </div>
               </div>
@@ -584,6 +591,7 @@ function Checkout() {
                   value={formData.country}
                   onChange={handleInputChange}
                   placeholder="India"
+                  autoComplete="country"
                 />
               </div>
             </div>

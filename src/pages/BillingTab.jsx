@@ -91,6 +91,27 @@ const getAllowedUnitsForProduct = (product = null) => {
   return [...new Set([profile.baseUnit, profile.sellingUnit])];
 };
 
+const getProductOptionLabel = (product = null) => {
+  if (!product) return '';
+  const name = String(product.name || '').trim() || 'Product';
+  const price = Number(product.price ?? product.mrp ?? 0) || 0;
+  const defaultUnit = resolveLineUnitForProduct(
+    product,
+    product.base_unit || product.uom || product.unit || 'pcs'
+  );
+  const parts = [name];
+  if (price > 0) {
+    parts.push(`${formatCurrency(price)} / ${defaultUnit}`);
+  }
+  if (product.sku) {
+    parts.push(`SKU: ${String(product.sku).trim()}`);
+  }
+  if (product.brand) {
+    parts.push(String(product.brand).trim());
+  }
+  return parts.join(' • ');
+};
+
 const resolveLineUnitForProduct = (product = null, unit = 'pcs') => {
   if (!product) return normalizeUomToken(unit, 'pcs');
   const allowedUnits = getAllowedUnitsForProduct(product);
@@ -260,9 +281,14 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       const newItems = [...prevItems];
 
       if (field === 'name') {
-        const matchedProduct = productsList.find(
-          (product) => product.name && product.name.toLowerCase() === value.trim().toLowerCase()
-        );
+        const rawValue = String(value || '');
+        const valueKey = rawValue.trim().toLowerCase();
+        const matchedProduct = productsList.find((product) => {
+          const nameKey = String(product?.name || '').trim().toLowerCase();
+          if (nameKey && nameKey === valueKey) return true;
+          const optionLabel = getProductOptionLabel(product).trim().toLowerCase();
+          return optionLabel && optionLabel === valueKey;
+        });
 
         if (matchedProduct) {
           const price = Number(matchedProduct.price) || 0;
@@ -292,7 +318,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
             ).amount
           };
         } else {
-          newItems[index] = { ...newItems[index], name: value };
+          newItems[index] = { ...newItems[index], name: rawValue };
         }
       } else if (field === 'price') {
         newItems[index].price = value;
@@ -701,7 +727,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                   />
                   <datalist id="product-list">
                     {productsList.map((p) => (
-                      <option key={p.id} value={p.name} />
+                      <option key={p.id} value={getProductOptionLabel(p)} />
                     ))}
                   </datalist>
                 </td>
@@ -858,7 +884,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
           <div className="share-header">
             <strong>Share Bill {lastShareNumber ? `#${lastShareNumber}` : ''}</strong>
           </div>
-          <textarea className="share-text" readOnly value={lastShareText} />
+          <textarea className="share-text" id="billing-share-text" name="share_text" readOnly value={lastShareText} />
           <div className="share-actions">
             <button className="share-btn" onClick={handleCopyShare}>Copy</button>
             <button

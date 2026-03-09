@@ -1260,6 +1260,123 @@
   grid-column: 1 / -1;
 }
 
+.purchase-management .po-entry-view-modal .modal-header {
+  align-items: flex-start;
+}
+
+.purchase-management .po-entry-modal-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.purchase-management .po-entry-view-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.purchase-management .po-entry-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.purchase-management .po-entry-preview-header {
+  gap: 18px;
+}
+
+.purchase-management .po-entry-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.purchase-management .po-entry-full-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.purchase-management .po-entry-full-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.purchase-management .po-entry-header-grid {
+  grid-template-columns: minmax(260px, 1.1fr) minmax(220px, 0.9fr);
+}
+
+.purchase-management .po-entry-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.purchase-management .po-entry-stats div {
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.purchase-management .po-entry-stats span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.purchase-management .po-entry-stats strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.purchase-management .po-entry-advanced-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.purchase-management .po-entry-advanced-fields .form-group {
+  margin-bottom: 0;
+}
+
+.purchase-management .po-entry-table-shell {
+  overflow-x: auto;
+}
+
+.purchase-management .po-entry-table {
+  min-width: 760px;
+}
+
+.purchase-management .po-entry-table td {
+  vertical-align: top;
+}
+
+.purchase-management .po-entry-table td:last-child,
+.purchase-management .po-entry-table th:last-child {
+  width: 56px;
+  text-align: center;
+}
+
+.purchase-management .po-entry-row-zero {
+  background: rgba(241, 245, 249, 0.7);
+}
+
 .purchase-management .po-products-section {
   display: flex;
   flex-direction: column;
@@ -1919,6 +2036,10 @@ body.po-modal-resizing {
   .purchase-management .po-invoice-summary {
     width: 100%;
   }
+
+  .purchase-management .po-entry-header-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1942,15 +2063,6 @@ body.po-modal-resizing {
     gap: 14px;
   }
 
-  .purchase-management .po-entry-mode-tabs {
-    width: 100%;
-  }
-
-  .purchase-management .po-entry-mode-tabs button {
-    flex: 1;
-    text-align: center;
-  }
-
   .purchase-management .po-form-section {
     padding: 12px;
   }
@@ -1968,6 +2080,24 @@ body.po-modal-resizing {
   .purchase-management .po-header-product-btn {
     font-size: 12px;
     padding: 0.5rem 0.7rem;
+  }
+
+  .purchase-management .po-entry-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .purchase-management .po-entry-full-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .purchase-management .po-entry-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-management .po-entry-table {
+    min-width: 680px;
   }
 
   .purchase-management .po-item-main,

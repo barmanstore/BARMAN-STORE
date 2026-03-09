@@ -2357,7 +2357,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('name') ? (
                               <td className={cellClassName('col-name')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'name') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('name')} className="table-edit-input" value={tableEditForm.name} onChange={(e) => handleTableEditChange('name', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('name')} className="table-edit-input" name="table_edit_name" value={tableEditForm.name} onChange={(e) => handleTableEditChange('name', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate cell-name" title={product.name || '-'}>{product.name || '-'}</span>
                                 )}
@@ -2366,7 +2366,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('brand') ? (
                               <td className={cellClassName('col-brand')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'brand') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('brand')} className="table-edit-input" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('brand')} className="table-edit-input" name="table_edit_brand" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate cell-brand" title={getBrandPath(product) || '-'}>{getBrandPath(product) || '-'}</span>
                                 )}
@@ -2375,7 +2375,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('category') ? (
                               <td className={cellClassName('col-category')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'category') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('category')} className="table-edit-input" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('category')} className="table-edit-input" name="table_edit_category" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate cell-category" title={getCategoryPath(product) || '-'}>{getCategoryPath(product) || '-'}</span>
                                 )}
@@ -2383,23 +2383,23 @@ function Admin({ user }) {
                             ) : null}
                             {isProductTableColumnVisible('price') ? (
                               <td className={cellClassName('col-price')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'price') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('price')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('price')} className="table-edit-input" name="table_edit_price" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}
                               </td>
                             ) : null}
                             {isProductTableColumnVisible('mrp') ? (
                               <td className={cellClassName('col-mrp')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'mrp') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('mrp')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('mrp')} className="table-edit-input" name="table_edit_mrp" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}
                               </td>
                             ) : null}
                             {isProductTableColumnVisible('stock') ? (
                               <td className={cellClassName('col-stock')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'stock') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('stock')} className="table-edit-input" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('stock')} className="table-edit-input" name="table_edit_stock" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}
                               </td>
                             ) : null}
                             {isProductTableColumnVisible('sku') ? (
                               <td className={cellClassName('col-sku')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'sku') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('sku')} className="table-edit-input" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('sku')} className="table-edit-input" name="table_edit_sku" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate cell-code" title={product.sku || '-'}>{product.sku || '-'}</span>
                                 )}
@@ -2408,7 +2408,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('barcode') ? (
                               <td className={cellClassName('col-barcode')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'barcode') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('barcode')} className="table-edit-input" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('barcode')} className="table-edit-input" name="table_edit_barcode" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate cell-code" title={product.barcode || '-'}>{product.barcode || '-'}</span>
                                 )}
@@ -2417,7 +2417,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('status') ? (
                               <td className={cellClassName('col-status')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'is_active') : undefined}>
                                 {isEditingRow ? (
-                                  <select ref={setTableEditFieldRef('is_active')} className="table-edit-input" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
+                                  <select ref={setTableEditFieldRef('is_active')} className="table-edit-input" name="table_edit_is_active" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
                                     <option value="1">Active</option>
                                     <option value="0">Inactive</option>
                                   </select>
@@ -2427,7 +2427,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('description') ? (
                               <td className={cellClassName('col-description')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'description') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('description')} className="table-edit-input" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('description')} className="table-edit-input" name="table_edit_description" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
                                 ) : (
                                   <span className="description-snippet" title={product.description || '-'}>{product.description || '-'}</span>
                                 )}
@@ -2436,7 +2436,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('content') ? (
                               <td className={cellClassName('col-content')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'content') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('content')} className="table-edit-input" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('content')} className="table-edit-input" name="table_edit_content" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate" title={product.content || '-'}>{product.content || '-'}</span>
                                 )}
@@ -2445,7 +2445,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('color') ? (
                               <td className={cellClassName('col-color')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'color') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('color')} className="table-edit-input" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('color')} className="table-edit-input" name="table_edit_color" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate" title={product.color || '-'}>{product.color || '-'}</span>
                                 )}
@@ -2454,7 +2454,7 @@ function Admin({ user }) {
                             {isProductTableColumnVisible('uom') ? (
                               <td className={cellClassName('col-uom')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'uom') : undefined}>
                                 {isEditingRow ? (
-                                  <input ref={setTableEditFieldRef('uom')} className="table-edit-input" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} />
+                                  <input ref={setTableEditFieldRef('uom')} className="table-edit-input" name="table_edit_uom" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate" title={product.uom || '-'}>{product.uom || '-'}</span>
                                 )}
@@ -2462,18 +2462,18 @@ function Admin({ user }) {
                             ) : null}
                             {isProductTableColumnVisible('expiry') ? (
                               <td className={cellClassName('col-expiry')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'expiry_date') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('expiry_date')} className="table-edit-input" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('expiry_date')} className="table-edit-input" name="table_edit_expiry_date" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}
                               </td>
                             ) : null}
                             {isProductTableColumnVisible('discount') ? (
                               <td className={cellClassName('col-discount')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'defaultDiscount') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('defaultDiscount')} className="table-edit-input" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('defaultDiscount')} className="table-edit-input" name="table_edit_default_discount" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}
                               </td>
                             ) : null}
                             {isProductTableColumnVisible('discountType') ? (
                               <td className={cellClassName('col-discountType')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'discountType') : undefined}>
                                 {isEditingRow ? (
-                                  <select ref={setTableEditFieldRef('discountType')} className="table-edit-input" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
+                                  <select ref={setTableEditFieldRef('discountType')} className="table-edit-input" name="table_edit_discount_type" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
                                     <option value="fixed">fixed</option>
                                     <option value="percentage">percentage</option>
                                   </select>
@@ -2490,7 +2490,7 @@ function Admin({ user }) {
                             ) : null}
                             {isProductTableColumnVisible('src') ? (
                               <td className={cellClassName('col-src')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'image') : undefined}>
-                                {isEditingRow ? <input ref={setTableEditFieldRef('image')} className="table-edit-input" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}
+                                {isEditingRow ? <input ref={setTableEditFieldRef('image')} className="table-edit-input" name="table_edit_image" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}
                               </td>
                             ) : null}
                           </tr>

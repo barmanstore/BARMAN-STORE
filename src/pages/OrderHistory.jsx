@@ -118,7 +118,7 @@ function OrderFilters({
       <div className="filter-controls">
         <div className="filter-group">
           <Filter size={18} />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select name="status_filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             {statusFilters.map((status) => (
               <option key={status} value={status}>
                 {status === 'all'
@@ -130,7 +130,7 @@ function OrderFilters({
         </div>
 
         <div className="sort-group">
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <select name="sort_by" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
