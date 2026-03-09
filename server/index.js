@@ -1556,7 +1556,21 @@ const derivePurchaseNextAction = (order = {}) => {
 const normalizeTransactionDate = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return null;
-  return raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}[t\s]/i.test(raw)) return raw.slice(0, 10);
+
+  let normalizedInput = raw;
+  if (/^[a-z]{3}\s+[a-z]{3}\s+\d{1,2}$/i.test(raw)) {
+    normalizedInput = `${raw} ${new Date().getFullYear()}`;
+  }
+
+  const parsedAt = Date.parse(normalizedInput);
+  if (!Number.isFinite(parsedAt)) return null;
+  const parsedDate = new Date(parsedAt);
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const normalizePaymentMethod = (method) => {
@@ -7714,7 +7728,11 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
       const paymentNotes = String(req.body?.payment_notes || req.body?.notes || '').trim() || null;
       const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || new Date().toISOString());
       const confirmedAt = new Date().toISOString();
-      const distributor = await getDistributorByIdAsync(order.distributor_id);
+      const distributorId = Number(order.distributor_id || 0);
+      const distributor = await getDistributorByIdAsync(distributorId);
+      if (distributorId > 0 && !distributor) {
+        return res.status(400).json({ error: 'Purchase order distributor not found. Reassign the distributor before processing this PO.' });
+      }
       const totalSnapshot = calculatePoPaymentSnapshot(Number(order.total_amount ?? order.total ?? 0), initialPaidAmount);
       if (initialPaidAmount > totalSnapshot.totalAmount) {
         return res.status(400).json({ error: 'Initial paid amount cannot exceed PO total amount' });
@@ -7802,7 +7820,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
            LIMIT 1`,
           [order.distributor_id, String(req.params.id), `${req.params.id}.0`]
         );
-        if (!existingPoCredit && Number(order.distributor_id || 0) > 0 && totalSnapshot.totalAmount > 0) {
+        if (!existingPoCredit && distributorId > 0 && totalSnapshot.totalAmount > 0) {
           await createDistributorLedgerEntry(order.distributor_id, {
             type: 'credit',
             transaction_type: 'credit',
@@ -7818,7 +7836,7 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
           });
         }
 
-        if (totalSnapshot.paidAmount > 0 && Number(order.distributor_id || 0) > 0) {
+        if (totalSnapshot.paidAmount > 0 && distributorId > 0) {
           const paymentResult = await dbRunAsync(
             `INSERT INTO purchase_order_payments
              (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by)
@@ -8514,6 +8532,14 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
 
     const amount = Math.max(0, Number(req.body?.amount || 0));
     if (amount <= 0) return res.status(400).json({ error: 'amount must be greater than 0' });
+    const distributorId = Number(order.distributor_id || 0);
+    if (!distributorId) {
+      return res.status(400).json({ error: 'Purchase order distributor is missing. Reassign the distributor before recording payment.' });
+    }
+    const distributor = await getDistributorByIdAsync(distributorId);
+    if (!distributor) {
+      return res.status(400).json({ error: 'Purchase order distributor not found. Reassign the distributor before recording payment.' });
+    }
 
     const totalSnapshotBefore = calculatePoPaymentSnapshot(
       Number(order.total_amount ?? order.total ?? 0),
@@ -8552,12 +8578,12 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
 
     await dbTxAsync(async () => {
       const paymentResult = await dbRunAsync(
-        `INSERT INTO purchase_order_payments
-         (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by, client_request_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO purchase_order_payments
+             (purchase_order_id, distributor_id, amount, payment_mode, reference, notes, transaction_date, created_by, client_request_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.params.id,
-          order.distributor_id,
+          distributorId,
           amount,
           paymentMode,
           reference,
@@ -8569,8 +8595,8 @@ app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => 
       );
       paymentId = Number(paymentResult.lastInsertRowid || 0) || null;
 
-      if (paymentId && Number(order.distributor_id || 0) > 0) {
-        await createDistributorLedgerEntry(order.distributor_id, {
+      if (paymentId && distributorId > 0) {
+        await createDistributorLedgerEntry(distributorId, {
           type: 'payment',
           transaction_type: 'payment',
           amount,

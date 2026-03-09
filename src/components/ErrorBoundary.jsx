@@ -24,7 +24,7 @@ class ErrorBoundary extends React.Component {
         <div style={{
           padding: '40px 20px',
           textAlign: 'center',
-          minHeight: '100vh',
+          minHeight: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',

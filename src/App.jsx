@@ -5,6 +5,7 @@ import UserMenu from './components/UserMenu';
 import ErrorBoundary from './components/ErrorBoundary';
 import { analyticsApi, notificationsApi } from './services/api';
 import { truncateUserName } from './utils/formatters';
+import useLockBodyScroll from './hooks/useLockBodyScroll';
 import './index.css';
 import './App.css';
 import * as info from './pages/info.js';
@@ -71,6 +72,16 @@ const createVisitorSessionId = () => {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 };
 
+const runWhenIdle = (task, timeout = 1000) => {
+  if (typeof window === 'undefined' || typeof task !== 'function') return () => {};
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(() => task(), { timeout });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(() => task(), Math.min(timeout, 250));
+  return () => window.clearTimeout(id);
+};
+
 function VisitorTracker() {
   const location = useLocation();
   const sessionIdRef = useRef('');
@@ -85,32 +96,39 @@ function VisitorTracker() {
     }
     sessionIdRef.current = existingSessionId;
     latestPathRef.current = `${location.pathname || '/'}${location.search || ''}`;
-    analyticsApi.startSession({
-      session_id: existingSessionId,
-      path: latestPathRef.current,
-      referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
-    }).catch(() => {});
+    const cancelIdle = runWhenIdle(() => {
+      analyticsApi.startSession({
+        session_id: existingSessionId,
+        path: latestPathRef.current,
+        referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+      }).catch(() => {});
+    }, 1200);
+    return () => cancelIdle();
   }, []);
 
   useEffect(() => {
     const currentPath = `${location.pathname || '/'}${location.search || ''}`;
     latestPathRef.current = currentPath;
     if (!sessionIdRef.current) return;
-    analyticsApi.heartbeat({
-      session_id: sessionIdRef.current,
-      path: currentPath,
-    }).catch(() => {});
+    const cancelIdle = runWhenIdle(() => {
+      analyticsApi.heartbeat({
+        session_id: sessionIdRef.current,
+        path: currentPath,
+      }).catch(() => {});
+    }, 900);
+    return () => cancelIdle();
   }, [location.pathname, location.search]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const interval = window.setInterval(() => {
       if (!sessionIdRef.current) return;
+      if (document.visibilityState !== 'visible') return;
       analyticsApi.heartbeat({
         session_id: sessionIdRef.current,
         path: latestPathRef.current || '/',
       }).catch(() => {});
-    }, 30000);
+    }, 45000);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -134,6 +152,7 @@ function App() {
   const [messageSending, setMessageSending] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState({ type: '', text: '' });
   const notificationInboxRef = useRef(null);
+  const headerRef = useRef(null);
   const logoImage = getPublicFileUrl(info.LOGO_URL || 'logo.png');
   const isAdminUser = String(user?.role || '').trim().toLowerCase() === 'admin';
   const closeMobileMenu = () => setMobileMenuOpen(false);
@@ -145,6 +164,8 @@ function App() {
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${whatsappText}`
     : '';
+
+  useLockBodyScroll(mobileMenuOpen);
 
   useEffect(() => {
     // Check for existing user session
@@ -237,8 +258,33 @@ function App() {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+    const node = headerRef.current;
+    if (!node) return undefined;
+
+    const updateHeaderHeight = () => {
+      const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
+      document.documentElement.style.setProperty('--app-header-height', `${Math.max(0, nextHeight)}px`);
+    };
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    let resizeObserver;
+    if (typeof window.ResizeObserver === 'function') {
+      resizeObserver = new window.ResizeObserver(() => updateHeaderHeight());
+      resizeObserver.observe(node);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     let isCancelled = false;
     let timerId = null;
+    let bootstrapTimerId = null;
 
     const unpackNotificationPayload = (payload) => {
       if (Array.isArray(payload)) {
@@ -288,8 +334,15 @@ function App() {
     };
 
     if (user?.id) {
-      loadNotifications(false);
-      timerId = window.setInterval(() => loadNotifications(true), 30000);
+      bootstrapTimerId = window.setTimeout(() => {
+        if (!isCancelled) {
+          void loadNotifications(false);
+        }
+      }, 700);
+      timerId = window.setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        void loadNotifications(true);
+      }, 45000);
     } else {
       setNotifications([]);
       setUnreadNotificationCount(0);
@@ -300,6 +353,7 @@ function App() {
     return () => {
       isCancelled = true;
       if (timerId) window.clearInterval(timerId);
+      if (bootstrapTimerId) window.clearTimeout(bootstrapTimerId);
     };
   }, [user?.id]);
 
@@ -508,18 +562,6 @@ function App() {
     };
   }, [notificationPanelOpen]);
 
-  useEffect(() => {
-    if (!mobileMenuOpen) {
-      document.body.style.overflow = '';
-      return undefined;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [mobileMenuOpen]);
-
   return (
     <ErrorBoundary>
       <BrowserRouter
@@ -532,7 +574,7 @@ function App() {
       <div className="app">
         <VisitorTracker />
         {/* Header */}
-        <header className="header">
+        <header className="header" ref={headerRef}>
           <div className="header-content">
             <button
               className="mobile-menu-btn"

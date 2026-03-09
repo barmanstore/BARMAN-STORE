@@ -389,6 +389,7 @@ function Login({ setUser }) {
               <label htmlFor="identifier">Email</label>
               <input
                 id="identifier"
+                name="identifier"
                 type="email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -410,6 +411,7 @@ function Login({ setUser }) {
               <label htmlFor="otp">Enter OTP</label>
               <input
                 id="otp"
+                name="otp"
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"

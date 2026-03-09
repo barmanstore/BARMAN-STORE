@@ -3,7 +3,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
-  min-height: 100vh;
+  min-height: 100%;
 }
 
 /* Loading */
@@ -593,7 +593,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 12px;
-  min-height: 100vh;
+  min-height: 100%;
 }
 
 .profile-header {

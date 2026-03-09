@@ -55,6 +55,8 @@ function Home() {
           </div>
           <form className="hero-search-wrap" onSubmit={handleHeroSearch}>
             <input
+              id="home-hero-search"
+              name="search"
               type="text"
               className="hero-search-input"
               placeholder="Search groceries, notebooks, brands..."

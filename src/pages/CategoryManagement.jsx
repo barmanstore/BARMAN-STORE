@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Edit2, Trash2, X, FolderTree, GitBranch, RefreshCcw } from 'lucide-react';
 import { categoriesApi } from '../services/api';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './CategoryManagement.css';
 
 const toNumericId = (value) => {
@@ -9,6 +10,7 @@ const toNumericId = (value) => {
 };
 
 function CategoryManagement({ onClose }) {
+  useLockBodyScroll(true);
   const [categories, setCategories] = useState([]);
   const [categoryTree, setCategoryTree] = useState([]);
   const [loading, setLoading] = useState(true);

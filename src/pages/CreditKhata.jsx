@@ -4,6 +4,7 @@ import { creditApi, usersApi } from '../services/api';
 import { formatCurrency, truncateUserName } from '../utils/formatters';
 import { getTodayDate } from '../utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../utils/ledger';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './CreditKhata.css';
 
 const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_date', 'created_at', 'date']);
@@ -110,6 +111,7 @@ function CreditKhata({ user }) {
   const [showLedgerForm, setShowLedgerForm] = useState(false);
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultFormData());
   const [editingLedgerEntryId, setEditingLedgerEntryId] = useState(null);
+  useLockBodyScroll(showLedgerForm);
   const amountPreview = useMemo(() => {
     try {
       return evaluateMathExpression(ledgerFormData.amount);

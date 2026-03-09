@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, Shield, LogOut, ChevronDown, X, CreditCard, FileText, Lightbulb } from 'lucide-react';
 import { resolveMediaSourceForDisplay } from '../services/api';
 import { truncateUserName } from '../utils/formatters';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './UserMenu.css';
 
 function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} }) {
@@ -17,6 +18,8 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
   const navigate = useNavigate();
   const location = useLocation();
   const isMobileContext = inMobileNav && isMobileViewport;
+
+  useLockBodyScroll(menuOpen && isMobileViewport && !isMobileContext);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -40,14 +43,9 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
       if (event.key === 'Escape') setMenuOpen(false);
     };
 
-    const isMobile = window.innerWidth <= 768;
-    const previousOverflow = document.body.style.overflow;
-    if (isMobile && !isMobileContext) document.body.style.overflow = 'hidden';
-
     document.addEventListener('keydown', handleEsc);
     return () => {
       document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = previousOverflow;
     };
   }, [menuOpen, isMobileContext]);
 

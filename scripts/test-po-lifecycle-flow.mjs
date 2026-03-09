@@ -170,7 +170,7 @@ const main = async () => {
     assert.equal(registerRes.status, 201, `register PO failed: ${JSON.stringify(registerJson)}`);
     createdPoId = Number(registerJson?.id || 0);
     assert.equal(createdPoId > 0, true, 'Created PO id missing');
-    assert.equal(String(registerJson?.po_status || ''), 'registered', 'PO should start as registered');
+    assert.equal(String(registerJson?.po_status || ''), 'prepared', 'PO should start as prepared');
     assert.equal(String(registerJson?.payment_status || ''), 'unpaid', 'PO should start unpaid');
 
     const poBeforeEditRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
@@ -219,7 +219,7 @@ const main = async () => {
     });
     const processJson = await toJson(processRes);
     assert.equal(processRes.status, 200, `process PO failed: ${JSON.stringify(processJson)}`);
-    assert.equal(String(processJson?.po_status || ''), 'processed', 'PO should become processed');
+    assert.equal(String(processJson?.po_status || ''), 'part_paid', 'PO should become part_paid after partial process payment');
     assert.equal(String(processJson?.payment_status || ''), 'part_paid', 'PO should become part-paid after partial process payment');
 
     const editAfterProcessRes = await adminRequest(`/api/purchase-orders/${createdPoId}`, {
@@ -234,7 +234,7 @@ const main = async () => {
     const poAfterProcessRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
     const poAfterProcessJson = await toJson(poAfterProcessRes);
     assert.equal(poAfterProcessRes.status, 200, `PO fetch after process failed: ${JSON.stringify(poAfterProcessJson)}`);
-    assert.equal(String(poAfterProcessJson?.po_status || ''), 'processed', 'stored PO status should be processed');
+    assert.equal(String(poAfterProcessJson?.po_status || ''), 'part_paid', 'stored PO status should be part_paid');
     assert.equal(String(poAfterProcessJson?.payment_status || ''), 'part_paid', 'stored PO payment should be part_paid');
     const dueAfterProcess = toNumber(poAfterProcessJson?.balance_due);
     assert.equal(dueAfterProcess > 0, true, 'balance_due should remain after partial payment');
@@ -252,12 +252,14 @@ const main = async () => {
     });
     const finalPaymentJson = await toJson(finalPaymentRes);
     assert.equal(finalPaymentRes.status, 201, `final payment failed: ${JSON.stringify(finalPaymentJson)}`);
+    assert.equal(String(finalPaymentJson?.po_status || ''), 'fully_paid', 'PO lifecycle should become fully_paid after final payment');
     assert.equal(String(finalPaymentJson?.payment_status || ''), 'paid', 'payment status should become paid after final payment');
     assert.equal(toNumber(finalPaymentJson?.balance_due), 0, 'balance should be zero after final payment');
 
     const poAfterFinalRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
     const poAfterFinalJson = await toJson(poAfterFinalRes);
     assert.equal(poAfterFinalRes.status, 200, `PO fetch after final payment failed: ${JSON.stringify(poAfterFinalJson)}`);
+    assert.equal(String(poAfterFinalJson?.po_status || ''), 'fully_paid', 'stored PO lifecycle should be fully_paid');
     assert.equal(String(poAfterFinalJson?.payment_status || ''), 'paid', 'stored payment status should be paid');
     assert.equal(toNumber(poAfterFinalJson?.balance_due), 0, 'stored balance should be zero');
 
@@ -274,10 +276,10 @@ const main = async () => {
     assert.equal(Boolean(poCreditEntry), true, 'khata should include automatic PO credit entry');
     assert.equal(poPaymentEntries.length >= 2, true, 'khata should include process payment + final payment entries');
 
-    const filteredProcessedRes = await adminRequest('/api/purchase-orders?status=processed&payment_status=paid');
-    const filteredProcessedJson = await toJson(filteredProcessedRes);
-    assert.equal(filteredProcessedRes.status, 200, `filtered PO list failed: ${JSON.stringify(filteredProcessedJson)}`);
-    const filteredRows = Array.isArray(filteredProcessedJson) ? filteredProcessedJson : [];
+    const filteredPaidRes = await adminRequest('/api/purchase-orders?status=fully_paid&payment_status=paid');
+    const filteredPaidJson = await toJson(filteredPaidRes);
+    assert.equal(filteredPaidRes.status, 200, `filtered PO list failed: ${JSON.stringify(filteredPaidJson)}`);
+    const filteredRows = Array.isArray(filteredPaidJson) ? filteredPaidJson : [];
     const filteredMatch = filteredRows.find((row) => String(row?.id) === String(createdPoId));
     assert.equal(Boolean(filteredMatch), true, 'filtered PO list should include processed+paid PO');
 

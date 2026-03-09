@@ -4,6 +4,7 @@ import { productsApi, categoriesApi } from '../services/api';
 import { getProductImageSrc } from '../utils/productImage';
 import ImageUrlPicker from '../components/ImageUrlPicker';
 import useIsMobile from '../hooks/useIsMobile';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import './ProductForm.css';
 
@@ -64,6 +65,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
   const [isContentAutoFromPrice, setIsContentAutoFromPrice] = useState(false);
   const [isStockAutoFromPrice, setIsStockAutoFromPrice] = useState(false);
   const isMobile = useIsMobile();
+  useLockBodyScroll(!isMobile);
   const [showAdvancedFields, setShowAdvancedFields] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.innerWidth > 768;

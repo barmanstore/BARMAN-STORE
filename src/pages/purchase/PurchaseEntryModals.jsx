@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 export function QuickPurchaseOrderModal({
   open,
@@ -28,18 +29,23 @@ export function QuickPurchaseOrderModal({
   handlePoModalResizeStart,
   quickOrderSubmitting,
 }) {
+  useLockBodyScroll(open);
+
   if (!open) return null;
 
   return (
     <div className="modal-overlay" onClick={closeQuickOrderForm}>
       <div
         ref={poModalRef}
-        className="modal-content large po-form-modal"
+        className="modal-content large po-form-modal quick-po-modal"
         onClick={(event) => event.stopPropagation()}
-        style={isMobile ? undefined : { width: `${poModalSize.width}px`, height: `${poModalSize.height}px` }}
+        style={isMobile ? undefined : { width: `${Math.min(poModalSize.width, 760)}px` }}
       >
         <div className="modal-header">
-          <h2>Quick Purchase Entry</h2>
+          <div className="quick-po-header-copy">
+            <h2>Quick Purchase Entry</h2>
+            <p>Distributor + items only. Save the draft fast.</p>
+          </div>
           <div className="po-modal-header-actions">
             <button
               type="button"
@@ -53,10 +59,10 @@ export function QuickPurchaseOrderModal({
             </button>
           </div>
         </div>
-        <form onSubmit={handleQuickOrderSubmit} className="po-entry-form">
-          <div className="form-section po-form-section po-form-header">
-            <div className="form-row po-info-row">
-              <div className="form-group">
+        <form onSubmit={handleQuickOrderSubmit} className="po-entry-form quick-po-entry-form">
+          <div className="form-section po-form-section po-form-header quick-po-topbar">
+            <div className="quick-po-topbar-row">
+              <div className="form-group quick-po-distributor-field">
                 <label>Distributor *</label>
                 <input
                   type="text"
@@ -72,7 +78,7 @@ export function QuickPurchaseOrderModal({
                   ))}
                 </datalist>
               </div>
-              <div className="form-group">
+              <div className="form-group quick-po-date-field">
                 <label>Date</label>
                 <input
                   type="date"
@@ -81,93 +87,93 @@ export function QuickPurchaseOrderModal({
                 />
               </div>
             </div>
-            <div className="form-group">
-              <label>Notes</label>
-              <textarea
-                value={quickOrderFormData.notes}
-                onChange={(event) => setQuickOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
-                rows="2"
-                placeholder="Optional short note"
-              />
+            <div className="quick-po-secondary-row">
+              <div className="form-group quick-po-note-field">
+                <label>Note</label>
+                <input
+                  type="text"
+                  value={quickOrderFormData.notes}
+                  onChange={(event) => setQuickOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
+                  placeholder="Optional short note"
+                />
+              </div>
+              <div className="quick-po-stat-chip">
+                <span>Rows</span>
+                <strong>{quickOrderFormData.items.length}</strong>
+              </div>
             </div>
           </div>
 
-          <div className="form-section po-form-section">
+          <div className="form-section po-form-section quick-po-items-section">
             <div className="section-header">
-              <h3>Items (Product + Qty)</h3>
+              <h3>Items</h3>
             </div>
-            <div className="quick-entry-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>UOM</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {quickOrderFormData.items.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="empty-state">No rows added</td>
-                    </tr>
-                  ) : quickOrderFormData.items.map((item, index) => {
-                    const selectedProduct = findProductForItem(products, item);
-                    const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                    const selectedUom = resolvePurchaseUnitForProduct(
-                      selectedProduct,
-                      item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
-                    );
-                    return (
-                      <tr key={index}>
-                        <td>
-                          <input
-                            type="text"
-                            list={`quick-po-product-list-${index}`}
-                            value={item.product_query || ''}
-                            onChange={(event) => handleQuickOrderProductInputChange(index, event.target.value)}
-                            onFocus={() => handleQuickProductFieldFocus(index)}
-                            placeholder="Type product name / SKU"
-                          />
-                          <datalist id={`quick-po-product-list-${index}`}>
-                            {quickOrderProductOptions.prioritized.map((product) => (
-                              <option key={`quick-recent-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'recent')} />
-                            ))}
-                            {quickOrderProductOptions.all.map((product) => (
-                              <option key={`quick-all-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'all')} />
-                            ))}
-                          </datalist>
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(event) => handleQuickOrderItemChange(index, 'quantity', toNumber(event.target.value))}
-                          />
-                        </td>
-                        <td>
-                          <select
-                            value={selectedUom}
-                            onChange={(event) => handleQuickOrderItemChange(index, 'uom', event.target.value)}
-                          >
-                            {uomOptions.map((uomOption) => (
-                              <option key={`quick-item-${index}-uom-${uomOption}`} value={uomOption}>
-                                {uomOption}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <button type="button" className="remove-item-btn" onClick={() => handleQuickOrderItemRemove(index)}>
-                            <X size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="quick-po-list-shell">
+              <div className="quick-po-grid-head" aria-hidden="true">
+                <span>#</span>
+                <span>Product</span>
+                <span>Qty</span>
+                <span>UOM</span>
+                <span />
+              </div>
+              <div className="quick-po-list">
+              {quickOrderFormData.items.map((item, index) => {
+                const selectedProduct = findProductForItem(products, item);
+                const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                const selectedUom = resolvePurchaseUnitForProduct(
+                  selectedProduct,
+                  item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
+                );
+                return (
+                  <div key={index} className="quick-po-row">
+                    <div className="quick-po-row-index">{index + 1}</div>
+                    <div className="quick-po-row-main">
+                      <input
+                        type="text"
+                        list={`quick-po-product-list-${index}`}
+                        value={item.product_query || ''}
+                        onChange={(event) => handleQuickOrderProductInputChange(index, event.target.value)}
+                        onFocus={() => handleQuickProductFieldFocus(index)}
+                        placeholder="Type product name / SKU"
+                      />
+                      <datalist id={`quick-po-product-list-${index}`}>
+                        {quickOrderProductOptions.prioritized.map((product) => (
+                          <option key={`quick-recent-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'recent')} />
+                        ))}
+                        {quickOrderProductOptions.all.map((product) => (
+                          <option key={`quick-all-${index}-${product.id}`} value={getProductSearchOptionLabel(product, 'all')} />
+                          ))}
+                        </datalist>
+                    </div>
+                    <div className="quick-po-row-side">
+                      <div className="quick-po-mini-field">
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(event) => handleQuickOrderItemChange(index, 'quantity', toNumber(event.target.value))}
+                        />
+                      </div>
+                      <div className="quick-po-mini-field">
+                        <select
+                          value={selectedUom}
+                          onChange={(event) => handleQuickOrderItemChange(index, 'uom', event.target.value)}
+                        >
+                          {uomOptions.map((uomOption) => (
+                            <option key={`quick-item-${index}-uom-${uomOption}`} value={uomOption}>
+                              {uomOption}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <button type="button" className="remove-item-btn quick-po-remove-btn" onClick={() => handleQuickOrderItemRemove(index)}>
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              </div>
             </div>
             <div className="po-products-actions">
               <button type="button" className="add-item-btn" onClick={handleQuickOrderItemAdd}>
@@ -181,7 +187,7 @@ export function QuickPurchaseOrderModal({
               Cancel
             </button>
             <button type="submit" className="submit-btn" disabled={quickOrderSubmitting}>
-              {quickOrderSubmitting ? 'Saving...' : 'Save Quick Draft'}
+              {quickOrderSubmitting ? 'Saving...' : 'Save Draft'}
             </button>
           </div>
         </form>
@@ -227,6 +233,8 @@ export function PurchaseOrderFormModal({
   getProductSearchOptionLabel,
   orderSubmitting,
 }) {
+  useLockBodyScroll(open);
+
   if (!open) return null;
 
   return (

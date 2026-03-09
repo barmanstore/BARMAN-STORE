@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { memo, useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, useLayoutEffect, startTransition } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles } from 'lucide-react';
-import { productsApi, categoriesApi, resolveMediaSourceForDisplay } from '../services/api';
+import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles, X } from 'lucide-react';
+import { analyticsApi, productsApi, categoriesApi, resolveMediaSourceForDisplay, resolveMediaUrl } from '../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../utils/productImage';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
 import useIsMobile from '../hooks/useIsMobile';
@@ -22,6 +22,77 @@ const GROUP_BY_OPTIONS = {
 };
 const LOGO_DEV_TOKEN = String(import.meta.env.VITE_LOGO_DEV_TOKEN || '').trim();
 const PRODUCTS_AUTOLOAD_ROOT_MARGIN = '720px 0px';
+const ABOVE_FOLD_EAGER_IMAGE_COUNT = {
+  mobile: 4,
+  desktop: 8
+};
+const DEFAULT_SORT_BY = 'popular';
+const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc', 'stock-desc'];
+const SORT_API_FALLBACK = {
+  popular: 'relevance'
+};
+const PRODUCTS_TELEMETRY_SESSION_KEY = 'barman_products_session_v1';
+const PRODUCTS_AB_VARIANT_KEY = 'barman_products_ab_variant_v1';
+const PRODUCTS_LIST_CACHE_PREFIX = 'barman_products_page_cache_v1';
+const PRODUCTS_LIST_CACHE_TTL_MS = 90 * 1000;
+const PRODUCTS_CATEGORIES_CACHE_KEY = 'barman_products_categories_cache_v1';
+const PRODUCTS_CATEGORIES_CACHE_TTL_MS = 10 * 60 * 1000;
+const SEARCH_SUGGESTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_SUGGESTIONS_MAX_ITEMS = 8;
+const SEARCH_SUGGESTIONS_MIN_CHARS = 2;
+const RESOLVED_MEDIA_CACHE_MAX_ITEMS = 600;
+const resolvedMediaSourceCache = new Map();
+const PRODUCTS_SYNONYMS = {
+  milk: ['doodh'],
+  curd: ['dahi', 'yogurt'],
+  biscuit: ['cookie'],
+  chips: ['namkeen', 'snack'],
+  atta: ['flour'],
+  dal: ['lentil', 'pulse'],
+  rice: ['chawal'],
+  detergent: ['washing', 'powder'],
+  soap: ['bodywash'],
+  tea: ['chai']
+};
+const PRODUCTS_SYNONYM_REVERSE = Object.entries(PRODUCTS_SYNONYMS).reduce((acc, [key, values]) => {
+  const normalizedKey = normalizeText(key);
+  (Array.isArray(values) ? values : []).forEach((value) => {
+    const normalizedValue = normalizeText(value);
+    if (!normalizedValue) return;
+    if (!acc[normalizedValue]) acc[normalizedValue] = [];
+    acc[normalizedValue].push(normalizedKey);
+  });
+  return acc;
+}, {});
+
+const normalizeSortBy = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return SORT_OPTIONS.includes(normalized) ? normalized : DEFAULT_SORT_BY;
+};
+const tokenizeSearchText = (value = '') => {
+  return normalizeText(value)
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+};
+
+const tokenFuzzyMatch = (queryToken, targetToken) => {
+  const query = String(queryToken || '');
+  const target = String(targetToken || '');
+  if (!query || !target) return false;
+  if (target === query) return true;
+  if (target.startsWith(query) || query.startsWith(target)) return true;
+  if (Math.abs(query.length - target.length) > 1 || query.length < 4 || target.length < 4) return false;
+  let mismatch = 0;
+  const limit = Math.min(query.length, target.length);
+  for (let index = 0; index < limit; index += 1) {
+    if (query[index] === target[index]) continue;
+    mismatch += 1;
+    if (mismatch > 1) return false;
+  }
+  return mismatch <= 1;
+};
 
 const formatCurrencyColored = (amount) => {
   const formatted = formatCurrency(Math.abs(amount));
@@ -35,6 +106,31 @@ const formatPriceTag = (value) => {
     ? String(amount)
     : String(Number(amount.toFixed(2))).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
   return `${normalized}/`;
+};
+
+const getCachedResolvedMediaSource = (value) => {
+  const key = String(value || '').trim();
+  if (!key) return '';
+  return String(resolvedMediaSourceCache.get(key) || '').trim();
+};
+
+const cacheResolvedMediaSource = (source, resolvedSource) => {
+  const sourceKey = String(source || '').trim();
+  const resolvedKey = String(resolvedSource || '').trim();
+  if (!sourceKey || !resolvedKey) return;
+  if (resolvedMediaSourceCache.has(sourceKey)) {
+    resolvedMediaSourceCache.delete(sourceKey);
+  }
+  resolvedMediaSourceCache.set(sourceKey, resolvedKey);
+  if (resolvedMediaSourceCache.size <= RESOLVED_MEDIA_CACHE_MAX_ITEMS) return;
+  const oldestKey = resolvedMediaSourceCache.keys().next().value;
+  if (oldestKey) resolvedMediaSourceCache.delete(oldestKey);
+};
+
+const getSuggestionImageSrc = (item) => {
+  const fromRow = resolveMediaUrl(item?.image);
+  if (fromRow) return fromRow;
+  return getProductFallbackImage(item);
 };
 
 const buildResponsiveImageSources = (src, preferredWidth = 480) => {
@@ -169,6 +265,74 @@ const safeWriteJson = (key, value) => {
   }
 };
 
+const safeReadSessionJson = (key, fallback) => {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const safeWriteSessionJson = (key, value) => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (_) {
+    // Ignore storage write issues.
+  }
+};
+
+const readSessionStorageValue = (key) => {
+  try {
+    return String(sessionStorage.getItem(key) || '').trim();
+  } catch (_) {
+    return '';
+  }
+};
+
+const writeSessionStorageValue = (key, value) => {
+  try {
+    sessionStorage.setItem(key, String(value || ''));
+  } catch (_) {
+    // Ignore storage write issues.
+  }
+};
+
+const createTelemetrySessionId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `products_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const hasActiveUserSession = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('user') || '{}');
+    return Boolean(String(parsed?.token || '').trim());
+  } catch (_) {
+    return false;
+  }
+};
+
+const buildProductsListSessionCacheKey = ({
+  selectedCategory,
+  query,
+  sortBy,
+  inStockOnly,
+  pageSize
+}) => {
+  return [
+    PRODUCTS_LIST_CACHE_PREFIX,
+    normalizeText(selectedCategory || 'all') || 'all',
+    normalizeText(query || ''),
+    normalizeSortBy(sortBy),
+    inStockOnly ? '1' : '0',
+    String(Number(pageSize || 0))
+  ].join('|');
+};
+
 const getUsageWindowDays = (label = '', category = '', addCount = 0) => {
   const text = `${normalizeText(label)} ${normalizeText(category)}`;
   let baseDays = 7;
@@ -249,7 +413,7 @@ const resolveBrandLogoUrl = (brandName = '') => {
 function BrandFilterVisual({ logo, name }) {
   const [failed, setFailed] = useState(false);
   const resolvedName = String(name || '').trim() || 'Brand';
-  const resolvedLogo = String(logo || '').trim();
+  const resolvedLogo = resolveMediaUrl(logo);
   if (!resolvedLogo || failed) {
     return <span className="brand-chip-name">{resolvedName}</span>;
   }
@@ -318,6 +482,10 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
       selectedLabel: '',
       previewLabels: [],
       priceValue: 0,
+      mrpValue: 0,
+      hasDiscount: false,
+      discountPercent: 0,
+      savingsValue: 0,
       showFromPrice: false,
       minPrice: 0,
       stockTone: 'out-of-stock',
@@ -348,6 +516,12 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
       .filter(Boolean)
   )];
   const priceValue = Number(resolvedVariation.price || 0);
+  const mrpValue = Math.max(priceValue, Number(resolvedVariation.mrp || 0));
+  const hasDiscount = mrpValue > priceValue;
+  const savingsValue = hasDiscount ? (mrpValue - priceValue) : 0;
+  const discountPercent = hasDiscount && mrpValue > 0
+    ? Math.round((savingsValue / mrpValue) * 100)
+    : 0;
   const minPrice = Number(family?.minPrice || priceValue || 0);
   const showFromPrice = hasMultipleVariations && minPrice > 0 && minPrice < priceValue;
 
@@ -379,6 +553,10 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
     selectedLabel: getVariationPreviewLabel(resolvedVariation),
     previewLabels,
     priceValue,
+    mrpValue,
+    hasDiscount,
+    discountPercent,
+    savingsValue,
     showFromPrice,
     minPrice,
     stockTone,
@@ -391,11 +569,15 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
 };
 
 function SafeProductImage({ src, alt, className, fallbackProduct, width, height, ...rest }) {
-  const [resolvedSrc, setResolvedSrc] = useState(() => src || getProductFallbackImage(fallbackProduct));
+  const [resolvedSrc, setResolvedSrc] = useState(() => {
+    const cached = getCachedResolvedMediaSource(src);
+    return cached || resolveMediaUrl(src) || src || getProductFallbackImage(fallbackProduct);
+  });
   const isDetailImage = String(className || '').includes('detail-mobile-image');
   const preferredWidth = isDetailImage ? 960 : 520;
   const explicitWidth = Math.max(16, Math.round(Number(width || (isDetailImage ? 960 : 400))));
   const explicitHeight = Math.max(16, Math.round(Number(height || (isDetailImage ? 600 : 400))));
+  const decodeMode = String(rest.loading || '').toLowerCase() === 'eager' ? 'sync' : 'async';
   const responsiveSources = useMemo(
     () => buildResponsiveImageSources(resolvedSrc, preferredWidth),
     [resolvedSrc, preferredWidth]
@@ -410,6 +592,12 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
         if (mounted) setResolvedSrc(getProductFallbackImage(fallbackProduct));
         return;
       }
+      const cachedSrc = getCachedResolvedMediaSource(src);
+      if (cachedSrc) {
+        if (mounted) setResolvedSrc(cachedSrc);
+        return;
+      }
+      if (mounted) setResolvedSrc(resolveMediaUrl(src) || src);
       try {
         const resolved = await resolveMediaSourceForDisplay(src);
         if (!mounted) {
@@ -417,7 +605,9 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
           return;
         }
         if (resolved.revoke && resolved.src) objectUrlToRevoke = resolved.src;
-        setResolvedSrc(resolved.src || getProductFallbackImage(fallbackProduct));
+        const nextSrc = resolved.src || getProductFallbackImage(fallbackProduct);
+        if (resolved.src) cacheResolvedMediaSource(src, resolved.src);
+        setResolvedSrc(nextSrc);
       } catch (_) {
         if (mounted) setResolvedSrc(getProductFallbackImage(fallbackProduct));
       }
@@ -439,8 +629,8 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
       className={className}
       width={explicitWidth}
       height={explicitHeight}
-      decoding="async"
       {...rest}
+      decoding={decodeMode}
       onError={(event) => {
         event.currentTarget.onerror = null;
         event.currentTarget.srcset = '';
@@ -573,7 +763,7 @@ function ProductDetailView({
   );
 }
 
-function FamilyProductCard({
+const FamilyProductCard = memo(function FamilyProductCard({
   family,
   cardState,
   variant = 'default',
@@ -586,7 +776,9 @@ function FamilyProductCard({
   onTouchStart,
   onTouchEnd,
   showMetaLine = true,
-  showSwipeHint = false
+  showSwipeHint = false,
+  imageLoading = 'lazy',
+  imageFetchPriority = 'auto'
 }) {
   const {
     selectedVariation,
@@ -600,6 +792,10 @@ function FamilyProductCard({
     selectedLabel,
     previewLabels,
     priceValue,
+    mrpValue,
+    hasDiscount,
+    discountPercent,
+    savingsValue,
     showFromPrice,
     minPrice,
     stockTone,
@@ -633,7 +829,8 @@ function FamilyProductCard({
               src={previewVariation?.image}
               alt={family.name}
               className="glass-product-image"
-              loading="lazy"
+              loading={imageLoading}
+              fetchPriority={imageFetchPriority}
               fallbackProduct={previewVariation?.raw || selectedVariation.raw}
               width={variant === 'compact' ? 288 : 320}
               height={variant === 'compact' ? 224 : 280}
@@ -645,6 +842,9 @@ function FamilyProductCard({
           <span className="price-corner-tag">{formatPriceTag(priceValue)}</span>
           {hasMultipleVariations ? (
             <span className="card-option-pill">{optionCount} options</span>
+          ) : null}
+          {hasDiscount ? (
+            <span className="card-discount-pill">{Math.max(1, discountPercent)}% OFF</span>
           ) : null}
         </div>
       </button>
@@ -679,6 +879,13 @@ function FamilyProductCard({
             <strong>{formatCurrencyColored(priceValue)}</strong>
             <small>/ {uomLabel || 'pcs'}</small>
           </div>
+
+          {hasDiscount ? (
+            <div className="card-price-meta">
+              <small className="mrp-price">MRP {formatCurrency(mrpValue)}</small>
+              <small className="save-price">Save {formatCurrency(savingsValue)}</small>
+            </div>
+          ) : null}
 
           {showFromPrice ? (
             <small className="card-from-price">From {formatCurrency(minPrice)}</small>
@@ -743,7 +950,7 @@ function FamilyProductCard({
       </div>
     </article>
   );
-}
+});
 
 function VirtualizedFamilyGrid({
   families,
@@ -753,47 +960,211 @@ function VirtualizedFamilyGrid({
   shouldVirtualize = false
 }) {
   const hostRef = useRef(null);
-  const [isVisible, setIsVisible] = useState(!shouldVirtualize);
+  const itemRefs = useRef(new Map());
+  const [isNearViewport, setIsNearViewport] = useState(!shouldVirtualize);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: Math.max(0, Math.min((families?.length || 1) - 1, 15)) });
+  const cols = Math.max(1, Number(estimatedColumns || 1));
+  const rowHeight = Math.max(160, Number(estimatedCardHeight || 290));
+  const totalItems = Math.max(0, Number(families?.length || 0));
+  const totalRows = Math.max(1, Math.ceil(totalItems / cols));
+  const [rowHeights, setRowHeights] = useState(() => Array.from({ length: totalRows }, () => rowHeight));
+  const rowOffsets = useMemo(() => {
+    const offsets = new Array(totalRows + 1);
+    offsets[0] = 0;
+    for (let index = 0; index < totalRows; index += 1) {
+      offsets[index + 1] = offsets[index] + Math.max(120, Number(rowHeights[index] || rowHeight));
+    }
+    return offsets;
+  }, [rowHeights, totalRows, rowHeight]);
+  const totalHeight = Math.max(110, rowOffsets[totalRows] || (totalRows * rowHeight));
+  const startRowIndex = Math.floor(Math.max(0, visibleRange.start) / cols);
+  const virtualWindowOffset = rowOffsets[startRowIndex] || 0;
+
+  const findRowIndexAtOffset = (offsetPx) => {
+    if (totalRows <= 1) return 0;
+    let low = 0;
+    let high = totalRows - 1;
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      if ((rowOffsets[mid + 1] || 0) <= offsetPx) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return low;
+  };
 
   useEffect(() => {
-    if (!shouldVirtualize || isVisible) return undefined;
+    setVisibleRange({ start: 0, end: Math.max(0, Math.min(totalItems - 1, 15)) });
+  }, [totalItems]);
+
+  useEffect(() => {
+    setRowHeights((prev) => Array.from({ length: totalRows }, (_, index) => (
+      Math.max(120, Number(prev[index] || rowHeight))
+    )));
+  }, [totalRows, rowHeight, cols]);
+
+  useEffect(() => {
+    if (!shouldVirtualize) {
+      setIsNearViewport(true);
+      return undefined;
+    }
     const node = hostRef.current;
     if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
-      setIsVisible(true);
+      setIsNearViewport(true);
       return undefined;
     }
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry?.isIntersecting) {
-          setIsVisible(true);
-        }
+        setIsNearViewport(Boolean(entry?.isIntersecting));
       },
-      { root: null, rootMargin: '900px 0px 900px 0px', threshold: 0.01 }
+      { root: null, rootMargin: '1200px 0px 1200px 0px', threshold: 0.01 }
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [shouldVirtualize, isVisible]);
+  }, [shouldVirtualize]);
 
-  const rows = Math.max(1, Math.ceil((families?.length || 0) / Math.max(1, Number(estimatedColumns || 1))));
-  const placeholderHeight = Math.max(110, rows * estimatedCardHeight);
+  useEffect(() => {
+    if (!shouldVirtualize || !isNearViewport) return undefined;
+    const node = hostRef.current;
+    if (!node || typeof window === 'undefined') return undefined;
+    let frameId = 0;
+    const overscanRows = 3;
 
-  return (
-    <div ref={hostRef} className="virtual-grid-host">
-      {isVisible ? (
+    const computeRange = () => {
+      frameId = 0;
+      const componentTop = window.scrollY + node.getBoundingClientRect().top;
+      const viewportTop = window.scrollY;
+      const viewportBottom = viewportTop + window.innerHeight;
+      const visibleTopPx = Math.max(0, viewportTop - componentTop);
+      const visibleBottomPx = Math.min(totalHeight, viewportBottom - componentTop);
+      const startRow = Math.max(0, findRowIndexAtOffset(visibleTopPx) - overscanRows);
+      const endRow = Math.min(totalRows - 1, findRowIndexAtOffset(Math.max(0, visibleBottomPx)) + overscanRows);
+      const nextStart = Math.max(0, startRow * cols);
+      const nextEnd = Math.min(totalItems - 1, ((endRow + 1) * cols) - 1);
+      setVisibleRange((prev) => {
+        if (prev.start === nextStart && prev.end === nextEnd) return prev;
+        return { start: nextStart, end: nextEnd };
+      });
+    };
+
+    const scheduleCompute = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(computeRange);
+    };
+
+    scheduleCompute();
+    window.addEventListener('scroll', scheduleCompute, { passive: true });
+    window.addEventListener('resize', scheduleCompute);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', scheduleCompute);
+      window.removeEventListener('resize', scheduleCompute);
+    };
+  }, [shouldVirtualize, isNearViewport, totalRows, totalHeight, cols, totalItems, rowOffsets]);
+
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || !isNearViewport || totalItems === 0) return undefined;
+
+    const measureVisibleRows = () => {
+      const measuredByRow = new Map();
+      itemRefs.current.forEach((node, indexKey) => {
+        const absoluteIndex = Number(indexKey);
+        if (!node || absoluteIndex < visibleRange.start || absoluteIndex > visibleRange.end) return;
+        const measuredHeight = Math.ceil(node.getBoundingClientRect().height || 0);
+        if (!measuredHeight) return;
+        const rowIndex = Math.floor(absoluteIndex / cols);
+        measuredByRow.set(rowIndex, Math.max(measuredByRow.get(rowIndex) || 0, measuredHeight));
+      });
+      if (measuredByRow.size === 0) return;
+
+      setRowHeights((prev) => {
+        let changed = false;
+        const next = prev.length === totalRows
+          ? [...prev]
+          : Array.from({ length: totalRows }, (_, index) => Math.max(120, Number(prev[index] || rowHeight)));
+        measuredByRow.forEach((measuredHeight, rowIndex) => {
+          const stableHeight = Math.max(120, measuredHeight);
+          if (Math.abs(Number(next[rowIndex] || rowHeight) - stableHeight) > 1) {
+            next[rowIndex] = stableHeight;
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    };
+
+    measureVisibleRows();
+    if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function') return undefined;
+    const observer = new window.ResizeObserver(() => measureVisibleRows());
+    itemRefs.current.forEach((node, indexKey) => {
+      const absoluteIndex = Number(indexKey);
+      if (node && absoluteIndex >= visibleRange.start && absoluteIndex <= visibleRange.end) {
+        observer.observe(node);
+      }
+    });
+    return () => observer.disconnect();
+  }, [shouldVirtualize, isNearViewport, totalItems, visibleRange.start, visibleRange.end, cols, totalRows, rowHeight]);
+
+  if (!shouldVirtualize) {
+    return (
+      <div ref={hostRef} className="virtual-grid-host">
         <div className="group-products-grid">
           {families.map((family) => renderFamilyCard(family))}
         </div>
-      ) : (
-        <div className="virtual-grid-placeholder" style={{ height: `${placeholderHeight}px` }} aria-hidden="true" />
-      )}
+      </div>
+    );
+  }
+
+  if (!isNearViewport) {
+    return (
+      <div ref={hostRef} className="virtual-grid-host">
+        <div className="virtual-grid-placeholder" style={{ height: `${totalHeight}px` }} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  const windowedFamilies = families.slice(visibleRange.start, visibleRange.end + 1);
+
+  return (
+    <div ref={hostRef} className="virtual-grid-host">
+      <div className="virtual-grid-window" style={{ height: `${totalHeight}px` }}>
+        <div
+          className="group-products-grid virtual-grid-windowed-content"
+          style={{ transform: `translateY(${virtualWindowOffset}px)` }}
+        >
+          {windowedFamilies.map((family, index) => {
+            const absoluteIndex = visibleRange.start + index;
+            return (
+              <div
+                key={family.id || family.name || absoluteIndex}
+                className="virtual-grid-item"
+                ref={(node) => {
+                  if (node) {
+                    itemRefs.current.set(absoluteIndex, node);
+                  } else {
+                    itemRefs.current.delete(absoluteIndex);
+                  }
+                }}
+              >
+                {renderFamilyCard(family)}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
 function Products({ setCartCount }) {
   const isMobile = useIsMobile();
+  const productsPageRef = useRef(null);
+  const controlsRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearchQuery = String(searchParams.get('q') || '');
   const initialGroupBy = searchParams.get('group') === GROUP_BY_OPTIONS.brand
     ? GROUP_BY_OPTIONS.brand
     : GROUP_BY_OPTIONS.category;
@@ -801,9 +1172,15 @@ function Products({ setCartCount }) {
   const [categories, setCategories] = useState([]);
   const [recentlyBought, setRecentlyBought] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('q') || '');
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'relevance');
+  const [searchInputValue, setSearchInputValue] = useState(initialSearchQuery);
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState(initialSearchQuery);
+  const deferredAppliedSearchQuery = useDeferredValue(appliedSearchQuery);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [searchSuggestionsEnabled, setSearchSuggestionsEnabled] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [sortBy, setSortBy] = useState(normalizeSortBy(searchParams.get('sort')));
   const [groupBy, setGroupBy] = useState(initialGroupBy);
   const [inStockOnly, setInStockOnly] = useState(searchParams.get('stock') === '1');
   const [loading, setLoading] = useState(true);
@@ -826,29 +1203,242 @@ function Products({ setCartCount }) {
   const productsLoadTriggerRef = useRef(null);
   const latestProductsRequestRef = useRef(0);
   const productsLoadingMoreRef = useRef(false);
+  const productsAbortControllerRef = useRef(null);
+  const productsTelemetryRef = useRef({
+    sessionId: '',
+    abVariant: 'control',
+    lastEventAt: {}
+  });
+  const searchSuggestionsCacheRef = useRef(new Map());
+  const searchSuggestionsRequestRef = useRef(0);
+  const searchSuggestionsAbortRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const searchSuggestionsListId = 'products-search-suggestions-list';
   const productPageSize = getProductPageSize(isMobile);
+  const serverCategoryFilter = groupBy === GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
 
   useEffect(() => {
-    fetchCategories();
-    fetchRecentlyBought();
-    loadCart();
-    setUsageHistory(safeReadJson(USAGE_HISTORY_KEY, {}));
+    if (typeof window === 'undefined') return undefined;
+    const pageNode = productsPageRef.current;
+    const controlsNode = controlsRef.current;
+    if (!pageNode || !controlsNode) return undefined;
+
+    const updateStickyMetrics = () => {
+      const controlsHeight = Math.ceil(controlsNode.getBoundingClientRect().height || 0);
+      pageNode.style.setProperty('--products-controls-height', `${Math.max(0, controlsHeight)}px`);
+    };
+
+    updateStickyMetrics();
+    window.addEventListener('resize', updateStickyMetrics);
+    let resizeObserver;
+    if (typeof window.ResizeObserver === 'function') {
+      resizeObserver = new window.ResizeObserver(() => updateStickyMetrics());
+      resizeObserver.observe(controlsNode);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateStickyMetrics);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 250);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    let recentlyBoughtTimer = 0;
+    fetchCategories();
+    if (hasActiveUserSession()) {
+      recentlyBoughtTimer = window.setTimeout(() => {
+        fetchRecentlyBought();
+      }, 450);
+    }
+    loadCart();
+    setUsageHistory(safeReadJson(USAGE_HISTORY_KEY, {}));
+    return () => {
+      if (recentlyBoughtTimer) window.clearTimeout(recentlyBoughtTimer);
+    };
+  }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams();
+    const query = String(searchInputValue || '').trim();
+    if (searchSuggestionsAbortRef.current) {
+      searchSuggestionsAbortRef.current.abort();
+      searchSuggestionsAbortRef.current = null;
+    }
+
+    if (!searchSuggestionsEnabled) {
+      setShowSearchSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      setIsLoadingSuggestions(false);
+      return undefined;
+    }
+
+    if (query.length < SEARCH_SUGGESTIONS_MIN_CHARS) {
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      setIsLoadingSuggestions(false);
+      return undefined;
+    }
+
+    const cacheKey = normalizeText(query);
+    const cacheRecord = searchSuggestionsCacheRef.current.get(cacheKey);
+    const now = Date.now();
+    if (cacheRecord && (now - Number(cacheRecord.at || 0)) < SEARCH_SUGGESTIONS_CACHE_TTL_MS) {
+      setSearchSuggestions(cacheRecord.items);
+      setShowSearchSuggestions(cacheRecord.items.length > 0);
+      setActiveSuggestionIndex(-1);
+      setIsLoadingSuggestions(false);
+      return undefined;
+    }
+
+    const requestId = searchSuggestionsRequestRef.current + 1;
+    searchSuggestionsRequestRef.current = requestId;
+    setIsLoadingSuggestions(true);
+    const controller = new AbortController();
+    searchSuggestionsAbortRef.current = controller;
+    const timer = setTimeout(async () => {
+      try {
+        const payload = await productsApi.suggest({
+          q: query,
+          limit: SEARCH_SUGGESTIONS_MAX_ITEMS
+        }, { signal: controller.signal });
+        if (requestId !== searchSuggestionsRequestRef.current) return;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        searchSuggestionsCacheRef.current.set(cacheKey, { items, at: Date.now() });
+        setSearchSuggestions(items);
+        setShowSearchSuggestions(items.length > 0);
+        setActiveSuggestionIndex(-1);
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+        if (requestId !== searchSuggestionsRequestRef.current) return;
+        setSearchSuggestions([]);
+        setShowSearchSuggestions(false);
+      } finally {
+        if (requestId === searchSuggestionsRequestRef.current) {
+          setIsLoadingSuggestions(false);
+        }
+        if (searchSuggestionsAbortRef.current === controller) {
+          searchSuggestionsAbortRef.current = null;
+        }
+      }
+    }, 220);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+      if (searchSuggestionsAbortRef.current === controller) {
+        searchSuggestionsAbortRef.current = null;
+      }
+    };
+  }, [searchInputValue, searchSuggestionsEnabled]);
+
+  useEffect(() => {
+    if (!showSearchSuggestions || activeSuggestionIndex < 0) return;
+    const activeNode = document.getElementById(`products-search-suggestion-${activeSuggestionIndex}`);
+    if (!activeNode || typeof activeNode.scrollIntoView !== 'function') return;
+    activeNode.scrollIntoView({ block: 'nearest' });
+  }, [showSearchSuggestions, activeSuggestionIndex, searchSuggestions.length]);
+
+  const trackProductsEvent = useCallback((eventName, payload = {}, options = {}) => {
+    if (typeof window === 'undefined') return;
+    const name = String(eventName || '').trim();
+    if (!name) return;
+    const sessionId = String(productsTelemetryRef.current.sessionId || '').trim();
+    if (!sessionId) return;
+    const throttleMs = Math.max(0, Number(options.throttleMs || 0));
+    const throttleKey = String(options.throttleKey || name);
+    const now = Date.now();
+    if (throttleMs > 0) {
+      const previous = Number(productsTelemetryRef.current.lastEventAt[throttleKey] || 0);
+      if (now - previous < throttleMs) return;
+      productsTelemetryRef.current.lastEventAt[throttleKey] = now;
+    }
+    analyticsApi.heartbeat({
+      session_id: sessionId,
+      path: '/products',
+      product_event: {
+        name,
+        at: new Date().toISOString(),
+        session_id: sessionId,
+        ab_variant: productsTelemetryRef.current.abVariant,
+        ...payload
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const existingSessionId = readSessionStorageValue(PRODUCTS_TELEMETRY_SESSION_KEY);
+    const nextSessionId = existingSessionId || createTelemetrySessionId();
+    if (!existingSessionId) writeSessionStorageValue(PRODUCTS_TELEMETRY_SESSION_KEY, nextSessionId);
+    const queryVariant = String(searchParams.get('ab') || '').trim().toLowerCase();
+    let storedVariant = '';
+    try {
+      storedVariant = String(localStorage.getItem(PRODUCTS_AB_VARIANT_KEY) || '').trim().toLowerCase();
+    } catch (_) {
+      storedVariant = '';
+    }
+    const resolvedVariant = queryVariant || storedVariant || 'control';
+    if (queryVariant && queryVariant !== storedVariant) {
+      try {
+        localStorage.setItem(PRODUCTS_AB_VARIANT_KEY, queryVariant);
+      } catch (_) {
+        // Ignore storage write issues.
+      }
+    }
+    productsTelemetryRef.current.sessionId = nextSessionId;
+    productsTelemetryRef.current.abVariant = resolvedVariant;
+    trackProductsEvent('products_page_view', {
+      group_by: groupBy,
+      sort_by: sortBy,
+      stock_only: inStockOnly ? 1 : 0,
+      device: isMobile ? 'mobile' : 'desktop'
+    }, { throttleMs: 2000, throttleKey: 'products_page_view' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    trackProductsEvent('products_search_changed', {
+      query_length: String(appliedSearchQuery || '').trim().length,
+      has_query: appliedSearchQuery ? 1 : 0
+    }, { throttleMs: 1200, throttleKey: 'products_search_changed' });
+  }, [appliedSearchQuery, trackProductsEvent]);
+
+  useEffect(() => {
+    const nextCategory = searchParams.get('category') || 'all';
+    const nextQuery = String(searchParams.get('q') || '');
+    const nextSortBy = normalizeSortBy(searchParams.get('sort'));
+    const nextGroupBy = searchParams.get('group') === GROUP_BY_OPTIONS.brand
+      ? GROUP_BY_OPTIONS.brand
+      : GROUP_BY_OPTIONS.category;
+    const nextInStockOnly = searchParams.get('stock') === '1';
+
+    setSelectedCategory((prev) => (prev === nextCategory ? prev : nextCategory));
+    setSearchInputValue((prev) => (prev === nextQuery ? prev : nextQuery));
+    setAppliedSearchQuery((prev) => (prev === nextQuery ? prev : nextQuery));
+    setSortBy((prev) => (prev === nextSortBy ? prev : nextSortBy));
+    setGroupBy((prev) => (prev === nextGroupBy ? prev : nextGroupBy));
+    setInStockOnly((prev) => (prev === nextInStockOnly ? prev : nextInStockOnly));
+    setSearchSuggestionsEnabled(false);
+    setShowSearchSuggestions(false);
+    setActiveSuggestionIndex(-1);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    const previous = params.toString();
     if (selectedCategory !== 'all') params.set('category', selectedCategory);
-    if (debouncedQuery) params.set('q', debouncedQuery);
-    if (sortBy !== 'relevance') params.set('sort', sortBy);
+    else params.delete('category');
+    if (appliedSearchQuery) params.set('q', appliedSearchQuery);
+    else params.delete('q');
+    if (sortBy !== DEFAULT_SORT_BY) params.set('sort', sortBy);
+    else params.delete('sort');
     if (groupBy !== GROUP_BY_OPTIONS.category) params.set('group', groupBy);
+    else params.delete('group');
     if (inStockOnly) params.set('stock', '1');
-    setSearchParams(params, { replace: true });
-  }, [selectedCategory, debouncedQuery, sortBy, groupBy, inStockOnly, setSearchParams]);
+    else params.delete('stock');
+    if (params.toString() !== previous) {
+      setSearchParams(params, { replace: true, preventScrollReset: true });
+    }
+  }, [selectedCategory, appliedSearchQuery, sortBy, groupBy, inStockOnly, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -857,42 +1447,148 @@ function Products({ setCartCount }) {
   }, [notice]);
 
   useEffect(() => {
+    const handleOutside = (event) => {
+      if (!showSearchSuggestions) return;
+      const root = searchInputRef.current;
+      if (!root) return;
+      if (root.contains(event.target)) return;
+      setSearchSuggestionsEnabled(false);
+      setShowSearchSuggestions(false);
+      setActiveSuggestionIndex(-1);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [showSearchSuggestions]);
+
+  useEffect(() => {
     if (!swipeAddedFamilyId) return undefined;
     const timer = setTimeout(() => setSwipeAddedFamilyId(''), 850);
     return () => clearTimeout(timer);
   }, [swipeAddedFamilyId]);
 
-  const fetchProductsPage = async ({ page, append, requestId }) => {
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return undefined;
+    const metrics = { lcp: 0, cls: 0, inp: 0 };
+    let lcpObserver;
+    let clsObserver;
+    let inpObserver;
+    let flushed = false;
+
+    const flushVitals = () => {
+      if (flushed) return;
+      flushed = true;
+      const sessionId = String(productsTelemetryRef.current.sessionId || '').trim();
+      if (!sessionId) return;
+      analyticsApi.heartbeat({
+        session_id: sessionId,
+        path: '/products',
+        web_vitals: {
+          session_id: sessionId,
+          ab_variant: productsTelemetryRef.current.abVariant,
+          lcp_ms: Math.round(Number(metrics.lcp || 0)),
+          inp_ms: Math.round(Number(metrics.inp || 0)),
+          cls: Number((metrics.cls || 0).toFixed(4)),
+          captured_at: new Date().toISOString()
+        }
+      }).catch(() => {});
+    };
+
     try {
+      lcpObserver = new PerformanceObserver((entryList) => {
+        const entries = entryList.getEntries();
+        const lastEntry = entries[entries.length - 1];
+        if (lastEntry?.startTime) metrics.lcp = Math.max(metrics.lcp, lastEntry.startTime);
+      });
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+    } catch (_) {}
+
+    try {
+      clsObserver = new PerformanceObserver((entryList) => {
+        entryList.getEntries().forEach((entry) => {
+          if (!entry.hadRecentInput && Number.isFinite(entry.value)) {
+            metrics.cls += entry.value;
+          }
+        });
+      });
+      clsObserver.observe({ type: 'layout-shift', buffered: true });
+    } catch (_) {}
+
+    try {
+      inpObserver = new PerformanceObserver((entryList) => {
+        entryList.getEntries().forEach((entry) => {
+          const duration = Number(entry.duration || 0);
+          if (duration > metrics.inp) metrics.inp = duration;
+        });
+      });
+      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
+    } catch (_) {}
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushVitals();
+    };
+
+    window.addEventListener('pagehide', flushVitals);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      lcpObserver?.disconnect();
+      clsObserver?.disconnect();
+      inpObserver?.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flushVitals);
+      flushVitals();
+    };
+  }, []);
+
+  const fetchProductsPage = async ({ page, append, requestId, cacheKey = '' }) => {
+    const controller = new AbortController();
+    productsAbortControllerRef.current = controller;
+    try {
+      const serverSortBy = SORT_API_FALLBACK[sortBy] || sortBy;
       const params = {
         page: String(page),
         page_size: String(productPageSize),
-        sort: sortBy,
+        sort: serverSortBy,
       };
-      if (selectedCategory !== 'all') params.category = selectedCategory;
-      if (debouncedQuery) params.name = debouncedQuery;
+      if (serverCategoryFilter !== 'all') params.category = serverCategoryFilter;
+      if (appliedSearchQuery) params.name = appliedSearchQuery;
       if (inStockOnly) params.in_stock = 'true';
 
-      const data = await productsApi.getAll(params);
+      const data = await productsApi.getAll(params, { signal: controller.signal });
       if (requestId !== latestProductsRequestRef.current) return;
 
       const nextItems = Array.isArray(data)
         ? data
         : (Array.isArray(data?.items) ? data.items : []);
       const nextPagination = Array.isArray(data) ? null : (data?.pagination || null);
+      const nextPage = Number(nextPagination?.page || page || 1);
+      const nextHasMore = Boolean(nextPagination?.has_more);
 
-      setProducts((prev) => (append ? [...prev, ...nextItems] : nextItems));
-      setProductsPage(Number(nextPagination?.page || page));
-      setProductsHasMore(Boolean(nextPagination?.has_more));
+      setProducts((prev) => {
+        const merged = append ? [...prev, ...nextItems] : nextItems;
+        if (!append && cacheKey) {
+          safeWriteSessionJson(cacheKey, {
+            items: merged,
+            page: nextPage,
+            has_more: nextHasMore,
+            at: Date.now()
+          });
+        }
+        return merged;
+      });
+      setProductsPage(nextPage);
+      setProductsHasMore(nextHasMore);
       setError('');
     } catch (fetchError) {
+      if (fetchError?.name === 'AbortError') return;
       if (requestId !== latestProductsRequestRef.current) return;
       console.error('Error fetching products:', fetchError);
       setError('Failed to load products. Please refresh and try again.');
       if (!append) {
-        setProducts([]);
         setProductsHasMore(false);
-        setProductsPage(0);
       } else {
         setProductsHasMore(false);
       }
@@ -901,25 +1597,65 @@ function Products({ setCartCount }) {
       productsLoadingMoreRef.current = false;
       setLoading(false);
       setIsLoadingMore(false);
+      if (productsAbortControllerRef.current === controller) {
+        productsAbortControllerRef.current = null;
+      }
     }
   };
 
   useEffect(() => {
+    if (productsAbortControllerRef.current) {
+      productsAbortControllerRef.current.abort();
+      productsAbortControllerRef.current = null;
+    }
+    const cacheKey = buildProductsListSessionCacheKey({
+      selectedCategory: serverCategoryFilter,
+      query: appliedSearchQuery,
+      sortBy,
+      inStockOnly,
+      pageSize: productPageSize
+    });
+    const cached = safeReadSessionJson(cacheKey, null);
+    const isCacheFresh = Number(cached?.at || 0) > 0
+      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_LIST_CACHE_TTL_MS
+      && Array.isArray(cached?.items);
+    if (isCacheFresh) {
+      setProducts(cached.items);
+      setProductsPage(Math.max(1, Number(cached?.page || 1)));
+      setProductsHasMore(Boolean(cached?.has_more));
+      setError('');
+      setLoading(false);
+    } else {
+      setProducts((prev) => prev);
+      setError('');
+      setLoading(true);
+    }
     const requestId = latestProductsRequestRef.current + 1;
     latestProductsRequestRef.current = requestId;
     productsLoadingMoreRef.current = false;
-    setLoading(true);
     setIsLoadingMore(false);
-    setProducts([]);
-    setProductsPage(0);
-    setProductsHasMore(true);
-    fetchProductsPage({ page: 1, append: false, requestId });
-  }, [selectedCategory, debouncedQuery, sortBy, inStockOnly, productPageSize]);
+    fetchProductsPage({ page: 1, append: false, requestId, cacheKey });
+    return () => {
+      if (productsAbortControllerRef.current) {
+        productsAbortControllerRef.current.abort();
+        productsAbortControllerRef.current = null;
+      }
+    };
+  }, [serverCategoryFilter, appliedSearchQuery, sortBy, inStockOnly, productPageSize]);
 
   const fetchCategories = async () => {
+    const cached = safeReadSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, null);
+    const hasFreshCache = Number(cached?.at || 0) > 0
+      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_CATEGORIES_CACHE_TTL_MS
+      && Array.isArray(cached?.items);
+    if (hasFreshCache) {
+      setCategories(cached.items);
+    }
     try {
       const data = await categoriesApi.getAll();
-      setCategories(Array.isArray(data) ? data : []);
+      const items = Array.isArray(data) ? data : [];
+      setCategories(items);
+      safeWriteSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, { items, at: Date.now() });
     } catch (fetchError) {
       console.error('Error fetching categories:', fetchError);
     }
@@ -1049,6 +1785,20 @@ function Products({ setCartCount }) {
         if (a.price !== b.price) return a.price - b.price;
         return String(a.content || '').localeCompare(String(b.content || ''));
       });
+      const searchHaystack = [
+        family.name,
+        family.brand,
+        family.brandRoot,
+        family.subBrand,
+        family.category,
+        family.subcategory,
+        family.categoryPath,
+        family.description,
+        ...sortedVariations.map((variation) => `${variation.content} ${variation.color} ${variation.sku}`)
+      ]
+        .map((value) => normalizeText(value))
+        .join(' ');
+      const searchTokens = Array.from(new Set(tokenizeSearchText(searchHaystack))).slice(0, 96);
       const minPrice = sortedVariations.reduce((min, variation) => Math.min(min, Number(variation.price || 0)), Infinity);
       const totalStock = sortedVariations.reduce((sum, variation) => sum + Number(variation.stock || 0), 0);
       const categoryIds = Array.from(family.categoryIds || [])
@@ -1058,6 +1808,8 @@ function Products({ setCartCount }) {
         ...family,
         categoryIds,
         variations: sortedVariations,
+        searchHaystack,
+        searchTokens,
         minPrice: Number.isFinite(minPrice) ? minPrice : 0,
         totalStock
       };
@@ -1260,8 +2012,32 @@ function Products({ setCartCount }) {
   }, [selectedCategory, groupBy, activeFilterOptions]);
 
   const filteredFamilies = useMemo(() => {
-    const query = normalizeText(debouncedQuery);
+    const query = normalizeText(deferredAppliedSearchQuery);
     const selected = normalizeText(selectedCategory);
+    const brandPathScopes = Array.from(brandPathScopeSet);
+    const categoryPathScopes = Array.from(categoryPathScopeSet);
+    const queryTokens = tokenizeSearchText(query);
+    const queryTokenGroups = queryTokens.map((token) => {
+      const directVariants = Array.isArray(PRODUCTS_SYNONYMS[token]) ? PRODUCTS_SYNONYMS[token] : [];
+      const reverseVariants = Array.isArray(PRODUCTS_SYNONYM_REVERSE[token]) ? PRODUCTS_SYNONYM_REVERSE[token] : [];
+      return Array.from(new Set([token, ...directVariants, ...reverseVariants].map((value) => normalizeText(value)).filter(Boolean)));
+    });
+
+    const getQueryMatchScore = (family) => {
+      if (!query) return 0;
+      const haystack = String(family.searchHaystack || '');
+      const name = normalizeText(family.name);
+      let score = 0;
+      if (haystack.includes(query)) score += 24;
+      if (name.startsWith(query)) score += 16;
+      else if (name.includes(query)) score += 10;
+      const tokens = Array.isArray(family.searchTokens) ? family.searchTokens : [];
+      queryTokenGroups.forEach((group) => {
+        const matched = group.some((candidate) => tokens.some((token) => tokenFuzzyMatch(candidate, token)));
+        if (matched) score += 9;
+      });
+      return score;
+    };
 
     let list = productFamilies.filter((family) => {
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
@@ -1269,7 +2045,7 @@ function Products({ setCartCount }) {
         if (groupBy === GROUP_BY_OPTIONS.brand) {
           const familyBrandPath = normalizePathValue(family.brandPath || family.brandRoot || family.brand);
           const familyBrandRoot = normalizeText(family.brandRoot || splitHierarchyValue(family.brandPath || '').parent || family.brand);
-          const matchesBrandPath = Array.from(brandPathScopeSet).some((scopePath) => (
+          const matchesBrandPath = brandPathScopes.some((scopePath) => (
             familyBrandPath === scopePath || familyBrandPath.startsWith(`${scopePath} ->`)
           ));
           const matchesBrandRoot = familyBrandRoot === selected;
@@ -1283,7 +2059,7 @@ function Products({ setCartCount }) {
             if (!matchesCategoryIdTree) return false;
           } else if (categoryIdScopeSet.size > 0) {
             const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
-            const matchesCategoryPath = Array.from(categoryPathScopeSet).some((scopePath) => (
+            const matchesCategoryPath = categoryPathScopes.some((scopePath) => (
               familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
             ));
             const familyCategoryTokens = new Set([
@@ -1295,7 +2071,7 @@ function Products({ setCartCount }) {
             if (!matchesCategoryPath && !matchesCategoryNameScope) return false;
           } else {
             const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
-            const matchesCategoryPath = Array.from(categoryPathScopeSet).some((scopePath) => (
+            const matchesCategoryPath = categoryPathScopes.some((scopePath) => (
               familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
             ));
             const familyCategoryRoot = normalizeText(family.category || splitHierarchyValue(family.categoryPath || '').parent);
@@ -1311,37 +2087,50 @@ function Products({ setCartCount }) {
       }
       if (inStockOnly && !inStock) return false;
       if (!query) return true;
-
-      const searchable = [
-        family.name,
-        family.brand,
-        family.brandRoot,
-        family.subBrand,
-        family.category,
-        family.subcategory,
-        family.categoryPath,
-        family.description,
-        ...family.variations.map((variation) => `${variation.content} ${variation.color} ${variation.sku}`)
-      ]
-        .map((value) => normalizeText(value))
-        .join(' ');
-
-      return searchable.includes(query);
+      if (String(family.searchHaystack || '').includes(query)) return true;
+      if (queryTokenGroups.length === 0) return false;
+      const tokens = Array.isArray(family.searchTokens) ? family.searchTokens : [];
+      return queryTokenGroups.every((group) => (
+        group.some((candidate) => tokens.some((token) => tokenFuzzyMatch(candidate, token)))
+      ));
     });
+
+    const getPopularityScore = (family) => {
+      const history = usageHistory[family.id] || {};
+      const addCount = Number(history.addCount || 0);
+      const lastAddedAt = Date.parse(history.lastAddedAt || '');
+      const daysSince = Number.isFinite(lastAddedAt)
+        ? Math.max(0, (Date.now() - lastAddedAt) / 86400000)
+        : 999;
+      const hasDiscount = family.variations.some((variation) => Number(variation.mrp || variation.price || 0) > Number(variation.price || 0));
+      const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
+      const stockScore = inStock ? Math.min(18, Number(family.totalStock || 0) * 0.35) : -24;
+      const recencyScore = Number.isFinite(lastAddedAt) ? Math.max(0, 22 - (daysSince * 2.6)) : 0;
+      const discountScore = hasDiscount ? 6 : 0;
+      const frequencyScore = Math.min(36, addCount * 8);
+      return stockScore + recencyScore + discountScore + frequencyScore;
+    };
 
     const sorters = {
       'price-asc': (a, b) => Number(a.minPrice || 0) - Number(b.minPrice || 0),
       'price-desc': (a, b) => Number(b.minPrice || 0) - Number(a.minPrice || 0),
       'stock-desc': (a, b) => Number(b.totalStock || 0) - Number(a.totalStock || 0),
       newest: (a, b) => Number(Math.max(...b.variations.map((variation) => Number(variation.id || 0)))) - Number(Math.max(...a.variations.map((variation) => Number(variation.id || 0)))),
+      popular: (a, b) => {
+        const aScore = getPopularityScore(a);
+        const bScore = getPopularityScore(b);
+        if (aScore !== bScore) return bScore - aScore;
+        if (query) {
+          const queryScoreDiff = getQueryMatchScore(b) - getQueryMatchScore(a);
+          if (queryScoreDiff !== 0) return queryScoreDiff;
+        }
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      },
       relevance: (a, b) => {
         if (!query) return String(a.name || '').localeCompare(String(b.name || ''));
-        const aName = normalizeText(a.name);
-        const bName = normalizeText(b.name);
-        const aStarts = aName.startsWith(query) ? 1 : 0;
-        const bStarts = bName.startsWith(query) ? 1 : 0;
-        if (aStarts !== bStarts) return bStarts - aStarts;
-        return aName.localeCompare(bName);
+        const queryScoreDiff = getQueryMatchScore(b) - getQueryMatchScore(a);
+        if (queryScoreDiff !== 0) return queryScoreDiff;
+        return normalizeText(a.name).localeCompare(normalizeText(b.name));
       }
     };
 
@@ -1353,7 +2142,7 @@ function Products({ setCartCount }) {
       return sortFn(a, b);
     });
     return list;
-  }, [productFamilies, debouncedQuery, selectedCategory, sortBy, inStockOnly, groupBy, categoryPathScopeSet, categoryIdScopeSet, categoryNameScopeSet, brandPathScopeSet]);
+  }, [productFamilies, deferredAppliedSearchQuery, selectedCategory, sortBy, inStockOnly, groupBy, categoryPathScopeSet, categoryIdScopeSet, categoryNameScopeSet, brandPathScopeSet, usageHistory]);
 
   useEffect(() => {
     setSelectedCategory('all');
@@ -1390,6 +2179,10 @@ function Products({ setCartCount }) {
 
   loadMoreProductsRef.current = () => {
     if (loading || isLoadingMore || productsLoadingMoreRef.current || !productsHasMore) return;
+    trackProductsEvent('products_load_more', {
+      current_page: Number(productsPage || 0),
+      next_page: Number(productsPage || 0) + 1
+    }, { throttleMs: 600, throttleKey: 'products_load_more' });
     const nextRequestId = latestProductsRequestRef.current;
     productsLoadingMoreRef.current = true;
     setIsLoadingMore(true);
@@ -1399,6 +2192,17 @@ function Products({ setCartCount }) {
       requestId: nextRequestId,
     });
   };
+
+  useEffect(() => {
+    if (loading) return;
+    if (filteredFamilies.length !== 0) return;
+    trackProductsEvent('products_no_results', {
+      query_length: String(appliedSearchQuery || '').trim().length,
+      category: selectedCategory,
+      sort_by: sortBy,
+      stock_only: inStockOnly ? 1 : 0
+    }, { throttleMs: 1600, throttleKey: 'products_no_results' });
+  }, [loading, filteredFamilies.length, appliedSearchQuery, selectedCategory, sortBy, inStockOnly, trackProductsEvent]);
 
   useEffect(() => {
     if (loading || isLoadingMore || !productsHasMore) return undefined;
@@ -1417,7 +2221,7 @@ function Products({ setCartCount }) {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loading, isLoadingMore, productsHasMore, productsPage, selectedCategory, debouncedQuery, sortBy, inStockOnly, productPageSize]);
+  }, [loading, isLoadingMore, productsHasMore, productsPage, serverCategoryFilter, appliedSearchQuery, sortBy, inStockOnly, productPageSize]);
 
   const visibleFamilyIndexById = useMemo(() => {
     return visibleFamilies.reduce((acc, family, index) => {
@@ -1480,17 +2284,17 @@ function Products({ setCartCount }) {
     return family.variations.find((variation) => variation.id === selectedId) || getFirstAvailableVariation(family);
   };
 
-  const handleSelectVariation = (familyId, variationId) => {
+  const handleSelectVariation = useCallback((familyId, variationId) => {
     setSelectedVariationByFamily((prev) => ({ ...prev, [familyId]: variationId }));
-  };
+  }, []);
 
-  const persistCart = (nextCart) => {
+  const persistCart = useCallback((nextCart) => {
     setCart(nextCart);
     safeWriteJson('barman_cart', nextCart);
     setCartCount(nextCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-  };
+  }, [setCartCount]);
 
-  const markVariationIdsAsAdded = (variationIds = []) => {
+  const markVariationIdsAsAdded = useCallback((variationIds = []) => {
     const uniqueIds = [...new Set(variationIds.map((value) => Number(value || 0)).filter((value) => value > 0))];
     if (!uniqueIds.length) return;
     setButtonStatus((prev) => {
@@ -1509,9 +2313,9 @@ function Products({ setCartCount }) {
         return next;
       });
     }, 900);
-  };
+  }, []);
 
-  const recordUsageEntries = (entries = []) => {
+  const recordUsageEntries = useCallback((entries = []) => {
     if (!entries.length) return;
     setUsageHistory((prev) => {
       const next = { ...prev };
@@ -1533,7 +2337,7 @@ function Products({ setCartCount }) {
       safeWriteJson(USAGE_HISTORY_KEY, next);
       return next;
     });
-  };
+  }, []);
 
   const buildCartWithAdditions = (baseCart, entries = []) => {
     let nextCart = Array.isArray(baseCart) ? [...baseCart] : [];
@@ -1584,7 +2388,7 @@ function Products({ setCartCount }) {
     return { nextCart, requestCount, appliedEntries };
   };
 
-  const addEntriesToCart = (entries = [], options = {}) => {
+  const addEntriesToCart = useCallback((entries = [], options = {}) => {
     const validEntries = entries.filter((entry) => entry?.family && entry?.variation);
     if (!validEntries.length) return;
 
@@ -1595,6 +2399,12 @@ function Products({ setCartCount }) {
     persistCart(nextCart);
     recordUsageEntries(appliedEntries);
     markVariationIdsAsAdded(appliedEntries.map((entry) => entry.variation.id));
+    trackProductsEvent('products_add_to_cart', {
+      entry_count: appliedEntries.length,
+      total_qty: appliedEntries.reduce((sum, entry) => sum + Number(entry.quantity || 0), 0),
+      request_mode_items: requestCount,
+      source: String(options?.source || 'catalog')
+    }, { throttleMs: 220, throttleKey: 'products_add_to_cart' });
 
     if (options?.markSwipeFamilyId) {
       setSwipeAddedFamilyId(String(options.markSwipeFamilyId));
@@ -1608,13 +2418,13 @@ function Products({ setCartCount }) {
           : 'Added as a requested item. Billing team will confirm availability.',
       });
     }
-  };
+  }, [cart, persistCart, recordUsageEntries, markVariationIdsAsAdded, trackProductsEvent]);
 
-  const addToCart = (family, variation, quantity = 1) => {
-    addEntriesToCart([{ family, variation, quantity }]);
-  };
+  const addToCart = useCallback((family, variation, quantity = 1) => {
+    addEntriesToCart([{ family, variation, quantity }], { source: 'catalog_add' });
+  }, [addEntriesToCart]);
 
-  const decreaseFromCart = (variation) => {
+  const decreaseFromCart = useCallback((variation) => {
     if (!variation) return;
     const existingItem = cart.find((item) => Number(item.id || 0) === Number(variation.id || 0));
     if (!existingItem) return;
@@ -1625,7 +2435,7 @@ function Products({ setCartCount }) {
       : cart.map((item) => (Number(item.id || 0) === Number(variation.id || 0) ? { ...item, quantity: nextQty } : item));
 
     persistCart(newCart);
-  };
+  }, [cart, persistCart]);
 
   const handleQuickTileTouchStart = (family, event) => {
     const startX = Number(event?.touches?.[0]?.clientX || 0);
@@ -1643,16 +2453,20 @@ function Products({ setCartCount }) {
     if (deltaX < 56) return;
     const variation = getSelectedVariation(family);
     quickTileDidSwipeRef.current[family.id] = true;
-    addEntriesToCart([{ family, variation }], { markSwipeFamilyId: family.id });
+    addEntriesToCart([{ family, variation }], { markSwipeFamilyId: family.id, source: 'quick_swipe' });
   };
 
-  const openFamilyDetails = (familyId) => {
+  const openFamilyDetails = useCallback((familyId) => {
+    trackProductsEvent('products_open_detail', {
+      family_id: String(familyId || ''),
+      device: isMobile ? 'mobile' : 'desktop'
+    }, { throttleMs: 240, throttleKey: `products_open_detail_${familyId}` });
     if (isMobile) {
       setActiveMobileFamilyId(familyId);
       return;
     }
     setActiveDesktopFamilyId((prev) => (prev === familyId ? null : familyId));
-  };
+  }, [isMobile, trackProductsEvent]);
 
   const activeMobileFamily = useMemo(
     () => filteredFamilies.find((family) => family.id === activeMobileFamilyId) || null,
@@ -1824,7 +2638,7 @@ function Products({ setCartCount }) {
   };
 
   const handleRepeatOrder = () => {
-    addFamilyPackToCart(repeatOrderFamilies);
+    addFamilyPackToCart(repeatOrderFamilies, { source: 'repeat_order' });
   };
 
   const handleRestockAll = () => {
@@ -1833,20 +2647,22 @@ function Products({ setCartCount }) {
       variation: item.variation,
       quantity: 1
     }));
-    addEntriesToCart(entries);
+    addEntriesToCart(entries, { source: 'restock_all' });
   };
 
   const handleAddCombo = (combo) => {
     if (!combo?.items?.length) return;
-    addFamilyPackToCart(combo.items);
+    addFamilyPackToCart(combo.items, { source: `combo_${String(combo.id || 'unknown')}` });
   };
 
   const estimatedGridColumns = isMobile ? 2 : 4;
+  const eagerImageBudget = isMobile ? ABOVE_FOLD_EAGER_IMAGE_COUNT.mobile : ABOVE_FOLD_EAGER_IMAGE_COUNT.desktop;
 
   const renderFamilyCard = (family) => {
     const selectedVariation = getSelectedVariation(family);
     const isActiveDesktop = !isMobile && activeDesktopFamilyId === family.id;
     const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
+    const shouldPrioritizeImage = animationIndex < eagerImageBudget;
     const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
     if (!cardState.selectedVariation) return null;
 
@@ -1861,6 +2677,8 @@ function Products({ setCartCount }) {
         onAdd={addToCart}
         onDecrease={decreaseFromCart}
         showMetaLine={!isMobile}
+        imageLoading={shouldPrioritizeImage ? 'eager' : 'lazy'}
+        imageFetchPriority={shouldPrioritizeImage ? 'high' : 'low'}
         detailContent={isActiveDesktop ? (
           <ProductDetailView
             family={family}
@@ -1905,6 +2723,8 @@ function Products({ setCartCount }) {
         onDecrease={decreaseFromCart}
         showMetaLine={false}
         showSwipeHint
+        imageLoading="lazy"
+        imageFetchPriority="low"
       />
     );
   };
@@ -1923,7 +2743,7 @@ function Products({ setCartCount }) {
       <>
         {hasImage ? (
           <img
-            src={String(category.image || '').trim()}
+            src={resolveMediaUrl(category.image)}
             alt=""
             className="category-chip-image"
             width={width}
@@ -1938,116 +2758,12 @@ function Products({ setCartCount }) {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading products...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="products-page">
-      {notice && (
-        <div className={`products-notice ${notice.type === 'error' ? 'error' : 'info'}`}>
-          {notice.message}
-        </div>
-      )}
-
-      <div className="products-header fade-in-up">
-        <div className="products-header-main">
-          <div>
-            <h1>Daily Needs, Fast</h1>
-            <p>Restock, repeat, and quick add in seconds.</p>
-          </div>
-          <Link to="/cart" className="products-cart-pill" aria-label="Open cart">
-            <ShoppingCart size={16} />
-            <span>{cartItemCount}</span>
-          </Link>
-        </div>
-      </div>
-
-      {error && <div className="products-error">{error}</div>}
-
-      <div className="products-controls sticky-controls slide-in-left">
-        <div className="search-row">
-          <div className="search-input-wrap">
-            <Search size={18} />
-            <input
-              type="text"
-              placeholder="Search milk, rice, biscuit..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              aria-label="Search products"
-            />
-          </div>
-        </div>
-        <div className="products-control-summary">
-          <span>{cartItemCount} items in cart</span>
-          <strong>{formatCurrency(cartPreviewTotal)}</strong>
-        </div>
-
-        {isMobile ? (
-          <div className="mobile-filter-launch-row">
-            <button type="button" className="mobile-filter-btn" onClick={() => setShowMobileFilters(true)}>
-              <Filter size={16} /> Filters & Sort
-            </button>
-            <label className="stock-only-toggle">
-              <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
-              In-stock only
-            </label>
-          </div>
-        ) : (
-          <div className="desktop-sort-row">
-            <div className="sort-group">
-              <Filter size={16} />
-              <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} aria-label="Group products">
-                <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
-                <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
-              </select>
-            </div>
-            <div className="sort-group">
-              <SlidersHorizontal size={16} />
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort products">
-                <option value="relevance">Relevance</option>
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="stock-desc">Stock: High to Low</option>
-              </select>
-            </div>
-            <label className="stock-only-toggle">
-              <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
-              In-stock only
-            </label>
-          </div>
-        )}
-      </div>
-
-      <div className="products-category-strip sticky-category-strip">
-        <button
-          type="button"
-          className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('all')}
-        >
-          {renderCategoryChipLabel(
-            { name: 'All', icon: '🛒', image: '' },
-            groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
-          )}
-        </button>
-        {activeFilterOptions.map((category) => (
-          <button
-            type="button"
-            key={category.id}
-            className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
-            onClick={() => setSelectedCategory(category.name)}
-            aria-label={category.name}
-          >
-            {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
-          </button>
-        ))}
-      </div>
+  const renderSmartSections = () => (
+    <section className="products-secondary-sections">
+      <header className="products-secondary-section-title">
+        <h2>Smart Picks For You</h2>
+        <p>Reorder faster with personalized shortcuts.</p>
+      </header>
 
       {repeatOrderFamilies.length > 0 && (
         <section className="products-feature-block repeat-order-block">
@@ -2167,8 +2883,304 @@ function Products({ setCartCount }) {
           </div>
         </section>
       )}
+    </section>
+  );
 
-      <div className="result-summary">
+  const commitSearchQuery = useCallback((value = searchInputValue) => {
+    const nextValue = String(value || '').trim().slice(0, 80);
+    setSearchInputValue(nextValue);
+    setSearchSuggestionsEnabled(false);
+    setSearchSuggestions([]);
+    setShowSearchSuggestions(false);
+    setActiveSuggestionIndex(-1);
+    startTransition(() => {
+      setAppliedSearchQuery(nextValue);
+    });
+  }, [searchInputValue]);
+
+  const selectSearchSuggestion = useCallback((suggestion) => {
+    const label = String(suggestion?.name || '').trim();
+    if (!label) return;
+    commitSearchQuery(label);
+    trackProductsEvent('products_search_suggestion_select', {
+      suggestion_id: Number(suggestion?.id || 0),
+      suggestion_name: label
+    }, { throttleMs: 200, throttleKey: 'products_search_suggestion_select' });
+  }, [commitSearchQuery, trackProductsEvent]);
+
+  const clearSearchQuery = useCallback(() => {
+    commitSearchQuery('');
+  }, [commitSearchQuery]);
+
+  if (loading && products.length === 0) {
+    const skeletonCount = isMobile ? 6 : 8;
+    return (
+      <div className="products-page">
+        <div className="products-skeleton-header shimmer-skeleton" aria-hidden="true" />
+        <div className="products-skeleton-controls shimmer-skeleton" aria-hidden="true" />
+        <div className="products-skeleton-grid" aria-hidden="true">
+          {Array.from({ length: skeletonCount }).map((_, index) => (
+            <div key={`product-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="products-page" ref={productsPageRef}>
+      {loading && products.length > 0 ? (
+        <div className="products-refresh-banner" aria-live="polite">
+          Updating products...
+        </div>
+      ) : null}
+      {notice && (
+        <div className={`products-notice ${notice.type === 'error' ? 'error' : 'info'}`}>
+          {notice.message}
+        </div>
+      )}
+
+      <div className="products-header fade-in-up">
+        <div className="products-header-main">
+          <div>
+            <h1>Daily Needs, Fast</h1>
+            <p>Restock, repeat, and quick add in seconds.</p>
+          </div>
+          <Link to="/cart" className="products-cart-pill" aria-label="Open cart">
+            <ShoppingCart size={16} />
+            <span>{cartItemCount}</span>
+          </Link>
+        </div>
+      </div>
+
+      {error && <div className="products-error">{error}</div>}
+
+      <div className="products-controls sticky-controls slide-in-left" ref={controlsRef}>
+        <div className="search-row">
+          <div className="search-input-wrap" ref={searchInputRef}>
+            <Search size={18} />
+            <input
+              id="products-search-input"
+              name="search"
+              type="text"
+              placeholder="Search milk, rice, biscuit..."
+              value={searchInputValue}
+              onChange={(event) => {
+                const nextValue = String(event.target.value || '').slice(0, 80);
+                const trimmedValue = nextValue.trim();
+                setSearchInputValue(nextValue);
+                if (!trimmedValue) {
+                  setSearchSuggestionsEnabled(false);
+                  setSearchSuggestions([]);
+                  setShowSearchSuggestions(false);
+                  setActiveSuggestionIndex(-1);
+                  startTransition(() => {
+                    setAppliedSearchQuery('');
+                  });
+                  return;
+                }
+                setSearchSuggestionsEnabled(trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS);
+                setShowSearchSuggestions(trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS);
+              }}
+              onFocus={() => {
+                const trimmedValue = String(searchInputValue || '').trim();
+                const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
+                setSearchSuggestionsEnabled(shouldEnable);
+                if (shouldEnable && searchSuggestions.length > 0) setShowSearchSuggestions(true);
+              }}
+              onKeyDown={(event) => {
+                if (!showSearchSuggestions || searchSuggestions.length === 0) {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitSearchQuery();
+                  } else if (event.key === 'Escape') {
+                    setShowSearchSuggestions(false);
+                  }
+                  return;
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((prev) => {
+                    const next = prev + 1;
+                    return next >= searchSuggestions.length ? 0 : next;
+                  });
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((prev) => {
+                    if (prev <= 0) return searchSuggestions.length - 1;
+                    return prev - 1;
+                  });
+                } else if (event.key === 'Enter') {
+                  event.preventDefault();
+                  if (activeSuggestionIndex >= 0 && searchSuggestions[activeSuggestionIndex]) {
+                    selectSearchSuggestion(searchSuggestions[activeSuggestionIndex]);
+                  } else {
+                    commitSearchQuery();
+                  }
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setShowSearchSuggestions(false);
+                  setActiveSuggestionIndex(-1);
+                }
+              }}
+              aria-label="Search products"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
+              aria-controls={searchSuggestionsListId}
+              aria-activedescendant={
+                activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
+              }
+              inputMode="search"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+            {searchInputValue ? (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={clearSearchQuery}
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
+            {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
+            {showSearchSuggestions && searchSuggestions.length > 0 ? (
+              <div id={searchSuggestionsListId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
+                {searchSuggestions.slice(0, SEARCH_SUGGESTIONS_MAX_ITEMS).map((item, index) => (
+                  <button
+                    type="button"
+                    id={`products-search-suggestion-${index}`}
+                    key={`suggestion-${item.id}-${index}`}
+                    className={`search-suggestion-item ${index === activeSuggestionIndex ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveSuggestionIndex(index)}
+                    onClick={() => selectSearchSuggestion(item)}
+                    role="option"
+                    aria-selected={index === activeSuggestionIndex}
+                  >
+                    <div className="search-suggestion-leading" aria-hidden="true">
+                      <img
+                        src={getSuggestionImageSrc(item)}
+                        alt=""
+                        className="search-suggestion-thumb"
+                        width={34}
+                        height={34}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = getProductFallbackImage(item);
+                        }}
+                      />
+                    </div>
+                    <div className="search-suggestion-main">
+                      {item.brand ? <strong>{item.brand}</strong> : null}
+                      <span>{item.name}</span>
+                    </div>
+                    <div className="search-suggestion-meta">
+                      {item.size ? <small>{item.size}</small> : null}
+                      <small>{formatCurrency(item.price)}</small>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="products-control-summary">
+          <span>{cartItemCount} items in cart</span>
+          <strong>{formatCurrency(cartPreviewTotal)}</strong>
+        </div>
+
+        {isMobile ? (
+          <div className="mobile-filter-launch-row">
+            <button type="button" className="mobile-filter-btn" onClick={() => setShowMobileFilters(true)}>
+              <Filter size={16} /> Filters & Sort
+            </button>
+            <label className="stock-only-toggle">
+              <input
+                id="products-stock-only-mobile"
+                name="stock_only"
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(event) => setInStockOnly(event.target.checked)}
+              />
+              In-stock only
+            </label>
+          </div>
+        ) : (
+          <div className="desktop-sort-row">
+            <div className="sort-group">
+              <Filter size={16} />
+              <select
+                id="products-group-by"
+                name="group_by"
+                value={groupBy}
+                onChange={(event) => setGroupBy(event.target.value)}
+                aria-label="Group products"
+              >
+                <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
+                <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
+              </select>
+            </div>
+            <div className="sort-group">
+              <SlidersHorizontal size={16} />
+              <select
+                id="products-sort-by"
+                name="sort_by"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="popular">Popular for you</option>
+                <option value="relevance">Relevance</option>
+                <option value="newest">Newest</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="stock-desc">Stock: High to Low</option>
+              </select>
+            </div>
+            <label className="stock-only-toggle">
+              <input
+                id="products-stock-only-desktop"
+                name="stock_only"
+                type="checkbox"
+                checked={inStockOnly}
+                onChange={(event) => setInStockOnly(event.target.checked)}
+              />
+              In-stock only
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div className="products-category-strip sticky-category-strip">
+        <button
+          type="button"
+          className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
+          onClick={() => setSelectedCategory('all')}
+        >
+          {renderCategoryChipLabel(
+            { name: 'All', icon: '🛒', image: '' },
+            groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
+          )}
+        </button>
+        {activeFilterOptions.map((category) => (
+          <button
+            type="button"
+            key={category.id}
+            className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
+            onClick={() => setSelectedCategory(category.name)}
+            aria-label={category.name}
+          >
+            {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
+          </button>
+        ))}
+      </div>
+
+      <div className="result-summary" aria-live="polite">
         <span>
           {visibleFamilies.length} product groups
         </span>
@@ -2222,8 +3234,8 @@ function Products({ setCartCount }) {
             className="reset-filters-btn"
             onClick={() => {
               setSelectedCategory('all');
-              setSearchQuery('');
-              setSortBy('relevance');
+              commitSearchQuery('');
+              setSortBy(DEFAULT_SORT_BY);
               setGroupBy(GROUP_BY_OPTIONS.category);
               setInStockOnly(false);
             }}
@@ -2232,6 +3244,8 @@ function Products({ setCartCount }) {
           </button>
         </div>
       )}
+
+      {filteredFamilies.length > 0 ? renderSmartSections() : null}
 
       {isMobile && (
         <MobileBottomSheet
@@ -2273,7 +3287,13 @@ function Products({ setCartCount }) {
           <div className="sort-row">
             <div className="sort-group">
               <Filter size={16} />
-              <select value={groupBy} onChange={(event) => setGroupBy(event.target.value)} aria-label="Group products">
+              <select
+                id="products-group-by-mobile"
+                name="group_by"
+                value={groupBy}
+                onChange={(event) => setGroupBy(event.target.value)}
+                aria-label="Group products"
+              >
                 <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
                 <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
               </select>
@@ -2283,7 +3303,14 @@ function Products({ setCartCount }) {
           <div className="sort-row">
             <div className="sort-group">
               <SlidersHorizontal size={16} />
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort products">
+              <select
+                id="products-sort-by-mobile"
+                name="sort_by"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="popular">Popular for you</option>
                 <option value="relevance">Relevance</option>
                 <option value="newest">Newest</option>
                 <option value="price-asc">Price: Low to High</option>

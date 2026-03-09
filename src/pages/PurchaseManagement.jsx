@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import { getTodayDate, formatDateTime, toLocalDateKey } from '../utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../utils/ledger';
 import useIsMobile from '../hooks/useIsMobile';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import ProductForm from './ProductForm';
 import { PurchaseOrderFormModal, QuickPurchaseOrderModal } from './purchase/PurchaseEntryModals';
@@ -173,7 +174,7 @@ function PurchaseManagement({ user }) {
     distributor_name: '',
     order_date: getTodayDate(),
     notes: '',
-    items: []
+    items: [createEmptyQuickOrderItem()]
   });
   const getDefaultProcessFormData = () => ({
     bill_number: '',
@@ -692,6 +693,18 @@ function PurchaseManagement({ user }) {
   const poModalRef = useRef(null);
   const poModalResizeRef = useRef(null);
   const poModalSizeRef = useRef(poModalSize);
+  useLockBodyScroll(
+    showOrderForm
+    || showQuickOrderForm
+    || showPoProductForm
+    || showReceiveModal
+    || showReturnForm
+    || showLedgerForm
+    || showPoCorrectionForm
+    || showProcessModal
+    || showPoPaymentModal
+    || showOrderDetail
+  );
 
   // Order form data
   const [orderFormData, setOrderFormData] = useState({
@@ -1486,7 +1499,9 @@ function PurchaseManagement({ user }) {
   const handleQuickOrderItemRemove = (index) => {
     setQuickOrderFormData(prev => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
+      items: prev.items.length <= 1
+        ? [createEmptyQuickOrderItem()]
+        : prev.items.filter((_, i) => i !== index)
     }));
   };
 
@@ -1868,6 +1883,7 @@ function PurchaseManagement({ user }) {
         return {
           id: item.id,
           product_id: item.product_id ? String(item.product_id) : '',
+          product_query: product ? getProductSearchLabel(product) : (item.product_name || ''),
           product_name: item.product_name || '',
           quantity: Math.max(0, toNumber(item.quantity)),
           uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
@@ -1921,6 +1937,64 @@ function PurchaseManagement({ user }) {
       }
       items[index] = nextItem;
       return { ...prev, items };
+    });
+  };
+
+  const handleOrderDetailProductInputChange = (index, value) => {
+    setOrderDetailDraft((prev) => {
+      if (!prev) return prev;
+      const items = [...(prev.items || [])];
+      const current = items[index];
+      if (!current) return prev;
+
+      const nextItem = {
+        ...current,
+        product_query: value,
+      };
+      const match = resolveProductByInput(value);
+      if (!match) {
+        nextItem.product_id = '';
+        nextItem.product_name = value;
+        items[index] = nextItem;
+        return { ...prev, items };
+      }
+
+      const defaultUom = resolvePurchaseUnitForProduct(match, match.base_unit || match.uom || 'pcs');
+      nextItem.product_id = String(match.id);
+      nextItem.product_name = match.name;
+      nextItem.product_query = getProductSearchLabel(match);
+      nextItem.uom = defaultUom;
+      nextItem.rate = toNumber(match.price);
+      nextItem.unit_price = toNumber(match.price);
+      items[index] = nextItem;
+      return { ...prev, items };
+    });
+  };
+
+  const handleOrderDetailItemAdd = () => {
+    setOrderDetailDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: [
+          ...(prev.items || []),
+          {
+            ...createEmptyOrderItem(),
+            quantity: 1,
+            gst_rate: normalizeGstRateOption(5),
+          },
+        ],
+      };
+    });
+  };
+
+  const handleOrderDetailItemRemove = (index) => {
+    setOrderDetailDraft((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        items: (prev.items || []).filter((_, itemIndex) => itemIndex !== index),
+      };
     });
   };
 
@@ -2530,6 +2604,73 @@ function PurchaseManagement({ user }) {
   const orderDetailSupplier = getOrderDistributorInfo(orderDetail);
   const orderDetailIsEditable = orderDetail ? isPoEditable(orderDetail) : false;
   const orderDetailItems = orderDetailEditMode ? (orderDetailDraft?.items || []) : (orderDetail?.items || []);
+  const orderDetailOriginalItems = orderDetail?.items || [];
+  const getOrderDetailOriginalItem = (draftItem, index) => {
+    if (draftItem?.id) {
+      const byId = orderDetailOriginalItems.find((item) => String(item?.id || '') === String(draftItem.id));
+      if (byId) return byId;
+    }
+    return orderDetailOriginalItems[index] || null;
+  };
+  const hasOrderDetailItemChanged = (draftItem, index) => {
+    const originalItem = getOrderDetailOriginalItem(draftItem, index);
+    if (!originalItem) return true;
+    return (
+      String(draftItem?.product_id || '') !== String(originalItem?.product_id || '') ||
+      String(draftItem?.uom || '') !== String(originalItem?.uom || '') ||
+      Math.abs(toNumber(draftItem?.quantity) - toNumber(originalItem?.quantity)) > 0.0001 ||
+      Math.abs(toNumber(draftItem?.rate ?? draftItem?.unit_price) - toNumber(originalItem?.rate ?? originalItem?.unit_price)) > 0.0001 ||
+      Math.abs(toNumber(draftItem?.gst_rate) - toNumber(originalItem?.gst_rate)) > 0.0001 ||
+      String(draftItem?.discount_type || 'percent') !== String(originalItem?.discount_type || 'percent') ||
+      Math.abs(toNumber(draftItem?.discount_value) - toNumber(originalItem?.discount_value)) > 0.0001
+    );
+  };
+  const getOrderDetailItemFieldChanged = (draftItem, index, field) => {
+    const originalItem = getOrderDetailOriginalItem(draftItem, index);
+    if (!originalItem) return true;
+    if (field === 'product_id') {
+      return String(draftItem?.product_id || '') !== String(originalItem?.product_id || '');
+    }
+    if (field === 'uom') {
+      return String(draftItem?.uom || '') !== String(originalItem?.uom || '');
+    }
+    if (field === 'quantity') {
+      return Math.abs(toNumber(draftItem?.quantity) - toNumber(originalItem?.quantity)) > 0.0001;
+    }
+    if (field === 'rate') {
+      return Math.abs(toNumber(draftItem?.rate ?? draftItem?.unit_price) - toNumber(originalItem?.rate ?? originalItem?.unit_price)) > 0.0001;
+    }
+    if (field === 'gst_rate') {
+      return Math.abs(toNumber(draftItem?.gst_rate) - toNumber(originalItem?.gst_rate)) > 0.0001;
+    }
+    if (field === 'discount_type') {
+      return String(draftItem?.discount_type || 'percent') !== String(originalItem?.discount_type || 'percent');
+    }
+    if (field === 'discount_value') {
+      return Math.abs(toNumber(draftItem?.discount_value) - toNumber(originalItem?.discount_value)) > 0.0001;
+    }
+    return false;
+  };
+  const getOrderDetailItemOriginalLabel = (draftItem, index, field) => {
+    const originalItem = getOrderDetailOriginalItem(draftItem, index);
+    if (!originalItem) return 'New item';
+    if (field === 'product_id') return String(originalItem?.product_name || '-');
+    if (field === 'uom') return String(originalItem?.uom || '-');
+    if (field === 'quantity') return String(toNumber(originalItem?.quantity));
+    if (field === 'rate') return formatCurrency(toNumber(originalItem?.rate ?? originalItem?.unit_price));
+    if (field === 'gst_rate') return `${normalizeGstRateOption(originalItem?.gst_rate).toFixed(0)}%`;
+    if (field === 'discount_type') return String(originalItem?.discount_type === 'fixed' ? 'Fixed' : '%');
+    if (field === 'discount_value') return String(toNumber(originalItem?.discount_value));
+    return '-';
+  };
+  const orderDetailHasComputedChanges = orderDetailEditMode && (
+    String(orderDetailDraft?.expected_delivery || '') !== toDateInputValue(orderDetail?.expected_delivery) ||
+    String(orderDetailDraft?.strict_due_date || '') !== toDateInputValue(orderDetail?.strict_due_date) ||
+    String(orderDetailDraft?.notes || '') !== String(orderDetail?.notes || '') ||
+    String(orderDetailDraft?.strict_due_note || '') !== String(orderDetail?.strict_due_note || '') ||
+    orderDetailItems.length !== orderDetailOriginalItems.length ||
+    orderDetailItems.some((item, index) => hasOrderDetailItemChanged(item, index))
+  );
   const orderDetailComputedTotals = orderDetailEditMode
     ? calculateOrderTotals(orderDetailItems)
     : {
@@ -2987,89 +3128,199 @@ function PurchaseManagement({ user }) {
                       <th>Qty</th>
                       <th>UOM</th>
                       <th>Rate</th>
+                      <th>Discount Type</th>
+                      <th>Discount</th>
                       <th>GST %</th>
                       <th>Taxable</th>
                       <th>Tax</th>
                       <th>Total</th>
+                      {orderDetailEditMode ? <th /> : null}
                     </tr>
                   </thead>
                   <tbody>
                     {orderDetailItems.map((item, idx) => {
                       const line = getItemFinancials(item);
+                      const originalItem = getOrderDetailOriginalItem(item, idx);
+                      const originalLine = originalItem ? getItemFinancials(originalItem) : null;
+                      const rowChanged = orderDetailEditMode && hasOrderDetailItemChanged(item, idx);
+                      const productChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'product_id');
+                      const qtyChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'quantity');
+                      const uomChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'uom');
+                      const rateChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'rate');
+                      const discountTypeChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'discount_type');
+                      const discountValueChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'discount_value');
+                      const gstChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'gst_rate');
                       const selectedProduct = products.find((product) => String(product?.id || '') === String(item.product_id || '')) || null;
                       const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
                       return (
-                        <tr key={idx}>
+                        <tr key={item.id || idx} className={rowChanged ? 'po-detail-row-edited' : ''}>
                           <td>{idx + 1}</td>
-                          <td>{item.product_name}</td>
-                          <td>
+                          <td className={productChanged ? 'po-detail-field-changed' : ''}>
                             {orderDetailEditMode ? (
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.quantity}
-                                onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}
-                              />
+                              <>
+                                <input
+                                  type="text"
+                                  list={`po-detail-product-list-${idx}`}
+                                  value={item.product_query || ''}
+                                  onChange={(event) => handleOrderDetailProductInputChange(idx, event.target.value)}
+                                  placeholder="Type product name / SKU"
+                                />
+                                <datalist id={`po-detail-product-list-${idx}`}>
+                                  {products.map((product) => (
+                                    <option key={`po-detail-product-${idx}-${product.id}`} value={getProductSearchLabel(product)} />
+                                  ))}
+                                </datalist>
+                                {productChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'product_id')}</small>
+                                ) : null}
+                              </>
+                            ) : item.product_name}
+                          </td>
+                          <td className={qtyChanged ? 'po-detail-field-changed' : ''}>
+                            {orderDetailEditMode ? (
+                              <>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.quantity}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}
+                                />
+                                {qtyChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'quantity')}</small>
+                                ) : null}
+                              </>
                             ) : line.quantity}
                           </td>
-                          <td>
+                          <td className={uomChanged ? 'po-detail-field-changed' : ''}>
                             {orderDetailEditMode ? (
-                              <select
-                                value={line.uom}
-                                onChange={(event) => handleOrderDetailItemChange(idx, 'uom', event.target.value)}
-                              >
-                                {uomOptions.map((uomOption) => (
-                                  <option key={`detail-item-${idx}-uom-${uomOption}`} value={uomOption}>
-                                    {uomOption}
-                                  </option>
-                                ))}
-                              </select>
+                              <>
+                                <select
+                                  value={line.uom}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'uom', event.target.value)}
+                                >
+                                  {uomOptions.map((uomOption) => (
+                                    <option key={`detail-item-${idx}-uom-${uomOption}`} value={uomOption}>
+                                      {uomOption}
+                                    </option>
+                                  ))}
+                                </select>
+                                {uomChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'uom')}</small>
+                                ) : null}
+                              </>
                             ) : (item.uom || '-')}
                           </td>
-                          <td>
+                          <td className={rateChanged ? 'po-detail-field-changed' : ''}>
                             {orderDetailEditMode ? (
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.rate}
-                                onChange={(event) => handleOrderDetailItemChange(idx, 'rate', event.target.value)}
-                              />
+                              <>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.rate}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'rate', event.target.value)}
+                                />
+                                {rateChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'rate')}</small>
+                                ) : null}
+                              </>
                             ) : formatCurrency(line.rate)}
                           </td>
-                          <td>
+                          <td className={discountTypeChanged ? 'po-detail-field-changed' : ''}>
                             {orderDetailEditMode ? (
-                              <select
-                                value={item.gst_rate}
-                                onChange={(event) => handleOrderDetailItemChange(idx, 'gst_rate', event.target.value)}
-                              >
-                                {GST_RATE_OPTIONS.map((rate) => (
-                                  <option key={`detail-item-${idx}-gst-${rate}`} value={rate}>
-                                    {rate}%
-                                  </option>
-                                ))}
-                              </select>
+                              <>
+                                <select
+                                  value={item.discount_type || 'percent'}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'discount_type', event.target.value)}
+                                >
+                                  <option value="percent">%</option>
+                                  <option value="fixed">Fixed</option>
+                                </select>
+                                {discountTypeChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'discount_type')}</small>
+                                ) : null}
+                              </>
+                            ) : (item.discount_type === 'fixed' ? 'Fixed' : '%')}
+                          </td>
+                          <td className={discountValueChanged ? 'po-detail-field-changed' : ''}>
+                            {orderDetailEditMode ? (
+                              <>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.discount_value ?? 0}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'discount_value', event.target.value)}
+                                />
+                                {discountValueChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'discount_value')}</small>
+                                ) : null}
+                              </>
+                            ) : String(toNumber(item.discount_value || 0))}
+                          </td>
+                          <td className={gstChanged ? 'po-detail-field-changed' : ''}>
+                            {orderDetailEditMode ? (
+                              <>
+                                <select
+                                  value={item.gst_rate}
+                                  onChange={(event) => handleOrderDetailItemChange(idx, 'gst_rate', event.target.value)}
+                                >
+                                  {GST_RATE_OPTIONS.map((rate) => (
+                                    <option key={`detail-item-${idx}-gst-${rate}`} value={rate}>
+                                      {rate}%
+                                    </option>
+                                  ))}
+                                </select>
+                                {gstChanged ? (
+                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'gst_rate')}</small>
+                                ) : null}
+                              </>
                             ) : `${line.gstRate.toFixed(2)}%`}
                           </td>
-                          <td>{formatCurrency(line.taxableValue)}</td>
-                          <td>{formatCurrency(line.taxAmount)}</td>
-                          <td>{formatCurrency(line.lineTotal)}</td>
+                          <td className={rowChanged && (!originalLine || Math.abs(line.taxableValue - originalLine.taxableValue) > 0.0001) ? 'po-detail-computed-change' : ''}>
+                            {formatCurrency(line.taxableValue)}
+                          </td>
+                          <td className={rowChanged && (!originalLine || Math.abs(line.taxAmount - originalLine.taxAmount) > 0.0001) ? 'po-detail-computed-change' : ''}>
+                            {formatCurrency(line.taxAmount)}
+                          </td>
+                          <td className={rowChanged && (!originalLine || Math.abs(line.lineTotal - originalLine.lineTotal) > 0.0001) ? 'po-detail-computed-change' : ''}>
+                            {formatCurrency(line.lineTotal)}
+                          </td>
+                          {orderDetailEditMode ? (
+                            <td>
+                              <button
+                                type="button"
+                                className="remove-item-btn"
+                                onClick={() => handleOrderDetailItemRemove(idx)}
+                                aria-label={`Remove item ${idx + 1}`}
+                              >
+                                <X size={14} />
+                              </button>
+                            </td>
+                          ) : null}
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
+                {orderDetailEditMode ? (
+                  <div className="po-detail-table-actions">
+                    <button type="button" className="add-item-btn" onClick={handleOrderDetailItemAdd}>
+                      <Plus size={16} /> Add Item
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="po-invoice-summary">
-                  <div className="po-summary-row">
+                  <div className={`po-summary-row${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
                     <span>Taxable Value</span>
                     <strong>{formatCurrency(orderDetailComputedTotals.taxableValue || 0)}</strong>
                   </div>
-                  <div className="po-summary-row">
+                  <div className={`po-summary-row${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
                     <span>GST</span>
                     <strong>{formatCurrency(orderDetailComputedTotals.taxAmount || 0)}</strong>
                   </div>
-                  <div className="po-summary-row grand">
+                  <div className={`po-summary-row grand${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
                     <span>Grand Total</span>
                     <strong>{formatCurrency(orderDetailComputedTotals.totalAmount || 0)}</strong>
                   </div>

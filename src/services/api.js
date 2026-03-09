@@ -29,7 +29,18 @@ export const resolveMediaUrl = (value) => {
   if (!raw) return '';
   if (raw.startsWith('data:')) return raw;
   if (/^https?:\/\//i.test(raw)) {
-    return raw;
+    try {
+      const parsedUrl = new URL(raw);
+      const isHttpsPage = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+      const host = String(parsedUrl.hostname || '').toLowerCase();
+      const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+      if (isHttpsPage && parsedUrl.protocol === 'http:' && !isLocalHost) {
+        parsedUrl.protocol = 'https:';
+      }
+      return parsedUrl.toString();
+    } catch (_) {
+      return raw;
+    }
   }
   if (raw.startsWith('/')) {
     const baseUrl = getApiUrl();
@@ -165,9 +176,9 @@ export const analyticsApi = {
 
 // Products API
 export const productsApi = {
-  getAll: (params = {}) => {
+  getAll: (params = {}, options = {}) => {
     const query = new URLSearchParams(params).toString();
-    return apiFetch(`/api/products${query ? `?${query}` : ''}`);
+    return apiFetch(`/api/products${query ? `?${query}` : ''}`, options);
   },
   getById: (id, params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -176,6 +187,10 @@ export const productsApi = {
   getRecentlyBought: (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/products/recently-bought${query ? `?${query}` : ''}`);
+  },
+  suggest: (params = {}, options = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/products/suggest${query ? `?${query}` : ''}`, options);
   },
   getLastPurchase: (id) => apiFetch(`/api/products/${id}/last-purchase`),
   getByCategory: (category) => apiFetch(`/api/products/category/${category}`),

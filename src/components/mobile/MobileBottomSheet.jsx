@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import './MobileBottomSheet.css';
 
 function MobileBottomSheet({
@@ -7,9 +8,11 @@ function MobileBottomSheet({
   onClose,
   children,
   actions = null,
-  height = '80vh',
+  height = '80dvh',
   className = ''
 }) {
+  useLockBodyScroll(open);
+
   if (!open) return null;
 
   return (

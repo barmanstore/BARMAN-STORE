@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './AppModal.css';
 
 function AppModal({ open, title, onClose, children, dialogClassName = '', contentClassName = '' }) {
+  useLockBodyScroll(open);
+
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event) => {

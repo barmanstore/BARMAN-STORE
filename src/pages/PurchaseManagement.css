@@ -932,6 +932,34 @@
   background: #ffffff;
 }
 
+.purchase-management .po-detail-row-edited {
+  background: #fffbeb;
+}
+
+.purchase-management .po-detail-field-changed {
+  background: #fefce8;
+}
+
+.purchase-management .po-detail-computed-change {
+  background: #fef3c7;
+  font-weight: 700;
+}
+
+.purchase-management .po-detail-change-note {
+  display: block;
+  margin-top: 4px;
+  color: #92400e;
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.purchase-management .po-detail-table-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
 .purchase-management .po-invoice-summary {
   width: 320px;
   margin-top: 14px;
@@ -980,6 +1008,7 @@
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
@@ -991,6 +1020,10 @@
 .purchase-management .modal-content.po-form-modal {
   max-width: 980px;
   position: relative;
+}
+
+.purchase-management .modal-content.quick-po-modal {
+  max-width: 680px;
 }
 
 .purchase-management .modal-content.po-detail-modal {
@@ -1068,6 +1101,21 @@
   gap: 18px;
 }
 
+.purchase-management .quick-po-entry-form {
+  gap: 10px;
+}
+
+.purchase-management .quick-po-header-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.purchase-management .quick-po-header-copy p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
 .purchase-management .po-entry-mode-tabs {
   display: inline-flex;
   align-self: flex-start;
@@ -1106,6 +1154,102 @@
 
 .purchase-management .po-form-header {
   background: var(--color-bg);
+}
+
+.purchase-management .quick-po-topbar {
+  display: grid;
+  gap: 8px;
+  padding: 0.75rem;
+}
+
+.purchase-management .quick-po-topbar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(150px, 0.8fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.purchase-management .quick-po-secondary-row {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
+.purchase-management .quick-po-note-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.purchase-management .quick-po-distributor-field,
+.purchase-management .quick-po-date-field {
+  margin-bottom: 0;
+}
+
+.purchase-management .quick-po-stat-chip {
+  min-width: 72px;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  text-align: center;
+}
+
+.purchase-management .quick-po-stat-chip span {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.purchase-management .quick-po-stat-chip strong {
+  display: block;
+  margin-top: 2px;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.purchase-management .quick-po-modal .modal-header {
+  padding: 14px 16px;
+}
+
+.purchase-management .quick-po-modal .modal-header h2 {
+  font-size: 17px;
+}
+
+.purchase-management .quick-po-modal .po-header-product-btn {
+  padding: 0.45rem 0.7rem;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.purchase-management .quick-po-modal form {
+  padding: 14px 16px 16px;
+}
+
+.purchase-management .quick-po-modal .form-group {
+  margin-bottom: 0;
+}
+
+.purchase-management .quick-po-modal .form-group label {
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+}
+
+.purchase-management .quick-po-modal .form-group input,
+.purchase-management .quick-po-modal .form-group select,
+.purchase-management .quick-po-modal .form-group textarea {
+  padding: 0.42rem 0.55rem;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.purchase-management .quick-po-modal .section-header {
+  margin-bottom: 8px;
+}
+
+.purchase-management .quick-po-modal .section-header h3 {
+  font-size: 13px;
 }
 
 .purchase-management .po-info-row {
@@ -1259,6 +1403,105 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   overflow: auto;
+}
+
+.purchase-management .quick-po-items-section {
+  gap: 8px;
+  padding: 0.75rem;
+}
+
+.purchase-management .quick-po-list-shell {
+  overflow-x: auto;
+}
+
+.purchase-management .quick-po-grid-head {
+  min-width: 560px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 68px 92px 32px;
+  gap: 6px;
+  align-items: center;
+  padding: 0 2px 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.purchase-management .quick-po-list {
+  display: grid;
+  gap: 6px;
+  min-width: 560px;
+}
+
+.purchase-management .quick-po-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 68px 92px 32px;
+  gap: 6px;
+  align-items: end;
+  padding: 4px 2px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.purchase-management .quick-po-row:last-child {
+  border-bottom: none;
+}
+
+.purchase-management .quick-po-row-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid #dbe4ef;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.purchase-management .quick-po-row-main,
+.purchase-management .quick-po-mini-field {
+  display: block;
+}
+
+.purchase-management .quick-po-row-main input,
+.purchase-management .quick-po-mini-field input,
+.purchase-management .quick-po-mini-field select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.purchase-management .quick-po-row-side {
+  display: contents;
+}
+
+.purchase-management .quick-po-remove-btn {
+  width: 32px;
+  height: 34px;
+  margin-bottom: 0;
+}
+
+.purchase-management .quick-po-modal .po-products-actions {
+  margin-top: 6px;
+}
+
+.purchase-management .quick-po-modal .add-item-btn,
+.purchase-management .quick-po-modal .submit-btn,
+.purchase-management .quick-po-modal .cancel-btn {
+  padding: 0.45rem 0.7rem;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.purchase-management .quick-po-modal .modal-actions {
+  padding-top: 10px;
 }
 
 .purchase-management .quick-entry-table table {
@@ -1687,6 +1930,10 @@ body.po-modal-resizing {
     max-width: 100%;
   }
 
+  .purchase-management .modal-content.quick-po-modal {
+    max-width: 100%;
+  }
+
   .purchase-management .po-modal-resize-handle {
     display: none;
   }
@@ -1750,6 +1997,27 @@ body.po-modal-resizing {
 
   .purchase-management .po-info-row {
     grid-template-columns: 1fr;
+  }
+
+  .purchase-management .quick-po-topbar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-management .quick-po-secondary-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .purchase-management .quick-po-stat-chip {
+    width: 100%;
+  }
+
+  .purchase-management .quick-po-row {
+    min-width: 560px;
+  }
+
+  .purchase-management .quick-po-row-side {
+    display: contents;
   }
 
   .purchase-management .po-item-amounts .item-field.total {

@@ -1,6 +1,6 @@
 .admin-page {
   display: flex;
-  min-height: calc(100vh - 200px);
+  min-height: 100%;
 }
 
 .admin-mobile-topbar {
@@ -14,9 +14,10 @@
 .admin-sidebar-shell {
   display: flex;
   width: 310px;
-  height: calc(100vh - 80px);
+  height: calc(100vh - var(--app-header-height, 80px));
+  height: calc(100dvh - var(--app-header-height, 80px));
   position: sticky;
-  top: 80px;
+  top: var(--app-header-height, 80px);
   align-self: flex-start;
   z-index: 30;
 }
@@ -2032,6 +2033,7 @@ table {
     display: block;
     width: min(82vw, 320px);
     height: 100vh;
+    height: 100dvh;
     position: fixed;
     left: 0;
     top: 0;
@@ -2040,6 +2042,7 @@ table {
     transform: translateX(-100%);
     transition: transform 0.25s ease;
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .admin-sidebar.open {

@@ -38,6 +38,8 @@
         "preview": "vite preview",
         "server": "node server/index.js",
         "start:prod": "node server/index.js",
+        "cleanup:code": "node scripts/cleanup-codebase.js",
+        "cleanup:code:apply": "node scripts/cleanup-codebase.js --apply",
         "secrets:scan": "node scripts/secret-scan.mjs --all",
         "secrets:scan:staged": "node scripts/secret-scan.mjs --staged",
         "hooks:install": "node scripts/install-hooks.mjs",

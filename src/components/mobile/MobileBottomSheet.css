@@ -6,10 +6,13 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  padding-top: env(safe-area-inset-top, 0px);
+  overscroll-behavior: contain;
 }
 
 .mobile-bottom-sheet {
   width: min(100%, 680px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px));
   background: var(--color-card);
   border-radius: 18px 18px 0 0;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
@@ -58,6 +61,8 @@
 
 .mobile-sheet-body {
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0.9rem 1rem;
 }
 

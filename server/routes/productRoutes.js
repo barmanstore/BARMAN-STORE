@@ -1,4 +1,6 @@
-﻿const registerProductRoutes = (deps) => {
+﻿const zlib = require('zlib');
+
+const registerProductRoutes = (deps) => {
   const {
     app,
     requireAdmin,
@@ -40,6 +42,93 @@
       .trim()
       .slice(0, maxLength)
   );
+  const PRODUCTS_LIST_PUBLIC_MAX_AGE_SEC = clampInt(
+    process.env.PRODUCTS_LIST_PUBLIC_MAX_AGE_SEC,
+    20,
+    0,
+    3600
+  );
+  const PRODUCTS_LIST_PUBLIC_S_MAX_AGE_SEC = clampInt(
+    process.env.PRODUCTS_LIST_PUBLIC_S_MAX_AGE_SEC,
+    120,
+    0,
+    86400
+  );
+  const PRODUCTS_LIST_PUBLIC_STALE_WHILE_REVALIDATE_SEC = clampInt(
+    process.env.PRODUCTS_LIST_PUBLIC_STALE_WHILE_REVALIDATE_SEC,
+    180,
+    0,
+    86400
+  );
+  const PRODUCTS_LIST_COMPRESS_MIN_BYTES = clampInt(
+    process.env.PRODUCTS_LIST_COMPRESS_MIN_BYTES,
+    1024,
+    256,
+    64 * 1024
+  );
+  const appendVaryHeader = (res, headerName) => {
+    const key = String(headerName || '').trim();
+    if (!key) return;
+    const existing = String(res.getHeader('Vary') || '').trim();
+    if (!existing) {
+      res.setHeader('Vary', key);
+      return;
+    }
+    const parts = existing.split(',').map((part) => part.trim().toLowerCase()).filter(Boolean);
+    if (parts.includes(key.toLowerCase())) return;
+    res.setHeader('Vary', `${existing}, ${key}`);
+  };
+  const setProductsListCacheHeaders = (res, options = {}) => {
+    const {
+      isPaginated = false,
+      includeInactive = false,
+      status = ''
+    } = options;
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const cacheablePublicListing = isPaginated && !includeInactive && normalizedStatus !== 'inactive';
+    if (cacheablePublicListing) {
+      res.setHeader(
+        'Cache-Control',
+        `public, max-age=${PRODUCTS_LIST_PUBLIC_MAX_AGE_SEC}, s-maxage=${PRODUCTS_LIST_PUBLIC_S_MAX_AGE_SEC}, stale-while-revalidate=${PRODUCTS_LIST_PUBLIC_STALE_WHILE_REVALIDATE_SEC}`
+      );
+      return;
+    }
+    res.setHeader('Cache-Control', 'private, no-store');
+  };
+  const sendJsonWithOptionalCompression = (req, res, payload) => {
+    const json = JSON.stringify(payload);
+    const rawBuffer = Buffer.from(json, 'utf8');
+    const acceptEncoding = String(req.headers['accept-encoding'] || '').toLowerCase();
+    const supportsBrotli = acceptEncoding.includes('br');
+    const supportsGzip = acceptEncoding.includes('gzip');
+    appendVaryHeader(res, 'Accept-Encoding');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (rawBuffer.length < PRODUCTS_LIST_COMPRESS_MIN_BYTES || (!supportsBrotli && !supportsGzip)) {
+      return res.send(rawBuffer);
+    }
+    try {
+      let compressedBuffer = null;
+      let encoding = '';
+      if (supportsBrotli) {
+        compressedBuffer = zlib.brotliCompressSync(rawBuffer, {
+          params: {
+            [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+          }
+        });
+        encoding = 'br';
+      } else if (supportsGzip) {
+        compressedBuffer = zlib.gzipSync(rawBuffer, { level: 6 });
+        encoding = 'gzip';
+      }
+      if (!compressedBuffer || compressedBuffer.length >= rawBuffer.length) {
+        return res.send(rawBuffer);
+      }
+      res.setHeader('Content-Encoding', encoding);
+      return res.send(compressedBuffer);
+    } catch (_) {
+      return res.send(rawBuffer);
+    }
+  };
 
   const toSearchImage = (row, index = 0) => {
     const thumbUrl = String(
@@ -380,6 +469,57 @@
     }
   });
 
+app.get('/api/products/suggest', async (req, res) => {
+  try {
+    const query = normalizeSearchText(req.query?.q || req.query?.query || '', 80);
+    if (!query || query.length < 2) return res.json({ items: [] });
+    const limit = clampInt(req.query?.limit, 8, 1, 12);
+
+    const like = `%${query}%`;
+    const prefix = `${query}%`;
+    const rows = await dbAllAsync(
+      `SELECT id, name, brand, content, uom, price, mrp, image, stock, category
+       FROM products
+       WHERE COALESCE(is_active, 1) = 1
+         AND (
+           name LIKE ?
+           OR brand LIKE ?
+           OR category LIKE ?
+           OR subcategory LIKE ?
+         )
+       ORDER BY
+         CASE
+           WHEN LOWER(name) LIKE LOWER(?) THEN 0
+           WHEN LOWER(brand) LIKE LOWER(?) THEN 1
+           ELSE 2
+         END,
+         LOWER(name) ASC,
+         id DESC
+       LIMIT ?`,
+      [like, like, like, like, prefix, prefix, limit]
+    );
+
+    const items = (Array.isArray(rows) ? rows : []).map((row) => {
+      const normalized = normalizeProductRecord(row);
+      return {
+        id: Number(normalized.id || 0),
+        name: String(normalized.name || '').trim() || 'Product',
+        brand: String(normalized.brand || '').trim(),
+        size: String(normalized.content || normalized.uom || '').trim(),
+        price: Number(normalized.price || 0),
+        mrp: Number(normalized.mrp || 0),
+        image: String(normalized.image || '').trim(),
+        category: String(normalized.category || '').trim(),
+        stock: Number(normalized.stock || 0),
+      };
+    });
+
+    return res.json({ items });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to fetch suggestions' });
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const qName = String(req.query?.name || '').trim();
@@ -454,7 +594,7 @@ app.get('/api/products', async (req, res) => {
         `SELECT * ${baseSql}${orderSql} LIMIT ? OFFSET ?`,
         [...params, ...orderParams, pageSize, offset]
       );
-      return res.json({
+      const payload = {
         items: rows.map(normalizeProductRecord),
         pagination: {
           page,
@@ -463,11 +603,15 @@ app.get('/api/products', async (req, res) => {
           total_pages: total > 0 ? Math.ceil(total / pageSize) : 0,
           has_more: offset + rows.length < total,
         },
-      });
+      };
+      setProductsListCacheHeaders(res, { isPaginated, includeInactive, status });
+      return sendJsonWithOptionalCompression(req, res, payload);
     }
 
     const rows = await dbAllAsync(`SELECT * ${baseSql}${orderSql}`, [...params, ...orderParams]);
-    return res.json(rows.map(normalizeProductRecord));
+    const payload = rows.map(normalizeProductRecord);
+    setProductsListCacheHeaders(res, { isPaginated, includeInactive, status });
+    return sendJsonWithOptionalCompression(req, res, payload);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

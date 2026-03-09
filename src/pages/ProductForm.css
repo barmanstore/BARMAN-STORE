@@ -9,8 +9,9 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  padding: 2rem;
+  padding: max(1rem, env(safe-area-inset-top, 0px)) 2rem max(1rem, env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .product-form-container {
@@ -20,7 +21,9 @@
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   position: relative;
 }
 

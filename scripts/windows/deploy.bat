@@ -10,6 +10,7 @@ if errorlevel 1 (
 
 set "MODE=%~1"
 set "VERCEL_NPX=npx --yes vercel@50.26.0"
+set "LAST_LOG="
 if /i "%MODE%"=="" set "MODE=vercel"
 if /i "%MODE%"=="help" goto :help_success
 if /i "%MODE%"=="prepare" goto :prepare
@@ -21,18 +22,29 @@ echo.
 goto :help_error
 
 :prepare
+set "LAST_LOG=%REPO_ROOT%\tmp.deploy.prepare.log"
+> "%LAST_LOG%" echo [START] %DATE% %TIME% prepare
 echo ========================================
 echo Deploy Prepare
 echo ========================================
+echo [INFO] Writing log to "%LAST_LOG%"
 if /i "%OPS_DRY_RUN%"=="1" (
   echo [DRY-RUN] call "%~dp0health-check.bat" quick
   echo [DRY-RUN] npm run build
+  >> "%LAST_LOG%" echo [DRY-RUN] call "%~dp0health-check.bat" quick
+  >> "%LAST_LOG%" echo [DRY-RUN] npm run build
 ) else (
-  call "%~dp0health-check.bat" quick
-  if errorlevel 1 goto :end_error
+  call "%~dp0health-check.bat" quick >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Health check failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
   echo [INFO] Creating production build...
-  call npm run build
-  if errorlevel 1 goto :end_error
+  call npm run build >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Build failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
 )
 echo [SUCCESS] Deploy preparation completed.
 goto :end_success
@@ -40,31 +52,49 @@ goto :end_success
 :vercel
 set "CHANNEL=%~2"
 if /i "%CHANNEL%"=="" set "CHANNEL=prod"
+set "LAST_LOG=%REPO_ROOT%\tmp.deploy.vercel.%CHANNEL%.log"
+> "%LAST_LOG%" echo [START] %DATE% %TIME% vercel %CHANNEL%
 echo ========================================
 echo Deploy to Vercel (%CHANNEL%)
 echo ========================================
+echo [INFO] Writing log to "%LAST_LOG%"
 if /i "%OPS_DRY_RUN%"=="1" (
   echo [DRY-RUN] call "%~dp0health-check.bat" quick
   echo [DRY-RUN] npm run build
   if /i "%CHANNEL%"=="preview" (
     echo [DRY-RUN] %VERCEL_NPX%
+    >> "%LAST_LOG%" echo [DRY-RUN] call "%~dp0health-check.bat" quick
+    >> "%LAST_LOG%" echo [DRY-RUN] npm run build
+    >> "%LAST_LOG%" echo [DRY-RUN] %VERCEL_NPX%
   ) else (
     echo [DRY-RUN] %VERCEL_NPX% --prod
+    >> "%LAST_LOG%" echo [DRY-RUN] call "%~dp0health-check.bat" quick
+    >> "%LAST_LOG%" echo [DRY-RUN] npm run build
+    >> "%LAST_LOG%" echo [DRY-RUN] %VERCEL_NPX% --prod
   )
 ) else (
-  call "%~dp0health-check.bat" quick
-  if errorlevel 1 goto :end_error
+  call "%~dp0health-check.bat" quick >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Health check failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
   echo [INFO] Creating production build...
-  call npm run build
-  if errorlevel 1 goto :end_error
+  call npm run build >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Build failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
   if /i "%CHANNEL%"=="preview" (
     echo [INFO] Running: %VERCEL_NPX%
-    call %VERCEL_NPX%
+    call %VERCEL_NPX% >> "%LAST_LOG%" 2>&1
   ) else (
     echo [INFO] Running: %VERCEL_NPX% --prod
-    call %VERCEL_NPX% --prod
+    call %VERCEL_NPX% --prod >> "%LAST_LOG%" 2>&1
   )
-  if errorlevel 1 goto :end_error
+  if errorlevel 1 (
+    echo [ERROR] Vercel deploy failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
 )
 echo [SUCCESS] Vercel deployment command completed.
 goto :end_success
@@ -74,18 +104,29 @@ set "REMOTE=%~2"
 set "BRANCH=%~3"
 if "%REMOTE%"=="" set "REMOTE=origin"
 if "%BRANCH%"=="" set "BRANCH=main"
+set "LAST_LOG=%REPO_ROOT%\tmp.deploy.git.%REMOTE%.%BRANCH%.log"
+> "%LAST_LOG%" echo [START] %DATE% %TIME% git %REMOTE% %BRANCH%
 echo ========================================
 echo Deploy via Git Push
 echo ========================================
+echo [INFO] Writing log to "%LAST_LOG%"
 if /i "%OPS_DRY_RUN%"=="1" (
   echo [DRY-RUN] call "%~dp0health-check.bat" quick
   echo [DRY-RUN] git push %REMOTE% %BRANCH%
+  >> "%LAST_LOG%" echo [DRY-RUN] call "%~dp0health-check.bat" quick
+  >> "%LAST_LOG%" echo [DRY-RUN] git push %REMOTE% %BRANCH%
 ) else (
-  call "%~dp0health-check.bat" quick
-  if errorlevel 1 goto :end_error
+  call "%~dp0health-check.bat" quick >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Health check failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
   echo [INFO] Pushing branch %BRANCH% to %REMOTE%...
-  git push %REMOTE% %BRANCH%
-  if errorlevel 1 goto :end_error
+  git push %REMOTE% %BRANCH% >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Git push failed. Review "%LAST_LOG%"
+    goto :end_error
+  )
 )
 echo [SUCCESS] Git push completed.
 goto :end_success
@@ -115,9 +156,11 @@ call :help_text
 goto :end_error
 
 :end_success
+if defined LAST_LOG echo [INFO] Log saved to "%LAST_LOG%"
 popd
 exit /b 0
 
 :end_error
+if defined LAST_LOG echo [INFO] Log saved to "%LAST_LOG%"
 popd
 exit /b 1

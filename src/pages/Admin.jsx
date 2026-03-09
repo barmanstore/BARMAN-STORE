@@ -17,6 +17,7 @@ import OfferManagement from './OfferManagement';
 import CreditKhata from './CreditKhata';
 import CustomerRequestsAdmin from './CustomerRequestsAdmin';
 import AppModal from '../components/AppModal';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './Admin.css';
 import './AdminStandard.css';
 
@@ -326,6 +327,8 @@ function Admin({ user }) {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem('admin-sidebar-panel-collapsed') === '1';
   });
+
+  useLockBodyScroll(isMobileSidebarOpen);
 
   const refreshAdminData = async () => {
     const [statsData, productsData, ordersData, usersData, analyticsData] = await Promise.all([

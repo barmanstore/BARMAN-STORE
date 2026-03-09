@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
 import { distributorsApi } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './DistributorManagement.css';
 
 function DistributorManagement({ user }) {
@@ -11,6 +12,7 @@ function DistributorManagement({ user }) {
   const [showForm, setShowForm] = useState(false);
   const [editingDistributor, setEditingDistributor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  useLockBodyScroll(showForm);
 
   const [formData, setFormData] = useState({
     name: '',

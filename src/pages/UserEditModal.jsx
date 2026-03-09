@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { usersApi } from '../services/api';
 import useIsMobile from '../hooks/useIsMobile';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
@@ -19,6 +20,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
   const [success, setSuccess] = useState('');
   const [errors, setErrors] = useState({});
   const isMobile = useIsMobile();
+  useLockBodyScroll(!isMobile);
 
   useEffect(() => {
     if (user && !isCreate) {

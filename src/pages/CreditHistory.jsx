@@ -15,6 +15,7 @@ import {
   truncateCreditDescription,
 } from '../utils/creditHistoryUi.mjs';
 import { buildCreditReportText, buildCreditEntryText, buildCreditTransactionText } from '../utils/messageTemplates';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './CreditHistory.css';
 
 // Currency format for PDF table and summary values.
@@ -175,6 +176,8 @@ function CreditHistory({ user }) {
   const [activeAdminIssueId, setActiveAdminIssueId] = useState(0);
   const focusIssueId = Number(searchParams.get('focusIssue') || 0) || 0;
   const focusEntryId = Number(searchParams.get('focusEntry') || 0) || 0;
+
+  useLockBodyScroll(showAddModal || showInvoiceModal);
 
   useEffect(() => {
     if (!authUser) {

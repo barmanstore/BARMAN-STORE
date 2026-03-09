@@ -29,6 +29,7 @@ const uniqueTexts = (values) => [...new Set((values || []).map((v) => String(v |
 
 const run = async () => {
   const apply = process.argv.includes('--apply');
+  const failOnMatches = process.argv.includes('--fail-on-matches');
   const dryRun = !apply;
   const pool = createPostgresPool();
 
@@ -323,8 +324,8 @@ const run = async () => {
       },
       {
         tableName: 'credit_history',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(reference, \'\') = ANY($2::text[]))',
-        params: [smokeUserIds, smokeBillNumbers],
+        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(reference, \'\') = ANY($2::text[])) OR COALESCE(client_request_id, \'\') ~* $3',
+        params: [smokeUserIds, smokeBillNumbers, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'stock_ledger',
@@ -333,8 +334,8 @@ const run = async () => {
       },
       {
         tableName: 'bills',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND customer_id = ANY($2::bigint[])) OR COALESCE(customer_email, \'\') ~* $3 OR COALESCE(customer_name, \'\') ILIKE \'Smoke Customer%\'',
-        params: [smokeBillIds, smokeUserIds, SMOKE_EMAIL_REGEX],
+        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND customer_id = ANY($2::bigint[])) OR COALESCE(customer_email, \'\') ~* $3 OR COALESCE(customer_name, \'\') ILIKE \'Smoke Customer%\' OR COALESCE(client_request_id, \'\') ~* $4',
+        params: [smokeBillIds, smokeUserIds, SMOKE_EMAIL_REGEX, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'orders',
@@ -353,7 +354,7 @@ const run = async () => {
       },
       {
         tableName: 'purchase_order_payments',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND purchase_order_id = ANY($2::bigint[])) OR (cardinality($3::bigint[]) > 0 AND distributor_id = ANY($3::bigint[])) OR COALESCE(reference, \'\') ~* $4 OR COALESCE(notes, \'\') ~* $4',
+        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND purchase_order_id = ANY($2::bigint[])) OR (cardinality($3::bigint[]) > 0 AND distributor_id = ANY($3::bigint[])) OR COALESCE(reference, \'\') ~* $4 OR COALESCE(notes, \'\') ~* $4 OR COALESCE(client_request_id, \'\') ~* $4',
         params: [smokePurchaseOrderPaymentIds, smokePurchaseOrderIds, smokeDistributorIds, SMOKE_MESSAGE_REGEX],
       },
       {
@@ -370,7 +371,7 @@ const run = async () => {
       },
       {
         tableName: 'purchase_orders',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND distributor_id = ANY($2::bigint[])) OR COALESCE(notes, \'\') ~* $3 OR COALESCE(po_number, \'\') ~* $3 OR COALESCE(bill_number, \'\') ~* $3 OR COALESCE(invoice_number, \'\') ~* $3',
+        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND distributor_id = ANY($2::bigint[])) OR COALESCE(notes, \'\') ~* $3 OR COALESCE(po_number, \'\') ~* $3 OR COALESCE(bill_number, \'\') ~* $3 OR COALESCE(invoice_number, \'\') ~* $3 OR COALESCE(client_request_id, \'\') ~* $3',
         params: [smokePurchaseOrderIds, smokeDistributorIds, SMOKE_MESSAGE_REGEX],
       },
       {
@@ -385,8 +386,8 @@ const run = async () => {
       },
       {
         tableName: 'admin_audit_logs',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND actor_user_id = ANY($1::bigint[])) OR COALESCE(details_json::text, \'\') ~* \'smoke-[^@]*@example\\.com\'',
-        params: [smokeUserIds],
+        whereClause: '(cardinality($1::bigint[]) > 0 AND actor_user_id = ANY($1::bigint[])) OR COALESCE(request_id, \'\') ~* $2 OR COALESCE(details_json::text, \'\') ~* $2 OR COALESCE(details_json::text, \'\') ~* $3',
+        params: [smokeUserIds, SMOKE_MESSAGE_REGEX, SMOKE_EMAIL_REGEX],
       },
       {
         tableName: 'products',
@@ -444,6 +445,10 @@ const run = async () => {
           `[SMOKE-CLEANUP] ${row.tableName}: matched=${row.matched}${dryRun ? '' : ` deleted=${row.deleted}`}`
         );
       }
+    }
+
+    if (failOnMatches && matchedTotal > 0) {
+      throw new Error(`Smoke residue detected after cleanup verification: ${matchedTotal} rows still matched`);
     }
   } catch (error) {
     await pool.query('ROLLBACK').catch(() => {});

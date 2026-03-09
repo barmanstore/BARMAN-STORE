@@ -443,6 +443,8 @@ function Checkout() {
                 <h2><Search size={20} /> Select Customer</h2>
                 <div className="customer-search-container">
                   <input
+                    id="checkout-customer-search"
+                    name="customer_search"
                     type="text"
                     placeholder="Search customers by name, email, or phone..."
                     value={customerSearch}

@@ -73,8 +73,7 @@ const runInternalProcessor = async (request) => {
   return json;
 };
 
-const main = async () => {
-  const port = 5600 + Math.floor(Math.random() * 300);
+const spawnPhoneTestServer = (port) => {
   const server = spawn('node', ['server/index.js'], {
     cwd: process.cwd(),
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -98,24 +97,57 @@ const main = async () => {
   server.stdout.on('data', (chunk) => { stdout += String(chunk); });
   server.stderr.on('data', (chunk) => { stderr += String(chunk); });
 
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const request = makeRequest(baseUrl);
+  return {
+    server,
+    readLogs: () => ({ stdout, stderr }),
+  };
+};
+
+const waitForServerReady = async (request, attempts = 220, waitMs = 250) => {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const res = await request('/');
+      if (res.ok) return true;
+    } catch (_) {
+      // keep polling
+    }
+    await delay(waitMs);
+  }
+  return false;
+};
+
+const main = async () => {
+  const bootAttempts = 3;
+  let server = null;
+  let request = null;
+  let baseUrl = '';
+  let bootDiagnostics = '';
 
   try {
     let ready = false;
-    for (let i = 0; i < 120; i += 1) {
-      try {
-        const res = await request('/');
-        if (res.ok) {
-          ready = true;
-          break;
-        }
-      } catch (_) {
-        // keep polling
+    for (let attempt = 1; attempt <= bootAttempts; attempt += 1) {
+      const port = 5600 + Math.floor(Math.random() * 300);
+      const boot = spawnPhoneTestServer(port);
+      server = boot.server;
+      baseUrl = `http://127.0.0.1:${port}`;
+      request = makeRequest(baseUrl);
+      ready = await waitForServerReady(request);
+      if (ready) break;
+
+      const logs = boot.readLogs();
+      bootDiagnostics += `\n[attempt ${attempt}] stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}\n`;
+      server.kill('SIGTERM');
+      await delay(700);
+
+      if (attempt < bootAttempts) {
+        await delay(1200 * attempt);
       }
-      await delay(250);
     }
-    assert.equal(ready, true, `Server did not start in time. stderr:\n${stderr}\nstdout:\n${stdout}`);
+    assert.equal(
+      ready,
+      true,
+      `Server did not start in time after ${bootAttempts} attempts.${bootDiagnostics}`
+    );
 
     const disabledRegisterRes = await request('/api/auth/register', {
       method: 'POST',
@@ -244,8 +276,10 @@ const main = async () => {
 
     console.log('Phone update workflow smoke test passed.');
   } finally {
-    server.kill('SIGTERM');
-    await delay(300);
+    if (server) {
+      server.kill('SIGTERM');
+      await delay(300);
+    }
   }
 };
 
