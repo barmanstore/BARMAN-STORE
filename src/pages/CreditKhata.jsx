@@ -367,8 +367,13 @@ function CreditKhata({ user }) {
 
       <div className="filters-bar">
         <div className="filter-group">
-          <label>Customer:</label>
-          <select name="user_id" value={filters.user_id} onChange={handleFilterChange}>
+          <label htmlFor="filter-user-id">Customer:</label>
+          <select 
+            id="filter-user-id"
+            name="user_id" 
+            value={filters.user_id} 
+            onChange={handleFilterChange}
+          >
             <option value="">All Customers</option>
             {users.map((customer) => (
               <option key={customer.id} value={customer.id}>{truncateUserName(customer.name, 15)}</option>
@@ -465,8 +470,10 @@ function CreditKhata({ user }) {
             <form onSubmit={handleLedgerSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Customer *</label>
+                  <label htmlFor="ledger-user-id">Customer *</label>
                   <select
+                    id="ledger-user-id"
+                    name="user_id"
                     value={ledgerFormData.user_id}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, user_id: e.target.value }))}
                     disabled={!!editingLedgerEntryId}
@@ -479,8 +486,10 @@ function CreditKhata({ user }) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Type *</label>
+                  <label htmlFor="ledger-type">Type *</label>
                   <select
+                    id="ledger-type"
+                    name="type"
                     value={ledgerFormData.type}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, type: e.target.value }))}
                   >
@@ -492,9 +501,11 @@ function CreditKhata({ user }) {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Amount *</label>
+                  <label htmlFor="ledger-amount">Amount *</label>
                   <input
                     type="text"
+                    id="ledger-amount"
+                    name="amount"
                     inputMode="decimal"
                     value={ledgerFormData.amount}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, amount: e.target.value }))}
@@ -510,9 +521,11 @@ function CreditKhata({ user }) {
                   ) : null}
                 </div>
                 <div className="form-group">
-                  <label>Transaction Date</label>
+                  <label htmlFor="ledger-transaction-date">Transaction Date</label>
                   <input
                     type="date"
+                    id="ledger-transaction-date"
+                    name="transactionDate"
                     value={ledgerFormData.transactionDate}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, transactionDate: e.target.value }))}
                   />
@@ -521,18 +534,22 @@ function CreditKhata({ user }) {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Reference</label>
+                  <label htmlFor="ledger-reference">Reference</label>
                   <input
                     type="text"
+                    id="ledger-reference"
+                    name="reference"
                     value={ledgerFormData.reference}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, reference: e.target.value }))}
                     placeholder="Bill / UPI / Bank ref"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Description *</label>
+                  <label htmlFor="ledger-description">Description *</label>
                   <input
                     type="text"
+                    id="ledger-description"
+                    name="description"
                     value={ledgerFormData.description}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, description: e.target.value }))}
                     placeholder="Enter description"

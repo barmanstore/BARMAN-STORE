@@ -346,6 +346,8 @@ const BillsViewer = () => {
           <Search size={18} />
           <input
             type="text"
+            id="bill-search"
+            name="bill-search"
             placeholder="Search by bill number, customer name, or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

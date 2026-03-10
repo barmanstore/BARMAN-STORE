@@ -898,6 +898,8 @@ function CategoryManagement({ onClose }) {
                         >
                           <input
                             type="text"
+                            id="product-category-search"
+                            name="product-category-search"
                             ref={productCategoryInputRef}
                             className="product-category-search-input"
                             placeholder="Type to search categories..."

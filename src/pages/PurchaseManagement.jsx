@@ -2763,6 +2763,8 @@ function PurchaseManagement({ user }) {
                           -
                         </button>
                         <input
+                          id={`receive-mobile-qty-${index}`}
+                          name={`received_quantity_${index}`}
                           type="number"
                           min="0"
                           max={item.ordered_quantity}
@@ -2915,6 +2917,8 @@ function PurchaseManagement({ user }) {
                       {orderDetailEditMode ? (
                         <input
                           type="date"
+                          id="po-detail-expected-delivery"
+                          name="expected_delivery"
                           value={orderDetailDraft?.expected_delivery || ''}
                           onChange={(event) => handleOrderDetailFieldChange('expected_delivery', event.target.value)}
                         />
@@ -2928,6 +2932,8 @@ function PurchaseManagement({ user }) {
                       {orderDetailEditMode ? (
                         <input
                           type="date"
+                          id="po-detail-strict-due-date"
+                          name="strict_due_date"
                           value={orderDetailDraft?.strict_due_date || ''}
                           onChange={(event) => handleOrderDetailFieldChange('strict_due_date', event.target.value)}
                         />
@@ -2952,12 +2958,16 @@ function PurchaseManagement({ user }) {
                     {orderDetailEditMode ? (
                       <div className="po-detail-edit-stack">
                         <textarea
+                          id="po-detail-notes"
+                          name="notes"
                           rows="3"
                           value={orderDetailDraft?.notes || ''}
                           onChange={(event) => handleOrderDetailFieldChange('notes', event.target.value)}
                           placeholder="PO notes"
                         />
                         <textarea
+                          id="po-detail-strict-due-note"
+                          name="strict_due_note"
                           rows="3"
                           value={orderDetailDraft?.strict_due_note || ''}
                           onChange={(event) => handleOrderDetailFieldChange('strict_due_note', event.target.value)}
@@ -3013,6 +3023,8 @@ function PurchaseManagement({ user }) {
                               <>
                                 <input
                                   type="text"
+                                  id={`po-detail-product-${idx}-${item.id}`}
+                                  name="product_query"
                                   list={`po-detail-product-list-${idx}`}
                                   value={item.product_query || ''}
                                   onChange={(event) => handleOrderDetailProductInputChange(idx, event.target.value)}
@@ -3034,6 +3046,8 @@ function PurchaseManagement({ user }) {
                               <>
                                 <input
                                   type="number"
+                                  id={`po-detail-qty-${idx}-${item.id}`}
+                                  name="quantity"
                                   min="0"
                                   value={item.quantity}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}
@@ -3048,6 +3062,8 @@ function PurchaseManagement({ user }) {
                             {orderDetailEditMode ? (
                               <>
                                 <select
+                                  id={`po-detail-uom-${idx}-${item.id}`}
+                                  name="uom"
                                   value={line.uom}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'uom', event.target.value)}
                                 >
@@ -3068,6 +3084,8 @@ function PurchaseManagement({ user }) {
                               <>
                                 <input
                                   type="number"
+                                  id={`po-detail-rate-${idx}-${item.id}`}
+                                  name="rate"
                                   step="0.01"
                                   min="0"
                                   value={item.rate}
@@ -3083,6 +3101,8 @@ function PurchaseManagement({ user }) {
                             {orderDetailEditMode ? (
                               <>
                                 <select
+                                  id={`po-detail-disc-type-${idx}-${item.id}`}
+                                  name="discount_type"
                                   value={item.discount_type || 'percent'}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'discount_type', event.target.value)}
                                 >
@@ -3100,6 +3120,8 @@ function PurchaseManagement({ user }) {
                               <>
                                 <input
                                   type="number"
+                                  id={`po-detail-disc-value-${idx}-${item.id}`}
+                                  name="discount_value"
                                   step="0.01"
                                   min="0"
                                   value={item.discount_value ?? 0}
@@ -3115,6 +3137,8 @@ function PurchaseManagement({ user }) {
                             {orderDetailEditMode ? (
                               <>
                                 <select
+                                  id={`po-detail-gst-${idx}-${item.id}`}
+                                  name="gst_rate"
                                   value={item.gst_rate}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'gst_rate', event.target.value)}
                                 >

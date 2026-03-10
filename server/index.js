@@ -5849,108 +5849,129 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
     const idempotency = resolveClientRequestId(req);
     if (idempotency.error) return res.status(400).json({ error: idempotency.error });
     clientRequestId = idempotency.value;
-    if (clientRequestId) {
-      const existingByRequest = await dbGetAsync(`SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
-      if (existingByRequest) {
-        return res.status(200).json({
-          success: true,
-          deduplicated: true,
-          balance: Number(existingByRequest.balance || 0),
-          transaction: existingByRequest,
-        });
+
+    const result = await dbTxAsync(async () => {
+      if (clientRequestId) {
+        const existingByRequest = await dbGetAsync(`SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+        if (existingByRequest) {
+          return {
+            status: 200,
+            payload: {
+              success: true,
+              deduplicated: true,
+              balance: Number(existingByRequest.balance || 0),
+              transaction: existingByRequest,
+            }
+          };
+        }
       }
-    }
 
-    const { type, amount, description, reference, transactionDate } = req.body || {};
-    if (!type || !['given', 'payment'].includes(type)) {
-      return res.status(400).json({ error: 'Invalid transaction type' });
-    }
-    const parsedAmount = Number(amount);
-    if (!parsedAmount || parsedAmount <= 0) {
-      return res.status(400).json({ error: 'Amount must be positive' });
-    }
-    const normalizedDescription = String(description || '').trim();
-    const normalizedReference = String(reference || '').trim();
-    const createdById = Number(req.authUser?.id || 0);
-    const last = await getLatestCreditEntryAsync(req.params.userId);
-    const current = Number(last?.balance || 0);
-    const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
-    const normalizedDate = transactionDate && /^\d{4}-\d{2}-\d{2}$/.test(String(transactionDate))
-      ? String(transactionDate)
-      : null;
+      const { type, amount, description, reference, transactionDate } = req.body || {};
+      if (!type || !['given', 'payment'].includes(type)) {
+        throw new Error('Invalid transaction type');
+      }
+      const parsedAmount = Number(amount);
+      if (!parsedAmount || parsedAmount <= 0) {
+        throw new Error('Amount must be positive');
+      }
+      const normalizedDescription = String(description || '').trim();
+      const normalizedReference = String(reference || '').trim();
+      const createdById = Number(req.authUser?.id || 0);
+      const last = await getLatestCreditEntryAsync(req.params.userId);
+      const current = Number(last?.balance || 0);
+      const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
+      const normalizedDate = transactionDate && /^\d{4}-\d{2}-\d{2}$/.test(String(transactionDate))
+        ? String(transactionDate)
+        : null;
 
-    if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
-      const transactionDateCompareSql = `COALESCE(transaction_date::text, '')`;
-      const maybeDuplicate = await dbGetAsync(
-        `SELECT id, created_at, balance
-         FROM credit_history
-         WHERE user_id = ?
-           AND type = ?
-           AND amount = ?
-           AND COALESCE(description, '') = ?
-           AND COALESCE(reference, '') = ?
-           AND ${transactionDateCompareSql} = ?
-           AND COALESCE(created_by, 0) = ?
-         ORDER BY id DESC
-         LIMIT 1`,
+      if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
+        const transactionDateCompareSql = `COALESCE(transaction_date::text, '')`;
+        const maybeDuplicate = await dbGetAsync(
+          `SELECT id, created_at, balance
+           FROM credit_history
+           WHERE user_id = ?
+             AND type = ?
+             AND amount = ?
+             AND COALESCE(description, '') = ?
+             AND COALESCE(reference, '') = ?
+             AND ${transactionDateCompareSql} = ?
+             AND COALESCE(created_by, 0) = ?
+           ORDER BY id DESC
+           LIMIT 1`,
+          [
+            req.params.userId,
+            type,
+            parsedAmount,
+            normalizedDescription,
+            normalizedReference,
+            normalizedDate || '',
+            createdById,
+          ]
+        );
+        if (maybeDuplicate) {
+          const createdAtMs = toTimestampMs(maybeDuplicate.created_at);
+          const ageMs = createdAtMs > 0 ? Date.now() - createdAtMs : Number.POSITIVE_INFINITY;
+          if (ageMs >= 0 && ageMs <= CREDIT_ENTRY_DEDUP_WINDOW_MS) {
+            const existing = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [maybeDuplicate.id]);
+            return {
+              status: 200,
+              payload: {
+                success: true,
+                deduplicated: true,
+                message: 'Duplicate submit prevented',
+                balance: Number(maybeDuplicate.balance || current),
+                transaction: existing,
+              }
+            };
+          }
+        }
+      }
+
+      const insertResult = await dbRunAsync(
+        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.params.userId,
           type,
           parsedAmount,
-          normalizedDescription,
-          normalizedReference,
-          normalizedDate || '',
-          createdById,
+          next,
+          normalizedDescription || null,
+          normalizedReference || null,
+          normalizedDate,
+          createdById || null,
+          clientRequestId,
         ]
       );
-      if (maybeDuplicate) {
-        const createdAtMs = toTimestampMs(maybeDuplicate.created_at);
-        const ageMs = createdAtMs > 0 ? Date.now() - createdAtMs : Number.POSITIVE_INFINITY;
-        if (ageMs >= 0 && ageMs <= CREDIT_ENTRY_DEDUP_WINDOW_MS) {
-          const existing = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [maybeDuplicate.id]);
-          return res.status(200).json({
-            success: true,
-            deduplicated: true,
-            message: 'Duplicate submit prevented',
-            balance: Number(maybeDuplicate.balance || current),
-            transaction: existing,
-          });
+      
+      // Recalculate balances for the user to ensure chronological consistency, especially for backdated entries.
+      await recalculateCreditBalancesForUser(req.params.userId);
+      
+      const transaction = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [insertResult.lastInsertRowid]);
+      return {
+        status: 201,
+        payload: {
+          success: true,
+          balance: Number(transaction?.balance || next),
+          transaction,
         }
-      }
+      };
+    });
+
+    if (result.status === 201) {
+      await logAdminAuditAsync(req, {
+        action: 'credit.create',
+        entityType: 'credit_history',
+        entityId: result.payload.transaction.id,
+        requestId: clientRequestId,
+        details: {
+          user_id: Number(req.params.userId || 0),
+          type: req.body.type,
+          amount: Number(req.body.amount),
+          transaction_date: result.payload.transaction.transaction_date,
+        },
+      });
     }
 
-    const result = await dbRunAsync(
-      `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        req.params.userId,
-        type,
-        parsedAmount,
-        next,
-        normalizedDescription || null,
-        normalizedReference || null,
-        normalizedDate,
-        createdById || null,
-        clientRequestId,
-      ]
-    );
-    const transaction = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ?`, [result.lastInsertRowid]);
-    await logAdminAuditAsync(req, {
-      action: 'credit.create',
-      entityType: 'credit_history',
-      entityId: result.lastInsertRowid,
-      requestId: clientRequestId,
-      details: {
-        user_id: Number(req.params.userId || 0),
-        type,
-        amount: parsedAmount,
-        transaction_date: normalizedDate,
-      },
-    });
-    return res.status(201).json({
-      success: true,
-      balance: next,
-      transaction,
-    });
+    return res.status(result.status).json(result.payload);
   } catch (error) {
     if (clientRequestId && isUniqueViolationError(error)) {
       const existingByRequest = await dbGetAsync(`SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
@@ -5963,7 +5984,9 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
         });
       }
     }
-    return res.status(500).json({ error: error.message });
+    const message = error.message || 'Failed to create credit entry';
+    const status = message.includes('Invalid') || message.includes('positive') ? 400 : 500;
+    return res.status(status).json({ error: message });
   }
 });
 

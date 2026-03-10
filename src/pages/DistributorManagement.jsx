@@ -220,6 +220,8 @@ function DistributorManagement({ user }) {
         <Search size={20} />
         <input
           type="text"
+          id="distributor-search"
+          name="distributor-search"
           placeholder="Search distributors by name, salesman, or products..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}

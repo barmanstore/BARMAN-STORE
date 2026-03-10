@@ -718,6 +718,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
               <tr key={item.id}>
                 <td data-label="Product Name">
                   <input
+                    id={`product-name-${item.id}`}
+                    name="product_name"
                     list="product-list"
                     value={item.name}
                     onChange={(e) => handleProductChange(index, 'name', e.target.value)}
@@ -734,6 +736,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                 <td data-label="Price">
                   <input
                     type="number"
+                    id={`product-price-${item.id}`}
+                    name="price"
                     value={item.price}
                     onChange={(e) => handleProductChange(index, 'price', e.target.value)}
                     aria-label="Price per unit"
@@ -744,6 +748,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                 <td data-label="Quantity">
                   <input
                     type="number"
+                    id={`product-qty-${item.id}`}
+                    name="qty"
                     value={item.qty}
                     onChange={(e) => handleProductChange(index, 'qty', e.target.value)}
                     aria-label="Quantity"
@@ -753,6 +759,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                 <td data-label="Unit">
                   {rowProduct ? (
                     <select
+                      id={`product-unit-${item.id}`}
+                      name="unit"
                       value={selectedUnit}
                       onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
                       aria-label="Unit of measurement"
@@ -766,6 +774,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                   ) : (
                     <input
                       type="text"
+                      id={`product-unit-${item.id}`}
+                      name="unit"
                       value={item.unit}
                       onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
                       aria-label="Unit of measurement"
@@ -777,6 +787,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                   <div className="discount-field">
                     <input
                       type="number"
+                      id={`product-disc-${item.id}`}
+                      name="disc"
                       value={item.disc}
                       onChange={(e) => handleProductChange(index, 'disc', e.target.value)}
                       aria-label="Discount value"
@@ -785,6 +797,8 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
                       className="disc-input"
                     />
                     <select
+                      id={`product-disc-type-${item.id}`}
+                      name="discType"
                       value={item.discType}
                       onChange={(e) => handleProductChange(index, 'discType', e.target.value)}
                       aria-label="Discount type"

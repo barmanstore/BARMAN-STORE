@@ -610,6 +610,8 @@ function Profile() {
                   <Camera size={16} />
                   {imageUploading ? 'Uploading...' : 'Upload Photo'}
                   <input
+                    id="profile-image-upload"
+                    name="profile_image_upload"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={handleProfileImageUpload}
@@ -702,6 +704,8 @@ function Profile() {
                               <option value="token_hash">token_hash</option>
                             </select>
                             <input
+                              id="email-verification-token"
+                              name="email_verification_token"
                               type="text"
                               value={emailVerificationToken}
                               onChange={(e) => setEmailVerificationToken(e.target.value)}

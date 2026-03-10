@@ -56,19 +56,44 @@ const toLocalDateKey = (date) => {
 const getTodayDateInputValue = () => toLocalDateKey(new Date());
 
 const getEffectiveTransactionDateKey = (transaction) => {
-  const txDate = String(transaction?.transaction_date || '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(txDate)) return txDate;
+  const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
+  if (txDateRaw) {
+    if (typeof txDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(txDateRaw)) {
+      return txDateRaw;
+    }
+    const d = new Date(txDateRaw);
+    if (!Number.isNaN(d.getTime())) {
+      return toLocalDateKey(d);
+    }
+  }
   const created = new Date(transaction?.created_at || '');
   return toLocalDateKey(created);
 };
 
 const getEffectiveTransactionTimestamp = (transaction) => {
-  const txDate = String(transaction?.transaction_date || '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(txDate)) {
-    return new Date(`${txDate}T00:00:00`).getTime();
+  const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
+  if (txDateRaw) {
+    if (typeof txDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(txDateRaw)) {
+      const [year, month, day] = txDateRaw.split('-').map((v) => Number(v));
+      const localDate = new Date(year, month - 1, day);
+      if (!Number.isNaN(localDate.getTime())) return localDate.getTime();
+    }
+    const d = new Date(txDateRaw);
+    if (!Number.isNaN(d.getTime())) return d.getTime();
   }
   const createdTs = new Date(transaction?.created_at || '').getTime();
   return Number.isFinite(createdTs) ? createdTs : 0;
+};
+
+const compareTransactionsByBalanceDesc = (a, b) => {
+  const balanceA = Number(a?.balance);
+  const balanceB = Number(b?.balance);
+  const safeBalanceA = Number.isFinite(balanceA) ? balanceA : 0;
+  const safeBalanceB = Number.isFinite(balanceB) ? balanceB : 0;
+  if (safeBalanceA !== safeBalanceB) return safeBalanceB - safeBalanceA;
+  const timeDiff = getEffectiveTransactionTimestamp(b) - getEffectiveTransactionTimestamp(a);
+  if (timeDiff !== 0) return timeDiff;
+  return Number(b?.id || 0) - Number(a?.id || 0);
 };
 
 const formatTransactionDate = (transaction, { long = false } = {}) => {
@@ -297,10 +322,14 @@ function CreditHistory({ user }) {
         reference: String(newTransaction.reference || '').trim(),
         transactionDate: newTransaction.transactionDate || getTodayDateInputValue()
       };
+      
+      const clientRequestId = `req_credit_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      
       const result = await creditApi.addTransaction(effectiveUserId, {
         ...newTransaction,
         amount: parseFloat(newTransaction.amount),
-        created_by: authUser?.id
+        created_by: authUser?.id,
+        client_request_id: clientRequestId
       });
       setSuccess('Transaction added successfully');
       setEntryShareText('');
@@ -738,7 +767,7 @@ function CreditHistory({ user }) {
     rangeFilter: quickRangeFilter,
     nowTimestamp: Date.now(),
     getTimestamp: getEffectiveTransactionTimestamp,
-  });
+  }).sort(compareTransactionsByBalanceDesc);
 
   const groupedTransactions = (() => {
     const groups = new Map();
@@ -755,9 +784,7 @@ function CreditHistory({ user }) {
         dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
           ? formatTransactionDate({ transaction_date: dateKey }, { long: true })
           : dateKey,
-        transactions: [...transactions].sort(
-          (a, b) => getEffectiveTransactionTimestamp(b) - getEffectiveTransactionTimestamp(a)
-        )
+        transactions: [...transactions].sort(compareTransactionsByBalanceDesc)
       }));
   })();
 

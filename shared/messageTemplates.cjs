@@ -115,12 +115,13 @@ const buildStructuredMessage = ({
   detailLines = [],
   onlineStoreUrl,
   thankYouLine,
+  endSuffix = '🙏',
 } = {}) => compactJoin([
   toAssameseStoreTitle(companyTitle),
   normalizeLabel(title),
   ...detailLines,
   onlineStoreUrl ? `দোকান: ${String(onlineStoreUrl).trim()}` : '',
-  toAssameseThanks(thankYouLine),
+  `${toAssameseThanks(thankYouLine)}${endSuffix ? ` ${String(endSuffix).trim()}` : ''}`.trim(),
 ]);
 
 const buildBillShareText = ({
@@ -223,10 +224,10 @@ const buildCreditReportText = ({
         ? `+${safeTransactions.length - transactionLines.length} টা অধিক লেনদেন`
         : '',
       `মুঠ ধাৰ: ${formatCurrency(totalGiven)} | মুঠ পৰিশোধ: ${formatCurrency(totalPayment)} | নেট: ${formatCurrency(totalGiven - totalPayment)}`,
-      `সমাপ্ত বেলেঞ্চ: ${formatCurrency(periodEndingBalance)} | বৰ্তমান বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`,
     ],
     onlineStoreUrl,
     thankYouLine,
+    endSuffix: '🙏',
   });
 };
 

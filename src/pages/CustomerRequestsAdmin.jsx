@@ -384,9 +384,11 @@ function CustomerRequestsAdmin() {
                           </button>
                         ) : (
                           <>
-                            <label>
+                            <label htmlFor={`admin-reason-${item.id}`}>
                               Reason
                               <textarea
+                                id={`admin-reason-${item.id}`}
+                                name="admin_reason"
                                 value={getIssueDraft(item).admin_reason}
                                 onChange={(e) => setIssueDraft(item.id, { admin_reason: e.target.value })}
                                 rows={2}
@@ -394,9 +396,11 @@ function CustomerRequestsAdmin() {
                               />
                             </label>
                             <div className="request-correction-grid">
-                              <label>
+                              <label htmlFor={`correction-type-${item.id}`}>
                                 Correction Type
                                 <select
+                                  id={`correction-type-${item.id}`}
+                                  name="correction_type"
                                   value={getIssueDraft(item).correction_type}
                                   onChange={(e) => setIssueDraft(item.id, { correction_type: e.target.value })}
                                 >
@@ -405,10 +409,12 @@ function CustomerRequestsAdmin() {
                                   <option value="payment">Payment</option>
                                 </select>
                               </label>
-                              <label>
+                              <label htmlFor={`correction-amount-${item.id}`}>
                                 Correction Amount
                                 <input
                                   type="number"
+                                  id={`correction-amount-${item.id}`}
+                                  name="correction_amount"
                                   min="0"
                                   step="0.01"
                                   value={getIssueDraft(item).correction_amount}
@@ -417,10 +423,12 @@ function CustomerRequestsAdmin() {
                                 />
                               </label>
                             </div>
-                            <label>
+                            <label htmlFor={`correction-description-${item.id}`}>
                               Correction Description
                               <input
                                 type="text"
+                                id={`correction-description-${item.id}`}
+                                name="correction_description"
                                 value={getIssueDraft(item).correction_description}
                                 onChange={(e) => setIssueDraft(item.id, { correction_description: e.target.value })}
                                 placeholder="Optional"
