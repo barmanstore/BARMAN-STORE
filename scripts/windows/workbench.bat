@@ -27,10 +27,11 @@ echo 12. Git status
 echo 13. Transaction history smoke test
 echo 14. Health check (quick)
 echo 15. Health check (full)
-echo 16. Exit
+echo 16. Migrate DB (Supabase)
+echo 17. Exit
 echo.
 set "CHOICE="
-set /p CHOICE=Select option [1-16]: 
+set /p CHOICE=Select option [1-17]: 
 if errorlevel 1 goto :done
 
 :dispatch
@@ -49,7 +50,8 @@ if "%CHOICE%"=="12" goto :git_status
 if "%CHOICE%"=="13" goto :transaction_history_smoke
 if "%CHOICE%"=="14" goto :health_quick
 if "%CHOICE%"=="15" goto :health_full
-if "%CHOICE%"=="16" goto :done
+if "%CHOICE%"=="16" goto :db_migrate
+if "%CHOICE%"=="17" goto :done
 if "%CHOICE%"=="" goto :menu
 goto :menu
 
@@ -70,6 +72,10 @@ goto :pause_and_menu
 
 :health_full
 call "%~dp0health-check.bat" full
+goto :pause_and_menu
+
+:db_migrate
+call npm run db:supabase:migrate
 goto :pause_and_menu
 
 :deploy_prepare

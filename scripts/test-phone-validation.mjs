@@ -233,7 +233,7 @@ const main = async () => {
     if (secondStatus === 'PENDING_VALIDATION') {
       assert.equal(secondNeedsReview, true, 'request should require admin review');
 
-      await delay(4000);
+      await delay(6500);
       const thirdProcessRun = await runInternalProcessor(request);
       assert.equal(Boolean(thirdProcessRun?.result?.expired_rejected >= 1), true, 'third run should auto-reject overdue admin review');
 

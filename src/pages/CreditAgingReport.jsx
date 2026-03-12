@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { creditApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import './CreditAgingReport.css';
 
 function CreditAgingReport({ user }) {
@@ -54,12 +55,15 @@ function CreditAgingReport({ user }) {
 
   return (
     <div className="credit-aging-report">
-      <div className="page-header">
-        <h1>Credit Aging Report</h1>
-        <button className="refresh-btn" onClick={fetchAgingReport}>
-          <RefreshCw size={18} /> Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        className="page-header"
+        title="Credit Aging Report"
+        actions={(
+          <button className="refresh-btn" onClick={fetchAgingReport}>
+            <RefreshCw size={18} /> Refresh
+          </button>
+        )}
+      />
 
       {error && <div className="error-message">{error}</div>}
 

@@ -111,6 +111,15 @@ Notes:
 - `docs/SUPABASE_MIGRATION_START.md` Supabase migration runbook
 - `docs/WINDOWS_BAT_WORKFLOWS.md` Windows `.bat` automation guide (git/health/deploy)
 
+## Purchase Analytics Cron
+Vercel runs scheduled analytics snapshots for purchase operations.
+
+- Endpoint: `/api/internal/purchase-operations/analytics/run`
+- Schedule: `45 0 * * *` (see `vercel.json`)
+- Auth: `x-cron-secret` header (value from `CRON_SECRET` or `PHONE_CHANGE_CRON_SECRET`)
+
+The endpoint computes purchase analytics (next payment and delivery predictions) and stores daily snapshots in `purchase_analytics_snapshots`.
+
 ## Secret Protection Guardrails
 - Local hooks are configured via `core.hooksPath=.githooks`.
 - `pre-commit` blocks commits containing potential secrets.

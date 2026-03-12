@@ -108,6 +108,8 @@ function OrderFilters({
       <div className="search-box">
         <Search size={20} />
         <input
+          id="order-history-search"
+          name="order_history_search"
           type="text"
           placeholder="Search by order number, name, or email..."
           value={searchTerm}

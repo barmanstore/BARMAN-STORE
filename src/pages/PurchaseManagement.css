@@ -536,6 +536,70 @@
   background: linear-gradient(180deg, rgba(236, 253, 245, 0.98), rgba(167, 243, 208, 0.38));
 }
 
+.purchase-management .purchase-sector-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.purchase-management .purchase-sector-tile {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.purchase-management .purchase-sector-tile:hover {
+  border-color: #cbd5f5;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.purchase-management .purchase-sector-tile.active {
+  border-color: #94a3b8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.purchase-management .purchase-sector-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.purchase-management .purchase-sector-tile strong {
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.purchase-management .purchase-sector-tile small {
+  color: #64748b;
+}
+
+.purchase-management .purchase-sector-details {
+  margin-top: 16px;
+}
+
+.purchase-management .purchase-sector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.purchase-management .purchase-sector-grid.single {
+  grid-template-columns: 1fr;
+}
+
 .purchase-management .purchase-ops-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -611,6 +675,197 @@
 .purchase-management .purchase-ops-empty {
   color: #94a3b8;
   padding: 14px 0;
+}
+
+.purchase-management .purchase-ops-rollup-meta {
+  margin: 2px 0 12px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.purchase-management .purchase-ops-rollup-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.purchase-management .purchase-ops-rollup-controls label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.purchase-management .purchase-ops-rollup-controls select,
+.purchase-management .purchase-ops-rollup-controls input {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.purchase-management .purchase-ops-rollup-controls button {
+  align-self: end;
+  height: 32px;
+}
+
+.purchase-management .purchase-ops-rollup-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.purchase-management .purchase-ops-rollup-chart {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.purchase-management .purchase-ops-rollup-chart.stacked .bar-track {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.purchase-management .purchase-ops-rollup-bar {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 36px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #6366f1);
+}
+
+.purchase-management .purchase-ops-rollup-chart.stacked .bar-fill {
+  border-radius: 6px;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_created {
+  background: #38bdf8;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_sent {
+  background: #22c55e;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_revised {
+  background: #f59e0b;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_confirmed {
+  background: #6366f1;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_part_paid {
+  background: #f97316;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_fully_paid {
+  background: #16a34a;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_closed {
+  background: #94a3b8;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.po_cancelled {
+  background: #ef4444;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.delivery_received {
+  background: #14b8a6;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.payment {
+  background: #0ea5e9;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.return {
+  background: #f472b6;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.ledger_manual {
+  background: #a855f7;
+}
+
+.purchase-management .purchase-ops-rollup-bar .bar-fill.reminder_sent {
+  background: #facc15;
+}
+
+.purchase-management .purchase-ops-rollup-bar strong {
+  text-align: right;
+  color: #0f172a;
+}
+
+.purchase-management .purchase-ops-rollup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.purchase-management .purchase-ops-rollup-grid h4 {
+  margin: 0 0 8px;
+  color: #475569;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.purchase-management .purchase-ops-table-wrap {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  overflow-x: auto;
+}
+
+.purchase-management .purchase-ops-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.purchase-management .purchase-ops-table th,
+.purchase-management .purchase-ops-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.purchase-management .purchase-ops-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+}
+
+.purchase-management .purchase-ops-table th:first-child,
+.purchase-management .purchase-ops-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+
+.purchase-management .purchase-ops-table-total td {
+  background: #f8fafc;
+  font-weight: 700;
 }
 
 .purchase-management .purchase-payables-shell {
@@ -709,6 +964,18 @@
   .purchase-management .purchase-ops-panel.insights {
     grid-column: span 1;
   }
+
+  .purchase-management .purchase-sector-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .purchase-management .purchase-sector-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-management .purchase-ops-rollup-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -741,6 +1008,10 @@
   }
 
   .purchase-management .po-history-section {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-management .purchase-sector-tiles {
     grid-template-columns: 1fr;
   }
 }

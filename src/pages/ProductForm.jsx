@@ -39,6 +39,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
     description: '',
     brand: '',
     content: '',
+    purchase_pack_size: '',
     color: '',
     price: '',
     mrp: '',
@@ -92,6 +93,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
         description: product.description || '',
         brand: product.brand_path || product.brand || '',
         content: product.content || '',
+        purchase_pack_size: product.purchase_pack_size?.toString() || '',
         color: product.color || '',
         price: product.price?.toString() || '',
         mrp: product.mrp?.toString() || '',
@@ -132,16 +134,36 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
   };
 
   // Auto-generate SKU when relevant fields change
-  const generateAutoSKU = (data = formData, variantIndex = 0) => {
-    const sanitize = (v) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const namePart = sanitize(firstCommaValue(data.name)).slice(0, 4).padEnd(4, 'X');
-    const brandPart = sanitize(firstCommaValue(data.brand)).slice(0, 4).padEnd(4, 'X');
-    const contentPart = sanitize(firstCommaValue(data.content)).slice(0, 2).padEnd(2, 'X');
-    const priceRounded = Math.round(parseFloat(firstCommaValue(data.price)) || parseFloat(firstCommaValue(data.mrp)) || 0);
-    const pricePart = String(priceRounded).replace(/\D/g, '').slice(-4).padStart(4, '0');
-    const baseSku = `${namePart}${brandPart}${contentPart}${pricePart}`;
-    if (variantIndex > 0) return `${baseSku}${String(variantIndex + 1).padStart(2, '0')}`;
-    return baseSku;
+  const normalizeSkuToken = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const toSkuFixed = (value, length, fallback = 'X') => {
+    const clean = normalizeSkuToken(value);
+    if (!clean) return fallback.repeat(length);
+    return clean.slice(0, length);
+  };
+  const normalizeSkuContent = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return 'NA';
+    return raw.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'NA';
+  };
+  const normalizeSkuPrice = (value) => {
+    const raw = String(value ?? '').replace(/,/g, '');
+    const integerPart = raw.split('.')[0] || '';
+    const digits = integerPart.replace(/[^0-9]/g, '');
+    return digits || '0';
+  };
+  const normalizeSkuPackSize = (value) => {
+    const raw = String(value ?? '').replace(/,/g, '');
+    const integerPart = raw.split('.')[0] || '';
+    const digits = integerPart.replace(/[^0-9]/g, '');
+    return digits || '0';
+  };
+  const generateAutoSKU = (data = formData) => {
+    const namePart = toSkuFixed(firstCommaValue(data.name), 4, 'N');
+    const brandPart = toSkuFixed(firstCommaValue(data.brand), 3, 'B');
+    const contentPart = normalizeSkuContent(firstCommaValue(data.content));
+    const pricePart = normalizeSkuPrice(firstCommaValue(data.price) || firstCommaValue(data.mrp));
+    const packPart = normalizeSkuPackSize(firstCommaValue(data.purchase_pack_size));
+    return `${namePart}-${brandPart}-${contentPart}-${pricePart}-P${packPart}`;
   };
 
   const generateDescriptionSuggestion = (data = formData) => {
@@ -217,6 +239,13 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
     if (!Number.isFinite(conversionFactor) || conversionFactor <= 0) {
       newErrors.conversion_factor = 'Conversion factor must be greater than 0';
     }
+
+    if (String(data.purchase_pack_size || '').trim()) {
+      const packSize = Number(data.purchase_pack_size);
+      if (!Number.isFinite(packSize) || packSize <= 0) {
+        newErrors.purchase_pack_size = 'Purchase pack size must be greater than 0';
+      }
+    }
     return newErrors;
   };
 
@@ -225,6 +254,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
     description: data.description.trim(),
     brand: data.brand.trim(),
     content: data.content.trim(),
+    purchase_pack_size: String(data.purchase_pack_size || '').trim() === '' ? null : parseFloat(data.purchase_pack_size),
     color: data.color.trim(),
     price: parseFloat(data.price),
     mrp: parseFloat(data.mrp) || parseFloat(data.price),
@@ -248,6 +278,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
       mrp: splitCommaValues(data.mrp),
       stock: splitCommaValues(data.stock),
       content: splitCommaValues(data.content),
+      purchase_pack_size: splitCommaValues(data.purchase_pack_size),
       color: splitCommaValues(data.color),
       sku: splitCommaValues(data.sku),
       barcode: splitCommaValues(data.barcode),
@@ -258,6 +289,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
       lists.mrp.length,
       lists.stock.length,
       lists.content.length,
+      lists.purchase_pack_size.length,
       lists.color.length,
       lists.sku.length,
       lists.barcode.length
@@ -278,6 +310,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
         price: pickValue('price', i),
         stock: pickValue('stock', i),
         content: pickValue('content', i),
+        purchase_pack_size: pickValue('purchase_pack_size', i),
         color: pickValue('color', i),
       };
       const mrpValue = pickValue('mrp', i);
@@ -315,7 +348,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
   };
 
   const hasFormDraft = (data = formData) => {
-    return ['name', 'description', 'brand', 'content', 'color', 'price', 'mrp', 'barcode', 'sku', 'image', 'stock', 'expiry_date', 'category', 'defaultDiscount']
+    return ['name', 'description', 'brand', 'content', 'purchase_pack_size', 'color', 'price', 'mrp', 'barcode', 'sku', 'image', 'stock', 'expiry_date', 'category', 'defaultDiscount']
       .some((field) => String(data[field] || '').trim() !== '');
   };
 
@@ -399,11 +432,12 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
     }
 
     // Auto-generate SKU when relevant fields change
-    if (['name', 'brand', 'content', 'price', 'mrp'].includes(name)) {
+    if (['name', 'brand', 'content', 'purchase_pack_size', 'price', 'mrp'].includes(name)) {
       const contentValues = splitCommaValues(nextFormData.content);
+      const packValues = splitCommaValues(nextFormData.purchase_pack_size);
       const priceValues = splitCommaValues(nextFormData.price);
       const mrpValues = splitCommaValues(nextFormData.mrp);
-      const skuVariantCount = Math.max(1, contentValues.length, priceValues.length, mrpValues.length);
+      const skuVariantCount = Math.max(1, contentValues.length, packValues.length, priceValues.length, mrpValues.length);
       const skuList = [];
       for (let i = 0; i < skuVariantCount; i += 1) {
         const row = {
@@ -411,6 +445,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
           content: pickVariantValueLoose(contentValues, i, skuVariantCount)
             || pickVariantValueLoose(priceValues, i, skuVariantCount)
             || pickVariantValueLoose(mrpValues, i, skuVariantCount),
+          purchase_pack_size: pickVariantValueLoose(packValues, i, skuVariantCount),
           price: pickVariantValueLoose(priceValues, i, skuVariantCount),
           mrp: pickVariantValueLoose(mrpValues, i, skuVariantCount),
         };
@@ -483,6 +518,24 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
         if (validationMessages.length) {
           setError(validationMessages[0]);
           return;
+        }
+
+        // Soft margin check: warn if selling below latest cost for single-variant edits.
+        if (variantRows.length === 1 && product.latest_cost != null) {
+          const latestCost = Number(product.latest_cost || 0);
+          if (latestCost > 0) {
+            const selling = Number(variantRows[0].price || variantRows[0].mrp || 0);
+            if (selling > 0 && selling < latestCost) {
+              const ok = window.confirm(
+                `Warning: Selling price (Rs ${selling.toFixed(2)}) is below latest purchase cost (Rs ${latestCost.toFixed(2)}).\n\n` +
+                'Do you still want to save this product price?'
+              );
+              if (!ok) {
+                setLoading(false);
+                return;
+              }
+            }
+          }
         }
 
         const payloads = variantRows.map((row) => buildProductData(row));
@@ -732,6 +785,22 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
                   ))}
                 </select>
               </div>
+
+              <div className="form-group compact-span-2">
+                <label htmlFor="purchase_pack_size">Purchase Pack Size</label>
+                <input
+                  type="number"
+                  id="purchase_pack_size"
+                  name="purchase_pack_size"
+                  min="0"
+                  step="1"
+                  value={formData.purchase_pack_size}
+                  onChange={handleChange}
+                  placeholder="e.g., 12"
+                  className={`input-field ${errors.purchase_pack_size ? 'error' : ''}`}
+                />
+                {errors.purchase_pack_size && <span className="field-error">{errors.purchase_pack_size}</span>}
+              </div>
             </div>
             )}
 
@@ -763,6 +832,27 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
                   className="input-field"
                 />
                 <small className="field-help">Multiple variants: use comma values, e.g. `250g,500g,1kg`.</small>
+              </div>
+            </div>
+            )}
+
+            {!isQuickMode && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="purchase_pack_size">Purchase Pack Size</label>
+                <input
+                  type="number"
+                  id="purchase_pack_size"
+                  name="purchase_pack_size"
+                  min="0"
+                  step="1"
+                  value={formData.purchase_pack_size}
+                  onChange={handleChange}
+                  placeholder="e.g., 12"
+                  className={`input-field ${errors.purchase_pack_size ? 'error' : ''}`}
+                />
+                <small className="field-help">Used for PO quantity step and SKU (format: P12).</small>
+                {errors.purchase_pack_size && <span className="field-error">{errors.purchase_pack_size}</span>}
               </div>
             </div>
             )}

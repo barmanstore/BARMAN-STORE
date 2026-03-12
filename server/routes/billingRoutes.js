@@ -561,15 +561,16 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
           `SELECT balance
            FROM credit_history
            WHERE user_id = ?
-           ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC
+           ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
            LIMIT 1`,
           [Number(customer.id)]
         );
         const currentBalance = Number(last?.balance || 0);
         const nextBalance = currentBalance + Number(creditAmount || 0);
+        const creditTransactionTs = new Date().toISOString();
         await dbRunAsync(
-          `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(customer.id),
             'given',
@@ -578,6 +579,7 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
             `Bill credit | Paid: Rs ${Number(paidAmount || 0).toFixed(2)} | Credit: Rs ${Number(creditAmount || 0).toFixed(2)}`,
             billNumber,
             null,
+            creditTransactionTs,
             createdBy,
             clientRequestId ? `${clientRequestId}:credit` : null,
           ]

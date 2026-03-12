@@ -24,6 +24,7 @@ export function PurchaseOrderFormModal({
   findProductForItem,
   calculateOrderItem,
   getAllowedPurchaseUnitsForProduct,
+  getPurchasePackStep,
   handleOrderProductInputChange,
   handleOrderProductFieldFocus,
   handleOrderItemChange,
@@ -209,6 +210,9 @@ export function PurchaseOrderFormModal({
                     const selectedProduct = findProductForItem(products, item);
                     const line = calculateOrderItem(item);
                     const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                    const packStep = typeof getPurchasePackStep === 'function'
+                      ? getPurchasePackStep(selectedProduct, line.uom)
+                      : 1;
                     return (
                       <tr key={`po-entry-row-${index}`} className={toNumber(item.quantity) === 0 ? 'po-entry-row-zero' : ''}>
                         <td>{index + 1}</td>
@@ -241,6 +245,7 @@ export function PurchaseOrderFormModal({
                             name={`quantity_${index}`}
                             type="number"
                             min="0"
+                            step={packStep}
                             value={item.quantity}
                             onChange={(event) => handleOrderItemChange(index, 'quantity', toNumber(event.target.value))}
                           />

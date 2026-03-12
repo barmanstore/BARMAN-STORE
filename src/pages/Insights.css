@@ -1,0 +1,169 @@
+.insights-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.insights-page .insights-header h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.insights-page .insights-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.insights-page .filters-bar {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.insights-page .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insights-page .filter-group label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.insights-page .filter-group select,
+.insights-page .filter-group input {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #374151;
+  min-width: 140px;
+}
+
+.insights-page .filter-group select:focus,
+.insights-page .filter-group input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+}
+
+.insights-page .insights-card {
+  background: var(--color-card);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.insights-page .data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.insights-page .table-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.insights-page .sparkline {
+  display: inline-flex;
+  align-items: center;
+}
+
+.insights-page .sparkline svg {
+  width: 84px;
+  height: 24px;
+}
+
+.insights-page .sparkline polyline {
+  fill: none;
+  stroke: #0ea5e9;
+  stroke-width: 2;
+}
+
+.insights-page .sparkline-empty {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.insights-page .risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.insights-page .risk-pill.low {
+  background: rgba(16, 185, 129, 0.16);
+  color: #0f766e;
+}
+
+.insights-page .risk-pill.medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #b45309;
+}
+
+.insights-page .risk-pill.high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+}
+
+.insights-page .detail-panel {
+  margin-top: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.insights-page .detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.insights-page .detail-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.insights-page .detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.insights-page .detail-metric {
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.insights-page .detail-metric span {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.insights-page .detail-metric strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.insights-page .empty-state {
+  padding: 16px;
+  color: #64748b;
+  font-size: 13px;
+}

@@ -220,6 +220,8 @@ function OrderTracking() {
           <h1>Track Your Order</h1>
           <form onSubmit={handleSearch} className="search-form">
             <input
+              id="order-tracking-number"
+              name="order_tracking_number"
               type="text"
               placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
               value={searchOrderNumber}
@@ -246,6 +248,8 @@ function OrderTracking() {
           <p>Enter your order number to track your shipment</p>
           <form onSubmit={handleSearch} className="search-form">
             <input
+              id="order-tracking-number"
+              name="order_tracking_number"
               type="text"
               placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
               value={searchOrderNumber}

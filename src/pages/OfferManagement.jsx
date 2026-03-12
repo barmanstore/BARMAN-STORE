@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { offersApi } from '../services/api';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 
 function OfferManagement() {
   const [offers, setOffers] = useState([]);
@@ -54,7 +55,7 @@ function OfferManagement() {
 
   return (
     <div className="billing-content">
-      <h1>Offer Management</h1>
+      <AdminPageHeader title="Offer Management" />
       {error && <div className="error-message">{error}</div>}
 
       <form onSubmit={handleSubmit} className="form-section">

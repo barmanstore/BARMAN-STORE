@@ -9,6 +9,8 @@ import CategoryManagement from './CategoryManagement';
 import DistributorManagement from './DistributorManagement';
 import PurchaseManagement from './PurchaseManagement';
 import StockLedgerHistory from './StockLedgerHistory';
+import ProductInsights from './ProductInsights';
+import DistributorInsights from './DistributorInsights';
 import CreditAgingReport from './CreditAgingReport';
 import UserEditModal from './UserEditModal';
 import BillingTab from './BillingTab';
@@ -17,7 +19,9 @@ import OfferManagement from './OfferManagement';
 import CreditKhata from './CreditKhata';
 import CustomerRequestsAdmin from './CustomerRequestsAdmin';
 import AppModal from '../components/AppModal';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
+import useIsMobile from '../hooks/useIsMobile';
 import './Admin.css';
 import './AdminStandard.css';
 
@@ -107,16 +111,26 @@ const getBrandPath = (product) => (
   || String(product?.brand || '').trim()
 );
 
+const MOBILE_ALLOWED_TABS = new Set([
+  'dashboard',
+  'orders',
+  'products',
+  'billing',
+  'users',
+  'credit-khata',
+  'customer-requests',
+]);
+
 const SIDEBAR_SECTIONS = [
   {
     key: 'general',
     label: 'General',
     icon: TrendingUp,
     items: [
-      { tab: 'dashboard', label: 'Dashboard', icon: TrendingUp },
-      { tab: 'orders', label: 'Orders', icon: ShoppingCart },
-      { tab: 'offers', label: 'Offers', icon: Gift },
-      { tab: 'credit-aging', label: 'Credit Aging', icon: BarChart2 },
+      { tab: 'dashboard', label: 'Dashboard', icon: TrendingUp, mobile: true },
+      { tab: 'orders', label: 'Orders', icon: ShoppingCart, mobile: true },
+      { tab: 'offers', label: 'Offers', icon: Gift, mobile: false },
+      { tab: 'credit-aging', label: 'Credit Aging', icon: BarChart2, mobile: false },
     ],
   },
   {
@@ -124,8 +138,8 @@ const SIDEBAR_SECTIONS = [
     label: 'Products',
     icon: Package,
     items: [
-      { tab: 'products', label: 'Products', icon: Package },
-      { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true },
+      { tab: 'products', label: 'Products', icon: Package, mobile: true },
+      { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true, mobile: false },
     ],
   },
   {
@@ -133,9 +147,9 @@ const SIDEBAR_SECTIONS = [
     label: 'Billing',
     icon: FileText,
     items: [
-      { tab: 'billing', label: 'Billing', icon: FileText },
-      { tab: 'daily-sales', label: 'Daily Sales', icon: BarChart2, sub: true },
-      { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true },
+      { tab: 'billing', label: 'Billing', icon: FileText, mobile: true },
+      { tab: 'daily-sales', label: 'Daily Sales', icon: BarChart2, sub: true, mobile: false },
+      { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true, mobile: false },
     ],
   },
   {
@@ -143,9 +157,11 @@ const SIDEBAR_SECTIONS = [
     label: 'Purchase',
     icon: ShoppingBag,
     items: [
-      { tab: 'purchases', label: 'Purchases', icon: ShoppingBag },
-      { tab: 'distributors', label: 'Distributors', icon: Truck, sub: true },
-      { tab: 'stock-ledger', label: 'Stock History', icon: History, sub: true },
+      { tab: 'purchases', label: 'Purchases', icon: ShoppingBag, mobile: false },
+      { tab: 'distributors', label: 'Distributors', icon: Truck, sub: true, mobile: false },
+      { tab: 'stock-ledger', label: 'Stock History', icon: History, sub: true, mobile: false },
+      { tab: 'product-insights', label: 'Product Insights', icon: BarChart2, sub: true, mobile: false },
+      { tab: 'distributor-insights', label: 'Distributor Insights', icon: TrendingUp, sub: true, mobile: false },
     ],
   },
   {
@@ -153,16 +169,28 @@ const SIDEBAR_SECTIONS = [
     label: 'Users',
     icon: Users,
     items: [
-      { tab: 'users', label: 'Users', icon: Users },
-      { tab: 'credit-khata', label: 'Credit Khata', icon: CreditCard, sub: true },
-      { tab: 'customer-requests', label: 'Customer Requests', icon: FileText, sub: true },
+      { tab: 'users', label: 'Users', icon: Users, mobile: true },
+      { tab: 'credit-khata', label: 'Credit Khata', icon: CreditCard, sub: true, mobile: true },
+      { tab: 'customer-requests', label: 'Customer Requests', icon: FileText, sub: true, mobile: true },
     ],
   },
 ];
 
+const filterSections = (sections, predicate) => (
+  sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(predicate),
+    }))
+    .filter((section) => section.items.length > 0)
+);
+
+const MOBILE_SIDEBAR_SECTIONS = filterSections(SIDEBAR_SECTIONS, (item) => item.mobile);
+
 function Admin({ user }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'dashboard';
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -170,7 +198,7 @@ function Admin({ user }) {
       'dashboard', 'orders', 'offers', 'credit-aging',
       'products', 'categories',
       'billing', 'daily-sales', 'view-bills',
-      'purchases', 'distributors', 'stock-ledger',
+      'purchases', 'distributors', 'stock-ledger', 'product-insights', 'distributor-insights',
       'users', 'credit-khata', 'customer-requests'
     ]);
     return allowedTabs.has(tab) ? tab : 'dashboard';
@@ -306,6 +334,8 @@ function Admin({ user }) {
     purchases: 'purchase',
     distributors: 'purchase',
     'stock-ledger': 'purchase',
+    'product-insights': 'purchase',
+    'distributor-insights': 'purchase',
     users: 'users',
     'credit-khata': 'users',
     'customer-requests': 'users'
@@ -575,10 +605,23 @@ function Admin({ user }) {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabGroupMap[tabFromUrl] && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
+    if (!tabFromUrl || !tabGroupMap[tabFromUrl]) return;
+    const nextTab = isMobile && !MOBILE_ALLOWED_TABS.has(tabFromUrl)
+      ? 'dashboard'
+      : tabFromUrl;
+    if (nextTab !== activeTab) {
+      setActiveTab(nextTab);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab, isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (MOBILE_ALLOWED_TABS.has(activeTab)) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', 'dashboard');
+    setSearchParams(next, { replace: true });
+    setActiveTab('dashboard');
+  }, [activeTab, isMobile, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -628,13 +671,17 @@ function Admin({ user }) {
   };
 
   const desktopCurrentSection = SIDEBAR_SECTIONS.find((section) => section.key === desktopActiveGroup) || SIDEBAR_SECTIONS[0];
+  const mobileSidebarSections = MOBILE_SIDEBAR_SECTIONS;
+
+  const isTabAllowed = (tab) => !isMobile || MOBILE_ALLOWED_TABS.has(tab);
 
   const handleTabChange = (tab) => {
-    setActiveTab(tab);
+    const nextTab = isTabAllowed(tab) ? tab : 'dashboard';
+    setActiveTab(nextTab);
     const next = new URLSearchParams(searchParams);
-    next.set('tab', tab);
+    next.set('tab', nextTab);
     setSearchParams(next, { replace: true });
-    if (window.innerWidth <= 768) {
+    if (isMobile) {
       setIsMobileSidebarOpen(false);
     }
   };
@@ -1064,7 +1111,9 @@ function Admin({ user }) {
     return visibleProducts.find((product) => Number(product.id) === id) || null;
   }, [selectedProductId, visibleProducts]);
 
-  const showProductsImportCard = Boolean(
+  const effectiveProductViewMode = isMobile ? 'grid' : productViewMode;
+
+  const showProductsImportCard = !isMobile && Boolean(
     importPreviewData?.batch_id
     || importPreviewData?.summary
     || (Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0)
@@ -1522,7 +1571,7 @@ function Admin({ user }) {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page admin-shell">
       {/* Notification */}
       {notification && (
         <div className={`notification ${notification.type}`}>
@@ -1543,242 +1592,112 @@ function Admin({ user }) {
         <h2>Admin Panel</h2>
       </div>
 
-      <aside className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`} aria-label="Admin desktop navigation">
-        <div className="admin-sidebar-rail">
-          <div className="admin-sidebar-rail-top">
-            <button
-              type="button"
-              className="rail-item rail-collapse-toggle"
-              onClick={() => setDesktopPanelCollapsed((prev) => !prev)}
-              aria-label={desktopPanelCollapsed ? 'Expand sidebar panel' : 'Collapse sidebar panel'}
-              title={desktopPanelCollapsed ? 'Expand panel' : 'Collapse panel'}
-            >
-              {desktopPanelCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-            </button>
-            {SIDEBAR_SECTIONS.map((section) => {
-              const SectionIcon = section.icon;
-              const isSectionActive = section.key === desktopActiveGroup;
-              return (
-                <button
-                  key={section.key}
-                  type="button"
-                  className={`rail-item ${isSectionActive ? 'active' : ''}`}
-                  onClick={() => handleDesktopGroupSelect(section.key)}
-                  aria-label={section.label}
-                  title={section.label}
-                >
-                  <SectionIcon size={18} />
-                </button>
-              );
-            })}
+      <div className="admin-shell-body">
+        <aside className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`} aria-label="Admin desktop navigation">
+          <div className="admin-sidebar-rail">
+            <div className="admin-sidebar-rail-top">
+              <button
+                type="button"
+                className="rail-item rail-collapse-toggle"
+                onClick={() => setDesktopPanelCollapsed((prev) => !prev)}
+                aria-label={desktopPanelCollapsed ? 'Expand sidebar panel' : 'Collapse sidebar panel'}
+                title={desktopPanelCollapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                {desktopPanelCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              </button>
+              {SIDEBAR_SECTIONS.map((section) => {
+                const SectionIcon = section.icon;
+                const isSectionActive = section.key === desktopActiveGroup;
+                return (
+                  <button
+                    key={section.key}
+                    type="button"
+                    className={`rail-item ${isSectionActive ? 'active' : ''}`}
+                    onClick={() => handleDesktopGroupSelect(section.key)}
+                    aria-label={section.label}
+                    title={section.label}
+                  >
+                    <SectionIcon size={18} />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="admin-sidebar-rail-bottom">
+              <Link to="/" className="rail-item rail-home-link" aria-label="Back to Store" title="Back to Store">
+                <LogOut size={18} />
+              </Link>
+            </div>
           </div>
-          <div className="admin-sidebar-rail-bottom">
-            <Link to="/" className="rail-item rail-home-link" aria-label="Back to Store" title="Back to Store">
-              <LogOut size={18} />
-            </Link>
+          <div className="admin-sidebar-panel" aria-hidden={desktopPanelCollapsed}>
+            <div className="sidebar-panel-header">
+              <h2>{desktopCurrentSection.label}</h2>
+            </div>
+            <nav className="sidebar-panel-nav">
+              {desktopCurrentSection.items.map((item) => {
+                const ItemIcon = item.icon;
+                const isActiveItem = activeTab === item.tab;
+                return (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    className={`panel-item ${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`}
+                    aria-current={isActiveItem ? 'page' : undefined}
+                    onClick={() => handleTabChange(item.tab)}
+                  >
+                    <ItemIcon size={item.sub ? 16 : 18} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
           </div>
-        </div>
-        <div className="admin-sidebar-panel" aria-hidden={desktopPanelCollapsed}>
-          <div className="sidebar-panel-header">
-            <h2>{desktopCurrentSection.label}</h2>
-          </div>
-          <nav className="sidebar-panel-nav">
-            {desktopCurrentSection.items.map((item) => {
-              const ItemIcon = item.icon;
-              const isActiveItem = activeTab === item.tab;
-              return (
-                <button
-                  key={item.tab}
-                  type="button"
-                  className={`panel-item ${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`}
-                  aria-current={isActiveItem ? 'page' : undefined}
-                  onClick={() => handleTabChange(item.tab)}
-                >
-                  <ItemIcon size={item.sub ? 16 : 18} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>
+        </aside>
 
-      {isMobileSidebarOpen && (
-        <button
-          type="button"
-          className="admin-sidebar-overlay"
-          aria-label="Close admin menu"
-          onClick={() => setIsMobileSidebarOpen(false)}
-        />
-      )}
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            className="admin-sidebar-overlay"
+            aria-label="Close admin menu"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
 
       <div className={`admin-sidebar ${isMobileSidebarOpen ? 'open' : ''}`}>
         <h2>Admin Panel</h2>
         <nav>
-          <div className="sidebar-group">
-            <button
-              type="button"
-              className={`sidebar-group-toggle ${expandedGroups.general ? 'expanded' : ''}`}
-              data-label="General"
-              onClick={() => toggleSidebarGroup('general')}
-            >
-              <TrendingUp size={20} />
-            </button>
-            {expandedGroups.general && (
-              <div className="sidebar-group-items">
-                <button 
-                  className={activeTab === 'dashboard' ? 'active' : ''}
-                  onClick={() => handleTabChange('dashboard')}
-                >
-                  <TrendingUp size={20} /> Dashboard
-                </button>
-                <button 
-                  className={activeTab === 'orders' ? 'active' : ''}
-                  onClick={() => handleTabChange('orders')}
-                >
-                  <ShoppingCart size={20} /> Orders
-                </button>
+          {mobileSidebarSections.map((section) => {
+            const SectionIcon = section.icon;
+            const isExpanded = Boolean(expandedGroups[section.key]);
+            return (
+              <div className="sidebar-group" key={section.key}>
                 <button
-                  className={activeTab === 'offers' ? 'active' : ''}
-                  onClick={() => handleTabChange('offers')}
+                  type="button"
+                  className={`sidebar-group-toggle ${isExpanded ? 'expanded' : ''}`}
+                  data-label={section.label}
+                  onClick={() => toggleSidebarGroup(section.key)}
                 >
-                  <Gift size={20} /> Offers
+                  <SectionIcon size={20} />
                 </button>
-                <button 
-                  className={activeTab === 'credit-aging' ? 'active' : ''}
-                  onClick={() => handleTabChange('credit-aging')}
-                >
-                  <BarChart2 size={20} /> Credit Aging
-                </button>
+                {isExpanded && (
+                  <div className="sidebar-group-items">
+                    {section.items.map((item) => {
+                      const ItemIcon = item.icon;
+                      const isActiveItem = activeTab === item.tab;
+                      return (
+                        <button
+                          key={item.tab}
+                          className={`${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`}
+                          onClick={() => handleTabChange(item.tab)}
+                        >
+                          <ItemIcon size={item.sub ? 18 : 20} /> {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          <div className="sidebar-group">
-            <button
-              type="button"
-              className={`sidebar-group-toggle ${expandedGroups.products ? 'expanded' : ''}`}
-              data-label="Products"
-              onClick={() => toggleSidebarGroup('products')}
-            >
-              <Package size={20} />
-            </button>
-            {expandedGroups.products && (
-              <div className="sidebar-group-items">
-                <button 
-                  className={activeTab === 'products' ? 'active' : ''}
-                  onClick={() => handleTabChange('products')}
-                >
-                  <Package size={20} /> Products
-                </button>
-                <button 
-                  className={`${activeTab === 'categories' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('categories')}
-                >
-                  <FolderOpen size={18} /> Categories
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="sidebar-group">
-            <button
-              type="button"
-              className={`sidebar-group-toggle ${expandedGroups.billing ? 'expanded' : ''}`}
-              data-label="Billing"
-              onClick={() => toggleSidebarGroup('billing')}
-            >
-              <FileText size={20} />
-            </button>
-            {expandedGroups.billing && (
-              <div className="sidebar-group-items">
-                <button 
-                  className={activeTab === 'billing' ? 'active' : ''}
-                  onClick={() => handleTabChange('billing')}
-                >
-                  <FileText size={20} /> Billing
-                </button>
-                <button
-                  className={`${activeTab === 'daily-sales' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('daily-sales')}
-                >
-                  <BarChart2 size={18} /> Daily Sales
-                </button>
-                <button 
-                  className={`${activeTab === 'view-bills' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('view-bills')}
-                >
-                  <Eye size={18} /> Bills History
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="sidebar-group">
-            <button
-              type="button"
-              className={`sidebar-group-toggle ${expandedGroups.purchase ? 'expanded' : ''}`}
-              data-label="Purchase"
-              onClick={() => toggleSidebarGroup('purchase')}
-            >
-              <ShoppingBag size={20} />
-            </button>
-            {expandedGroups.purchase && (
-              <div className="sidebar-group-items">
-                <button 
-                  className={activeTab === 'purchases' ? 'active' : ''}
-                  onClick={() => handleTabChange('purchases')}
-                >
-                  <ShoppingBag size={20} /> Purchases
-                </button>
-                <button 
-                  className={`${activeTab === 'distributors' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('distributors')}
-                >
-                  <Truck size={18} /> Distributors
-                </button>
-                <button 
-                  className={`${activeTab === 'stock-ledger' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('stock-ledger')}
-                >
-                  <History size={18} /> Stock History
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="sidebar-group">
-            <button
-              type="button"
-              className={`sidebar-group-toggle ${expandedGroups.users ? 'expanded' : ''}`}
-              data-label="Users"
-              onClick={() => toggleSidebarGroup('users')}
-            >
-              <Users size={20} />
-            </button>
-            {expandedGroups.users && (
-              <div className="sidebar-group-items">
-                <button 
-                  className={activeTab === 'users' ? 'active' : ''}
-                  onClick={() => handleTabChange('users')}
-                >
-                  <Users size={20} /> Users
-                </button>
-                <button
-                  className={`${activeTab === 'credit-khata' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('credit-khata')}
-                >
-                  <CreditCard size={18} /> Credit Khata
-                </button>
-                <button
-                  className={`${activeTab === 'customer-requests' ? 'active' : ''} sub-item`}
-                  onClick={() => handleTabChange('customer-requests')}
-                >
-                  <FileText size={18} /> Customer Requests
-                </button>
-              </div>
-            )}
-          </div>
+            );
+          })}
 
           <Link to="/" className="logout-link">
             <LogOut size={20} /> 
@@ -1786,27 +1705,30 @@ function Admin({ user }) {
         </nav>
       </div>
 
-      <div className="admin-content">
+      <div className="admin-shell-main">
+        <div className="admin-content">
         {activeTab === 'dashboard' && (
           <div className={`dashboard dashboard-${dashboardDensity}`}>
             <div className="dashboard-header">
               <h1>Dashboard</h1>
-              <div className="dashboard-density-toggle" role="group" aria-label="Dashboard density">
-                <button
-                  type="button"
-                  className={`dashboard-density-btn ${dashboardDensity === 'compact' ? 'active' : ''}`}
-                  onClick={() => setDashboardDensity('compact')}
-                >
-                  Compact
-                </button>
-                <button
-                  type="button"
-                  className={`dashboard-density-btn ${dashboardDensity === 'standard' ? 'active' : ''}`}
-                  onClick={() => setDashboardDensity('standard')}
-                >
-                  Standard
-                </button>
-              </div>
+              {!isMobile && (
+                <div className="dashboard-density-toggle" role="group" aria-label="Dashboard density">
+                  <button
+                    type="button"
+                    className={`dashboard-density-btn ${dashboardDensity === 'compact' ? 'active' : ''}`}
+                    onClick={() => setDashboardDensity('compact')}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    className={`dashboard-density-btn ${dashboardDensity === 'standard' ? 'active' : ''}`}
+                    onClick={() => setDashboardDensity('standard')}
+                  >
+                    Standard
+                  </button>
+                </div>
+              )}
             </div>
             <div className="stats-grid grouped-stats-grid">
               <div className="stat-group-card">
@@ -1948,27 +1870,30 @@ function Admin({ user }) {
 
         {activeTab === 'daily-sales' && (
           <div className="daily-sales-summary">
-            <div className="section-header">
-              <h1>Daily Sales Summary</h1>
-              <div className="daily-sales-controls">
-                <input
-                  id="daily-sales-date"
-                  name="daily_sales_date"
-                  type="date"
-                  className="daily-sales-date-input"
-                  value={selectedDateKey}
-                  onChange={(event) => setDailySalesDate(String(event.target.value || '').trim())}
-                />
-                <button
-                  type="button"
-                  className="admin-btn"
-                  onClick={() => { void loadDailySalesBills({ silent: false }); }}
-                  disabled={dailySalesLoading}
-                >
-                  {dailySalesLoading ? 'Refreshing...' : 'Refresh'}
-                </button>
-              </div>
-            </div>
+            <AdminPageHeader
+              className="section-header"
+              title="Daily Sales Summary"
+              actions={(
+                <div className="daily-sales-controls">
+                  <input
+                    id="daily-sales-date"
+                    name="daily_sales_date"
+                    type="date"
+                    className="daily-sales-date-input"
+                    value={selectedDateKey}
+                    onChange={(event) => setDailySalesDate(String(event.target.value || '').trim())}
+                  />
+                  <button
+                    type="button"
+                    className="admin-btn"
+                    onClick={() => { void loadDailySalesBills({ silent: false }); }}
+                    disabled={dailySalesLoading}
+                  >
+                    {dailySalesLoading ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+              )}
+            />
 
             {dailySalesError ? <p className="daily-sales-error">{dailySalesError}</p> : null}
 
@@ -2047,79 +1972,86 @@ function Admin({ user }) {
 
         {activeTab === 'products' && (
           <div className="products-management">
-            <div className="section-header">
-              <h1>Products Management</h1>
-              <div className="products-actions">
-                <div className="products-actions-right">
-                  <div className="products-io-icons">
-                    <button
-                      type="button"
-                      className="products-icon-btn products-icon-btn-add"
-                      onClick={handleAddProduct}
-                      title="Add product"
-                      aria-label="Add product"
-                    >
-                      <span className="products-icon-plus" aria-hidden="true">+</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="products-icon-btn"
-                      onClick={() => setShowExportDialog(true)}
-                      disabled={importBusy}
-                      title="Export products"
-                      aria-label="Export products"
-                    >
-                      <Download size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="products-icon-btn"
-                      onClick={handleStartImport}
-                      disabled={importBusy}
-                      title="Import products"
-                      aria-label="Import products"
-                    >
-                      <Upload size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="products-icon-btn"
-                      onClick={handleConfirmImport}
-                      disabled={importBusy || !importPreviewData?.batch_id}
-                      title="Confirm import"
-                      aria-label="Confirm import"
-                    >
-                      <CheckCircle2 size={16} />
-                    </button>
-                  </div>
-                  <div
-                    className={`products-view-switch ${productViewMode === 'grid' ? 'is-grid' : 'is-table'}`}
-                    role="group"
-                    aria-label="Product view mode"
-                  >
-                    <button
-                      type="button"
-                      className={`products-view-switch-option table ${productViewMode === 'table' ? 'active' : ''}`}
-                      onClick={() => setProductViewMode('table')}
-                      aria-pressed={productViewMode === 'table'}
-                    >
-                      Table
-                    </button>
-                    <button
-                      type="button"
-                      className={`products-view-switch-option grid ${productViewMode === 'grid' ? 'active' : ''}`}
-                      onClick={() => setProductViewMode('grid')}
-                      aria-pressed={productViewMode === 'grid'}
-                    >
-                      Grid
-                    </button>
-                    <span className="products-view-switch-knob" aria-hidden="true">
-                      {productViewMode === 'grid' ? <CheckCircle2 size={14} /> : <X size={14} />}
-                    </span>
+            <AdminPageHeader
+              className="section-header"
+              title="Products Management"
+              actions={(
+                <div className="products-actions">
+                  <div className="products-actions-right">
+                    {!isMobile && (
+                      <>
+                        <div className="products-io-icons">
+                          <button
+                            type="button"
+                            className="products-icon-btn products-icon-btn-add"
+                            onClick={handleAddProduct}
+                            title="Add product"
+                            aria-label="Add product"
+                          >
+                            <span className="products-icon-plus" aria-hidden="true">+</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="products-icon-btn"
+                            onClick={() => setShowExportDialog(true)}
+                            disabled={importBusy}
+                            title="Export products"
+                            aria-label="Export products"
+                          >
+                            <Download size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            className="products-icon-btn"
+                            onClick={handleStartImport}
+                            disabled={importBusy}
+                            title="Import products"
+                            aria-label="Import products"
+                          >
+                            <Upload size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            className="products-icon-btn"
+                            onClick={handleConfirmImport}
+                            disabled={importBusy || !importPreviewData?.batch_id}
+                            title="Confirm import"
+                            aria-label="Confirm import"
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        </div>
+                        <div
+                          className={`products-view-switch ${effectiveProductViewMode === 'grid' ? 'is-grid' : 'is-table'}`}
+                          role="group"
+                          aria-label="Product view mode"
+                        >
+                          <button
+                            type="button"
+                            className={`products-view-switch-option table ${effectiveProductViewMode === 'table' ? 'active' : ''}`}
+                            onClick={() => setProductViewMode('table')}
+                            aria-pressed={effectiveProductViewMode === 'table'}
+                          >
+                            Table
+                          </button>
+                          <button
+                            type="button"
+                            className={`products-view-switch-option grid ${effectiveProductViewMode === 'grid' ? 'active' : ''}`}
+                            onClick={() => setProductViewMode('grid')}
+                            aria-pressed={effectiveProductViewMode === 'grid'}
+                          >
+                            Grid
+                          </button>
+                          <span className="products-view-switch-knob" aria-hidden="true">
+                            {effectiveProductViewMode === 'grid' ? <CheckCircle2 size={14} /> : <X size={14} />}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
-            </div>
+              )}
+            />
             <input
               id="import-file-input"
               name="import_file"
@@ -2213,10 +2145,12 @@ function Admin({ user }) {
               />
               <span className="products-table-count">Rows: {visibleProducts.length}</span>
             </div>
-            {productViewMode === 'table' ? (
+            {effectiveProductViewMode === 'table' ? (
               <>
                 <div className="products-table-toolbar">
                   <select
+                    id="products-table-filter-category"
+                    name="products_table_filter_category"
                     className="products-table-filter products-table-filter-category"
                     value={productTableCategoryFilter}
                     onChange={(e) => setProductTableCategoryFilter(e.target.value)}
@@ -2256,6 +2190,8 @@ function Admin({ user }) {
                     </div>
                   </details>
                   <select
+                    id="products-table-filter-status"
+                    name="products_table_filter_status"
                     className="products-table-filter products-table-filter-status"
                     value={productTableStatusFilter}
                     onChange={(e) => setProductTableStatusFilter(e.target.value)}
@@ -2704,7 +2640,7 @@ function Admin({ user }) {
 
         {activeTab === 'orders' && (
           <div className="orders-management">
-            <h1>Orders Management</h1>
+            <AdminPageHeader className="section-header" title="Orders Management" />
             <div className="orders-toolbar">
               <input
                 id="orders-search"
@@ -2876,12 +2812,15 @@ function Admin({ user }) {
 
         {activeTab === 'categories' && (
           <div className="categories-management">
-            <div className="section-header">
-              <h1>Categories Management</h1>
-              <button className="admin-btn primary" onClick={() => setShowCategoryManagement(true)}>
-                <Plus size={20} /> Manage Categories
-              </button>
-            </div>
+            <AdminPageHeader
+              className="section-header"
+              title="Categories Management"
+              actions={(
+                <button className="admin-btn primary" onClick={() => setShowCategoryManagement(true)}>
+                  <Plus size={20} /> Manage Categories
+                </button>
+              )}
+            />
             <div className="categories-info">
               <p>Click "Manage Categories" to create, edit, or delete product categories.</p>
             </div>
@@ -2890,14 +2829,19 @@ function Admin({ user }) {
 
         {activeTab === 'users' && (
           <div className="users-management">
-            <div className="section-header">
-              <h1>Users Management</h1>
-              <button className="admin-btn primary" onClick={handleAddUser}>
-                <Plus size={20} /> Add Customer
-              </button>
-            </div>
+            <AdminPageHeader
+              className="section-header"
+              title="Users Management"
+              actions={(
+                <button className="admin-btn primary" onClick={handleAddUser}>
+                  <Plus size={20} /> Add Customer
+                </button>
+              )}
+            />
             <div className="users-toolbar">
               <input
+                id="users-search-input"
+                name="users_search_query"
                 type="text"
                 className="users-search-input"
                 placeholder="Search users by name, email, phone, id..."
@@ -3044,13 +2988,23 @@ function Admin({ user }) {
           <StockLedgerHistory user={user} />
         )}
 
+        {activeTab === 'product-insights' && (
+          <ProductInsights />
+        )}
+
+        {activeTab === 'distributor-insights' && (
+          <DistributorInsights />
+        )}
+
         {activeTab === 'credit-aging' && (
           <CreditAgingReport user={user} />
         )}
         {activeTab === 'credit-khata' && <CreditKhata user={user} />}
         {activeTab === 'customer-requests' && <CustomerRequestsAdmin />}
         {activeTab === 'offers' && <OfferManagement />}
+        </div>
       </div>
+    </div>
 
       {/* Product Form Modal */}
       {showProductForm && (

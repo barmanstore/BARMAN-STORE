@@ -566,6 +566,15 @@
   background: #d2f4e1;
 }
 
+.credit-history-page .action-icon.delete {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.credit-history-page .action-icon.delete:hover {
+  background: #fecaca;
+}
+
 /* Invoice Modal Styles */
 .credit-history-page .invoice-modal-overlay {
   background: rgba(0, 0, 0, 0.7);

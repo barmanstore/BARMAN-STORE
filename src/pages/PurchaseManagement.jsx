@@ -119,6 +119,29 @@ const toBaseQtyForProduct = (qty, unit, product = null) => {
   return numericQty;
 };
 
+const fromBaseQtyForProduct = (qty, unit, product = null) => {
+  const numericQty = Math.max(0, Number(qty || 0));
+  if (numericQty <= 0) return 0;
+  if (!product) return numericQty;
+  const profile = getProductUomProfile(product);
+  const resolvedUnit = resolvePurchaseUnitForProduct(product, unit);
+  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, profile.baseUnit, resolvedUnit, profile.baseUnit);
+  if (familyConverted !== null) return familyConverted;
+  if (resolvedUnit === profile.baseUnit) return numericQty;
+  if (resolvedUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
+    return numericQty * profile.conversionFactor;
+  }
+  return numericQty;
+};
+
+const getPurchasePackStep = (product = null, unit = 'pcs') => {
+  const packSize = Number(product?.purchase_pack_size ?? 0);
+  if (!Number.isFinite(packSize) || packSize <= 0) return 1;
+  const converted = fromBaseQtyForProduct(packSize, unit, product);
+  if (!Number.isFinite(converted) || converted <= 0) return packSize;
+  return converted;
+};
+
 const findProductForItem = (products = [], item = {}) => {
   const productId = Number(item?.product_id || 0);
   if (productId > 0) {
@@ -627,8 +650,11 @@ function PurchaseManagement({ user }) {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [showPoProductForm, setShowPoProductForm] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [receiveSubmitting, setReceiveSubmitting] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [showLedgerForm, setShowLedgerForm] = useState(false);
+  const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
   const [showPoCorrectionForm, setShowPoCorrectionForm] = useState(false);
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [processSubmitting, setProcessSubmitting] = useState(false);
@@ -637,6 +663,13 @@ function PurchaseManagement({ user }) {
   const [processFormData, setProcessFormData] = useState(getDefaultProcessFormData());
   const [showPoPaymentModal, setShowPoPaymentModal] = useState(false);
   const [poPaymentSubmitting, setPoPaymentSubmitting] = useState(false);
+  const poPaymentLockRef = useRef(false);
+  const poPaymentClientRequestIdRef = useRef('');
+  const ledgerSubmitLockRef = useRef(false);
+  const returnSubmitLockRef = useRef(false);
+  const poCorrectionLockRef = useRef(false);
+  const processSubmitLockRef = useRef(false);
+  const receiveSubmitLockRef = useRef(false);
   const [paymentOrder, setPaymentOrder] = useState(null);
   const [poPaymentFormData, setPoPaymentFormData] = useState(getDefaultPoPaymentFormData());
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -645,12 +678,22 @@ function PurchaseManagement({ user }) {
   const [ledgerRecords, setLedgerRecords] = useState([]);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [operationsLoading, setOperationsLoading] = useState(false);
+  const [rollupParams, setRollupParams] = useState({
+    mode: '30',
+    days: 30,
+    start_date: '',
+    end_date: '',
+  });
   const [operationsSummary, setOperationsSummary] = useState({
     cards: {
       outstanding_amount: 0,
       payable_today_amount: 0,
       overdue_amount: 0,
       predicted_payment_today_amount: 0,
+      predicted_payment_next_count: 0,
+      predicted_delivery_next_count: 0,
+      next_payment_due_date: null,
+      next_delivery_date: null,
       paid_today_amount: 0,
       reminder_count: 0,
       waiting_bill_count: 0,
@@ -664,10 +707,19 @@ function PurchaseManagement({ user }) {
     tomorrow_distributors: [],
     weekly_distributors: [],
     predicted_payments_today: [],
+    predicted_payments_next: [],
+    predicted_deliveries_next: [],
     reminders: [],
     payables: [],
     workflow: [],
     distributor_insights: [],
+    action_rollups: {
+      range: { start_date: null, end_date: null },
+      actions: [],
+      totals: {},
+      by_day: [],
+      by_weekday: [],
+    },
   });
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultLedgerFormData());
   const [poCorrectionFormData, setPoCorrectionFormData] = useState(getDefaultPoCorrectionFormData());
@@ -804,7 +856,7 @@ function PurchaseManagement({ user }) {
     if (activeSubTab === 'returns') {
       fetchReturns();
     }
-  }, [activeSubTab, filters.distributor_id, purchaseOrders]);
+  }, [activeSubTab, filters.distributor_id, purchaseOrders, rollupParams.mode, rollupParams.days, rollupParams.start_date, rollupParams.end_date]);
 
   const fetchData = async () => {
     try {
@@ -836,6 +888,12 @@ function PurchaseManagement({ user }) {
       setOperationsLoading(true);
       const params = {};
       if (filters.distributor_id) params.distributor_id = filters.distributor_id;
+      if (rollupParams.mode === 'custom') {
+        if (rollupParams.start_date) params.rollup_start_date = rollupParams.start_date;
+        if (rollupParams.end_date) params.rollup_end_date = rollupParams.end_date;
+      } else if (rollupParams.days) {
+        params.rollup_days = rollupParams.days;
+      }
       const summary = await purchaseOrdersApi.getOperationsSummary(params);
       setOperationsSummary(summary || {
         cards: {},
@@ -843,10 +901,19 @@ function PurchaseManagement({ user }) {
         tomorrow_distributors: [],
         weekly_distributors: [],
         predicted_payments_today: [],
+        predicted_payments_next: [],
+        predicted_deliveries_next: [],
         reminders: [],
         payables: [],
         workflow: [],
         distributor_insights: [],
+        action_rollups: {
+          range: { start_date: null, end_date: null },
+          actions: [],
+          totals: {},
+          by_day: [],
+          by_weekday: [],
+        },
       });
     } catch (err) {
       setOperationsSummary({
@@ -855,6 +922,10 @@ function PurchaseManagement({ user }) {
           payable_today_amount: 0,
           overdue_amount: 0,
           predicted_payment_today_amount: 0,
+          predicted_payment_next_count: 0,
+          predicted_delivery_next_count: 0,
+          next_payment_due_date: null,
+          next_delivery_date: null,
           paid_today_amount: 0,
           reminder_count: 0,
           waiting_bill_count: 0,
@@ -868,10 +939,19 @@ function PurchaseManagement({ user }) {
         tomorrow_distributors: [],
         weekly_distributors: [],
         predicted_payments_today: [],
+        predicted_payments_next: [],
+        predicted_deliveries_next: [],
         reminders: [],
         payables: [],
         workflow: [],
         distributor_insights: [],
+        action_rollups: {
+          range: { start_date: null, end_date: null },
+          actions: [],
+          totals: {},
+          by_day: [],
+          by_weekday: [],
+        },
       });
     } finally {
       setOperationsLoading(false);
@@ -1535,11 +1615,16 @@ function PurchaseManagement({ user }) {
 
   const handleReceiveSubmit = async (e) => {
     e.preventDefault();
+    if (receiveSubmitLockRef.current) return;
+    receiveSubmitLockRef.current = true;
     setError('');
+    setReceiveSubmitting(true);
 
     try {
       const validItems = receiveData.items.filter(item => item.received_quantity > 0);
       if (validItems.length === 0) {
+        receiveSubmitLockRef.current = false;
+        setReceiveSubmitting(false);
         setError('Please receive at least one item');
         return;
       }
@@ -1556,6 +1641,9 @@ function PurchaseManagement({ user }) {
       fetchOrders();
     } catch (err) {
       setError(err.message || 'Failed to receive inventory');
+    } finally {
+      receiveSubmitLockRef.current = false;
+      setReceiveSubmitting(false);
     }
   };
 
@@ -1631,19 +1719,24 @@ function PurchaseManagement({ user }) {
     setProcessingOrder(null);
     setProcessFormData(getDefaultProcessFormData());
     setProcessSubmitting(false);
+    processSubmitLockRef.current = false;
   };
 
   const handleProcessSubmit = async (e) => {
     e.preventDefault();
     if (!processingOrder) return;
+    if (processSubmitLockRef.current) return;
+    processSubmitLockRef.current = true;
     const billNumber = String(processFormData.bill_number || '').trim();
     if (!billNumber) {
+      processSubmitLockRef.current = false;
       setError('Bill number is required to process PO');
       return;
     }
     const paidAmount = Math.max(0, toNumber(processFormData.paid_amount));
     const poTotal = Math.max(0, getOrderDisplayTotal(processingOrder));
     if (paidAmount > poTotal) {
+      processSubmitLockRef.current = false;
       setError('Initial paid amount cannot exceed PO total');
       return;
     }
@@ -1664,6 +1757,8 @@ function PurchaseManagement({ user }) {
     } catch (err) {
       setError(err?.message || 'Failed to process purchase order');
       setProcessSubmitting(false);
+    } finally {
+      processSubmitLockRef.current = false;
     }
   };
 
@@ -1679,6 +1774,8 @@ function PurchaseManagement({ user }) {
       transaction_date: getTodayDate(),
       notes: '',
     });
+    poPaymentLockRef.current = false;
+    poPaymentClientRequestIdRef.current = createClientRequestId('popay');
     setShowPoPaymentModal(true);
   };
 
@@ -1692,18 +1789,24 @@ function PurchaseManagement({ user }) {
     setPaymentOrder(null);
     setPoPaymentFormData(getDefaultPoPaymentFormData());
     setPoPaymentSubmitting(false);
+    poPaymentLockRef.current = false;
+    poPaymentClientRequestIdRef.current = '';
   };
 
   const handlePoPaymentSubmit = async (e) => {
     e.preventDefault();
     if (!paymentOrder) return;
+    if (poPaymentSubmitting || poPaymentLockRef.current) return;
+    poPaymentLockRef.current = true;
     const amount = Math.max(0, toNumber(poPaymentFormData.amount));
     const balanceDue = getPoBalanceDue(paymentOrder);
     if (amount <= 0) {
+      poPaymentLockRef.current = false;
       setError('Payment amount must be greater than 0');
       return;
     }
     if (amount > balanceDue) {
+      poPaymentLockRef.current = false;
       setError('Payment amount cannot exceed current balance due');
       return;
     }
@@ -1711,6 +1814,8 @@ function PurchaseManagement({ user }) {
     try {
       setError('');
       setPoPaymentSubmitting(true);
+      const clientRequestId = poPaymentClientRequestIdRef.current || createClientRequestId('popay');
+      poPaymentClientRequestIdRef.current = clientRequestId;
       await purchaseOrdersApi.addPayment(paymentOrder.id, {
         amount: Number(amount.toFixed(2)),
         payment_mode: poPaymentFormData.payment_mode,
@@ -1718,6 +1823,7 @@ function PurchaseManagement({ user }) {
         transaction_date: poPaymentFormData.transaction_date || getTodayDate(),
         notes: poPaymentFormData.notes,
         created_by: user?.id,
+        client_request_id: clientRequestId,
       });
       closePoPaymentModal();
       fetchOrders();
@@ -1725,6 +1831,7 @@ function PurchaseManagement({ user }) {
     } catch (err) {
       setError(err?.message || 'Failed to add PO payment');
       setPoPaymentSubmitting(false);
+      poPaymentLockRef.current = false;
     }
   };
 
@@ -1957,7 +2064,16 @@ function PurchaseManagement({ user }) {
       reason: '',
       items: []
     });
+    setReturnSubmitting(false);
+    returnSubmitLockRef.current = false;
     setShowReturnForm(true);
+  };
+
+  const closeReturnForm = () => {
+    setShowReturnForm(false);
+    setReturnFormData({ distributor_id: '', reference_po: '', return_type: 'return', reason: '', items: [] });
+    setReturnSubmitting(false);
+    returnSubmitLockRef.current = false;
   };
 
   const handleReturnItemAdd = () => {
@@ -1998,11 +2114,16 @@ function PurchaseManagement({ user }) {
 
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
+    if (returnSubmitLockRef.current) return;
+    returnSubmitLockRef.current = true;
     setError('');
+    setReturnSubmitting(true);
 
     try {
       const validItems = returnFormData.items.filter(item => item.product_id && item.quantity > 0);
       if (validItems.length === 0) {
+        returnSubmitLockRef.current = false;
+        setReturnSubmitting(false);
         setError('Please add at least one item');
         return;
       }
@@ -2027,11 +2148,13 @@ function PurchaseManagement({ user }) {
         created_by: user?.id
       });
 
-      setShowReturnForm(false);
-      setReturnFormData({ distributor_id: '', reference_po: '', return_type: 'return', reason: '', items: [] });
+      closeReturnForm();
       fetchReturns();
     } catch (err) {
       setError(err.message || 'Failed to create return');
+    } finally {
+      returnSubmitLockRef.current = false;
+      setReturnSubmitting(false);
     }
   };
 
@@ -2292,6 +2415,7 @@ function PurchaseManagement({ user }) {
       linkedEntries: 0
     });
     setPoCorrectionSubmitting(false);
+    poCorrectionLockRef.current = false;
   };
   const handleOpenPoCorrectionForm = async (order) => {
     if (!order || !order.distributor_id) {
@@ -2302,6 +2426,7 @@ function PurchaseManagement({ user }) {
     try {
       setError('');
       setPoCorrectionSubmitting(true);
+      poCorrectionLockRef.current = false;
 
       const response = await distributorLedgerApi.getByDistributor(order.distributor_id, { limit: 500 });
       const rows = getLedgerRowsFromResponse(response);
@@ -2335,14 +2460,18 @@ function PurchaseManagement({ user }) {
   const handlePoCorrectionSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCorrectionOrder) return;
+    if (poCorrectionSubmitting || poCorrectionLockRef.current) return;
+    poCorrectionLockRef.current = true;
 
     const amount = toNumber(poCorrectionFormData.amount);
     const reason = String(poCorrectionFormData.reason || '').trim();
     if (amount <= 0) {
+      poCorrectionLockRef.current = false;
       setError('Correction amount must be greater than 0');
       return;
     }
     if (!reason) {
+      poCorrectionLockRef.current = false;
       setError('Correction reason is required');
       return;
     }
@@ -2371,6 +2500,7 @@ function PurchaseManagement({ user }) {
       setError(err?.message || 'Failed to post PO correction');
     } finally {
       setPoCorrectionSubmitting(false);
+      poCorrectionLockRef.current = false;
     }
   };
 
@@ -2379,24 +2509,38 @@ function PurchaseManagement({ user }) {
       ...getDefaultLedgerFormData(),
       distributor_id: filters.distributor_id || ''
     });
+    setLedgerSubmitting(false);
+    ledgerSubmitLockRef.current = false;
     setShowLedgerForm(true);
+  };
+
+  const closeLedgerForm = () => {
+    setShowLedgerForm(false);
+    setLedgerFormData(getDefaultLedgerFormData());
+    setLedgerSubmitting(false);
+    ledgerSubmitLockRef.current = false;
   };
 
   const handleLedgerSubmit = async (e) => {
     e.preventDefault();
+    if (ledgerSubmitting || ledgerSubmitLockRef.current) return;
+    ledgerSubmitLockRef.current = true;
     setError('');
 
     const amount = toNumber(ledgerFormData.amount);
     if (!ledgerFormData.distributor_id) {
+      ledgerSubmitLockRef.current = false;
       setError('Please select a distributor for ledger entry');
       return;
     }
     if (amount <= 0) {
+      ledgerSubmitLockRef.current = false;
       setError('Please enter a valid amount');
       return;
     }
 
     try {
+      setLedgerSubmitting(true);
       await distributorLedgerApi.addTransaction(ledgerFormData.distributor_id, {
         type: ledgerFormData.type,
         transaction_type: ledgerFormData.type,
@@ -2409,8 +2553,7 @@ function PurchaseManagement({ user }) {
         created_by: user?.id
       });
 
-      setShowLedgerForm(false);
-      setLedgerFormData(getDefaultLedgerFormData());
+      closeLedgerForm();
       fetchDistributorLedger();
     } catch (err) {
       const localEntry = {
@@ -2427,9 +2570,11 @@ function PurchaseManagement({ user }) {
         mode: 'manual'
       };
       addLocalLedgerEntry(localEntry);
-      setShowLedgerForm(false);
-      setLedgerFormData(getDefaultLedgerFormData());
+      closeLedgerForm();
       fetchDistributorLedger();
+    } finally {
+      setLedgerSubmitting(false);
+      ledgerSubmitLockRef.current = false;
     }
   };
 
@@ -2468,6 +2613,22 @@ function PurchaseManagement({ user }) {
       meta: `${toNumber(operationsCards.close_ready_count)} ready to close`,
       tone: 'success',
       icon: CheckCheck,
+    },
+    {
+      key: 'next_payment',
+      label: 'Next Payment',
+      value: operationsCards.next_payment_due_date || '-',
+      meta: `${toNumber(operationsCards.predicted_payment_next_count)} predicted`,
+      tone: 'default',
+      icon: Clock,
+    },
+    {
+      key: 'next_delivery',
+      label: 'Next Delivery',
+      value: operationsCards.next_delivery_date || '-',
+      meta: `${toNumber(operationsCards.predicted_delivery_next_count)} predicted`,
+      tone: 'default',
+      icon: Truck,
     },
   ];
   const orderDetailSupplier = getOrderDistributorInfo(orderDetail);
@@ -2579,6 +2740,8 @@ function PurchaseManagement({ user }) {
           operationsLoading={operationsLoading}
           operationsCardItems={operationsCardItems}
           operationsSummary={operationsSummary}
+          rollupParams={rollupParams}
+          setRollupParams={setRollupParams}
           onDraftDistributor={openCreateOrderFormForDistributor}
           onOpenOrder={handleViewOrder}
           onOpenPayable={handleOpenPoPaymentById}
@@ -2688,6 +2851,7 @@ function PurchaseManagement({ user }) {
         findProductForItem={findProductForItem}
         calculateOrderItem={calculateOrderItem}
         getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
+        getPurchasePackStep={getPurchasePackStep}
         handleOrderProductInputChange={handleOrderProductInputChange}
         handleOrderProductFieldFocus={handleOrderProductFieldFocus}
         handleOrderItemChange={handleOrderItemChange}
@@ -2720,11 +2884,11 @@ function PurchaseManagement({ user }) {
             className="purchase-receive-sheet"
             actions={(
               <>
-                <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)}>
+                <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" form="receive-inventory-form" className="submit-btn">
-                  Confirm Receipt
+                <button type="submit" form="receive-inventory-form" className="submit-btn" disabled={receiveSubmitting}>
+                  {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
                 </button>
               </>
             )}
@@ -2802,11 +2966,11 @@ function PurchaseManagement({ user }) {
             </form>
           </MobileBottomSheet>
         ) : (
-          <div className="modal-overlay" onClick={() => setShowReceiveModal(false)}>
+          <div className="modal-overlay" onClick={() => !receiveSubmitting && setShowReceiveModal(false)}>
             <div className="modal-content large" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Receive Inventory - {selectedOrder.po_number}</h2>
-                <button className="close-btn" onClick={() => setShowReceiveModal(false)}>
+                <button className="close-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
                   <X size={24} />
                 </button>
               </div>
@@ -2871,11 +3035,11 @@ function PurchaseManagement({ user }) {
                 </div>
 
                 <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)}>
+                  <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
                     Cancel
                   </button>
-                  <button type="submit" className="submit-btn">
-                    Confirm Receipt
+                  <button type="submit" className="submit-btn" disabled={receiveSubmitting}>
+                    {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
                   </button>
                 </div>
               </form>
@@ -3049,6 +3213,7 @@ function PurchaseManagement({ user }) {
                                   id={`po-detail-qty-${idx}-${item.id}`}
                                   name="quantity"
                                   min="0"
+                                  step={getPurchasePackStep(selectedProduct, item.uom || line.uom)}
                                   value={item.quantity}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}
                                 />
@@ -3694,16 +3859,16 @@ function PurchaseManagement({ user }) {
         isMobile ? (
           <MobileBottomSheet
             open
-            onClose={() => setShowLedgerForm(false)}
+            onClose={closeLedgerForm}
             title="Add Distributor Payment / Credit"
             className="purchase-ledger-sheet"
             actions={(
               <>
-                <button type="button" className="cancel-btn" onClick={() => setShowLedgerForm(false)}>
+                <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" form="purchase-ledger-form" className="submit-btn">
-                  Save Entry
+                <button type="submit" form="purchase-ledger-form" className="submit-btn" disabled={ledgerSubmitting}>
+                  {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
                 </button>
               </>
             )}
@@ -3808,11 +3973,11 @@ function PurchaseManagement({ user }) {
             </form>
           </MobileBottomSheet>
         ) : (
-          <div className="modal-overlay" onClick={() => setShowLedgerForm(false)}>
+          <div className="modal-overlay" onClick={closeLedgerForm}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Add Distributor Payment / Credit</h2>
-                <button className="close-btn" onClick={() => setShowLedgerForm(false)}>
+                <button className="close-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
                   <X size={24} />
                 </button>
               </div>
@@ -3914,11 +4079,11 @@ function PurchaseManagement({ user }) {
                   />
                 </div>
                 <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setShowLedgerForm(false)}>
+                  <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
                     Cancel
                   </button>
-                  <button type="submit" className="submit-btn">
-                    Save Entry
+                  <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
+                    {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
                   </button>
                 </div>
               </form>
@@ -4196,16 +4361,16 @@ function PurchaseManagement({ user }) {
         isMobile ? (
           <MobileBottomSheet
             open
-            onClose={() => setShowReturnForm(false)}
+            onClose={closeReturnForm}
             title="Create Purchase Return / Exchange"
             className="purchase-return-sheet"
             actions={(
               <>
-                <button type="button" className="cancel-btn" onClick={() => setShowReturnForm(false)}>
+                <button type="button" className="cancel-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" form="purchase-return-form" className="submit-btn">
-                  Create Return
+                <button type="submit" form="purchase-return-form" className="submit-btn" disabled={returnSubmitting}>
+                  {returnSubmitting ? 'Saving...' : 'Create Return'}
                 </button>
               </>
             )}
@@ -4353,11 +4518,11 @@ function PurchaseManagement({ user }) {
             </form>
           </MobileBottomSheet>
         ) : (
-          <div className="modal-overlay" onClick={() => setShowReturnForm(false)}>
+          <div className="modal-overlay" onClick={closeReturnForm}>
             <div className="modal-content large" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>Create Purchase Return / Exchange</h2>
-                <button className="close-btn" onClick={() => setShowReturnForm(false)}>
+                <button className="close-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
                   <X size={24} />
                 </button>
               </div>
@@ -4503,11 +4668,11 @@ function PurchaseManagement({ user }) {
                 </div>
 
                 <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setShowReturnForm(false)}>
+                  <button type="button" className="cancel-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
                     Cancel
                   </button>
-                  <button type="submit" className="submit-btn">
-                    Create Return
+                  <button type="submit" className="submit-btn" disabled={returnSubmitting}>
+                    {returnSubmitting ? 'Saving...' : 'Create Return'}
                   </button>
                 </div>
               </form>

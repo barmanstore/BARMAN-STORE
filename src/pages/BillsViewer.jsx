@@ -7,6 +7,8 @@ import { createPdfDoc, addAutoTable, addPdfFooterWithPagination, savePdf, safeFi
 import { buildBillShareText } from '../utils/messageTemplates';
 import company from '../config/company';
 import * as info from './info';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
+import AdminToolbar from '../components/admin/AdminToolbar';
 import './BillsViewer.css';
 
 const BillsViewer = () => {
@@ -329,10 +331,11 @@ const BillsViewer = () => {
 
   return (
     <div className="bills-viewer">
-      <div className="bills-viewer-header">
-        <h1>Bills History</h1>
-        <p>View and manage all created bills</p>
-      </div>
+      <AdminPageHeader
+        className="bills-viewer-header"
+        title="Bills History"
+        subtitle="View and manage all created bills"
+      />
 
       {error && (
         <div className="bills-viewer-error">
@@ -341,7 +344,7 @@ const BillsViewer = () => {
         </div>
       )}
 
-      <div className="bills-viewer-controls">
+      <AdminToolbar className="bills-viewer-controls">
         <div className="search-box">
           <Search size={18} />
           <input
@@ -356,7 +359,7 @@ const BillsViewer = () => {
         <button className="refresh-btn" onClick={fetchBills}>
           Refresh
         </button>
-      </div>
+      </AdminToolbar>
 
       {filteredBills.length === 0 ? (
         <div className="bills-viewer-empty">

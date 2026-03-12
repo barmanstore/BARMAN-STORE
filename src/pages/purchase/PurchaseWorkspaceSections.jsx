@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  BarChart3,
   BellRing,
   CheckCheck,
   Clock,
@@ -89,6 +90,8 @@ const PurchaseDashboardSection = ({
   onNewOrder,
   onOpenLedgerForm,
   onOpenReturn,
+  rollupParams,
+  setRollupParams,
   formatCurrency,
   toNumber,
 }) => {
@@ -96,6 +99,11 @@ const PurchaseDashboardSection = ({
   const [tomorrowSort, setTomorrowSort] = useState('balance_desc');
   const [weeklySort, setWeeklySort] = useState('date_asc');
   const [predictionSort, setPredictionSort] = useState('balance_desc');
+  const [activeSector, setActiveSector] = useState('planning');
+  const [pendingRollupRange, setPendingRollupRange] = useState({
+    start_date: '',
+    end_date: '',
+  });
 
   const todayEntries = useMemo(
     () => sortPurchaseAnalyticsEntries(operationsSummary.today_distributors || [], todaySort),
@@ -113,6 +121,126 @@ const PurchaseDashboardSection = ({
     () => sortPurchaseAnalyticsEntries(operationsSummary.predicted_payments_today || [], predictionSort),
     [operationsSummary.predicted_payments_today, predictionSort]
   );
+  const actionRollups = operationsSummary?.action_rollups || {};
+  const rollupActions = actionRollups.actions || [];
+  const rollupWeekdays = actionRollups.by_weekday || [];
+  const rollupDays = actionRollups.by_day || [];
+  const rollupTotals = actionRollups.totals || {};
+  const rollupRangeLabel = actionRollups.range?.start_date
+    ? `${actionRollups.range.start_date} → ${actionRollups.range.end_date || actionRollups.range.start_date}`
+    : 'Range not available';
+  const rollupRecentDays = rollupDays.slice(-10);
+  const [rollupChartMode, setRollupChartMode] = useState('total');
+  const weekdayTotals = rollupWeekdays.map((entry) => ({
+    weekday: entry.weekday,
+    total: rollupActions.reduce((sum, action) => sum + toNumber(entry[action.key]), 0),
+  }));
+  const maxWeekdayTotal = Math.max(1, ...weekdayTotals.map((entry) => entry.total));
+  const chartSeries = rollupChartMode === 'total'
+    ? [
+        {
+          key: 'total',
+          label: 'Total Actions',
+          getValue: (entry) => rollupActions.reduce((sum, action) => sum + toNumber(entry[action.key]), 0),
+        },
+      ]
+    : rollupActions.map((action) => ({
+        key: action.key,
+        label: action.label,
+        getValue: (entry) => toNumber(entry[action.key]),
+      }));
+  const maxChartValue = Math.max(
+    1,
+    ...rollupWeekdays.map((entry) => {
+      if (rollupChartMode === 'actions') {
+        return rollupActions.reduce((sum, action) => sum + toNumber(entry[action.key]), 0);
+      }
+      return Math.max(...chartSeries.map((series) => series.getValue(entry)));
+    })
+  );
+
+  const handleRollupPresetChange = (event) => {
+    const value = event.target.value;
+    if (value === 'custom') {
+      setRollupParams((prev) => ({ ...prev, mode: 'custom' }));
+      return;
+    }
+    const days = Number(value || 30);
+    setRollupParams((prev) => ({
+      ...prev,
+      mode: String(days),
+      days,
+    }));
+  };
+
+  const handleApplyCustomRange = () => {
+    setRollupParams((prev) => ({
+      ...prev,
+      mode: 'custom',
+      start_date: pendingRollupRange.start_date,
+      end_date: pendingRollupRange.end_date,
+    }));
+  };
+
+  const handleDownloadRollupCsv = () => {
+    if (!rollupDays.length) return;
+    const headers = ['date', 'weekday', ...rollupActions.map((action) => action.key)];
+    const lines = [
+      headers.join(','),
+      ...rollupDays.map((row) => [
+        row.date,
+        row.weekday,
+        ...rollupActions.map((action) => toNumber(row[action.key])),
+      ].join(',')),
+    ];
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `purchase-rollups-${actionRollups.range?.start_date || 'start'}-to-${actionRollups.range?.end_date || 'end'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderRollupTable = (rows, labelKey, labelTitle, showTotals = false) => (
+    <div className="purchase-ops-table-wrap">
+      <table className="purchase-ops-table">
+        <thead>
+          <tr>
+            <th>{labelTitle}</th>
+            {rollupActions.map((action) => (
+              <th key={action.key}>{action.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length ? rows.map((row) => (
+            <tr key={`${labelKey}-${row[labelKey]}`}>
+              <td>{row[labelKey] || '-'}</td>
+              {rollupActions.map((action) => (
+                <td key={`${row[labelKey]}-${action.key}`}>{toNumber(row[action.key])}</td>
+              ))}
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={1 + rollupActions.length}>No rollup data for this range.</td>
+            </tr>
+          )}
+          {showTotals && rollupActions.length ? (
+            <tr className="purchase-ops-table-total">
+              <td>Total</td>
+              {rollupActions.map((action) => (
+                <td key={`total-${action.key}`}>{toNumber(rollupTotals[action.key])}</td>
+              ))}
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const renderSort = (value, onChange) => (
     <select name="purchase_section_sort" value={value} onChange={(event) => onChange(event.target.value)} aria-label="Sort section">
@@ -124,13 +252,51 @@ const PurchaseDashboardSection = ({
     </select>
   );
 
+  const sectorTiles = [
+    {
+      key: 'planning',
+      label: 'Planning',
+      value: `${toNumber(operationsSummary.today_distributors?.length)} today`,
+      meta: `${toNumber(operationsSummary.tomorrow_distributors?.length)} tomorrow | ${toNumber(operationsSummary.weekly_distributors?.length)} week`,
+      icon: Package,
+    },
+    {
+      key: 'payments',
+      label: 'Payments',
+      value: formatCurrency(toNumber(operationsSummary?.cards?.payable_today_amount)),
+      meta: `${toNumber(operationsSummary.payables?.length)} due | ${toNumber(operationsSummary.predicted_payments_today?.length)} predicted`,
+      icon: Wallet,
+    },
+    {
+      key: 'deliveries',
+      label: 'Deliveries',
+      value: `${toNumber(operationsSummary.predicted_deliveries_next?.length)} upcoming`,
+      meta: `${toNumber(operationsSummary.cards?.waiting_delivery_count)} waiting now`,
+      icon: Truck,
+    },
+    {
+      key: 'workflow',
+      label: 'Workflow',
+      value: `${toNumber(operationsSummary.workflow?.length)} actions`,
+      meta: `${toNumber(operationsSummary.cards?.waiting_bill_count)} bills | ${toNumber(operationsSummary.cards?.close_ready_count)} close ready`,
+      icon: Clock,
+    },
+    {
+      key: 'insights',
+      label: 'Insights',
+      value: rollupRangeLabel,
+      meta: `${toNumber(rollupTotals.payment)} payments | ${toNumber(rollupTotals.po_created)} POs`,
+      icon: BarChart3,
+    },
+  ];
+
   return (
     <section className="purchase-section-shell">
       <div className="purchase-ops-hero">
         <div className="purchase-ops-header">
           <div>
-            <h2>Today&apos;s Purchase Desk</h2>
-            <p>Order-day planning, due payments, overdue tracking, and history-assisted distributor suggestions in one place.</p>
+            <h2>Purchase Dashboard</h2>
+            <p>Plan, pay, and track every purchase action with compact, actionable panels.</p>
           </div>
           {operationsLoading && <span className="purchase-ops-loading">Refreshing...</span>}
         </div>
@@ -163,7 +329,30 @@ const PurchaseDashboardSection = ({
             <span>Return / Exchange</span>
           </button>
         </div>
-        <div className="purchase-dashboard-grid">
+        <div className="purchase-sector-tiles">
+          {sectorTiles.map((tile) => {
+            const Icon = tile.icon;
+            const isActive = activeSector === tile.key;
+            return (
+              <button
+                key={tile.key}
+                type="button"
+                className={`purchase-sector-tile ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveSector(tile.key)}
+              >
+                <div className="purchase-sector-tile-head">
+                  <span>{tile.label}</span>
+                  <Icon size={18} />
+                </div>
+                <strong>{tile.value}</strong>
+                <small>{tile.meta}</small>
+              </button>
+            );
+          })}
+        </div>
+        <div className="purchase-sector-details">
+          {activeSector === 'planning' ? (
+            <div className="purchase-sector-grid">
           <section className="purchase-ops-panel">
             <div className="purchase-ops-panel-title">
               <Truck size={16} />
@@ -263,6 +452,11 @@ const PurchaseDashboardSection = ({
             )}
           </section>
 
+            </div>
+          ) : null}
+
+          {activeSector === 'payments' ? (
+            <div className="purchase-sector-grid">
           <section className="purchase-ops-panel">
             <div className="purchase-ops-panel-title">
               <Wallet size={16} />
@@ -319,6 +513,62 @@ const PurchaseDashboardSection = ({
           <section className="purchase-ops-panel">
             <div className="purchase-ops-panel-title">
               <Clock size={16} />
+              <span>Next Payments</span>
+            </div>
+            {(operationsSummary.predicted_payments_next || []).length ? (
+              (operationsSummary.predicted_payments_next || []).slice(0, 6).map((entry) => (
+                <div key={`next-payment-${entry.distributor_id}`} className="purchase-ops-item">
+                  <div>
+                    <strong>{entry.distributor_name}</strong>
+                    <p>Due: {entry.next_payment_due_date} | {formatCurrency(toNumber(entry.predicted_payment_amount))}</p>
+                    <small>
+                      Source: {entry.next_payment_due_source === 'open_payable' ? 'Open payable' : (entry.next_payment_due_source === 'history_inferred' ? 'History inferred' : 'Unknown')}
+                    </small>
+                    <small>Outstanding: {formatCurrency(toNumber(entry.outstanding_amount))}</small>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="purchase-ops-empty">No future payment predictions available.</div>
+            )}
+          </section>
+
+            </div>
+          ) : null}
+
+          {activeSector === 'deliveries' ? (
+            <div className="purchase-sector-grid single">
+          <section className="purchase-ops-panel">
+            <div className="purchase-ops-panel-title">
+              <Truck size={16} />
+              <span>Next Deliveries</span>
+            </div>
+            {(operationsSummary.predicted_deliveries_next || []).length ? (
+              (operationsSummary.predicted_deliveries_next || []).slice(0, 6).map((entry) => (
+                <div key={`next-delivery-${entry.distributor_id}`} className="purchase-ops-item">
+                  <div>
+                    <strong>{entry.distributor_name}</strong>
+                    <p>ETA: {entry.next_delivery_date} | Open orders: {toNumber(entry.active_open_orders)}</p>
+                    <small>
+                      Source: {entry.next_delivery_source === 'open_order' ? 'Open order' : (entry.next_delivery_source === 'history_inferred' ? 'History inferred' : 'Unknown')}
+                    </small>
+                    <small>Predicted deliveries: {toNumber(entry.predicted_delivery_count)}</small>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="purchase-ops-empty">No delivery predictions available.</div>
+            )}
+          </section>
+
+            </div>
+          ) : null}
+
+          {activeSector === 'workflow' ? (
+            <div className="purchase-sector-grid single">
+          <section className="purchase-ops-panel">
+            <div className="purchase-ops-panel-title">
+              <Clock size={16} />
               <span>Next Actions</span>
             </div>
             {operationsSummary.workflow?.length ? (
@@ -338,6 +588,97 @@ const PurchaseDashboardSection = ({
               <div className="purchase-ops-empty">No urgent workflow items.</div>
             )}
           </section>
+
+            </div>
+          ) : null}
+
+          {activeSector === 'insights' ? (
+            <div className="purchase-sector-grid single">
+          <section className="purchase-ops-panel insights">
+            <div className="purchase-ops-panel-title">
+              <BarChart3 size={16} />
+              <span>Action Rollups</span>
+            </div>
+            <div className="purchase-ops-rollup-meta">Range: {rollupRangeLabel}</div>
+            <div className="purchase-ops-rollup-controls">
+              <label>
+                Range
+                <select value={rollupParams?.mode || '30'} onChange={handleRollupPresetChange}>
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <label>
+                Chart
+                <select value={rollupChartMode} onChange={(event) => setRollupChartMode(event.target.value)}>
+                  <option value="total">Total actions</option>
+                  <option value="actions">By action</option>
+                </select>
+              </label>
+              <button type="button" className="admin-btn secondary small" onClick={handleDownloadRollupCsv}>
+                Download CSV
+              </button>
+              {rollupParams?.mode === 'custom' ? (
+                <div className="purchase-ops-rollup-custom">
+                  <label>
+                    Start
+                    <input
+                      type="date"
+                      value={pendingRollupRange.start_date}
+                      onChange={(event) => setPendingRollupRange((prev) => ({ ...prev, start_date: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    End
+                    <input
+                      type="date"
+                      value={pendingRollupRange.end_date}
+                      onChange={(event) => setPendingRollupRange((prev) => ({ ...prev, end_date: event.target.value }))}
+                    />
+                  </label>
+                  <button type="button" className="admin-btn secondary small" onClick={handleApplyCustomRange}>
+                    Apply
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div className={`purchase-ops-rollup-chart ${rollupChartMode === 'actions' ? 'stacked' : ''}`}>
+              {rollupWeekdays.map((entry) => (
+                <div key={entry.weekday} className="purchase-ops-rollup-bar">
+                  <span>{entry.weekday.slice(0, 3)}</span>
+                  <div className="bar-track">
+                    {chartSeries.map((series) => {
+                      const value = series.getValue(entry);
+                      const width = (value / maxChartValue) * 100;
+                      return (
+                        <div
+                          key={`${entry.weekday}-${series.key}`}
+                          className={`bar-fill ${series.key}`}
+                          style={{ width: `${width}%` }}
+                          title={`${series.label}: ${value}`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <strong>{chartSeries.reduce((sum, series) => sum + series.getValue(entry), 0)}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="purchase-ops-rollup-grid">
+              <div>
+                <h4>Weekday</h4>
+                {renderRollupTable(rollupWeekdays, 'weekday', 'Weekday', true)}
+              </div>
+              <div>
+                <h4>Recent Days</h4>
+                {renderRollupTable(rollupRecentDays, 'date', 'Date', false)}
+              </div>
+            </div>
+          </section>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

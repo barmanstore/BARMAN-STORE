@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, DollarSign, CreditCard, RefreshCw, Printer, Upload, FileText, Eye, Download, MessageCircle, X } from 'lucide-react';
-import { creditApi, usersApi, adminApi } from '../services/api';
+import { ArrowLeft, Plus, DollarSign, CreditCard, RefreshCw, Printer, Upload, FileText, Eye, Download, MessageCircle, X, Trash2 } from 'lucide-react';
+import { creditApi, usersApi, adminApi, createClientRequestId } from '../services/api';
 import { sendWhatsAppSmart } from '../utils/whatsapp';
 import * as info from './info';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
@@ -66,17 +66,30 @@ const getEffectiveTransactionDateKey = (transaction) => {
       return toLocalDateKey(d);
     }
   }
+  const tsRaw = transaction?.transaction_ts ?? transaction?.transactionTs;
+  if (tsRaw) {
+    const tsDate = new Date(tsRaw);
+    if (!Number.isNaN(tsDate.getTime())) return toLocalDateKey(tsDate);
+  }
   const created = new Date(transaction?.created_at || '');
   return toLocalDateKey(created);
 };
 
 const getEffectiveTransactionTimestamp = (transaction) => {
+  const tsRaw = transaction?.transaction_ts ?? transaction?.transactionTs;
+  if (tsRaw) {
+    const ts = new Date(tsRaw).getTime();
+    if (Number.isFinite(ts)) return ts;
+  }
   const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
   if (txDateRaw) {
     if (typeof txDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(txDateRaw)) {
       const [year, month, day] = txDateRaw.split('-').map((v) => Number(v));
-      const localDate = new Date(year, month - 1, day);
-      if (!Number.isNaN(localDate.getTime())) return localDate.getTime();
+      const createdAt = new Date(transaction?.created_at || '');
+      const withTime = !Number.isNaN(createdAt.getTime())
+        ? new Date(year, month - 1, day, createdAt.getHours(), createdAt.getMinutes(), createdAt.getSeconds(), createdAt.getMilliseconds())
+        : new Date(year, month - 1, day);
+      if (!Number.isNaN(withTime.getTime())) return withTime.getTime();
     }
     const d = new Date(txDateRaw);
     if (!Number.isNaN(d.getTime())) return d.getTime();
@@ -85,12 +98,7 @@ const getEffectiveTransactionTimestamp = (transaction) => {
   return Number.isFinite(createdTs) ? createdTs : 0;
 };
 
-const compareTransactionsByBalanceDesc = (a, b) => {
-  const balanceA = Number(a?.balance);
-  const balanceB = Number(b?.balance);
-  const safeBalanceA = Number.isFinite(balanceA) ? balanceA : 0;
-  const safeBalanceB = Number.isFinite(balanceB) ? balanceB : 0;
-  if (safeBalanceA !== safeBalanceB) return safeBalanceB - safeBalanceA;
+const compareTransactionsByDateDesc = (a, b) => {
   const timeDiff = getEffectiveTransactionTimestamp(b) - getEffectiveTransactionTimestamp(a);
   if (timeDiff !== 0) return timeDiff;
   return Number(b?.id || 0) - Number(a?.id || 0);
@@ -199,10 +207,14 @@ function CreditHistory({ user }) {
   const [adminIssueDrafts, setAdminIssueDrafts] = useState({});
   const [adminIssueSavingId, setAdminIssueSavingId] = useState(0);
   const [activeAdminIssueId, setActiveAdminIssueId] = useState(0);
+  const [deletingEntryId, setDeletingEntryId] = useState(0);
   const focusIssueId = Number(searchParams.get('focusIssue') || 0) || 0;
   const focusEntryId = Number(searchParams.get('focusEntry') || 0) || 0;
 
   useLockBodyScroll(showAddModal || showInvoiceModal);
+
+  const addTransactionLockRef = useRef(false);
+  const addTransactionRequestIdRef = useRef('');
 
   useEffect(() => {
     if (!authUser) {
@@ -292,22 +304,26 @@ function CreditHistory({ user }) {
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
-    if (addingTransaction) return;
+    if (addingTransaction || addTransactionLockRef.current) return;
+    addTransactionLockRef.current = true;
     setError('');
     setSuccess('');
 
     // Validation
     if (!newTransaction.amount || parseFloat(newTransaction.amount) <= 0) {
+      addTransactionLockRef.current = false;
       setError('Please enter a valid amount');
       return;
     }
 
     if (!newTransaction.transactionDate) {
+      addTransactionLockRef.current = false;
       setError('Please select a transaction date');
       return;
     }
 
     if (!newTransaction.description.trim()) {
+      addTransactionLockRef.current = false;
       setError('Please enter a description');
       return;
     }
@@ -323,8 +339,9 @@ function CreditHistory({ user }) {
         transactionDate: newTransaction.transactionDate || getTodayDateInputValue()
       };
       
-      const clientRequestId = `req_credit_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-      
+      const clientRequestId = addTransactionRequestIdRef.current || createClientRequestId('credit');
+      addTransactionRequestIdRef.current = clientRequestId;
+
       const result = await creditApi.addTransaction(effectiveUserId, {
         ...newTransaction,
         amount: parseFloat(newTransaction.amount),
@@ -341,7 +358,7 @@ function CreditHistory({ user }) {
         transactionDate: getTodayDateInputValue(),
         imagePath: ''
       });
-      setShowAddModal(false);
+      closeAddModal();
       const refreshed = await fetchCreditData(effectiveUserId);
       let updatedBalance = Number(refreshed?.balance);
       if (!Number.isFinite(updatedBalance)) {
@@ -369,6 +386,26 @@ function CreditHistory({ user }) {
       setError(err.message || 'Failed to add transaction');
     } finally {
       setAddingTransaction(false);
+      addTransactionLockRef.current = false;
+    }
+  };
+
+  const handleDeleteTransaction = async (transaction) => {
+    if (!isAdminView) return;
+    const entryId = Number(transaction?.id || 0);
+    if (!entryId || !effectiveUserId) return;
+    if (!window.confirm(`Delete credit entry #${entryId}? This will recalculate balances.`)) return;
+    try {
+      setDeletingEntryId(entryId);
+      setError('');
+      setSuccess('');
+      await creditApi.deleteTransaction(effectiveUserId, entryId);
+      await fetchCreditData(effectiveUserId);
+      setSuccess('Credit entry deleted.');
+    } catch (err) {
+      setError(err.message || 'Failed to delete credit entry');
+    } finally {
+      setDeletingEntryId(0);
     }
   };
 
@@ -492,6 +529,12 @@ function CreditHistory({ user }) {
     }
   };
 
+  const closeAddModal = () => {
+    setShowAddModal(false);
+    addTransactionLockRef.current = false;
+    addTransactionRequestIdRef.current = '';
+  };
+
   const openAddModalWithType = (type = 'given') => {
     setError('');
     setSuccess('');
@@ -499,6 +542,8 @@ function CreditHistory({ user }) {
       ...prev,
       type: type === 'payment' ? 'payment' : 'given',
     }));
+    addTransactionLockRef.current = false;
+    addTransactionRequestIdRef.current = createClientRequestId('credit');
     setShowAddModal(true);
   };
 
@@ -767,7 +812,7 @@ function CreditHistory({ user }) {
     rangeFilter: quickRangeFilter,
     nowTimestamp: Date.now(),
     getTimestamp: getEffectiveTransactionTimestamp,
-  }).sort(compareTransactionsByBalanceDesc);
+  }).sort(compareTransactionsByDateDesc);
 
   const groupedTransactions = (() => {
     const groups = new Map();
@@ -784,7 +829,7 @@ function CreditHistory({ user }) {
         dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
           ? formatTransactionDate({ transaction_date: dateKey }, { long: true })
           : dateKey,
-        transactions: [...transactions].sort(compareTransactionsByBalanceDesc)
+        transactions: [...transactions].sort(compareTransactionsByDateDesc)
       }));
   })();
 
@@ -1447,6 +1492,16 @@ function CreditHistory({ user }) {
                             <MessageCircle size={16} />
                           </button>
                         )}
+                        {isAdminView && (
+                          <button
+                            className="action-icon delete"
+                            onClick={() => handleDeleteTransaction(transaction)}
+                            title="Delete entry"
+                            disabled={deletingEntryId === Number(transaction.id || 0)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1551,6 +1606,16 @@ function CreditHistory({ user }) {
                                     title="Share on WhatsApp"
                                   >
                                     <MessageCircle size={16} />
+                                  </button>
+                                )}
+                                {isAdminView && (
+                                  <button
+                                    className="action-icon delete"
+                                    onClick={() => handleDeleteTransaction(transaction)}
+                                    title="Delete entry"
+                                    disabled={deletingEntryId === Number(transaction.id || 0)}
+                                  >
+                                    <Trash2 size={16} />
                                   </button>
                                 )}
                               </div>
@@ -1747,11 +1812,11 @@ function CreditHistory({ user }) {
 
       {/* Add Transaction Modal */}
       {isAdminView && showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <div className="modal-overlay" onClick={closeAddModal}>
           <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{addModalTitle}</h2>
-              <button className="close-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>x</button>
+              <button className="close-btn" onClick={closeAddModal} disabled={addingTransaction}>x</button>
             </div>
             <form onSubmit={handleAddTransaction}>
               <div className="form-group">
@@ -1843,7 +1908,7 @@ function CreditHistory({ user }) {
                 </div>
               </div>
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={() => setShowAddModal(false)} disabled={addingTransaction}>
+                <button type="button" className="cancel-btn" onClick={closeAddModal} disabled={addingTransaction}>
                   Cancel
                 </button>
                 <button type="submit" className="submit-btn" disabled={addingTransaction}>

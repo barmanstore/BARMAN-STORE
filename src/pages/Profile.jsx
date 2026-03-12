@@ -696,6 +696,8 @@ function Profile() {
                           </button>
                           <div className="verify-token-group">
                             <select
+                              id="email-verification-token-type"
+                              name="email_verification_token_type"
                               value={emailVerificationTokenType}
                               onChange={(e) => setEmailVerificationTokenType(e.target.value)}
                               disabled={emailDraftChanged}

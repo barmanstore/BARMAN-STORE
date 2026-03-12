@@ -193,6 +193,7 @@ export const productsApi = {
     return apiFetch(`/api/products/suggest${query ? `?${query}` : ''}`, options);
   },
   getLastPurchase: (id) => apiFetch(`/api/products/${id}/last-purchase`),
+  getSuppliers: (id) => apiFetch(`/api/products/${id}/suppliers`),
   getByCategory: (category) => apiFetch(`/api/products/category/${category}`),
   create: (product) => 
     apiFetch('/api/products', {
@@ -412,6 +413,10 @@ export const creditApi = {
     apiFetch(`/api/users/${userId}/credit/${entryId}`, {
       method: 'PUT',
       body: data,
+    }),
+  deleteTransaction: (userId, entryId) =>
+    apiFetch(`/api/users/${userId}/credit/${entryId}`, {
+      method: 'DELETE',
     }),
   checkLimit: (customerId, amount) =>
     apiFetch('/api/credit/check-limit', {
@@ -912,6 +917,26 @@ export const purchaseOrdersApi = {
       method: 'POST',
       body: receiveData,
     }),
+};
+
+// ============================================
+// INSIGHTS API
+// ============================================
+
+export const insightsApi = {
+  getProducts: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/insights/products${query ? `?${query}` : ''}`);
+  },
+  getProductById: (id, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/insights/products/${id}${query ? `?${query}` : ''}`);
+  },
+  getDistributors: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/insights/distributors${query ? `?${query}` : ''}`);
+  },
+  getDistributorProducts: (id) => apiFetch(`/api/insights/distributors/${id}/products`),
 };
 
 // ============================================

@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { creditApi, usersApi } from '../services/api';
+import { createClientRequestId, creditApi, usersApi } from '../services/api';
 import { formatCurrency, truncateUserName } from '../utils/formatters';
 import { getTodayDate } from '../utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../utils/ledger';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './CreditKhata.css';
 
-const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_date', 'created_at', 'date']);
+const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']);
 const getRecordDateLabel = (entry) => new Date(getRecordDate(entry)).toLocaleDateString();
 const isLedgerEntryEdited = (entry) => Number(entry?.edited || 0) === 1 || !!entry?.edited_at;
 
@@ -111,6 +111,9 @@ function CreditKhata({ user }) {
   const [showLedgerForm, setShowLedgerForm] = useState(false);
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultFormData());
   const [editingLedgerEntryId, setEditingLedgerEntryId] = useState(null);
+  const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
+  const ledgerSubmitLockRef = useRef(false);
+  const ledgerRequestIdRef = useRef('');
   useLockBodyScroll(showLedgerForm);
   const amountPreview = useMemo(() => {
     try {
@@ -240,6 +243,8 @@ function CreditKhata({ user }) {
       ...getDefaultFormData(),
       user_id: filters.user_id || ''
     });
+    ledgerSubmitLockRef.current = false;
+    ledgerRequestIdRef.current = createClientRequestId('credit');
     setShowLedgerForm(true);
   };
 
@@ -254,6 +259,8 @@ function CreditKhata({ user }) {
       reference: entry.reference || '',
       description: entry.description || ''
     });
+    ledgerSubmitLockRef.current = false;
+    ledgerRequestIdRef.current = '';
     setShowLedgerForm(true);
   };
 
@@ -261,27 +268,36 @@ function CreditKhata({ user }) {
     setShowLedgerForm(false);
     setEditingLedgerEntryId(null);
     setLedgerFormData(getDefaultFormData());
+    setLedgerSubmitting(false);
+    ledgerSubmitLockRef.current = false;
+    ledgerRequestIdRef.current = '';
   };
 
   const handleLedgerSubmit = async (e) => {
     e.preventDefault();
+    if (ledgerSubmitting || ledgerSubmitLockRef.current) return;
+    ledgerSubmitLockRef.current = true;
     setError('');
 
     const amount = amountPreview.valid ? Number(amountPreview.value) : 0;
     if (!ledgerFormData.user_id) {
+      ledgerSubmitLockRef.current = false;
       setError('Please select a customer');
       return;
     }
     if (!amountPreview.valid || amount <= 0) {
+      ledgerSubmitLockRef.current = false;
       setError(amountPreview.message || 'Please enter a valid amount');
       return;
     }
     if (!ledgerFormData.description.trim()) {
+      ledgerSubmitLockRef.current = false;
       setError('Please enter a description');
       return;
     }
 
     try {
+      setLedgerSubmitting(true);
       if (editingLedgerEntryId) {
         await creditApi.updateTransaction(ledgerFormData.user_id, editingLedgerEntryId, {
           type: ledgerFormData.type,
@@ -292,13 +308,16 @@ function CreditKhata({ user }) {
           edited_by: user?.id
         });
       } else {
+        const clientRequestId = ledgerRequestIdRef.current || createClientRequestId('credit');
+        ledgerRequestIdRef.current = clientRequestId;
         await creditApi.addTransaction(ledgerFormData.user_id, {
           type: ledgerFormData.type,
           amount: Number(amount.toFixed(2)),
           reference: ledgerFormData.reference,
           description: ledgerFormData.description,
           transactionDate: ledgerFormData.transactionDate,
-          created_by: user?.id
+          created_by: user?.id,
+          client_request_id: clientRequestId
         });
       }
       closeLedgerForm();
@@ -310,6 +329,9 @@ function CreditKhata({ user }) {
         return;
       }
       setError(err.message || (editingLedgerEntryId ? 'Failed to edit ledger transaction' : 'Failed to add ledger transaction'));
+    } finally {
+      setLedgerSubmitting(false);
+      ledgerSubmitLockRef.current = false;
     }
   };
 
@@ -559,11 +581,11 @@ function CreditKhata({ user }) {
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={closeLedgerForm}>
+                <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
                   Cancel
                 </button>
-                <button type="submit" className="submit-btn">
-                  {editingLedgerEntryId ? 'Update Entry' : 'Save Entry'}
+                <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
+                  {ledgerSubmitting ? 'Saving...' : (editingLedgerEntryId ? 'Update Entry' : 'Save Entry')}
                 </button>
               </div>
             </form>

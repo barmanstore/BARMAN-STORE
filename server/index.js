@@ -1238,6 +1238,30 @@ const PO_LIFECYCLE_PART_PAID = 'part_paid';
 const PO_LIFECYCLE_FULLY_PAID = 'fully_paid';
 const PO_LIFECYCLE_CLOSED = 'closed';
 const PO_LIFECYCLE_CANCELLED = 'cancelled';
+const PURCHASE_ACTION_ROLLUP_FIELDS = [
+  { key: 'po_created', label: 'PO Created' },
+  { key: 'po_sent', label: 'PO Sent' },
+  { key: 'po_revised', label: 'PO Revised' },
+  { key: 'po_confirmed', label: 'PO Confirmed' },
+  { key: 'po_part_paid', label: 'PO Part Paid' },
+  { key: 'po_fully_paid', label: 'PO Fully Paid' },
+  { key: 'po_closed', label: 'PO Closed' },
+  { key: 'po_cancelled', label: 'PO Cancelled' },
+  { key: 'delivery_received', label: 'Delivery Received' },
+  { key: 'payment', label: 'Payments' },
+  { key: 'return', label: 'Returns' },
+  { key: 'ledger_manual', label: 'Ledger Manual' },
+  { key: 'reminder_sent', label: 'Reminders Sent' },
+];
+const PURCHASE_ACTION_STATUS_MAP = new Map([
+  [PO_LIFECYCLE_SENT, 'po_sent'],
+  [PO_LIFECYCLE_REVISED, 'po_revised'],
+  [PO_LIFECYCLE_CONFIRMED, 'po_confirmed'],
+  [PO_LIFECYCLE_PART_PAID, 'po_part_paid'],
+  [PO_LIFECYCLE_FULLY_PAID, 'po_fully_paid'],
+  [PO_LIFECYCLE_CLOSED, 'po_closed'],
+  [PO_LIFECYCLE_CANCELLED, 'po_cancelled'],
+]);
 const PO_PAYMENT_UNPAID = 'unpaid';
 const PO_PAYMENT_PART_PAID = 'part_paid';
 const PO_PAYMENT_PAID = 'paid';
@@ -1341,6 +1365,37 @@ const getDaysBetweenDateKeys = (fromDate, toDate) => {
   return Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
 };
 
+const buildDateSeries = (startDate, endDate) => {
+  const series = [];
+  if (!startDate || !endDate) return series;
+  let cursor = startDate;
+  let guard = 0;
+  while (cursor && cursor <= endDate && guard < 4000) {
+    series.push(cursor);
+    cursor = addDaysToDateKey(cursor, 1);
+    guard += 1;
+  }
+  return series;
+};
+
+const resolveRollupRange = ({
+  startDate,
+  endDate,
+  days = 30,
+} = {}) => {
+  const normalizedEnd = normalizeTransactionDate(endDate || new Date().toISOString())
+    || new Date().toISOString().slice(0, 10);
+  let normalizedStart = normalizeTransactionDate(startDate || null);
+  const normalizedDays = Math.max(1, Number(days || 30));
+  if (!normalizedStart) {
+    normalizedStart = addDaysToDateKey(normalizedEnd, -(normalizedDays - 1)) || normalizedEnd;
+  }
+  if (normalizedStart > normalizedEnd) {
+    return { startDate: normalizedEnd, endDate: normalizedStart };
+  }
+  return { startDate: normalizedStart, endDate: normalizedEnd };
+};
+
 const normalizeBooleanFlag = (value, fallback = true) => {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -1410,6 +1465,47 @@ const getEffectivePurchaseDueDateKey = (order = {}, fallbackDate = null) => (
   ) || normalizeTransactionDate(fallbackDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10)
 );
 
+const getPurchaseOrderAnchorDateKey = (order = {}) => (
+  normalizeTransactionDate(
+    order.planned_order_date
+    || order.created_at
+    || order.expected_delivery
+    || order.received_at
+    || order.confirmed_at
+  )
+);
+
+const getPurchaseOrderDeliveryDateKey = (order = {}) => (
+  normalizeTransactionDate(order.received_at || order.expected_delivery || null)
+);
+
+const getPurchaseOrderPaymentAnchorDateKey = (order = {}) => (
+  normalizeTransactionDate(
+    order.received_at
+    || order.confirmed_at
+    || order.planned_order_date
+    || order.expected_delivery
+    || order.created_at
+  )
+);
+
+const computeAverageDays = (values = []) => {
+  const list = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
+  if (!list.length) return null;
+  const total = list.reduce((sum, value) => sum + value, 0);
+  return Math.max(0, Math.round(total / list.length));
+};
+
+const pickEarliestDateKey = (values = []) => {
+  const list = (Array.isArray(values) ? values : []).filter(Boolean).sort();
+  return list[0] || null;
+};
+
+const pickLatestDateKey = (values = []) => {
+  const list = (Array.isArray(values) ? values : []).filter(Boolean).sort();
+  return list.length ? list[list.length - 1] : null;
+};
+
 const parseDistributorProductsSupplied = (value = '') => {
   const seen = new Set();
   return String(value || '')
@@ -1448,6 +1544,81 @@ const mergeDistributorProductKnowledge = ({
   };
 };
 
+const savePurchaseAnalyticsSnapshotAsync = async ({
+  snapshotDate = null,
+  distributorId = 0,
+  payload = {},
+} = {}) => {
+  const normalizedDate = normalizeTransactionDate(snapshotDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  const payloadJson = JSON.stringify(payload ?? {});
+  return dbRunAsync(
+    `INSERT INTO purchase_analytics_snapshots (snapshot_date, distributor_id, payload)
+     VALUES (?, ?, ?::jsonb)
+     ON CONFLICT (snapshot_date, distributor_id)
+     DO UPDATE SET payload = EXCLUDED.payload, updated_at = CURRENT_TIMESTAMP`,
+    [normalizedDate, Number(distributorId || 0), payloadJson]
+  );
+};
+
+const persistPurchaseAnalyticsSnapshotsAsync = async ({
+  snapshotDate = null,
+  cards = {},
+  predictedPaymentsToday = [],
+  predictedPaymentsNext = [],
+  predictedDeliveriesNext = [],
+  distributorInsights = [],
+} = {}) => {
+  const normalizedDate = normalizeTransactionDate(snapshotDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+  const globalPayload = {
+    snapshot_date: normalizedDate,
+    cards,
+    predicted_payments_today: (predictedPaymentsToday || []).slice(0, 50),
+    predicted_payments_next: (predictedPaymentsNext || []).slice(0, 50),
+    predicted_deliveries_next: (predictedDeliveriesNext || []).slice(0, 50),
+    distributor_count: Number(distributorInsights?.length || 0),
+    computed_at: new Date().toISOString(),
+  };
+
+  return dbTxAsync(async () => {
+    await savePurchaseAnalyticsSnapshotAsync({
+      snapshotDate: normalizedDate,
+      distributorId: 0,
+      payload: globalPayload,
+    });
+    for (const entry of distributorInsights || []) {
+      const payload = {
+        distributor_id: entry.distributor_id,
+        distributor_name: entry.distributor_name,
+        cadence_days: entry.cadence_days,
+        next_order_date: entry.next_order_date,
+        next_payment_due_date: entry.next_payment_due_date,
+        next_payment_due_source: entry.next_payment_due_source,
+        predicted_payment_amount: entry.predicted_payment_amount,
+        next_delivery_date: entry.next_delivery_date,
+        next_delivery_source: entry.next_delivery_source,
+        predicted_delivery_count: entry.predicted_delivery_count,
+        last_order_date: entry.last_order_date,
+        last_delivery_date: entry.last_delivery_date,
+        last_payment_date: entry.last_payment_date,
+        avg_payment_lag_days: entry.inferred_payment_due_days,
+        avg_delivery_days: entry.avg_delivery_days,
+        outstanding_amount: entry.outstanding_amount,
+        po_balance_due: entry.po_balance_due,
+        ledger_balance: entry.ledger_balance,
+        likely_items: entry.likely_items || [],
+        suggested_items: entry.suggested_items || [],
+        products_supplied_text: entry.products_supplied_text || '',
+        computed_at: new Date().toISOString(),
+      };
+      await savePurchaseAnalyticsSnapshotAsync({
+        snapshotDate: normalizedDate,
+        distributorId: entry.distributor_id,
+        payload,
+      });
+    }
+  });
+};
+
 const syncDistributorProductsSuppliedAsync = async (distributorId, items = []) => {
   const normalizedDistributorId = Number(distributorId || 0);
   if (!normalizedDistributorId) return null;
@@ -1472,6 +1643,59 @@ const syncDistributorProductsSuppliedAsync = async (distributorId, items = []) =
     [nextText || null, normalizedDistributorId]
   );
   return nextText;
+};
+
+const recordProductCostHistoryEntryAsync = async ({
+  productId,
+  distributorId,
+  purchaseOrderId,
+  purchaseOrderItemId,
+  unitCostInclTax,
+  taxRate,
+  discountAmount,
+  transactionTs,
+} = {}) => {
+  if (!productId || !distributorId || !purchaseOrderId || !purchaseOrderItemId) return null;
+  return dbRunAsync(
+    `INSERT INTO product_cost_history
+     (product_id, distributor_id, po_id, po_item_id, unit_cost_incl_tax, tax_rate, discount_amount, transaction_ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      Number(productId || 0),
+      Number(distributorId || 0),
+      Number(purchaseOrderId || 0),
+      Number(purchaseOrderItemId || 0),
+      Number(unitCostInclTax || 0),
+      Number(taxRate || 0),
+      Number(discountAmount || 0),
+      transactionTs || new Date().toISOString(),
+    ]
+  );
+};
+
+const upsertSupplierProductsAsync = async (distributorId, items = []) => {
+  const normalizedDistributorId = Number(distributorId || 0);
+  if (!normalizedDistributorId) return null;
+  const uniqueItems = new Map();
+  for (const item of Array.isArray(items) ? items : []) {
+    const productId = Number(item?.product_id || 0);
+    if (!productId) continue;
+    if (!uniqueItems.has(productId)) uniqueItems.set(productId, item);
+  }
+  for (const item of uniqueItems.values()) {
+    const unitCost = Number(item?.unit_cost_incl_tax ?? 0);
+    if (!Number.isFinite(unitCost) || unitCost <= 0) continue;
+    await dbRunAsync(
+      `INSERT INTO supplier_products (distributor_id, product_id, last_known_unit_cost_incl_tax, last_updated_at)
+       VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT (distributor_id, product_id)
+       DO UPDATE SET
+         last_known_unit_cost_incl_tax = EXCLUDED.last_known_unit_cost_incl_tax,
+         last_updated_at = CURRENT_TIMESTAMP`,
+      [normalizedDistributorId, Number(item.product_id || 0), unitCost]
+    );
+  }
+  return true;
 };
 
 const buildPurchaseOrderFingerprint = (items = []) => {
@@ -1571,6 +1795,53 @@ const normalizeTransactionDate = (value) => {
   const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
   const day = String(parsedDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const resolveInsightDateRange = ({ startDate, endDate } = {}) => {
+  const normalizedStart = normalizeTransactionDate(startDate || null);
+  const normalizedEnd = normalizeTransactionDate(endDate || null);
+  const endExclusive = normalizedEnd ? addDaysToDateKey(normalizedEnd, 1) : null;
+  return {
+    startDate: normalizedStart,
+    endDate: normalizedEnd,
+    endExclusive,
+  };
+};
+
+const computeAverageGapDays = (timestamps = []) => {
+  const dates = (Array.isArray(timestamps) ? timestamps : [])
+    .map((value) => new Date(value))
+    .filter((date) => Number.isFinite(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+  if (dates.length < 2) return null;
+  let total = 0;
+  for (let i = 1; i < dates.length; i += 1) {
+    total += (dates[i].getTime() - dates[i - 1].getTime()) / 86400000;
+  }
+  return Math.round(total / (dates.length - 1));
+};
+
+const computeStdDev = (values = []) => {
+  const nums = (Array.isArray(values) ? values : [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (nums.length < 2) return 0;
+  const mean = nums.reduce((sum, value) => sum + value, 0) / nums.length;
+  const variance = nums.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / (nums.length - 1);
+  return Math.sqrt(variance);
+};
+
+const deriveStockoutRisk = (avgDaysBetween, stockLevel) => {
+  const avgDays = Number(avgDaysBetween);
+  const stock = Number(stockLevel);
+  if (!Number.isFinite(stock)) return 'unknown';
+  const hasCadence = Number.isFinite(avgDays) && avgDays > 0;
+  const rapidCadence = hasCadence && avgDays <= 14;
+  const moderateCadence = hasCadence && avgDays <= 30;
+  if (stock <= 0) return moderateCadence || rapidCadence ? 'high' : 'medium';
+  if (stock <= 5 && rapidCadence) return 'high';
+  if (stock <= 10 && moderateCadence) return 'medium';
+  return 'low';
 };
 
 const normalizePaymentMethod = (method) => {
@@ -1827,11 +2098,44 @@ const normalizeCreditType = (type) => {
   return raw === 'payment' ? 'payment' : 'given';
 };
 
+const buildCreditTransactionTimestamp = (transactionDate, referenceDate = null) => {
+  const raw = String(transactionDate || '').trim();
+  if (raw) {
+    if (/^\d{4}-\d{2}-\d{2}[t\s]\d{2}:\d{2}/i.test(raw)) {
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+    }
+  }
+
+  const normalizedDate = normalizeTransactionDate(raw);
+  const base = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+    ? referenceDate
+    : new Date();
+  if (normalizedDate) {
+    const [year, month, day] = normalizedDate.split('-').map((v) => Number(v));
+    const ts = new Date(Date.UTC(
+      year,
+      month - 1,
+      day,
+      base.getUTCHours(),
+      base.getUTCMinutes(),
+      base.getUTCSeconds(),
+      base.getUTCMilliseconds()
+    ));
+    if (!Number.isNaN(ts.getTime())) return ts.toISOString();
+  }
+  return base.toISOString();
+};
+
+const buildPurchaseTransactionTimestamp = (transactionDate, referenceDate = null) => (
+  buildCreditTransactionTimestamp(transactionDate, referenceDate)
+);
+
 const getLatestCreditEntryAsync = (userId) => dbGetAsync(
   `SELECT *
    FROM credit_history
    WHERE user_id = ?
-   ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC
+   ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
    LIMIT 1`,
   [userId]
 );
@@ -1841,7 +2145,7 @@ const recalculateCreditBalancesForUser = async (userId) => dbTxAsync(async () =>
     `SELECT id, type, amount
      FROM credit_history
      WHERE user_id = ?
-     ORDER BY COALESCE(transaction_date, created_at) ASC, id ASC`,
+     ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) ASC, created_at ASC, id ASC`,
     [userId]
   );
 
@@ -1858,13 +2162,37 @@ const recalculateCreditBalancesForUser = async (userId) => dbTxAsync(async () =>
   return runningBalance;
 });
 
-const generateSku = (name, brand, content, price, mrp) => {
-  const part = (v) => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  const n = part(name).slice(0, 4).padEnd(4, 'X');
-  const b = part(brand).slice(0, 4).padEnd(4, 'X');
-  const c = part(content).slice(0, 2).padEnd(2, 'X');
-  const p = String(Math.round(Number(price || mrp || 0))).replace(/\D/g, '').slice(-4).padStart(4, '0');
-  return `${n}${b}${c}${p}`;
+const normalizeSkuToken = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+const toSkuFixed = (value, length, fallback = 'X') => {
+  const clean = normalizeSkuToken(value);
+  if (!clean) return fallback.repeat(length);
+  return clean.slice(0, length);
+};
+const normalizeSkuContent = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return 'NA';
+  return raw.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'NA';
+};
+const normalizeSkuPrice = (price, mrp) => {
+  const candidate = price ?? mrp ?? '';
+  const raw = String(candidate || '').replace(/,/g, '');
+  const integerPart = raw.split('.')[0] || '';
+  const digits = integerPart.replace(/[^0-9]/g, '');
+  return digits || '0';
+};
+const normalizeSkuPackSize = (value) => {
+  const raw = String(value ?? '').replace(/,/g, '');
+  const integerPart = raw.split('.')[0] || '';
+  const digits = integerPart.replace(/[^0-9]/g, '');
+  return digits || '0';
+};
+const generateSku = (name, brand, content, price, mrp, purchasePackSize) => {
+  const nameCode = toSkuFixed(name, 4, 'N');
+  const brandCode = toSkuFixed(brand, 3, 'B');
+  const contentCode = normalizeSkuContent(content);
+  const priceCode = normalizeSkuPrice(price, mrp);
+  const packCode = normalizeSkuPackSize(purchasePackSize);
+  return `${nameCode}-${brandCode}-${contentCode}-${priceCode}-P${packCode}`;
 };
 
 const createNotificationEvent = async ({
@@ -2906,16 +3234,43 @@ const stopCustomerRequestPurgeWorker = () => {
   customerRequestPurgeTimer = null;
 };
 
+const collectPurchaseAnalyticsSnapshotsAsync = async ({ date = null, distributorId = null } = {}) => {
+  if (typeof handlePurchaseOperationsSummary !== 'function') return null;
+  const req = { query: {} };
+  if (date) req.query.date = date;
+  if (distributorId) req.query.distributor_id = distributorId;
+  const res = {
+    statusCode: 200,
+    payload: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return payload;
+    },
+  };
+  await handlePurchaseOperationsSummary(req, res, { persistSnapshots: true });
+  if (res.statusCode >= 400) {
+    throw new Error(res.payload?.error || 'Failed to collect purchase analytics snapshots');
+  }
+  return res.payload;
+};
+
 const runPurchaseOperationsNotificationWorker = async () => {
-  if (!PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) return null;
+  let result = null;
   try {
-    const result = await runPurchaseOperationNotificationsAsync();
-    const totalNotifications = Number(result?.reminder_notifications || 0) + Number(result?.payment_notifications || 0);
-    if (totalNotifications > 0) {
-      console.log(
-        `[PURCHASE_OPS] Generated ${totalNotifications} purchase notifications for ${result.today}`
-      );
+    if (PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) {
+      result = await runPurchaseOperationNotificationsAsync();
+      const totalNotifications = Number(result?.reminder_notifications || 0) + Number(result?.payment_notifications || 0);
+      if (totalNotifications > 0) {
+        console.log(
+          `[PURCHASE_OPS] Generated ${totalNotifications} purchase notifications for ${result.today}`
+        );
+      }
     }
+    await collectPurchaseAnalyticsSnapshotsAsync();
     return result;
   } catch (error) {
     console.warn('[PURCHASE_OPS] Notification worker failed:', error?.message || error);
@@ -2925,7 +3280,6 @@ const runPurchaseOperationsNotificationWorker = async () => {
 
 const startPurchaseOperationsNotificationWorker = () => {
   if (IS_VERCEL_RUNTIME) return;
-  if (!PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) return;
   if (purchaseOperationsNotificationTimer) return;
   purchaseOperationsNotificationTimer = setInterval(() => {
     void runPurchaseOperationsNotificationWorker();
@@ -2955,6 +3309,7 @@ const PRODUCT_IMPORT_HEADERS = [
   'base_unit',
   'uom_type',
   'conversion_factor',
+  'purchase_pack_size',
   'price',
   'mrp',
   'stock',
@@ -2967,7 +3322,7 @@ const PRODUCT_IMPORT_HEADERS = [
 ];
 const PRODUCT_IMPORT_SAMPLE = {
   id: '',
-  sku: 'NESCBRAN250G0129',
+  sku: 'NESC-BRA-250G-129-P12',
   barcode: '',
   name: 'Sample Product',
   category: 'Groceries',
@@ -2980,6 +3335,7 @@ const PRODUCT_IMPORT_SAMPLE = {
   base_unit: 'pcs',
   uom_type: 'selling',
   conversion_factor: 1,
+  purchase_pack_size: 12,
   price: 99,
   mrp: 120,
   stock: 25,
@@ -3087,6 +3443,7 @@ const normalizeProductRecord = (row) => {
   out.uom_type = ['selling', 'purchasing', 'both'].includes(uomType) ? uomType : 'selling';
   const conversionFactor = Number(out.conversion_factor ?? 1);
   out.conversion_factor = Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
+  out.purchase_pack_size = out.purchase_pack_size == null ? null : Number(out.purchase_pack_size);
   out.defaultDiscount = Number(out.default_discount ?? 0);
   out.discountType = String(out.discount_type || 'fixed');
   out.is_active = Number(out.is_active ?? 1);
@@ -3160,6 +3517,7 @@ const normalizeProductInput = (input = {}, current = null) => {
   const color = body.color ?? existing.color ?? null;
   const priceRaw = body.price ?? existing.price ?? 0;
   const mrpRaw = body.mrp ?? existing.mrp ?? priceRaw;
+  const purchasePackSizeRaw = body.purchase_pack_size ?? body.purchasePackSize ?? existing.purchase_pack_size ?? null;
   const uom = body.uom ?? existing.uom ?? 'pcs';
   const baseUnitRaw = body.base_unit ?? existing.base_unit ?? uom ?? 'pcs';
   const uomTypeRaw = body.uom_type ?? existing.uom_type ?? 'selling';
@@ -3179,6 +3537,7 @@ const normalizeProductInput = (input = {}, current = null) => {
   const defaultDiscount = Number(defaultDiscountRaw || 0);
   const discountType = normalizeDiscountType(discountTypeRaw);
   const isActive = normalizeBooleanish(isActiveRaw, 1);
+  const purchasePackSize = toNumberOrNull(purchasePackSizeRaw);
   const normalizedUom = String(uom || 'pcs').trim() || 'pcs';
   const normalizedBaseUnit = String(baseUnitRaw || normalizedUom || 'pcs').trim() || 'pcs';
   const normalizedUomType = ['selling', 'purchasing', 'both'].includes(String(uomTypeRaw || '').trim().toLowerCase())
@@ -3188,7 +3547,7 @@ const normalizeProductInput = (input = {}, current = null) => {
   const normalizedConversionFactor = Number.isFinite(conversionFactor) && conversionFactor > 0
     ? conversionFactor
     : 1;
-  const sku = String(skuCandidate || '').trim() || generateSku(name, brandFromInput, content, price, mrp);
+  const sku = String(skuCandidate || '').trim() || generateSku(name, brandFromInput, content, price, mrp, purchasePackSize);
   const barcode = String(barcodeCandidate || '').trim() || null;
 
   return {
@@ -3201,6 +3560,7 @@ const normalizeProductInput = (input = {}, current = null) => {
     color: color === null || color === undefined ? null : String(color).trim() || null,
     price,
     mrp: Number.isFinite(mrp) ? mrp : price,
+    purchase_pack_size: purchasePackSize,
     uom: normalizedUom,
     base_unit: normalizedBaseUnit,
     uom_type: normalizedUomType,
@@ -3250,6 +3610,10 @@ const validateProductPayload = (payload, { partial = false } = {}) => {
   if (payload.conversion_factor !== undefined) {
     const factor = Number(payload.conversion_factor);
     if (!Number.isFinite(factor) || factor <= 0) errors.push('conversion_factor must be greater than 0');
+  }
+  if (payload.purchase_pack_size !== undefined && payload.purchase_pack_size !== null && payload.purchase_pack_size !== '') {
+    const packSize = Number(payload.purchase_pack_size);
+    if (!Number.isFinite(packSize) || packSize <= 0) errors.push('purchase_pack_size must be greater than 0');
   }
   if (payload.mrp !== undefined && (!Number.isFinite(Number(payload.mrp)) || Number(payload.mrp) < 0)) {
     errors.push('mrp must be 0 or more');
@@ -3542,8 +3906,8 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
         if (row.action === 'create') {
           await dbRunAsync(
             `INSERT INTO products
-            (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, purchase_pack_size, sku, barcode, image, stock, category, subcategory, expiry_date, default_discount, discount_type, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               payload.name,
               payload.description,
@@ -3557,6 +3921,7 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
               payload.base_unit,
               payload.uom_type,
               payload.conversion_factor,
+              payload.purchase_pack_size,
               payload.sku,
               payload.barcode,
               payload.image,
@@ -3574,7 +3939,7 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
         } else {
           await dbRunAsync(
             `UPDATE products SET
-             name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
+             name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, purchase_pack_size=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
              WHERE id=?`,
             [
               payload.name,
@@ -3589,6 +3954,7 @@ const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdent
               payload.base_unit,
               payload.uom_type,
               payload.conversion_factor,
+              payload.purchase_pack_size,
               payload.sku,
               payload.barcode,
               payload.image,
@@ -3661,6 +4027,7 @@ const toProductExportRow = (row) => ({
   base_unit: row.base_unit || row.uom || 'pcs',
   uom_type: row.uom_type || 'selling',
   conversion_factor: Number(row.conversion_factor || 1),
+  purchase_pack_size: row.purchase_pack_size == null ? '' : Number(row.purchase_pack_size),
   price: Number(row.price || 0),
   mrp: Number(row.mrp || 0),
   stock: Number(row.stock || 0),
@@ -5456,7 +5823,7 @@ app.get('/api/users/:userId/credit-history', requireAuth, async (req, res) => {
       `SELECT *
        FROM credit_history
        WHERE user_id = ?
-       ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC`,
+       ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC`,
       [req.params.userId]
     );
     return res.json(rows);
@@ -5615,7 +5982,8 @@ app.put('/api/admin/credit-issues/:id', requireAdmin, async (req, res) => {
     const correctionDescription = String(req.body?.correction_description || '').trim();
     const correctionReference = String(req.body?.correction_reference || '').trim();
     const correctionDateRaw = String(req.body?.correction_date || '').trim();
-    if (correctionDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(correctionDateRaw)) {
+    const normalizedCorrectionDate = correctionDateRaw ? normalizeTransactionDate(correctionDateRaw) : null;
+    if (correctionDateRaw && !normalizedCorrectionDate) {
       return res.status(400).json({ error: 'correction_date must be YYYY-MM-DD' });
     }
     const shouldCreateCorrectionEntry = (
@@ -5656,10 +6024,11 @@ app.put('/api/admin/credit-issues/:id', requireAdmin, async (req, res) => {
           : (currentBalance + amountAbs);
         const derivedDescription = correctionDescription
           || `Correction for issue #${issueId}${adminReason ? `: ${adminReason}` : ''}`;
+        const transactionTs = buildCreditTransactionTimestamp(correctionDateRaw, new Date());
         const insert = await dbRunAsync(
           `INSERT INTO credit_history
-           (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+           (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
           [
             userId,
             correctionType,
@@ -5667,7 +6036,8 @@ app.put('/api/admin/credit-issues/:id', requireAdmin, async (req, res) => {
             nextBalance,
             derivedDescription,
             correctionReference || `ISSUE-${issueId}`,
-            correctionDateRaw || null,
+            normalizedCorrectionDate,
+            transactionTs,
             Number(req.authUser?.id || 0) || null,
           ]
         );
@@ -5833,7 +6203,7 @@ app.get('/api/users/:userId/credit-balance', requireAuth, async (req, res) => {
       `SELECT balance
        FROM credit_history
        WHERE user_id = ?
-       ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC
+       ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
        LIMIT 1`,
       [req.params.userId]
     );
@@ -5880,9 +6250,8 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
       const last = await getLatestCreditEntryAsync(req.params.userId);
       const current = Number(last?.balance || 0);
       const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
-      const normalizedDate = transactionDate && /^\d{4}-\d{2}-\d{2}$/.test(String(transactionDate))
-        ? String(transactionDate)
-        : null;
+      const normalizedDate = normalizeTransactionDate(transactionDate);
+      const transactionTs = buildCreditTransactionTimestamp(transactionDate, new Date());
 
       if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
         const transactionDateCompareSql = `COALESCE(transaction_date::text, '')`;
@@ -5928,7 +6297,8 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
       }
 
       const insertResult = await dbRunAsync(
-        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, created_by, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.params.userId,
           type,
@@ -5937,6 +6307,7 @@ app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
           normalizedDescription || null,
           normalizedReference || null,
           normalizedDate,
+          transactionTs,
           createdById || null,
           clientRequestId,
         ]
@@ -6018,13 +6389,14 @@ app.put('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => 
       return res.status(400).json({ error: 'Amount must be positive' });
     }
 
-    const normalizedDate = transactionDate && /^\d{4}-\d{2}-\d{2}$/.test(String(transactionDate))
-      ? String(transactionDate)
-      : null;
+    const normalizedDate = normalizeTransactionDate(transactionDate);
+    const referenceTs = existing?.transaction_ts || existing?.created_at || null;
+    const referenceDate = referenceTs ? new Date(referenceTs) : new Date();
+    const transactionTs = buildCreditTransactionTimestamp(transactionDate, referenceDate);
 
     await dbRunAsync(
       `UPDATE credit_history
-       SET type = ?, amount = ?, description = ?, reference = ?, transaction_date = ?, edited = 1, edited_at = CURRENT_TIMESTAMP, edited_by = ?
+       SET type = ?, amount = ?, description = ?, reference = ?, transaction_date = ?, transaction_ts = ?, edited = 1, edited_at = CURRENT_TIMESTAMP, edited_by = ?
        WHERE id = ? AND user_id = ?`,
       [
         type,
@@ -6032,6 +6404,7 @@ app.put('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => 
         description || null,
         reference || null,
         normalizedDate,
+        transactionTs,
         req.authUser?.id || null,
         entryId,
         userId
@@ -6062,6 +6435,43 @@ app.put('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => 
   }
 });
 
+app.delete('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    const entryId = Number(req.params.entryId);
+    if (!userId || !entryId) {
+      return res.status(400).json({ error: 'Invalid user or transaction id' });
+    }
+
+    const existing = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ? AND user_id = ?`, [entryId, userId]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Credit transaction not found' });
+    }
+
+    const result = await dbTxAsync(async () => {
+      await dbRunAsync(`DELETE FROM credit_history WHERE id = ? AND user_id = ?`, [entryId, userId]);
+      const nextBalance = await recalculateCreditBalancesForUser(userId);
+      return Number(nextBalance || 0);
+    });
+
+    await logAdminAuditAsync(req, {
+      action: 'credit.delete',
+      entityType: 'credit_history',
+      entityId: entryId,
+      details: {
+        user_id: userId,
+        type: existing.type,
+        amount: Number(existing.amount || 0),
+        transaction_date: existing.transaction_date,
+      },
+    });
+
+    return res.json({ success: true, balance: result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/credit/ledger', requireAdmin, async (req, res) => {
   try {
     const selectedUserId = Number(req.query.user_id || 0);
@@ -6071,14 +6481,14 @@ app.get('/api/credit/ledger', requireAdmin, async (req, res) => {
          FROM credit_history ch
          LEFT JOIN users u ON u.id = ch.user_id
          WHERE ch.user_id = ?
-         ORDER BY COALESCE(ch.transaction_date, ch.created_at) ASC, ch.id ASC`,
+         ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) ASC, ch.created_at ASC, ch.id ASC`,
         [selectedUserId]
       )
       : await dbAllAsync(
         `SELECT ch.*, u.name AS customer_name
          FROM credit_history ch
          LEFT JOIN users u ON u.id = ch.user_id
-         ORDER BY COALESCE(ch.transaction_date, ch.created_at) ASC, ch.id ASC`
+         ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) ASC, ch.created_at ASC, ch.id ASC`
       );
     return res.json(rows);
   } catch (error) {
@@ -6121,7 +6531,7 @@ app.get('/api/credit/aging', requireAdmin, async (_, res) => {
         u.email,
         u.phone,
         COALESCE(u.credit_limit, 0) as credit_limit,
-        COALESCE((SELECT balance FROM credit_history ch WHERE ch.user_id = u.id ORDER BY COALESCE(ch.transaction_date, ch.created_at) DESC, ch.id DESC LIMIT 1), 0) as current_balance,
+        COALESCE((SELECT balance FROM credit_history ch WHERE ch.user_id = u.id ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) DESC, ch.created_at DESC, ch.id DESC LIMIT 1), 0) as current_balance,
         COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 30), 0) as days_0_30,
         COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 30 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 60), 0) as days_31_60,
         COALESCE((SELECT SUM(amount) FROM credit_history ch WHERE ch.user_id = u.id AND ch.type='given' AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) > 60 AND EXTRACT(DAY FROM (CURRENT_TIMESTAMP - ch.created_at)) <= 90), 0) as days_61_90,
@@ -6377,6 +6787,13 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
        ON (
          dl.source IN ('purchase_order', 'po_correction')
          AND ${SQL_CAST_TO_INT} = po.id
+       ),
+       prices AS (
+         SELECT
+           id,
+           price,
+           mrp
+         FROM products
        )
        OR (
          dl.source = 'po_payment'
@@ -6600,6 +7017,10 @@ const normalizePurchaseOrderItems = async (rawItems = []) => {
     const gstRate = Math.max(0, Number(it.gst_rate || 0));
     const taxAmount = (taxableValue * gstRate) / 100;
     const lineTotal = taxableValue + taxAmount;
+    const unitPriceBeforeDiscount = quantity > 0 ? (gross / quantity) : rate;
+    const unitDiscountAmount = quantity > 0 ? (discountAmount / quantity) : 0;
+    const unitTaxAmount = quantity > 0 ? (taxAmount / quantity) : 0;
+    const unitCostInclTax = quantity > 0 ? (lineTotal / quantity) : 0;
 
     normalizedItems.push({
       ...it,
@@ -6610,6 +7031,12 @@ const normalizePurchaseOrderItems = async (rawItems = []) => {
       uom: normalizedUom,
       rate,
       unit_price: rate,
+      unit_price_before_discount: unitPriceBeforeDiscount,
+      unit_discount_amount: unitDiscountAmount,
+      tax_rate: gstRate,
+      unit_tax_amount: unitTaxAmount,
+      unit_cost_incl_tax: unitCostInclTax,
+      line_total_incl_tax: lineTotal,
       discount_type: discountType,
       discount_value: discountValue,
       taxable_value: taxableValue,
@@ -7021,6 +7448,178 @@ const runPurchaseOperationNotificationsAsync = async ({
   };
 };
 
+const buildPurchaseActionRollupsAsync = async ({
+  startDate,
+  endDate,
+  distributorId = null,
+} = {}) => {
+  const { startDate: normalizedStart, endDate: normalizedEnd } = resolveRollupRange({
+    startDate,
+    endDate,
+  });
+  const daySeries = buildDateSeries(normalizedStart, normalizedEnd);
+  const actionKeys = PURCHASE_ACTION_ROLLUP_FIELDS.map((field) => field.key);
+  const buildEmptyCounts = () => actionKeys.reduce((acc, key) => {
+    acc[key] = 0;
+    return acc;
+  }, {});
+  const byDayMap = new Map();
+  const ensureDay = (dateKey) => {
+    const normalized = normalizeTransactionDate(dateKey);
+    if (!normalized) return null;
+    if (byDayMap.has(normalized)) return byDayMap.get(normalized);
+    const weekday = getWeekdayFromDateKey(normalized);
+    const entry = {
+      date: normalized,
+      weekday,
+      ...buildEmptyCounts(),
+    };
+    byDayMap.set(normalized, entry);
+    return entry;
+  };
+  const addCount = (dateKey, actionKey, amount = 1) => {
+    if (!actionKey) return;
+    const entry = ensureDay(dateKey);
+    if (!entry) return;
+    entry[actionKey] = Number(entry[actionKey] || 0) + Number(amount || 0);
+  };
+
+  daySeries.forEach((dateKey) => ensureDay(dateKey));
+
+  const rangeParams = [normalizedStart, normalizedEnd];
+  const distributorParams = distributorId ? [distributorId] : [];
+  const params = distributorId ? [...rangeParams, ...distributorParams] : rangeParams;
+
+  const poCreatedRows = await dbAllAsync(
+    `SELECT date(created_at) AS action_date
+     FROM purchase_orders
+     WHERE date(created_at) >= date(?)
+       AND date(created_at) <= date(?)
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  poCreatedRows.forEach((row) => addCount(row.action_date, 'po_created', 1));
+
+  const statusRows = await dbAllAsync(
+    `SELECT date(posh.created_at) AS action_date, LOWER(posh.to_status) AS to_status
+     FROM purchase_order_status_history posh
+     LEFT JOIN purchase_orders po ON po.id = posh.purchase_order_id
+     WHERE date(posh.created_at) >= date(?)
+       AND date(posh.created_at) <= date(?)
+       ${distributorId ? `AND po.distributor_id = ?` : ''}`,
+    params
+  );
+  statusRows.forEach((row) => {
+    const statusKey = normalizePoLifecycleStatus(row.to_status || '');
+    const actionKey = PURCHASE_ACTION_STATUS_MAP.get(statusKey) || null;
+    if (actionKey) addCount(row.action_date, actionKey, 1);
+  });
+
+  const paymentRows = await dbAllAsync(
+    `SELECT date(COALESCE(transaction_date, created_at)) AS action_date
+     FROM purchase_order_payments
+     WHERE date(COALESCE(transaction_date, created_at)) >= date(?)
+       AND date(COALESCE(transaction_date, created_at)) <= date(?)
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  paymentRows.forEach((row) => addCount(row.action_date, 'payment', 1));
+
+  const deliveryRows = await dbAllAsync(
+    `SELECT date(received_at) AS action_date
+     FROM purchase_orders
+     WHERE received_at IS NOT NULL
+       AND date(received_at) >= date(?)
+       AND date(received_at) <= date(?)
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  deliveryRows.forEach((row) => addCount(row.action_date, 'delivery_received', 1));
+
+  const returnRows = await dbAllAsync(
+    `SELECT date(created_at) AS action_date
+     FROM purchase_returns
+     WHERE date(created_at) >= date(?)
+       AND date(created_at) <= date(?)
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  returnRows.forEach((row) => addCount(row.action_date, 'return', 1));
+
+  const ledgerRows = await dbAllAsync(
+    `SELECT date(COALESCE(transaction_date, created_at)) AS action_date
+     FROM distributor_ledger
+     WHERE date(COALESCE(transaction_date, created_at)) >= date(?)
+       AND date(COALESCE(transaction_date, created_at)) <= date(?)
+       AND (
+         source IS NULL
+         OR TRIM(source) = ''
+         OR LOWER(source) NOT IN ('purchase_order', 'po_payment', 'po_correction')
+       )
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  ledgerRows.forEach((row) => addCount(row.action_date, 'ledger_manual', 1));
+
+  const reminderRows = await dbAllAsync(
+    `SELECT date(COALESCE(sent_at, created_at)) AS action_date
+     FROM distributor_purchase_reminders
+     WHERE (sent_at IS NOT NULL OR LOWER(COALESCE(status, '')) = 'sent')
+       AND date(COALESCE(sent_at, created_at)) >= date(?)
+       AND date(COALESCE(sent_at, created_at)) <= date(?)
+       ${distributorId ? `AND distributor_id = ?` : ''}`,
+    params
+  );
+  reminderRows.forEach((row) => addCount(row.action_date, 'reminder_sent', 1));
+
+  const byDay = [...byDayMap.values()]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+  const weekdayOrder = [
+    PURCHASE_WEEKDAYS[1],
+    PURCHASE_WEEKDAYS[2],
+    PURCHASE_WEEKDAYS[3],
+    PURCHASE_WEEKDAYS[4],
+    PURCHASE_WEEKDAYS[5],
+    PURCHASE_WEEKDAYS[6],
+    PURCHASE_WEEKDAYS[0],
+  ].filter(Boolean);
+  const byWeekdayMap = new Map();
+  weekdayOrder.forEach((weekday) => {
+    byWeekdayMap.set(weekday, {
+      weekday,
+      day_count: 0,
+      ...buildEmptyCounts(),
+    });
+  });
+  byDay.forEach((entry) => {
+    const bucket = byWeekdayMap.get(entry.weekday);
+    if (!bucket) return;
+    bucket.day_count += 1;
+    actionKeys.forEach((key) => {
+      bucket[key] += Number(entry[key] || 0);
+    });
+  });
+
+  const totals = buildEmptyCounts();
+  byDay.forEach((entry) => {
+    actionKeys.forEach((key) => {
+      totals[key] += Number(entry[key] || 0);
+    });
+  });
+
+  return {
+    range: {
+      start_date: normalizedStart,
+      end_date: normalizedEnd,
+    },
+    actions: PURCHASE_ACTION_ROLLUP_FIELDS,
+    totals,
+    by_day: byDay,
+    by_weekday: weekdayOrder.map((weekday) => byWeekdayMap.get(weekday)),
+  };
+};
+
 const findDuplicatePurchaseOrderAsync = async ({
   distributorId,
   plannedOrderDate,
@@ -7420,13 +8019,14 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
         ]
       );
       const orderId = header.lastInsertRowid;
+      const transactionTs = buildPurchaseTransactionTimestamp(plannedOrderDate, new Date());
       for (const it of normalizedItems) {
         const fallbackName = it.product_id
           ? (await dbGetAsync(`SELECT name FROM products WHERE id = ?`, [it.product_id]))?.name
           : null;
-        await dbRunAsync(
-          `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        const insert = await dbRunAsync(
+          `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, unit_price_before_discount, unit_discount_amount, tax_rate, unit_tax_amount, unit_cost_incl_tax, line_total_incl_tax, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             orderId,
             it.product_id || null,
@@ -7436,6 +8036,12 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
             it.uom || 'pcs',
             Number(it.unit_price || 0),
             Number(it.rate || it.unit_price || 0),
+            Number(it.unit_price_before_discount || 0),
+            Number(it.unit_discount_amount || 0),
+            Number(it.tax_rate || it.gst_rate || 0),
+            Number(it.unit_tax_amount || 0),
+            Number(it.unit_cost_incl_tax || 0),
+            Number(it.line_total_incl_tax || it.line_total || 0),
             Number(it.gst_rate || 0),
             it.discount_type || 'percent',
             Number(it.discount_value || 0),
@@ -7445,7 +8051,21 @@ app.post('/api/purchase-orders', requireAdmin, async (req, res) => {
             Number(it.line_total || 0),
           ]
         );
+        const poItemId = Number(insert?.lastInsertRowid || 0) || null;
+        if (it.product_id && poItemId) {
+          await recordProductCostHistoryEntryAsync({
+            productId: it.product_id,
+            distributorId: b.distributor_id,
+            purchaseOrderId: orderId,
+            purchaseOrderItemId: poItemId,
+            unitCostInclTax: it.unit_cost_incl_tax,
+            taxRate: it.tax_rate || it.gst_rate,
+            discountAmount: it.unit_discount_amount,
+            transactionTs,
+          });
+        }
       }
+      await upsertSupplierProductsAsync(b.distributor_id, normalizedItems);
       await recordPurchaseOrderStatusHistoryAsync(orderId, {
         fromStatus: null,
         toStatus: PO_LIFECYCLE_PREPARED,
@@ -7597,11 +8217,13 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
             req.params.id
           ]
         );
+        await dbRunAsync(`DELETE FROM product_cost_history WHERE po_id = ?`, [req.params.id]);
         await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
+        const transactionTs = buildPurchaseTransactionTimestamp(plannedOrderDate, new Date());
         for (const it of normalizedItems) {
-          await dbRunAsync(
-            `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          const insert = await dbRunAsync(
+            `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, unit_price_before_discount, unit_discount_amount, tax_rate, unit_tax_amount, unit_cost_incl_tax, line_total_incl_tax, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               req.params.id,
               it.product_id || null,
@@ -7611,6 +8233,12 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
               it.uom || 'pcs',
               Number(it.unit_price || 0),
               Number(it.rate || it.unit_price || 0),
+              Number(it.unit_price_before_discount || 0),
+              Number(it.unit_discount_amount || 0),
+              Number(it.tax_rate || it.gst_rate || 0),
+              Number(it.unit_tax_amount || 0),
+              Number(it.unit_cost_incl_tax || 0),
+              Number(it.line_total_incl_tax || it.line_total || 0),
               Number(it.gst_rate || 0),
               it.discount_type || 'percent',
               Number(it.discount_value || 0),
@@ -7620,7 +8248,21 @@ app.put('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
               Number(it.line_total || 0),
             ]
           );
+          const poItemId = Number(insert?.lastInsertRowid || 0) || null;
+          if (it.product_id && poItemId) {
+            await recordProductCostHistoryEntryAsync({
+              productId: it.product_id,
+              distributorId: updatedDistributorId,
+              purchaseOrderId: Number(req.params.id || 0),
+              purchaseOrderItemId: poItemId,
+              unitCostInclTax: it.unit_cost_incl_tax,
+              taxRate: it.tax_rate || it.gst_rate,
+              discountAmount: it.unit_discount_amount,
+              transactionTs,
+            });
+          }
         }
+        await upsertSupplierProductsAsync(updatedDistributorId, normalizedItems);
       });
       await syncDistributorProductsSuppliedAsync(updatedDistributorId, normalizedItems);
       if (nextLifecycleStatus !== currentPoStatus) {
@@ -8044,11 +8686,16 @@ app.put('/api/purchase-orders/:id/status', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
+const handlePurchaseOperationsSummary = async (req, res, { persistSnapshots = true } = {}) => {
   try {
     const todayKey = normalizeTransactionDate(req.query?.date || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
     const tomorrowKey = addDaysToDateKey(todayKey, 1) || todayKey;
     const distributorIdFilter = Number(req.query?.distributor_id || 0) || null;
+    const rollupRange = resolveRollupRange({
+      startDate: req.query?.rollup_start_date || null,
+      endDate: req.query?.rollup_end_date || null,
+      days: req.query?.rollup_days || 30,
+    });
     const distributorWhereSql = distributorIdFilter ? ` WHERE id = ?` : '';
     const orderWhereSql = distributorIdFilter ? ` WHERE po.distributor_id = ?` : '';
     const distributors = await dbAllAsync(
@@ -8154,6 +8801,14 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
       })
       .sort((a, b) => (b.overdue_days - a.overdue_days) || (a.days_until_due - b.days_until_due) || (b.balance_due - a.balance_due));
 
+    const payablesByDistributor = new Map();
+    for (const payable of payables) {
+      const key = Number(payable.distributor_id || 0);
+      const list = payablesByDistributor.get(key) || [];
+      list.push(payable);
+      payablesByDistributor.set(key, list);
+    }
+
     const paidTodayAmount = payments.reduce((sum, payment) => {
       const paymentDate = normalizeTransactionDate(payment.transaction_date || payment.created_at);
       if (paymentDate !== todayKey) return sum;
@@ -8173,18 +8828,18 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
       const distributorOrders = [...(ordersByDistributor.get(distributorId) || [])]
         .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
       const completedOrders = distributorOrders.filter((order) => getPurchaseOrderLifecycleStatus(order) !== PO_LIFECYCLE_CANCELLED);
+      const openDistributorOrders = distributorOrders.filter(isOpenOrder);
       const cadenceSource = completedOrders;
       const cadenceIntervals = [];
       for (let index = 0; index < cadenceSource.length - 1; index += 1) {
-        const currentDate = normalizeTransactionDate(cadenceSource[index].created_at || cadenceSource[index].planned_order_date || cadenceSource[index].expected_delivery);
-        const nextDate = normalizeTransactionDate(cadenceSource[index + 1].created_at || cadenceSource[index + 1].planned_order_date || cadenceSource[index + 1].expected_delivery);
+        const currentDate = getPurchaseOrderAnchorDateKey(cadenceSource[index]);
+        const nextDate = getPurchaseOrderAnchorDateKey(cadenceSource[index + 1]);
         const diff = currentDate && nextDate ? Math.abs(getDaysBetweenDateKeys(nextDate, currentDate) || 0) : null;
         if (diff && diff > 0) cadenceIntervals.push(diff);
       }
-      const cadenceDays = cadenceIntervals.length
-        ? Math.max(1, Math.round(cadenceIntervals.reduce((sum, value) => sum + value, 0) / cadenceIntervals.length))
-        : null;
+      const cadenceDays = computeAverageDays(cadenceIntervals);
       const lastOrder = completedOrders[0] || null;
+      const lastOrderDateKey = lastOrder ? getPurchaseOrderAnchorDateKey(lastOrder) : null;
       const scheduleDay = getDistributorOrderScheduleDay(distributor);
       let nextOrderDate = null;
       if (scheduleDay) {
@@ -8195,33 +8850,37 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
           ? ((targetIndex - todayIndex + 7) % 7 || 7)
           : 0;
         nextOrderDate = addDaysToDateKey(todayKey, offset);
-      } else if (cadenceDays && lastOrder) {
-        nextOrderDate = addDaysToDateKey(
-          normalizeTransactionDate(lastOrder.planned_order_date || lastOrder.created_at || lastOrder.expected_delivery),
-          cadenceDays
-        );
+      } else if (cadenceDays && lastOrderDateKey) {
+        nextOrderDate = addDaysToDateKey(lastOrderDateKey, cadenceDays);
       }
+
       const productCounts = new Map();
       const suggestionMap = new Map();
       const paymentLagDays = [];
+      const deliveryLagDays = [];
+      const paymentDateKeys = [];
+      const deliveryDateKeys = [];
       completedOrders.forEach((order) => {
         const orderPayments = paymentsByOrderId.get(Number(order.id || 0)) || [];
-        if (orderPayments.length > 0) {
-          const anchorDate = normalizeTransactionDate(
-            order.received_at
-            || order.confirmed_at
-            || order.planned_order_date
-            || order.expected_delivery
-            || order.created_at
-          );
-          const lastPaymentDate = orderPayments
-            .map((payment) => normalizeTransactionDate(payment.transaction_date || payment.created_at))
-            .filter(Boolean)
-            .sort()
-            .slice(-1)[0] || null;
+        const orderPaymentDates = orderPayments
+          .map((payment) => normalizeTransactionDate(payment.transaction_date || payment.created_at))
+          .filter(Boolean);
+        if (orderPaymentDates.length > 0) {
+          paymentDateKeys.push(...orderPaymentDates);
+          const anchorDate = getPurchaseOrderPaymentAnchorDateKey(order);
+          const lastPaymentDate = pickLatestDateKey(orderPaymentDates);
           const lagDays = anchorDate && lastPaymentDate ? getDaysBetweenDateKeys(anchorDate, lastPaymentDate) : null;
           if (Number.isFinite(lagDays) && lagDays >= 0) {
             paymentLagDays.push(lagDays);
+          }
+        }
+        const deliveryDate = getPurchaseOrderDeliveryDateKey(order);
+        if (deliveryDate) {
+          deliveryDateKeys.push(deliveryDate);
+          const anchorDate = getPurchaseOrderAnchorDateKey(order);
+          const leadDays = anchorDate && deliveryDate ? getDaysBetweenDateKeys(anchorDate, deliveryDate) : null;
+          if (Number.isFinite(leadDays) && leadDays >= 0) {
+            deliveryLagDays.push(leadDays);
           }
         }
         (order.items || []).forEach((item) => {
@@ -8259,6 +8918,7 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
           suggestionMap.set(suggestionKey, nextRecord);
         });
       });
+
       const likelyItems = [...productCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
@@ -8281,31 +8941,51 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
           unit_price: Number(entry.rate || 0),
           gst_rate: Number(entry.gst_rate || 0),
           discount_type: entry.discount_type || 'percent',
-            discount_value: Number(entry.discount_value || 0),
+          discount_value: Number(entry.discount_value || 0),
         }));
-      const outstandingAmount = completedOrders.reduce((sum, order) => sum + Math.max(0, Number(order.balance_due || 0)), 0);
+
+      const openPayables = payablesByDistributor.get(distributorId) || [];
+      const outstandingAmount = openDistributorOrders.reduce((sum, order) => sum + Math.max(0, Number(order.balance_due || 0)), 0);
       const configuredPaymentPlan = getDistributorPaymentPlan(distributor);
-      const inferredPaymentDays = paymentLagDays.length
-        ? Math.max(0, Math.round(paymentLagDays.reduce((sum, value) => sum + value, 0) / paymentLagDays.length))
-        : null;
+      const avgPaymentLagDays = computeAverageDays(paymentLagDays);
+      const avgDeliveryDays = computeAverageDays(deliveryLagDays);
       const paymentReferenceOrder = completedOrders.find((order) => Number(order.balance_due || 0) > 0) || completedOrders[0] || null;
-      const inferredDueDate = paymentReferenceOrder
-        ? addDaysToDateKey(
-          normalizeTransactionDate(
-            paymentReferenceOrder.received_at
-            || paymentReferenceOrder.confirmed_at
-            || paymentReferenceOrder.planned_order_date
-            || paymentReferenceOrder.expected_delivery
-            || paymentReferenceOrder.created_at
-          ),
-          inferredPaymentDays ?? configuredPaymentPlan.paymentDueDays
-        )
+      const paymentAnchorDate = paymentReferenceOrder
+        ? getPurchaseOrderPaymentAnchorDateKey(paymentReferenceOrder)
         : null;
+      const inferredDueDate = paymentAnchorDate
+        ? addDaysToDateKey(paymentAnchorDate, avgPaymentLagDays ?? configuredPaymentPlan.paymentDueDays)
+        : null;
+      const nextPaymentDueDate = pickEarliestDateKey(openPayables.map((entry) => entry.payment_due_date))
+        || inferredDueDate
+        || null;
+      const nextPaymentDueSource = openPayables.length
+        ? 'open_payable'
+        : (inferredDueDate ? 'history_inferred' : 'unknown');
+      const predictedPaymentAmount = nextPaymentDueDate
+        ? openPayables
+          .filter((entry) => entry.payment_due_date === nextPaymentDueDate)
+          .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0)
+        : 0;
+      const openDeliveryDates = openDistributorOrders
+        .map((order) => normalizeTransactionDate(order.expected_delivery || null))
+        .filter(Boolean);
+      const inferredDeliveryDate = avgDeliveryDays && lastOrderDateKey
+        ? addDaysToDateKey(lastOrderDateKey, avgDeliveryDays)
+        : null;
+      const nextDeliveryDate = pickEarliestDateKey(openDeliveryDates) || inferredDeliveryDate || null;
+      const nextDeliverySource = openDeliveryDates.length
+        ? 'open_order'
+        : (inferredDeliveryDate ? 'history_inferred' : 'unknown');
+      const predictedDeliveryCount = nextDeliveryDate
+        ? openDistributorOrders.filter((order) => normalizeTransactionDate(order.expected_delivery || null) === nextDeliveryDate).length
+        : 0;
       const mergedProductKnowledge = mergeDistributorProductKnowledge({
         manualProductsSupplied: distributor.products_supplied || '',
         likelyItems,
         suggestedItems,
       });
+
       return {
         distributor_id: distributorId,
         distributor_name: distributor.name,
@@ -8320,10 +9000,19 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
         products_supplied_manual: mergedProductKnowledge.manual_items,
         products_supplied_all: mergedProductKnowledge.merged_items,
         products_supplied_text: mergedProductKnowledge.merged_text,
-        active_open_orders: completedOrders.filter(isOpenOrder).length,
-        next_payment_due_date: payables.find((entry) => Number(entry.distributor_id || 0) === distributorId)?.payment_due_date || null,
+        active_open_orders: openDistributorOrders.length,
+        last_order_date: lastOrderDateKey,
+        last_delivery_date: pickLatestDateKey(deliveryDateKeys),
+        last_payment_date: pickLatestDateKey(paymentDateKeys),
+        next_payment_due_date: nextPaymentDueDate,
+        next_payment_due_source: nextPaymentDueSource,
+        predicted_payment_amount: predictedPaymentAmount,
+        next_delivery_date: nextDeliveryDate,
+        next_delivery_source: nextDeliverySource,
+        predicted_delivery_count: predictedDeliveryCount,
         configured_payment_due_days: configuredPaymentPlan.paymentDueDays,
-        inferred_payment_due_days: inferredPaymentDays,
+        inferred_payment_due_days: avgPaymentLagDays,
+        avg_delivery_days: avgDeliveryDays,
         inferred_due_date: inferredDueDate || null,
         strict_deadline_count: completedOrders.filter((order) => Boolean(normalizeTransactionDate(order.strict_due_date))).length,
       };
@@ -8344,6 +9033,9 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
         configured_due_date: normalizeTransactionDate(order?.payment_due_date || null) || null,
         strict_due_date: normalizeTransactionDate(order?.strict_due_date || null) || null,
         inferred_due_date: insight?.inferred_due_date || null,
+        next_payment_due_date: insight?.next_payment_due_date || null,
+        next_delivery_date: insight?.next_delivery_date || null,
+        predicted_payment_amount: Number(insight?.predicted_payment_amount || 0),
         po_balance_due: Number(entry.balance_due || 0),
         ledger_balance: Number(insight?.ledger_balance || 0),
       };
@@ -8424,6 +9116,35 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
       }))
       .sort((a, b) => Number(b.balance_due || 0) - Number(a.balance_due || 0) || String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')));
 
+    const predictedPaymentsNext = distributorInsights
+      .filter((entry) => entry.next_payment_due_date)
+      .map((entry) => ({
+        distributor_id: entry.distributor_id,
+        distributor_name: entry.distributor_name,
+        next_payment_due_date: entry.next_payment_due_date,
+        next_payment_due_source: entry.next_payment_due_source,
+        predicted_payment_amount: Number(entry.predicted_payment_amount || 0),
+        outstanding_amount: Number(entry.outstanding_amount || 0),
+      }))
+      .sort((a, b) => String(a.next_payment_due_date || '').localeCompare(String(b.next_payment_due_date || ''))
+        || Number(b.predicted_payment_amount || 0) - Number(a.predicted_payment_amount || 0));
+
+    const predictedDeliveriesNext = distributorInsights
+      .filter((entry) => entry.next_delivery_date)
+      .map((entry) => ({
+        distributor_id: entry.distributor_id,
+        distributor_name: entry.distributor_name,
+        next_delivery_date: entry.next_delivery_date,
+        next_delivery_source: entry.next_delivery_source,
+        predicted_delivery_count: Number(entry.predicted_delivery_count || 0),
+        active_open_orders: Number(entry.active_open_orders || 0),
+      }))
+      .sort((a, b) => String(a.next_delivery_date || '').localeCompare(String(b.next_delivery_date || ''))
+        || Number(b.predicted_delivery_count || 0) - Number(a.predicted_delivery_count || 0));
+
+    const nextPaymentDate = predictedPaymentsNext[0]?.next_payment_due_date || null;
+    const nextDeliveryDate = predictedDeliveriesNext[0]?.next_delivery_date || null;
+
     const reminders = distributors
       .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
       .filter((distributor) => normalizeBooleanFlag(distributor.auto_reminders_enabled, true))
@@ -8502,7 +9223,72 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
     const predictedPaymentTodayAmount = predictedPaymentsToday
       .filter((entry) => entry.prediction_reason !== 'overdue')
       .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
-    const outstandingAmount = openOrders.reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
+    const outstandingPoAmount = orders.reduce((sum, order) => {
+      const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+      if (lifecycleStatus === PO_LIFECYCLE_CANCELLED) return sum;
+      return sum + Math.max(0, Number(order.balance_due || 0));
+    }, 0);
+    const unpostedOutstandingAmount = openOrders.reduce((sum, order) => {
+      const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
+      if (
+        lifecycleStatus === PO_LIFECYCLE_PREPARED
+        || lifecycleStatus === PO_LIFECYCLE_SENT
+        || lifecycleStatus === PO_LIFECYCLE_REVISED
+      ) {
+        return sum + Math.max(0, Number(order.balance_due || 0));
+      }
+      return sum;
+    }, 0);
+    const ledgerOutstandingAmount = [...ledgerBalanceByDistributor.values()].reduce(
+      (sum, balance) => {
+        const numeric = Number(balance || 0);
+        return sum + (numeric > 0 ? numeric : 0);
+      },
+      0
+    );
+    const outstandingAmount = ledgerOutstandingAmount + unpostedOutstandingAmount;
+
+    const cards = {
+      outstanding_amount: outstandingAmount,
+      ledger_outstanding_amount: ledgerOutstandingAmount,
+      po_outstanding_amount: outstandingPoAmount,
+      payable_today_amount: payableTodayAmount,
+      overdue_amount: overdueAmount,
+      predicted_payment_today_amount: predictedPaymentTodayAmount,
+      predicted_payment_next_count: predictedPaymentsNext.length,
+      predicted_delivery_next_count: predictedDeliveriesNext.length,
+      next_payment_due_date: nextPaymentDate,
+      next_delivery_date: nextDeliveryDate,
+      paid_today_amount: paidTodayAmount,
+      reminder_count: reminders.length,
+      waiting_bill_count: waitingBillCount,
+      waiting_delivery_count: waitingDeliveryCount,
+      close_ready_count: closeReadyCount,
+      today_distributor_count: todayDistributors.length,
+      tomorrow_distributor_count: tomorrowDistributors.length,
+      weekly_distributor_count: weeklyDistributors.length,
+    };
+
+    if (persistSnapshots) {
+      try {
+        await persistPurchaseAnalyticsSnapshotsAsync({
+          snapshotDate: todayKey,
+          cards,
+          predictedPaymentsToday,
+          predictedPaymentsNext,
+          predictedDeliveriesNext,
+          distributorInsights,
+        });
+      } catch (error) {
+        console.warn('[PURCHASE_OPS] Failed to persist analytics snapshots:', error?.message || error);
+      }
+    }
+
+    const actionRollups = await buildPurchaseActionRollupsAsync({
+      startDate: rollupRange.startDate,
+      endDate: rollupRange.endDate,
+      distributorId: distributorIdFilter,
+    });
 
     return res.json({
       today: todayKey,
@@ -8512,33 +9298,32 @@ app.get('/api/purchase-operations/summary', requireAdmin, async (req, res) => {
         whatsapp: 'manual',
         po_preparation: 'manual',
       },
-      cards: {
-        outstanding_amount: outstandingAmount,
-        payable_today_amount: payableTodayAmount,
-        overdue_amount: overdueAmount,
-        predicted_payment_today_amount: predictedPaymentTodayAmount,
-        paid_today_amount: paidTodayAmount,
-        reminder_count: reminders.length,
-        waiting_bill_count: waitingBillCount,
-        waiting_delivery_count: waitingDeliveryCount,
-        close_ready_count: closeReadyCount,
-        today_distributor_count: todayDistributors.length,
-        tomorrow_distributor_count: tomorrowDistributors.length,
-        weekly_distributor_count: weeklyDistributors.length,
-      },
+      cards,
       today_distributors: todayDistributors,
       tomorrow_distributors: tomorrowDistributors,
       weekly_distributors: weeklyDistributors,
       predicted_payments_today: predictedPaymentsToday,
+      predicted_payments_next: predictedPaymentsNext,
+      predicted_deliveries_next: predictedDeliveriesNext,
       reminders,
       payables: payablesWithInsights.slice(0, 20),
       workflow,
       distributor_insights: distributorInsights.slice(0, 20),
+      action_rollups: actionRollups,
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Failed to load purchase operations summary' });
   }
-});
+};
+
+app.get('/api/purchase-operations/summary', requireAdmin, (req, res) => handlePurchaseOperationsSummary(req, res));
+
+app.get('/api/internal/purchase-operations/analytics/run', requireCronSecret, (req, res) =>
+  handlePurchaseOperationsSummary(req, res, { persistSnapshots: true })
+);
+app.post('/api/internal/purchase-operations/analytics/run', requireCronSecret, (req, res) =>
+  handlePurchaseOperationsSummary(req, res, { persistSnapshots: true })
+);
 
 app.post('/api/purchase-orders/:id/payments', requireAdmin, async (req, res) => {
   let clientRequestId = null;
@@ -8722,6 +9507,11 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
     const shouldApplyStockOnReceive = Number(order.stock_applied_on_confirm || 0) !== 1;
     let nextLifecycleStatus = poStatus;
     let nextAction = derivePurchaseNextAction(order);
+    const supplierUpdates = [];
+    const historyTransactionTs = buildPurchaseTransactionTimestamp(
+      order.planned_order_date || order.expected_delivery || order.created_at || new Date().toISOString(),
+      new Date()
+    );
     await dbTxAsync(async () => {
       for (const it of items) {
         const item = await dbGetAsync(`SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?`, [it.item_id, req.params.id]);
@@ -8750,11 +9540,21 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
         const gstRate = Math.max(0, Number(item.gst_rate || 0));
         const taxAmount = (taxableValue * gstRate) / 100;
         const lineTotal = taxableValue + taxAmount;
+        const unitPriceBeforeDiscount = orderedQtyLimit > 0 ? (gross / orderedQtyLimit) : unitPrice;
+        const unitDiscountAmount = orderedQtyLimit > 0 ? (discountAmount / orderedQtyLimit) : 0;
+        const unitTaxAmount = orderedQtyLimit > 0 ? (taxAmount / orderedQtyLimit) : 0;
+        const unitCostInclTax = orderedQtyLimit > 0 ? (lineTotal / orderedQtyLimit) : 0;
         await dbRunAsync(
           `UPDATE purchase_order_items
            SET received_quantity = ?,
                unit_price = ?,
                rate = ?,
+               unit_price_before_discount = ?,
+               unit_discount_amount = ?,
+               tax_rate = ?,
+               unit_tax_amount = ?,
+               unit_cost_incl_tax = ?,
+               line_total_incl_tax = ?,
                taxable_value = ?,
                tax_amount = ?,
                line_total = ?,
@@ -8764,6 +9564,12 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
           newReceived,
           unitPrice,
           unitPrice,
+          unitPriceBeforeDiscount,
+          unitDiscountAmount,
+          gstRate,
+          unitTaxAmount,
+          unitCostInclTax,
+          lineTotal,
           taxableValue,
           taxAmount,
           lineTotal,
@@ -8771,6 +9577,35 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
           item.id,
           ]
         );
+        if (item.product_id) {
+          const historyUpdate = await dbRunAsync(
+            `UPDATE product_cost_history
+             SET unit_cost_incl_tax = ?, tax_rate = ?, discount_amount = ?
+             WHERE po_item_id = ?`,
+            [
+              Number(unitCostInclTax || 0),
+              Number(gstRate || 0),
+              Number(unitDiscountAmount || 0),
+              item.id,
+            ]
+          );
+          if (Number(historyUpdate?.changes || 0) === 0) {
+            await recordProductCostHistoryEntryAsync({
+              productId: item.product_id,
+              distributorId: order.distributor_id,
+              purchaseOrderId: Number(req.params.id || 0),
+              purchaseOrderItemId: item.id,
+              unitCostInclTax,
+              taxRate: gstRate,
+              discountAmount: unitDiscountAmount,
+              transactionTs: historyTransactionTs,
+            });
+          }
+          supplierUpdates.push({
+            product_id: item.product_id,
+            unit_cost_incl_tax: unitCostInclTax,
+          });
+        }
         if (item.product_id && shouldApplyStockOnReceive && product) {
           const before = (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [item.product_id]))?.stock || 0;
           await dbRunAsync(`UPDATE products SET stock = stock + ? WHERE id = ?`, [receivedQtyBase, item.product_id]);
@@ -8840,6 +9675,9 @@ app.post('/api/purchase-orders/:id/receive', requireAdmin, async (req, res) => {
         ]
       );
     });
+    if (supplierUpdates.length) {
+      await upsertSupplierProductsAsync(order.distributor_id, supplierUpdates);
+    }
     await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
       fromStatus: poStatus,
       toStatus: nextLifecycleStatus,
@@ -8872,6 +9710,7 @@ app.delete('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Only prepared, sent, or revised purchase orders can be deleted' });
     }
     await dbRunAsync(`DELETE FROM purchase_order_payments WHERE purchase_order_id = ?`, [req.params.id]);
+    await dbRunAsync(`DELETE FROM product_cost_history WHERE po_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_order_items WHERE order_id = ?`, [req.params.id]);
     await dbRunAsync(`DELETE FROM purchase_orders WHERE id = ?`, [req.params.id]);
     await logAdminAuditAsync(req, {
@@ -9123,6 +9962,603 @@ app.post('/api/stock/verify', requireAdmin, async (req, res) => {
       };
     }));
     return res.json({ items: result, allAvailable: result.every((x) => x.available) });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/insights/products', requireAdmin, async (req, res) => {
+  try {
+    const distributorId = Number(req.query?.distributor_id || 0) || null;
+    const category = String(req.query?.category || '').trim();
+    const { startDate, endExclusive } = resolveInsightDateRange({
+      startDate: req.query?.start_date || req.query?.date_from || null,
+      endDate: req.query?.end_date || req.query?.date_to || null,
+    });
+
+    const filters = [`COALESCE(LOWER(po.po_status), '') <> 'cancelled'`];
+    const params = [];
+    if (startDate) {
+      filters.push('pch.transaction_ts >= ?');
+      params.push(startDate);
+    }
+    if (endExclusive) {
+      filters.push('pch.transaction_ts < ?');
+      params.push(endExclusive);
+    }
+    if (distributorId) {
+      filters.push('pch.distributor_id = ?');
+      params.push(distributorId);
+    }
+    if (category) {
+      filters.push('(p.category = ? OR p.subcategory = ?)');
+      params.push(category, category);
+    }
+
+    const whereSql = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const rows = await dbAllAsync(
+      `WITH filtered AS (
+         SELECT
+           pch.id,
+           pch.product_id,
+           pch.distributor_id,
+           pch.unit_cost_incl_tax,
+           pch.transaction_ts,
+           po.expected_delivery,
+           po.received_at,
+           po.planned_order_date,
+           po.created_at,
+           p.name as product_name,
+           p.category,
+           p.subcategory,
+           p.stock
+         FROM product_cost_history pch
+         INNER JOIN purchase_orders po ON po.id = pch.po_id
+         INNER JOIN products p ON p.id = pch.product_id
+         ${whereSql}
+       ),
+       stats AS (
+         SELECT
+           product_id,
+           COUNT(*) as purchase_count,
+           AVG(unit_cost_incl_tax) as avg_cost,
+           MIN(unit_cost_incl_tax) as min_cost,
+           MAX(unit_cost_incl_tax) as max_cost,
+           STDDEV_SAMP(unit_cost_incl_tax) as price_volatility,
+           MIN(transaction_ts) as first_purchase_at,
+           MAX(transaction_ts) as last_purchase_at
+         FROM filtered
+         GROUP BY product_id
+       ),
+       latest AS (
+         SELECT DISTINCT ON (product_id)
+           product_id,
+           unit_cost_incl_tax as latest_cost,
+           distributor_id as latest_distributor_id,
+           transaction_ts as latest_at
+         FROM filtered
+         ORDER BY product_id, transaction_ts DESC, id DESC
+       ),
+       prev AS (
+         SELECT product_id, unit_cost_incl_tax as previous_cost
+         FROM (
+           SELECT
+             product_id,
+             unit_cost_incl_tax,
+             ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY transaction_ts DESC, id DESC) as rn
+           FROM filtered
+         ) ranked
+         WHERE rn = 2
+       ),
+       freq AS (
+         SELECT product_id, AVG(gap_days) as avg_days_between
+         FROM (
+           SELECT
+             product_id,
+             EXTRACT(EPOCH FROM (transaction_ts - LAG(transaction_ts) OVER (PARTITION BY product_id ORDER BY transaction_ts))) / 86400 as gap_days
+           FROM filtered
+         ) gaps
+         WHERE gap_days IS NOT NULL
+         GROUP BY product_id
+       ),
+       lead AS (
+         SELECT product_id,
+                AVG(lead_days) as avg_lead_time,
+                AVG(on_time_flag) as on_time_rate
+         FROM (
+           SELECT
+             product_id,
+             CASE
+               WHEN received_at IS NULL THEN NULL
+               ELSE EXTRACT(EPOCH FROM (received_at - COALESCE(planned_order_date, created_at))) / 86400
+             END as lead_days,
+             CASE
+               WHEN received_at IS NOT NULL AND expected_delivery IS NOT NULL
+                 THEN CASE WHEN received_at <= expected_delivery THEN 1 ELSE 0 END
+               ELSE NULL
+             END as on_time_flag
+           FROM filtered
+         ) lead_rows
+         WHERE lead_days IS NOT NULL
+         GROUP BY product_id
+       ),
+       best_supplier AS (
+         SELECT product_id, distributor_id, AVG(unit_cost_incl_tax) as avg_cost
+         FROM filtered
+         GROUP BY product_id, distributor_id
+       ),
+       best_supplier_ranked AS (
+         SELECT *,
+                ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY avg_cost ASC) as rn
+         FROM best_supplier
+       ),
+       series AS (
+         SELECT product_id, ARRAY_AGG(unit_cost_incl_tax ORDER BY transaction_ts DESC, id DESC) as cost_series
+         FROM filtered
+         GROUP BY product_id
+       )
+       SELECT
+         p.id as product_id,
+         p.name as product_name,
+         p.category,
+         p.subcategory,
+         p.stock,
+         stats.purchase_count,
+         stats.avg_cost,
+         stats.min_cost,
+         stats.max_cost,
+         stats.price_volatility,
+         stats.first_purchase_at,
+         stats.last_purchase_at,
+         latest.latest_cost,
+         latest.latest_distributor_id,
+         latest.latest_at,
+         prev.previous_cost,
+         freq.avg_days_between,
+         lead.avg_lead_time,
+         lead.on_time_rate,
+         best_supplier_ranked.distributor_id as best_distributor_id,
+         best_supplier_ranked.avg_cost as best_distributor_avg_cost,
+         ld.name as latest_distributor_name,
+         bd.name as best_distributor_name,
+         series.cost_series
+       FROM stats
+       INNER JOIN products p ON p.id = stats.product_id
+       LEFT JOIN latest ON latest.product_id = stats.product_id
+       LEFT JOIN prev ON prev.product_id = stats.product_id
+       LEFT JOIN freq ON freq.product_id = stats.product_id
+       LEFT JOIN lead ON lead.product_id = stats.product_id
+       LEFT JOIN best_supplier_ranked ON best_supplier_ranked.product_id = stats.product_id AND best_supplier_ranked.rn = 1
+       LEFT JOIN distributors ld ON ld.id = latest.latest_distributor_id
+       LEFT JOIN distributors bd ON bd.id = best_supplier_ranked.distributor_id
+       LEFT JOIN series ON series.product_id = stats.product_id
+       ORDER BY stats.last_purchase_at DESC NULLS LAST, p.name ASC`,
+      params
+    );
+
+    const payload = (rows || []).map((row) => {
+      const latestCost = Number(row.latest_cost || 0);
+      const previousCost = Number(row.previous_cost || 0);
+      const costDelta = previousCost ? latestCost - previousCost : null;
+      const costDeltaPct = previousCost ? (costDelta / previousCost) * 100 : null;
+      const rawSeries = Array.isArray(row.cost_series)
+        ? row.cost_series
+        : (typeof row.cost_series === 'string' && row.cost_series.startsWith('{')
+          ? row.cost_series.slice(1, -1).split(',')
+          : []);
+      const costSeries = rawSeries
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+        .slice(0, 12)
+        .reverse();
+      const avgDaysBetween = row.avg_days_between === null ? null : Number(row.avg_days_between || 0);
+      const sellingPrice = row.price == null ? null : Number(row.price || 0);
+      const mrpPrice = row.mrp == null ? null : Number(row.mrp || 0);
+      const effectivePrice = sellingPrice != null && sellingPrice > 0 ? sellingPrice : (mrpPrice != null && mrpPrice > 0 ? mrpPrice : null);
+      const marginAmount = effectivePrice != null && latestCost > 0 ? (effectivePrice - latestCost) : null;
+      const marginPct = marginAmount != null && latestCost > 0 ? (marginAmount / latestCost) * 100 : null;
+      const stockLevel = row.stock === null || row.stock === undefined ? null : Number(row.stock || 0);
+      return {
+        product_id: Number(row.product_id || 0),
+        product_name: row.product_name,
+        category: row.category,
+        subcategory: row.subcategory,
+        stock: stockLevel,
+        price: sellingPrice,
+        mrp: mrpPrice,
+        margin_amount: marginAmount,
+        margin_pct: marginPct,
+        latest_cost: latestCost || null,
+        latest_distributor_id: row.latest_distributor_id ? Number(row.latest_distributor_id) : null,
+        latest_distributor_name: row.latest_distributor_name || null,
+        latest_at: row.latest_at || null,
+        previous_cost: previousCost || null,
+        cost_change: costDelta,
+        cost_change_pct: costDeltaPct,
+        avg_cost: row.avg_cost === null ? null : Number(row.avg_cost || 0),
+        min_cost: row.min_cost === null ? null : Number(row.min_cost || 0),
+        max_cost: row.max_cost === null ? null : Number(row.max_cost || 0),
+        price_volatility: row.price_volatility === null ? null : Number(row.price_volatility || 0),
+        purchase_count: Number(row.purchase_count || 0),
+        avg_days_between: avgDaysBetween,
+        avg_lead_time: row.avg_lead_time === null ? null : Number(row.avg_lead_time || 0),
+        on_time_rate: row.on_time_rate === null ? null : Number(row.on_time_rate || 0),
+        best_distributor_id: row.best_distributor_id ? Number(row.best_distributor_id) : null,
+        best_distributor_name: row.best_distributor_name || null,
+        best_distributor_avg_cost: row.best_distributor_avg_cost === null ? null : Number(row.best_distributor_avg_cost || 0),
+        stockout_risk: deriveStockoutRisk(avgDaysBetween, stockLevel),
+        cost_series: costSeries,
+      };
+    });
+
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/insights/products/:id(\\d+)', requireAdmin, async (req, res) => {
+  try {
+    const productId = Number(req.params.id || 0);
+    if (!productId) return res.status(400).json({ error: 'Invalid product id' });
+
+    const { startDate, endExclusive } = resolveInsightDateRange({
+      startDate: req.query?.start_date || req.query?.date_from || null,
+      endDate: req.query?.end_date || req.query?.date_to || null,
+    });
+
+    const product = await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [productId]);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    let historySql = `
+      SELECT
+        pch.*,
+        d.name as distributor_name,
+        po.po_number,
+        po.planned_order_date,
+        po.expected_delivery,
+        po.received_at,
+        po.created_at
+      FROM product_cost_history pch
+      LEFT JOIN distributors d ON d.id = pch.distributor_id
+      LEFT JOIN purchase_orders po ON po.id = pch.po_id
+      WHERE pch.product_id = ?`;
+    const historyParams = [productId];
+    if (startDate) {
+      historySql += ` AND pch.transaction_ts >= ?`;
+      historyParams.push(startDate);
+    }
+    if (endExclusive) {
+      historySql += ` AND pch.transaction_ts < ?`;
+      historyParams.push(endExclusive);
+    }
+    historySql += ` ORDER BY pch.transaction_ts DESC, pch.id DESC`;
+
+    const historyRows = await dbAllAsync(historySql, historyParams);
+    const costValues = historyRows.map((row) => Number(row.unit_cost_incl_tax || 0)).filter((value) => Number.isFinite(value));
+    const timestamps = historyRows.map((row) => row.transaction_ts).filter(Boolean);
+    const avgDaysBetween = computeAverageGapDays(timestamps);
+    const priceVolatility = computeStdDev(costValues);
+
+    const latestEntry = historyRows[0] || null;
+    const previousEntry = historyRows[1] || null;
+    const latestCost = latestEntry ? Number(latestEntry.unit_cost_incl_tax || 0) : null;
+    const previousCost = previousEntry ? Number(previousEntry.unit_cost_incl_tax || 0) : null;
+    const costDelta = previousCost ? latestCost - previousCost : null;
+    const costDeltaPct = previousCost ? (costDelta / previousCost) * 100 : null;
+
+    const leadTimes = historyRows
+      .map((row) => {
+        if (!row.received_at) return null;
+        const orderAnchor = row.planned_order_date || row.created_at;
+        if (!orderAnchor) return null;
+        const diff = new Date(row.received_at).getTime() - new Date(orderAnchor).getTime();
+        return Number.isFinite(diff) ? diff / 86400000 : null;
+      })
+      .filter((value) => Number.isFinite(value));
+    const avgLeadTime = computeAverageDays(leadTimes);
+    const onTimeRate = (() => {
+      const evaluated = historyRows.filter((row) => row.received_at && row.expected_delivery);
+      if (!evaluated.length) return null;
+      const onTime = evaluated.filter((row) => new Date(row.received_at) <= new Date(row.expected_delivery)).length;
+      return onTime / evaluated.length;
+    })();
+
+    const distributorRows = await dbAllAsync(
+      `SELECT
+         pch.distributor_id,
+         d.name as distributor_name,
+         COUNT(*) as purchase_count,
+         AVG(pch.unit_cost_incl_tax) as avg_cost,
+         MIN(pch.unit_cost_incl_tax) as min_cost,
+         MAX(pch.unit_cost_incl_tax) as max_cost,
+         MAX(pch.transaction_ts) as last_purchase_at,
+         STDDEV_SAMP(pch.unit_cost_incl_tax) as price_volatility
+       FROM product_cost_history pch
+       LEFT JOIN distributors d ON d.id = pch.distributor_id
+       WHERE pch.product_id = ?
+       GROUP BY pch.distributor_id, d.name
+       ORDER BY avg_cost ASC NULLS LAST`,
+      [productId]
+    );
+
+    const supplierRows = await dbAllAsync(
+      `SELECT sp.*, d.name as distributor_name
+       FROM supplier_products sp
+       LEFT JOIN distributors d ON d.id = sp.distributor_id
+       WHERE sp.product_id = ?`,
+      [productId]
+    );
+
+    const supplierById = new Map();
+    for (const supplier of supplierRows || []) {
+      supplierById.set(Number(supplier.distributor_id || 0), supplier);
+    }
+
+    const distributors = (distributorRows || []).map((row) => {
+      const supplier = supplierById.get(Number(row.distributor_id || 0));
+      return {
+        distributor_id: Number(row.distributor_id || 0),
+        distributor_name: row.distributor_name || supplier?.distributor_name || null,
+        purchase_count: Number(row.purchase_count || 0),
+        avg_cost: row.avg_cost === null ? null : Number(row.avg_cost || 0),
+        min_cost: row.min_cost === null ? null : Number(row.min_cost || 0),
+        max_cost: row.max_cost === null ? null : Number(row.max_cost || 0),
+        last_purchase_at: row.last_purchase_at || null,
+        price_volatility: row.price_volatility === null ? null : Number(row.price_volatility || 0),
+        is_available: supplier?.is_available ?? null,
+        lead_time_days: supplier?.lead_time_days ?? null,
+        min_order_qty: supplier?.min_order_qty ?? null,
+        last_known_unit_cost_incl_tax: supplier?.last_known_unit_cost_incl_tax ?? null,
+        availability_note: supplier?.availability_note ?? null,
+        supplier_last_updated_at: supplier?.last_updated_at ?? null,
+      };
+    });
+
+    const bestSupplier = (() => {
+      const available = distributors.filter((entry) => entry.is_available !== false);
+      if (!available.length) return null;
+      const costCandidates = available
+        .map((entry) => Number(entry.avg_cost ?? entry.last_known_unit_cost_incl_tax ?? 0))
+        .filter((value) => value > 0);
+      const minCost = costCandidates.length ? Math.min(...costCandidates) : null;
+      const leadCandidates = available
+        .map((entry) => Number(entry.lead_time_days || 0))
+        .filter((value) => value > 0);
+      const minLead = leadCandidates.length ? Math.min(...leadCandidates) : null;
+      let best = null;
+      let bestScore = -1;
+      for (const entry of available) {
+        const costBasis = Number(entry.avg_cost ?? entry.last_known_unit_cost_incl_tax ?? 0) || (minCost || 0);
+        const costScore = minCost && costBasis ? minCost / costBasis : 0.6;
+        const leadBasis = Number(entry.lead_time_days || 0) || (minLead || 0);
+        const leadScore = minLead && leadBasis ? minLead / leadBasis : 0.4;
+        const availabilityScore = entry.is_available === false ? 0 : 1;
+        const score = (0.6 * costScore) + (0.25 * leadScore) + (0.15 * availabilityScore);
+        if (score > bestScore) {
+          bestScore = score;
+          best = { ...entry, score };
+        }
+      }
+      return best;
+    })();
+
+    return res.json({
+      product,
+      latest_cost: latestCost,
+      previous_cost: previousCost,
+      cost_change: costDelta,
+      cost_change_pct: costDeltaPct,
+      purchase_count: historyRows.length,
+      avg_days_between: avgDaysBetween,
+      avg_lead_time: avgLeadTime,
+      on_time_rate: onTimeRate,
+      price_volatility: priceVolatility,
+      stockout_risk: deriveStockoutRisk(avgDaysBetween, product?.stock),
+      history: historyRows,
+      distributors,
+      best_supplier: bestSupplier,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/insights/distributors', requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endExclusive } = resolveInsightDateRange({
+      startDate: req.query?.start_date || req.query?.date_from || null,
+      endDate: req.query?.end_date || req.query?.date_to || null,
+    });
+
+    const filters = [`COALESCE(LOWER(po.po_status), '') <> 'cancelled'`];
+    const params = [];
+    if (startDate) {
+      filters.push('pch.transaction_ts >= ?');
+      params.push(startDate);
+    }
+    if (endExclusive) {
+      filters.push('pch.transaction_ts < ?');
+      params.push(endExclusive);
+    }
+
+    const whereSql = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    const rows = await dbAllAsync(
+      `WITH filtered AS (
+         SELECT
+           pch.distributor_id,
+           pch.product_id,
+           pch.unit_cost_incl_tax,
+           pch.transaction_ts,
+           po.expected_delivery,
+           po.received_at,
+           po.planned_order_date,
+           po.created_at
+         FROM product_cost_history pch
+         INNER JOIN purchase_orders po ON po.id = pch.po_id
+         ${whereSql}
+       ),
+       scored AS (
+         SELECT
+           distributor_id,
+           product_id,
+           unit_cost_incl_tax,
+           CASE
+             WHEN received_at IS NULL THEN NULL
+             ELSE EXTRACT(EPOCH FROM (received_at - COALESCE(planned_order_date, created_at))) / 86400
+           END as lead_days,
+           CASE
+             WHEN received_at IS NOT NULL AND expected_delivery IS NOT NULL
+               THEN CASE WHEN received_at <= expected_delivery THEN 1 ELSE 0 END
+             ELSE NULL
+           END as on_time_flag
+         FROM filtered
+       )
+       SELECT
+         d.id as distributor_id,
+         d.name as distributor_name,
+         COUNT(*) as purchase_count,
+         COUNT(DISTINCT product_id) as product_count,
+         AVG(unit_cost_incl_tax) as avg_cost,
+         MIN(unit_cost_incl_tax) as min_cost,
+         MAX(unit_cost_incl_tax) as max_cost,
+         STDDEV_SAMP(unit_cost_incl_tax) as price_volatility,
+         AVG(lead_days) as avg_lead_time,
+         AVG(on_time_flag) as on_time_rate
+       FROM scored
+       LEFT JOIN distributors d ON d.id = scored.distributor_id
+       GROUP BY d.id, d.name
+       ORDER BY avg_cost ASC NULLS LAST, d.name ASC`,
+      params
+    );
+
+    const payload = (rows || []).map((row) => ({
+      distributor_id: Number(row.distributor_id || 0),
+      distributor_name: row.distributor_name || null,
+      purchase_count: Number(row.purchase_count || 0),
+      product_count: Number(row.product_count || 0),
+      avg_cost: row.avg_cost === null ? null : Number(row.avg_cost || 0),
+      min_cost: row.min_cost === null ? null : Number(row.min_cost || 0),
+      max_cost: row.max_cost === null ? null : Number(row.max_cost || 0),
+      price_volatility: row.price_volatility === null ? null : Number(row.price_volatility || 0),
+      avg_lead_time: row.avg_lead_time === null ? null : Number(row.avg_lead_time || 0),
+      on_time_rate: row.on_time_rate === null ? null : Number(row.on_time_rate || 0),
+    }));
+
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/insights/distributors/:id(\\d+)/products', requireAdmin, async (req, res) => {
+  try {
+    const distributorId = Number(req.params.id || 0);
+    if (!distributorId) return res.status(400).json({ error: 'Invalid distributor id' });
+
+    const rows = await dbAllAsync(
+      `SELECT
+         p.id as product_id,
+         p.name as product_name,
+         p.category,
+         p.subcategory,
+         COUNT(*) as purchase_count,
+         AVG(pch.unit_cost_incl_tax) as avg_cost,
+         MIN(pch.unit_cost_incl_tax) as min_cost,
+         MAX(pch.unit_cost_incl_tax) as max_cost,
+         MAX(pch.transaction_ts) as last_purchase_at
+       FROM product_cost_history pch
+       INNER JOIN products p ON p.id = pch.product_id
+       WHERE pch.distributor_id = ?
+       GROUP BY p.id, p.name, p.category, p.subcategory
+       ORDER BY avg_cost ASC NULLS LAST, p.name ASC`,
+      [distributorId]
+    );
+
+    const supplierRows = await dbAllAsync(
+      `SELECT * FROM supplier_products WHERE distributor_id = ?`,
+      [distributorId]
+    );
+    const supplierByProduct = new Map();
+    for (const row of supplierRows || []) {
+      supplierByProduct.set(Number(row.product_id || 0), row);
+    }
+
+    const payload = (rows || []).map((row) => {
+      const supplier = supplierByProduct.get(Number(row.product_id || 0));
+      return {
+        product_id: Number(row.product_id || 0),
+        product_name: row.product_name,
+        category: row.category,
+        subcategory: row.subcategory,
+        purchase_count: Number(row.purchase_count || 0),
+        avg_cost: row.avg_cost === null ? null : Number(row.avg_cost || 0),
+        min_cost: row.min_cost === null ? null : Number(row.min_cost || 0),
+        max_cost: row.max_cost === null ? null : Number(row.max_cost || 0),
+        last_purchase_at: row.last_purchase_at || null,
+        is_available: supplier?.is_available ?? null,
+        lead_time_days: supplier?.lead_time_days ?? null,
+        min_order_qty: supplier?.min_order_qty ?? null,
+        last_known_unit_cost_incl_tax: supplier?.last_known_unit_cost_incl_tax ?? null,
+        availability_note: supplier?.availability_note ?? null,
+        supplier_last_updated_at: supplier?.last_updated_at ?? null,
+      };
+    });
+
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/products/:id(\\d+)/suppliers', requireAdmin, async (req, res) => {
+  try {
+    const productId = Number(req.params.id || 0);
+    if (!productId) return res.status(400).json({ error: 'Invalid product id' });
+
+    const rows = await dbAllAsync(
+      `SELECT
+         sp.distributor_id,
+         d.name as distributor_name,
+         sp.is_available,
+         sp.lead_time_days,
+         sp.min_order_qty,
+         sp.last_known_unit_cost_incl_tax,
+         sp.availability_note,
+         sp.last_updated_at,
+         MAX(pch.transaction_ts) as last_purchase_at
+       FROM supplier_products sp
+       LEFT JOIN distributors d ON d.id = sp.distributor_id
+       LEFT JOIN product_cost_history pch
+         ON pch.product_id = sp.product_id
+        AND pch.distributor_id = sp.distributor_id
+       WHERE sp.product_id = ?
+       GROUP BY
+         sp.distributor_id,
+         d.name,
+         sp.is_available,
+         sp.lead_time_days,
+         sp.min_order_qty,
+         sp.last_known_unit_cost_incl_tax,
+         sp.availability_note,
+         sp.last_updated_at
+       ORDER BY sp.is_available DESC, sp.last_known_unit_cost_incl_tax ASC NULLS LAST`,
+      [productId]
+    );
+
+    const payload = (rows || []).map((row) => ({
+      distributor_id: Number(row.distributor_id || 0),
+      distributor_name: row.distributor_name || null,
+      is_available: row.is_available ?? null,
+      lead_time_days: row.lead_time_days ?? null,
+      min_order_qty: row.min_order_qty ?? null,
+      last_known_unit_cost_incl_tax: row.last_known_unit_cost_incl_tax ?? null,
+      availability_note: row.availability_note ?? null,
+      last_updated_at: row.last_updated_at ?? null,
+      last_purchase_at: row.last_purchase_at ?? null,
+    }));
+
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

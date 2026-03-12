@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 
 import { distributorsApi } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import './DistributorManagement.css';
 
 function DistributorManagement({ user }) {
@@ -206,12 +207,15 @@ function DistributorManagement({ user }) {
 
   return (
     <div className="distributor-management">
-      <div className="page-header">
-        <h1>Distributor Management</h1>
-        <button className="admin-btn primary" onClick={() => setShowForm(true)}>
-          <Plus size={20} /> Add Distributor
-        </button>
-      </div>
+      <AdminPageHeader
+        className="page-header"
+        title="Distributor Management"
+        actions={(
+          <button className="admin-btn primary" onClick={() => setShowForm(true)}>
+            <Plus size={20} /> Add Distributor
+          </button>
+        )}
+      />
 
       {error && <div className="error-message">{error}</div>}
 

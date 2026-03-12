@@ -738,8 +738,8 @@ app.post('/api/products', requireAdmin, async (req, res) => {
     });
     const result = await dbRunAsync(
       `INSERT INTO products
-      (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, sku, barcode, image, stock, category, subcategory, category_id, expiry_date, default_discount, discount_type, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (name, description, brand, sub_brand, content, color, price, mrp, uom, base_unit, uom_type, conversion_factor, purchase_pack_size, sku, barcode, image, stock, category, subcategory, category_id, expiry_date, default_discount, discount_type, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         body.name,
         body.description || null,
@@ -753,6 +753,7 @@ app.post('/api/products', requireAdmin, async (req, res) => {
         body.base_unit || body.uom || 'pcs',
         body.uom_type || 'selling',
         Number(body.conversion_factor || 1),
+        body.purchase_pack_size ?? null,
         body.sku,
         body.barcode,
         body.image || null,
@@ -802,7 +803,7 @@ app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
     });
     await dbRunAsync(
       `UPDATE products SET
-       name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, category_id=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
+       name=?, description=?, brand=?, sub_brand=?, content=?, color=?, price=?, mrp=?, uom=?, base_unit=?, uom_type=?, conversion_factor=?, purchase_pack_size=?, sku=?, barcode=?, image=?, stock=?, category=?, subcategory=?, category_id=?, expiry_date=?, default_discount=?, discount_type=?, is_active=?
        WHERE id=?`,
       [
         body.name,
@@ -817,6 +818,7 @@ app.put('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
         body.base_unit || body.uom || 'pcs',
         body.uom_type || 'selling',
         Number(body.conversion_factor || 1),
+        body.purchase_pack_size ?? null,
         body.sku,
         body.barcode,
         body.image,

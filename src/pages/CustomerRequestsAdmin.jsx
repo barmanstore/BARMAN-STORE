@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '../services/api';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import './CustomerRequestsAdmin.css';
 
 const recommendationStatuses = ['open', 'reviewed', 'fulfilled', 'rejected'];
@@ -221,35 +222,36 @@ function CustomerRequestsAdmin() {
 
   return (
     <div className="customer-requests-admin">
-      <div className="customer-requests-header">
-        <div>
-          <h1>Customer Requests</h1>
-          <p className="customer-requests-subtitle">Resolved and rejected requests are auto-deleted after retention period.</p>
-        </div>
-        <div className="view-switch">
-          <button
-            type="button"
-            className={activeView === 'recommendations' ? 'active' : ''}
-            onClick={() => setActiveView('recommendations')}
-          >
-            Product Requests
-          </button>
-          <button
-            type="button"
-            className={activeView === 'issues' ? 'active' : ''}
-            onClick={() => setActiveView('issues')}
-          >
-            Credit Issues
-          </button>
-          <button
-            type="button"
-            className={activeView === 'phone-updates' ? 'active' : ''}
-            onClick={() => setActiveView('phone-updates')}
-          >
-            Phone Updates
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        className="customer-requests-header"
+        title="Customer Requests"
+        subtitle="Resolved and rejected requests are auto-deleted after retention period."
+        actions={(
+          <div className="view-switch">
+            <button
+              type="button"
+              className={activeView === 'recommendations' ? 'active' : ''}
+              onClick={() => setActiveView('recommendations')}
+            >
+              Product Requests
+            </button>
+            <button
+              type="button"
+              className={activeView === 'issues' ? 'active' : ''}
+              onClick={() => setActiveView('issues')}
+            >
+              Credit Issues
+            </button>
+            <button
+              type="button"
+              className={activeView === 'phone-updates' ? 'active' : ''}
+              onClick={() => setActiveView('phone-updates')}
+            >
+              Phone Updates
+            </button>
+          </div>
+        )}
+      />
 
       {error ? <div className="customer-requests-error">{error}</div> : null}
       {loading ? <div className="customer-requests-loading">Loading...</div> : null}

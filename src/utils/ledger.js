@@ -17,7 +17,7 @@ export const getLedgerTypeLabel = (entry) => {
   return type ? type.charAt(0).toUpperCase() + type.slice(1) : '-';
 };
 
-export const getLedgerEntryTimestamp = (entry, fields = ['transaction_date', 'created_at', 'date']) => {
+export const getLedgerEntryTimestamp = (entry, fields = ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']) => {
   for (const field of fields) {
     const value = entry?.[field];
     if (!value) continue;

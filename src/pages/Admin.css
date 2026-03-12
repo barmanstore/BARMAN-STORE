@@ -3,6 +3,32 @@
   min-height: 100%;
 }
 
+.admin-page.admin-shell {
+  flex-direction: column;
+  height: calc(100vh - var(--app-header-height, 80px));
+  height: calc(100dvh - var(--app-header-height, 80px));
+  min-height: calc(100vh - var(--app-header-height, 80px));
+  min-height: calc(100dvh - var(--app-header-height, 80px));
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.admin-shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.admin-shell-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .admin-mobile-topbar {
   display: none;
 }
@@ -20,6 +46,18 @@
   top: var(--app-header-height, 80px);
   align-self: flex-start;
   z-index: 30;
+}
+
+.admin-shell .admin-sidebar-shell {
+  height: 100%;
+  position: relative;
+  top: 0;
+  align-self: stretch;
+}
+
+.admin-shell .admin-sidebar-rail,
+.admin-shell .admin-sidebar-panel {
+  height: 100%;
 }
 
 .admin-sidebar-rail {
@@ -309,6 +347,12 @@
   padding: 2rem;
   background: var(--color-bg);
   min-width: 0;
+}
+
+.admin-shell .admin-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .admin-content h1 {
@@ -1979,8 +2023,13 @@ table {
     overflow-y: visible;
   }
 
-  .admin-page {
+  .admin-page:not(.admin-shell) {
     display: block;
+  }
+
+  .admin-page.admin-shell {
+    display: flex;
+    flex-direction: column;
   }
 
   .admin-sidebar-shell {
@@ -1988,7 +2037,7 @@ table {
   }
 
   .admin-mobile-topbar {
-    position: initial;
+    position: relative;
     top: 0;
     z-index: 1100;
     display: flex;

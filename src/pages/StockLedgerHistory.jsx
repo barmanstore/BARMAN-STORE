@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Filter, Download, RefreshCw, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { stockLedgerApi, productsApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
+import AdminPageHeader from '../components/admin/AdminPageHeader';
 import './StockLedgerHistory.css';
 
 function StockLedgerHistory({ user }) {
@@ -106,12 +107,15 @@ function StockLedgerHistory({ user }) {
 
   return (
     <div className="stock-ledger-history">
-      <div className="page-header">
-        <h1>Stock Ledger History</h1>
-        <button className="admin-btn" onClick={fetchLedger}>
-          <RefreshCw size={18} /> Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        className="page-header"
+        title="Stock Ledger History"
+        actions={(
+          <button className="admin-btn" onClick={fetchLedger}>
+            <RefreshCw size={18} /> Refresh
+          </button>
+        )}
+      />
 
       {/* Filters */}
       <div className="filters-section">
