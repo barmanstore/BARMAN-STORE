@@ -7,6 +7,7 @@ import {
 import { authApi, usersApi, resolveMediaSourceForDisplay } from '../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import { validateEmail } from '../utils/validation';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './Profile.css';
 
 function Profile() {
@@ -532,24 +533,27 @@ function Profile() {
 
   if (loading) {
     return (
-      <div className="profile-page">
-        <div className="loading-container">
-          <User size={40} className="spinning" />
-          <p>Loading profile...</p>
+      <MobileAccountLayout>
+        <div className="profile-page">
+          <div className="loading-container">
+            <User size={40} className="spinning" />
+            <p>Loading profile...</p>
+          </div>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-header fade-in-up">
-        <button className="back-btn" onClick={() => navigate('/')}>
-          <ArrowLeft size={20} /> Back
-        </button>
-        <h1>My Profile</h1>
-        <p>Manage your account information</p>
-      </div>
+    <MobileAccountLayout>
+      <div className="profile-page">
+        <div className="profile-header fade-in-up">
+          <button className="back-btn" onClick={() => navigate('/')}>
+            <ArrowLeft size={20} /> Back
+          </button>
+          <h1>My Profile</h1>
+          <p>Manage your account information</p>
+        </div>
 
       {/* Validation Issues Warning */}
       {validationIssues.length > 0 && (
@@ -889,6 +893,7 @@ function Profile() {
         </div>
       </div>
     </div>
+    </MobileAccountLayout>
   );
 }
 

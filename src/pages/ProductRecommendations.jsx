@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lightbulb, RefreshCw } from 'lucide-react';
 import { productRecommendationsApi } from '../services/api';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './ProductRecommendations.css';
 
 const getStoredUser = () => {
@@ -72,12 +73,13 @@ function ProductRecommendations() {
   };
 
   return (
-    <div className="recommendation-page">
-      <section className="recommendation-card">
-        <h1><Lightbulb size={18} /> Request a Product</h1>
-        <p>Tell us which product is missing. We review and update you in this list.</p>
-        {error ? <div className="recommendation-alert error">{error}</div> : null}
-        {success ? <div className="recommendation-alert success">{success}</div> : null}
+    <MobileAccountLayout>
+      <div className="recommendation-page">
+        <section className="recommendation-card">
+          <h1><Lightbulb size={18} /> Request a Product</h1>
+          <p>Tell us which product is missing. We review and update you in this list.</p>
+          {error ? <div className="recommendation-alert error">{error}</div> : null}
+          {success ? <div className="recommendation-alert success">{success}</div> : null}
         <form className="recommendation-form" onSubmit={handleSubmit}>
           <label htmlFor="requested_name">Product Name</label>
           <input
@@ -127,8 +129,9 @@ function ProductRecommendations() {
             ))}
           </div>
         )}
-      </section>
-    </div>
+        </section>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

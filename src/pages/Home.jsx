@@ -1,6 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ShoppingBag, Truck, Shield } from 'lucide-react';
+import { resolveMediaUrl } from '../services/api';
+import { productService } from '../services/productService';
+import { categoryService } from '../services/categoryService';
+import { formatCurrency } from '../utils/formatters';
+import { getProductFallbackImage } from '../utils/productImage';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './Home.css';
 import * as info from './info';
 
@@ -14,6 +20,11 @@ const getPublicFileUrl = (filename) => {
 function Home() {
   const navigate = useNavigate();
   const [heroSearch, setHeroSearch] = useState('');
+  const [categoryCards, setCategoryCards] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [recommended, setRecommended] = useState([]);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
   const logoImage = getPublicFileUrl(info.LOGO_URL || 'logo.png');
 
   const handleHeroSearch = (event) => {
@@ -26,10 +37,76 @@ function Home() {
     navigate('/products');
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadSections = async () => {
+      try {
+        const [categoriesData, newestData, stockData] = await Promise.all([
+          categoryService.list(),
+          productService.list({ page_size: 24, sort: 'newest' }),
+          productService.list({ page_size: 16, sort: 'stock-desc', in_stock: 'true' }),
+        ]);
+        if (cancelled) return;
+        const categories = Array.isArray(categoriesData) ? categoriesData : [];
+        const newestItems = Array.isArray(newestData) ? newestData : (newestData?.items || []);
+        const stockItems = Array.isArray(stockData) ? stockData : (stockData?.items || []);
+        const topCategories = categories.slice(0, 8);
+        const dealItems = newestItems.filter((item) => Number(item?.mrp || 0) > Number(item?.price || 0)).slice(0, 8);
+        const recommendedItems = newestItems.filter((item) => Number(item?.mrp || 0) <= Number(item?.price || 0)).slice(0, 8);
+        setCategoryCards(topCategories);
+        setBestSellers(stockItems.slice(0, 8));
+        setDeals(dealItems);
+        setRecommended(recommendedItems);
+      } catch (_) {
+        if (cancelled) return;
+        setCategoryCards([]);
+        setBestSellers([]);
+        setDeals([]);
+        setRecommended([]);
+      } finally {
+        if (!cancelled) setSectionsLoading(false);
+      }
+    };
+    loadSections();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const getProductCardImage = (product) => {
+    const resolved = resolveMediaUrl(product?.image);
+    return resolved || getProductFallbackImage(product);
+  };
+
+  const ProductPreviewCard = ({ product }) => {
+    const name = String(product?.name || '').trim() || 'Product';
+    const content = String(product?.content || product?.uom || '').trim();
+    const price = Number(product?.price || 0);
+    const mrp = Math.max(price, Number(product?.mrp || 0));
+    const hasDiscount = mrp > price;
+    return (
+      <Link to={`/products?q=${encodeURIComponent(name)}`} className="home-product-card">
+        <div className="home-product-image">
+          {hasDiscount ? <span className="home-discount-badge">{Math.round(((mrp - price) / mrp) * 100)}% OFF</span> : null}
+          <img src={getProductCardImage(product)} alt={name} loading="lazy" />
+        </div>
+        <div className="home-product-body">
+          <h3>{name}</h3>
+          {content ? <p className="home-product-meta">{content}</p> : null}
+          <div className="home-product-price">
+            <strong>{formatCurrency(price)}</strong>
+            {hasDiscount ? <span className="home-product-mrp">{formatCurrency(mrp)}</span> : null}
+          </div>
+        </div>
+      </Link>
+    );
+  };
+
   return (
-    <div className="home">
-      {/* Hero Section */}
-      <section className="hero">
+    <MobileAccountLayout>
+      <div className="home">
+        {/* Hero Section */}
+        <section className="hero">
         <div className="hero-content fade-in-up">
           <div className="hero-logo-wrap" aria-hidden="true">
             <img src={logoImage} alt="" className="hero-logo-image" />
@@ -86,6 +163,65 @@ function Home() {
         </div>
       </section>
 
+      <section className="home-section category-section">
+        <div className="section-header">
+          <h2>Shop by Category</h2>
+          <p>Quick picks to jump into your daily essentials.</p>
+        </div>
+        {sectionsLoading && categoryCards.length === 0 ? (
+          <div className="section-placeholder">Loading categories...</div>
+        ) : (
+          <div className="category-grid">
+            {categoryCards.map((category) => (
+              <Link
+                key={category.id}
+                to={`/products?category=${encodeURIComponent(category.name)}`}
+                className="category-card"
+              >
+                <span className="category-icon">{category.icon || '🛒'}</span>
+                <span className="category-name">{category.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="home-section product-rail">
+        <div className="section-header">
+          <h2>Best Sellers</h2>
+          <p>Popular picks customers restock every week.</p>
+        </div>
+        <div className="home-product-grid">
+          {bestSellers.map((product) => (
+            <ProductPreviewCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      <section className="home-section product-rail deals-section">
+        <div className="section-header">
+          <h2>Today&apos;s Deals</h2>
+          <p>Limited-time savings across pantry staples.</p>
+        </div>
+        <div className="home-product-grid">
+          {deals.map((product) => (
+            <ProductPreviewCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      <section className="home-section product-rail">
+        <div className="section-header">
+          <h2>Recommended for You</h2>
+          <p>Fresh arrivals curated for quick baskets.</p>
+        </div>
+        <div className="home-product-grid">
+          {recommended.map((product) => (
+            <ProductPreviewCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="features">
         <div className="feature-card slide-in-left" style={{ animationDelay: '0.1s' }}>
@@ -127,8 +263,9 @@ function Home() {
             Start Shopping
           </Link>
         </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

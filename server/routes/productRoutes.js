@@ -1089,7 +1089,7 @@ app.post('/api/products/import/preview', requireAdmin, async (req, res) => {
       if (rowErrors.length) {
         errors += 1;
         preview.push({ row: rowNo, action, status: 'error', errors: rowErrors, matched_product_id: existing?.id || null });
-        return;
+        continue;
       }
 
       if (matchedId) seenInBatch.productIds.set(matchedId, rowNo);

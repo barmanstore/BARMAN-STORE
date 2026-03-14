@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { ordersApi } from '../services/api';
 import { formatCurrency, formatDate as formatDateValue } from '../utils/formatters';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './OrderHistory.css';
 
 const formatDate = (dateString) => {
@@ -173,7 +174,7 @@ function EmptyOrdersState({ hasActiveFilters, onStartShopping }) {
   );
 }
 
-function OrderCard({ order, index, onViewOrder }) {
+function OrderCard({ order, index, onViewOrder, onRepeatOrder, repeatDisabled }) {
   const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
 
@@ -231,6 +232,10 @@ function OrderCard({ order, index, onViewOrder }) {
           <button className="view-btn" onClick={onViewOrder}>
             <Eye size={16} />
             View Details
+          </button>
+          <button className="reorder-btn" onClick={onRepeatOrder} disabled={repeatDisabled}>
+            <RotateCcw size={16} />
+            Reorder
           </button>
         </div>
       </div>
@@ -374,6 +379,25 @@ function OrderHistory() {
     }
   };
 
+  const handleRepeatOrder = (order) => {
+    if (!order) return;
+    const repeatCart = buildRepeatCartFromOrder(order).filter((item) => String(item?.name || '').trim());
+    if (repeatCart.length === 0) {
+      setRepeatMessage('This order has no repeatable items.');
+      return;
+    }
+    try {
+      setRepeatLoading(true);
+      localStorage.setItem('barman_cart', JSON.stringify(repeatCart));
+      setRepeatMessage(`Added ${repeatCart.length} items from ${order.order_number || `#${order.id}`}.`);
+      navigate('/cart');
+    } catch (_) {
+      setRepeatMessage('Unable to repeat this order right now.');
+    } finally {
+      setRepeatLoading(false);
+    }
+  };
+
   const handleExportOrders = () => {
     const rows = filteredOrders.map((order) => ({
       order_number: order.order_number || `#${order.id}`,
@@ -426,36 +450,41 @@ function OrderHistory() {
 
   if (loading) {
     return (
-      <div className="order-history-page">
-        <div className="loading-container">
-          <RotateCcw size={40} className="spinning" />
-          <p>Loading your orders...</p>
+      <MobileAccountLayout>
+        <div className="order-history-page">
+          <div className="loading-container">
+            <RotateCcw size={40} className="spinning" />
+            <p>Loading your orders...</p>
+          </div>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="order-history-page">
-        <div className="error-container">
-          <Package size={60} />
-          <h2>Unable to Load Orders</h2>
-          <p>{error}</p>
-          <button onClick={loadOrders}>Try Again</button>
+      <MobileAccountLayout>
+        <div className="order-history-page">
+          <div className="error-container">
+            <Package size={60} />
+            <h2>Unable to Load Orders</h2>
+            <p>{error}</p>
+            <button onClick={loadOrders}>Try Again</button>
+          </div>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   return (
-    <div className="order-history-page">
-      <HistoryHeader
-        latestOrder={latestOrder}
-        onRepeatLastOrder={handleRepeatLastOrder}
-        repeatLoading={repeatLoading}
-        repeatMessage={repeatMessage}
-      />
+    <MobileAccountLayout>
+      <div className="order-history-page">
+        <HistoryHeader
+          latestOrder={latestOrder}
+          onRepeatLastOrder={handleRepeatLastOrder}
+          repeatLoading={repeatLoading}
+          repeatMessage={repeatMessage}
+        />
       <OrderFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -477,18 +506,21 @@ function OrderHistory() {
         />
       ) : (
         <div className="orders-list">
-          {filteredOrders.map((order, index) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              index={index}
-              onViewOrder={() => handleViewOrder(order.id)}
-            />
-          ))}
+            {filteredOrders.map((order, index) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                index={index}
+                onViewOrder={() => handleViewOrder(order.id)}
+                onRepeatOrder={() => handleRepeatOrder(order)}
+                repeatDisabled={repeatLoading}
+              />
+            ))}
         </div>
-      )}
-      {orders.length > 0 && <ExportSection onExport={handleExportOrders} />}
-    </div>
+        )}
+        {orders.length > 0 && <ExportSection onExport={handleExportOrders} />}
+      </div>
+    </MobileAccountLayout>
   );
 }
 

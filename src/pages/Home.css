@@ -884,3 +884,176 @@
     opacity: 1;
   }
 }
+
+/* Grocery homepage sections */
+.home .home-section {
+  margin: 2.5rem 0;
+}
+
+.home .section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.home .section-header h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  margin: 0;
+  color: var(--color-primary);
+}
+
+.home .section-header p {
+  margin: 0;
+  color: var(--color-text);
+  opacity: 0.8;
+  font-size: 0.95rem;
+}
+
+.home .section-placeholder {
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.home .category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+.home .category-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.8rem 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  text-decoration: none;
+  color: var(--color-primary);
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home .category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+}
+
+.home .category-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 175, 55, 0.2);
+  font-size: 1.4rem;
+}
+
+.home .home-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+.home .home-product-card {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #fff;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home .home-product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.14);
+}
+
+.home .home-product-image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.home .home-product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home .home-discount-badge {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  background: #dc2626;
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.home .home-product-body {
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.home .home-product-body h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.home .home-product-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text);
+  opacity: 0.7;
+}
+
+.home .home-product-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.home .home-product-price strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.home .home-product-mrp {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-decoration: line-through;
+}
+
+@media (max-width: 768px) {
+  .home .home-section {
+    margin: 2rem 0;
+  }
+
+  .home .category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home .home-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,7 @@
+@media (max-width: 768px) {
+  .mobile-account-layout {
+    min-height: 100vh;
+    background: #f4f8f2;
+    padding-bottom: 5.2rem;
+  }
+}

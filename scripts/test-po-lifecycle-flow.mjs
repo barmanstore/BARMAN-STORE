@@ -5,6 +5,18 @@ import pg from 'pg';
 import '../server/loadEnv.js';
 
 const { Pool } = pg;
+const allowSkipIfNoDb = ['1', 'true', 'yes', 'on'].includes(String(process.env.SMOKE_ALLOW_NO_DB || '').trim().toLowerCase());
+const hasDbEnv = Boolean(
+  process.env.SUPABASE_DB_URL
+  || process.env.DATABASE_URL
+  || process.env.POSTGRES_DB_URL
+  || process.env.POSTGRES_URL
+  || process.env.POSTGRES_PRISMA_URL
+  || process.env.PG_CONNECTION_STRING
+  || process.env.PGHOST
+  || process.env.PG_HOST
+  || process.env.POSTGRES_HOST
+);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -76,6 +88,12 @@ const main = async () => {
   let createdDistributorId = 0;
   let createdPoId = 0;
   try {
+    if (allowSkipIfNoDb && !hasDbEnv) {
+      console.warn('[WARN] PO lifecycle smoke test skipped because no database configuration is set.');
+      console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+      return;
+    }
+
     let ready = false;
     for (let i = 0; i < 180; i += 1) {
       try {
@@ -89,11 +107,28 @@ const main = async () => {
       }
       await delay(250);
     }
-    assert.equal(ready, true, `Server did not start in time. stderr:\n${stderr}\nstdout:\n${stdout}`);
+    if (!ready) {
+      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(stderr);
+      if (allowSkipIfNoDb && dbBootFailed) {
+        console.warn('[WARN] PO lifecycle smoke test skipped because the database is unavailable.');
+        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+        return;
+      }
+      assert.equal(ready, true, `Server did not start in time. stderr:\n${stderr}\nstdout:\n${stdout}`);
+    }
 
-    const dbUrl = String(process.env.SUPABASE_DB_URL || process.env.POSTGRES_DB_URL || '').trim();
-    assert.equal(Boolean(dbUrl), true, 'SUPABASE_DB_URL is required for PO lifecycle smoke test');
-    pool = new Pool({ connectionString: dbUrl });
+    const dbUrl = String(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || process.env.POSTGRES_DB_URL || '').trim();
+    pool = dbUrl ? new Pool({ connectionString: dbUrl }) : new Pool();
+    try {
+      await pool.query('SELECT 1 AS ok');
+    } catch (error) {
+      if (allowSkipIfNoDb) {
+        console.warn('[WARN] PO lifecycle smoke test skipped because the database is unavailable.');
+        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+        return;
+      }
+      throw error;
+    }
 
     const adminRow = await pool.query(`SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`);
     let adminId = Number(adminRow.rows?.[0]?.id || 0);

@@ -33,6 +33,7 @@ if exist node_modules echo [OK] node_modules exists
 echo [2/5] Syntax check server/index.js...
 node --check server/index.js || goto fail_step
 echo [3/5] Running phone workflow smoke test...
+call :ensure_db_env
 call npm run test:phone || goto fail_step
 echo [4/5] Running order+billing workflow smoke test...
 call npm run test:order-flow || goto fail_step
@@ -57,6 +58,7 @@ node --check server/index.js || goto fail_step
 echo [3/8] Syntax check server/supabaseAuthProvider.js...
 node --check server/supabaseAuthProvider.js || goto fail_step
 echo [4/8] Running phone workflow smoke test...
+call :ensure_db_env
 call npm run test:phone || goto fail_step
 echo [5/8] Running order+billing workflow smoke test...
 call npm run test:order-flow || goto fail_step
@@ -92,6 +94,47 @@ echo.
 echo quick: install (if needed), syntax check, smoke tests
 echo full : quick + secret scan + production build
 goto fail
+
+:ensure_db_env
+set "HAS_DB_ENV="
+if defined SUPABASE_DB_URL set "HAS_DB_ENV=1"
+if defined DATABASE_URL set "HAS_DB_ENV=1"
+if defined POSTGRES_URL set "HAS_DB_ENV=1"
+if defined POSTGRES_PRISMA_URL set "HAS_DB_ENV=1"
+if defined PG_CONNECTION_STRING set "HAS_DB_ENV=1"
+if defined PGHOST set "HAS_DB_ENV=1"
+if defined PG_HOST set "HAS_DB_ENV=1"
+if defined POSTGRES_HOST set "HAS_DB_ENV=1"
+if defined HAS_DB_ENV goto :eof
+
+if /i "%SUPABASE_AUTO_START%"=="1" call :start_supabase
+
+set "HAS_DB_ENV="
+if defined SUPABASE_DB_URL set "HAS_DB_ENV=1"
+if defined DATABASE_URL set "HAS_DB_ENV=1"
+if defined POSTGRES_URL set "HAS_DB_ENV=1"
+if defined POSTGRES_PRISMA_URL set "HAS_DB_ENV=1"
+if defined PG_CONNECTION_STRING set "HAS_DB_ENV=1"
+if defined PGHOST set "HAS_DB_ENV=1"
+if defined PG_HOST set "HAS_DB_ENV=1"
+if defined POSTGRES_HOST set "HAS_DB_ENV=1"
+if defined HAS_DB_ENV goto :eof
+
+echo [WARN] No database connection configured. Set SUPABASE_DB_URL/DATABASE_URL or run with SUPABASE_AUTO_START=1.
+echo [WARN] Phone workflow smoke test will be skipped if the DB is unavailable.
+set "PHONE_TEST_ALLOW_NO_DB=1"
+set "SMOKE_ALLOW_NO_DB=1"
+goto :eof
+
+:start_supabase
+where supabase >nul 2>&1
+if errorlevel 1 (
+  echo [WARN] Supabase CLI not found in PATH. Skipping auto-start.
+  goto :eof
+)
+echo [INFO] Starting local Supabase (supabase start)...
+call supabase start
+goto :eof
 
 :fail_step
 echo [ERROR] Health check failed.

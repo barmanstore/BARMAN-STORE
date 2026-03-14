@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, Receipt, RefreshCw } from 'lucide-react';
 import { billingApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './MyBills.css';
 
 const getStoredUser = () => {
@@ -22,6 +23,9 @@ function MyBills() {
   const [bills, setBills] = useState([]);
   const [selectedBill, setSelectedBill] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const downloadUrl = String(
+    selectedBill?.invoice_url || selectedBill?.pdf_url || selectedBill?.file_url || ''
+  ).trim();
 
   const totalDue = useMemo(
     () => bills.reduce((sum, bill) => sum + Number(bill.credit_amount || 0), 0),
@@ -69,18 +73,21 @@ function MyBills() {
 
   if (loading) {
     return (
-      <div className="my-bills-page">
-        <div className="my-bills-loading"><RefreshCw size={20} className="spin" /> Loading bills...</div>
-      </div>
+      <MobileAccountLayout>
+        <div className="my-bills-page">
+          <div className="my-bills-loading"><RefreshCw size={20} className="spin" /> Loading bills...</div>
+        </div>
+      </MobileAccountLayout>
     );
   }
 
   return (
-    <div className="my-bills-page">
-      <header className="my-bills-header">
-        <h1><Receipt size={18} /> My Bills</h1>
-        <p>Total due: {formatCurrency(totalDue)}</p>
-      </header>
+    <MobileAccountLayout>
+      <div className="my-bills-page">
+        <header className="my-bills-header">
+          <h1><Receipt size={18} /> My Bills</h1>
+          <p>Total due: {formatCurrency(totalDue)}</p>
+        </header>
 
       {error ? <div className="my-bills-error">{error}</div> : null}
 
@@ -126,6 +133,11 @@ function MyBills() {
                 <p>Date: {new Date(selectedBill.created_at || Date.now()).toLocaleString()}</p>
                 <p>Payment: {selectedBill.payment_method || 'cash'}</p>
                 <p>Status: {selectedBill.payment_status || 'pending'}</p>
+                {downloadUrl ? (
+                  <a className="my-bill-download" href={downloadUrl} target="_blank" rel="noreferrer">
+                    View / Download Bill
+                  </a>
+                ) : null}
                 <div className="my-bill-summary">
                   <span>Total</span>
                   <strong>{formatCurrency(Number(selectedBill.total_amount || 0))}</strong>
@@ -154,7 +166,8 @@ function MyBills() {
           </section>
         </div>
       )}
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

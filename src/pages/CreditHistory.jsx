@@ -7,6 +7,7 @@ import * as info from './info';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
 import { createPdfDoc, addAutoTable, addPdfFooterWithPagination, savePdf, safeFileName } from '../utils/pdfService';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import {
   applyCreditQuickFilters,
   getBalanceSummary,
@@ -179,6 +180,9 @@ function CreditHistory({ user }) {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [paymentBadges, setPaymentBadges] = useState([]);
+  const [paymentBadgeSummary, setPaymentBadgeSummary] = useState(null);
+  const [paymentBadgesLoading, setPaymentBadgesLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.innerWidth <= 768;
@@ -240,6 +244,21 @@ function CreditHistory({ user }) {
     setExpandedTransactionId(null);
   }, [quickTypeFilter, quickRangeFilter]);
 
+  const loadPaymentBadges = async (targetUserId = effectiveUserId) => {
+    if (!targetUserId) return;
+    try {
+      setPaymentBadgesLoading(true);
+      const data = await creditApi.getPaymentBadges(targetUserId);
+      setPaymentBadges(Array.isArray(data?.badges) ? data.badges : []);
+      setPaymentBadgeSummary(data?.summary || null);
+    } catch (_) {
+      setPaymentBadges([]);
+      setPaymentBadgeSummary(null);
+    } finally {
+      setPaymentBadgesLoading(false);
+    }
+  };
+
   const fetchCreditData = async (targetUserId = effectiveUserId) => {
     try {
       setLoading(true);
@@ -257,6 +276,7 @@ function CreditHistory({ user }) {
       } catch (_) {
         setCreditIssues([]);
       }
+      loadPaymentBadges(targetUserId);
       return {
         history: historyData,
         balance: Number(balanceData?.balance || 0),
@@ -269,6 +289,8 @@ function CreditHistory({ user }) {
         return null;
       }
       setError(err.message || 'Failed to load credit history');
+      setPaymentBadges([]);
+      setPaymentBadgeSummary(null);
       return null;
     } finally {
       setLoading(false);
@@ -844,6 +866,9 @@ function CreditHistory({ user }) {
     lastTransaction ? getEffectiveTransactionTimestamp(lastTransaction) : 0,
     { idleDays: 30 }
   );
+  const showPaymentBadges = paymentBadgesLoading
+    || paymentBadges.length > 0
+    || Number(paymentBadgeSummary?.total_payments || 0) > 0;
   const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
   const issueFlagByEntryId = (() => {
     const map = new Map();
@@ -1139,9 +1164,11 @@ function CreditHistory({ user }) {
 
   if (loading) {
     return (
-      <div className="credit-history-page">
-        <div className="loading">Loading...</div>
-      </div>
+      <MobileAccountLayout>
+        <div className="credit-history-page">
+          <div className="loading">Loading...</div>
+        </div>
+      </MobileAccountLayout>
     );
   }
 
@@ -1160,8 +1187,9 @@ function CreditHistory({ user }) {
   const addModalActionLabel = newTransaction.type === 'payment' ? 'Payment' : 'Credit';
 
   return (
-    <div className="credit-history-page">
-      <div className="page-header">
+    <MobileAccountLayout>
+      <div className="credit-history-page">
+        <div className="page-header">
         <Link to={backHref} className="back-link">
           <ArrowLeft size={20} /> {backLabel}
         </Link>
@@ -1180,6 +1208,48 @@ function CreditHistory({ user }) {
         <span className="summary-last-line">{lastTransactionLine}</span>
         <span className="summary-trust-line">{trustLine}</span>
       </section>
+
+      {showPaymentBadges && (
+        <section className="payment-badge-panel">
+          <div className="payment-badge-header">
+            <span className="payment-badge-title">Payment Badges</span>
+            {paymentBadgeSummary?.last_payment_label ? (
+              <span className="payment-badge-meta">Last paid {paymentBadgeSummary.last_payment_label}</span>
+            ) : null}
+          </div>
+          {paymentBadgesLoading ? (
+            <div className="payment-badge-loading">Loading badges...</div>
+          ) : (
+            paymentBadges.length === 0 ? (
+              <div className="payment-badge-empty">No badges yet. Pay quickly to start earning your score.</div>
+            ) : (
+              <>
+                <div className="payment-badge-list">
+                  {paymentBadges.map((badge) => (
+                    <span
+                      key={badge.id || badge.label}
+                      className={`payment-badge-chip ${badge.tone || 'neutral'}`}
+                      title={badge.description || badge.label}
+                    >
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
+                {paymentBadgeSummary?.summary_line ? (
+                  <div className="payment-badge-summary">{paymentBadgeSummary.summary_line}</div>
+                ) : null}
+              </>
+            )
+          )}
+          <div className="payment-badge-rules">
+            <div><strong>How it works:</strong></div>
+            <div>Gold Score: Balance cleared and paid within 7 days.</div>
+            <div>Silver Score: 2+ payments in 60 days.</div>
+            <div>Bronze Score: Any payment in 90 days.</div>
+            <div>Streak Star: Pay every month for 6+ months.</div>
+          </div>
+        </section>
+      )}
 
       {inactivityHint && (
         <div className="inactivity-hint">{inactivityHint}</div>
@@ -1542,12 +1612,12 @@ function CreditHistory({ user }) {
                           </header>
 
                           <div className="tile-meta-row">
-                            <span>{formatTransactionDate(transaction, { long: true })}</span>
+                            <span>{formatTransactionDate(transaction, { long: false })}</span>
                             <span>Invoice: {transaction.invoice_number || '-'}</span>
                           </div>
 
                           <div className="tile-description">
-                            {truncateCreditDescription(description || 'No description', 52)}
+                            {truncateCreditDescription(description || 'No description', 44)}
                           </div>
 
                           <div className="tile-footer-row">
@@ -2004,7 +2074,8 @@ function CreditHistory({ user }) {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

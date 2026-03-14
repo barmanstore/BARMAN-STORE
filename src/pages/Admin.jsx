@@ -57,6 +57,7 @@ const PRODUCT_TABLE_COLUMN_OPTIONS = [
   { key: 'status', label: 'Status' },
   { key: 'description', label: 'Description' },
   { key: 'content', label: 'Content' },
+  { key: 'purchase_pack_size', label: 'Pack Size' },
   { key: 'color', label: 'Color' },
   { key: 'uom', label: 'UOM' },
   { key: 'expiry', label: 'Expiry' },
@@ -81,6 +82,7 @@ const PRODUCT_TABLE_COLUMN_MIN_WIDTH = {
   status: 70,
   description: 150,
   content: 80,
+  purchase_pack_size: 90,
   color: 70,
   uom: 55,
   expiry: 90,
@@ -298,6 +300,7 @@ function Admin({ user }) {
     description: '',
     brand: '',
     content: '',
+    purchase_pack_size: '',
     color: '',
     category: '',
     sku: '',
@@ -320,6 +323,7 @@ function Admin({ user }) {
   const [importBusy, setImportBusy] = useState(false);
   const importFileInputRef = useRef(null);
   const tableEditFieldRefs = useRef({});
+  const productColumnPickerRef = useRef(null);
   const latestKnownOrderIdRef = useRef(0);
   const tabGroupMap = {
     dashboard: 'general',
@@ -359,6 +363,22 @@ function Admin({ user }) {
   });
 
   useLockBodyScroll(isMobileSidebarOpen);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const handleOutsideClick = (event) => {
+      const node = productColumnPickerRef.current;
+      if (!node || !node.hasAttribute('open')) return;
+      if (node.contains(event.target)) return;
+      node.removeAttribute('open');
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, []);
 
   const refreshAdminData = async () => {
     const [statsData, productsData, ordersData, usersData, analyticsData] = await Promise.all([
@@ -995,6 +1015,7 @@ function Admin({ user }) {
           product.sub_brand,
           product.brand_path,
           product.content,
+          product.purchase_pack_size,
           product.color,
           getCategoryPath(product),
           product.subcategory,
@@ -1045,6 +1066,8 @@ function Admin({ user }) {
           return asNumber(product.stock, 0);
         case 'defaultDiscount':
           return asNumber(product.defaultDiscount, 0);
+        case 'purchase_pack_size':
+          return asNumber(product.purchase_pack_size, 0);
         case 'is_active':
           return Number(product.is_active ?? 1);
         case 'created_at':
@@ -1150,6 +1173,7 @@ function Admin({ user }) {
       description: product.description || '',
       brand: getBrandPath(product),
       content: product.content || '',
+      purchase_pack_size: String(product.purchase_pack_size ?? ''),
       color: product.color || '',
       category: getCategoryPath(product),
       sku: product.sku || '',
@@ -1188,11 +1212,14 @@ function Admin({ user }) {
   };
 
   const handleTableEditSave = async (product) => {
+    const packSizeRaw = String(tableEditForm.purchase_pack_size || '').trim();
+    const packSizeValue = packSizeRaw === '' ? null : asNumber(packSizeRaw, 0);
     const payload = {
       name: String(tableEditForm.name || '').trim(),
       description: String(tableEditForm.description || '').trim(),
       brand: String(tableEditForm.brand || '').trim(),
       content: String(tableEditForm.content || '').trim(),
+      purchase_pack_size: packSizeValue,
       color: String(tableEditForm.color || '').trim(),
       category: String(tableEditForm.category || '').trim(),
       sku: String(tableEditForm.sku || '').trim(),
@@ -2160,7 +2187,7 @@ function Admin({ user }) {
                       <option key={`filter-${category}`} value={category}>{category}</option>
                     ))}
                   </select>
-                  <details className="products-column-picker">
+                  <details className="products-column-picker" ref={productColumnPickerRef}>
                     <summary>Columns ({productTableVisibleColumns.length}/{PRODUCT_TABLE_ALL_COLUMN_KEYS.length})</summary>
                     <div className="products-column-picker-panel">
                       <label className="products-column-option products-column-option-all">
@@ -2276,6 +2303,7 @@ function Admin({ user }) {
                         {isProductTableColumnVisible('status') ? <th className="sortable col-status" onClick={() => toggleProductTableSort('is_active')}>Status{getSortIndicator('is_active')}</th> : null}
                         {isProductTableColumnVisible('description') ? <th className="col-description">Description</th> : null}
                         {isProductTableColumnVisible('content') ? <th className="col-content">Content</th> : null}
+                        {isProductTableColumnVisible('purchase_pack_size') ? <th className="sortable col-pack" onClick={() => toggleProductTableSort('purchase_pack_size')}>Pack Size{getSortIndicator('purchase_pack_size')}</th> : null}
                         {isProductTableColumnVisible('color') ? <th className="col-color">Color</th> : null}
                         {isProductTableColumnVisible('uom') ? <th className="col-uom">UOM</th> : null}
                         {isProductTableColumnVisible('expiry') ? <th className="col-expiry">Expiry</th> : null}
@@ -2389,6 +2417,25 @@ function Admin({ user }) {
                                   <input id={`table-edit-content-${product.id}`} ref={setTableEditFieldRef('content')} className="table-edit-input" name="table_edit_content" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} />
                                 ) : (
                                   <span className="cell-truncate" title={product.content || '-'}>{product.content || '-'}</span>
+                                )}
+                              </td>
+                            ) : null}
+                            {isProductTableColumnVisible('purchase_pack_size') ? (
+                              <td className={cellClassName('col-pack')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'purchase_pack_size') : undefined}>
+                                {isEditingRow ? (
+                                  <input
+                                    id={`table-edit-pack-size-${product.id}`}
+                                    ref={setTableEditFieldRef('purchase_pack_size')}
+                                    className="table-edit-input"
+                                    name="table_edit_purchase_pack_size"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={tableEditForm.purchase_pack_size}
+                                    onChange={(e) => handleTableEditChange('purchase_pack_size', e.target.value)}
+                                  />
+                                ) : (
+                                  <span className="cell-truncate" title={product.purchase_pack_size ?? '-'}>{product.purchase_pack_size ?? '-'}</span>
                                 )}
                               </td>
                             ) : null}

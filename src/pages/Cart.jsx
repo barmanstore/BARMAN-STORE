@@ -4,6 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
 import { productRecommendationsApi, productsApi } from '../services/api';
 import { getProductImageSrc } from '../utils/productImage';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './Cart.css';
 
 const formatCurrencyColored = (amount) => {
@@ -479,28 +480,31 @@ function Cart({ cartCount, setCartCount }) {
 
   if (cart.length === 0) {
     return (
-      <div className="empty-cart fade-in-up">
-        <div className="empty-cart-icon">
-          <ShoppingBag size={80} />
+      <MobileAccountLayout>
+        <div className="empty-cart fade-in-up">
+          <div className="empty-cart-icon">
+            <ShoppingBag size={80} />
+          </div>
+          <h2>Your cart is empty</h2>
+          <p>Add products or manual requested items to start your order.</p>
+          {renderManualEntryCard()}
+          <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
+            Continue Shopping
+          </button>
         </div>
-        <h2>Your cart is empty</h2>
-        <p>Add products or manual requested items to start your order.</p>
-        {renderManualEntryCard()}
-        <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
-          Continue Shopping
-        </button>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   const hasUnknownPriceItems = cart.some((item) => isUnknownPriceItem(item));
 
   return (
-    <div className="cart-page">
-      <div className="cart-header fade-in-up">
-        <h1>Shopping Cart</h1>
-        <p>{cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart</p>
-      </div>
+    <MobileAccountLayout>
+      <div className="cart-page">
+        <div className="cart-header fade-in-up">
+          <h1>Shopping Cart</h1>
+          <p>{cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart</p>
+        </div>
 
       <div className="cart-content">
         <div className="cart-items">
@@ -625,7 +629,8 @@ function Cart({ cartCount, setCartCount }) {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

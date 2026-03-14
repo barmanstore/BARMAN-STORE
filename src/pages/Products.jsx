@@ -1,11 +1,17 @@
-import { memo, useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, useLayoutEffect, startTransition } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles, X } from 'lucide-react';
-import { analyticsApi, productsApi, categoriesApi, resolveMediaSourceForDisplay, resolveMediaUrl } from '../services/api';
+import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, useLayoutEffect, startTransition } from 'react';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles, X, User } from 'lucide-react';
+import Fuse from 'fuse.js';
+import { analyticsApi, resolveMediaSourceForDisplay, resolveMediaUrl } from '../services/api';
+import { productService } from '../services/productService';
+import { categoryService } from '../services/categoryService';
 import { getProductImageSrc, getProductFallbackImage } from '../utils/productImage';
 import { formatCurrency, getSignedCurrencyClassName } from '../utils/formatters';
 import useIsMobile from '../hooks/useIsMobile';
 import MobileBottomSheet from '../components/mobile/MobileBottomSheet';
+import MobileFooter from '../components/mobile/MobileFooter';
+import ProductCard from '../components/product/ProductCard';
+import * as info from './info.js';
 import './Products.css';
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
@@ -21,6 +27,12 @@ const GROUP_BY_OPTIONS = {
   brand: 'brand'
 };
 const LOGO_DEV_TOKEN = String(import.meta.env.VITE_LOGO_DEV_TOKEN || '').trim();
+const getPublicFileUrl = (filename) => {
+  const base = String(import.meta.env.BASE_URL || '/');
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanFile = String(filename || '').replace(/^\/+/, '');
+  return `${normalizedBase}${cleanFile}`;
+};
 const PRODUCTS_AUTOLOAD_ROOT_MARGIN = '720px 0px';
 const ABOVE_FOLD_EAGER_IMAGE_COUNT = {
   mobile: 4,
@@ -31,6 +43,11 @@ const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc
 const SORT_API_FALLBACK = {
   popular: 'relevance'
 };
+const MOBILE_TAB_OPTIONS = [
+  { key: 'order-again', label: 'Order Again' },
+  { key: 'best-prices', label: 'Best Prices' },
+  { key: 'trending', label: 'Trending Now' },
+];
 const PRODUCTS_TELEMETRY_SESSION_KEY = 'barman_products_session_v1';
 const PRODUCTS_AB_VARIANT_KEY = 'barman_products_ab_variant_v1';
 const PRODUCTS_LIST_CACHE_PREFIX = 'barman_products_page_cache_v1';
@@ -97,15 +114,6 @@ const tokenFuzzyMatch = (queryToken, targetToken) => {
 const formatCurrencyColored = (amount) => {
   const formatted = formatCurrency(Math.abs(amount));
   return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
-};
-
-const formatPriceTag = (value) => {
-  const amount = Number(value || 0);
-  if (!Number.isFinite(amount) || amount <= 0) return '0/';
-  const normalized = Number.isInteger(amount)
-    ? String(amount)
-    : String(Number(amount.toFixed(2))).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
-  return `${normalized}/`;
 };
 
 const getCachedResolvedMediaSource = (value) => {
@@ -255,6 +263,23 @@ const safeReadJson = (key, fallback) => {
   } catch (_) {
     return fallback;
   }
+};
+
+const getInitials = (name) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '?';
+  return trimmed
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+};
+
+const readLocalUser = () => {
+  if (typeof window === 'undefined') return null;
+  return safeReadJson('user', null);
 };
 
 const safeWriteJson = (key, value) => {
@@ -763,195 +788,6 @@ function ProductDetailView({
   );
 }
 
-const FamilyProductCard = memo(function FamilyProductCard({
-  family,
-  cardState,
-  variant = 'default',
-  isAddedState = false,
-  animationDelay = '0s',
-  onOpenDetails,
-  onAdd,
-  onDecrease,
-  detailContent = null,
-  onTouchStart,
-  onTouchEnd,
-  showMetaLine = true,
-  showSwipeHint = false,
-  imageLoading = 'lazy',
-  imageFetchPriority = 'auto'
-}) {
-  const {
-    selectedVariation,
-    previewVariation,
-    hasMultipleVariations,
-    optionCount,
-    familyLowStock,
-    selectedStock,
-    selectedQty,
-    familyCartQty,
-    selectedLabel,
-    previewLabels,
-    priceValue,
-    mrpValue,
-    hasDiscount,
-    discountPercent,
-    savingsValue,
-    showFromPrice,
-    minPrice,
-    stockTone,
-    stockText,
-    stockHint,
-    metaLine,
-    uomLabel,
-    stockActionLabel
-  } = cardState;
-
-  if (!selectedVariation) return null;
-
-  const detailLabel = hasMultipleVariations ? `Options (${optionCount})` : 'Details';
-
-  return (
-    <article
-      className={`product-card family-card fade-in-up glass-product-card glass-product-card--${variant} ${familyLowStock ? 'low-stock-card' : 'high-stock-card'} ${isAddedState ? 'is-added' : ''}`}
-      style={{ animationDelay }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      <button
-        type="button"
-        className="product-card-hero"
-        onClick={onOpenDetails}
-        aria-label={`View ${family.name}`}
-      >
-        <div className="glass-oval-frame">
-          <div className="glass-oval-frame-inner">
-            <SafeProductImage
-              src={previewVariation?.image}
-              alt={family.name}
-              className="glass-product-image"
-              loading={imageLoading}
-              fetchPriority={imageFetchPriority}
-              fallbackProduct={previewVariation?.raw || selectedVariation.raw}
-              width={variant === 'compact' ? 288 : 320}
-              height={variant === 'compact' ? 224 : 280}
-            />
-          </div>
-          <div className="glass-frame-sheen" aria-hidden="true" />
-        </div>
-        <div className="card-badges">
-          <span className="price-corner-tag">{formatPriceTag(priceValue)}</span>
-          {hasMultipleVariations ? (
-            <span className="card-option-pill">{optionCount} options</span>
-          ) : null}
-          {hasDiscount ? (
-            <span className="card-discount-pill">{Math.max(1, discountPercent)}% OFF</span>
-          ) : null}
-        </div>
-      </button>
-
-      <div className="product-card-body">
-        <div className="product-card-copy">
-          <div className="product-title-row">
-            <h3 className="product-name">{family.name}</h3>
-            {isAddedState ? <span className="card-added-pill">Added</span> : null}
-          </div>
-
-          {showMetaLine && metaLine ? <p className="product-meta-line">{metaLine}</p> : null}
-
-          <button
-            type="button"
-            className={`card-variation-chip ${hasMultipleVariations ? 'has-options' : 'single-option'}`}
-            onClick={onOpenDetails}
-          >
-            <span>{selectedLabel}</span>
-            {hasMultipleVariations ? <strong>Change</strong> : null}
-          </button>
-
-          {previewLabels.length > 1 ? (
-            <div className="product-variation-preview">
-              {previewLabels.map((label, index) => (
-                <span key={`${family.id}-preview-${index}`} className="variation-preview-tag">{label}</span>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="product-price-line glass-price-line">
-            <strong>{formatCurrencyColored(priceValue)}</strong>
-            <small>/ {uomLabel || 'pcs'}</small>
-          </div>
-
-          {hasDiscount ? (
-            <div className="card-price-meta">
-              <small className="mrp-price">MRP {formatCurrency(mrpValue)}</small>
-              <small className="save-price">Save {formatCurrency(savingsValue)}</small>
-            </div>
-          ) : null}
-
-          {showFromPrice ? (
-            <small className="card-from-price">From {formatCurrency(minPrice)}</small>
-          ) : null}
-        </div>
-
-        <div className="product-footer compact card-footer-stack">
-          <div className="product-stock">
-            <span className={stockTone}>{stockText}</span>
-            <small className="cart-qty-indicator">
-              {familyCartQty > 0 ? `Cart ${familyCartQty}` : stockHint}
-            </small>
-          </div>
-
-          <div className="card-action-row">
-            <button
-              type="button"
-              className="card-view-btn"
-              onClick={onOpenDetails}
-            >
-              {detailLabel}
-            </button>
-
-            {selectedQty > 0 ? (
-              <div className="card-qty-counter">
-                <button
-                  type="button"
-                  className="qty-step-btn"
-                  onClick={() => onDecrease(selectedVariation)}
-                  aria-label={`Decrease ${family.name}`}
-                >
-                  -
-                </button>
-                <span className="qty-step-value">{selectedQty}</span>
-                <button
-                  type="button"
-                  className="qty-step-btn"
-                  onClick={() => onAdd(family, selectedVariation)}
-                  aria-label={`Increase ${family.name}`}
-                >
-                  +
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="add-to-cart-btn"
-                onClick={() => onAdd(family, selectedVariation)}
-              >
-                <Plus size={14} />
-                {selectedStock === 0 ? stockActionLabel : 'Add'}
-              </button>
-            )}
-          </div>
-
-          {showSwipeHint ? (
-            <span className="quick-add-swipe-hint">{isAddedState ? 'Added' : 'Swipe card to quick add'}</span>
-          ) : null}
-        </div>
-
-        {detailContent}
-      </div>
-    </article>
-  );
-});
-
 function VirtualizedFamilyGrid({
   families,
   renderFamilyCard,
@@ -1159,11 +995,19 @@ function VirtualizedFamilyGrid({
   );
 }
 
-function Products({ setCartCount }) {
+function Products({
+  setCartCount,
+  notifications = [],
+  unreadNotificationCount = 0,
+  onResolveNotificationHref = () => '/profile',
+  onMarkNotificationRead = () => {},
+}) {
   const isMobile = useIsMobile();
   const productsPageRef = useRef(null);
+  const mobileHeaderRef = useRef(null);
   const controlsRef = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const initialSearchQuery = String(searchParams.get('q') || '');
   const initialGroupBy = searchParams.get('group') === GROUP_BY_OPTIONS.brand
     ? GROUP_BY_OPTIONS.brand
@@ -1172,6 +1016,7 @@ function Products({ setCartCount }) {
   const [categories, setCategories] = useState([]);
   const [recentlyBought, setRecentlyBought] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
+  const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [searchInputValue, setSearchInputValue] = useState(initialSearchQuery);
   const [appliedSearchQuery, setAppliedSearchQuery] = useState(initialSearchQuery);
   const deferredAppliedSearchQuery = useDeferredValue(appliedSearchQuery);
@@ -1179,6 +1024,9 @@ function Products({ setCartCount }) {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [searchSuggestionsEnabled, setSearchSuggestionsEnabled] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [localUser, setLocalUser] = useState(() => readLocalUser());
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState('');
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(normalizeSortBy(searchParams.get('sort')));
   const [groupBy, setGroupBy] = useState(initialGroupBy);
@@ -1194,6 +1042,7 @@ function Products({ setCartCount }) {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [activeDesktopFamilyId, setActiveDesktopFamilyId] = useState(null);
   const [activeMobileFamilyId, setActiveMobileFamilyId] = useState(null);
+  const [activeMobileTab, setActiveMobileTab] = useState(MOBILE_TAB_OPTIONS[0].key);
   const [selectedVariationByFamily, setSelectedVariationByFamily] = useState({});
   const [usageHistory, setUsageHistory] = useState({});
   const [swipeAddedFamilyId, setSwipeAddedFamilyId] = useState('');
@@ -1214,8 +1063,52 @@ function Products({ setCartCount }) {
   const searchSuggestionsAbortRef = useRef(null);
   const searchInputRef = useRef(null);
   const searchSuggestionsListId = 'products-search-suggestions-list';
+  const logoImage = getPublicFileUrl(info.LOGO_URL || 'logo.png');
+  const storeTitle = String(info.TITLE || 'Store').trim() || 'Store';
   const productPageSize = getProductPageSize(isMobile);
   const serverCategoryFilter = groupBy === GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
+  const suggestionFuse = useMemo(() => {
+    if (!products.length) return null;
+    return new Fuse(products, {
+      keys: ['name', 'brand', 'category', 'subcategory', 'content', 'uom'],
+      threshold: 0.3,
+      includeScore: false,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+    });
+  }, [products]);
+
+  const getLocalSuggestions = useCallback((query) => {
+    const trimmedQuery = String(query || '').trim();
+    if (!suggestionFuse || trimmedQuery.length < SEARCH_SUGGESTIONS_MIN_CHARS) return [];
+    const results = suggestionFuse.search(trimmedQuery, {
+      limit: SEARCH_SUGGESTIONS_MAX_ITEMS * 2,
+    });
+    const items = [];
+    const seen = new Set();
+    results.forEach((result) => {
+      if (!result?.item || items.length >= SEARCH_SUGGESTIONS_MAX_ITEMS) return;
+      const item = result.item;
+      const id = Number(item.id || 0);
+      const name = String(item.name || '').trim();
+      const brand = String(item.brand || '').trim();
+      const key = id ? `id:${id}` : `${normalizeText(name)}|${normalizeText(brand)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      items.push({
+        id,
+        name: name || 'Product',
+        brand,
+        size: String(item.content || item.uom || '').trim(),
+        price: Number(item.price || 0),
+        mrp: Number(item.mrp || 0),
+        image: String(item.image || '').trim(),
+        category: String(item.category || '').trim(),
+        stock: Number(item.stock || 0),
+      });
+    });
+    return items;
+  }, [suggestionFuse]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -1241,6 +1134,86 @@ function Products({ setCartCount }) {
       if (resizeObserver) resizeObserver.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return undefined;
+    const pageNode = productsPageRef.current;
+    const headerNode = mobileHeaderRef.current;
+    if (!pageNode || !headerNode) return undefined;
+
+    const updateHeaderHeight = () => {
+      const nextHeight = Math.ceil(headerNode.getBoundingClientRect().height || 0);
+      pageNode.style.setProperty('--mobile-shop-header-height', `${Math.max(0, nextHeight)}px`);
+    };
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    let resizeObserver;
+    if (typeof window.ResizeObserver === 'function') {
+      resizeObserver = new window.ResizeObserver(() => updateHeaderHeight());
+      resizeObserver.observe(headerNode);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+      if (resizeObserver) resizeObserver.disconnect();
+      pageNode.style.removeProperty('--mobile-shop-header-height');
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (isMobile) {
+      document.body.classList.add('mobile-shop-active');
+    } else {
+      document.body.classList.remove('mobile-shop-active');
+    }
+    return () => {
+      document.body.classList.remove('mobile-shop-active');
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const syncUser = () => setLocalUser(readLocalUser());
+    window.addEventListener('storage', syncUser);
+    window.addEventListener('user-updated', syncUser);
+    return () => {
+      window.removeEventListener('storage', syncUser);
+      window.removeEventListener('user-updated', syncUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [localUser?.profile_image]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let revokeUrl = null;
+    const run = async () => {
+      if (avatarLoadFailed || !localUser?.profile_image) {
+        setAvatarSrc('');
+        return;
+      }
+      const resolved = await resolveMediaSourceForDisplay(localUser.profile_image);
+      if (cancelled) {
+        if (resolved.revoke && resolved.src) URL.revokeObjectURL(resolved.src);
+        return;
+      }
+      setAvatarSrc(resolved.src || '');
+      revokeUrl = resolved.revoke ? resolved.src : null;
+    };
+    run();
+    return () => {
+      cancelled = true;
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
+  }, [localUser?.profile_image, avatarLoadFailed]);
+
+  useEffect(() => {
+    setSelectedSubcategory('all');
+  }, [selectedCategory]);
 
   useEffect(() => {
     let recentlyBoughtTimer = 0;
@@ -1279,6 +1252,7 @@ function Products({ setCartCount }) {
       return undefined;
     }
 
+    const localSuggestions = getLocalSuggestions(query);
     const cacheKey = normalizeText(query);
     const cacheRecord = searchSuggestionsCacheRef.current.get(cacheKey);
     const now = Date.now();
@@ -1293,25 +1267,36 @@ function Products({ setCartCount }) {
     const requestId = searchSuggestionsRequestRef.current + 1;
     searchSuggestionsRequestRef.current = requestId;
     setIsLoadingSuggestions(true);
+    if (localSuggestions.length > 0) {
+      setSearchSuggestions(localSuggestions);
+      setShowSearchSuggestions(true);
+      setActiveSuggestionIndex(-1);
+    }
     const controller = new AbortController();
     searchSuggestionsAbortRef.current = controller;
     const timer = setTimeout(async () => {
       try {
-        const payload = await productsApi.suggest({
+        const payload = await productService.suggest({
           q: query,
           limit: SEARCH_SUGGESTIONS_MAX_ITEMS
         }, { signal: controller.signal });
         if (requestId !== searchSuggestionsRequestRef.current) return;
         const items = Array.isArray(payload?.items) ? payload.items : [];
-        searchSuggestionsCacheRef.current.set(cacheKey, { items, at: Date.now() });
-        setSearchSuggestions(items);
-        setShowSearchSuggestions(items.length > 0);
+        const resolvedItems = items.length > 0 ? items : localSuggestions;
+        searchSuggestionsCacheRef.current.set(cacheKey, { items: resolvedItems, at: Date.now() });
+        setSearchSuggestions(resolvedItems);
+        setShowSearchSuggestions(resolvedItems.length > 0);
         setActiveSuggestionIndex(-1);
       } catch (error) {
         if (error?.name === 'AbortError') return;
         if (requestId !== searchSuggestionsRequestRef.current) return;
-        setSearchSuggestions([]);
-        setShowSearchSuggestions(false);
+        if (localSuggestions.length > 0) {
+          setSearchSuggestions(localSuggestions);
+          setShowSearchSuggestions(true);
+        } else {
+          setSearchSuggestions([]);
+          setShowSearchSuggestions(false);
+        }
       } finally {
         if (requestId === searchSuggestionsRequestRef.current) {
           setIsLoadingSuggestions(false);
@@ -1329,7 +1314,7 @@ function Products({ setCartCount }) {
         searchSuggestionsAbortRef.current = null;
       }
     };
-  }, [searchInputValue, searchSuggestionsEnabled]);
+  }, [searchInputValue, searchSuggestionsEnabled, getLocalSuggestions]);
 
   useEffect(() => {
     if (!showSearchSuggestions || activeSuggestionIndex < 0) return;
@@ -1557,7 +1542,7 @@ function Products({ setCartCount }) {
       if (appliedSearchQuery) params.name = appliedSearchQuery;
       if (inStockOnly) params.in_stock = 'true';
 
-      const data = await productsApi.getAll(params, { signal: controller.signal });
+      const data = await productService.list(params, { signal: controller.signal });
       if (requestId !== latestProductsRequestRef.current) return;
 
       const nextItems = Array.isArray(data)
@@ -1652,7 +1637,7 @@ function Products({ setCartCount }) {
       setCategories(cached.items);
     }
     try {
-      const data = await categoriesApi.getAll();
+      const data = await categoryService.list();
       const items = Array.isArray(data) ? data : [];
       setCategories(items);
       safeWriteSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, { items, at: Date.now() });
@@ -1663,7 +1648,7 @@ function Products({ setCartCount }) {
 
   const fetchRecentlyBought = async () => {
     try {
-      const data = await productsApi.getRecentlyBought({ limit: RECENTLY_BOUGHT_LIMIT });
+      const data = await productService.recentlyBought({ limit: RECENTLY_BOUGHT_LIMIT });
       setRecentlyBought(Array.isArray(data) ? data : []);
     } catch (_) {
       setRecentlyBought([]);
@@ -1875,6 +1860,54 @@ function Products({ setCartCount }) {
     () => (groupBy === GROUP_BY_OPTIONS.brand ? effectiveBrands : effectiveCategories),
     [groupBy, effectiveBrands, effectiveCategories]
   );
+
+  const mobileRootCategories = useMemo(() => {
+    if (effectiveCategories.length === 0) return [];
+    const roots = effectiveCategories.filter((category) => (
+      category.parent_id === null || category.parent_id === undefined || category.parent_id === '' || category.parent_id === 0
+    ));
+    const base = roots.length > 0 ? roots : effectiveCategories;
+    return [...base].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }, [effectiveCategories]);
+
+  const mobileSubcategories = useMemo(() => {
+    const selected = normalizeText(selectedCategory);
+    if (!selected || selected === 'all') return [];
+    const selectedNode = effectiveCategories.find((category) => (
+      normalizeText(category.name) === selected
+    ));
+    let subcategories = [];
+
+    if (selectedNode) {
+      subcategories = effectiveCategories.filter((category) => (
+        String(category.parent_id) === String(selectedNode.id)
+      ));
+    }
+
+    if (subcategories.length === 0) {
+      const fallbackSet = new Set();
+      productFamilies.forEach((family) => {
+        const parsed = splitHierarchyValue(family.categoryPath || family.category);
+        const parent = normalizeText(parsed.parent || family.category);
+        if (parent !== selected) return;
+        const child = String(parsed.child || family.subcategory || '').trim();
+        if (child) fallbackSet.add(child);
+      });
+      subcategories = Array.from(fallbackSet).map((name) => ({
+        id: name,
+        name,
+        parent_id: selectedNode?.id ?? null,
+        icon: '',
+        image: '',
+        image_width: null,
+        image_height: null
+      }));
+    }
+
+    return subcategories
+      .filter((entry) => entry?.name)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  }, [selectedCategory, effectiveCategories, productFamilies]);
 
   const categoryPathScopeSet = useMemo(() => {
     const selected = normalizeText(selectedCategory);
@@ -2143,6 +2176,17 @@ function Products({ setCartCount }) {
     });
     return list;
   }, [productFamilies, deferredAppliedSearchQuery, selectedCategory, sortBy, inStockOnly, groupBy, categoryPathScopeSet, categoryIdScopeSet, categoryNameScopeSet, brandPathScopeSet, usageHistory]);
+
+  const mobileFilteredFamilies = useMemo(() => {
+    if (!isMobile) return filteredFamilies;
+    const selected = normalizeText(selectedSubcategory);
+    if (!selected || selected === 'all') return filteredFamilies;
+    return filteredFamilies.filter((family) => {
+      const parsed = splitHierarchyValue(family.categoryPath || family.category);
+      const child = normalizeText(parsed.child || family.subcategory);
+      return child === selected;
+    });
+  }, [filteredFamilies, selectedSubcategory, isMobile]);
 
   useEffect(() => {
     setSelectedCategory('all');
@@ -2567,6 +2611,54 @@ function Products({ setCartCount }) {
       .slice(0, isMobile ? 4 : 6);
   }, [usageHistory, familyById, isMobile, selectedVariationByFamily]);
 
+  const popularFamilies = useMemo(() => {
+    if (!mobileFilteredFamilies.length) return [];
+    const now = Date.now();
+    const scored = mobileFilteredFamilies.map((family, index) => {
+      const history = usageHistory[family.id] || {};
+      const addCount = Number(history.addCount || 0);
+      const lastAddedAt = Date.parse(history.lastAddedAt || '');
+      const recencyScore = Number.isFinite(lastAddedAt)
+        ? Math.max(0, 22 - ((now - lastAddedAt) / 86400000))
+        : 0;
+      const stockBoost = Number(family.totalStock || 0) > 0 ? 6 : 0;
+      const score = (addCount * 12) + recencyScore + stockBoost - (index * 0.02);
+      return { family, score };
+    });
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map((entry) => entry.family);
+  }, [mobileFilteredFamilies, usageHistory]);
+
+  const bestPriceFamilies = useMemo(() => {
+    if (!mobileFilteredFamilies.length) return [];
+    return [...mobileFilteredFamilies]
+      .sort((a, b) => Number(a.minPrice || 0) - Number(b.minPrice || 0))
+      .slice(0, 8);
+  }, [mobileFilteredFamilies]);
+
+  const trendingFamilies = useMemo(() => {
+    if (quickAddFamilies.length >= 6) return quickAddFamilies.slice(0, 8);
+    if (!mobileFilteredFamilies.length) return [];
+    const scored = mobileFilteredFamilies.map((family, index) => {
+      const history = usageHistory[family.id] || {};
+      const addCount = Number(history.addCount || 0);
+      const score = (addCount * 9) + (Number(family.totalStock || 0) > 0 ? 5 : 0) - (index * 0.02);
+      return { family, score };
+    });
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+      .map((entry) => entry.family);
+  }, [quickAddFamilies, mobileFilteredFamilies, usageHistory]);
+
+  const mobileTabFamilies = useMemo(() => ({
+    'order-again': repeatOrderFamilies,
+    'best-prices': bestPriceFamilies,
+    trending: trendingFamilies
+  }), [repeatOrderFamilies, bestPriceFamilies, trendingFamilies]);
+
   const comboSuggestions = useMemo(() => {
     const pickByKeywords = (keywords = []) => {
       const normalizedKeywords = keywords.map((keyword) => normalizeText(keyword));
@@ -2630,6 +2722,46 @@ function Products({ setCartCount }) {
     return [];
   }, [quickAddFamilies, selectedVariationByFamily]);
 
+  const mobileOffers = useMemo(() => {
+    const cards = [
+      {
+        id: 'fresh-picks',
+        title: 'Fresh Picks Today',
+        subtitle: 'Daily essentials delivered fast',
+        action: 'Shop now',
+        tone: 'fresh'
+      },
+      {
+        id: 'value-deals',
+        title: 'Value Deals',
+        subtitle: 'Save more on kitchen staples',
+        action: 'Browse deals',
+        tone: 'value'
+      },
+      {
+        id: 'snack-time',
+        title: 'Snack Time',
+        subtitle: 'Bites, biscuits, and tea-time picks',
+        action: 'Add to basket',
+        tone: 'snack'
+      }
+    ];
+
+    if (comboSuggestions.length > 0) {
+      const combo = comboSuggestions[0];
+      cards.unshift({
+        id: `combo-${combo.id}`,
+        title: combo.title,
+        subtitle: combo.subtitle,
+        action: 'Add combo',
+        tone: 'combo',
+        combo
+      });
+    }
+
+    return cards;
+  }, [comboSuggestions]);
+
   const addFamilyPackToCart = (families = [], options = {}) => {
     const entries = families
       .map((family) => ({ family, variation: getSelectedVariation(family), quantity: 1 }))
@@ -2667,7 +2799,7 @@ function Products({ setCartCount }) {
     if (!cardState.selectedVariation) return null;
 
     return (
-      <FamilyProductCard
+      <ProductCard
         key={family.id}
         family={family}
         cardState={cardState}
@@ -2679,6 +2811,7 @@ function Products({ setCartCount }) {
         showMetaLine={!isMobile}
         imageLoading={shouldPrioritizeImage ? 'eager' : 'lazy'}
         imageFetchPriority={shouldPrioritizeImage ? 'high' : 'low'}
+        ImageComponent={SafeProductImage}
         detailContent={isActiveDesktop ? (
           <ProductDetailView
             family={family}
@@ -2704,7 +2837,7 @@ function Products({ setCartCount }) {
     if (!cardState.selectedVariation) return null;
 
     return (
-      <FamilyProductCard
+      <ProductCard
         key={family.id}
         family={family}
         cardState={cardState}
@@ -2725,9 +2858,122 @@ function Products({ setCartCount }) {
         showSwipeHint
         imageLoading="lazy"
         imageFetchPriority="low"
+        ImageComponent={SafeProductImage}
       />
     );
   };
+
+  const handleMobileCategorySelect = useCallback((categoryName) => {
+    const next = String(categoryName || '').trim() || 'all';
+    setSelectedCategory(next);
+    setSelectedSubcategory('all');
+    if (groupBy !== GROUP_BY_OPTIONS.category) {
+      setGroupBy(GROUP_BY_OPTIONS.category);
+    }
+  }, [groupBy]);
+
+  const handleMobileSubcategorySelect = useCallback((subcategoryName) => {
+    const next = String(subcategoryName || '').trim() || 'all';
+    setSelectedSubcategory(next);
+  }, []);
+
+  const resolveUnitPriceValue = (variation) => {
+    const candidates = [
+      variation?.unit_price,
+      variation?.unitPrice,
+      variation?.price_per_unit,
+      variation?.pricePerUnit,
+      variation?.price_per_uom,
+      variation?.pricePerUom
+    ];
+    const value = candidates.find((candidate) => Number(candidate || 0) > 0);
+    return Number(value || 0);
+  };
+
+  const renderMobileProductCard = (family, { prioritizeImage = false } = {}) => {
+    const selectedVariation = getSelectedVariation(family);
+    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
+    if (!cardState.selectedVariation) return null;
+    const unitPriceValue = resolveUnitPriceValue(cardState.selectedVariation);
+    const unitPriceLabel = unitPriceValue > 0
+      ? `${formatCurrency(unitPriceValue)} / ${cardState.uomLabel || 'unit'}`
+      : '';
+    const lowStockLabel = cardState.selectedStock > 0 && cardState.selectedStock <= LOW_STOCK_THRESHOLD
+      ? `Only ${cardState.selectedStock} left`
+      : '';
+    const metaItems = [unitPriceLabel, lowStockLabel].filter(Boolean);
+    return (
+      <ProductCard
+        key={family.id}
+        family={family}
+        cardState={cardState}
+        variant="compact"
+        onOpenDetails={() => openFamilyDetails(family.id)}
+        onAdd={addToCart}
+        onDecrease={decreaseFromCart}
+        showMetaLine
+        imageLoading={prioritizeImage ? 'eager' : 'lazy'}
+        imageFetchPriority={prioritizeImage ? 'high' : 'low'}
+        ImageComponent={SafeProductImage}
+        detailContent={metaItems.length > 0 ? (
+          <div className="mobile-card-meta">
+            {metaItems.map((item) => (
+              <span key={`${family.id}-${item}`} className="mobile-card-meta-item">{item}</span>
+            ))}
+          </div>
+        ) : null}
+      />
+    );
+  };
+
+  const handleMobileSearchChange = useCallback((event) => {
+    const nextValue = String(event.target.value || '').slice(0, 80);
+    const trimmedValue = nextValue.trim();
+    setSearchInputValue(nextValue);
+    if (!trimmedValue) {
+      setSearchSuggestionsEnabled(false);
+      setSearchSuggestions([]);
+      setShowSearchSuggestions(false);
+      setActiveSuggestionIndex(-1);
+      startTransition(() => {
+        setAppliedSearchQuery('');
+      });
+      return;
+    }
+    const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
+    setSearchSuggestionsEnabled(shouldEnable);
+    setShowSearchSuggestions(shouldEnable);
+  }, []);
+
+  const handleMobileOfferAction = useCallback((offer) => {
+    if (!offer) return;
+    if (offer.combo) {
+      handleAddCombo(offer.combo);
+      return;
+    }
+    if (offer.category) {
+      handleMobileCategorySelect(offer.category);
+      return;
+    }
+    if (typeof document !== 'undefined') {
+      const target = document.getElementById('mobile-popular-section');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [handleMobileCategorySelect, handleAddCombo]);
+
+  const handleMobileScrollTo = useCallback((targetId) => {
+    if (typeof document === 'undefined') return;
+    const node = document.getElementById(targetId);
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (location.hash === '#top-picks') {
+      handleMobileScrollTo('mobile-popular-section');
+    }
+  }, [isMobile, location.hash, handleMobileScrollTo]);
 
   const renderCategoryChipLabel = (category, mode = 'category') => {
     if (mode === 'brand') {
@@ -2912,7 +3158,7 @@ function Products({ setCartCount }) {
     commitSearchQuery('');
   }, [commitSearchQuery]);
 
-  if (loading && products.length === 0) {
+  if (!isMobile && loading && products.length === 0) {
     const skeletonCount = isMobile ? 6 : 8;
     return (
       <div className="products-page">
@@ -2923,6 +3169,473 @@ function Products({ setCartCount }) {
             <div key={`product-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
           ))}
         </div>
+      </div>
+    );
+  }
+
+    if (isMobile) {
+      const activeTabFamilies = mobileTabFamilies[activeMobileTab] || [];
+      const isLoggedIn = Boolean(
+        localUser?.id
+        || String(localUser?.token || '').trim()
+        || String(localUser?.supabase_session?.access_token || '').trim()
+        || String(localUser?.email || '').trim()
+        || String(localUser?.phone || '').trim()
+      );
+      const profileHref = isLoggedIn ? '/profile' : '/login';
+      const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';
+      const profileName = String(localUser?.name || '').trim();
+      const profileInitials = profileName ? getInitials(profileName) : '';
+      const isAdminUser = normalizeText(localUser?.role) === 'admin';
+      const disableMobileLogoLink = !isAdminUser;
+      return (
+        <div className="mobile-shop-page" ref={productsPageRef}>
+          <header className="mobile-shop-header" id="mobile-shop-top" ref={mobileHeaderRef}>
+            <div className="mobile-header-row">
+              {disableMobileLogoLink ? (
+                <div className="mobile-logo mobile-logo-disabled" aria-label="Store">
+                  <img src={logoImage} alt="Logo" className="mobile-logo-image" />
+                  <div className="mobile-logo-text">
+                    <span className="mobile-store-title">{storeTitle}</span>
+                    <span className="mobile-store-subtitle">Groceries & Essentials</span>
+                  </div>
+                </div>
+              ) : (
+                <Link to="/" className="mobile-logo" aria-label="Go to home">
+                  <img src={logoImage} alt="Logo" className="mobile-logo-image" />
+                  <div className="mobile-logo-text">
+                    <span className="mobile-store-title">{storeTitle}</span>
+                    <span className="mobile-store-subtitle">Groceries & Essentials</span>
+                  </div>
+                </Link>
+              )}
+              <div className="mobile-header-actions">
+                <Link to={profileHref} className="mobile-profile-btn" aria-label={profileHref === '/profile' ? 'Profile' : 'Login'}>
+                  {profileImageSrc ? (
+                    <img
+                      src={profileImageSrc}
+                      alt={profileName || 'User'}
+                      className="mobile-profile-avatar"
+                      onError={() => setAvatarLoadFailed(true)}
+                    />
+                  ) : profileInitials ? (
+                    <span className="mobile-profile-fallback" aria-hidden="true">{profileInitials}</span>
+                  ) : (
+                    <User size={18} />
+                  )}
+                </Link>
+              </div>
+            </div>
+
+          <div className="mobile-search-row">
+            <Search size={16} />
+            <input
+              id="mobile-products-search"
+              name="search"
+              type="text"
+              placeholder="Search products..."
+              value={searchInputValue}
+              onChange={handleMobileSearchChange}
+              onFocus={() => {
+                const trimmedValue = String(searchInputValue || '').trim();
+                const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
+                setSearchSuggestionsEnabled(shouldEnable);
+                if (shouldEnable && searchSuggestions.length > 0) setShowSearchSuggestions(true);
+              }}
+              onKeyDown={(event) => {
+                if (!showSearchSuggestions || searchSuggestions.length === 0) {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitSearchQuery();
+                  } else if (event.key === 'Escape') {
+                    setShowSearchSuggestions(false);
+                  }
+                  return;
+                }
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((prev) => {
+                    const next = prev + 1;
+                    return next >= searchSuggestions.length ? 0 : next;
+                  });
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setActiveSuggestionIndex((prev) => {
+                    if (prev <= 0) return searchSuggestions.length - 1;
+                    return prev - 1;
+                  });
+                } else if (event.key === 'Enter') {
+                  event.preventDefault();
+                  if (activeSuggestionIndex >= 0 && searchSuggestions[activeSuggestionIndex]) {
+                    selectSearchSuggestion(searchSuggestions[activeSuggestionIndex]);
+                  } else {
+                    commitSearchQuery();
+                  }
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setShowSearchSuggestions(false);
+                  setActiveSuggestionIndex(-1);
+                }
+              }}
+              aria-label="Search products"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
+              aria-controls={searchSuggestionsListId}
+              aria-activedescendant={
+                activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
+              }
+              inputMode="search"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+            {searchInputValue ? (
+              <button type="button" className="mobile-search-clear" onClick={clearSearchQuery} aria-label="Clear search">
+                <X size={14} />
+              </button>
+            ) : null}
+            {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
+            {showSearchSuggestions && searchSuggestions.length > 0 ? (
+              <div id={searchSuggestionsListId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
+                {searchSuggestions.slice(0, SEARCH_SUGGESTIONS_MAX_ITEMS).map((item, index) => (
+                  <button
+                    type="button"
+                    id={`products-search-suggestion-${index}`}
+                    key={`suggestion-${item.id}-${index}`}
+                    className={`search-suggestion-item ${index === activeSuggestionIndex ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveSuggestionIndex(index)}
+                    onClick={() => selectSearchSuggestion(item)}
+                    role="option"
+                    aria-selected={index === activeSuggestionIndex}
+                  >
+                    <div className="search-suggestion-leading" aria-hidden="true">
+                      <img
+                        src={getSuggestionImageSrc(item)}
+                        alt=""
+                        className="search-suggestion-thumb"
+                        width={34}
+                        height={34}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = getProductFallbackImage(item);
+                        }}
+                      />
+                    </div>
+                    <div className="search-suggestion-main">
+                      {item.brand ? <strong>{item.brand}</strong> : null}
+                      <span>{item.name}</span>
+                    </div>
+                    <div className="search-suggestion-meta">
+                      {item.size ? <small>{item.size}</small> : null}
+                      <small>{formatCurrency(item.price)}</small>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mobile-category-scroller" role="tablist" aria-label="Categories">
+            <button
+              type="button"
+              className={`mobile-category-chip ${selectedCategory === 'all' ? 'active' : ''}`}
+              onClick={() => handleMobileCategorySelect('all')}
+              aria-pressed={selectedCategory === 'all'}
+            >
+              All
+            </button>
+            {mobileRootCategories.map((category) => (
+              <button
+                type="button"
+                key={category.id}
+                className={`mobile-category-chip ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
+                onClick={() => handleMobileCategorySelect(category.name)}
+                aria-pressed={normalizeText(selectedCategory) === normalizeText(category.name)}
+              >
+                {renderCategoryChipLabel(category)}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        <div className="mobile-shop-body">
+          {loading && products.length > 0 ? (
+            <div className="mobile-refresh-banner" aria-live="polite">
+              Updating products...
+            </div>
+          ) : null}
+
+          {notice && (
+            <div className={`mobile-notice ${notice.type === 'error' ? 'error' : 'info'}`}>
+              {notice.message}
+            </div>
+          )}
+
+          {error ? <div className="mobile-error">{error}</div> : null}
+
+          {loading && products.length === 0 ? (
+            <div className="mobile-shop-skeleton">
+              <div className="products-skeleton-header shimmer-skeleton" aria-hidden="true" />
+              <div className="products-skeleton-controls shimmer-skeleton" aria-hidden="true" />
+              <div className="products-skeleton-grid" aria-hidden="true">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={`mobile-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <section className="mobile-category-hero">
+                <div className="mobile-category-title">
+                  <h2>{selectedCategory === 'all' ? 'Shop By Category' : selectedCategory}</h2>
+                  <p>{selectedCategory === 'all' ? 'Pick a category to filter products quickly.' : 'Browse subcategories below.'}</p>
+                </div>
+                {mobileSubcategories.length > 0 ? (
+                  <div className="mobile-subcategory-scroller" role="tablist" aria-label="Subcategories">
+                    <button
+                      type="button"
+                      className={`mobile-subcategory-chip ${selectedSubcategory === 'all' ? 'active' : ''}`}
+                      onClick={() => handleMobileSubcategorySelect('all')}
+                      aria-pressed={selectedSubcategory === 'all'}
+                    >
+                      All
+                    </button>
+                    {mobileSubcategories.map((subcategory) => (
+                      <button
+                        type="button"
+                        key={subcategory.id}
+                        className={`mobile-subcategory-chip ${normalizeText(selectedSubcategory) === normalizeText(subcategory.name) ? 'active' : ''}`}
+                        onClick={() => handleMobileSubcategorySelect(subcategory.name)}
+                        aria-pressed={normalizeText(selectedSubcategory) === normalizeText(subcategory.name)}
+                      >
+                        {subcategory.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="mobile-section mobile-offers">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>Offers & Picks</h3>
+                    <p>Limited time savings for you.</p>
+                  </div>
+                </div>
+                <div className="mobile-offer-row horizontal-group-row">
+                  {mobileOffers.map((offer) => (
+                    <article key={offer.id} className={`mobile-offer-card ${offer.tone}`}>
+                      <p className="offer-kicker">Limited time</p>
+                      <h4>{offer.title}</h4>
+                      <p>{offer.subtitle}</p>
+                      <button type="button" onClick={() => handleMobileOfferAction(offer)}>
+                        {offer.action}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="mobile-section mobile-repeat-order">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>One-tap Repeat Order</h3>
+                    <p>{recentlyBoughtFamilies.length > 0 ? 'From your recent items.' : 'Quick add from your history.'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="mobile-action-btn"
+                    onClick={handleRepeatOrder}
+                    disabled={repeatOrderFamilies.length === 0}
+                  >
+                    Add All
+                  </button>
+                </div>
+                {repeatOrderFamilies.length === 0 ? (
+                  <p className="mobile-empty">No repeat items yet.</p>
+                ) : (
+                  <div className="mobile-repeat-row horizontal-group-row">
+                    {repeatOrderFamilies.map((family) => {
+                      const selectedVariation = getSelectedVariation(family);
+                      const previewVariation = getFamilyPreviewVariation(family, selectedVariation);
+                      return (
+                        <button
+                          key={`repeat-mobile-${family.id}`}
+                          type="button"
+                          className="mobile-repeat-item"
+                          onClick={() => openFamilyDetails(family.id)}
+                        >
+                          <span className="mobile-repeat-thumb" aria-hidden="true">
+                            <SafeProductImage
+                              src={previewVariation?.image}
+                              alt=""
+                              className="mobile-repeat-thumb-img"
+                              loading="lazy"
+                              fallbackProduct={previewVariation?.raw || selectedVariation?.raw}
+                              width={46}
+                              height={46}
+                            />
+                          </span>
+                          <span className="mobile-repeat-name">{family.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="mobile-section mobile-popular" id="mobile-popular-section">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>Popular Products</h3>
+                    <p>Best-loved picks right now.</p>
+                  </div>
+                </div>
+                {popularFamilies.length === 0 ? (
+                  <p className="mobile-empty">No products matched this category.</p>
+                ) : (
+                  <div className="mobile-products-grid">
+                    {popularFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 4 }))}
+                  </div>
+                )}
+              </section>
+
+              <section className="mobile-section mobile-restock">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>Smart Restock</h3>
+                    <p>Frequently bought items due soon.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="mobile-action-btn"
+                    onClick={handleRestockAll}
+                    disabled={smartRestockItems.length === 0}
+                  >
+                    Restock All
+                  </button>
+                </div>
+                {smartRestockItems.length === 0 ? (
+                  <p className="mobile-empty">Add items to unlock restock prediction.</p>
+                ) : (
+                  <div className="mobile-restock-row horizontal-group-row">
+                    {smartRestockItems.map((item) => (
+                      <article key={`restock-mobile-${item.id}`} className="mobile-restock-card">
+                        <div className="mobile-restock-top">
+                          <div className="mobile-restock-media" aria-hidden="true">
+                            <SafeProductImage
+                              src={item.variation?.image}
+                              alt=""
+                              className="mobile-restock-media-img"
+                              loading="lazy"
+                              fallbackProduct={item.variation?.raw}
+                              width={54}
+                              height={54}
+                            />
+                          </div>
+                          <div className="mobile-restock-copy">
+                            <strong>{item.family.name}</strong>
+                            <span>{item.depletionPercent}% low</span>
+                          </div>
+                        </div>
+                        <div className={`restock-progress ${item.tone}`}>
+                          <span style={{ width: `${item.depletionPercent}%` }} />
+                        </div>
+                        <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Add</button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="mobile-section mobile-quick-add">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>Quick Add Essentials</h3>
+                    <p>Tap add for everyday items.</p>
+                  </div>
+                </div>
+                {quickAddFamilies.length === 0 ? (
+                  <p className="mobile-empty">No essentials found yet.</p>
+                ) : (
+                  <div className="mobile-quick-add-row horizontal-group-row">
+                    {quickAddFamilies.map((family) => renderMobileProductCard(family))}
+                  </div>
+                )}
+              </section>
+
+              <section className="mobile-section mobile-tabs">
+                <div className="mobile-section-head">
+                  <div>
+                    <h3>Discover More</h3>
+                    <p>Switch tabs to explore.</p>
+                  </div>
+                </div>
+                <div className="mobile-tab-row" role="tablist" aria-label="Quick tabs">
+                  {MOBILE_TAB_OPTIONS.map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      className={`mobile-tab-btn ${activeMobileTab === tab.key ? 'active' : ''}`}
+                      onClick={() => setActiveMobileTab(tab.key)}
+                      aria-pressed={activeMobileTab === tab.key}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {activeTabFamilies.length === 0 ? (
+                  <p className="mobile-empty">No products available in this tab.</p>
+                ) : (
+                  <div className="mobile-products-grid">
+                    {activeTabFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 2 }))}
+                  </div>
+                )}
+              </section>
+
+              {productsHasMore && (
+                <div className="mobile-load-more">
+                  <div ref={productsLoadTriggerRef} className="products-infinite-sentinel" aria-hidden="true" />
+                  <span className="load-more-status">
+                    {isLoadingMore ? 'Loading more products...' : 'More products load as you scroll.'}
+                  </span>
+                  <button type="button" className="load-more-btn" onClick={() => loadMoreProductsRef.current()}>
+                    Load Now
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <MobileFooter
+          cartCount={cartItemCount}
+          onHome={() => handleMobileScrollTo('mobile-shop-top')}
+          onTopPicks={() => handleMobileScrollTo('mobile-popular-section')}
+        />
+
+        {activeMobileFamily && (
+          <MobileBottomSheet
+            open={!!activeMobileFamily}
+            onClose={() => setActiveMobileFamilyId(null)}
+            title={activeMobileFamily.name}
+            className="products-detail-sheet"
+          >
+            <ProductDetailView
+              family={activeMobileFamily}
+              selectedVariationId={getSelectedVariation(activeMobileFamily)?.id}
+              onSelectVariation={handleSelectVariation}
+              onIncreaseQty={addToCart}
+              onDecreaseQty={decreaseFromCart}
+              cartQtyById={cartQtyById}
+              buttonStatus={buttonStatus}
+              showImage
+            />
+          </MobileBottomSheet>
+        )}
       </div>
     );
   }

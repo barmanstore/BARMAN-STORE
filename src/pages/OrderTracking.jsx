@@ -8,6 +8,7 @@ import { ordersApi } from '../services/api';
 import { printHtmlDocument, escapeHtml } from '../utils/printService';
 import { formatCurrency } from '../utils/formatters';
 import { formatDateTime } from '../utils/dateTime';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './OrderTracking.css';
 
 const formatDate = (dateString) => {
@@ -204,61 +205,67 @@ function OrderTracking() {
 
   if (orderId && loading) {
     return (
-      <div className="order-tracking-page">
-        <div className="loading-container">
-          <RefreshCw size={40} className="spinning" />
-          <p>Loading order details...</p>
+      <MobileAccountLayout>
+        <div className="order-tracking-page">
+          <div className="loading-container">
+            <RefreshCw size={40} className="spinning" />
+            <p>Loading order details...</p>
+          </div>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   if (orderId && error) {
     return (
-      <div className="order-tracking-page">
-        <div className="search-section fade-in-up">
-          <h1>Track Your Order</h1>
-          <form onSubmit={handleSearch} className="search-form">
-            <input
-              id="order-tracking-number"
-              name="order_tracking_number"
-              type="text"
-              placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
-              value={searchOrderNumber}
-              onChange={(e) => setSearchOrderNumber(e.target.value)}
-            />
-            <button type="submit">Track</button>
-          </form>
+      <MobileAccountLayout>
+        <div className="order-tracking-page">
+          <div className="search-section fade-in-up">
+            <h1>Track Your Order</h1>
+            <form onSubmit={handleSearch} className="search-form">
+              <input
+                id="order-tracking-number"
+                name="order_tracking_number"
+                type="text"
+                placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
+                value={searchOrderNumber}
+                onChange={(e) => setSearchOrderNumber(e.target.value)}
+              />
+              <button type="submit">Track</button>
+            </form>
+          </div>
+          <div className="error-container fade-in-up">
+            <AlertCircle size={60} />
+            <h2>Order Not Found</h2>
+            <p>We couldn't find an order with that number. Please check and try again.</p>
+            <button onClick={() => navigate('/products')}>Continue Shopping</button>
+          </div>
         </div>
-        <div className="error-container fade-in-up">
-          <AlertCircle size={60} />
-          <h2>Order Not Found</h2>
-          <p>We couldn't find an order with that number. Please check and try again.</p>
-          <button onClick={() => navigate('/products')}>Continue Shopping</button>
-        </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   if (!orderId) {
     return (
-      <div className="order-tracking-page">
-        <div className="search-section fade-in-up">
-          <h1>Track Your Order</h1>
-          <p>Enter your order number to track your shipment</p>
-          <form onSubmit={handleSearch} className="search-form">
-            <input
-              id="order-tracking-number"
-              name="order_tracking_number"
-              type="text"
-              placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
-              value={searchOrderNumber}
-              onChange={(e) => setSearchOrderNumber(e.target.value)}
-            />
-            <button type="submit">Track Order</button>
-          </form>
+      <MobileAccountLayout>
+        <div className="order-tracking-page">
+          <div className="search-section fade-in-up">
+            <h1>Track Your Order</h1>
+            <p>Enter your order number to track your shipment</p>
+            <form onSubmit={handleSearch} className="search-form">
+              <input
+                id="order-tracking-number"
+                name="order_tracking_number"
+                type="text"
+                placeholder="Enter Order Number (e.g., ORD-240209-ABC123)"
+                value={searchOrderNumber}
+                onChange={(e) => setSearchOrderNumber(e.target.value)}
+              />
+              <button type="submit">Track Order</button>
+            </form>
+          </div>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
@@ -266,13 +273,14 @@ function OrderTracking() {
   const progressPercentage = (currentStep / 1) * 100;
 
   return (
-    <div className="order-tracking-page">
-      <div className="tracking-header fade-in-up">
-        <h1>Order Tracking</h1>
-        <p className="order-number-display">
-          Order <strong>{order.order_number}</strong>
-        </p>
-      </div>
+    <MobileAccountLayout>
+      <div className="order-tracking-page">
+        <div className="tracking-header fade-in-up">
+          <h1>Order Tracking</h1>
+          <p className="order-number-display">
+            Order <strong>{order.order_number}</strong>
+          </p>
+        </div>
 
       {/* Order Status Progress */}
       <div className="status-progress-section fade-in-up">
@@ -506,7 +514,8 @@ function OrderTracking() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

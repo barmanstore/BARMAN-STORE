@@ -390,6 +390,7 @@ const CREDIT_LEDGER_DISABLED_KEY = 'credit_ledger_api_disabled';
 export const creditApi = {
   getHistory: (userId) => apiFetch(`/api/users/${userId}/credit-history`),
   getBalance: (userId) => apiFetch(`/api/users/${userId}/credit-balance`),
+  getPaymentBadges: (userId) => apiFetch(`/api/users/${userId}/payment-badges`),
   getLedger: (userId) => {
     if (localStorage.getItem(CREDIT_LEDGER_DISABLED_KEY) === '1') {
       throw new Error('Credit ledger endpoint not available');

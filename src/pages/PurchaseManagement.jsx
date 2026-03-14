@@ -265,7 +265,7 @@ function PurchaseManagement({ user }) {
       product_id: resolvedProduct?.id ? String(resolvedProduct.id) : String(overrides.product_id || ''),
       product_query: resolvedProduct ? getProductSearchLabel(resolvedProduct) : String(overrides.product_query || overrides.product_name || '').trim(),
       product_name: String(overrides.product_name || resolvedProduct?.name || '').trim(),
-      quantity: Math.max(0, toNumber(overrides.quantity ?? 1)),
+      quantity: Math.max(1, toNumber(overrides.quantity ?? 1)),
       uom: resolvedUom,
       unit_price: resolvedRate,
       rate: resolvedRate,
@@ -1260,7 +1260,7 @@ function PurchaseManagement({ user }) {
         ...prev,
         items: [...(prev.items || []), ...nextItems],
       }));
-      setSuccess(`Loaded ${nextItems.length} distributor item${nextItems.length === 1 ? '' : 's'} with qty 0.`);
+      setSuccess(`Loaded ${nextItems.length} distributor item${nextItems.length === 1 ? '' : 's'} with qty 1.`);
     } finally {
       setLoadingDistributorItems(false);
     }
@@ -1291,6 +1291,9 @@ function PurchaseManagement({ user }) {
     const items = [...orderFormData.items];
     const nextValue = field === 'gst_rate' ? normalizeGstRateOption(value) : value;
     items[index][field] = nextValue;
+    if (field === 'quantity') {
+      items[index].quantity = Math.max(1, toNumber(nextValue));
+    }
 
     if (field === 'product_id') {
       const selectedProductId = String(value || '');
@@ -1861,7 +1864,7 @@ function PurchaseManagement({ user }) {
           product_id: item.product_id ? String(item.product_id) : '',
           product_query: product ? getProductSearchLabel(product) : (item.product_name || ''),
           product_name: item.product_name || '',
-          quantity: Math.max(0, toNumber(item.quantity)),
+        quantity: Math.max(1, toNumber(item.quantity)),
           uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
           rate: toNumber(item.rate ?? item.unit_price),
           unit_price: toNumber(item.unit_price ?? item.rate),
@@ -1909,7 +1912,7 @@ function PurchaseManagement({ user }) {
         nextItem.rate = toNumber(value);
       }
       if (field === 'quantity') {
-        nextItem.quantity = Math.max(0, toNumber(value));
+        nextItem.quantity = Math.max(1, toNumber(value));
       }
       items[index] = nextItem;
       return { ...prev, items };
@@ -3212,7 +3215,7 @@ function PurchaseManagement({ user }) {
                                   type="number"
                                   id={`po-detail-qty-${idx}-${item.id}`}
                                   name="quantity"
-                                  min="0"
+                                  min="1"
                                   step={getPurchasePackStep(selectedProduct, item.uom || line.uom)}
                                   value={item.quantity}
                                   onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}

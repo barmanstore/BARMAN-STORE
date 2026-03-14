@@ -150,6 +150,37 @@ body,
   flex-shrink: 0;
 }
 
+.header-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  min-width: 210px;
+}
+
+.header-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  color: inherit;
+  font-size: 0.78rem;
+  width: 100%;
+}
+
+.header-search input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@media (max-width: 900px) {
+  .header-search {
+    display: none;
+  }
+}
+
 .desktop-user-menu {
   display: inline-flex;
   align-items: center;
@@ -705,6 +736,45 @@ body,
   cursor: pointer;
 }
 
+.notification-inbox-panel-simple {
+  padding: 8px;
+  gap: 6px;
+}
+
+.notification-inbox-list.simple {
+  gap: 6px;
+}
+
+.notification-inbox-item.simple {
+  padding: 8px;
+}
+
+.notification-inbox-item.simple .notification-item-head strong {
+  font-size: 12px;
+}
+
+.notification-inbox-item.simple .notification-item-message {
+  font-size: 11px;
+  color: #475569;
+}
+
+.notification-item-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 11px;
+  color: #0f4fa8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.notification-simple-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
@@ -1012,11 +1082,18 @@ body,
 
 .quick-contact-fab {
   position: fixed;
-  right: 10px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 0;
+  top: 0;
   display: grid;
   gap: 0.45rem;
   z-index: 1250;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.quick-contact-fab.dragging {
+  cursor: grabbing;
 }
 
 .quick-contact-btn {
@@ -1082,12 +1159,6 @@ body,
     font-size: 1.4rem;
   }
 
-  .quick-contact-fab {
-    right: 8px;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    gap: 0.38rem;
-  }
-
   .quick-contact-btn {
     min-height: 40px;
     padding: 0.4rem 0.62rem;
@@ -1096,8 +1167,37 @@ body,
 }
 
 @media (max-width: 768px) {
+  body.mobile-shop-active .header,
+  body.mobile-shop-active .footer,
+  body.mobile-shop-active .quick-contact-fab,
+  body.mobile-shop-active .mobile-nav-backdrop,
+  body.mobile-hide-chrome .header,
+  body.mobile-hide-chrome .footer,
+  body.mobile-hide-chrome .quick-contact-fab,
+  body.mobile-hide-chrome .mobile-nav-backdrop {
+    display: none !important;
+  }
+
+  body.mobile-shop-active .main-content,
+  body.mobile-hide-chrome .main-content {
+    padding: 0;
+    max-width: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .header-search {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
   .header {
     padding: 0.62rem 0.75rem;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
   }
 
   .header-content {
@@ -1452,9 +1552,9 @@ body,
   background: rgba(24, 86, 150, 0.22);
 }
 
-.main-content {
-  padding: 0.75rem;
-}
+  .main-content {
+  padding: calc(var(--app-header-height, 72px) + 0.75rem) 0.75rem 0.75rem;
+  }
 
 @media (min-width: 481px) {
   .header {
@@ -1476,11 +1576,6 @@ body,
 }
 
 @media (min-width: 769px) {
-  .quick-contact-fab {
-    right: 16px;
-    bottom: 16px;
-  }
-
   .quick-contact-btn {
     min-height: 44px;
     padding: 0.48rem 0.8rem;

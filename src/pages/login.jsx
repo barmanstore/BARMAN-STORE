@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 import { validateEmail } from '../utils/validation';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './login.css';
 
 const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
@@ -348,10 +349,11 @@ function Login({ setUser }) {
   };
 
   return (
-    <div className="otp-login-page">
-      <section className="otp-login-card">
-        <p className="otp-kicker">Secure Login</p>
-        <h1>{authMode === 'register' ? 'Register with OTP' : 'Sign in with OTP'}</h1>
+    <MobileAccountLayout>
+      <div className="otp-login-page">
+        <section className="otp-login-card">
+          <p className="otp-kicker">Secure Login</p>
+          <h1>{authMode === 'register' ? 'Register with OTP' : 'Sign in with OTP'}</h1>
 
         <div className="auth-view-switch">
           <button
@@ -450,8 +452,9 @@ function Login({ setUser }) {
             {oauthLoading === 'facebook' ? 'Redirecting...' : 'Facebook'}
           </button>
         </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

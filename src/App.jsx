@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Package, ClipboardList, Home as HomeIcon, Store, Shield, FileText, Lightbulb, BellRing, ChevronDown, MessageCircle, Phone } from 'lucide-react';
+import { MessageCircle, Phone } from 'lucide-react';
 import { useState, useEffect, lazy, Suspense, useRef } from 'react';
-import UserMenu from './components/UserMenu';
 import ErrorBoundary from './components/ErrorBoundary';
+import Header from './components/header/Header';
 import { analyticsApi, notificationsApi } from './services/api';
-import { truncateUserName } from './utils/formatters';
 import useLockBodyScroll from './hooks/useLockBodyScroll';
+import useIsMobile from './hooks/useIsMobile';
 import './index.css';
 import './App.css';
 import * as info from './pages/info.js';
@@ -23,6 +23,8 @@ const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const Profile = lazy(() => import('./pages/Profile'));
 const MyBills = lazy(() => import('./pages/MyBills'));
 const ProductRecommendations = lazy(() => import('./pages/ProductRecommendations'));
+const StoreInfo = lazy(() => import('./pages/StoreInfo'));
+const StorePage = lazy(() => import('./pages/StorePage'));
 
 
 const routerBasename = (() => {
@@ -135,6 +137,368 @@ function VisitorTracker() {
   return null;
 }
 
+function AppShell({
+  headerRef,
+  mobileMenuOpen,
+  onToggleMobileMenu,
+  onCloseMobileMenu,
+  logoImage,
+  cartCount,
+  user,
+  setUser,
+  isAdminUser,
+  notificationPanelOpen,
+  onToggleNotificationPanel,
+  notifications,
+  unreadNotificationCount,
+  notificationsHasMore,
+  expandedNotificationId,
+  messageDraft,
+  messageRecipients,
+  selectedRecipientIds,
+  recipientSearch,
+  messageSending,
+  messageFeedback,
+  notificationInboxRef,
+  onToggleRecipientSelection,
+  onSendInboxMessage,
+  onLoadOlderNotifications,
+  onResolveNotificationHref,
+  onToggleNotificationExpanded,
+  onMarkNotificationRead,
+  onRecipientSearchChange,
+  onMessageDraftChange,
+  onClearRecipientSelection,
+  callHref,
+  whatsappHref,
+  setCartCount,
+}) {
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const isHomeRoute = location.pathname === '/' || location.pathname === '';
+  const shouldHideChrome = isMobile && !isHomeRoute;
+  const quickContactRef = useRef(null);
+  const dragStateRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startPosX: 0,
+    startPosY: 0,
+    moved: false,
+  });
+  const suppressClickRef = useRef(false);
+  const QUICK_CONTACT_POS_KEY = 'barman_quick_contact_pos_v1';
+  const [quickContactPos, setQuickContactPos] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(QUICK_CONTACT_POS_KEY) || 'null');
+      if (!stored || typeof stored !== 'object') return null;
+      const x = Number(stored.x);
+      const y = Number(stored.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return { x, y };
+    } catch (_) {
+      return null;
+    }
+  });
+  const homeRouteElement = isMobile ? <Navigate to="/products" replace /> : <Home />;
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.body.classList.toggle('mobile-hide-chrome', shouldHideChrome);
+    return () => {
+      document.body.classList.remove('mobile-hide-chrome');
+    };
+  }, [shouldHideChrome]);
+
+  useEffect(() => {
+    if (shouldHideChrome && mobileMenuOpen) {
+      onCloseMobileMenu();
+    }
+  }, [shouldHideChrome, mobileMenuOpen, onCloseMobileMenu]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (quickContactPos) return;
+    const node = quickContactRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const padding = 12;
+    const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+    const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+    const next = {
+      x: Math.max(padding, Math.min(maxX, Math.round(window.innerWidth - rect.width - padding))),
+      y: Math.max(padding, Math.min(maxY, Math.round(window.innerHeight * 0.55))),
+    };
+    setQuickContactPos(next);
+  }, [quickContactPos]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!quickContactPos) return;
+    try {
+      window.localStorage.setItem(QUICK_CONTACT_POS_KEY, JSON.stringify(quickContactPos));
+    } catch (_) {
+      // ignore storage errors
+    }
+  }, [quickContactPos]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const handleResize = () => {
+      const node = quickContactRef.current;
+      if (!node || !quickContactPos) return;
+      const rect = node.getBoundingClientRect();
+      const padding = 12;
+      const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+      const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+      const nextX = Math.max(padding, Math.min(maxX, quickContactPos.x));
+      const nextY = Math.max(padding, Math.min(maxY, quickContactPos.y));
+      if (nextX !== quickContactPos.x || nextY !== quickContactPos.y) {
+        setQuickContactPos({ x: nextX, y: nextY });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [quickContactPos]);
+
+  const handleQuickContactPointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    const node = quickContactRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const padding = 12;
+    const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+    const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startPosX = Math.max(padding, Math.min(maxX, quickContactPos?.x ?? rect.left));
+    const startPosY = Math.max(padding, Math.min(maxY, quickContactPos?.y ?? rect.top));
+
+    dragStateRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX,
+      startY,
+      startPosX,
+      startPosY,
+      moved: false,
+    };
+
+    try {
+      node.setPointerCapture(event.pointerId);
+    } catch (_) {
+      // ignore pointer capture failures
+    }
+  };
+
+  const handleQuickContactPointerMove = (event) => {
+    const state = dragStateRef.current;
+    if (!state.active || state.pointerId !== event.pointerId) return;
+    const node = quickContactRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    const padding = 12;
+    const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+    const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+    const deltaX = event.clientX - state.startX;
+    const deltaY = event.clientY - state.startY;
+    const moved = Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4;
+    const nextX = Math.max(padding, Math.min(maxX, state.startPosX + deltaX));
+    const nextY = Math.max(padding, Math.min(maxY, state.startPosY + deltaY));
+    dragStateRef.current.moved = state.moved || moved;
+    setQuickContactPos({ x: nextX, y: nextY });
+  };
+
+  const handleQuickContactPointerUp = (event) => {
+    const state = dragStateRef.current;
+    if (!state.active || state.pointerId !== event.pointerId) return;
+    dragStateRef.current.active = false;
+    try {
+      quickContactRef.current?.releasePointerCapture(event.pointerId);
+    } catch (_) {
+      // ignore pointer capture failures
+    }
+    if (state.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 180);
+    }
+  };
+
+  const handleQuickContactClickCapture = (event) => {
+    if (!suppressClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return (
+    <div className="app">
+      <VisitorTracker />
+      <Header
+        headerRef={headerRef}
+        mobileMenuOpen={mobileMenuOpen}
+        onToggleMobileMenu={onToggleMobileMenu}
+        onCloseMobileMenu={onCloseMobileMenu}
+        logoImage={logoImage}
+        cartCount={cartCount}
+        user={user}
+        setUser={setUser}
+        isAdminUser={isAdminUser}
+        notificationPanelOpen={notificationPanelOpen}
+        onToggleNotificationPanel={onToggleNotificationPanel}
+        notifications={notifications}
+        unreadNotificationCount={unreadNotificationCount}
+        notificationsHasMore={notificationsHasMore}
+        expandedNotificationId={expandedNotificationId}
+        messageDraft={messageDraft}
+        messageRecipients={messageRecipients}
+        selectedRecipientIds={selectedRecipientIds}
+        recipientSearch={recipientSearch}
+        messageSending={messageSending}
+        messageFeedback={messageFeedback}
+        notificationInboxRef={notificationInboxRef}
+        onToggleRecipientSelection={onToggleRecipientSelection}
+        onSendInboxMessage={onSendInboxMessage}
+        onLoadOlderNotifications={onLoadOlderNotifications}
+        onResolveNotificationHref={onResolveNotificationHref}
+        onToggleNotificationExpanded={onToggleNotificationExpanded}
+        onMarkNotificationRead={onMarkNotificationRead}
+        onRecipientSearchChange={onRecipientSearchChange}
+        onMessageDraftChange={onMessageDraftChange}
+        onClearRecipientSelection={onClearRecipientSelection}
+      />
+      {mobileMenuOpen ? (
+        <button className="mobile-nav-backdrop" aria-label="Close menu" onClick={onCloseMobileMenu} />
+      ) : null}
+
+      {/* Main Content */}
+      <main className="main-content">
+        <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={homeRouteElement} />
+            <Route path="/products" element={<Products setCartCount={setCartCount} />} />
+            <Route path="/cart" element={<Cart cartCount={cartCount} setCartCount={setCartCount} />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/login" element={<Login setUser={setUser} />} />
+            <Route path="/admin" element={<Admin user={user} />} />
+            <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
+            <Route path="/my-credit" element={<CreditHistory user={user} />} />
+            <Route path="/order-history" element={<OrderHistory />} />
+            <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />
+            <Route path="/orders/:id" element={<OrderDetails />} />
+            <Route path="/order-tracking" element={<OrderTracking />} />
+            <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/my-bills" element={<MyBills />} />
+            <Route path="/product-requests" element={<ProductRecommendations />} />
+            <Route path="/store-info" element={<StoreInfo />} />
+            <Route
+              path="/store"
+              element={(
+                <StorePage
+                  notifications={notifications}
+                  unreadNotificationCount={unreadNotificationCount}
+                  onResolveNotificationHref={onResolveNotificationHref}
+                  onMarkNotificationRead={onMarkNotificationRead}
+                />
+              )}
+            />
+          </Routes>
+        </Suspense>
+      </main>
+      <div
+        className={`quick-contact-fab ${dragStateRef.current.active ? 'dragging' : ''}`}
+        aria-label="Quick contact options"
+        ref={quickContactRef}
+        style={
+          quickContactPos
+            ? { transform: `translate3d(${quickContactPos.x}px, ${quickContactPos.y}px, 0)` }
+            : undefined
+        }
+        onPointerDown={handleQuickContactPointerDown}
+        onPointerMove={handleQuickContactPointerMove}
+        onPointerUp={handleQuickContactPointerUp}
+        onPointerCancel={handleQuickContactPointerUp}
+        onClickCapture={handleQuickContactClickCapture}
+      >
+        {whatsappHref ? (
+          <a
+            href={whatsappHref}
+            className="quick-contact-btn chat"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Chat on WhatsApp"
+          >
+            <MessageCircle size={18} />
+            <span>Chat</span>
+          </a>
+        ) : null}
+        <a href={callHref} className="quick-contact-btn call" aria-label="Call store">
+          <Phone size={18} />
+          <span>Call</span>
+        </a>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-content">
+          <div className="footer-section footer-brand">
+            <h3>{info.TITLE}</h3>
+            <p>{info.SUB_TITLE}</p>
+          </div>
+          <div className="footer-section footer-links">
+            <h4>Quick Links</h4>
+            <div className="footer-links-list">
+              <Link to="/products">Shop</Link>
+              <Link to="/cart">Cart</Link>
+              <Link to="/my-bills">My Bills</Link>
+              <Link to="/product-requests">Product Requests</Link>
+              <a href={getPublicFileUrl('terms-of-service.html')}>Terms of Service</a>
+              <a href={getPublicFileUrl('privacy-policy.html')}>Privacy Policy</a>
+              <a href={getPublicFileUrl('data-deletion.html')}>Data Deletion</a>
+            </div>
+          </div>
+          <div className="footer-section footer-contact">
+            <h4>CONTACT US</h4>
+            <div className="footer-contact-list">
+              <p>Email: {info.EMAIL}</p>
+              <p>Phone: {info.CONTACT}</p>
+              {info.SHOP_ADDRESS ? <p>Address: {info.SHOP_ADDRESS}</p> : null}
+              {info.COUNTER_HOURS ? <p>Counter Hours: {info.COUNTER_HOURS}</p> : null}
+              {whatsappHref ? (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="footer-whatsapp-link"
+                >
+                  WhatsApp Chat
+                </a>
+              ) : null}
+              {info.SHOP_LOCATION_URL ? (
+                <a
+                  href={info.SHOP_LOCATION_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="footer-location-link"
+                >
+                  Shop Location
+                </a>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <p>&copy; 2026 {info.TITLE}. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
 function App() {
   const [cartCount, setCartCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -164,6 +528,13 @@ function App() {
   const whatsappHref = whatsappDigits
     ? `https://wa.me/${whatsappDigits}?text=${whatsappText}`
     : '';
+  const toggleNotificationPanel = () => setNotificationPanelOpen((prev) => !prev);
+  const handleRecipientSearchChange = (value) => setRecipientSearch(value);
+  const handleMessageDraftChange = (value) => setMessageDraft(value);
+  const clearRecipientSelection = () => {
+    setSelectedRecipientIds([]);
+    setRecipientSearch('');
+  };
 
   useLockBodyScroll(mobileMenuOpen);
 
@@ -571,351 +942,42 @@ function App() {
           v7_relativeSplatPath: true,
         }}
       >
-      <div className="app">
-        <VisitorTracker />
-        {/* Header */}
-        <header className="header" ref={headerRef}>
-          <div className="header-content">
-            <button
-              className="mobile-menu-btn"
-              aria-expanded={mobileMenuOpen}
-              aria-controls="app-mobile-nav"
-              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-
-            <Link to="/" className="logo">
-              <img src={logoImage} alt="Logo" className="logo-image" />
-              <span className="logo-bar">{info.TITLE}</span>
-            </Link>
-
-            <nav id="app-mobile-nav" className={`nav ${mobileMenuOpen ? 'nav-open' : ''}`}>
-              <Link to="/" onClick={closeMobileMenu}>
-                <HomeIcon size={20} /> Home
-              </Link>
-              <Link to="/products" onClick={closeMobileMenu}>
-                <Store size={20} /> Products
-              </Link>
-              <div className="orders-menu" role="group" aria-label="Orders">
-                <button type="button" className="orders-trigger" aria-haspopup="menu" aria-label="Orders menu">
-                  <ClipboardList size={20} /> Orders <ChevronDown size={16} />
-                </button>
-                <div className="orders-submenu" role="menu" aria-label="Orders submenu">
-                  <Link to="/order-history" className="orders-submenu-item" role="menuitem" onClick={closeMobileMenu}>
-                    <ClipboardList size={18} /> Order History
-                  </Link>
-                  <Link to="/order-tracking" className="orders-submenu-item" role="menuitem" onClick={closeMobileMenu}>
-                    <Package size={18} /> Track
-                  </Link>
-                  <Link to="/my-bills" className="orders-submenu-item" role="menuitem" onClick={closeMobileMenu}>
-                    <FileText size={18} /> Bills
-                  </Link>
-                  <Link to="/product-requests" className="orders-submenu-item" role="menuitem" onClick={closeMobileMenu}>
-                    <Lightbulb size={18} /> Request Product
-                  </Link>
-                </div>
-              </div>
-              <Link to="/order-history" className="mobile-nav-only" onClick={closeMobileMenu}>
-                <ClipboardList size={20} /> Order History
-              </Link>
-              <Link to="/order-tracking" className="mobile-nav-only" onClick={closeMobileMenu}>
-                <Package size={20} /> Track
-              </Link>
-              <Link to="/my-bills" className="mobile-nav-only" onClick={closeMobileMenu}>
-                <FileText size={20} /> Bills
-              </Link>
-              <Link to="/product-requests" className="mobile-nav-only" onClick={closeMobileMenu}>
-                <Lightbulb size={20} /> Request Product
-              </Link>
-              <Link to="/cart" className="cart-link mobile-nav-only" onClick={closeMobileMenu}>
-                <ShoppingCart size={20} />
-                {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-              </Link>
-              {user?.role === 'admin' && (
-                <Link to="/admin" onClick={closeMobileMenu} className="mobile-admin-link">
-                  <Shield size={20} /> Admin Panel
-                </Link>
-              )}
-              
-              {/* Combined User Menu (Profile, Login/Logout, Admin) */}
-              <div className="mobile-user-menu">
-                <UserMenu user={user} setUser={setUser} inMobileNav onNavigate={closeMobileMenu} />
-              </div>
-            </nav>
-            <div className="header-right-tools">
-              <Link to="/cart" className="header-cart-link" onClick={closeMobileMenu} aria-label="Open cart">
-                <ShoppingCart size={20} />
-                {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-              </Link>
-              {user?.id ? (
-                <div className={`notification-inbox ${notificationPanelOpen ? 'open' : ''}`} ref={notificationInboxRef}>
-                  <button
-                    type="button"
-                    className="notification-inbox-toggle"
-                    onClick={() => setNotificationPanelOpen((prev) => !prev)}
-                    aria-expanded={notificationPanelOpen}
-                    aria-label="Notification Inbox"
-                  >
-                    <BellRing size={16} />
-                    {unreadNotificationCount > 0 && (
-                      <em className="notification-unread-count">{unreadNotificationCount}</em>
-                    )}
-                  </button>
-                  {notificationPanelOpen ? (
-                    <div className="notification-inbox-panel">
-                      <div className="notification-inbox-head">
-                        <strong>Notification Inbox</strong>
-                      </div>
-                      <div className="notification-compose-box">
-                        <strong className="notification-compose-title">Conversation</strong>
-                        {isAdminUser ? (
-                          <>
-                            <input
-                              id="notification-recipient-search"
-                              name="recipient_search"
-                              type="text"
-                              className="notification-compose-input"
-                              value={recipientSearch}
-                              onChange={(e) => setRecipientSearch(e.target.value)}
-                              placeholder="Search customers..."
-                            />
-                            {selectedRecipientIds.length > 0 ? (
-                              <div className="notification-selected-strip">
-                                <span>{selectedRecipientIds.length} selected</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedRecipientIds([])}
-                                >
-                                  Clear
-                                </button>
-                              </div>
-                            ) : null}
-                            <div className="notification-recipient-list">
-                              {messageRecipients.length === 0 ? (
-                                <p className="notification-recipients-empty">No customers found.</p>
-                              ) : (
-                                messageRecipients.map((recipient) => {
-                                  const recipientId = Number(recipient?.id || 0);
-                                  const checked = selectedRecipientIds.includes(recipientId);
-                                  return (
-                                    <label key={recipientId} className="notification-recipient-item">
-                                      <input
-                                        id={`notification-recipient-${recipientId}`}
-                                        name="recipient_user_ids"
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={() => toggleRecipientSelection(recipientId)}
-                                      />
-                                      <span>
-                                        {truncateUserName(recipient?.name || `Customer #${recipientId}`, 15)}
-                                        {recipient?.phone ? ` (${recipient.phone})` : ''}
-                                      </span>
-                                    </label>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          <p className="notification-compose-helper">Send a message to admin.</p>
-                        )}
-                        <input
-                          id="notification-compose-message"
-                          name="message"
-                          type="text"
-                          className="notification-compose-input notification-compose-message-input"
-                          value={messageDraft}
-                          onChange={(e) => setMessageDraft(e.target.value)}
-                          placeholder={isAdminUser ? 'Write message to selected customers...' : 'Write message for admin...'}
-                          maxLength={1000}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (!messageSending) {
-                                void sendInboxMessage();
-                              }
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="notification-compose-send"
-                          onClick={sendInboxMessage}
-                          disabled={messageSending}
-                        >
-                          {messageSending ? 'Sending...' : 'Send Message'}
-                        </button>
-                        {messageFeedback.text ? (
-                          <p className={`notification-compose-feedback ${messageFeedback.type === 'error' ? 'error' : 'success'}`}>
-                            {messageFeedback.text}
-                          </p>
-                        ) : null}
-                      </div>
-                      {notifications.length === 0 ? (
-                        <p className="notification-inbox-empty">No notifications yet.</p>
-                      ) : (
-                        <div className="notification-inbox-list">
-                          {notifications.map((notice) => {
-                            const href = resolveNotificationHref(notice);
-                            const isExpanded = Number(expandedNotificationId || 0) === Number(notice?.id || 0);
-                            return (
-                              <article
-                                key={notice.id}
-                                className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => { void toggleNotificationExpanded(notice); }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    void toggleNotificationExpanded(notice);
-                                  }
-                                }}
-                              >
-                                <div className="notification-item-head">
-                                  <strong>{notice.title}</strong>
-                                  <div className="notification-item-head-right">
-                                    <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
-                                    <ChevronDown size={14} className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`} />
-                                  </div>
-                                </div>
-                                <p className={`notification-item-message ${isExpanded ? 'expanded' : 'collapsed'}`}>{notice.message}</p>
-                                <div className="notification-item-actions">
-                                  <Link
-                                    to={href}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setNotificationPanelOpen(false);
-                                      if (!notice?.is_read) markNotificationRead(notice.id);
-                                    }}
-                                  >
-                                    Open
-                                  </Link>
-                                </div>
-                              </article>
-                            );
-                          })}
-                          {notificationsHasMore ? (
-                            <button
-                              type="button"
-                              className="notification-load-more"
-                              onClick={() => { void loadOlderNotifications(); }}
-                            >
-                              Load older
-                            </button>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="desktop-user-menu">
-                <UserMenu user={user} setUser={setUser} onNavigate={closeMobileMenu} />
-              </div>
-            </div>
-          </div>
-        </header>
-        {mobileMenuOpen ? <button className="mobile-nav-backdrop" aria-label="Close menu" onClick={closeMobileMenu} /> : null}
-
-        {/* Main Content */}
-        <main className="main-content">
-          <Suspense fallback={<div style={{ padding: '24px' }}>Loading...</div>}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/products" element={<Products setCartCount={setCartCount} />} />
-              <Route path="/cart" element={<Cart cartCount={cartCount} setCartCount={setCartCount} />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/login" element={<Login setUser={setUser} />} />
-              <Route path="/admin" element={<Admin user={user} />} />
-              <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
-              <Route path="/my-credit" element={<CreditHistory user={user} />} />
-              <Route path="/order-history" element={<OrderHistory />} />
-              <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />
-              <Route path="/orders/:id" element={<OrderDetails />} />
-              <Route path="/order-tracking" element={<OrderTracking />} />
-              <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/my-bills" element={<MyBills />} />
-              <Route path="/product-requests" element={<ProductRecommendations />} />
-            </Routes>
-          </Suspense>
-        </main>
-        <div className="quick-contact-fab" aria-label="Quick contact options">
-          {whatsappHref ? (
-            <a
-              href={whatsappHref}
-              className="quick-contact-btn chat"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Chat on WhatsApp"
-            >
-              <MessageCircle size={18} />
-              <span>Chat</span>
-            </a>
-          ) : null}
-          <a href={callHref} className="quick-contact-btn call" aria-label="Call store">
-            <Phone size={18} />
-            <span>Call</span>
-          </a>
-        </div>
-
-        {/* Footer */}
-        <footer className="footer">
-          <div className="footer-content">
-            <div className="footer-section footer-brand">
-              <h3>{info.TITLE}</h3>
-              <p>{info.SUB_TITLE}</p>
-            </div>
-            <div className="footer-section footer-links">
-              <h4>Quick Links</h4>
-              <div className="footer-links-list">
-                <Link to="/products">Shop</Link>
-                <Link to="/cart">Cart</Link>
-                <Link to="/my-bills">My Bills</Link>
-                <Link to="/product-requests">Product Requests</Link>
-                <a href={getPublicFileUrl('terms-of-service.html')}>Terms of Service</a>
-                <a href={getPublicFileUrl('privacy-policy.html')}>Privacy Policy</a>
-                <a href={getPublicFileUrl('data-deletion.html')}>Data Deletion</a>
-              </div>
-            </div>
-            <div className="footer-section footer-contact">
-              <h4>CONTACT US</h4>
-              <div className="footer-contact-list">
-                <p>Email: {info.EMAIL}</p>
-                <p>Phone: {info.CONTACT}</p>
-                {info.SHOP_ADDRESS ? <p>Address: {info.SHOP_ADDRESS}</p> : null}
-                {info.COUNTER_HOURS ? <p>Counter Hours: {info.COUNTER_HOURS}</p> : null}
-                {whatsappHref ? (
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="footer-whatsapp-link"
-                  >
-                    WhatsApp Chat
-                  </a>
-                ) : null}
-                {info.SHOP_LOCATION_URL ? (
-                  <a
-                    href={info.SHOP_LOCATION_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="footer-location-link"
-                  >
-                    Shop Location
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <div className="footer-bottom">
-            <p>&copy; 2026 {info.TITLE}. All rights reserved.</p>
-          </div>
-        </footer>
-      </div>
+        <AppShell
+          headerRef={headerRef}
+          mobileMenuOpen={mobileMenuOpen}
+          onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
+          onCloseMobileMenu={closeMobileMenu}
+          logoImage={logoImage}
+          cartCount={cartCount}
+          user={user}
+          setUser={setUser}
+          isAdminUser={isAdminUser}
+          notificationPanelOpen={notificationPanelOpen}
+          onToggleNotificationPanel={toggleNotificationPanel}
+          notifications={notifications}
+          unreadNotificationCount={unreadNotificationCount}
+          notificationsHasMore={notificationsHasMore}
+          expandedNotificationId={expandedNotificationId}
+          messageDraft={messageDraft}
+          messageRecipients={messageRecipients}
+          selectedRecipientIds={selectedRecipientIds}
+          recipientSearch={recipientSearch}
+          messageSending={messageSending}
+          messageFeedback={messageFeedback}
+          notificationInboxRef={notificationInboxRef}
+          onToggleRecipientSelection={toggleRecipientSelection}
+          onSendInboxMessage={sendInboxMessage}
+          onLoadOlderNotifications={loadOlderNotifications}
+          onResolveNotificationHref={resolveNotificationHref}
+          onToggleNotificationExpanded={toggleNotificationExpanded}
+          onMarkNotificationRead={markNotificationRead}
+          onRecipientSearchChange={handleRecipientSearchChange}
+          onMessageDraftChange={handleMessageDraftChange}
+          onClearRecipientSelection={clearRecipientSelection}
+          callHref={callHref}
+          whatsappHref={whatsappHref}
+          setCartCount={setCartCount}
+        />
     </BrowserRouter>
     </ErrorBoundary>
   );

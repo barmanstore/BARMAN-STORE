@@ -4,6 +4,21 @@ import { spawn } from 'node:child_process';
 const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
 const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
 const CRON_SECRET = 'phone-change-cron-secret';
+const explicitDbUrl = String(process.env.PHONE_TEST_DB_URL || '').trim();
+const allowSkipIfNoDb = ['1', 'true', 'yes', 'on'].includes(String(
+  process.env.PHONE_TEST_ALLOW_NO_DB || process.env.SMOKE_ALLOW_NO_DB || ''
+).trim().toLowerCase());
+const hasDbEnv = Boolean(
+  explicitDbUrl
+  || process.env.SUPABASE_DB_URL
+  || process.env.DATABASE_URL
+  || process.env.POSTGRES_URL
+  || process.env.POSTGRES_PRISMA_URL
+  || process.env.PG_CONNECTION_STRING
+  || process.env.PGHOST
+  || process.env.PG_HOST
+  || process.env.POSTGRES_HOST
+);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -89,6 +104,7 @@ const spawnPhoneTestServer = (port) => {
       PHONE_CHANGE_PROCESS_INTERVAL_MS: '60000',
       PHONE_CHANGE_CRON_ENABLED: 'true',
       PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
+      ...(explicitDbUrl ? { SUPABASE_DB_URL: explicitDbUrl, DATABASE_URL: explicitDbUrl } : {}),
     },
   });
 
@@ -124,6 +140,12 @@ const main = async () => {
   let bootDiagnostics = '';
 
   try {
+    if (allowSkipIfNoDb && !hasDbEnv) {
+      console.warn('[WARN] Phone workflow smoke test skipped because no database configuration is set.');
+      console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL or set PHONE_TEST_DB_URL to run the test.');
+      return;
+    }
+
     let ready = false;
     for (let attempt = 1; attempt <= bootAttempts; attempt += 1) {
       const port = 5600 + Math.floor(Math.random() * 300);
@@ -143,11 +165,19 @@ const main = async () => {
         await delay(1200 * attempt);
       }
     }
-    assert.equal(
-      ready,
-      true,
-      `Server did not start in time after ${bootAttempts} attempts.${bootDiagnostics}`
-    );
+    if (!ready) {
+      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(bootDiagnostics);
+      if (allowSkipIfNoDb && dbBootFailed) {
+        console.warn('[WARN] Phone workflow smoke test skipped because the database is unavailable.');
+        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL or set PHONE_TEST_DB_URL to run the test.');
+        return;
+      }
+      assert.equal(
+        ready,
+        true,
+        `Server did not start in time after ${bootAttempts} attempts.${bootDiagnostics}`
+      );
+    }
 
     const disabledRegisterRes = await request('/api/auth/register', {
       method: 'POST',

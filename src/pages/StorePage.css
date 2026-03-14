@@ -1,0 +1,143 @@
+@media (max-width: 768px) {
+  .store-page {
+    padding: 1rem;
+  }
+
+  .store-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #e8f5e9;
+    border-radius: 18px;
+    padding: 1rem;
+    border: 1px solid rgba(46, 125, 50, 0.16);
+  }
+
+  .store-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #1f5532;
+    font-weight: 700;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .store-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .store-header-text h1 {
+    font-size: 1rem;
+    margin: 0 0 0.2rem;
+    color: #0f3b23;
+  }
+
+  .store-header-text p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #1f5532;
+    font-weight: 600;
+  }
+
+  .store-header-action {
+    margin-left: auto;
+  }
+
+  .store-action-btn {
+    border: 0;
+    background: #1f5532;
+    color: #ffffff;
+    padding: 0.4rem 0.7rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .store-section {
+    margin-top: 1.2rem;
+  }
+
+  .store-section h2 {
+    margin: 0 0 0.6rem;
+    font-size: 0.85rem;
+    color: #1f5532;
+    letter-spacing: 0.02em;
+  }
+
+  .store-links {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .store-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 0.85rem 0.8rem;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #0f3b23;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .store-link span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .store-link-button {
+    cursor: pointer;
+    width: 100%;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .store-link-meta {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1f5532;
+  }
+
+  .store-badge {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+  }
+
+  .store-notifications-panel {
+    margin-top: 0.6rem;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    padding: 0.7rem;
+    grid-column: 1 / -1;
+  }
+
+  .store-notifications-empty {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 600;
+  }
+}

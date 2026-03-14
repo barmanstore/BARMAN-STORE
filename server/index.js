@@ -1,4 +1,4 @@
-require('./loadEnv');
+﻿require('./loadEnv');
 const express = require('express');
 const cors = require('cors');
 const { AsyncLocalStorage } = require('async_hooks');
@@ -742,9 +742,23 @@ const sendEmailVerificationChallenge = async ({
 
 const createRateLimiter = ({ windowMs, max, keyFn }) => {
   const hits = new Map();
+  let nextPruneAt = 0;
+
+  const pruneExpiredHits = (now) => {
+    if (now < nextPruneAt) return;
+    for (const [hitKey, hitValue] of hits.entries()) {
+      if (!hitValue || now > Number(hitValue.resetAt || 0)) {
+        hits.delete(hitKey);
+      }
+    }
+    const pruneIntervalMs = Math.max(1000, Math.min(Number(windowMs || 0) || 60000, 60000));
+    nextPruneAt = now + pruneIntervalMs;
+  };
+
   return (req, res, next) => {
     const now = Date.now();
-    const key = keyFn(req);
+    pruneExpiredHits(now);
+    const key = String(keyFn(req) || 'unknown');
     const current = hits.get(key);
     if (!current || now > current.resetAt) {
       hits.set(key, { count: 1, resetAt: now + windowMs });
@@ -858,9 +872,7 @@ const PASSWORD_RESET_LOGIN_URL = String(
   process.env.PASSWORD_RESET_LOGIN_URL || 'https://barmanstore.vercel.app/login'
 ).trim();
 const SUPABASE_AUTH_ENABLED_RAW = String(process.env.SUPABASE_AUTH_ENABLED ?? '').trim();
-const SUPABASE_AUTH_ENABLED = SUPABASE_AUTH_ENABLED_RAW
-  ? parseBooleanEnv(SUPABASE_AUTH_ENABLED_RAW, false)
-  : Boolean(String(process.env.SUPABASE_URL || '').trim() || String(process.env.SUPABASE_DB_URL || '').trim());
+const SUPABASE_AUTH_ENABLED = parseBooleanEnv(SUPABASE_AUTH_ENABLED_RAW, false);
 const SUPABASE_AUTH_MODE = String(process.env.SUPABASE_AUTH_MODE || 'hybrid').trim().toLowerCase() === 'strict'
   ? 'strict'
   : 'hybrid';
@@ -2161,6 +2173,150 @@ const recalculateCreditBalancesForUser = async (userId) => dbTxAsync(async () =>
 
   return runningBalance;
 });
+
+const PAYMENT_BADGE_SETTINGS = {
+  recentDays: 7,
+  silverWindowDays: 60,
+  silverMinimumPayments: 2,
+  bronzeWindowDays: 90,
+  streakMinimumMonths: 6,
+  maxStreakMonths: 12,
+};
+const PAYMENT_DAY_MS = 24 * 60 * 60 * 1000;
+
+const resolveCreditEntryTimestampMs = (entry) => {
+  const tsMs = toTimestampMs(entry?.transaction_ts || entry?.transactionTs);
+  if (tsMs) return tsMs;
+  const normalizedDate = normalizeTransactionDate(entry?.transaction_date || entry?.transactionDate || '');
+  if (normalizedDate) {
+    const [year, month, day] = normalizedDate.split('-').map((v) => Number(v));
+    const createdMs = toTimestampMs(entry?.created_at);
+    if (createdMs) {
+      const createdDate = new Date(createdMs);
+      const rebuilt = Date.UTC(
+        year,
+        month - 1,
+        day,
+        createdDate.getUTCHours(),
+        createdDate.getUTCMinutes(),
+        createdDate.getUTCSeconds(),
+        createdDate.getUTCMilliseconds()
+      );
+      if (Number.isFinite(rebuilt)) return rebuilt;
+    }
+    const fallback = Date.UTC(year, month - 1, day);
+    if (Number.isFinite(fallback)) return fallback;
+  }
+  const createdMs = toTimestampMs(entry?.created_at);
+  return Number.isFinite(createdMs) ? createdMs : 0;
+};
+
+const getUtcMonthKey = (timestampMs) => {
+  const date = new Date(timestampMs);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+const formatPaymentBadgeDate = (timestampMs) => {
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return '';
+  return new Date(timestampMs).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+const buildPaymentActivityBadges = (payments, { balance = 0, nowMs = Date.now() } = {}) => {
+  const paymentRows = Array.isArray(payments) ? payments : [];
+  const timeline = paymentRows
+    .map((entry) => {
+      const timestampMs = resolveCreditEntryTimestampMs(entry);
+      if (!Number.isFinite(timestampMs) || timestampMs <= 0) return null;
+      return {
+        timestampMs,
+        amount: Math.abs(Number(entry?.amount || 0)),
+      };
+    })
+    .filter(Boolean);
+
+  const totalPayments = timeline.length;
+  const totalPaidAmount = timeline.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+  const lastPaymentTs = timeline.reduce((latest, entry) => (
+    entry.timestampMs > latest ? entry.timestampMs : latest
+  ), 0);
+  const lastPaymentLabel = formatPaymentBadgeDate(lastPaymentTs);
+  const lastPaymentAgeDays = lastPaymentTs ? Math.floor((nowMs - lastPaymentTs) / PAYMENT_DAY_MS) : null;
+
+  const paymentsLast30 = timeline.filter((entry) => nowMs - entry.timestampMs <= 30 * PAYMENT_DAY_MS).length;
+  const paymentsLast60 = timeline.filter((entry) => nowMs - entry.timestampMs <= PAYMENT_BADGE_SETTINGS.silverWindowDays * PAYMENT_DAY_MS).length;
+  const paymentsLast90 = timeline.filter((entry) => nowMs - entry.timestampMs <= PAYMENT_BADGE_SETTINGS.bronzeWindowDays * PAYMENT_DAY_MS).length;
+
+  const monthKeys = new Set(timeline.map((entry) => getUtcMonthKey(entry.timestampMs)).filter(Boolean));
+  let streakMonths = 0;
+  if (monthKeys.size > 0) {
+    const cursor = new Date(nowMs);
+    for (let i = 0; i < PAYMENT_BADGE_SETTINGS.maxStreakMonths; i += 1) {
+      const key = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+      if (!monthKeys.has(key)) break;
+      streakMonths += 1;
+      cursor.setUTCMonth(cursor.getUTCMonth() - 1);
+    }
+  }
+
+  const badges = [];
+  if (Number(balance || 0) <= 0 && Number.isFinite(lastPaymentAgeDays) && lastPaymentAgeDays <= PAYMENT_BADGE_SETTINGS.recentDays) {
+    badges.push({
+      id: 'gold_score',
+      label: 'Gold Score',
+      tone: 'gold',
+      description: `Balance cleared and paid within ${PAYMENT_BADGE_SETTINGS.recentDays} days.`,
+    });
+  }
+  if (paymentsLast60 >= PAYMENT_BADGE_SETTINGS.silverMinimumPayments) {
+    badges.push({
+      id: 'silver_score',
+      label: 'Silver Score',
+      tone: 'silver',
+      description: `${paymentsLast60} payments in ${PAYMENT_BADGE_SETTINGS.silverWindowDays} days.`,
+    });
+  }
+  if (paymentsLast90 >= 1) {
+    badges.push({
+      id: 'bronze_score',
+      label: 'Bronze Score',
+      tone: 'bronze',
+      description: `At least 1 payment in ${PAYMENT_BADGE_SETTINGS.bronzeWindowDays} days.`,
+    });
+  }
+  if (streakMonths >= PAYMENT_BADGE_SETTINGS.streakMinimumMonths) {
+    badges.push({
+      id: 'streak_star',
+      label: `Streak Star`,
+      tone: 'streak',
+      description: `Paid every month for ${streakMonths} months.`,
+    });
+  }
+
+  const summaryParts = [];
+  if (lastPaymentLabel) summaryParts.push(`Last paid ${lastPaymentLabel}`);
+  if (paymentsLast60 > 0) summaryParts.push(`${paymentsLast60} in 60d`);
+  if (streakMonths >= 2) summaryParts.push(`Streak ${streakMonths}m`);
+
+  return {
+    badges,
+    summary: {
+      total_payments: totalPayments,
+      total_paid_amount: totalPaidAmount,
+      balance: Number(balance || 0),
+      last_payment_at: lastPaymentTs ? new Date(lastPaymentTs).toISOString() : null,
+      last_payment_label: lastPaymentLabel || null,
+      last_payment_days: Number.isFinite(lastPaymentAgeDays) ? lastPaymentAgeDays : null,
+      payments_30d: paymentsLast30,
+      payments_60d: paymentsLast60,
+      payments_90d: paymentsLast90,
+      streak_months: streakMonths,
+      summary_line: summaryParts.join(' · '),
+    },
+  };
+};
 
 const normalizeSkuToken = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 const toSkuFixed = (value, length, fallback = 'X') => {
@@ -3613,7 +3769,7 @@ const validateProductPayload = (payload, { partial = false } = {}) => {
   }
   if (payload.purchase_pack_size !== undefined && payload.purchase_pack_size !== null && payload.purchase_pack_size !== '') {
     const packSize = Number(payload.purchase_pack_size);
-    if (!Number.isFinite(packSize) || packSize <= 0) errors.push('purchase_pack_size must be greater than 0');
+    if (!Number.isFinite(packSize) || packSize < 0) errors.push('purchase_pack_size must be 0 or more');
   }
   if (payload.mrp !== undefined && (!Number.isFinite(Number(payload.mrp)) || Number(payload.mrp) < 0)) {
     errors.push('mrp must be 0 or more');
@@ -5832,6 +5988,36 @@ app.get('/api/users/:userId/credit-history', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/users/:userId/payment-badges', requireAuth, async (req, res) => {
+  try {
+    const requestUserId = Number(req.params.userId);
+    const isAdmin = req.authUser?.role === 'admin';
+    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const [paymentRows, latest] = await Promise.all([
+      dbAllAsync(
+        `SELECT amount, transaction_ts, transaction_date, created_at
+         FROM credit_history
+         WHERE user_id = ?
+           AND LOWER(type) = 'payment'
+         ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC`,
+        [req.params.userId]
+      ),
+      getLatestCreditEntryAsync(requestUserId),
+    ]);
+
+    const badgePayload = buildPaymentActivityBadges(paymentRows, {
+      balance: Number(latest?.balance || 0),
+      nowMs: Date.now(),
+    });
+    return res.json(badgePayload);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
   try {
     const requestUserId = Number(req.params.userId);
@@ -6787,13 +6973,6 @@ const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
        ON (
          dl.source IN ('purchase_order', 'po_correction')
          AND ${SQL_CAST_TO_INT} = po.id
-       ),
-       prices AS (
-         SELECT
-           id,
-           price,
-           mrp
-         FROM products
        )
        OR (
          dl.source = 'po_payment'
@@ -10102,7 +10281,7 @@ app.get('/api/insights/products', requireAdmin, async (req, res) => {
          p.name as product_name,
          p.category,
          p.subcategory,
-         p.stock,
+         p.stock, p.price, p.mrp,
          stats.purchase_count,
          stats.avg_cost,
          stats.min_cost,
@@ -10712,4 +10891,3 @@ if (!IS_VERCEL_RUNTIME) {
 }
 
 module.exports = app;
-

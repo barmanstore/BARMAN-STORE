@@ -2361,6 +2361,7 @@ table {
 .products-table .col-status { min-width: 70px; }
 .products-table .col-description { min-width: 150px; }
 .products-table .col-content { min-width: 80px; }
+.products-table .col-pack { min-width: 90px; }
 .products-table .col-color { min-width: 70px; }
 .products-table .col-uom { min-width: 55px; }
 .products-table .col-expiry { min-width: 90px; }

@@ -8,6 +8,7 @@ import { ordersApi, customersApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import { LOGO_URL } from './info';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 import './Checkout.css';
 
 // Generate session ID for guest users
@@ -354,45 +355,50 @@ function Checkout() {
     navigate('/profile');
   };
 
-  if (loading) {
-    return (
-      <div className="checkout-page">
-        <div className="loading-container">
-          <Package size={40} className="spinning" />
-          <p>Loading checkout...</p>
-        </div>
-      </div>
-    );
-  }
+    if (loading) {
+      return (
+        <MobileAccountLayout>
+          <div className="checkout-page">
+            <div className="loading-container">
+              <Package size={40} className="spinning" />
+              <p>Loading checkout...</p>
+            </div>
+          </div>
+        </MobileAccountLayout>
+      );
+    }
 
   if (success && orderResult) {
     return (
-      <div className="checkout-page">
-        <div className="order-success fade-in-up">
-          <div className="success-icon">
-            <CheckCircle size={100} />
+      <MobileAccountLayout>
+        <div className="checkout-page">
+          <div className="order-success fade-in-up">
+            <div className="success-icon">
+              <CheckCircle size={100} />
+            </div>
+            <h1>Order Placed Successfully!</h1>
+            <p className="order-number">Order #{orderResult.orderNumber}</p>
+            <p className="success-message">
+              Thank you for your order. Payment mode: Cash on delivery.
+            </p>
+            <div className="order-details">
+              <p>Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong></p>
+            </div>
+            <button className="back-home-btn" onClick={() => navigate('/products')}>
+              Continue Shopping
+            </button>
           </div>
-          <h1>Order Placed Successfully!</h1>
-          <p className="order-number">Order #{orderResult.orderNumber}</p>
-          <p className="success-message">
-            Thank you for your order. Payment mode: Cash on delivery.
-          </p>
-          <div className="order-details">
-            <p>Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong></p>
-          </div>
-          <button className="back-home-btn" onClick={() => navigate('/products')}>
-            Continue Shopping
-          </button>
         </div>
-      </div>
+      </MobileAccountLayout>
     );
   }
 
   return (
-    <div className="checkout-page">
-      <div className="checkout-header fade-in-up">
-        <h1>Checkout</h1>
-        <p>{isLoggedIn ? `Welcome, ${user?.name || 'Customer'}` : 'Guest Checkout'}</p>
+    <MobileAccountLayout>
+      <div className="checkout-page">
+        <div className="checkout-header fade-in-up">
+          <h1>Checkout</h1>
+          <p>{isLoggedIn ? `Welcome, ${user?.name || 'Customer'}` : 'Guest Checkout'}</p>
         
         {/* Admin Mode Toggle */}
         {isAdmin && (
@@ -661,7 +667,8 @@ function Checkout() {
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ordersApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
+import MobileAccountLayout from '../components/mobile/MobileAccountLayout';
 
 const extractQtyLabelFromName = (value) => {
   const raw = String(value || '').trim();
@@ -77,16 +78,35 @@ export default function OrderDetails() {
     load();
   }, [id]);
 
-  if (loading) return <div style={{ padding: 20 }}>Loading order...</div>;
-  if (error) return <div style={{ padding: 20 }} className="error-message">{error}</div>;
-  if (!order) return <div style={{ padding: 20 }}>Order not found</div>;
+  if (loading) {
+    return (
+      <MobileAccountLayout>
+        <div style={{ padding: 20 }}>Loading order...</div>
+      </MobileAccountLayout>
+    );
+  }
+  if (error) {
+    return (
+      <MobileAccountLayout>
+        <div style={{ padding: 20 }} className="error-message">{error}</div>
+      </MobileAccountLayout>
+    );
+  }
+  if (!order) {
+    return (
+      <MobileAccountLayout>
+        <div style={{ padding: 20 }}>Order not found</div>
+      </MobileAccountLayout>
+    );
+  }
 
   const savedUser = getSavedUser();
   const isAdmin = savedUser?.role === 'admin';
   const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
 
   return (
-    <div style={{ padding: 20 }}>
+    <MobileAccountLayout>
+      <div style={{ padding: 20 }}>
       <h1>Order {order.order_number || `#${order.id}`}</h1>
       <p><strong>Customer:</strong> {order.customer_name} ({order.customer_email})</p>
       { /* If admin viewing, show admin controls */ }
@@ -175,6 +195,7 @@ export default function OrderDetails() {
       <div style={{ marginTop: 12 }}>
         <button onClick={() => navigate(-1)} className="admin-btn">Back</button>
       </div>
-    </div>
+      </div>
+    </MobileAccountLayout>
   );
 }

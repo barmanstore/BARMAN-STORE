@@ -420,7 +420,7 @@
   justify-content: flex-end;
 }
 
-.view-btn, .retry-btn, .track-btn {
+.view-btn, .retry-btn, .track-btn, .reorder-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -431,6 +431,10 @@
   transition: all 0.2s;
   min-height: 40px;
   white-space: nowrap;
+}
+
+.reorder-btn {
+  display: none;
 }
 
 .view-btn {
@@ -548,9 +552,16 @@
     justify-content: flex-start;
   }
 
-  .view-btn, .retry-btn, .track-btn {
+  .view-btn, .retry-btn, .track-btn, .reorder-btn {
     flex: 1;
     justify-content: center;
+  }
+
+  .reorder-btn {
+    display: flex;
+    background: #2d3748;
+    border: 2px solid #2d3748;
+    color: #ffffff;
   }
 
   .status-tabs {

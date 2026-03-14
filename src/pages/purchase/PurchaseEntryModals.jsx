@@ -71,7 +71,7 @@ export function PurchaseOrderFormModal({
           </div>
         </div>
 
-        <form onSubmit={handleOrderSubmit} className="po-entry-form po-entry-view-form">
+        <form onSubmit={handleOrderSubmit} className="po-entry-form po-entry-view-form" noValidate>
           <div className="po-invoice-preview po-entry-preview">
             <div className="po-invoice-header po-entry-preview-header">
               <div>
@@ -244,7 +244,7 @@ export function PurchaseOrderFormModal({
                             id={`po-entry-qty-${index}`}
                             name={`quantity_${index}`}
                             type="number"
-                            min="0"
+                            min="1"
                             step={packStep}
                             value={item.quantity}
                             onChange={(event) => handleOrderItemChange(index, 'quantity', toNumber(event.target.value))}

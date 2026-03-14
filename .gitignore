@@ -33,6 +33,7 @@ tmp*
 # Editor
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
