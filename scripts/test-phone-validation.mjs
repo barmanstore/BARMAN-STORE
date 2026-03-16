@@ -23,7 +23,21 @@ const hasDbEnv = Boolean(
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const terminateServer = async (server, timeoutMs = 2000) => {
-  if (!server || server.killed) return;
+  if (!server) return;
+  if (typeof server.close === 'function') {
+    await Promise.race([
+      new Promise((resolve) => {
+        try {
+          server.close(() => resolve(true));
+        } catch (_) {
+          resolve(true);
+        }
+      }),
+      delay(timeoutMs),
+    ]);
+    return;
+  }
+  if (server.killed) return;
   const exited = new Promise((resolve) => {
     server.once('exit', () => resolve(true));
   });
@@ -109,35 +123,70 @@ const runInternalProcessor = async (request) => {
   return json;
 };
 
-const spawnPhoneTestServer = (port) => {
-  const server = spawn('node', ['server/index.js'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-      PORT: String(port),
-      AUTH_TOKEN_SECRET: 'test-secret-for-phone-validation',
-      SUPABASE_AUTH_ENABLED: 'false',
-      AUTH_LOGIN_OTP_EXPOSE_CODE: 'true',
-      PHONE_CHANGE_AUTO_APPROVE_DELAY_MS: '1000',
-      PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS: '0.00005',
-      PHONE_CHANGE_PROCESS_INTERVAL_MS: '60000',
-      PHONE_CHANGE_CRON_ENABLED: 'true',
-      PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
-      ...(explicitDbUrl ? { SUPABASE_DB_URL: explicitDbUrl, DATABASE_URL: explicitDbUrl } : {}),
-    },
-  });
+const buildTestEnv = (port) => ({
+  NODE_ENV: 'test',
+  PORT: String(port),
+  AUTH_TOKEN_SECRET: 'test-secret-for-phone-validation',
+  SUPABASE_AUTH_ENABLED: 'false',
+  AUTH_LOGIN_OTP_EXPOSE_CODE: 'true',
+  PHONE_CHANGE_AUTO_APPROVE_DELAY_MS: '1000',
+  PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS: '0.00005',
+  PHONE_CHANGE_PROCESS_INTERVAL_MS: '60000',
+  PHONE_CHANGE_CRON_ENABLED: 'true',
+  PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
+  ...(explicitDbUrl ? { SUPABASE_DB_URL: explicitDbUrl, DATABASE_URL: explicitDbUrl } : {}),
+});
 
-  let stdout = '';
-  let stderr = '';
-  server.stdout.on('data', (chunk) => { stdout += String(chunk); });
-  server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+let inProcessApp = null;
+const loadInProcessApp = async () => {
+  if (inProcessApp) return inProcessApp;
+  const moduleUrl = new URL('../server/index.js', import.meta.url);
+  const imported = await import(moduleUrl);
+  inProcessApp = imported.default || imported.app || imported;
+  return inProcessApp;
+};
 
+const startInProcessServer = async (port) => {
+  Object.assign(process.env, buildTestEnv(port));
+  const app = await loadInProcessApp();
+  const server = app.listen(port, '127.0.0.1');
   return {
     server,
-    readLogs: () => ({ stdout, stderr }),
+    app,
+    readLogs: () => ({ stdout: '', stderr: '[INFO] In-process server started.' }),
   };
+};
+
+const spawnPhoneTestServer = async (port) => {
+  let stdout = '';
+  let stderr = '';
+  try {
+    const server = spawn(process.execPath, ['server/index.js'], {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        ...buildTestEnv(port),
+      },
+    });
+
+    server.stdout.on('data', (chunk) => { stdout += String(chunk); });
+    server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+
+    return {
+      server,
+      app: null,
+      readLogs: () => ({ stdout, stderr }),
+    };
+  } catch (error) {
+    if (error?.code !== 'EPERM') throw error;
+    stderr = `${stderr}\n[WARN] spawn EPERM. Falling back to in-process server.`;
+    const boot = await startInProcessServer(port);
+    return {
+      ...boot,
+      readLogs: () => ({ stdout, stderr }),
+    };
+  }
 };
 
 const waitForServerReady = async (request, attempts = 220, waitMs = 250) => {
@@ -156,6 +205,7 @@ const waitForServerReady = async (request, attempts = 220, waitMs = 250) => {
 const main = async () => {
   const bootAttempts = 3;
   let server = null;
+  let appInstance = null;
   let request = null;
   let baseUrl = '';
   let bootDiagnostics = '';
@@ -175,8 +225,9 @@ const main = async () => {
     let ready = false;
     for (let attempt = 1; attempt <= bootAttempts; attempt += 1) {
       const port = 5600 + Math.floor(Math.random() * 300);
-      const boot = spawnPhoneTestServer(port);
+      const boot = await spawnPhoneTestServer(port);
       server = boot.server;
+      appInstance = boot.app || null;
       baseUrl = `http://127.0.0.1:${port}`;
       request = makeRequest(baseUrl);
       ready = await waitForServerReady(request);
@@ -185,6 +236,9 @@ const main = async () => {
       const logs = boot.readLogs();
       bootDiagnostics += `\n[attempt ${attempt}] stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}\n`;
       await terminateServer(server);
+      if (appInstance?.closeRuntime) {
+        await appInstance.closeRuntime().catch(() => {});
+      }
       await delay(400);
 
       if (attempt < bootAttempts) {
@@ -334,6 +388,9 @@ const main = async () => {
   } finally {
     if (server) {
       await terminateServer(server);
+      if (appInstance?.closeRuntime) {
+        await appInstance.closeRuntime().catch(() => {});
+      }
     }
   }
 };

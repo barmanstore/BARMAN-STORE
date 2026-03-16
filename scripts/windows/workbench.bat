@@ -50,7 +50,6 @@ echo 17. Exit
 echo.
 set "CHOICE="
 set /p CHOICE=Select option [1-17]: 
-if errorlevel 1 goto :done
 
 :dispatch
 if "%CHOICE%"=="1" goto :git_quick

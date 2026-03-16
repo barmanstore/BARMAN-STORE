@@ -40,4 +40,33 @@ const applyBaseMiddleware = ({
   });
 };
 
-module.exports = { applyBaseMiddleware };
+const createAuthRateLimiters = ({ createRateLimiter } = {}) => {
+  const authIpLimiter = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    keyFn: (req) => `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`,
+  });
+  const emailVerificationLimiter = createRateLimiter({
+    windowMs: 30 * 60 * 1000,
+    max: 6,
+    keyFn: (req) => {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      return email ? `email:${email}` : `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
+    },
+  });
+  return { authIpLimiter, emailVerificationLimiter };
+};
+
+const registerRootRoute = ({ app } = {}) => {
+  if (!app) return;
+  app.get('/', (_, res) => {
+    res.json({
+      success: true,
+      message: 'BARMAN STORE API',
+      status: 'running',
+      version: '1.0.0',
+    });
+  });
+};
+
+module.exports = { applyBaseMiddleware, createAuthRateLimiters, registerRootRoute };

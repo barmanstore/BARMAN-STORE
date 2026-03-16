@@ -20,6 +20,98 @@ const hasDbEnv = Boolean(
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const terminateServer = async (server, timeoutMs = 2000) => {
+  if (!server) return;
+  if (typeof server.close === 'function') {
+    await Promise.race([
+      new Promise((resolve) => {
+        try {
+          server.close(() => resolve(true));
+        } catch (_) {
+          resolve(true);
+        }
+      }),
+      delay(timeoutMs),
+    ]);
+    return;
+  }
+  if (server.killed) return;
+  const exited = new Promise((resolve) => {
+    server.once('exit', () => resolve(true));
+  });
+  try {
+    server.kill('SIGTERM');
+  } catch (_) {
+    // ignore kill errors
+  }
+  const timedOut = await Promise.race([exited.then(() => false), delay(timeoutMs).then(() => true)]);
+  if (timedOut && !server.killed) {
+    try {
+      server.kill('SIGKILL');
+    } catch (_) {
+      // ignore hard kill errors
+    }
+    await Promise.race([exited, delay(800)]);
+  }
+};
+
+const buildTestEnv = (port, authSecret) => ({
+  NODE_ENV: 'test',
+  PORT: String(port),
+  AUTH_TOKEN_SECRET: authSecret,
+  SUPABASE_AUTH_ENABLED: 'false',
+});
+
+let inProcessApp = null;
+const loadInProcessApp = async () => {
+  if (inProcessApp) return inProcessApp;
+  const moduleUrl = new URL('../server/index.js', import.meta.url);
+  const imported = await import(moduleUrl);
+  inProcessApp = imported.default || imported.app || imported;
+  return inProcessApp;
+};
+
+const startInProcessServer = async (port, authSecret) => {
+  Object.assign(process.env, buildTestEnv(port, authSecret));
+  const app = await loadInProcessApp();
+  const server = app.listen(port, '127.0.0.1');
+  return {
+    server,
+    app,
+    readLogs: () => ({ stdout: '', stderr: '[INFO] In-process server started.' }),
+  };
+};
+
+const spawnTestServer = async (port, authSecret) => {
+  let stdout = '';
+  let stderr = '';
+  try {
+    const server = spawn(process.execPath, ['server/index.js'], {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        ...buildTestEnv(port, authSecret),
+      },
+    });
+    server.stdout.on('data', (chunk) => { stdout += String(chunk); });
+    server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    return {
+      server,
+      app: null,
+      readLogs: () => ({ stdout, stderr }),
+    };
+  } catch (error) {
+    if (error?.code !== 'EPERM') throw error;
+    stderr = `${stderr}\n[WARN] spawn EPERM. Falling back to in-process server.`;
+    const boot = await startInProcessServer(port, authSecret);
+    return {
+      ...boot,
+      readLogs: () => ({ stdout, stderr }),
+    };
+  }
+};
+
 const toJson = async (res) => {
   try {
     return await res.json();
@@ -63,22 +155,10 @@ const toNumber = (value) => {
 const main = async () => {
   const port = 5900 + Math.floor(Math.random() * 100);
   const authSecret = `po-lifecycle-secret-${randomSuffix()}`;
-  const server = spawn('node', ['server/index.js'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-      PORT: String(port),
-      AUTH_TOKEN_SECRET: authSecret,
-      SUPABASE_AUTH_ENABLED: 'false',
-    },
-  });
-
-  let stdout = '';
-  let stderr = '';
-  server.stdout.on('data', (chunk) => { stdout += String(chunk); });
-  server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+  const boot = await spawnTestServer(port, authSecret);
+  const { server } = boot;
+  const appInstance = boot.app || null;
+  const readLogs = boot.readLogs;
 
   const baseUrl = `http://127.0.0.1:${port}`;
   const request = makeRequest(baseUrl);
@@ -108,13 +188,14 @@ const main = async () => {
       await delay(250);
     }
     if (!ready) {
-      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(stderr);
+      const logs = readLogs();
+      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(logs.stderr);
       if (allowSkipIfNoDb && dbBootFailed) {
         console.warn('[WARN] PO lifecycle smoke test skipped because the database is unavailable.');
         console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
         return;
       }
-      assert.equal(ready, true, `Server did not start in time. stderr:\n${stderr}\nstdout:\n${stdout}`);
+      assert.equal(ready, true, `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`);
     }
 
     const dbUrl = String(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || process.env.POSTGRES_DB_URL || '').trim();
@@ -339,8 +420,10 @@ const main = async () => {
       }
       await pool.end().catch(() => {});
     }
-    server.kill('SIGTERM');
-    await delay(300);
+    await terminateServer(server);
+    if (appInstance?.closeRuntime) {
+      await appInstance.closeRuntime().catch(() => {});
+    }
   }
 };
 

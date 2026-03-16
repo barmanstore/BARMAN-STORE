@@ -7,17 +7,14 @@ const fs = require('fs');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const XLSX = require('xlsx');
-const { createOtpProvider } = require('./otpProvider');
-const { createEmailVerificationProvider } = require('./emailVerificationProvider');
-const { createNotificationService } = require('./notificationService');
-const { createWhatsappProvider } = require('./whatsappProvider');
-const { createSupabaseAuthProvider } = require('./supabaseAuthProvider');
 const { parseBooleanEnv } = require('./core/envUtils');
-const { createOriginConfig } = require('./core/originConfig');
-const { applyBaseMiddleware } = require('./core/httpSetup');
+const { createBootstrapConfig } = require('./core/bootstrap/config');
+const { applyHttpBootstrap } = require('./core/bootstrap/http');
+const { createBootstrapProviders } = require('./core/bootstrap/providers');
+const { createBootstrapDatabase } = require('./core/bootstrap/db');
+const { createBootstrapWorkers } = require('./core/bootstrap/workers');
+const { registerAppFeatures } = require('./core/bootstrap/features');
 const { createRequestUtils } = require('./core/requestUtils');
-const { createDatabaseService } = require('./core/dbService');
-const { createServerConfig } = require('./core/config');
 const { startRuntime } = require('./core/runtime');
 const { createRateLimiter } = require('./core/rateLimiter');
 const { isUniqueViolationError } = require('./core/dbUtils');
@@ -107,12 +104,16 @@ const defaultAllowedOrigins = [
   'https://barman-store.vercel.app',
   'https://barmanstore.vercel.app',
 ];
-const { corsOptions, defaultOnlineStoreUrl: DEFAULT_ONLINE_STORE_URL } = createOriginConfig({
-  frontendOrigin: process.env.FRONTEND_ORIGIN,
+const config = createBootstrapConfig({
+  env: process.env,
+  baseDir: __dirname,
+  path,
+  parseBooleanEnv,
+  normalizeExecutionMode,
   defaultAllowedOrigins,
 });
-
 const {
+  corsOptions,
   PORT,
   DB_EXECUTION_MODE,
   UPLOADS_DIR,
@@ -172,61 +173,15 @@ const {
   DEFAULT_COUNTRY_CODE,
   AUTH_TOKEN_SECRET,
   TOKEN_TTL_MS,
-} = createServerConfig({
-  env: process.env,
-  baseDir: __dirname,
-  path,
-  parseBooleanEnv,
-  normalizeExecutionMode,
-  defaultOnlineStoreUrl: DEFAULT_ONLINE_STORE_URL,
-});
+} = config;
 
-const authIpLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  keyFn: (req) => `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`
-});
-const emailVerificationLimiter = createRateLimiter({
-  windowMs: 30 * 60 * 1000,
-  max: 6,
-  keyFn: (req) => {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    return email ? `email:${email}` : `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
-  },
-});
-
-const otpProvider = createOtpProvider({
-  OTP_PROVIDER,
-  OTP_API_KEY: process.env.OTP_API_KEY,
-  OTP_API_SECRET: process.env.OTP_API_SECRET,
-  OTP_SENDER_ID: process.env.OTP_SENDER_ID,
-});
-const emailVerificationProvider = createEmailVerificationProvider({
-  EMAIL_VERIFICATION_MODE,
-  EMAIL_API_KEY: process.env.EMAIL_API_KEY,
-  EMAIL_API_SECRET: process.env.EMAIL_API_SECRET,
-  EMAIL_FROM: process.env.EMAIL_FROM,
-});
-const whatsappProvider = createWhatsappProvider({
-  WHATSAPP_PROVIDER,
-  WHATSAPP_API_KEY: process.env.WHATSAPP_API_KEY,
-  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
-});
-const notificationService = createNotificationService({
-  businessName: BUSINESS_NAME,
-  onlineStoreUrl: DEFAULT_ONLINE_STORE_URL,
-  defaultCountryCode: DEFAULT_COUNTRY_CODE,
-});
-const supabaseAuthProvider = createSupabaseAuthProvider({
-  enabled: SUPABASE_AUTH_ENABLED,
-  mode: SUPABASE_AUTH_MODE,
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseDbUrl: process.env.SUPABASE_DB_URL || process.env.DATABASE_URL,
-  anonKey: process.env.SUPABASE_ANON_KEY,
-  serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  emailRedirectTo: SUPABASE_EMAIL_VERIFY_REDIRECT,
-  allowAccessTokenDecodeFallback: SUPABASE_ACCESS_TOKEN_DECODE_FALLBACK,
-});
+const {
+  otpProvider,
+  emailVerificationProvider,
+  whatsappProvider,
+  notificationService,
+  supabaseAuthProvider,
+} = createBootstrapProviders({ config, env: process.env });
 const {
   parsePhoneInput,
   normalizePhone,
@@ -271,23 +226,23 @@ const {
   dbTxAsync,
   ensureRuntimeReady,
   closePostgresScaffold,
-} = createDatabaseService({
-  executionMode: DB_EXECUTION_MODE,
-  postgresMigrationsDir: POSTGRES_MIGRATIONS_DIR,
+} = createBootstrapDatabase({
+  config,
+  AsyncLocalStorage,
   createPostgresPool,
   pingPostgresPool,
   getPostgresConnectionLabel,
   applyPostgresMigrations,
   ensurePostgresBootstrapData,
   createQueryAdapter,
-  AsyncLocalStorage,
   normalizeEmail,
   isStrongPassword,
   hashPassword,
   generateSku,
 });
+app.closeRuntime = closePostgresScaffold;
 
-applyBaseMiddleware({
+const { authIpLimiter, emailVerificationLimiter } = applyHttpBootstrap({
   app,
   express,
   cors,
@@ -299,6 +254,7 @@ applyBaseMiddleware({
   CANONICAL_HOST,
   LEGACY_HOSTS,
   ensureRuntimeReady,
+  createRateLimiter,
 });
 const { logAdminAuditAsync } = createAdminAuditLogger({
   dbRunAsync,
@@ -720,16 +676,28 @@ const {
   PHONE_CHANGE_CRON_SECRET,
   PHONE_CHANGE_CRON_ENABLED,
 });
-registerAuthFeature({
+const { getDistributorByIdAsync } = createDistributorUtils({
+  dbGetAsync,
+});
 
+registerAppFeatures({
   app,
+  registerAuthFeature,
+  registerCommunicationFeature,
+  registerCatalogFeature,
+  registerSalesFeature,
+  registerCreditFeature,
+  registerCommerceFeature,
   requireAuth,
+  requireAdmin,
+  requireCronSecret,
+  requireInternalCron,
   authIpLimiter,
   emailVerificationLimiter,
-  requireInternalCron,
   dbGetAsync,
   dbRunAsync,
   dbAllAsync,
+  dbTxAsync,
   normalizeEmail,
   parsePhoneInput,
   normalizePhone,
@@ -784,7 +752,6 @@ registerAuthFeature({
   SUPABASE_EMAIL_VERIFY_REDIRECT,
   PHONE_VERIFY_MAX_ATTEMPTS,
   hashOpaqueToken,
-  requireAdmin,
   parseBooleanEnv,
   runCustomerRequestPurge,
   getPhoneMergeImpactSummary,
@@ -813,21 +780,6 @@ registerAuthFeature({
   path,
   fs,
   validateCustomerProfile,
-});
-
-registerCommunicationFeature({
-  app,
-  requireAdmin,
-  requireAuth,
-  requireCronSecret,
-  dbGetAsync,
-  dbRunAsync,
-  dbAllAsync,
-  dbTxAsync,
-  normalizeEmail,
-  parsePhoneInput,
-  normalizePhone,
-  parseBooleanEnv,
   normalizeVisitorSessionId,
   generateVisitorSessionId,
   sanitizeTrackedPath,
@@ -836,11 +788,6 @@ registerCommunicationFeature({
   getAuthUserFromRequest,
   SQL_UPSERT_VISITOR_SESSION,
   VISITOR_ONLINE_WINDOW_MINUTES,
-  sendEmailVerificationChallenge,
-  sendPhoneVerificationChallenge,
-  updateNotificationEventStatus,
-  createAppNotification,
-  notifyAdmins,
   purgeOldAppNotificationsAsync,
   APP_NOTIFICATION_RETENTION_DAYS,
   APP_NOTIFICATION_PURGE_BATCH_LIMIT,
@@ -849,18 +796,6 @@ registerCommunicationFeature({
   resolveClientRequestId,
   parseJsonText,
   safeSerializeJson,
-  isUniqueViolationError,
-  crypto,
-});
-
-registerCatalogFeature({
-  app,
-  requireAdmin,
-  requireAuth,
-  dbAllAsync,
-  dbGetAsync,
-  dbRunAsync,
-  logAdminAuditAsync,
   normalizeProductRecord,
   normalizeProductInput,
   validateProductPayload,
@@ -875,57 +810,20 @@ registerCatalogFeature({
   findExistingProductForImportAsync,
   normalizeTextKey,
   buildProductExactKey,
-  crypto,
   createImportBatchChecksum,
   PRODUCT_IMPORT_BATCH_TTL_MS,
   productImportBatches,
   SQL_UPSERT_IMPORT_BATCH,
   applyProductImportBatch,
-});
-
-registerSalesFeature({
-  app,
-  requireAdmin,
-  requireAuth,
-  dbAllAsync,
-  dbGetAsync,
-  dbRunAsync,
-  dbTxAsync,
   normalizeOrderStatus,
   ORDER_STATUS_ORDERED,
   ORDER_STATUS_RECEIVED,
   normalizeOrderPaymentStatus,
   parseOrderAddress,
-  normalizeEmail,
-  parsePhoneInput,
-  parseBooleanEnv,
   normalizePaymentMethod,
   generateOrderNumber,
-  validateCustomerProfile,
-  createAppNotification,
   notifyAdmins,
-  logAdminAuditAsync,
-  logStockLedgerAsync,
-  normalizePhone,
-  normalizeProductRecord,
-  resolveClientRequestId,
-  isUniqueViolationError,
   generateBillNumber,
-});
-
-registerCreditFeature({
-  app,
-  requireAuth,
-  requireAdmin,
-  dbGetAsync,
-  dbRunAsync,
-  dbAllAsync,
-  dbTxAsync,
-  parsePhoneInput,
-  createAppNotification,
-  notifyAdmins,
-  runCustomerRequestPurge,
-  logAdminAuditAsync,
   normalizeCreditIssueStatus,
   getLatestCreditEntryAsync,
   buildPaymentActivityBadges,
@@ -934,22 +832,6 @@ registerCreditFeature({
   buildCreditTransactionTimestamp,
   CREDIT_ENTRY_DEDUP_WINDOW_MS,
   toTimestampMs,
-  resolveClientRequestId,
-  isUniqueViolationError,
-});
-
-const { getDistributorByIdAsync } = createDistributorUtils({
-  dbGetAsync,
-});
-
-registerCommerceFeature({
-  app,
-  requireAdmin,
-  requireCronSecret,
-  dbAllAsync,
-  dbGetAsync,
-  dbRunAsync,
-  dbTxAsync,
   acquirePurchaseDuplicateLockAsync,
   buildPurchaseDuplicateKey,
   buildPurchaseTransactionTimestamp,
@@ -976,18 +858,14 @@ registerCommerceFeature({
   getPurchaseProductUomProfile,
   handlePurchaseOperationsSummary,
   isPoEditableLifecycle,
-  isUniqueViolationError,
-  logAdminAuditAsync,
   logStockLedgerAsync,
   normalizePoLifecycleStatus,
   normalizePoPaymentStatus,
   normalizePurchaseOrderItems,
   normalizePurchaseUomToken,
-  normalizeTransactionDate,
   notifyDistributorPurchaseOrderAsync,
   recordProductCostHistoryEntryAsync,
   recordPurchaseOrderStatusHistoryAsync,
-  resolveClientRequestId,
   resolveInsightDateRange,
   saveDistributorPurchaseReminderAsync,
   syncDistributorProductsSuppliedAsync,
@@ -1010,35 +888,29 @@ registerCommerceFeature({
   handleDistributorLedgerCreate,
 });
 
-// Root route
-app.get('/', (_, res) => {
-  res.json({
-    success: true,
-    message: 'BARMAN STORE API',
-    status: 'running',
-    version: '1.0.0',
-  });
+const { startWorkers, stopWorkers } = createBootstrapWorkers({
+  startPhoneChangeWorker,
+  startAppNotificationPurgeWorker,
+  startCustomerRequestPurgeWorker,
+  startPurchaseOperationsNotificationWorker,
+  stopPhoneChangeWorker,
+  stopAppNotificationPurgeWorker,
+  stopCustomerRequestPurgeWorker,
+  stopPurchaseOperationsNotificationWorker,
+  env: process.env,
 });
 
-startRuntime({
-  app,
-  port: PORT,
-  isVercelRuntime: IS_VERCEL_RUNTIME,
-  ensureRuntimeReady,
-  startWorkers: () => {
-    startPhoneChangeWorker();
-    startAppNotificationPurgeWorker();
-    startCustomerRequestPurgeWorker();
-    startPurchaseOperationsNotificationWorker();
-  },
-  stopWorkers: () => {
-    stopPhoneChangeWorker();
-    stopAppNotificationPurgeWorker();
-    stopCustomerRequestPurgeWorker();
-    stopPurchaseOperationsNotificationWorker();
-  },
-  closePostgresScaffold,
-});
+if (require.main === module) {
+  startRuntime({
+    app,
+    port: PORT,
+    isVercelRuntime: IS_VERCEL_RUNTIME,
+    ensureRuntimeReady,
+    startWorkers,
+    stopWorkers,
+    closePostgresScaffold,
+  });
+}
 
 module.exports = app;
 
