@@ -22,6 +22,27 @@ const hasDbEnv = Boolean(
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const terminateServer = async (server, timeoutMs = 2000) => {
+  if (!server || server.killed) return;
+  const exited = new Promise((resolve) => {
+    server.once('exit', () => resolve(true));
+  });
+  try {
+    server.kill('SIGTERM');
+  } catch (_) {
+    // ignore kill errors
+  }
+  const timedOut = await Promise.race([exited.then(() => false), delay(timeoutMs).then(() => true)]);
+  if (timedOut && !server.killed) {
+    try {
+      server.kill('SIGKILL');
+    } catch (_) {
+      // ignore hard kill errors
+    }
+    await Promise.race([exited, delay(800)]);
+  }
+};
+
 const randomIndianMobile = () => {
   const first = String(6 + Math.floor(Math.random() * 4));
   const rest = String(Math.floor(Math.random() * 1_000_000_000)).padStart(9, '0');
@@ -140,6 +161,11 @@ const main = async () => {
   let bootDiagnostics = '';
 
   try {
+    if (!hasDbEnv && !allowSkipIfNoDb) {
+      throw new Error(
+        'Phone workflow smoke test requires a database. Set PHONE_TEST_DB_URL/SUPABASE_DB_URL or use PHONE_TEST_ALLOW_NO_DB=1 to skip.'
+      );
+    }
     if (allowSkipIfNoDb && !hasDbEnv) {
       console.warn('[WARN] Phone workflow smoke test skipped because no database configuration is set.');
       console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL or set PHONE_TEST_DB_URL to run the test.');
@@ -158,8 +184,8 @@ const main = async () => {
 
       const logs = boot.readLogs();
       bootDiagnostics += `\n[attempt ${attempt}] stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}\n`;
-      server.kill('SIGTERM');
-      await delay(700);
+      await terminateServer(server);
+      await delay(400);
 
       if (attempt < bootAttempts) {
         await delay(1200 * attempt);
@@ -307,8 +333,7 @@ const main = async () => {
     console.log('Phone update workflow smoke test passed.');
   } finally {
     if (server) {
-      server.kill('SIGTERM');
-      await delay(300);
+      await terminateServer(server);
     }
   }
 };

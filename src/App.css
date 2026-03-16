@@ -14,6 +14,7 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
   --app-header-height: 72px;
+  --transition-fast: 0.18s ease;
 }
 
 * {
@@ -53,6 +54,37 @@ body,
   overflow-x: hidden;
 }
 
+.route-loading {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.route-loading__spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 3px solid rgba(26, 26, 26, 0.2);
+  border-top-color: var(--color-secondary);
+  animation: spin 0.9s linear infinite;
+}
+
+.route-loading__text {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 /* Header Styles */
 .header {
   background: var(--color-primary);
@@ -1267,83 +1299,6 @@ body,
     font-size: 0.48em;
   }
 
-  .mobile-nav-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 900;
-    border: 0;
-    background: rgba(0, 0, 0, 0.45);
-    overscroll-behavior: contain;
-  }
-
-  .header .nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: auto;
-    width: min(84vw, 320px);
-    padding: 5rem 0.85rem 1rem;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: 0.5rem;
-    background: #111111;
-    border-right: 2px solid var(--color-secondary);
-    border-bottom: 0;
-    z-index: 1100;
-    transform: translateX(-104%);
-    transition: transform 0.25s ease;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    box-shadow: 18px 0 28px rgba(0, 0, 0, 0.35);
-  }
-
-  .header .nav.nav-open {
-    transform: translateX(0);
-  }
-
-  .header .nav > a {
-    width: 100%;
-    min-height: 44px;
-    padding: 0.8rem 0.9rem;
-    border-radius: 10px;
-    gap: 0.7rem;
-    justify-content: flex-start;
-    font-size: 0.88rem;
-    letter-spacing: 0.03em;
-    text-transform: none;
-    background: rgba(212, 175, 55, 0.09);
-  }
-
-  .header .nav > a::after {
-    display: none;
-  }
-
-  .header .nav > a:active {
-    background: rgba(212, 175, 55, 0.18);
-  }
-
-  .header .nav .cart-link {
-    position: relative;
-    min-width: 0;
-    height: auto;
-  }
-
-  .header .nav .cart-badge {
-    top: 6px;
-    right: 8px;
-  }
-
-  .header .nav .mobile-admin-link {
-    display: flex !important;
-    color: #8ac6ff;
-    border: 1px solid rgba(138, 198, 255, 0.35);
-    background: rgba(24, 86, 150, 0.22);
-  }
-
 }
 
 /* Utility Classes for Monetary Amounts */
@@ -1352,7 +1307,7 @@ body,
 }
 
 .amount-negative {
-  color: #000000 !important;
+  color: #ef4444 !important;
 }
 
 /* Animations */
@@ -1475,6 +1430,7 @@ body,
   z-index: 900;
   border: 0;
   background: rgba(0, 0, 0, 0.45);
+  overscroll-behavior: contain;
 }
 
 .orders-menu {
@@ -1502,6 +1458,7 @@ body,
   transform: translateX(-104%);
   transition: transform 0.25s ease;
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: 18px 0 28px rgba(0, 0, 0, 0.35);
 }
 
@@ -1552,9 +1509,9 @@ body,
   background: rgba(24, 86, 150, 0.22);
 }
 
-  .main-content {
+.main-content {
   padding: calc(var(--app-header-height, 72px) + 0.75rem) 0.75rem 0.75rem;
-  }
+}
 
 @media (min-width: 481px) {
   .header {

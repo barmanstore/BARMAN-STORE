@@ -1,4 +1,4 @@
-﻿const registerBillingRoutes = (deps) => {
+const registerBillingCreateRoutes = (deps) => {
   const {
     app,
     requireAuth,
@@ -19,205 +19,21 @@
     generateBillNumber,
     logStockLedgerAsync,
     logAdminAuditAsync,
-    createAppNotification
+    createAppNotification,
+    normalizeUomToken,
+    UNIT_FAMILY_BASE_BY_UNIT,
+    UNIT_FAMILY_MULTIPLIERS,
+    getUomFamily,
+    getAllowedUnitsFromBaseUnit,
+    convertQtyBetweenFamilyUnits,
+    normalizeUomType,
+    getProductUomProfile,
+    getAllowedBillingUnits,
+    toStockUnitQty,
+    fromStockUnitQty,
+    roundQty,
+    toPricingQty,
   } = deps;
-
-  const normalizeUomToken = (value, fallback = 'pcs') =>
-    String(value || fallback).trim().toLowerCase() || fallback;
-
-  const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
-    pcs: 'pcs',
-    dozen: 'pcs',
-    kg: 'kg',
-    g: 'kg',
-    l: 'l',
-    ml: 'l',
-  });
-
-  const UNIT_FAMILY_MULTIPLIERS = Object.freeze({
-    pcs: Object.freeze({ pcs: 1, dozen: 12 }),
-    kg: Object.freeze({ kg: 1, g: 0.001 }),
-    l: Object.freeze({ l: 1, ml: 0.001 }),
-  });
-
-  const getUomFamily = (baseUnit = 'pcs') => {
-    const normalizedBase = normalizeUomToken(baseUnit, 'pcs');
-    const familyBase = UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
-    if (!familyBase) return null;
-    const multipliers = UNIT_FAMILY_MULTIPLIERS[familyBase];
-    if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
-    return {
-      normalizedBase,
-      multipliers,
-    };
-  };
-
-  const getAllowedUnitsFromBaseUnit = (baseUnit = 'pcs') => {
-    const family = getUomFamily(baseUnit);
-    if (!family) return [];
-    const allUnits = Object.keys(family.multipliers);
-    return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
-  };
-
-  const convertQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
-    const numericQty = Math.max(0, Number(qty || 0));
-    if (numericQty <= 0) return 0;
-    const family = getUomFamily(baseUnit);
-    if (!family) return null;
-    const from = normalizeUomToken(fromUnit, family.normalizedBase);
-    const to = normalizeUomToken(toUnit, family.normalizedBase);
-    const fromMultiplier = family.multipliers[from];
-    const toMultiplier = family.multipliers[to];
-    if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
-      return null;
-    }
-    const qtyInCanonicalBase = numericQty * fromMultiplier;
-    return qtyInCanonicalBase / toMultiplier;
-  };
-
-  const normalizeUomType = (value) => {
-    const token = String(value || '').trim().toLowerCase();
-    return ['selling', 'purchasing', 'both'].includes(token) ? token : 'selling';
-  };
-
-  const getProductUomProfile = (product = null) => {
-    const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
-    const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
-    const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-    const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-      ? conversionFactorRaw
-      : 1;
-    return {
-      sellingUnit,
-      baseUnit,
-      conversionFactor,
-      uomType: normalizeUomType(product?.uom_type),
-    };
-  };
-
-  const getAllowedBillingUnits = (product = null) => {
-    const profile = getProductUomProfile(product);
-    const familyUnits = getAllowedUnitsFromBaseUnit(profile.baseUnit);
-    if (familyUnits.length) return familyUnits;
-    if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
-    return [...new Set([profile.baseUnit, profile.sellingUnit])];
-  };
-
-  const toStockUnitQty = (qty, unit, product = null) => {
-    const numericQty = Math.max(0, Number(qty || 0));
-    if (numericQty <= 0) return 0;
-    const profile = getProductUomProfile(product);
-    const inputUnit = normalizeUomToken(unit, profile.sellingUnit);
-    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
-    if (familyConverted !== null) return familyConverted;
-    if (inputUnit === profile.baseUnit) return numericQty;
-    if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
-      return numericQty / profile.conversionFactor;
-    }
-    return numericQty;
-  };
-
-  const fromStockUnitQty = (stockQty, unit, product = null) => {
-    const numericQty = Math.max(0, Number(stockQty || 0));
-    if (numericQty <= 0) return 0;
-    const profile = getProductUomProfile(product);
-    const outputUnit = normalizeUomToken(unit, profile.sellingUnit);
-    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, profile.baseUnit, outputUnit, profile.baseUnit);
-    if (familyConverted !== null) return familyConverted;
-    if (outputUnit === profile.baseUnit) return numericQty;
-    if (outputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
-      return numericQty * profile.conversionFactor;
-    }
-    return numericQty;
-  };
-
-  const roundQty = (value) => Number((Number(value || 0)).toFixed(3));
-  const toPricingQty = (qty, unit, product = null) => {
-    const numericQty = Math.max(0, Number(qty || 0));
-    if (numericQty <= 0) return 0;
-    return product ? toStockUnitQty(numericQty, unit, product) : numericQty;
-  };
-
-app.get('/api/users/:userId/bills', requireAuth, async (req, res) => {
-  try {
-    const requestUserId = Number(req.params.userId);
-    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
-    const isAdmin = req.authUser?.role === 'admin';
-    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const rows = await dbAllAsync(
-      `SELECT *
-       FROM bills
-       WHERE customer_id = ?
-       ORDER BY created_at DESC`,
-      [requestUserId]
-    );
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/users/:userId/bills/:identifier', requireAuth, async (req, res) => {
-  try {
-    const requestUserId = Number(req.params.userId);
-    if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
-    const isAdmin = req.authUser?.role === 'admin';
-    if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    const identifier = String(req.params.identifier || '').trim();
-    const bill = await dbGetAsync(
-      `SELECT *
-       FROM bills
-       WHERE customer_id = ?
-         AND (id = ? OR bill_number = ?)
-       LIMIT 1`,
-      [requestUserId, identifier, identifier]
-    );
-    if (!bill) return res.status(404).json({ error: 'Bill not found' });
-    const items = await dbAllAsync(`SELECT * FROM bill_items WHERE bill_id = ? ORDER BY id ASC`, [bill.id]);
-    return res.json({ ...bill, items });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/billing/customers/search', requireAdmin, async (req, res) => {
-  try {
-    const q = String(req.query.q || '').trim();
-    const like = `%${q}%`;
-    const rows = q
-      ? await dbAllAsync(`SELECT id, name, email, phone, address FROM users WHERE role='customer' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?) ORDER BY name LIMIT 20`, [like, like, like])
-      : await dbAllAsync(`SELECT id, name, email, phone, address FROM users WHERE role='customer' ORDER BY name LIMIT 20`);
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/billing/products/search', requireAdmin, async (req, res) => {
-  try {
-    const q = String(req.query.q || '').trim();
-    const category = String(req.query.category || '').trim();
-    let sql = `SELECT * FROM products WHERE COALESCE(is_active, 1) = 1`;
-    const params = [];
-    if (q) {
-      sql += ` AND (name LIKE ? OR sku LIKE ? OR brand LIKE ? OR barcode LIKE ?)`;
-      const like = `%${q}%`;
-      params.push(like, like, like, like);
-    }
-    if (category) {
-      sql += ` AND category = ?`;
-      params.push(category);
-    }
-    sql += ` ORDER BY name LIMIT 50`;
-    return res.json((await dbAllAsync(sql, params)).map(normalizeProductRecord));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
 
 app.post('/api/bills/create', requireAdmin, async (req, res) => {
   let clientRequestId = null;
@@ -676,74 +492,7 @@ app.post('/api/bills/create', requireAdmin, async (req, res) => {
   }
 });
 
-app.get('/api/bills', requireAdmin, async (_, res) => {
-  try {
-    return res.json(await dbAllAsync(`SELECT * FROM bills ORDER BY created_at DESC`));
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bills/:id', requireAdmin, async (req, res) => {
-  try {
-    const id = req.params.id;
-    const bill = await dbGetAsync(`SELECT * FROM bills WHERE id = ? OR bill_number = ?`, [id, id]);
-    if (!bill) return res.status(404).json({ error: 'Bill not found' });
-    const items = await dbAllAsync(`SELECT * FROM bill_items WHERE bill_id = ?`, [bill.id]);
-    return res.json({ ...bill, items });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.put('/api/bills/:id/payment', requireAdmin, async (req, res) => {
-  try {
-    const cur = await dbGetAsync(`SELECT * FROM bills WHERE id = ?`, [req.params.id]);
-    if (!cur) return res.status(404).json({ error: 'Bill not found' });
-    const nextPaymentStatus = String(req.body?.payment_status || cur.payment_status || '').trim().toLowerCase() || 'pending';
-    const nextPaymentMethod = req.body?.payment_method || cur.payment_method;
-    await dbRunAsync(`UPDATE bills SET payment_status = ?, payment_method = ?, updated_at=CURRENT_TIMESTAMP WHERE id = ?`, [
-      nextPaymentStatus,
-      nextPaymentMethod,
-      req.params.id,
-    ]);
-    const linkedOrderId = Number(cur.order_id || 0);
-    if (linkedOrderId) {
-      await dbRunAsync(
-        `UPDATE orders
-         SET payment_status = ?, credit_applied = ?
-         WHERE id = ?`,
-        [nextPaymentStatus, nextPaymentStatus === 'paid' ? 0 : Number(cur.credit_amount || 0) > 0 ? 1 : 0, linkedOrderId]
-      );
-    }
-    await logAdminAuditAsync(req, {
-      action: 'bill.payment_update',
-      entityType: 'bill',
-      entityId: req.params.id,
-      details: {
-        payment_status: nextPaymentStatus,
-        payment_method: nextPaymentMethod,
-        linked_order_id: linkedOrderId || null,
-      },
-    });
-    return res.json({ success: true });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bills/stats/summary', requireAdmin, async (_, res) => {
-  try {
-    const totalBills = (await dbGetAsync(`SELECT COUNT(*) as count FROM bills`))?.count || 0;
-    const totalSales = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) as total FROM bills WHERE bill_type = 'sales'`))?.total || 0;
-    const totalPurchase = (await dbGetAsync(`SELECT COALESCE(SUM(total_amount),0) as total FROM bills WHERE bill_type = 'purchase'`))?.total || 0;
-    return res.json({ totalBills, totalSales, totalPurchase });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
 };
 
-module.exports = {
-  registerBillingRoutes,
-};
+module.exports = { registerBillingCreateRoutes };
+

@@ -1,11 +1,29 @@
 @echo off
 setlocal
+set "REPO_ROOT=%~dp0..\.."
+pushd "%REPO_ROOT%" || (
+  echo [ERROR] Failed to open repo root: "%REPO_ROOT%"
+  exit /b 1
+)
+
+set "LOADENV_JS=%REPO_ROOT%\server\loadEnv.js"
+if exist "%LOADENV_JS%" (
+  echo %NODE_OPTIONS% | find /I "%LOADENV_JS%" >nul
+  if errorlevel 1 (
+    if defined NODE_OPTIONS (
+      set "NODE_OPTIONS=%NODE_OPTIONS% --require %LOADENV_JS%"
+    ) else (
+      set "NODE_OPTIONS=--require %LOADENV_JS%"
+    )
+  )
+)
 set "NON_INTERACTIVE="
 if not "%~1"=="" (
   set "NON_INTERACTIVE=1"
   set "CHOICE=%~1"
   goto :dispatch
 )
+if /i "%OPS_INTERACTIVE%"=="1" set "NON_INTERACTIVE="
 
 :menu
 cls
@@ -152,4 +170,5 @@ pause
 goto :menu
 
 :done
+popd
 exit /b 0
