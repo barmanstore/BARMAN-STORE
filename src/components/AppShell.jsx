@@ -5,7 +5,7 @@ import Header from './header/Header';
 import useIsMobile from '../hooks/useIsMobile';
 import { analyticsApi } from '../services/api';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
-import * as info from '../pages/info.js';
+import * as info from '../shared/info.js';
 
 const VISITOR_SESSION_STORAGE_KEY = 'visitor_session_id';
 
@@ -426,3 +426,4 @@ function AppShell({
 }
 
 export default AppShell;
+

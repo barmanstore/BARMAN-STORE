@@ -1,999 +1,77 @@
-import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, useLayoutEffect, startTransition } from 'react';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
-import { Plus, Filter, Search, SlidersHorizontal, ShoppingCart, RotateCcw, Sparkles, X, User } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import Fuse from 'fuse.js';
-import { analyticsApi, resolveMediaSourceForDisplay, resolveMediaUrl } from '../../../services/api';
+import { resolveMediaSourceForDisplay } from '../../../services/api';
 import { productService } from '../../../services/productService';
 import { categoryService } from '../../../services/categoryService';
 import { getProductImageSrc, getProductFallbackImage } from '../../../utils/productImage';
-import { formatCurrency, getSignedCurrencyClassName } from '../../../utils/formatters';
+import { formatCurrency } from '../../../utils/formatters';
 import useIsMobile from '../../../hooks/useIsMobile';
-import MobileBottomSheet from '../../../components/mobile/MobileBottomSheet';
-import MobileFooter from '../../../components/mobile/MobileFooter';
-import ProductCard from '../../../components/product/ProductCard';
-import * as info from '../../../pages/info.js';
+import * as info from '../../../shared/info.js';
+import ProductsDesktopView from './components/ProductsDesktopView';
+import ProductsMobileView from './components/ProductsMobileView';
+import useProductsRenderers from './hooks/useProductsRenderers.jsx';
+import useProductSearchSuggestions from './hooks/useProductSearchSuggestions';
+import useProductsTelemetry from './hooks/useProductsTelemetry';
+import useProductsSearchHandlers from './hooks/useProductsSearchHandlers';
+import {
+  normalizeText,
+  getProductPageSize,
+  LOW_STOCK_THRESHOLD,
+  RESTOCK_ALERT_THRESHOLD,
+  CRITICAL_RESTOCK_THRESHOLD,
+  USAGE_HISTORY_KEY,
+  RECENTLY_BOUGHT_LIMIT,
+  VIRTUALIZE_GROUP_THRESHOLD,
+  GROUP_BY_OPTIONS,
+  LOGO_DEV_TOKEN,
+  getPublicFileUrl,
+  PRODUCTS_AUTOLOAD_ROOT_MARGIN,
+  ABOVE_FOLD_EAGER_IMAGE_COUNT,
+  DEFAULT_SORT_BY,
+  SORT_OPTIONS,
+  SORT_API_FALLBACK,
+  MOBILE_TAB_OPTIONS,
+  PRODUCTS_LIST_CACHE_PREFIX,
+  PRODUCTS_LIST_CACHE_TTL_MS,
+  PRODUCTS_CATEGORIES_CACHE_KEY,
+  PRODUCTS_CATEGORIES_CACHE_TTL_MS,
+  SEARCH_SUGGESTIONS_CACHE_TTL_MS,
+  SEARCH_SUGGESTIONS_MAX_ITEMS,
+  SEARCH_SUGGESTIONS_MIN_CHARS,
+  RESOLVED_MEDIA_CACHE_MAX_ITEMS,
+  PRODUCTS_SYNONYMS,
+  PRODUCTS_SYNONYM_REVERSE,
+  normalizeSortBy,
+  tokenizeSearchText,
+  tokenFuzzyMatch,
+  getCachedResolvedMediaSource,
+  cacheResolvedMediaSource,
+  getSuggestionImageSrc,
+  buildResponsiveImageSources,
+  splitHierarchyValue,
+  composeHierarchyLabel,
+  getProductHierarchy,
+  getFamilyKey,
+  safeReadJson,
+  getInitials,
+  readLocalUser,
+  safeWriteJson,
+  safeReadSessionJson,
+  safeWriteSessionJson,
+  hasActiveUserSession,
+  buildProductsListSessionCacheKey,
+  getUsageWindowDays,
+  normalizePathTokens,
+  normalizePathValue,
+  BRAND_LOGO_DOMAIN_HINTS,
+  resolveBrandLogoUrl,
+  familyHasImage,
+  getFamilyPreviewVariation,
+  getFirstAvailableVariation,
+  getFamilyCardState
+} from './utils/productHelpers.jsx';
 import './Products.css';
-
-const normalizeText = (value) => String(value || '').trim().toLowerCase();
-const getProductPageSize = (isMobile) => (isMobile ? 12 : 16);
-const LOW_STOCK_THRESHOLD = 5;
-const RESTOCK_ALERT_THRESHOLD = 70;
-const CRITICAL_RESTOCK_THRESHOLD = 90;
-const USAGE_HISTORY_KEY = 'barman_product_usage_v1';
-const RECENTLY_BOUGHT_LIMIT = 12;
-const VIRTUALIZE_GROUP_THRESHOLD = 28;
-const GROUP_BY_OPTIONS = {
-  category: 'category',
-  brand: 'brand'
-};
-const LOGO_DEV_TOKEN = String(import.meta.env.VITE_LOGO_DEV_TOKEN || '').trim();
-const getPublicFileUrl = (filename) => {
-  const base = String(import.meta.env.BASE_URL || '/');
-  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-  const cleanFile = String(filename || '').replace(/^\/+/, '');
-  return `${normalizedBase}${cleanFile}`;
-};
-const PRODUCTS_AUTOLOAD_ROOT_MARGIN = '720px 0px';
-const ABOVE_FOLD_EAGER_IMAGE_COUNT = {
-  mobile: 4,
-  desktop: 8
-};
-const DEFAULT_SORT_BY = 'popular';
-const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc', 'stock-desc'];
-const SORT_API_FALLBACK = {
-  popular: 'relevance'
-};
-const MOBILE_TAB_OPTIONS = [
-  { key: 'order-again', label: 'Order Again' },
-  { key: 'best-prices', label: 'Best Prices' },
-  { key: 'trending', label: 'Trending Now' },
-];
-const PRODUCTS_TELEMETRY_SESSION_KEY = 'barman_products_session_v1';
-const PRODUCTS_AB_VARIANT_KEY = 'barman_products_ab_variant_v1';
-const PRODUCTS_LIST_CACHE_PREFIX = 'barman_products_page_cache_v1';
-const PRODUCTS_LIST_CACHE_TTL_MS = 90 * 1000;
-const PRODUCTS_CATEGORIES_CACHE_KEY = 'barman_products_categories_cache_v1';
-const PRODUCTS_CATEGORIES_CACHE_TTL_MS = 10 * 60 * 1000;
-const SEARCH_SUGGESTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
-const SEARCH_SUGGESTIONS_MAX_ITEMS = 8;
-const SEARCH_SUGGESTIONS_MIN_CHARS = 2;
-const RESOLVED_MEDIA_CACHE_MAX_ITEMS = 600;
-const resolvedMediaSourceCache = new Map();
-const PRODUCTS_SYNONYMS = {
-  milk: ['doodh'],
-  curd: ['dahi', 'yogurt'],
-  biscuit: ['cookie'],
-  chips: ['namkeen', 'snack'],
-  atta: ['flour'],
-  dal: ['lentil', 'pulse'],
-  rice: ['chawal'],
-  detergent: ['washing', 'powder'],
-  soap: ['bodywash'],
-  tea: ['chai']
-};
-const PRODUCTS_SYNONYM_REVERSE = Object.entries(PRODUCTS_SYNONYMS).reduce((acc, [key, values]) => {
-  const normalizedKey = normalizeText(key);
-  (Array.isArray(values) ? values : []).forEach((value) => {
-    const normalizedValue = normalizeText(value);
-    if (!normalizedValue) return;
-    if (!acc[normalizedValue]) acc[normalizedValue] = [];
-    acc[normalizedValue].push(normalizedKey);
-  });
-  return acc;
-}, {});
-
-const normalizeSortBy = (value = '') => {
-  const normalized = String(value || '').trim().toLowerCase();
-  return SORT_OPTIONS.includes(normalized) ? normalized : DEFAULT_SORT_BY;
-};
-const tokenizeSearchText = (value = '') => {
-  return normalizeText(value)
-    .replace(/[^a-z0-9\s-]/g, ' ')
-    .split(/[\s-]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 1);
-};
-
-const tokenFuzzyMatch = (queryToken, targetToken) => {
-  const query = String(queryToken || '');
-  const target = String(targetToken || '');
-  if (!query || !target) return false;
-  if (target === query) return true;
-  if (target.startsWith(query) || query.startsWith(target)) return true;
-  if (Math.abs(query.length - target.length) > 1 || query.length < 4 || target.length < 4) return false;
-  let mismatch = 0;
-  const limit = Math.min(query.length, target.length);
-  for (let index = 0; index < limit; index += 1) {
-    if (query[index] === target[index]) continue;
-    mismatch += 1;
-    if (mismatch > 1) return false;
-  }
-  return mismatch <= 1;
-};
-
-const formatCurrencyColored = (amount) => {
-  const formatted = formatCurrency(Math.abs(amount));
-  return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
-};
-
-const getCachedResolvedMediaSource = (value) => {
-  const key = String(value || '').trim();
-  if (!key) return '';
-  return String(resolvedMediaSourceCache.get(key) || '').trim();
-};
-
-const cacheResolvedMediaSource = (source, resolvedSource) => {
-  const sourceKey = String(source || '').trim();
-  const resolvedKey = String(resolvedSource || '').trim();
-  if (!sourceKey || !resolvedKey) return;
-  if (resolvedMediaSourceCache.has(sourceKey)) {
-    resolvedMediaSourceCache.delete(sourceKey);
-  }
-  resolvedMediaSourceCache.set(sourceKey, resolvedKey);
-  if (resolvedMediaSourceCache.size <= RESOLVED_MEDIA_CACHE_MAX_ITEMS) return;
-  const oldestKey = resolvedMediaSourceCache.keys().next().value;
-  if (oldestKey) resolvedMediaSourceCache.delete(oldestKey);
-};
-
-const getSuggestionImageSrc = (item) => {
-  const fromRow = resolveMediaUrl(item?.image);
-  if (fromRow) return fromRow;
-  return getProductFallbackImage(item);
-};
-
-const buildResponsiveImageSources = (src, preferredWidth = 480) => {
-  const raw = String(src || '').trim();
-  if (!raw || /^blob:/i.test(raw) || /^data:/i.test(raw)) {
-    return { src: raw, srcSet: '', sizes: '' };
-  }
-
-  let baseUrl;
-  try {
-    baseUrl = new URL(raw, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-  } catch (_) {
-    return { src: raw, srcSet: '', sizes: '' };
-  }
-
-  const host = String(baseUrl.hostname || '').toLowerCase();
-  const isUnsplash = host.includes('unsplash.com');
-  const isCloudinary = host.includes('cloudinary.com') && baseUrl.pathname.includes('/upload/');
-  if (!isUnsplash && !isCloudinary) {
-    return { src: baseUrl.toString(), srcSet: '', sizes: '' };
-  }
-
-  const widths = Array.from(new Set([
-    Math.max(320, Math.round(preferredWidth * 0.75)),
-    Math.max(420, Math.round(preferredWidth)),
-    Math.max(640, Math.round(preferredWidth * 1.6))
-  ])).sort((a, b) => a - b);
-
-  const toOptimizedUrl = (width) => {
-    const next = new URL(baseUrl.toString());
-
-    // Unsplash optimization parameters
-    if (isUnsplash) {
-      next.searchParams.set('auto', 'format');
-      next.searchParams.set('fit', 'max');
-      next.searchParams.set('q', '85');
-      next.searchParams.set('w', String(width));
-      return next.toString();
-    }
-
-    // Cloudinary transformation in URL path
-    if (isCloudinary) {
-      const [left, right] = next.pathname.split('/upload/');
-      next.pathname = `${left}/upload/f_auto,q_auto:good,w_${width}/${right}`;
-      return next.toString();
-    }
-    return next.toString();
-  };
-
-  const srcSet = widths.map((width) => `${toOptimizedUrl(width)} ${width}w`).join(', ');
-  const srcUrl = toOptimizedUrl(widths[0]);
-  const sizes = preferredWidth >= 900
-    ? '(max-width: 767px) 92vw, 840px'
-    : '(max-width: 767px) 46vw, 280px';
-
-  return { src: srcUrl, srcSet, sizes };
-};
-
-const splitHierarchyValue = (value) => {
-  const raw = String(value || '').trim();
-  if (!raw || !raw.includes('->')) return { parent: raw, child: '' };
-  const parts = raw.split('->').map((part) => String(part || '').trim());
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return { parent: raw, child: '' };
-  return { parent: parts[0], child: parts[1] };
-};
-
-const composeHierarchyLabel = (parent, child) => {
-  const parentName = String(parent || '').trim();
-  const childName = String(child || '').trim();
-  if (!parentName) return '';
-  if (!childName) return parentName;
-  return `${parentName} -> ${childName}`;
-};
-
-const getProductHierarchy = (product) => {
-  const parsedCategory = splitHierarchyValue(product?.category);
-  const explicitCategory = String(product?.category || '').trim();
-  const explicitSubcategory = String(product?.subcategory ?? product?.sub_category ?? '').trim();
-  const category = explicitCategory || parsedCategory.parent || '';
-  const subcategory = explicitSubcategory || parsedCategory.child || '';
-  const categoryPath = String(product?.category_path || '').trim() || composeHierarchyLabel(category, subcategory);
-
-  const parsedBrand = splitHierarchyValue(product?.brand);
-  const explicitBrand = String(product?.brand || '').trim();
-  const explicitSubBrand = String(product?.sub_brand ?? product?.subBrand ?? product?.subbrand ?? '').trim();
-  const brand = explicitBrand || parsedBrand.parent || '';
-  const subBrand = explicitSubBrand || parsedBrand.child || '';
-  const brandPath = String(product?.brand_path || '').trim() || composeHierarchyLabel(brand, subBrand);
-
-  return { category, subcategory, categoryPath, brand, subBrand, brandPath };
-};
-
-const getFamilyKey = (product, hierarchy = null) => {
-  const name = normalizeText(product?.name);
-  const resolved = hierarchy || getProductHierarchy(product);
-  const brand = normalizeText(resolved.brandPath || resolved.brand);
-  return `${name}|${brand}`;
-};
-
-const getVariationLabel = (variation, index) => {
-  const parts = [String(variation.content || '').trim(), String(variation.color || '').trim()].filter(Boolean);
-  if (parts.length > 0) return parts.join(' / ');
-  const sku = String(variation.sku || '').trim();
-  if (sku) return sku;
-  return `Option ${index + 1}`;
-};
-
-const getVariationPreviewLabel = (variation) => {
-  const content = String(variation?.content || '').trim();
-  const color = String(variation?.color || '').trim();
-  const sku = String(variation?.sku || '').trim();
-  const label = [content, color].filter(Boolean).join(' · ');
-  return label || sku || 'Option';
-};
-
-const safeReadJson = (key, fallback) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch (_) {
-    return fallback;
-  }
-};
-
-const getInitials = (name) => {
-  const trimmed = String(name || '').trim();
-  if (!trimmed) return '?';
-  return trimmed
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-};
-
-const readLocalUser = () => {
-  if (typeof window === 'undefined') return null;
-  return safeReadJson('user', null);
-};
-
-const safeWriteJson = (key, value) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (_) {
-    // Ignore storage write failures to keep ordering flow responsive.
-  }
-};
-
-const safeReadSessionJson = (key, fallback) => {
-  try {
-    const raw = sessionStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : fallback;
-  } catch (_) {
-    return fallback;
-  }
-};
-
-const safeWriteSessionJson = (key, value) => {
-  try {
-    sessionStorage.setItem(key, JSON.stringify(value));
-  } catch (_) {
-    // Ignore storage write issues.
-  }
-};
-
-const readSessionStorageValue = (key) => {
-  try {
-    return String(sessionStorage.getItem(key) || '').trim();
-  } catch (_) {
-    return '';
-  }
-};
-
-const writeSessionStorageValue = (key, value) => {
-  try {
-    sessionStorage.setItem(key, String(value || ''));
-  } catch (_) {
-    // Ignore storage write issues.
-  }
-};
-
-const createTelemetrySessionId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `products_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-};
-
-const hasActiveUserSession = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem('user') || '{}');
-    return Boolean(String(parsed?.token || '').trim());
-  } catch (_) {
-    return false;
-  }
-};
-
-const buildProductsListSessionCacheKey = ({
-  selectedCategory,
-  query,
-  sortBy,
-  inStockOnly,
-  pageSize
-}) => {
-  return [
-    PRODUCTS_LIST_CACHE_PREFIX,
-    normalizeText(selectedCategory || 'all') || 'all',
-    normalizeText(query || ''),
-    normalizeSortBy(sortBy),
-    inStockOnly ? '1' : '0',
-    String(Number(pageSize || 0))
-  ].join('|');
-};
-
-const getUsageWindowDays = (label = '', category = '', addCount = 0) => {
-  const text = `${normalizeText(label)} ${normalizeText(category)}`;
-  let baseDays = 7;
-  if (/(milk|dairy|egg|bread|curd|yogurt|paneer)/.test(text)) baseDays = 4;
-  else if (/(rice|atta|flour|oil|sugar|salt|tea)/.test(text)) baseDays = 12;
-  else if (/(biscuit|snack|noodle|personal|soap|shampoo)/.test(text)) baseDays = 9;
-  const frequencyTuning = Math.min(4, Math.floor(Number(addCount || 0) / 3));
-  return Math.max(3, baseDays - frequencyTuning);
-};
-
-const normalizePathTokens = (value = '') => {
-  return String(value || '')
-    .split('->')
-    .map((part) => normalizeText(part))
-    .filter(Boolean);
-};
-
-const normalizePathValue = (value = '') => normalizePathTokens(value).join(' ->');
-
-const BRAND_LOGO_DOMAIN_HINTS = {
-  amul: 'amul.com',
-  nestle: 'nestle.com',
-  britannia: 'britannia.co.in',
-  parle: 'parleproducts.com',
-  cadbury: 'cadbury.co.in',
-  patanjali: 'patanjaliayurved.org',
-  tata: 'tataconsumer.com',
-  fortune: 'adaniwilmar.com',
-  saffola: 'saffolalife.com',
-  surf: 'surfexcel.in',
-  colgate: 'colgate.com',
-  pepsodent: 'pepsodent.in',
-  dove: 'dove.com',
-  lifebuoy: 'lifebuoy.co.in',
-  maggi: 'maggi.in',
-  nescafe: 'nescafe.com',
-  horlicks: 'horlicks.in',
-  tropicana: 'tropicana.com',
-  coca: 'coca-cola.com',
-  pepsi: 'pepsi.com',
-  sprite: 'sprite.com',
-  sunfeast: 'sunfeast.com',
-  aashirvaad: 'aashirvaad.com',
-  kellogg: 'kelloggs.com',
-  himalaya: 'himalayawellness.com',
-  dettol: 'dettol.co.in',
-  harpic: 'harpic.com',
-  lizol: 'lizol.co.in',
-  whisper: 'whisper.co.in',
-  stayfree: 'stayfree.in',
-  pampers: 'pampers.com',
-  johnson: 'jnj.com',
-  nivea: 'nivea.in',
-  vaseline: 'vaseline.com',
-  gillette: 'gillette.com',
-  pantene: 'pantene.com'
-};
-
-const resolveBrandLogoUrl = (brandName = '') => {
-  const normalized = normalizeText(brandName).replace(/[^a-z0-9&\s-]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!normalized || !LOGO_DEV_TOKEN) return '';
-
-  let domain = BRAND_LOGO_DOMAIN_HINTS[normalized] || '';
-  if (!domain) {
-    const matchEntry = Object.entries(BRAND_LOGO_DOMAIN_HINTS).find(([key]) => (
-      normalized.includes(key) || key.includes(normalized)
-    ));
-    domain = matchEntry?.[1] || '';
-  }
-
-  const baseParams = `token=${encodeURIComponent(LOGO_DEV_TOKEN)}&size=128&format=webp&fallback=monogram`;
-  if (domain) {
-    return `https://img.logo.dev/${domain}?${baseParams}`;
-  }
-  return `https://img.logo.dev/name/${encodeURIComponent(brandName)}?${baseParams}`;
-};
-
-function BrandFilterVisual({ logo, name }) {
-  const [failed, setFailed] = useState(false);
-  const resolvedName = String(name || '').trim() || 'Brand';
-  const resolvedLogo = resolveMediaUrl(logo);
-  if (!resolvedLogo || failed) {
-    return <span className="brand-chip-name">{resolvedName}</span>;
-  }
-  return (
-    <img
-      src={resolvedLogo}
-      alt={resolvedName}
-      className="brand-chip-logo"
-      width={34}
-      height={34}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
-const getDefaultCategoryIcon = (categoryName = '') => {
-  const text = normalizeText(categoryName);
-  if (!text || text === 'all') return '🛒';
-  if (/(dairy|milk|curd|paneer|cheese|butter|egg)/.test(text)) return '🥛';
-  if (/(biscuit|cookie|snack|chips|namkeen)/.test(text)) return '🍪';
-  if (/(rice|grain|atta|flour|dal|pulse)/.test(text)) return '🍚';
-  if (/(tea|coffee|beverage|drink|juice)/.test(text)) return '🍵';
-  if (/(oil|ghee)/.test(text)) return '🫗';
-  if (/(personal|care|soap|shampoo|tooth|cosmetic|beauty)/.test(text)) return '🧴';
-  if (/(fruit|fresh)/.test(text)) return '🍎';
-  if (/(vegetable|veggie)/.test(text)) return '🥦';
-  if (/(clean|home|household|detergent)/.test(text)) return '🧽';
-  if (/(baby|kids)/.test(text)) return '🧸';
-  if (/(medicine|pharma|health)/.test(text)) return '💊';
-  return '🧺';
-};
-
-const familyHasImage = (family) => {
-  const variations = Array.isArray(family?.variations) ? family.variations : [];
-  return variations.some((variation) => String(variation?.image || '').trim().length > 0);
-};
-
-const getFamilyPreviewVariation = (family, fallbackVariation = null) => {
-  if (fallbackVariation) {
-    const fallbackImage = String(fallbackVariation?.image || '').trim();
-    if (fallbackImage) return fallbackVariation;
-  }
-  const variations = Array.isArray(family?.variations) ? family.variations : [];
-  return variations.find((variation) => String(variation?.image || '').trim().length > 0) || fallbackVariation || variations[0] || null;
-};
-
-const getFirstAvailableVariation = (family) => {
-  const variations = Array.isArray(family?.variations) ? family.variations : [];
-  return variations.find((variation) => Number(variation?.stock || 0) > 0) || variations[0] || null;
-};
-
-const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
-  const resolvedVariation = selectedVariation || getFirstAvailableVariation(family);
-  if (!family || !resolvedVariation) {
-    return {
-      selectedVariation: null,
-      previewVariation: null,
-      hasMultipleVariations: false,
-      optionCount: 0,
-      familyInStock: false,
-      familyLowStock: false,
-      selectedStock: 0,
-      selectedQty: 0,
-      familyCartQty: 0,
-      selectedLabel: '',
-      previewLabels: [],
-      priceValue: 0,
-      mrpValue: 0,
-      hasDiscount: false,
-      discountPercent: 0,
-      savingsValue: 0,
-      showFromPrice: false,
-      minPrice: 0,
-      stockTone: 'out-of-stock',
-      stockText: 'Out of stock',
-      stockHint: 'Request item',
-      metaLine: '',
-      uomLabel: 'pcs',
-      stockActionLabel: 'Request'
-    };
-  }
-
-  const variations = Array.isArray(family.variations) ? family.variations : [];
-  const hasMultipleVariations = variations.length > 1;
-  const previewVariation = getFamilyPreviewVariation(family, resolvedVariation);
-  const familyInStock = variations.some((variation) => Number(variation.stock || 0) > 0);
-  const familyLowStock = Number(family?.totalStock || 0) > 0 && Number(family.totalStock || 0) <= LOW_STOCK_THRESHOLD;
-  const familyCartQty = variations.reduce((sum, variation) => sum + Number(cartQtyById[variation.id] || 0), 0);
-  const selectedQty = Number(cartQtyById[resolvedVariation.id] || 0);
-  const selectedStock = Number(resolvedVariation.stock || 0);
-  const selectedLowStock = selectedStock > 0 && selectedStock <= LOW_STOCK_THRESHOLD;
-  const inStockOptionCount = variations.filter((variation) => Number(variation.stock || 0) > 0).length;
-  const uniqueUoms = [...new Set(variations.map((variation) => String(variation.uom || 'pcs').trim()).filter(Boolean))];
-  const uomLabel = uniqueUoms.length === 1 ? uniqueUoms[0] : String(resolvedVariation.uom || 'pcs').trim();
-  const previewLabels = [...new Set(
-    variations
-      .slice(0, 3)
-      .map((variation) => getVariationPreviewLabel(variation))
-      .filter(Boolean)
-  )];
-  const priceValue = Number(resolvedVariation.price || 0);
-  const mrpValue = Math.max(priceValue, Number(resolvedVariation.mrp || 0));
-  const hasDiscount = mrpValue > priceValue;
-  const savingsValue = hasDiscount ? (mrpValue - priceValue) : 0;
-  const discountPercent = hasDiscount && mrpValue > 0
-    ? Math.round((savingsValue / mrpValue) * 100)
-    : 0;
-  const minPrice = Number(family?.minPrice || priceValue || 0);
-  const showFromPrice = hasMultipleVariations && minPrice > 0 && minPrice < priceValue;
-
-  let stockTone = 'out-of-stock';
-  let stockText = 'Out of stock';
-  let stockHint = 'Request item';
-  if (selectedStock > 0) {
-    stockTone = selectedLowStock ? 'special-order' : 'in-stock';
-    stockText = selectedLowStock ? 'Low stock' : 'Ready';
-    stockHint = hasMultipleVariations
-      ? `${inStockOptionCount || 1} option${inStockOptionCount === 1 ? '' : 's'} ready`
-      : 'Ready to add';
-  } else if (familyInStock && hasMultipleVariations) {
-    stockTone = 'in-stock';
-    stockText = 'Other options ready';
-    stockHint = 'Open options';
-  }
-
-  return {
-    selectedVariation: resolvedVariation,
-    previewVariation,
-    hasMultipleVariations,
-    optionCount: variations.length,
-    familyInStock,
-    familyLowStock,
-    selectedStock,
-    selectedQty,
-    familyCartQty,
-    selectedLabel: getVariationPreviewLabel(resolvedVariation),
-    previewLabels,
-    priceValue,
-    mrpValue,
-    hasDiscount,
-    discountPercent,
-    savingsValue,
-    showFromPrice,
-    minPrice,
-    stockTone,
-    stockText,
-    stockHint,
-    metaLine: String(family.brand || family.category || '').trim(),
-    uomLabel: uomLabel || 'pcs',
-    stockActionLabel: selectedStock === 0 ? 'Request' : 'Add'
-  };
-};
-
-function SafeProductImage({ src, alt, className, fallbackProduct, width, height, ...rest }) {
-  const [resolvedSrc, setResolvedSrc] = useState(() => {
-    const cached = getCachedResolvedMediaSource(src);
-    return cached || resolveMediaUrl(src) || src || getProductFallbackImage(fallbackProduct);
-  });
-  const isDetailImage = String(className || '').includes('detail-mobile-image');
-  const preferredWidth = isDetailImage ? 960 : 520;
-  const explicitWidth = Math.max(16, Math.round(Number(width || (isDetailImage ? 960 : 400))));
-  const explicitHeight = Math.max(16, Math.round(Number(height || (isDetailImage ? 600 : 400))));
-  const decodeMode = String(rest.loading || '').toLowerCase() === 'eager' ? 'sync' : 'async';
-  const responsiveSources = useMemo(
-    () => buildResponsiveImageSources(resolvedSrc, preferredWidth),
-    [resolvedSrc, preferredWidth]
-  );
-
-  useEffect(() => {
-    let mounted = true;
-    let objectUrlToRevoke = '';
-
-    const load = async () => {
-      if (!src) {
-        if (mounted) setResolvedSrc(getProductFallbackImage(fallbackProduct));
-        return;
-      }
-      const cachedSrc = getCachedResolvedMediaSource(src);
-      if (cachedSrc) {
-        if (mounted) setResolvedSrc(cachedSrc);
-        return;
-      }
-      if (mounted) setResolvedSrc(resolveMediaUrl(src) || src);
-      try {
-        const resolved = await resolveMediaSourceForDisplay(src);
-        if (!mounted) {
-          if (resolved.revoke && resolved.src) URL.revokeObjectURL(resolved.src);
-          return;
-        }
-        if (resolved.revoke && resolved.src) objectUrlToRevoke = resolved.src;
-        const nextSrc = resolved.src || getProductFallbackImage(fallbackProduct);
-        if (resolved.src) cacheResolvedMediaSource(src, resolved.src);
-        setResolvedSrc(nextSrc);
-      } catch (_) {
-        if (mounted) setResolvedSrc(getProductFallbackImage(fallbackProduct));
-      }
-    };
-
-    load();
-    return () => {
-      mounted = false;
-      if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
-    };
-  }, [src, fallbackProduct]);
-
-  return (
-    <img
-      src={responsiveSources.src || resolvedSrc}
-      srcSet={responsiveSources.srcSet || undefined}
-      sizes={responsiveSources.sizes || undefined}
-      alt={alt}
-      className={className}
-      width={explicitWidth}
-      height={explicitHeight}
-      {...rest}
-      decoding={decodeMode}
-      onError={(event) => {
-        event.currentTarget.onerror = null;
-        event.currentTarget.srcset = '';
-        event.currentTarget.sizes = '';
-        event.currentTarget.src = getProductFallbackImage(fallbackProduct);
-      }}
-    />
-  );
-}
-
-function ProductDetailView({
-  family,
-  selectedVariationId,
-  onSelectVariation,
-  onIncreaseQty,
-  onDecreaseQty,
-  cartQtyById,
-  buttonStatus,
-  showImage = false
-}) {
-  const selectedVariation = family.variations.find((v) => v.id === selectedVariationId) || getFirstAvailableVariation(family);
-  if (!selectedVariation) return null;
-  const hasMultipleVariations = family.variations.length > 1;
-  const labelSeen = new Set();
-  const variationChoices = family.variations.map((variation, idx) => {
-    let label = getVariationLabel(variation, idx);
-    const key = normalizeText(label);
-    if (labelSeen.has(key)) {
-      label = `${label} (${idx + 1})`;
-    }
-    labelSeen.add(key);
-    return { variation, label };
-  });
-
-  const selectedQty = Number(cartQtyById[selectedVariation.id] || 0);
-  const selectedStock = Number(selectedVariation.stock || 0);
-  const isSpecialOrder = selectedStock > 0 && selectedStock <= LOW_STOCK_THRESHOLD;
-  const isMaxed = false;
-  const canIncreaseQty = true;
-  const added = buttonStatus[selectedVariation.id] === 'added';
-
-  return (
-    <div className="product-detail-view" onClick={(event) => event.stopPropagation()} role="presentation">
-      {showImage && (
-        <div className="detail-mobile-image-wrap">
-          <SafeProductImage
-            src={selectedVariation.image}
-            alt={family.name}
-            className="detail-mobile-image"
-            fallbackProduct={selectedVariation.raw}
-          />
-        </div>
-      )}
-      <p className="detail-description">{family.description || 'No additional description available.'}</p>
-      {hasMultipleVariations ? (
-        <div className="variation-list">
-          {variationChoices.map(({ variation, label }) => {
-            const isActive = variation.id === selectedVariation.id;
-            return (
-              <button
-                key={variation.id}
-                type="button"
-                className={`variation-chip ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectVariation(family.id, variation.id)}
-              >
-                <span>{label}</span>
-                <strong>{formatCurrency(Number(variation.price || 0))}</strong>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="single-variation-row">
-          <span>{variationChoices[0]?.label}</span>
-          <strong>{formatCurrency(Number(selectedVariation.price || 0))}</strong>
-        </div>
-      )}
-
-      <div className="detail-selected-meta">
-        <div className="detail-price-line">
-          <span>{formatCurrencyColored(Number(selectedVariation.price || 0))}</span>
-          <small>/ {selectedVariation.uom || 'pcs'}</small>
-        </div>
-        {selectedVariation.mrp && Number(selectedVariation.mrp) > Number(selectedVariation.price) && (
-          <small className="mrp-price">MRP: {formatCurrency(selectedVariation.mrp)}</small>
-        )}
-        <div className="detail-stock-line">
-          <span className={selectedStock > 0 ? (isSpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
-            {selectedStock > 0 ? (isSpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}
-          </span>
-          {isSpecialOrder ? <small>Limited stock. May take longer.</small> : null}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="add-to-cart-btn detail-add-btn"
-        onClick={() => onIncreaseQty(family, selectedVariation)}
-        disabled={!canIncreaseQty}
-      >
-        <Plus size={14} />
-        {selectedStock === 0
-          ? (added ? 'Requested!' : 'Request item')
-          : isMaxed
-            ? 'Max in cart'
-            : added
-              ? 'Added!'
-              : 'Add to cart'}
-      </button>
-      <div className="detail-counter-row">
-        <button
-          type="button"
-          className="qty-step-btn"
-          onClick={() => onDecreaseQty(selectedVariation)}
-          disabled={selectedQty <= 0}
-        >
-          -
-        </button>
-        <span className="qty-step-value">{selectedQty}</span>
-        <button
-          type="button"
-          className="qty-step-btn"
-          onClick={() => onIncreaseQty(family, selectedVariation)}
-          disabled={!canIncreaseQty}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function VirtualizedFamilyGrid({
-  families,
-  renderFamilyCard,
-  estimatedColumns = 2,
-  estimatedCardHeight = 290,
-  shouldVirtualize = false
-}) {
-  const hostRef = useRef(null);
-  const itemRefs = useRef(new Map());
-  const [isNearViewport, setIsNearViewport] = useState(!shouldVirtualize);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: Math.max(0, Math.min((families?.length || 1) - 1, 15)) });
-  const cols = Math.max(1, Number(estimatedColumns || 1));
-  const rowHeight = Math.max(160, Number(estimatedCardHeight || 290));
-  const totalItems = Math.max(0, Number(families?.length || 0));
-  const totalRows = Math.max(1, Math.ceil(totalItems / cols));
-  const [rowHeights, setRowHeights] = useState(() => Array.from({ length: totalRows }, () => rowHeight));
-  const rowOffsets = useMemo(() => {
-    const offsets = new Array(totalRows + 1);
-    offsets[0] = 0;
-    for (let index = 0; index < totalRows; index += 1) {
-      offsets[index + 1] = offsets[index] + Math.max(120, Number(rowHeights[index] || rowHeight));
-    }
-    return offsets;
-  }, [rowHeights, totalRows, rowHeight]);
-  const totalHeight = Math.max(110, rowOffsets[totalRows] || (totalRows * rowHeight));
-  const startRowIndex = Math.floor(Math.max(0, visibleRange.start) / cols);
-  const virtualWindowOffset = rowOffsets[startRowIndex] || 0;
-
-  const findRowIndexAtOffset = (offsetPx) => {
-    if (totalRows <= 1) return 0;
-    let low = 0;
-    let high = totalRows - 1;
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-      if ((rowOffsets[mid + 1] || 0) <= offsetPx) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
-    }
-    return low;
-  };
-
-  useEffect(() => {
-    setVisibleRange({ start: 0, end: Math.max(0, Math.min(totalItems - 1, 15)) });
-  }, [totalItems]);
-
-  useEffect(() => {
-    setRowHeights((prev) => Array.from({ length: totalRows }, (_, index) => (
-      Math.max(120, Number(prev[index] || rowHeight))
-    )));
-  }, [totalRows, rowHeight, cols]);
-
-  useEffect(() => {
-    if (!shouldVirtualize) {
-      setIsNearViewport(true);
-      return undefined;
-    }
-    const node = hostRef.current;
-    if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
-      setIsNearViewport(true);
-      return undefined;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        setIsNearViewport(Boolean(entry?.isIntersecting));
-      },
-      { root: null, rootMargin: '1200px 0px 1200px 0px', threshold: 0.01 }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [shouldVirtualize]);
-
-  useEffect(() => {
-    if (!shouldVirtualize || !isNearViewport) return undefined;
-    const node = hostRef.current;
-    if (!node || typeof window === 'undefined') return undefined;
-    let frameId = 0;
-    const overscanRows = 3;
-
-    const computeRange = () => {
-      frameId = 0;
-      const componentTop = window.scrollY + node.getBoundingClientRect().top;
-      const viewportTop = window.scrollY;
-      const viewportBottom = viewportTop + window.innerHeight;
-      const visibleTopPx = Math.max(0, viewportTop - componentTop);
-      const visibleBottomPx = Math.min(totalHeight, viewportBottom - componentTop);
-      const startRow = Math.max(0, findRowIndexAtOffset(visibleTopPx) - overscanRows);
-      const endRow = Math.min(totalRows - 1, findRowIndexAtOffset(Math.max(0, visibleBottomPx)) + overscanRows);
-      const nextStart = Math.max(0, startRow * cols);
-      const nextEnd = Math.min(totalItems - 1, ((endRow + 1) * cols) - 1);
-      setVisibleRange((prev) => {
-        if (prev.start === nextStart && prev.end === nextEnd) return prev;
-        return { start: nextStart, end: nextEnd };
-      });
-    };
-
-    const scheduleCompute = () => {
-      if (frameId) return;
-      frameId = window.requestAnimationFrame(computeRange);
-    };
-
-    scheduleCompute();
-    window.addEventListener('scroll', scheduleCompute, { passive: true });
-    window.addEventListener('resize', scheduleCompute);
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      window.removeEventListener('scroll', scheduleCompute);
-      window.removeEventListener('resize', scheduleCompute);
-    };
-  }, [shouldVirtualize, isNearViewport, totalRows, totalHeight, cols, totalItems, rowOffsets]);
-
-  useLayoutEffect(() => {
-    if (!shouldVirtualize || !isNearViewport || totalItems === 0) return undefined;
-
-    const measureVisibleRows = () => {
-      const measuredByRow = new Map();
-      itemRefs.current.forEach((node, indexKey) => {
-        const absoluteIndex = Number(indexKey);
-        if (!node || absoluteIndex < visibleRange.start || absoluteIndex > visibleRange.end) return;
-        const measuredHeight = Math.ceil(node.getBoundingClientRect().height || 0);
-        if (!measuredHeight) return;
-        const rowIndex = Math.floor(absoluteIndex / cols);
-        measuredByRow.set(rowIndex, Math.max(measuredByRow.get(rowIndex) || 0, measuredHeight));
-      });
-      if (measuredByRow.size === 0) return;
-
-      setRowHeights((prev) => {
-        let changed = false;
-        const next = prev.length === totalRows
-          ? [...prev]
-          : Array.from({ length: totalRows }, (_, index) => Math.max(120, Number(prev[index] || rowHeight)));
-        measuredByRow.forEach((measuredHeight, rowIndex) => {
-          const stableHeight = Math.max(120, measuredHeight);
-          if (Math.abs(Number(next[rowIndex] || rowHeight) - stableHeight) > 1) {
-            next[rowIndex] = stableHeight;
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    };
-
-    measureVisibleRows();
-    if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function') return undefined;
-    const observer = new window.ResizeObserver(() => measureVisibleRows());
-    itemRefs.current.forEach((node, indexKey) => {
-      const absoluteIndex = Number(indexKey);
-      if (node && absoluteIndex >= visibleRange.start && absoluteIndex <= visibleRange.end) {
-        observer.observe(node);
-      }
-    });
-    return () => observer.disconnect();
-  }, [shouldVirtualize, isNearViewport, totalItems, visibleRange.start, visibleRange.end, cols, totalRows, rowHeight]);
-
-  if (!shouldVirtualize) {
-    return (
-      <div ref={hostRef} className="virtual-grid-host">
-        <div className="group-products-grid">
-          {families.map((family) => renderFamilyCard(family))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!isNearViewport) {
-    return (
-      <div ref={hostRef} className="virtual-grid-host">
-        <div className="virtual-grid-placeholder" style={{ height: `${totalHeight}px` }} aria-hidden="true" />
-      </div>
-    );
-  }
-
-  const windowedFamilies = families.slice(visibleRange.start, visibleRange.end + 1);
-
-  return (
-    <div ref={hostRef} className="virtual-grid-host">
-      <div className="virtual-grid-window" style={{ height: `${totalHeight}px` }}>
-        <div
-          className="group-products-grid virtual-grid-windowed-content"
-          style={{ transform: `translateY(${virtualWindowOffset}px)` }}
-        >
-          {windowedFamilies.map((family, index) => {
-            const absoluteIndex = visibleRange.start + index;
-            return (
-              <div
-                key={family.id || family.name || absoluteIndex}
-                className="virtual-grid-item"
-                ref={(node) => {
-                  if (node) {
-                    itemRefs.current.set(absoluteIndex, node);
-                  } else {
-                    itemRefs.current.delete(absoluteIndex);
-                  }
-                }}
-              >
-                {renderFamilyCard(family)}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function Products({
   setCartCount,
@@ -1230,155 +308,34 @@ function Products({
     };
   }, []);
 
-  useEffect(() => {
-    const query = String(searchInputValue || '').trim();
-    if (searchSuggestionsAbortRef.current) {
-      searchSuggestionsAbortRef.current.abort();
-      searchSuggestionsAbortRef.current = null;
-    }
+  useProductSearchSuggestions({
+    searchInputValue,
+    searchSuggestionsEnabled,
+    getLocalSuggestions,
+    normalizeText,
+    SEARCH_SUGGESTIONS_MIN_CHARS,
+    SEARCH_SUGGESTIONS_CACHE_TTL_MS,
+    SEARCH_SUGGESTIONS_MAX_ITEMS,
+    searchSuggestionsCacheRef,
+    searchSuggestionsRequestRef,
+    searchSuggestionsAbortRef,
+    setSearchSuggestions,
+    setShowSearchSuggestions,
+    setActiveSuggestionIndex,
+    setIsLoadingSuggestions,
+    showSearchSuggestions,
+    activeSuggestionIndex,
+    searchSuggestionsLength: searchSuggestions.length,
+  });
 
-    if (!searchSuggestionsEnabled) {
-      setShowSearchSuggestions(false);
-      setActiveSuggestionIndex(-1);
-      setIsLoadingSuggestions(false);
-      return undefined;
-    }
-
-    if (query.length < SEARCH_SUGGESTIONS_MIN_CHARS) {
-      setSearchSuggestions([]);
-      setShowSearchSuggestions(false);
-      setActiveSuggestionIndex(-1);
-      setIsLoadingSuggestions(false);
-      return undefined;
-    }
-
-    const localSuggestions = getLocalSuggestions(query);
-    const cacheKey = normalizeText(query);
-    const cacheRecord = searchSuggestionsCacheRef.current.get(cacheKey);
-    const now = Date.now();
-    if (cacheRecord && (now - Number(cacheRecord.at || 0)) < SEARCH_SUGGESTIONS_CACHE_TTL_MS) {
-      setSearchSuggestions(cacheRecord.items);
-      setShowSearchSuggestions(cacheRecord.items.length > 0);
-      setActiveSuggestionIndex(-1);
-      setIsLoadingSuggestions(false);
-      return undefined;
-    }
-
-    const requestId = searchSuggestionsRequestRef.current + 1;
-    searchSuggestionsRequestRef.current = requestId;
-    setIsLoadingSuggestions(true);
-    if (localSuggestions.length > 0) {
-      setSearchSuggestions(localSuggestions);
-      setShowSearchSuggestions(true);
-      setActiveSuggestionIndex(-1);
-    }
-    const controller = new AbortController();
-    searchSuggestionsAbortRef.current = controller;
-    const timer = setTimeout(async () => {
-      try {
-        const payload = await productService.suggest({
-          q: query,
-          limit: SEARCH_SUGGESTIONS_MAX_ITEMS
-        }, { signal: controller.signal });
-        if (requestId !== searchSuggestionsRequestRef.current) return;
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        const resolvedItems = items.length > 0 ? items : localSuggestions;
-        searchSuggestionsCacheRef.current.set(cacheKey, { items: resolvedItems, at: Date.now() });
-        setSearchSuggestions(resolvedItems);
-        setShowSearchSuggestions(resolvedItems.length > 0);
-        setActiveSuggestionIndex(-1);
-      } catch (error) {
-        if (error?.name === 'AbortError') return;
-        if (requestId !== searchSuggestionsRequestRef.current) return;
-        if (localSuggestions.length > 0) {
-          setSearchSuggestions(localSuggestions);
-          setShowSearchSuggestions(true);
-        } else {
-          setSearchSuggestions([]);
-          setShowSearchSuggestions(false);
-        }
-      } finally {
-        if (requestId === searchSuggestionsRequestRef.current) {
-          setIsLoadingSuggestions(false);
-        }
-        if (searchSuggestionsAbortRef.current === controller) {
-          searchSuggestionsAbortRef.current = null;
-        }
-      }
-    }, 220);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-      if (searchSuggestionsAbortRef.current === controller) {
-        searchSuggestionsAbortRef.current = null;
-      }
-    };
-  }, [searchInputValue, searchSuggestionsEnabled, getLocalSuggestions]);
-
-  useEffect(() => {
-    if (!showSearchSuggestions || activeSuggestionIndex < 0) return;
-    const activeNode = document.getElementById(`products-search-suggestion-${activeSuggestionIndex}`);
-    if (!activeNode || typeof activeNode.scrollIntoView !== 'function') return;
-    activeNode.scrollIntoView({ block: 'nearest' });
-  }, [showSearchSuggestions, activeSuggestionIndex, searchSuggestions.length]);
-
-  const trackProductsEvent = useCallback((eventName, payload = {}, options = {}) => {
-    if (typeof window === 'undefined') return;
-    const name = String(eventName || '').trim();
-    if (!name) return;
-    const sessionId = String(productsTelemetryRef.current.sessionId || '').trim();
-    if (!sessionId) return;
-    const throttleMs = Math.max(0, Number(options.throttleMs || 0));
-    const throttleKey = String(options.throttleKey || name);
-    const now = Date.now();
-    if (throttleMs > 0) {
-      const previous = Number(productsTelemetryRef.current.lastEventAt[throttleKey] || 0);
-      if (now - previous < throttleMs) return;
-      productsTelemetryRef.current.lastEventAt[throttleKey] = now;
-    }
-    analyticsApi.heartbeat({
-      session_id: sessionId,
-      path: '/products',
-      product_event: {
-        name,
-        at: new Date().toISOString(),
-        session_id: sessionId,
-        ab_variant: productsTelemetryRef.current.abVariant,
-        ...payload
-      }
-    }).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const existingSessionId = readSessionStorageValue(PRODUCTS_TELEMETRY_SESSION_KEY);
-    const nextSessionId = existingSessionId || createTelemetrySessionId();
-    if (!existingSessionId) writeSessionStorageValue(PRODUCTS_TELEMETRY_SESSION_KEY, nextSessionId);
-    const queryVariant = String(searchParams.get('ab') || '').trim().toLowerCase();
-    let storedVariant = '';
-    try {
-      storedVariant = String(localStorage.getItem(PRODUCTS_AB_VARIANT_KEY) || '').trim().toLowerCase();
-    } catch (_) {
-      storedVariant = '';
-    }
-    const resolvedVariant = queryVariant || storedVariant || 'control';
-    if (queryVariant && queryVariant !== storedVariant) {
-      try {
-        localStorage.setItem(PRODUCTS_AB_VARIANT_KEY, queryVariant);
-      } catch (_) {
-        // Ignore storage write issues.
-      }
-    }
-    productsTelemetryRef.current.sessionId = nextSessionId;
-    productsTelemetryRef.current.abVariant = resolvedVariant;
-    trackProductsEvent('products_page_view', {
-      group_by: groupBy,
-      sort_by: sortBy,
-      stock_only: inStockOnly ? 1 : 0,
-      device: isMobile ? 'mobile' : 'desktop'
-    }, { throttleMs: 2000, throttleKey: 'products_page_view' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const trackProductsEvent = useProductsTelemetry({
+    productsTelemetryRef,
+    groupBy,
+    sortBy,
+    inStockOnly,
+    isMobile,
+    searchParams,
+  });
 
   useEffect(() => {
     trackProductsEvent('products_search_changed', {
@@ -2789,79 +1746,31 @@ function Products({
 
   const estimatedGridColumns = isMobile ? 2 : 4;
   const eagerImageBudget = isMobile ? ABOVE_FOLD_EAGER_IMAGE_COUNT.mobile : ABOVE_FOLD_EAGER_IMAGE_COUNT.desktop;
-
-  const renderFamilyCard = (family) => {
-    const selectedVariation = getSelectedVariation(family);
-    const isActiveDesktop = !isMobile && activeDesktopFamilyId === family.id;
-    const animationIndex = Number(visibleFamilyIndexById[family.id] || 0);
-    const shouldPrioritizeImage = animationIndex < eagerImageBudget;
-    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
-    if (!cardState.selectedVariation) return null;
-
-    return (
-      <ProductCard
-        key={family.id}
-        family={family}
-        cardState={cardState}
-        variant="default"
-        animationDelay={`${animationIndex * 0.04}s`}
-        onOpenDetails={() => openFamilyDetails(family.id)}
-        onAdd={addToCart}
-        onDecrease={decreaseFromCart}
-        showMetaLine={!isMobile}
-        imageLoading={shouldPrioritizeImage ? 'eager' : 'lazy'}
-        imageFetchPriority={shouldPrioritizeImage ? 'high' : 'low'}
-        ImageComponent={SafeProductImage}
-        detailContent={isActiveDesktop ? (
-          <ProductDetailView
-            family={family}
-            selectedVariationId={cardState.selectedVariation.id}
-            onSelectVariation={handleSelectVariation}
-            onIncreaseQty={addToCart}
-            onDecreaseQty={decreaseFromCart}
-            cartQtyById={cartQtyById}
-            buttonStatus={buttonStatus}
-            showImage={false}
-          />
-        ) : null}
-      />
-    );
-  };
-
-  const renderQuickAddTile = (family) => {
-    const selectedVariation = getSelectedVariation(family);
-    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
-    const isSwipeAdded = swipeAddedFamilyId === family.id;
-    const isButtonAdded = buttonStatus[cardState.selectedVariation?.id] === 'added';
-    const isAddedState = isSwipeAdded || isButtonAdded;
-    if (!cardState.selectedVariation) return null;
-
-    return (
-      <ProductCard
-        key={family.id}
-        family={family}
-        cardState={cardState}
-        variant="compact"
-        isAddedState={isAddedState}
-        onTouchStart={(event) => handleQuickTileTouchStart(family, event)}
-        onTouchEnd={(event) => handleQuickTileTouchEnd(family, event)}
-        onOpenDetails={() => {
-          if (quickTileDidSwipeRef.current[family.id]) {
-            quickTileDidSwipeRef.current[family.id] = false;
-            return;
-          }
-          openFamilyDetails(family.id);
-        }}
-        onAdd={addToCart}
-        onDecrease={decreaseFromCart}
-        showMetaLine={false}
-        showSwipeHint
-        imageLoading="lazy"
-        imageFetchPriority="low"
-        ImageComponent={SafeProductImage}
-      />
-    );
-  };
+  const {
+    renderFamilyCard,
+    renderQuickAddTile,
+    renderMobileProductCard,
+    renderCategoryChipLabel,
+  } = useProductsRenderers({
+    isMobile,
+    activeDesktopFamilyId,
+    visibleFamilyIndexById,
+    eagerImageBudget,
+    getSelectedVariation,
+    getFamilyCardState,
+    cartQtyById,
+    openFamilyDetails,
+    addToCart,
+    decreaseFromCart,
+    handleSelectVariation,
+    buttonStatus,
+    swipeAddedFamilyId,
+    quickTileDidSwipeRef,
+    handleQuickTileTouchStart,
+    handleQuickTileTouchEnd,
+    formatCurrency,
+    LOW_STOCK_THRESHOLD,
+  });
 
   const handleMobileCategorySelect = useCallback((categoryName) => {
     const next = String(categoryName || '').trim() || 'all';
@@ -2877,73 +1786,30 @@ function Products({
     setSelectedSubcategory(next);
   }, []);
 
-  const resolveUnitPriceValue = (variation) => {
-    const candidates = [
-      variation?.unit_price,
-      variation?.unitPrice,
-      variation?.price_per_unit,
-      variation?.pricePerUnit,
-      variation?.price_per_uom,
-      variation?.pricePerUom
-    ];
-    const value = candidates.find((candidate) => Number(candidate || 0) > 0);
-    return Number(value || 0);
-  };
-
-  const renderMobileProductCard = (family, { prioritizeImage = false } = {}) => {
-    const selectedVariation = getSelectedVariation(family);
-    const cardState = getFamilyCardState(family, selectedVariation, cartQtyById);
-    if (!cardState.selectedVariation) return null;
-    const unitPriceValue = resolveUnitPriceValue(cardState.selectedVariation);
-    const unitPriceLabel = unitPriceValue > 0
-      ? `${formatCurrency(unitPriceValue)} / ${cardState.uomLabel || 'unit'}`
-      : '';
-    const lowStockLabel = cardState.selectedStock > 0 && cardState.selectedStock <= LOW_STOCK_THRESHOLD
-      ? `Only ${cardState.selectedStock} left`
-      : '';
-    const metaItems = [unitPriceLabel, lowStockLabel].filter(Boolean);
-    return (
-      <ProductCard
-        key={family.id}
-        family={family}
-        cardState={cardState}
-        variant="compact"
-        onOpenDetails={() => openFamilyDetails(family.id)}
-        onAdd={addToCart}
-        onDecrease={decreaseFromCart}
-        showMetaLine
-        imageLoading={prioritizeImage ? 'eager' : 'lazy'}
-        imageFetchPriority={prioritizeImage ? 'high' : 'low'}
-        ImageComponent={SafeProductImage}
-        detailContent={metaItems.length > 0 ? (
-          <div className="mobile-card-meta">
-            {metaItems.map((item) => (
-              <span key={`${family.id}-${item}`} className="mobile-card-meta-item">{item}</span>
-            ))}
-          </div>
-        ) : null}
-      />
-    );
-  };
-
-  const handleMobileSearchChange = useCallback((event) => {
-    const nextValue = String(event.target.value || '').slice(0, 80);
-    const trimmedValue = nextValue.trim();
-    setSearchInputValue(nextValue);
-    if (!trimmedValue) {
-      setSearchSuggestionsEnabled(false);
-      setSearchSuggestions([]);
-      setShowSearchSuggestions(false);
-      setActiveSuggestionIndex(-1);
-      startTransition(() => {
-        setAppliedSearchQuery('');
-      });
-      return;
-    }
-    const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
-    setSearchSuggestionsEnabled(shouldEnable);
-    setShowSearchSuggestions(shouldEnable);
-  }, []);
+  const {
+    commitSearchQuery,
+    selectSearchSuggestion,
+    clearSearchQuery,
+    handleMobileSearchChange,
+    handleMobileSearchFocus,
+    handleMobileSearchKeyDown,
+    handleDesktopSearchChange,
+    handleDesktopSearchFocus,
+    handleDesktopSearchKeyDown,
+  } = useProductsSearchHandlers({
+    searchInputValue,
+    setSearchInputValue,
+    setSearchSuggestionsEnabled,
+    setSearchSuggestions,
+    setShowSearchSuggestions,
+    setActiveSuggestionIndex,
+    setAppliedSearchQuery,
+    showSearchSuggestions,
+    searchSuggestions,
+    activeSuggestionIndex,
+    SEARCH_SUGGESTIONS_MIN_CHARS,
+    trackProductsEvent,
+  });
 
   const handleMobileOfferAction = useCallback((offer) => {
     if (!offer) return;
@@ -2975,188 +1841,35 @@ function Products({
     }
   }, [isMobile, location.hash, handleMobileScrollTo]);
 
-  const renderCategoryChipLabel = (category, mode = 'category') => {
-    if (mode === 'brand') {
-      return <BrandFilterVisual logo={category?.image} name={category?.name} />;
-    }
-
-    const hasImage = String(category?.image || '').trim().length > 0;
-    const hasIcon = String(category?.icon || '').trim().length > 0;
-    const iconText = hasIcon ? String(category.icon || '').trim() : getDefaultCategoryIcon(category?.name);
-    const width = Math.max(16, Math.round(Number(category?.image_width || 18)));
-    const height = Math.max(16, Math.round(Number(category?.image_height || 18)));
-    return (
-      <>
-        {hasImage ? (
-          <img
-            src={resolveMediaUrl(category.image)}
-            alt=""
-            className="category-chip-image"
-            width={width}
-            height={height}
-            loading="lazy"
-          />
-        ) : (
-          <span className="category-chip-icon">{iconText}</span>
-        )}
-        <span className="category-chip-label">{category.name}</span>
-      </>
-    );
+  const smartSectionsProps = {
+    repeatOrderFamilies,
+    recentlyBoughtFamilies,
+    handleRepeatOrder,
+    getSelectedVariation,
+    getFamilyPreviewVariation,
+    smartRestockItems,
+    handleRestockAll,
+    addToCart,
+    quickAddFamilies,
+    renderQuickAddTile,
+    comboSuggestions,
+    handleAddCombo,
   };
 
-  const renderSmartSections = () => (
-    <section className="products-secondary-sections">
-      <header className="products-secondary-section-title">
-        <h2>Smart Picks For You</h2>
-        <p>Reorder faster with personalized shortcuts.</p>
-      </header>
-
-      {repeatOrderFamilies.length > 0 && (
-        <section className="products-feature-block repeat-order-block">
-          <div className="feature-block-header">
-            <h2><RotateCcw size={16} /> 1-Tap Repeat Order</h2>
-            <button type="button" className="feature-action-btn" onClick={handleRepeatOrder}>
-              Repeat Order
-            </button>
-          </div>
-          <small className="repeat-order-caption">
-            {recentlyBoughtFamilies.length > 0 ? 'From your recently bought products' : 'From your quick-add history'}
-          </small>
-          <div className="repeat-order-grid horizontal-group-row">
-            {repeatOrderFamilies.map((family) => {
-              const selectedVariation = getSelectedVariation(family);
-              const previewVariation = getFamilyPreviewVariation(family, selectedVariation);
-              return (
-                <article key={`repeat-${family.id}`} className="repeat-order-item">
-                  <div className="repeat-order-thumb" aria-hidden="true">
-                    <SafeProductImage
-                      src={previewVariation?.image}
-                      alt=""
-                      className="repeat-order-thumb-img"
-                      loading="lazy"
-                      fallbackProduct={previewVariation?.raw || selectedVariation?.raw}
-                      width={42}
-                      height={42}
-                    />
-                  </div>
-                  <span className="repeat-order-name">{family.name}</span>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <section className="products-feature-block restock-block">
-        <div className="feature-block-header">
-          <h2><Sparkles size={16} /> Smart Restock</h2>
-          <button
-            type="button"
-            className="feature-action-btn"
-            onClick={handleRestockAll}
-            disabled={smartRestockItems.length === 0}
-          >
-            Restock All
-          </button>
-        </div>
-        {smartRestockItems.length === 0 ? (
-          <p className="feature-empty">
-            Add a few items to unlock restock prediction.
-          </p>
-        ) : (
-          <div className="restock-list horizontal-group-row">
-            {smartRestockItems.map((item) => (
-              <article key={item.id} className="restock-item">
-                <div className="restock-item-top">
-                  <div className="restock-item-media" aria-hidden="true">
-                    <SafeProductImage
-                      src={item.variation?.image}
-                      alt=""
-                      className="restock-item-media-img"
-                      loading="lazy"
-                      fallbackProduct={item.variation?.raw}
-                      width={46}
-                      height={46}
-                    />
-                  </div>
-                  <div className="restock-item-head">
-                    <strong>{item.family.name}</strong>
-                    <span>{item.depletionPercent}% low</span>
-                  </div>
-                </div>
-                <div className={`restock-progress ${item.tone}`}>
-                  <span style={{ width: `${item.depletionPercent}%` }} />
-                </div>
-                <div className="restock-item-footer">
-                  <small>{item.daysSince}d ago</small>
-                  <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Restock</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {quickAddFamilies.length > 0 && (
-        <section className="products-feature-block quick-add-block">
-          <div className="feature-block-header">
-            <h2>Quick Add</h2>
-            <small>Swipe or tap to add</small>
-          </div>
-          <div className="quick-add-grid horizontal-group-row">
-            {quickAddFamilies.map((family) => renderQuickAddTile(family))}
-          </div>
-        </section>
-      )}
-
-      {comboSuggestions.length > 0 && (
-        <section className="products-feature-block combo-block">
-          <div className="feature-block-header">
-            <h2>Combo Deals</h2>
-          </div>
-          <div className="combo-list horizontal-group-row">
-            {comboSuggestions.map((combo) => (
-              <article key={combo.id} className="combo-card">
-                <h3>{combo.title}</h3>
-                <p>{combo.subtitle}</p>
-                <div className="combo-price-row">
-                  <strong>{formatCurrency(combo.finalPrice)}</strong>
-                  <span>Save {formatCurrency(combo.saveAmount)}</span>
-                </div>
-                <button type="button" onClick={() => handleAddCombo(combo)}>Add Combo</button>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-    </section>
+  const activeTabFamilies = mobileTabFamilies[activeMobileTab] || [];
+  const isLoggedIn = Boolean(
+    localUser?.id
+    || String(localUser?.token || '').trim()
+    || String(localUser?.supabase_session?.access_token || '').trim()
+    || String(localUser?.email || '').trim()
+    || String(localUser?.phone || '').trim()
   );
-
-  const commitSearchQuery = useCallback((value = searchInputValue) => {
-    const nextValue = String(value || '').trim().slice(0, 80);
-    setSearchInputValue(nextValue);
-    setSearchSuggestionsEnabled(false);
-    setSearchSuggestions([]);
-    setShowSearchSuggestions(false);
-    setActiveSuggestionIndex(-1);
-    startTransition(() => {
-      setAppliedSearchQuery(nextValue);
-    });
-  }, [searchInputValue]);
-
-  const selectSearchSuggestion = useCallback((suggestion) => {
-    const label = String(suggestion?.name || '').trim();
-    if (!label) return;
-    commitSearchQuery(label);
-    trackProductsEvent('products_search_suggestion_select', {
-      suggestion_id: Number(suggestion?.id || 0),
-      suggestion_name: label
-    }, { throttleMs: 200, throttleKey: 'products_search_suggestion_select' });
-  }, [commitSearchQuery, trackProductsEvent]);
-
-  const clearSearchQuery = useCallback(() => {
-    commitSearchQuery('');
-  }, [commitSearchQuery]);
+  const profileHref = isLoggedIn ? '/profile' : '/login';
+  const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';
+  const profileName = String(localUser?.name || '').trim();
+  const profileInitials = profileName ? getInitials(profileName) : '';
+  const isAdminUser = normalizeText(localUser?.role) === 'admin';
+  const disableMobileLogoLink = !isAdminUser;
 
   if (!isMobile && loading && products.length === 0) {
     const skeletonCount = isMobile ? 6 : 8;
@@ -3173,889 +1886,139 @@ function Products({
     );
   }
 
-    if (isMobile) {
-      const activeTabFamilies = mobileTabFamilies[activeMobileTab] || [];
-      const isLoggedIn = Boolean(
-        localUser?.id
-        || String(localUser?.token || '').trim()
-        || String(localUser?.supabase_session?.access_token || '').trim()
-        || String(localUser?.email || '').trim()
-        || String(localUser?.phone || '').trim()
-      );
-      const profileHref = isLoggedIn ? '/profile' : '/login';
-      const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';
-      const profileName = String(localUser?.name || '').trim();
-      const profileInitials = profileName ? getInitials(profileName) : '';
-      const isAdminUser = normalizeText(localUser?.role) === 'admin';
-      const disableMobileLogoLink = !isAdminUser;
-      return (
-        <div className="mobile-shop-page" ref={productsPageRef}>
-          <header className="mobile-shop-header" id="mobile-shop-top" ref={mobileHeaderRef}>
-            <div className="mobile-header-row">
-              {disableMobileLogoLink ? (
-                <div className="mobile-logo mobile-logo-disabled" aria-label="Store">
-                  <img src={logoImage} alt="Logo" className="mobile-logo-image" />
-                  <div className="mobile-logo-text">
-                    <span className="mobile-store-title">{storeTitle}</span>
-                    <span className="mobile-store-subtitle">Groceries & Essentials</span>
-                  </div>
-                </div>
-              ) : (
-                <Link to="/" className="mobile-logo" aria-label="Go to home">
-                  <img src={logoImage} alt="Logo" className="mobile-logo-image" />
-                  <div className="mobile-logo-text">
-                    <span className="mobile-store-title">{storeTitle}</span>
-                    <span className="mobile-store-subtitle">Groceries & Essentials</span>
-                  </div>
-                </Link>
-              )}
-              <div className="mobile-header-actions">
-                <Link to={profileHref} className="mobile-profile-btn" aria-label={profileHref === '/profile' ? 'Profile' : 'Login'}>
-                  {profileImageSrc ? (
-                    <img
-                      src={profileImageSrc}
-                      alt={profileName || 'User'}
-                      className="mobile-profile-avatar"
-                      onError={() => setAvatarLoadFailed(true)}
-                    />
-                  ) : profileInitials ? (
-                    <span className="mobile-profile-fallback" aria-hidden="true">{profileInitials}</span>
-                  ) : (
-                    <User size={18} />
-                  )}
-                </Link>
-              </div>
-            </div>
-
-          <div className="mobile-search-row">
-            <Search size={16} />
-            <input
-              id="mobile-products-search"
-              name="search"
-              type="text"
-              placeholder="Search products..."
-              value={searchInputValue}
-              onChange={handleMobileSearchChange}
-              onFocus={() => {
-                const trimmedValue = String(searchInputValue || '').trim();
-                const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
-                setSearchSuggestionsEnabled(shouldEnable);
-                if (shouldEnable && searchSuggestions.length > 0) setShowSearchSuggestions(true);
-              }}
-              onKeyDown={(event) => {
-                if (!showSearchSuggestions || searchSuggestions.length === 0) {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    commitSearchQuery();
-                  } else if (event.key === 'Escape') {
-                    setShowSearchSuggestions(false);
-                  }
-                  return;
-                }
-                if (event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((prev) => {
-                    const next = prev + 1;
-                    return next >= searchSuggestions.length ? 0 : next;
-                  });
-                } else if (event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((prev) => {
-                    if (prev <= 0) return searchSuggestions.length - 1;
-                    return prev - 1;
-                  });
-                } else if (event.key === 'Enter') {
-                  event.preventDefault();
-                  if (activeSuggestionIndex >= 0 && searchSuggestions[activeSuggestionIndex]) {
-                    selectSearchSuggestion(searchSuggestions[activeSuggestionIndex]);
-                  } else {
-                    commitSearchQuery();
-                  }
-                } else if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setShowSearchSuggestions(false);
-                  setActiveSuggestionIndex(-1);
-                }
-              }}
-              aria-label="Search products"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
-              aria-controls={searchSuggestionsListId}
-              aria-activedescendant={
-                activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
-              }
-              inputMode="search"
-              enterKeyHint="search"
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-            {searchInputValue ? (
-              <button type="button" className="mobile-search-clear" onClick={clearSearchQuery} aria-label="Clear search">
-                <X size={14} />
-              </button>
-            ) : null}
-            {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
-            {showSearchSuggestions && searchSuggestions.length > 0 ? (
-              <div id={searchSuggestionsListId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
-                {searchSuggestions.slice(0, SEARCH_SUGGESTIONS_MAX_ITEMS).map((item, index) => (
-                  <button
-                    type="button"
-                    id={`products-search-suggestion-${index}`}
-                    key={`suggestion-${item.id}-${index}`}
-                    className={`search-suggestion-item ${index === activeSuggestionIndex ? 'active' : ''}`}
-                    onMouseEnter={() => setActiveSuggestionIndex(index)}
-                    onClick={() => selectSearchSuggestion(item)}
-                    role="option"
-                    aria-selected={index === activeSuggestionIndex}
-                  >
-                    <div className="search-suggestion-leading" aria-hidden="true">
-                      <img
-                        src={getSuggestionImageSrc(item)}
-                        alt=""
-                        className="search-suggestion-thumb"
-                        width={34}
-                        height={34}
-                        loading="lazy"
-                        decoding="async"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = getProductFallbackImage(item);
-                        }}
-                      />
-                    </div>
-                    <div className="search-suggestion-main">
-                      {item.brand ? <strong>{item.brand}</strong> : null}
-                      <span>{item.name}</span>
-                    </div>
-                    <div className="search-suggestion-meta">
-                      {item.size ? <small>{item.size}</small> : null}
-                      <small>{formatCurrency(item.price)}</small>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mobile-category-scroller" role="tablist" aria-label="Categories">
-            <button
-              type="button"
-              className={`mobile-category-chip ${selectedCategory === 'all' ? 'active' : ''}`}
-              onClick={() => handleMobileCategorySelect('all')}
-              aria-pressed={selectedCategory === 'all'}
-            >
-              All
-            </button>
-            {mobileRootCategories.map((category) => (
-              <button
-                type="button"
-                key={category.id}
-                className={`mobile-category-chip ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
-                onClick={() => handleMobileCategorySelect(category.name)}
-                aria-pressed={normalizeText(selectedCategory) === normalizeText(category.name)}
-              >
-                {renderCategoryChipLabel(category)}
-              </button>
-            ))}
-          </div>
-        </header>
-
-        <div className="mobile-shop-body">
-          {loading && products.length > 0 ? (
-            <div className="mobile-refresh-banner" aria-live="polite">
-              Updating products...
-            </div>
-          ) : null}
-
-          {notice && (
-            <div className={`mobile-notice ${notice.type === 'error' ? 'error' : 'info'}`}>
-              {notice.message}
-            </div>
-          )}
-
-          {error ? <div className="mobile-error">{error}</div> : null}
-
-          {loading && products.length === 0 ? (
-            <div className="mobile-shop-skeleton">
-              <div className="products-skeleton-header shimmer-skeleton" aria-hidden="true" />
-              <div className="products-skeleton-controls shimmer-skeleton" aria-hidden="true" />
-              <div className="products-skeleton-grid" aria-hidden="true">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={`mobile-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              <section className="mobile-category-hero">
-                <div className="mobile-category-title">
-                  <h2>{selectedCategory === 'all' ? 'Shop By Category' : selectedCategory}</h2>
-                  <p>{selectedCategory === 'all' ? 'Pick a category to filter products quickly.' : 'Browse subcategories below.'}</p>
-                </div>
-                {mobileSubcategories.length > 0 ? (
-                  <div className="mobile-subcategory-scroller" role="tablist" aria-label="Subcategories">
-                    <button
-                      type="button"
-                      className={`mobile-subcategory-chip ${selectedSubcategory === 'all' ? 'active' : ''}`}
-                      onClick={() => handleMobileSubcategorySelect('all')}
-                      aria-pressed={selectedSubcategory === 'all'}
-                    >
-                      All
-                    </button>
-                    {mobileSubcategories.map((subcategory) => (
-                      <button
-                        type="button"
-                        key={subcategory.id}
-                        className={`mobile-subcategory-chip ${normalizeText(selectedSubcategory) === normalizeText(subcategory.name) ? 'active' : ''}`}
-                        onClick={() => handleMobileSubcategorySelect(subcategory.name)}
-                        aria-pressed={normalizeText(selectedSubcategory) === normalizeText(subcategory.name)}
-                      >
-                        {subcategory.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="mobile-section mobile-offers">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>Offers & Picks</h3>
-                    <p>Limited time savings for you.</p>
-                  </div>
-                </div>
-                <div className="mobile-offer-row horizontal-group-row">
-                  {mobileOffers.map((offer) => (
-                    <article key={offer.id} className={`mobile-offer-card ${offer.tone}`}>
-                      <p className="offer-kicker">Limited time</p>
-                      <h4>{offer.title}</h4>
-                      <p>{offer.subtitle}</p>
-                      <button type="button" onClick={() => handleMobileOfferAction(offer)}>
-                        {offer.action}
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="mobile-section mobile-repeat-order">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>One-tap Repeat Order</h3>
-                    <p>{recentlyBoughtFamilies.length > 0 ? 'From your recent items.' : 'Quick add from your history.'}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mobile-action-btn"
-                    onClick={handleRepeatOrder}
-                    disabled={repeatOrderFamilies.length === 0}
-                  >
-                    Add All
-                  </button>
-                </div>
-                {repeatOrderFamilies.length === 0 ? (
-                  <p className="mobile-empty">No repeat items yet.</p>
-                ) : (
-                  <div className="mobile-repeat-row horizontal-group-row">
-                    {repeatOrderFamilies.map((family) => {
-                      const selectedVariation = getSelectedVariation(family);
-                      const previewVariation = getFamilyPreviewVariation(family, selectedVariation);
-                      return (
-                        <button
-                          key={`repeat-mobile-${family.id}`}
-                          type="button"
-                          className="mobile-repeat-item"
-                          onClick={() => openFamilyDetails(family.id)}
-                        >
-                          <span className="mobile-repeat-thumb" aria-hidden="true">
-                            <SafeProductImage
-                              src={previewVariation?.image}
-                              alt=""
-                              className="mobile-repeat-thumb-img"
-                              loading="lazy"
-                              fallbackProduct={previewVariation?.raw || selectedVariation?.raw}
-                              width={46}
-                              height={46}
-                            />
-                          </span>
-                          <span className="mobile-repeat-name">{family.name}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              <section className="mobile-section mobile-popular" id="mobile-popular-section">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>Popular Products</h3>
-                    <p>Best-loved picks right now.</p>
-                  </div>
-                </div>
-                {popularFamilies.length === 0 ? (
-                  <p className="mobile-empty">No products matched this category.</p>
-                ) : (
-                  <div className="mobile-products-grid">
-                    {popularFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 4 }))}
-                  </div>
-                )}
-              </section>
-
-              <section className="mobile-section mobile-restock">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>Smart Restock</h3>
-                    <p>Frequently bought items due soon.</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mobile-action-btn"
-                    onClick={handleRestockAll}
-                    disabled={smartRestockItems.length === 0}
-                  >
-                    Restock All
-                  </button>
-                </div>
-                {smartRestockItems.length === 0 ? (
-                  <p className="mobile-empty">Add items to unlock restock prediction.</p>
-                ) : (
-                  <div className="mobile-restock-row horizontal-group-row">
-                    {smartRestockItems.map((item) => (
-                      <article key={`restock-mobile-${item.id}`} className="mobile-restock-card">
-                        <div className="mobile-restock-top">
-                          <div className="mobile-restock-media" aria-hidden="true">
-                            <SafeProductImage
-                              src={item.variation?.image}
-                              alt=""
-                              className="mobile-restock-media-img"
-                              loading="lazy"
-                              fallbackProduct={item.variation?.raw}
-                              width={54}
-                              height={54}
-                            />
-                          </div>
-                          <div className="mobile-restock-copy">
-                            <strong>{item.family.name}</strong>
-                            <span>{item.depletionPercent}% low</span>
-                          </div>
-                        </div>
-                        <div className={`restock-progress ${item.tone}`}>
-                          <span style={{ width: `${item.depletionPercent}%` }} />
-                        </div>
-                        <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Add</button>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className="mobile-section mobile-quick-add">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>Quick Add Essentials</h3>
-                    <p>Tap add for everyday items.</p>
-                  </div>
-                </div>
-                {quickAddFamilies.length === 0 ? (
-                  <p className="mobile-empty">No essentials found yet.</p>
-                ) : (
-                  <div className="mobile-quick-add-row horizontal-group-row">
-                    {quickAddFamilies.map((family) => renderMobileProductCard(family))}
-                  </div>
-                )}
-              </section>
-
-              <section className="mobile-section mobile-tabs">
-                <div className="mobile-section-head">
-                  <div>
-                    <h3>Discover More</h3>
-                    <p>Switch tabs to explore.</p>
-                  </div>
-                </div>
-                <div className="mobile-tab-row" role="tablist" aria-label="Quick tabs">
-                  {MOBILE_TAB_OPTIONS.map((tab) => (
-                    <button
-                      key={tab.key}
-                      type="button"
-                      className={`mobile-tab-btn ${activeMobileTab === tab.key ? 'active' : ''}`}
-                      onClick={() => setActiveMobileTab(tab.key)}
-                      aria-pressed={activeMobileTab === tab.key}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-                {activeTabFamilies.length === 0 ? (
-                  <p className="mobile-empty">No products available in this tab.</p>
-                ) : (
-                  <div className="mobile-products-grid">
-                    {activeTabFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 2 }))}
-                  </div>
-                )}
-              </section>
-
-              {productsHasMore && (
-                <div className="mobile-load-more">
-                  <div ref={productsLoadTriggerRef} className="products-infinite-sentinel" aria-hidden="true" />
-                  <span className="load-more-status">
-                    {isLoadingMore ? 'Loading more products...' : 'More products load as you scroll.'}
-                  </span>
-                  <button type="button" className="load-more-btn" onClick={() => loadMoreProductsRef.current()}>
-                    Load Now
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <MobileFooter
-          cartCount={cartItemCount}
-          onHome={() => handleMobileScrollTo('mobile-shop-top')}
-          onTopPicks={() => handleMobileScrollTo('mobile-popular-section')}
-        />
-
-        {activeMobileFamily && (
-          <MobileBottomSheet
-            open={!!activeMobileFamily}
-            onClose={() => setActiveMobileFamilyId(null)}
-            title={activeMobileFamily.name}
-            className="products-detail-sheet"
-          >
-            <ProductDetailView
-              family={activeMobileFamily}
-              selectedVariationId={getSelectedVariation(activeMobileFamily)?.id}
-              onSelectVariation={handleSelectVariation}
-              onIncreaseQty={addToCart}
-              onDecreaseQty={decreaseFromCart}
-              cartQtyById={cartQtyById}
-              buttonStatus={buttonStatus}
-              showImage
-            />
-          </MobileBottomSheet>
-        )}
-      </div>
+  if (isMobile) {
+    return (
+      <ProductsMobileView
+        productsPageRef={productsPageRef}
+        mobileHeaderRef={mobileHeaderRef}
+        logoImage={logoImage}
+        storeTitle={storeTitle}
+        disableMobileLogoLink={disableMobileLogoLink}
+        profileHref={profileHref}
+        profileImageSrc={profileImageSrc}
+        profileName={profileName}
+        profileInitials={profileInitials}
+        onAvatarError={() => setAvatarLoadFailed(true)}
+        searchInputValue={searchInputValue}
+        handleMobileSearchChange={handleMobileSearchChange}
+        handleMobileSearchFocus={handleMobileSearchFocus}
+        handleMobileSearchKeyDown={handleMobileSearchKeyDown}
+        showSearchSuggestions={showSearchSuggestions}
+        searchSuggestions={searchSuggestions}
+        searchSuggestionsListId={searchSuggestionsListId}
+        activeSuggestionIndex={activeSuggestionIndex}
+        setActiveSuggestionIndex={setActiveSuggestionIndex}
+        selectSearchSuggestion={selectSearchSuggestion}
+        clearSearchQuery={clearSearchQuery}
+        isLoadingSuggestions={isLoadingSuggestions}
+        SEARCH_SUGGESTIONS_MAX_ITEMS={SEARCH_SUGGESTIONS_MAX_ITEMS}
+        getSuggestionImageSrc={getSuggestionImageSrc}
+        getProductFallbackImage={getProductFallbackImage}
+        formatCurrency={formatCurrency}
+        selectedCategory={selectedCategory}
+        handleMobileCategorySelect={handleMobileCategorySelect}
+        mobileRootCategories={mobileRootCategories}
+        normalizeText={normalizeText}
+        renderCategoryChipLabel={renderCategoryChipLabel}
+        loading={loading}
+        productsLength={products.length}
+        notice={notice}
+        error={error}
+        mobileSubcategories={mobileSubcategories}
+        selectedSubcategory={selectedSubcategory}
+        handleMobileSubcategorySelect={handleMobileSubcategorySelect}
+        mobileOffers={mobileOffers}
+        handleMobileOfferAction={handleMobileOfferAction}
+        repeatOrderFamilies={repeatOrderFamilies}
+        recentlyBoughtFamilies={recentlyBoughtFamilies}
+        handleRepeatOrder={handleRepeatOrder}
+        openFamilyDetails={openFamilyDetails}
+        getSelectedVariation={getSelectedVariation}
+        getFamilyPreviewVariation={getFamilyPreviewVariation}
+        popularFamilies={popularFamilies}
+        renderMobileProductCard={renderMobileProductCard}
+        smartRestockItems={smartRestockItems}
+        handleRestockAll={handleRestockAll}
+        addToCart={addToCart}
+        quickAddFamilies={quickAddFamilies}
+        MOBILE_TAB_OPTIONS={MOBILE_TAB_OPTIONS}
+        activeMobileTab={activeMobileTab}
+        setActiveMobileTab={setActiveMobileTab}
+        activeTabFamilies={activeTabFamilies}
+        productsHasMore={productsHasMore}
+        productsLoadTriggerRef={productsLoadTriggerRef}
+        isLoadingMore={isLoadingMore}
+        loadMoreProductsRef={loadMoreProductsRef}
+        cartItemCount={cartItemCount}
+        handleMobileScrollTo={handleMobileScrollTo}
+        activeMobileFamily={activeMobileFamily}
+        setActiveMobileFamilyId={setActiveMobileFamilyId}
+        handleSelectVariation={handleSelectVariation}
+        decreaseFromCart={decreaseFromCart}
+        cartQtyById={cartQtyById}
+        buttonStatus={buttonStatus}
+      />
     );
   }
 
   return (
-    <div className="products-page" ref={productsPageRef}>
-      {loading && products.length > 0 ? (
-        <div className="products-refresh-banner" aria-live="polite">
-          Updating products...
-        </div>
-      ) : null}
-      {notice && (
-        <div className={`products-notice ${notice.type === 'error' ? 'error' : 'info'}`}>
-          {notice.message}
-        </div>
-      )}
-
-      <div className="products-header fade-in-up">
-        <div className="products-header-main">
-          <div>
-            <h1>Daily Needs, Fast</h1>
-            <p>Restock, repeat, and quick add in seconds.</p>
-          </div>
-          <Link to="/cart" className="products-cart-pill" aria-label="Open cart">
-            <ShoppingCart size={16} />
-            <span>{cartItemCount}</span>
-          </Link>
-        </div>
-      </div>
-
-      {error && <div className="products-error">{error}</div>}
-
-      <div className="products-controls sticky-controls slide-in-left" ref={controlsRef}>
-        <div className="search-row">
-          <div className="search-input-wrap" ref={searchInputRef}>
-            <Search size={18} />
-            <input
-              id="products-search-input"
-              name="search"
-              type="text"
-              placeholder="Search milk, rice, biscuit..."
-              value={searchInputValue}
-              onChange={(event) => {
-                const nextValue = String(event.target.value || '').slice(0, 80);
-                const trimmedValue = nextValue.trim();
-                setSearchInputValue(nextValue);
-                if (!trimmedValue) {
-                  setSearchSuggestionsEnabled(false);
-                  setSearchSuggestions([]);
-                  setShowSearchSuggestions(false);
-                  setActiveSuggestionIndex(-1);
-                  startTransition(() => {
-                    setAppliedSearchQuery('');
-                  });
-                  return;
-                }
-                setSearchSuggestionsEnabled(trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS);
-                setShowSearchSuggestions(trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS);
-              }}
-              onFocus={() => {
-                const trimmedValue = String(searchInputValue || '').trim();
-                const shouldEnable = trimmedValue.length >= SEARCH_SUGGESTIONS_MIN_CHARS;
-                setSearchSuggestionsEnabled(shouldEnable);
-                if (shouldEnable && searchSuggestions.length > 0) setShowSearchSuggestions(true);
-              }}
-              onKeyDown={(event) => {
-                if (!showSearchSuggestions || searchSuggestions.length === 0) {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    commitSearchQuery();
-                  } else if (event.key === 'Escape') {
-                    setShowSearchSuggestions(false);
-                  }
-                  return;
-                }
-                if (event.key === 'ArrowDown') {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((prev) => {
-                    const next = prev + 1;
-                    return next >= searchSuggestions.length ? 0 : next;
-                  });
-                } else if (event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  setActiveSuggestionIndex((prev) => {
-                    if (prev <= 0) return searchSuggestions.length - 1;
-                    return prev - 1;
-                  });
-                } else if (event.key === 'Enter') {
-                  event.preventDefault();
-                  if (activeSuggestionIndex >= 0 && searchSuggestions[activeSuggestionIndex]) {
-                    selectSearchSuggestion(searchSuggestions[activeSuggestionIndex]);
-                  } else {
-                    commitSearchQuery();
-                  }
-                } else if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setShowSearchSuggestions(false);
-                  setActiveSuggestionIndex(-1);
-                }
-              }}
-              aria-label="Search products"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
-              aria-controls={searchSuggestionsListId}
-              aria-activedescendant={
-                activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
-              }
-              inputMode="search"
-              enterKeyHint="search"
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-            {searchInputValue ? (
-              <button
-                type="button"
-                className="search-clear-btn"
-                onClick={clearSearchQuery}
-                aria-label="Clear search"
-              >
-                <X size={14} />
-              </button>
-            ) : null}
-            {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
-            {showSearchSuggestions && searchSuggestions.length > 0 ? (
-              <div id={searchSuggestionsListId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
-                {searchSuggestions.slice(0, SEARCH_SUGGESTIONS_MAX_ITEMS).map((item, index) => (
-                  <button
-                    type="button"
-                    id={`products-search-suggestion-${index}`}
-                    key={`suggestion-${item.id}-${index}`}
-                    className={`search-suggestion-item ${index === activeSuggestionIndex ? 'active' : ''}`}
-                    onMouseEnter={() => setActiveSuggestionIndex(index)}
-                    onClick={() => selectSearchSuggestion(item)}
-                    role="option"
-                    aria-selected={index === activeSuggestionIndex}
-                  >
-                    <div className="search-suggestion-leading" aria-hidden="true">
-                      <img
-                        src={getSuggestionImageSrc(item)}
-                        alt=""
-                        className="search-suggestion-thumb"
-                        width={34}
-                        height={34}
-                        loading="lazy"
-                        decoding="async"
-                        onError={(event) => {
-                          event.currentTarget.onerror = null;
-                          event.currentTarget.src = getProductFallbackImage(item);
-                        }}
-                      />
-                    </div>
-                    <div className="search-suggestion-main">
-                      {item.brand ? <strong>{item.brand}</strong> : null}
-                      <span>{item.name}</span>
-                    </div>
-                    <div className="search-suggestion-meta">
-                      {item.size ? <small>{item.size}</small> : null}
-                      <small>{formatCurrency(item.price)}</small>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="products-control-summary">
-          <span>{cartItemCount} items in cart</span>
-          <strong>{formatCurrency(cartPreviewTotal)}</strong>
-        </div>
-
-        {isMobile ? (
-          <div className="mobile-filter-launch-row">
-            <button type="button" className="mobile-filter-btn" onClick={() => setShowMobileFilters(true)}>
-              <Filter size={16} /> Filters & Sort
-            </button>
-            <label className="stock-only-toggle">
-              <input
-                id="products-stock-only-mobile"
-                name="stock_only"
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(event) => setInStockOnly(event.target.checked)}
-              />
-              In-stock only
-            </label>
-          </div>
-        ) : (
-          <div className="desktop-sort-row">
-            <div className="sort-group">
-              <Filter size={16} />
-              <select
-                id="products-group-by"
-                name="group_by"
-                value={groupBy}
-                onChange={(event) => setGroupBy(event.target.value)}
-                aria-label="Group products"
-              >
-                <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
-                <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
-              </select>
-            </div>
-            <div className="sort-group">
-              <SlidersHorizontal size={16} />
-              <select
-                id="products-sort-by"
-                name="sort_by"
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                aria-label="Sort products"
-              >
-                <option value="popular">Popular for you</option>
-                <option value="relevance">Relevance</option>
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="stock-desc">Stock: High to Low</option>
-              </select>
-            </div>
-            <label className="stock-only-toggle">
-              <input
-                id="products-stock-only-desktop"
-                name="stock_only"
-                type="checkbox"
-                checked={inStockOnly}
-                onChange={(event) => setInStockOnly(event.target.checked)}
-              />
-              In-stock only
-            </label>
-          </div>
-        )}
-      </div>
-
-      <div className="products-category-strip sticky-category-strip">
-        <button
-          type="button"
-          className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
-          onClick={() => setSelectedCategory('all')}
-        >
-          {renderCategoryChipLabel(
-            { name: 'All', icon: '🛒', image: '' },
-            groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
-          )}
-        </button>
-        {activeFilterOptions.map((category) => (
-          <button
-            type="button"
-            key={category.id}
-            className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
-            onClick={() => setSelectedCategory(category.name)}
-            aria-label={category.name}
-          >
-            {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
-          </button>
-        ))}
-      </div>
-
-      <div className="result-summary" aria-live="polite">
-        <span>
-          {visibleFamilies.length} product groups
-        </span>
-      </div>
-
-      <div className="products-grouped-list">
-        {groupedVisibleFamilies.map((topGroup) => (
-          <section key={topGroup.key} className="products-group-section">
-            <header className="products-group-header">
-              <h2>{topGroup.name}</h2>
-              <span>{topGroup.total}</span>
-            </header>
-            <div className="products-subgroups-wrap">
-              {topGroup.subGroups.map((subGroup) => (
-                <div key={subGroup.key} className="products-subgroup">
-                  <div className="products-subgroup-header">
-                    <h3>{subGroup.name}</h3>
-                    <span>{subGroup.total}</span>
-                  </div>
-                  <VirtualizedFamilyGrid
-                    families={subGroup.families}
-                    renderFamilyCard={renderFamilyCard}
-                    estimatedColumns={estimatedGridColumns}
-                    shouldVirtualize={subGroup.families.length >= VIRTUALIZE_GROUP_THRESHOLD}
-                    estimatedCardHeight={isMobile ? 248 : 326}
-                  />
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      {hasMoreProducts && (
-        <div className="load-more-wrap">
-          <div ref={productsLoadTriggerRef} className="products-infinite-sentinel" aria-hidden="true" />
-          <span className="load-more-status">
-            {isLoadingMore ? 'Loading more products...' : 'More products load automatically as you scroll.'}
-          </span>
-          <button type="button" className="load-more-btn" onClick={() => loadMoreProductsRef.current()}>
-            Load Now
-          </button>
-        </div>
-      )}
-
-      {!loading && filteredFamilies.length === 0 && (
-        <div className="no-products">
-          <p>No products matched your filters.</p>
-          <button
-            type="button"
-            className="reset-filters-btn"
-            onClick={() => {
-              setSelectedCategory('all');
-              commitSearchQuery('');
-              setSortBy(DEFAULT_SORT_BY);
-              setGroupBy(GROUP_BY_OPTIONS.category);
-              setInStockOnly(false);
-            }}
-          >
-            Reset Filters
-          </button>
-        </div>
-      )}
-
-      {filteredFamilies.length > 0 ? renderSmartSections() : null}
-
-      {isMobile && (
-        <MobileBottomSheet
-          open={showMobileFilters}
-          onClose={() => setShowMobileFilters(false)}
-          title="Filter Products"
-          className="products-filter-sheet"
-        >
-          <div className="filter-row">
-            <div className="filter-header">
-              <Filter size={18} />
-              <span>{groupBy === GROUP_BY_OPTIONS.brand ? 'Brand' : 'Category'}</span>
-            </div>
-            <div className="category-buttons">
-              <button
-                type="button"
-                className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${selectedCategory === 'all' ? 'active' : ''}`}
-                onClick={() => setSelectedCategory('all')}
-              >
-                {renderCategoryChipLabel(
-                  { name: 'All', icon: '🛒', image: '' },
-                  groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
-                )}
-              </button>
-              {activeFilterOptions.map((category) => (
-                <button
-                  type="button"
-                  key={category.id}
-                  className={`category-btn ${groupBy === GROUP_BY_OPTIONS.brand ? 'brand-filter-btn' : ''} ${normalizeText(selectedCategory) === normalizeText(category.name) ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(category.name)}
-                  aria-label={category.name}
-                >
-                  {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sort-row">
-            <div className="sort-group">
-              <Filter size={16} />
-              <select
-                id="products-group-by-mobile"
-                name="group_by"
-                value={groupBy}
-                onChange={(event) => setGroupBy(event.target.value)}
-                aria-label="Group products"
-              >
-                <option value={GROUP_BY_OPTIONS.category}>Group: Category {'->'} Sub-category</option>
-                <option value={GROUP_BY_OPTIONS.brand}>Group: Brand {'->'} Sub-brand</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="sort-row">
-            <div className="sort-group">
-              <SlidersHorizontal size={16} />
-              <select
-                id="products-sort-by-mobile"
-                name="sort_by"
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                aria-label="Sort products"
-              >
-                <option value="popular">Popular for you</option>
-                <option value="relevance">Relevance</option>
-                <option value="newest">Newest</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="stock-desc">Stock: High to Low</option>
-              </select>
-            </div>
-          </div>
-        </MobileBottomSheet>
-      )}
-
-      {isMobile && activeMobileFamily && (
-        <MobileBottomSheet
-          open={!!activeMobileFamily}
-          onClose={() => setActiveMobileFamilyId(null)}
-          title={activeMobileFamily.name}
-          className="products-detail-sheet"
-        >
-          <ProductDetailView
-            family={activeMobileFamily}
-            selectedVariationId={getSelectedVariation(activeMobileFamily)?.id}
-            onSelectVariation={handleSelectVariation}
-            onIncreaseQty={addToCart}
-            onDecreaseQty={decreaseFromCart}
-            cartQtyById={cartQtyById}
-            buttonStatus={buttonStatus}
-            showImage
-          />
-        </MobileBottomSheet>
-      )}
-    </div>
+    <ProductsDesktopView
+      productsPageRef={productsPageRef}
+      loading={loading}
+      productsLength={products.length}
+      notice={notice}
+      error={error}
+      cartItemCount={cartItemCount}
+      controlsRef={controlsRef}
+      searchInputRef={searchInputRef}
+      searchInputValue={searchInputValue}
+      onSearchInputChange={handleDesktopSearchChange}
+      onSearchFocus={handleDesktopSearchFocus}
+      onSearchKeyDown={handleDesktopSearchKeyDown}
+      clearSearchQuery={clearSearchQuery}
+      showSearchSuggestions={showSearchSuggestions}
+      searchSuggestions={searchSuggestions}
+      searchSuggestionsListId={searchSuggestionsListId}
+      activeSuggestionIndex={activeSuggestionIndex}
+      onHoverSuggestion={setActiveSuggestionIndex}
+      onSelectSuggestion={selectSearchSuggestion}
+      getSuggestionImageSrc={getSuggestionImageSrc}
+      getProductFallbackImage={getProductFallbackImage}
+      formatCurrency={formatCurrency}
+      maxSuggestionItems={SEARCH_SUGGESTIONS_MAX_ITEMS}
+      isLoadingSuggestions={isLoadingSuggestions}
+      cartPreviewTotal={cartPreviewTotal}
+      isMobile={isMobile}
+      setShowMobileFilters={setShowMobileFilters}
+      groupBy={groupBy}
+      setGroupBy={setGroupBy}
+      sortBy={sortBy}
+      setSortBy={setSortBy}
+      inStockOnly={inStockOnly}
+      setInStockOnly={setInStockOnly}
+      GROUP_BY_OPTIONS={GROUP_BY_OPTIONS}
+      activeFilterOptions={activeFilterOptions}
+      selectedCategory={selectedCategory}
+      setSelectedCategory={setSelectedCategory}
+      renderCategoryChipLabel={renderCategoryChipLabel}
+      normalizeText={normalizeText}
+      visibleFamilies={visibleFamilies}
+      groupedVisibleFamilies={groupedVisibleFamilies}
+      renderFamilyCard={renderFamilyCard}
+      estimatedGridColumns={estimatedGridColumns}
+      VIRTUALIZE_GROUP_THRESHOLD={VIRTUALIZE_GROUP_THRESHOLD}
+      hasMoreProducts={hasMoreProducts}
+      isLoadingMore={isLoadingMore}
+      productsLoadTriggerRef={productsLoadTriggerRef}
+      loadMoreProductsRef={loadMoreProductsRef}
+      filteredFamilies={filteredFamilies}
+      commitSearchQuery={commitSearchQuery}
+      DEFAULT_SORT_BY={DEFAULT_SORT_BY}
+      showMobileFilters={showMobileFilters}
+      smartSectionsProps={smartSectionsProps}
+    />
   );
 }
 
 export default Products;
+

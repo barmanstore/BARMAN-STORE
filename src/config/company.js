@@ -5,7 +5,7 @@ import {
   CONTACT,
   EMAIL,
   LOGO_URL,
-} from '../pages/info';
+} from '../shared/info';
 
 const resolveLogoPath = () => {
   const base = String(import.meta.env.BASE_URL || '/');

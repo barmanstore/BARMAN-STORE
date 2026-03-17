@@ -19,7 +19,7 @@ import HeaderCartIcon from './HeaderCartIcon';
 import UserMenu from '../UserMenu';
 import { truncateUserName } from '../../utils/formatters';
 import useIsMobile from '../../hooks/useIsMobile';
-import * as info from '../../pages/info.js';
+import * as info from '../../shared/info.js';
 
 const Header = memo(function Header({
   headerRef,
@@ -325,3 +325,4 @@ const Header = memo(function Header({
 });
 
 export default Header;
+

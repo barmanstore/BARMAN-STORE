@@ -50,12 +50,48 @@
    - Extract order status + form defaults into feature utils.
 
 6. **Purchase management UI split**
-   - Split purchase modals + sections into feature-local components.
+   - Move `PurchaseWorkspaceSections` + `PurchaseEntryModals` into feature-local components.
+   - Extract remaining modals inside `PurchaseManagement.jsx`.
    - Keep `PurchaseManagement.jsx` as orchestration only.
 
 7. **API surface split**
-   - Split `src/services/api.js` into `src/features/*/api` modules.
-   - Keep a thin `src/shared/services/apiClient`.
+   - Split `src/services/api.js` into `src/services/api/*` modules.
+   - Keep a thin `src/services/api.js` barrel to preserve imports.
+   - Later: promote feature-specific API modules into `src/features/*/api` when ready.
+
+8. **Catalog modals**
+   - Move `ProductForm` into `src/features/catalog/products`.
+   - Move `CategoryManagement` into `src/features/catalog/categories`.
+
+9. **Sales billing tab**
+   - Move `BillingTab` into `src/features/sales/billing`.
+
+10. **Shared user modal**
+   - Move `UserEditModal` into `src/shared/components`.
+
+11. **Auth pages**
+   - Move `login` + `Profile` into `src/features/auth`.
+
+12. **Cart & checkout**
+   - Move `Cart` into `src/features/cart`.
+   - Move `Checkout` into `src/features/checkout`.
+
+13. **Order pages**
+   - Move `OrderHistory`, `OrderDetails`, `OrderTracking` into `src/features/orders`.
+
+14. **Admin feature pages**
+   - Move distributor, inventory, insights, credits, billing, marketing, and customer request admin pages into `src/features/*`.
+
+15. **Storefront + bills**
+   - Move `Home`, `StoreInfo`, `StorePage`, `ProductRecommendations` into `src/features/storefront`.
+   - Move `MyBills` into `src/features/sales/billing`.
+
+16. **Pages cleanup**
+   - Keep only `src/shared/info.js` as shared copy.
+
+17. **Catalog products helpers**
+   - Move Products helpers into `src/features/catalog/products/utils`.
+   - Extract brand + image helpers into `src/features/catalog/products/components`.
 
 ## Progress Checklist
 - [x] Phase 1: Bootstrap extraction
@@ -63,8 +99,18 @@
 - [x] Phase 3: Route consolidation
 - [x] Phase 4: Largest pages migration
 - [x] Phase 5: Purchase management utilities
-- [ ] Phase 6: Purchase management UI split
-- [ ] Phase 7: API surface split
+- [x] Phase 6: Purchase management UI split
+- [x] Phase 7: API surface split
+- [x] Phase 8: Catalog modals
+- [x] Phase 9: Sales billing tab
+- [x] Phase 10: Shared user modal
+- [x] Phase 11: Auth pages
+- [x] Phase 12: Cart & checkout
+- [x] Phase 13: Order pages
+- [x] Phase 14: Admin feature pages
+- [x] Phase 15: Storefront + bills
+- [x] Phase 16: Pages cleanup
+- [x] Phase 17: Catalog products helpers
 
 ## Mapping Notes (initial)
 - `src/services/api` will be split into `src/features/*/api` as migration progresses.

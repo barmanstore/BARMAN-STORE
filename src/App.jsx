@@ -8,7 +8,7 @@ import { useNotificationsInbox } from './features/notifications/hooks/useNotific
 import { AppRoutes } from './app/appRoutes';
 import './index.css';
 import './App.css';
-import * as info from './pages/info.js';
+import * as info from './shared/info.js';
 
 const routerBasename = (() => {
   const base = String(import.meta.env.BASE_URL || '/');
@@ -196,3 +196,4 @@ function App() {
 }
 
 export default App;
+

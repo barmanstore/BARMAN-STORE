@@ -4,12 +4,14 @@ import { createClientRequestId, purchaseOrdersApi, distributorsApi, productsApi,
 import { printHtmlDocument, escapeHtml } from '../../../utils/printService';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../utils/dateTime';
-import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../utils/ledger';
+import { getLedgerTypeLabel, toNumber } from '../../../utils/ledger';
 import useIsMobile from '../../../hooks/useIsMobile';
 import useLockBodyScroll from '../../../hooks/useLockBodyScroll';
-import MobileBottomSheet from '../../../components/mobile/MobileBottomSheet';
-import ProductForm from '../../../pages/ProductForm';
-import { PurchaseOrderFormModal } from '../../../pages/purchase/PurchaseEntryModals';
+import useOrderDetailComputed from './hooks/useOrderDetailComputed';
+import usePurchaseCalculations from './hooks/usePurchaseCalculations';
+import usePoModalSizing from './hooks/usePoModalSizing';
+import usePurchaseDataFetch from './hooks/usePurchaseDataFetch';
+import PurchaseModals from './components/PurchaseModals';
 import {
   PurchaseDashboardSection,
   PurchaseOrdersSection,
@@ -17,7 +19,7 @@ import {
   PurchaseRemindersSection,
   PurchaseReturnsSection,
   PurchaseSectionTabs,
-} from '../../../pages/purchase/PurchaseWorkspaceSections';
+} from './components/sections';
 import {
   createDefaultLedgerFormData,
   createDefaultOrderFormData,
@@ -55,6 +57,26 @@ import {
   normalizeGstRateOption,
   normalizePoPaymentStatus,
 } from './utils/orders';
+import {
+  getLedgerRowStatusClass,
+  getOrderDistributorInfo,
+  getPoPaymentBadge,
+  getStatusBadge,
+} from './utils/orderPresentation.jsx';
+import {
+  getEntryDisplayBalance,
+  getLedgerBalanceSummary,
+  normalizeTextKey,
+} from './utils/ledgerHelpers';
+import {
+  getProductSearchLabel,
+  getProductSearchOptionLabel,
+  resolveProductByInput as resolveProductByInputHelper,
+  getDistributorProductOptions as getDistributorProductOptionsHelper,
+  getDistributorHistoryProducts as getDistributorHistoryProductsHelper,
+} from './utils/productSearch';
+import { addLocalLedgerEntry } from './utils/localLedgerStorage';
+import createDefaultOperationsSummary from './utils/operationsSummary';
 import './PurchaseManagement.css';
 
 function PurchaseManagement({ user }) {
@@ -67,299 +89,6 @@ function PurchaseManagement({ user }) {
   const getDefaultLedgerFormData = createDefaultLedgerFormData;
   const getDefaultPoCorrectionFormData = createDefaultPoCorrectionFormData;
 
-  const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_date', 'created_at', 'date']);
-  const getRecordDateKey = (entry) => {
-    if (entry?.transaction_date) return String(entry.transaction_date);
-    if (entry?.created_at) return String(entry.created_at);
-    if (entry?.date) return String(entry.date);
-    return '';
-  };
-  const getNumericValue = (value) => {
-    const num = Number(value);
-    return Number.isFinite(num) ? num : null;
-  };
-  const buildOrderDraftItem = (product = null, overrides = {}) => {
-    const resolvedProduct = product || null;
-    const resolvedRate = Math.max(0, toNumber(overrides.rate ?? overrides.unit_price ?? resolvedProduct?.price));
-    const resolvedUom = resolvePurchaseUnitForProduct(
-      resolvedProduct,
-      overrides.uom || resolvedProduct?.base_unit || resolvedProduct?.uom || 'pcs'
-    );
-    return {
-      ...createEmptyOrderItem(),
-      product_id: resolvedProduct?.id ? String(resolvedProduct.id) : String(overrides.product_id || ''),
-      product_query: resolvedProduct ? getProductSearchLabel(resolvedProduct) : String(overrides.product_query || overrides.product_name || '').trim(),
-      product_name: String(overrides.product_name || resolvedProduct?.name || '').trim(),
-      quantity: Math.max(1, toNumber(overrides.quantity ?? 1)),
-      uom: resolvedUom,
-      unit_price: resolvedRate,
-      rate: resolvedRate,
-      gst_rate: normalizeGstRateOption(overrides.gst_rate ?? 5),
-      discount_type: overrides.discount_type === 'fixed' ? 'fixed' : 'percent',
-      discount_value: Math.max(0, toNumber(overrides.discount_value || 0)),
-      last_purchase_hint: String(overrides.last_purchase_hint || '').trim(),
-    };
-  };
-  const normalizeTextKey = (value) => String(value || '').trim().toLowerCase();
-  const getEntryTypeKey = (entry) => String(entry?.type || entry?.transaction_type || '').trim().toLowerCase();
-  const isCreditLikeEntry = (entry) => {
-    const typeKey = getEntryTypeKey(entry);
-    return typeKey === 'credit' || typeKey === 'given';
-  };
-  const getPurchaseOrderIdentityKey = (entry) => {
-    if (!entry || !isCreditLikeEntry(entry)) return null;
-    const distributorKey = getLedgerDistributorKey(entry);
-    const sourceKey = normalizeTextKey(entry?.source);
-    const sourceId = entry?.source_id ?? entry?.sourceId;
-    if (sourceKey === 'purchase_order' && sourceId !== undefined && sourceId !== null && String(sourceId).trim() !== '') {
-      return `${distributorKey}|poid:${String(sourceId).trim()}`;
-    }
-
-    const referenceKey = normalizeTextKey(entry?.reference || entry?.po_number);
-    const descriptionKey = normalizeTextKey(entry?.description);
-    if (referenceKey && descriptionKey.includes('purchase order')) {
-      return `${distributorKey}|poref:${referenceKey}`;
-    }
-    return null;
-  };
-  const getLedgerAmountKey = (entry) => toNumber(entry?.amount).toFixed(2);
-  const getEntryDisplayBalance = (entry) => {
-    const apiBalance = getNumericValue(entry?.balance);
-    if (apiBalance !== null) return apiBalance;
-    return getNumericValue(entry?.computed_balance);
-  };
-  const getEntrySourceKey = (entry) => {
-    const source = entry?.source ? String(entry.source) : '';
-    const sourceId = entry?.source_id ?? entry?.sourceId;
-    if (!source || sourceId === undefined || sourceId === null || sourceId === '') return null;
-    return `${getLedgerDistributorKey(entry)}|${source}|${String(sourceId)}`;
-  };
-  const getEntryDedupKey = (entry) => {
-    const poIdentityKey = getPurchaseOrderIdentityKey(entry);
-    if (poIdentityKey) return `po:${poIdentityKey}`;
-
-    const sourceKey = getEntrySourceKey(entry);
-    if (sourceKey) return `src:${sourceKey}`;
-
-    const distributorKey = getLedgerDistributorKey(entry);
-    const type = String(entry?.type || entry?.transaction_type || '').toLowerCase();
-    const reference = normalizeTextKey(entry?.reference || entry?.po_number);
-    const amount = getLedgerAmountKey(entry);
-    const dateKey = getRecordDateKey(entry);
-    if (reference || dateKey) return `fallback:${distributorKey}|${type}|${reference}|${amount}|${dateKey}`;
-    if (entry?.id !== undefined && entry?.id !== null && String(entry.id) !== '') return `id:${String(entry.id)}`;
-    return null;
-  };
-  const getLedgerDistributorKey = (entry) => {
-    if (entry?.distributor_id !== undefined && entry?.distributor_id !== null) return String(entry.distributor_id);
-    if (entry?.distributor_name) return `name:${String(entry.distributor_name).toLowerCase()}`;
-    return 'unknown';
-  };
-
-  const getLocalLedgerEntries = () => {
-    try {
-      const raw = localStorage.getItem(LOCAL_LEDGER_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
-  };
-
-  const saveLocalLedgerEntries = (entries) => {
-    try {
-      localStorage.setItem(LOCAL_LEDGER_KEY, JSON.stringify(entries));
-    } catch (e) {
-      // ignore storage failure
-    }
-  };
-
-  const addLocalLedgerEntry = (entry) => {
-    const existing = getLocalLedgerEntries();
-    saveLocalLedgerEntries([entry, ...existing]);
-  };
-
-  const getDerivedLedgerFromOrders = (orders, selectedDistributorId) => {
-    const validStatuses = new Set(['confirmed', 'received', 'shipped', 'processed', 'part_paid', 'fully_paid', 'closed']);
-    const derived = (orders || [])
-      .filter((order) => {
-        const lifecycle = getPoLifecycleStatus(order);
-        if (['confirmed', 'part_paid', 'fully_paid', 'closed'].includes(lifecycle)) return true;
-        return validStatuses.has(String(order.status || '').toLowerCase());
-      })
-      .map(order => ({
-      id: `po-${order.id}`,
-      distributor_id: order.distributor_id,
-      distributor_name: order.distributor_name,
-      type: 'credit',
-      transaction_type: 'credit',
-      amount: calculateOrderBalanceAmount(order),
-      payment_mode: 'credit',
-      reference: order.po_number,
-      bill_number: order.bill_number || order.invoice_number || null,
-      description: `Purchase Order ${order.po_number || ''}`.trim(),
-      transaction_date: order.created_at || order.order_date || order.expected_delivery || getTodayDate(),
-      source: 'purchase_order',
-      source_id: order.id,
-      mode: 'automatic'
-    }));
-
-    if (!selectedDistributorId) return derived;
-    return derived.filter(entry => String(entry.distributor_id) === String(selectedDistributorId));
-  };
-
-  const mergeLedgerRecords = (apiRecords, localRecords, derivedRecords) => {
-    const baseRecords = Array.isArray(apiRecords) ? apiRecords : [];
-    const local = Array.isArray(localRecords) ? localRecords : [];
-    const derived = Array.isArray(derivedRecords) ? derivedRecords : [];
-    const existingSourceKeys = new Set(
-      [...baseRecords, ...local]
-        .map(entry => getEntrySourceKey(entry))
-        .filter(Boolean)
-    );
-    const missingDerived = derived.filter(entry => {
-      const poIdentityKey = getPurchaseOrderIdentityKey(entry);
-      if (poIdentityKey) {
-        const duplicatePoEntry = [...baseRecords, ...local].some(existingEntry => {
-          const existingPoIdentityKey = getPurchaseOrderIdentityKey(existingEntry);
-          if (existingPoIdentityKey && existingPoIdentityKey === poIdentityKey) return true;
-
-          if (!isCreditLikeEntry(existingEntry)) return false;
-          const sameDistributor = getLedgerDistributorKey(existingEntry) === getLedgerDistributorKey(entry);
-          if (!sameDistributor) return false;
-
-          const sameReference = normalizeTextKey(existingEntry?.reference || existingEntry?.po_number) === normalizeTextKey(entry?.reference || entry?.po_number);
-          const sameAmount = getLedgerAmountKey(existingEntry) === getLedgerAmountKey(entry);
-          return sameReference && sameAmount;
-        });
-        if (duplicatePoEntry) return false;
-      }
-
-      const sourceKey = getEntrySourceKey(entry);
-      return sourceKey ? !existingSourceKeys.has(sourceKey) : true;
-    });
-    const merged = [...baseRecords, ...local, ...missingDerived];
-
-    const deduped = [];
-    const seen = new Set();
-    for (const entry of merged) {
-      const key = getEntryDedupKey(entry);
-      if (key && seen.has(key)) continue;
-      if (key) seen.add(key);
-      deduped.push(entry);
-    }
-
-    const runningBalanceByDistributor = {};
-    const chronological = [...deduped].sort((a, b) => getRecordDate(a) - getRecordDate(b));
-    const withBalances = chronological.map(entry => {
-      const distributorKey = getLedgerDistributorKey(entry);
-      const explicitBalance = getNumericValue(entry?.balance);
-      if (explicitBalance !== null) {
-        runningBalanceByDistributor[distributorKey] = explicitBalance;
-      } else if (runningBalanceByDistributor[distributorKey] !== undefined) {
-        runningBalanceByDistributor[distributorKey] += getSignedLedgerAmount(entry);
-      } else if (baseRecords.length === 0) {
-        runningBalanceByDistributor[distributorKey] = getSignedLedgerAmount(entry);
-      }
-
-      const nextBalance = runningBalanceByDistributor[distributorKey];
-      return {
-        ...entry,
-        computed_balance: nextBalance === undefined ? null : nextBalance
-      };
-    });
-
-    return withBalances.sort((a, b) => getRecordDate(b) - getRecordDate(a));
-  };
-
-  const getLedgerBalanceSummary = (records, selectedDistributorId) => {
-    const balancesByDistributor = {};
-    for (const entry of records || []) {
-      const key = getLedgerDistributorKey(entry);
-      if (balancesByDistributor[key] === undefined) {
-        const displayBalance = getEntryDisplayBalance(entry);
-        if (displayBalance !== null) {
-          balancesByDistributor[key] = displayBalance;
-        }
-      }
-    }
-
-    if (selectedDistributorId) {
-      const selectedKey = String(selectedDistributorId);
-      let selectedBalance = 0;
-      for (const [key, balance] of Object.entries(balancesByDistributor)) {
-        if (key === selectedKey) {
-          selectedBalance = balance;
-          break;
-        }
-      }
-      return {
-        label: 'Distributor Balance',
-        value: selectedBalance
-      };
-    }
-
-    const totalBalance = Object.values(balancesByDistributor).reduce((sum, value) => sum + toNumber(value), 0);
-    return {
-      label: 'Total Balance (All Distributors)',
-      value: totalBalance
-    };
-  };
-
-  const calculateOrderItem = (item) => {
-    const product = findProductForItem(products, item);
-    const profile = getProductUomProfile(product);
-    const quantity = Math.max(0, toNumber(item.quantity));
-    const uom = resolvePurchaseUnitForProduct(product, item.uom || profile.baseUnit);
-    const quantityInBase = toBaseQtyForProduct(quantity, uom, product);
-    const rate = Math.max(0, toNumber(item.rate ?? item.unit_price));
-    const grossAmount = quantityInBase * rate;
-    const discountType = item.discount_type === 'fixed' ? 'fixed' : 'percent';
-    const discountValue = Math.max(0, toNumber(item.discount_value));
-    const discountAmountRaw = discountType === 'percent'
-      ? (grossAmount * discountValue) / 100
-      : discountValue;
-    const discountAmount = Math.max(0, Math.min(discountAmountRaw, grossAmount));
-    const taxableValue = Math.max(0, grossAmount - discountAmount);
-    const gstRate = Math.max(0, toNumber(item.gst_rate));
-    const taxAmount = (taxableValue * gstRate) / 100;
-    const totalAmount = taxableValue + taxAmount;
-
-    return {
-      quantity,
-      quantityInBase,
-      uom,
-      baseUnit: profile.baseUnit,
-      rate,
-      grossAmount,
-      discountType,
-      discountValue,
-      discountAmount,
-      taxableValue,
-      gstRate,
-      taxAmount,
-      totalAmount
-    };
-  };
-
-  const calculateOrderTotals = (items = []) => {
-    return items.reduce((totals, item) => {
-      const line = calculateOrderItem(item);
-      totals.grossAmount += line.grossAmount;
-      totals.discountAmount += line.discountAmount;
-      totals.taxableValue += line.taxableValue;
-      totals.taxAmount += line.taxAmount;
-      totals.totalAmount += line.totalAmount;
-      return totals;
-    }, {
-      grossAmount: 0,
-      discountAmount: 0,
-      taxableValue: 0,
-      taxAmount: 0,
-      totalAmount: 0
-    });
-  };
-
   const [activeSubTab, setActiveSubTab] = useState('dashboard');
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [purchaseReturns, setPurchaseReturns] = useState([]);
@@ -368,6 +97,20 @@ function PurchaseManagement({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const {
+    buildOrderDraftItem,
+    calculateOrderItem,
+    calculateOrderTotals,
+  } = usePurchaseCalculations({
+    products,
+    toNumber,
+    createEmptyOrderItem,
+    resolvePurchaseUnitForProduct,
+    getProductUomProfile,
+    toBaseQtyForProduct,
+    normalizeGstRateOption,
+    findProductForItem,
+  });
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderFormClientRequestId, setOrderFormClientRequestId] = useState(() => createClientRequestId('po'));
   const orderSubmitLockRef = useRef(false);
@@ -419,43 +162,7 @@ function PurchaseManagement({ user }) {
     start_date: '',
     end_date: '',
   });
-  const [operationsSummary, setOperationsSummary] = useState({
-    cards: {
-      outstanding_amount: 0,
-      payable_today_amount: 0,
-      overdue_amount: 0,
-      predicted_payment_today_amount: 0,
-      predicted_payment_next_count: 0,
-      predicted_delivery_next_count: 0,
-      next_payment_due_date: null,
-      next_delivery_date: null,
-      paid_today_amount: 0,
-      reminder_count: 0,
-      waiting_bill_count: 0,
-      waiting_delivery_count: 0,
-      close_ready_count: 0,
-      today_distributor_count: 0,
-      tomorrow_distributor_count: 0,
-      weekly_distributor_count: 0,
-    },
-    today_distributors: [],
-    tomorrow_distributors: [],
-    weekly_distributors: [],
-    predicted_payments_today: [],
-    predicted_payments_next: [],
-    predicted_deliveries_next: [],
-    reminders: [],
-    payables: [],
-    workflow: [],
-    distributor_insights: [],
-    action_rollups: {
-      range: { start_date: null, end_date: null },
-      actions: [],
-      totals: {},
-      by_day: [],
-      by_weekday: [],
-    },
-  });
+  const [operationsSummary, setOperationsSummary] = useState(() => createDefaultOperationsSummary());
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultLedgerFormData());
   const [poCorrectionFormData, setPoCorrectionFormData] = useState(getDefaultPoCorrectionFormData());
   const [poCorrectionContext, setPoCorrectionContext] = useState({
@@ -476,23 +183,17 @@ function PurchaseManagement({ user }) {
   const [loadingDistributorItems, setLoadingDistributorItems] = useState(false);
   const [activePoProductField, setActivePoProductField] = useState({ mode: 'entry', index: null });
   const [poProductFormTarget, setPoProductFormTarget] = useState(null);
-  const [poModalSize, setPoModalSize] = useState(() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(PO_MODAL_SIZE_KEY) || '{}');
-      const width = toNumber(parsed.width);
-      const height = toNumber(parsed.height);
-      return {
-        width: width > 0 ? width : 980,
-        height: height > 0 ? height : 760,
-      };
-    } catch (_) {
-      return { width: 980, height: 760 };
-    }
+  const {
+    poModalSize,
+    setPoModalSize,
+    poModalRef,
+    handlePoModalResizeStart,
+    isResizingPoModal,
+  } = usePoModalSizing({
+    isMobile,
+    storageKey: PO_MODAL_SIZE_KEY,
+    toNumber,
   });
-  const [isResizingPoModal, setIsResizingPoModal] = useState(false);
-  const poModalRef = useRef(null);
-  const poModalResizeRef = useRef(null);
-  const poModalSizeRef = useRef(poModalSize);
   useLockBodyScroll(
     showOrderForm
     || showPoProductForm
@@ -537,49 +238,6 @@ function PurchaseManagement({ user }) {
     fetchOrders();
   }, [filters]);
 
-  useEffect(() => {
-    poModalSizeRef.current = poModalSize;
-  }, [poModalSize]);
-
-  useEffect(() => {
-    if (!isResizingPoModal) return undefined;
-
-    const handleMouseMove = (event) => {
-      const state = poModalResizeRef.current;
-      if (!state) return;
-
-      const nextWidth = state.startWidth + (event.clientX - state.startX);
-      const nextHeight = state.startHeight + (event.clientY - state.startY);
-      const minWidth = 760;
-      const maxWidth = Math.max(minWidth, Math.floor(window.innerWidth * 0.95));
-      const minHeight = 520;
-      const maxHeight = Math.max(minHeight, Math.floor(window.innerHeight * 0.9));
-
-      setPoModalSize({
-        width: Math.min(maxWidth, Math.max(minWidth, nextWidth)),
-        height: Math.min(maxHeight, Math.max(minHeight, nextHeight)),
-      });
-    };
-
-    const stopResizing = () => {
-      setIsResizingPoModal(false);
-      poModalResizeRef.current = null;
-      document.body.classList.remove('po-modal-resizing');
-      try {
-        localStorage.setItem(PO_MODAL_SIZE_KEY, JSON.stringify(poModalSizeRef.current));
-      } catch (_) {
-        // ignore storage errors
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', stopResizing);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', stopResizing);
-    };
-  }, [isResizingPoModal]);
 
   useEffect(() => {
     if (activeSubTab === 'dashboard' || activeSubTab === 'payments' || activeSubTab === 'reminders') {
@@ -718,85 +376,12 @@ function PurchaseManagement({ user }) {
     ) || null;
   };
 
-  const resolveProductByInput = (value) => {
-    const normalizeProductQuery = (rawValue) => String(rawValue || '')
-      .replace(/^\[(recent|all)\]\s*/i, '')
-      .trim();
-    const query = normalizeProductQuery(value).toLowerCase();
-    if (!query) return null;
-    const formatProductSearchLabel = (product) => {
-      if (!product) return '';
-      const name = String(product.name || '').trim();
-      const sku = String(product.sku || '').trim();
-      return sku ? `${name} (${sku})` : name;
-    };
-    return products.find(p =>
-      String(p.id) === query ||
-      String(p.name || '').trim().toLowerCase() === query ||
-      String(p.sku || '').trim().toLowerCase() === query ||
-      formatProductSearchLabel(p).toLowerCase() === query
-    ) || null;
-  };
-
-  const getProductSearchLabel = (product) => {
-    if (!product) return '';
-    const name = String(product.name || '').trim();
-    const sku = String(product.sku || '').trim();
-    return sku ? `${name} (${sku})` : name;
-  };
-  const getProductSearchOptionLabel = (product, scope = 'all') => {
-    const base = getProductSearchLabel(product);
-    return scope === 'recent' ? `[Recent] ${base}` : `[All] ${base}`;
-  };
-
-  const getDistributorProductOptions = (distributorId) => {
-    const selectedDistributorId = String(distributorId || '').trim();
-    if (!selectedDistributorId) {
-      return {
-        prioritized: [],
-        all: products
-      };
-    }
-
-    const productById = new Map(
-      products.map((product) => [String(product.id), product])
-    );
-    const scoreByProductId = new Map();
-
-    (purchaseOrders || []).forEach((order) => {
-      if (String(order?.distributor_id || '') !== selectedDistributorId) return;
-
-      const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
-      const items = Array.isArray(order?.items) ? order.items : [];
-
-      items.forEach((item) => {
-        const productId = String(item?.product_id || '').trim();
-        if (!productId) return;
-
-        const existing = scoreByProductId.get(productId) || { count: 0, latest: 0 };
-        scoreByProductId.set(productId, {
-          count: existing.count + 1,
-          latest: Math.max(existing.latest, Number.isFinite(orderTime) ? orderTime : 0)
-        });
-      });
-    });
-
-    const prioritizedIds = [...scoreByProductId.entries()]
-      .sort((a, b) => {
-        if (b[1].latest !== a[1].latest) return b[1].latest - a[1].latest;
-        return b[1].count - a[1].count;
-      })
-      .map(([productId]) => productId);
-
-    const prioritized = prioritizedIds
-      .map((productId) => productById.get(productId))
-      .filter(Boolean);
-
-    const prioritizedIdSet = new Set(prioritized.map((product) => String(product.id)));
-    const all = products.filter((product) => !prioritizedIdSet.has(String(product.id)));
-
-    return { prioritized, all };
-  };
+  const resolveProductByInput = (value) => resolveProductByInputHelper(value, products);
+  const getDistributorProductOptions = (distributorId) => getDistributorProductOptionsHelper({
+    distributorId,
+    products,
+    purchaseOrders,
+  });
 
   const handleDistributorInputChange = (value) => {
     const match = resolveDistributorByInput(value);
@@ -912,58 +497,12 @@ function PurchaseManagement({ user }) {
     }));
   };
 
-  const getDistributorHistoryProducts = (distributorId) => {
-    const selectedDistributorId = String(distributorId || '').trim();
-    if (!selectedDistributorId) return [];
-
-    const productsById = new Map(products.map((product) => [String(product.id), product]));
-    const historyByProductId = new Map();
-
-    (purchaseOrders || []).forEach((order) => {
-      if (String(order?.distributor_id || '') !== selectedDistributorId) return;
-      const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
-      const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
-      const items = Array.isArray(order?.items) ? order.items : [];
-      items.forEach((item) => {
-        const productId = String(item?.product_id || '').trim();
-        if (!productId) return;
-        const product = productsById.get(productId);
-        if (!product) return;
-        const existing = historyByProductId.get(productId);
-        if (!existing) {
-          historyByProductId.set(productId, {
-            product,
-            count: 1,
-            latest: normalizedOrderTime,
-            item,
-          });
-          return;
-        }
-        existing.count += 1;
-        if (normalizedOrderTime >= existing.latest) {
-          existing.latest = normalizedOrderTime;
-          existing.item = item;
-        }
-      });
-    });
-
-    return [...historyByProductId.values()]
-      .sort((left, right) => {
-        if (right.latest !== left.latest) return right.latest - left.latest;
-        return right.count - left.count;
-      })
-      .map((entry) => entry.product ? buildOrderDraftItem(entry.product, {
-        quantity: 0,
-        uom: entry.item?.uom || entry.product?.base_unit || entry.product?.uom || 'pcs',
-        rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
-        unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
-        gst_rate: entry.item?.gst_rate ?? 5,
-        discount_type: entry.item?.discount_type,
-        discount_value: entry.item?.discount_value ?? 0,
-        last_purchase_hint: 'Loaded from distributor history',
-      }) : null)
-      .filter(Boolean);
-  };
+  const getDistributorHistoryProducts = (distributorId) => getDistributorHistoryProductsHelper({
+    distributorId,
+    products,
+    purchaseOrders,
+    buildOrderDraftItem,
+  });
 
   const handleLoadDistributorItems = () => {
     const selectedDistributor = distributors.find(
@@ -1004,7 +543,8 @@ function PurchaseManagement({ user }) {
   const fetchDistributorLedger = async () => {
     try {
       setLedgerLoading(true);
-      const localEntries = getLocalLedgerEntries().filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
+      const localEntries = getLocalLedgerEntries(LOCAL_LEDGER_KEY)
+        .filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
       const derivedEntries = getDerivedLedgerFromOrders(purchaseOrders, filters.distributor_id);
       const response = filters.distributor_id
         ? await distributorLedgerApi.getByDistributor(filters.distributor_id, { limit: 100 })
@@ -1014,7 +554,8 @@ function PurchaseManagement({ user }) {
         : (response?.rows || response?.data || response?.transactions || []);
       setLedgerRecords(mergeLedgerRecords(apiRecords, localEntries, derivedEntries));
     } catch (err) {
-      const localEntries = getLocalLedgerEntries().filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
+      const localEntries = getLocalLedgerEntries(LOCAL_LEDGER_KEY)
+        .filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
       const derivedEntries = getDerivedLedgerFromOrders(purchaseOrders, filters.distributor_id);
       setLedgerRecords(mergeLedgerRecords([], localEntries, derivedEntries));
     } finally {
@@ -1178,21 +719,6 @@ function PurchaseManagement({ user }) {
     closePoProductForm();
     setShowOrderForm(false);
     resetOrderForm();
-  };
-
-  const handlePoModalResizeStart = (event) => {
-    if (isMobile) return;
-    if (!poModalRef.current) return;
-    event.preventDefault();
-    const rect = poModalRef.current.getBoundingClientRect();
-    poModalResizeRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      startWidth: rect.width,
-      startHeight: rect.height,
-    };
-    document.body.classList.add('po-modal-resizing');
-    setIsResizingPoModal(true);
   };
 
   const handleOrderSubmit = async (e) => {
@@ -1896,69 +1422,10 @@ function PurchaseManagement({ user }) {
     }
   };
 
-  const getStatusBadge = (order) => {
-    const lifecycleStatus = getPoLifecycleStatus(order);
-    const statusConfig = {
-      prepared: { label: 'Prepared', class: 'registered' },
-      sent: { label: 'Sent', class: 'shipped' },
-      revised: { label: 'Revised', class: 'pending' },
-      confirmed: { label: 'Confirmed', class: 'processed' },
-      part_paid: { label: 'Part Paid', class: 'received' },
-      fully_paid: { label: 'Fully Paid', class: 'received' },
-      closed: { label: 'Closed', class: 'received' },
-      cancelled: { label: 'Cancelled', class: 'cancelled' }
-    };
-    const config = statusConfig[lifecycleStatus] || { label: lifecycleStatus || '-', class: '' };
-    return <span className={`status-badge ${config.class}`}>{config.label}</span>;
-  };
+  const getStatusBadgeForOrder = (order) => getStatusBadge(order, getPoLifecycleStatus);
+  const getPoPaymentBadgeForOrder = (order) => getPoPaymentBadge(order, getPoPaymentStatus);
+  const getLedgerRowStatusClassForEntry = (entry) => getLedgerRowStatusClass(entry, normalizePoPaymentStatus);
 
-  const getPoPaymentBadge = (order) => {
-    const paymentStatus = getPoPaymentStatus(order);
-    const paymentConfig = {
-      unpaid: { label: 'Unpaid', class: 'unpaid' },
-      part_paid: { label: 'Part Paid', class: 'part-paid' },
-      paid: { label: 'Paid', class: 'paid' },
-    };
-    const config = paymentConfig[paymentStatus] || paymentConfig.unpaid;
-    return <span className={`payment-status-badge ${config.class}`}>{config.label}</span>;
-  };
-
-  const getLedgerRowStatusClass = (entry) => {
-    const rawLinkedStatus = entry?.linked_po_payment_status ?? entry?.po_payment_status;
-    if (rawLinkedStatus === undefined || rawLinkedStatus === null || String(rawLinkedStatus).trim() === '') return '';
-    const linkedStatus = normalizePoPaymentStatus(rawLinkedStatus);
-    if (!linkedStatus) return '';
-    if (linkedStatus === 'paid') return 'ledger-row-paid';
-    if (linkedStatus === 'part_paid') return 'ledger-row-part-paid';
-    if (linkedStatus === 'unpaid') return 'ledger-row-unpaid';
-    return '';
-  };
-
-  const getDistributorPhoneFromContacts = (contacts) => {
-    if (!contacts) return '';
-    if (typeof contacts === 'object' && contacts.phone) return String(contacts.phone);
-    const raw = String(contacts).trim();
-    if (!raw) return '';
-    try {
-      const parsed = JSON.parse(raw);
-      return String(parsed?.phone || '');
-    } catch (_) {
-      return '';
-    }
-  };
-
-  const getOrderDistributorInfo = (order) => {
-    if (!order) return { name: '-', phone: '-', address: '-', contacts: '' };
-    const distributor = distributors.find((d) => String(d.id) === String(order.distributor_id));
-    const contacts = order.distributor_contacts || distributor?.contacts || '';
-    const phoneFromContacts = getDistributorPhoneFromContacts(contacts);
-    return {
-      name: order.distributor_name || distributor?.name || '-',
-      phone: order.distributor_phone || distributor?.phone || phoneFromContacts || '-',
-      address: order.distributor_address || distributor?.address || '-',
-      contacts
-    };
-  };
 
   const getItemFinancials = (item) => {
     const product = findProductForItem(products, item);
@@ -1988,7 +1455,7 @@ function PurchaseManagement({ user }) {
 
   const buildPurchaseOrderPrintHtml = (order) => {
     const items = Array.isArray(order?.items) ? order.items : [];
-    const supplier = getOrderDistributorInfo(order);
+    const supplier = getOrderDistributorInfo(order, distributors);
     const rows = items.map((item, index) => {
       const line = getItemFinancials(item);
       return `
@@ -2307,7 +1774,7 @@ function PurchaseManagement({ user }) {
         created_at: new Date().toISOString(),
         mode: 'manual'
       };
-      addLocalLedgerEntry(localEntry);
+      addLocalLedgerEntry(LOCAL_LEDGER_KEY, localEntry);
       closeLedgerForm();
       fetchDistributorLedger();
     } finally {
@@ -2369,83 +1836,27 @@ function PurchaseManagement({ user }) {
       icon: Truck,
     },
   ];
-  const orderDetailSupplier = getOrderDistributorInfo(orderDetail);
+  const orderDetailSupplier = getOrderDistributorInfo(orderDetail, distributors);
   const orderDetailIsEditable = orderDetail ? isPoEditable(orderDetail) : false;
-  const orderDetailItems = orderDetailEditMode ? (orderDetailDraft?.items || []) : (orderDetail?.items || []);
-  const orderDetailOriginalItems = orderDetail?.items || [];
-  const getOrderDetailOriginalItem = (draftItem, index) => {
-    if (draftItem?.id) {
-      const byId = orderDetailOriginalItems.find((item) => String(item?.id || '') === String(draftItem.id));
-      if (byId) return byId;
-    }
-    return orderDetailOriginalItems[index] || null;
-  };
-  const hasOrderDetailItemChanged = (draftItem, index) => {
-    const originalItem = getOrderDetailOriginalItem(draftItem, index);
-    if (!originalItem) return true;
-    return (
-      String(draftItem?.product_id || '') !== String(originalItem?.product_id || '') ||
-      String(draftItem?.uom || '') !== String(originalItem?.uom || '') ||
-      Math.abs(toNumber(draftItem?.quantity) - toNumber(originalItem?.quantity)) > 0.0001 ||
-      Math.abs(toNumber(draftItem?.rate ?? draftItem?.unit_price) - toNumber(originalItem?.rate ?? originalItem?.unit_price)) > 0.0001 ||
-      Math.abs(toNumber(draftItem?.gst_rate) - toNumber(originalItem?.gst_rate)) > 0.0001 ||
-      String(draftItem?.discount_type || 'percent') !== String(originalItem?.discount_type || 'percent') ||
-      Math.abs(toNumber(draftItem?.discount_value) - toNumber(originalItem?.discount_value)) > 0.0001
-    );
-  };
-  const getOrderDetailItemFieldChanged = (draftItem, index, field) => {
-    const originalItem = getOrderDetailOriginalItem(draftItem, index);
-    if (!originalItem) return true;
-    if (field === 'product_id') {
-      return String(draftItem?.product_id || '') !== String(originalItem?.product_id || '');
-    }
-    if (field === 'uom') {
-      return String(draftItem?.uom || '') !== String(originalItem?.uom || '');
-    }
-    if (field === 'quantity') {
-      return Math.abs(toNumber(draftItem?.quantity) - toNumber(originalItem?.quantity)) > 0.0001;
-    }
-    if (field === 'rate') {
-      return Math.abs(toNumber(draftItem?.rate ?? draftItem?.unit_price) - toNumber(originalItem?.rate ?? originalItem?.unit_price)) > 0.0001;
-    }
-    if (field === 'gst_rate') {
-      return Math.abs(toNumber(draftItem?.gst_rate) - toNumber(originalItem?.gst_rate)) > 0.0001;
-    }
-    if (field === 'discount_type') {
-      return String(draftItem?.discount_type || 'percent') !== String(originalItem?.discount_type || 'percent');
-    }
-    if (field === 'discount_value') {
-      return Math.abs(toNumber(draftItem?.discount_value) - toNumber(originalItem?.discount_value)) > 0.0001;
-    }
-    return false;
-  };
-  const getOrderDetailItemOriginalLabel = (draftItem, index, field) => {
-    const originalItem = getOrderDetailOriginalItem(draftItem, index);
-    if (!originalItem) return 'New item';
-    if (field === 'product_id') return String(originalItem?.product_name || '-');
-    if (field === 'uom') return String(originalItem?.uom || '-');
-    if (field === 'quantity') return String(toNumber(originalItem?.quantity));
-    if (field === 'rate') return formatCurrency(toNumber(originalItem?.rate ?? originalItem?.unit_price));
-    if (field === 'gst_rate') return `${normalizeGstRateOption(originalItem?.gst_rate).toFixed(0)}%`;
-    if (field === 'discount_type') return String(originalItem?.discount_type === 'fixed' ? 'Fixed' : '%');
-    if (field === 'discount_value') return String(toNumber(originalItem?.discount_value));
-    return '-';
-  };
-  const orderDetailHasComputedChanges = orderDetailEditMode && (
-    String(orderDetailDraft?.expected_delivery || '') !== toDateInputValue(orderDetail?.expected_delivery) ||
-    String(orderDetailDraft?.strict_due_date || '') !== toDateInputValue(orderDetail?.strict_due_date) ||
-    String(orderDetailDraft?.notes || '') !== String(orderDetail?.notes || '') ||
-    String(orderDetailDraft?.strict_due_note || '') !== String(orderDetail?.strict_due_note || '') ||
-    orderDetailItems.length !== orderDetailOriginalItems.length ||
-    orderDetailItems.some((item, index) => hasOrderDetailItemChanged(item, index))
-  );
-  const orderDetailComputedTotals = orderDetailEditMode
-    ? calculateOrderTotals(orderDetailItems)
-    : {
-        taxableValue: toNumber(orderDetail?.taxable_value),
-        taxAmount: toNumber(orderDetail?.tax_amount),
-        totalAmount: toNumber(orderDetail?.total_amount || getOrderDisplayTotal(orderDetail)),
-      };
+  const {
+    orderDetailItems,
+    getOrderDetailOriginalItem,
+    hasOrderDetailItemChanged,
+    getOrderDetailItemFieldChanged,
+    getOrderDetailItemOriginalLabel,
+    orderDetailHasComputedChanges,
+    orderDetailComputedTotals,
+  } = useOrderDetailComputed({
+    orderDetail,
+    orderDetailDraft,
+    orderDetailEditMode,
+    toNumber,
+    formatCurrency,
+    normalizeGstRateOption,
+    calculateOrderTotals,
+    getOrderDisplayTotal,
+    toDateInputValue,
+  });
   const orderProductOptions = useMemo(
     () => getDistributorProductOptions(orderFormData.distributor_id),
     [orderFormData.distributor_id, purchaseOrders, products]
@@ -2516,8 +1927,8 @@ function PurchaseManagement({ user }) {
           handleUpdateStatus={handleUpdateStatus}
           handleDeleteOrder={handleDeleteOrder}
           getOrderDisplayTotal={getOrderDisplayTotal}
-          getStatusBadge={getStatusBadge}
-          getPoPaymentBadge={getPoPaymentBadge}
+          getStatusBadge={getStatusBadgeForOrder}
+          getPoPaymentBadge={getPoPaymentBadgeForOrder}
           getPoBalanceDue={getPoBalanceDue}
           getPoNextAction={getPoNextAction}
           formatCurrency={formatCurrency}
@@ -2535,7 +1946,7 @@ function PurchaseManagement({ user }) {
           onOpenPayable={handleOpenPoPaymentById}
           ledgerLoading={ledgerLoading}
           ledgerRecords={ledgerRecords}
-          getLedgerRowStatusClass={getLedgerRowStatusClass}
+          getLedgerRowStatusClass={getLedgerRowStatusClassForEntry}
           getDistributorName={getDistributorName}
           getLedgerTypeLabel={getLedgerTypeLabel}
           formatCurrency={formatCurrency}
@@ -2567,8 +1978,8 @@ function PurchaseManagement({ user }) {
         />
       ) : null}
 
-      <PurchaseOrderFormModal
-        open={showOrderForm}
+      <PurchaseModals
+        showOrderForm={showOrderForm}
         closeOrderForm={closeOrderForm}
         poModalRef={poModalRef}
         isMobile={isMobile}
@@ -2597,1827 +2008,99 @@ function PurchaseManagement({ user }) {
         toNumber={toNumber}
         handleOrderItemRemove={handleOrderItemRemove}
         handleOrderItemAdd={handleOrderItemAdd}
-        handleOpenProductForm={handleOpenPoProductForm}
+        handleOpenPoProductForm={handleOpenPoProductForm}
         orderTotals={orderTotals}
         getProductSearchOptionLabel={getProductSearchOptionLabel}
         orderSubmitting={orderSubmitting}
+        showPoProductForm={showPoProductForm}
+        closePoProductForm={closePoProductForm}
+        handlePoProductSave={handlePoProductSave}
+        showReceiveModal={showReceiveModal}
+        selectedOrder={selectedOrder}
+        setShowReceiveModal={setShowReceiveModal}
+        receiveSubmitting={receiveSubmitting}
+        handleReceiveSubmit={handleReceiveSubmit}
+        receiveData={receiveData}
+        setReceiveData={setReceiveData}
+        handleReceiveQtyStep={handleReceiveQtyStep}
+        handleReceiveItemChange={handleReceiveItemChange}
+        formatCurrency={formatCurrency}
+        getProductUomProfile={getProductUomProfile}
+        resolvePurchaseUnitForProduct={resolvePurchaseUnitForProduct}
+        toBaseQtyForProduct={toBaseQtyForProduct}
+        showOrderDetail={showOrderDetail}
+        closeOrderDetail={closeOrderDetail}
+        orderDetail={orderDetail}
+        orderDetailLoading={orderDetailLoading}
+        orderDetailSupplier={orderDetailSupplier}
+        orderDetailEditMode={orderDetailEditMode}
+        orderDetailDraft={orderDetailDraft}
+        handleOrderDetailFieldChange={handleOrderDetailFieldChange}
+        formatDateTime={formatDateTime}
+        formatDate={formatDate}
+        getPoLifecycleStatus={getPoLifecycleStatus}
+        getPoPaymentStatus={getPoPaymentStatus}
+        getPoPaidAmount={getPoPaidAmount}
+        getPoBalanceDue={getPoBalanceDue}
+        getPoNextAction={getPoNextAction}
+        orderDetailItems={orderDetailItems}
+        getItemFinancials={getItemFinancials}
+        getOrderDetailOriginalItem={getOrderDetailOriginalItem}
+        hasOrderDetailItemChanged={hasOrderDetailItemChanged}
+        getOrderDetailItemFieldChanged={getOrderDetailItemFieldChanged}
+        handleOrderDetailProductInputChange={handleOrderDetailProductInputChange}
+        getProductSearchLabel={getProductSearchLabel}
+        getOrderDetailItemOriginalLabel={getOrderDetailItemOriginalLabel}
+        handleOrderDetailItemChange={handleOrderDetailItemChange}
+        handleOrderDetailItemRemove={handleOrderDetailItemRemove}
+        handleOrderDetailItemAdd={handleOrderDetailItemAdd}
+        orderDetailHasComputedChanges={orderDetailHasComputedChanges}
+        orderDetailComputedTotals={orderDetailComputedTotals}
+        orderDetailIsEditable={orderDetailIsEditable}
+        orderDetailSaving={orderDetailSaving}
+        handleOrderDetailSave={handleOrderDetailSave}
+        openOrderDetailEditMode={openOrderDetailEditMode}
+        handlePrintOrderDetail={handlePrintOrderDetail}
+        showProcessModal={showProcessModal}
+        processingOrder={processingOrder}
+        closeProcessModal={closeProcessModal}
+        handleProcessSubmit={handleProcessSubmit}
+        processSubmitting={processSubmitting}
+        processFormData={processFormData}
+        setProcessFormData={setProcessFormData}
+        getDistributorName={getDistributorName}
+        getOrderDisplayTotal={getOrderDisplayTotal}
+        showPoPaymentModal={showPoPaymentModal}
+        paymentOrder={paymentOrder}
+        closePoPaymentModal={closePoPaymentModal}
+        handlePoPaymentSubmit={handlePoPaymentSubmit}
+        poPaymentSubmitting={poPaymentSubmitting}
+        poPaymentFormData={poPaymentFormData}
+        setPoPaymentFormData={setPoPaymentFormData}
+        showLedgerForm={showLedgerForm}
+        closeLedgerForm={closeLedgerForm}
+        ledgerSubmitting={ledgerSubmitting}
+        handleLedgerSubmit={handleLedgerSubmit}
+        ledgerFormData={ledgerFormData}
+        setLedgerFormData={setLedgerFormData}
+        showPoCorrectionForm={showPoCorrectionForm}
+        selectedCorrectionOrder={selectedCorrectionOrder}
+        closePoCorrectionForm={closePoCorrectionForm}
+        poCorrectionSubmitting={poCorrectionSubmitting}
+        handlePoCorrectionSubmit={handlePoCorrectionSubmit}
+        poCorrectionFormData={poCorrectionFormData}
+        setPoCorrectionFormData={setPoCorrectionFormData}
+        poCorrectionContext={poCorrectionContext}
+        showReturnForm={showReturnForm}
+        closeReturnForm={closeReturnForm}
+        returnSubmitting={returnSubmitting}
+        handleReturnSubmit={handleReturnSubmit}
+        returnFormData={returnFormData}
+        setReturnFormData={setReturnFormData}
+        handleReturnItemAdd={handleReturnItemAdd}
+        handleReturnItemChange={handleReturnItemChange}
+        handleReturnItemRemove={handleReturnItemRemove}
       />
-
-      {showPoProductForm && (
-        <ProductForm
-          product={null}
-          mode="quick"
-          onClose={closePoProductForm}
-          onSave={handlePoProductSave}
-        />
-      )}
-
-      {/* Receive Modal */}
-      {showReceiveModal && selectedOrder && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={() => setShowReceiveModal(false)}
-            title={`Receive Inventory - ${selectedOrder.po_number}`}
-            className="purchase-receive-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="receive-inventory-form" className="submit-btn" disabled={receiveSubmitting}>
-                  {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
-                </button>
-              </>
-            )}
-          >
-            <form id="receive-inventory-form" onSubmit={handleReceiveSubmit} className="mobile-receive-form">
-              <div className="form-section">
-                <div className="form-group">
-                  <label htmlFor="receive-mobile-invoice-number">Invoice Number</label>
-                  <input
-                    id="receive-mobile-invoice-number"
-                    name="invoice_number"
-                    type="text"
-                    value={receiveData.invoice_number}
-                    onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                    placeholder="Enter invoice number"
-                  />
-                </div>
-              </div>
-
-              <div className="form-section">
-                <h3>Received Items</h3>
-                <div className="mobile-receive-list">
-                  {receiveData.items.map((item, index) => (
-                    <div key={index} className="mobile-receive-item">
-                      <div className="mobile-receive-row">
-                        <strong>{item.product_name}</strong>
-                        <span>Ordered: {item.ordered_quantity}</span>
-                      </div>
-                      <div className="mobile-receive-stepper">
-                        <button
-                          type="button"
-                          className="mobile-stepper-btn"
-                          onClick={() => handleReceiveQtyStep(index, -1)}
-                          aria-label="Decrease received quantity"
-                        >
-                          -
-                        </button>
-                        <input
-                          id={`receive-mobile-qty-${index}`}
-                          name={`received_quantity_${index}`}
-                          type="number"
-                          min="0"
-                          max={item.ordered_quantity}
-                          value={item.received_quantity}
-                          onChange={e => handleReceiveItemChange(index, 'received_quantity', Math.max(0, Math.min(toNumber(item.ordered_quantity), toNumber(e.target.value))))}
-                        />
-                        <button
-                          type="button"
-                          className="mobile-stepper-btn"
-                          onClick={() => handleReceiveQtyStep(index, 1)}
-                          aria-label="Increase received quantity"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="mobile-receive-row">
-                        <label htmlFor={`receive-mobile-unit-cost-${index}`}>Unit Cost</label>
-                        <input
-                          id={`receive-mobile-unit-cost-${index}`}
-                          name={`unit_cost_${index}`}
-                          type="number"
-                          step="0.01"
-                          value={item.unit_price}
-                          onChange={e => handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))}
-                        />
-                      </div>
-                      <div className="mobile-receive-row value">
-                        <span>Value</span>
-                        <strong>{formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}</strong>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={() => !receiveSubmitting && setShowReceiveModal(false)}>
-            <div className="modal-content large" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Receive Inventory - {selectedOrder.po_number}</h2>
-                <button className="close-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form id="receive-inventory-form" onSubmit={handleReceiveSubmit}>
-                <div className="form-section">
-                  <div className="form-group">
-                    <label htmlFor="receive-desktop-invoice-number">Invoice Number</label>
-                    <input
-                      id="receive-desktop-invoice-number"
-                      name="invoice_number"
-                      type="text"
-                      value={receiveData.invoice_number}
-                      onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                      placeholder="Enter invoice number"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-section">
-                  <h3>Received Items</h3>
-                  <div className="items-list">
-                    {receiveData.items.map((item, index) => (
-                      <div key={index} className="item-row">
-                        <div className="item-field product">
-                          <span className="field-label">Product</span>
-                          <span>{item.product_name}</span>
-                        </div>
-                        <div className="item-field qty">
-                          <span className="field-label">Ordered</span>
-                          <span>{item.ordered_quantity}</span>
-                        </div>
-                        <div className="item-field qty">
-                          <label htmlFor={`receive-desktop-qty-${index}`}>Received</label>
-                          <input
-                            id={`receive-desktop-qty-${index}`}
-                            name={`received_quantity_${index}`}
-                            type="number"
-                            min="0"
-                            max={item.ordered_quantity}
-                            value={item.received_quantity}
-                            onChange={e => handleReceiveItemChange(index, 'received_quantity', toNumber(e.target.value))}
-                          />
-                        </div>
-                        <div className="item-field price">
-                          <label htmlFor={`receive-desktop-unit-cost-${index}`}>Unit Cost</label>
-                          <input
-                            id={`receive-desktop-unit-cost-${index}`}
-                            name={`unit_cost_${index}`}
-                            type="number"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={e => handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))}
-                          />
-                        </div>
-                        <div className="item-field total">
-                          <span className="field-label">Value</span>
-                          <span>{formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={receiveSubmitting}>
-                    {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* Order Detail Modal */}
-      {showOrderDetail && (
-        <div className="modal-overlay" onClick={closeOrderDetail}>
-          <div className="modal-content large po-detail-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Purchase Order: {orderDetail?.po_number || '-'}</h2>
-              <button className="close-btn" onClick={closeOrderDetail}>
-                <X size={24} />
-              </button>
-            </div>
-            {orderDetailLoading || !orderDetail ? (
-              <div className="order-detail-body">
-                <div className="loading">Loading purchase order details...</div>
-              </div>
-            ) : (
-              <div className="order-detail-body">
-                <div className="po-invoice-preview">
-                <div className="po-invoice-header">
-                  <div>
-                    <h3>Purchase Order</h3>
-                    <p>PO #{orderDetail.po_number}</p>
-                  </div>
-                  <div className="po-invoice-meta">
-                    <div><span>PO Status</span><strong>{String(getPoLifecycleStatus(orderDetail) || '-').toUpperCase()}</strong></div>
-                    <div><span>Payment</span><strong>{String(getPoPaymentStatus(orderDetail) || '-').toUpperCase()}</strong></div>
-                    <div><span>Paid</span><strong>{formatCurrency(getPoPaidAmount(orderDetail))}</strong></div>
-                    <div><span>Balance</span><strong>{formatCurrency(getPoBalanceDue(orderDetail))}</strong></div>
-                    <div><span>Created</span><strong>{formatDateTime(orderDetail.created_at || orderDetail.order_date)}</strong></div>
-                    <div>
-                      <span>Expected</span>
-                      {orderDetailEditMode ? (
-                        <input
-                          type="date"
-                          id="po-detail-expected-delivery"
-                          name="expected_delivery"
-                          value={orderDetailDraft?.expected_delivery || ''}
-                          onChange={(event) => handleOrderDetailFieldChange('expected_delivery', event.target.value)}
-                        />
-                      ) : (
-                        <strong>{formatDate(orderDetail.expected_delivery)}</strong>
-                      )}
-                    </div>
-                    <div><span>Payment Due</span><strong>{formatDate(orderDetail.payment_due_date)}</strong></div>
-                    <div>
-                      <span>Strict Due</span>
-                      {orderDetailEditMode ? (
-                        <input
-                          type="date"
-                          id="po-detail-strict-due-date"
-                          name="strict_due_date"
-                          value={orderDetailDraft?.strict_due_date || ''}
-                          onChange={(event) => handleOrderDetailFieldChange('strict_due_date', event.target.value)}
-                        />
-                      ) : (
-                        <strong>{orderDetail.strict_due_date ? formatDate(orderDetail.strict_due_date) : '-'}</strong>
-                      )}
-                    </div>
-                    <div><span>Next Action</span><strong>{getPoNextAction(orderDetail)}</strong></div>
-                    <div><span>Bill No</span><strong>{orderDetail.bill_number || orderDetail.invoice_number || '-'}</strong></div>
-                  </div>
-                </div>
-
-                <div className="po-party-grid">
-                  <div className="po-party-card">
-                    <h4>Supplier</h4>
-                    <p>{orderDetailSupplier.name}</p>
-                    <p>{orderDetailSupplier.phone}</p>
-                    <p>{orderDetailSupplier.address}</p>
-                  </div>
-                  <div className="po-party-card">
-                    <h4>Notes</h4>
-                    {orderDetailEditMode ? (
-                      <div className="po-detail-edit-stack">
-                        <textarea
-                          id="po-detail-notes"
-                          name="notes"
-                          rows="3"
-                          value={orderDetailDraft?.notes || ''}
-                          onChange={(event) => handleOrderDetailFieldChange('notes', event.target.value)}
-                          placeholder="PO notes"
-                        />
-                        <textarea
-                          id="po-detail-strict-due-note"
-                          name="strict_due_note"
-                          rows="3"
-                          value={orderDetailDraft?.strict_due_note || ''}
-                          onChange={(event) => handleOrderDetailFieldChange('strict_due_note', event.target.value)}
-                          placeholder="Strict due note"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <p>{orderDetail.notes || '-'}</p>
-                        <p>{orderDetail.strict_due_note || 'No strict deadline note'}</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <table className="po-invoice-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Product</th>
-                      <th>Qty</th>
-                      <th>UOM</th>
-                      <th>Rate</th>
-                      <th>Discount Type</th>
-                      <th>Discount</th>
-                      <th>GST %</th>
-                      <th>Taxable</th>
-                      <th>Tax</th>
-                      <th>Total</th>
-                      {orderDetailEditMode ? <th /> : null}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderDetailItems.map((item, idx) => {
-                      const line = getItemFinancials(item);
-                      const originalItem = getOrderDetailOriginalItem(item, idx);
-                      const originalLine = originalItem ? getItemFinancials(originalItem) : null;
-                      const rowChanged = orderDetailEditMode && hasOrderDetailItemChanged(item, idx);
-                      const productChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'product_id');
-                      const qtyChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'quantity');
-                      const uomChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'uom');
-                      const rateChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'rate');
-                      const discountTypeChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'discount_type');
-                      const discountValueChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'discount_value');
-                      const gstChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'gst_rate');
-                      const selectedProduct = products.find((product) => String(product?.id || '') === String(item.product_id || '')) || null;
-                      const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                      return (
-                        <tr key={item.id || idx} className={rowChanged ? 'po-detail-row-edited' : ''}>
-                          <td>{idx + 1}</td>
-                          <td className={productChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <input
-                                  type="text"
-                                  id={`po-detail-product-${idx}-${item.id}`}
-                                  name="product_query"
-                                  list={`po-detail-product-list-${idx}`}
-                                  value={item.product_query || ''}
-                                  onChange={(event) => handleOrderDetailProductInputChange(idx, event.target.value)}
-                                  placeholder="Type product name / SKU"
-                                />
-                                <datalist id={`po-detail-product-list-${idx}`}>
-                                  {products.map((product) => (
-                                    <option key={`po-detail-product-${idx}-${product.id}`} value={getProductSearchLabel(product)} />
-                                  ))}
-                                </datalist>
-                                {productChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'product_id')}</small>
-                                ) : null}
-                              </>
-                            ) : item.product_name}
-                          </td>
-                          <td className={qtyChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <input
-                                  type="number"
-                                  id={`po-detail-qty-${idx}-${item.id}`}
-                                  name="quantity"
-                                  min="1"
-                                  step={getPurchasePackStep(selectedProduct, item.uom || line.uom)}
-                                  value={item.quantity}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'quantity', event.target.value)}
-                                />
-                                {qtyChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'quantity')}</small>
-                                ) : null}
-                              </>
-                            ) : line.quantity}
-                          </td>
-                          <td className={uomChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <select
-                                  id={`po-detail-uom-${idx}-${item.id}`}
-                                  name="uom"
-                                  value={line.uom}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'uom', event.target.value)}
-                                >
-                                  {uomOptions.map((uomOption) => (
-                                    <option key={`detail-item-${idx}-uom-${uomOption}`} value={uomOption}>
-                                      {uomOption}
-                                    </option>
-                                  ))}
-                                </select>
-                                {uomChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'uom')}</small>
-                                ) : null}
-                              </>
-                            ) : (item.uom || '-')}
-                          </td>
-                          <td className={rateChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <input
-                                  type="number"
-                                  id={`po-detail-rate-${idx}-${item.id}`}
-                                  name="rate"
-                                  step="0.01"
-                                  min="0"
-                                  value={item.rate}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'rate', event.target.value)}
-                                />
-                                {rateChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'rate')}</small>
-                                ) : null}
-                              </>
-                            ) : formatCurrency(line.rate)}
-                          </td>
-                          <td className={discountTypeChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <select
-                                  id={`po-detail-disc-type-${idx}-${item.id}`}
-                                  name="discount_type"
-                                  value={item.discount_type || 'percent'}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'discount_type', event.target.value)}
-                                >
-                                  <option value="percent">%</option>
-                                  <option value="fixed">Fixed</option>
-                                </select>
-                                {discountTypeChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'discount_type')}</small>
-                                ) : null}
-                              </>
-                            ) : (item.discount_type === 'fixed' ? 'Fixed' : '%')}
-                          </td>
-                          <td className={discountValueChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <input
-                                  type="number"
-                                  id={`po-detail-disc-value-${idx}-${item.id}`}
-                                  name="discount_value"
-                                  step="0.01"
-                                  min="0"
-                                  value={item.discount_value ?? 0}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'discount_value', event.target.value)}
-                                />
-                                {discountValueChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'discount_value')}</small>
-                                ) : null}
-                              </>
-                            ) : String(toNumber(item.discount_value || 0))}
-                          </td>
-                          <td className={gstChanged ? 'po-detail-field-changed' : ''}>
-                            {orderDetailEditMode ? (
-                              <>
-                                <select
-                                  id={`po-detail-gst-${idx}-${item.id}`}
-                                  name="gst_rate"
-                                  value={item.gst_rate}
-                                  onChange={(event) => handleOrderDetailItemChange(idx, 'gst_rate', event.target.value)}
-                                >
-                                  {GST_RATE_OPTIONS.map((rate) => (
-                                    <option key={`detail-item-${idx}-gst-${rate}`} value={rate}>
-                                      {rate}%
-                                    </option>
-                                  ))}
-                                </select>
-                                {gstChanged ? (
-                                  <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'gst_rate')}</small>
-                                ) : null}
-                              </>
-                            ) : `${line.gstRate.toFixed(2)}%`}
-                          </td>
-                          <td className={rowChanged && (!originalLine || Math.abs(line.taxableValue - originalLine.taxableValue) > 0.0001) ? 'po-detail-computed-change' : ''}>
-                            {formatCurrency(line.taxableValue)}
-                          </td>
-                          <td className={rowChanged && (!originalLine || Math.abs(line.taxAmount - originalLine.taxAmount) > 0.0001) ? 'po-detail-computed-change' : ''}>
-                            {formatCurrency(line.taxAmount)}
-                          </td>
-                          <td className={rowChanged && (!originalLine || Math.abs(line.lineTotal - originalLine.lineTotal) > 0.0001) ? 'po-detail-computed-change' : ''}>
-                            {formatCurrency(line.lineTotal)}
-                          </td>
-                          {orderDetailEditMode ? (
-                            <td>
-                              <button
-                                type="button"
-                                className="remove-item-btn"
-                                onClick={() => handleOrderDetailItemRemove(idx)}
-                                aria-label={`Remove item ${idx + 1}`}
-                              >
-                                <X size={14} />
-                              </button>
-                            </td>
-                          ) : null}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {orderDetailEditMode ? (
-                  <div className="po-detail-table-actions">
-                    <button type="button" className="add-item-btn" onClick={handleOrderDetailItemAdd}>
-                      <Plus size={16} /> Add Item
-                    </button>
-                  </div>
-                ) : null}
-
-                <div className="po-invoice-summary">
-                  <div className={`po-summary-row${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
-                    <span>Taxable Value</span>
-                    <strong>{formatCurrency(orderDetailComputedTotals.taxableValue || 0)}</strong>
-                  </div>
-                  <div className={`po-summary-row${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
-                    <span>GST</span>
-                    <strong>{formatCurrency(orderDetailComputedTotals.taxAmount || 0)}</strong>
-                  </div>
-                  <div className={`po-summary-row grand${orderDetailHasComputedChanges ? ' po-detail-computed-change' : ''}`}>
-                    <span>Grand Total</span>
-                    <strong>{formatCurrency(orderDetailComputedTotals.totalAmount || 0)}</strong>
-                  </div>
-                </div>
-
-                <div className="po-history-section">
-                  <div className="po-history-card">
-                    <h4>Status Timeline</h4>
-                    {(orderDetail.history || []).length ? (
-                      <div className="po-history-list">
-                        {orderDetail.history.slice(0, 6).map((entry) => (
-                          <div key={`history-${entry.id}`} className="po-history-item">
-                            <strong>{String(entry.to_status || '-').replace(/_/g, ' ')}</strong>
-                            <span>{formatDateTime(entry.created_at)}</span>
-                            <small>{entry.note || '-'}</small>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="po-history-empty">No lifecycle history yet.</p>
-                    )}
-                  </div>
-                  <div className="po-history-card">
-                    <h4>Reminder Log</h4>
-                    {(orderDetail.reminders || []).length ? (
-                      <div className="po-history-list">
-                        {orderDetail.reminders.slice(0, 6).map((entry) => (
-                          <div key={`reminder-${entry.id}`} className="po-history-item">
-                            <strong>{entry.title || entry.reminder_type || 'Reminder'}</strong>
-                            <span>{formatDate(entry.scheduled_for)}</span>
-                            <small>{entry.message || '-'}</small>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="po-history-empty">No reminders logged yet.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            )}
-            <div className="modal-actions">
-              {orderDetailIsEditable ? (
-                <button
-                  type="button"
-                  className="submit-btn"
-                  onClick={orderDetailEditMode ? handleOrderDetailSave : openOrderDetailEditMode}
-                  disabled={orderDetailSaving}
-                >
-                  {orderDetailEditMode ? (orderDetailSaving ? 'Saving...' : 'Save') : 'Edit'}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="submit-btn print-po-btn"
-                onClick={() => handlePrintOrderDetail(orderDetail)}
-                disabled={!orderDetail || orderDetailEditMode}
-              >
-                <Printer size={16} /> Print
-              </button>
-              <button type="button" className="cancel-btn" onClick={closeOrderDetail}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showProcessModal && processingOrder && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={closeProcessModal}
-            title="Confirm Purchase Order"
-            className="purchase-process-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="purchase-process-form" className="submit-btn" disabled={processSubmitting}>
-                  {processSubmitting ? 'Confirming...' : 'Confirm PO'}
-                </button>
-              </>
-            )}
-          >
-            <form id="purchase-process-form" onSubmit={handleProcessSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="process-mobile-po-number">PO Number</label>
-                  <input id="process-mobile-po-number" name="po_number" type="text" value={processingOrder.po_number || '-'} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="process-mobile-distributor">Distributor</label>
-                  <input id="process-mobile-distributor" name="distributor_name" type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="process-mobile-total-amount">Total Amount</label>
-                  <input id="process-mobile-total-amount" name="total_amount" type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="process-mobile-bill-number">Bill No *</label>
-                  <input
-                    id="process-mobile-bill-number"
-                    name="bill_number"
-                    type="text"
-                    value={processFormData.bill_number}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, bill_number: e.target.value }))}
-                    placeholder="Enter bill number"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="process-mobile-paid-amount">Initial Paid Amount</label>
-                  <input
-                    id="process-mobile-paid-amount"
-                    name="paid_amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={processFormData.paid_amount}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, paid_amount: e.target.value }))}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="process-mobile-payment-mode">Payment Mode</label>
-                  <select
-                    id="process-mobile-payment-mode"
-                    name="payment_mode"
-                    value={processFormData.payment_mode}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="process-mobile-payment-date">Payment Date</label>
-                  <input
-                    id="process-mobile-payment-date"
-                    name="payment_date"
-                    type="date"
-                    value={processFormData.payment_date}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_date: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="process-mobile-payment-reference">Payment Reference</label>
-                  <input
-                    id="process-mobile-payment-reference"
-                    name="payment_reference"
-                    type="text"
-                    value={processFormData.payment_reference}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_reference: e.target.value }))}
-                    placeholder="Bank ref / UPI ref"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="process-mobile-payment-notes">Notes</label>
-                <textarea
-                  id="process-mobile-payment-notes"
-                  name="payment_notes"
-                  rows="2"
-                  value={processFormData.payment_notes}
-                  onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_notes: e.target.value }))}
-                  placeholder="Optional payment note"
-                />
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={closeProcessModal}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Confirm Purchase Order</h2>
-                <button className="close-btn" onClick={closeProcessModal}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handleProcessSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-po-number">PO Number</label>
-                    <input id="process-desktop-po-number" name="po_number" type="text" value={processingOrder.po_number || '-'} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-distributor">Distributor</label>
-                    <input id="process-desktop-distributor" name="distributor_name" type="text" value={processingOrder.distributor_name || getDistributorName(processingOrder)} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-total-amount">Total Amount</label>
-                    <input id="process-desktop-total-amount" name="total_amount" type="text" value={formatCurrency(getOrderDisplayTotal(processingOrder))} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-bill-number">Bill No *</label>
-                    <input
-                      id="process-desktop-bill-number"
-                      name="bill_number"
-                      type="text"
-                      value={processFormData.bill_number}
-                      onChange={(e) => setProcessFormData((prev) => ({ ...prev, bill_number: e.target.value }))}
-                      placeholder="Enter bill number"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-paid-amount">Initial Paid Amount</label>
-                    <input
-                      id="process-desktop-paid-amount"
-                      name="paid_amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={processFormData.paid_amount}
-                      onChange={(e) => setProcessFormData((prev) => ({ ...prev, paid_amount: e.target.value }))}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-payment-mode">Payment Mode</label>
-                    <select
-                      id="process-desktop-payment-mode"
-                      name="payment_mode"
-                      value={processFormData.payment_mode}
-                      onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="bank">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-payment-date">Payment Date</label>
-                    <input
-                      id="process-desktop-payment-date"
-                      name="payment_date"
-                      type="date"
-                      value={processFormData.payment_date}
-                      onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_date: e.target.value }))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="process-desktop-payment-reference">Payment Reference</label>
-                    <input
-                      id="process-desktop-payment-reference"
-                      name="payment_reference"
-                      type="text"
-                      value={processFormData.payment_reference}
-                      onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_reference: e.target.value }))}
-                      placeholder="Bank ref / UPI ref"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="process-desktop-payment-notes">Notes</label>
-                  <textarea
-                    id="process-desktop-payment-notes"
-                    name="payment_notes"
-                    rows="2"
-                    value={processFormData.payment_notes}
-                    onChange={(e) => setProcessFormData((prev) => ({ ...prev, payment_notes: e.target.value }))}
-                    placeholder="Optional payment note"
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={processSubmitting}>
-                    {processSubmitting ? 'Confirming...' : 'Confirm PO'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
-
-      {showPoPaymentModal && paymentOrder && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={closePoPaymentModal}
-            title="Add PO Payment"
-            className="purchase-payment-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="po-payment-form" className="submit-btn" disabled={poPaymentSubmitting}>
-                  {poPaymentSubmitting ? 'Saving...' : 'Save Payment'}
-                </button>
-              </>
-            )}
-          >
-            <form id="po-payment-form" onSubmit={handlePoPaymentSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-po-number">PO Number</label>
-                  <input id="po-payment-mobile-po-number" type="text" value={paymentOrder.po_number || '-'} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-current-balance">Current Balance</label>
-                  <input id="po-payment-mobile-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-amount">Amount *</label>
-                  <input
-                    id="po-payment-mobile-amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={poPaymentFormData.amount}
-                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                    required
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-payment-mode">Payment Mode</label>
-                  <select
-                    id="po-payment-mobile-payment-mode"
-                    name="payment_mode"
-                    value={poPaymentFormData.payment_mode}
-                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-date">Date</label>
-                  <input
-                    id="po-payment-mobile-date"
-                    name="transaction_date"
-                    type="date"
-                    value={poPaymentFormData.transaction_date}
-                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-payment-mobile-reference">Reference</label>
-                  <input
-                    id="po-payment-mobile-reference"
-                    name="reference"
-                    type="text"
-                    value={poPaymentFormData.reference}
-                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, reference: e.target.value }))}
-                    placeholder="Bank ref / UPI ref"
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="po-payment-mobile-notes">Notes</label>
-                <textarea
-                  id="po-payment-mobile-notes"
-                  name="notes"
-                  rows="2"
-                  value={poPaymentFormData.notes}
-                  onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Optional note"
-                />
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={closePoPaymentModal}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Add PO Payment</h2>
-                <button className="close-btn" onClick={closePoPaymentModal}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handlePoPaymentSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-po-number">PO Number</label>
-                    <input id="po-payment-desktop-po-number" type="text" value={paymentOrder.po_number || '-'} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-current-balance">Current Balance</label>
-                    <input id="po-payment-desktop-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-amount">Amount *</label>
-                    <input
-                      id="po-payment-desktop-amount"
-                      name="amount"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={poPaymentFormData.amount}
-                      onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                      required
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-payment-mode">Payment Mode</label>
-                    <select
-                      id="po-payment-desktop-payment-mode"
-                      name="payment_mode"
-                      value={poPaymentFormData.payment_mode}
-                      onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="bank">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-date">Date</label>
-                    <input
-                      id="po-payment-desktop-date"
-                      name="transaction_date"
-                      type="date"
-                      value={poPaymentFormData.transaction_date}
-                      onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-payment-desktop-reference">Reference</label>
-                    <input
-                      id="po-payment-desktop-reference"
-                      name="reference"
-                      type="text"
-                      value={poPaymentFormData.reference}
-                      onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Bank ref / UPI ref"
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-payment-desktop-notes">Notes</label>
-                  <textarea
-                    id="po-payment-desktop-notes"
-                    name="notes"
-                    rows="2"
-                    value={poPaymentFormData.notes}
-                    onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Optional note"
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={poPaymentSubmitting}>
-                    {poPaymentSubmitting ? 'Saving...' : 'Save Payment'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* Manual Distributor Ledger Modal */}
-      {showLedgerForm && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={closeLedgerForm}
-            title="Add Distributor Payment / Credit"
-            className="purchase-ledger-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="purchase-ledger-form" className="submit-btn" disabled={ledgerSubmitting}>
-                  {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
-                </button>
-              </>
-            )}
-          >
-            <form id="purchase-ledger-form" onSubmit={handleLedgerSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-distributor">Distributor *</label>
-                  <select
-                    id="ledger-mobile-distributor"
-                    name="distributor_id"
-                    value={ledgerFormData.distributor_id}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                    required
-                  >
-                    <option value="">Select distributor</option>
-                    {distributors.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-type">Type *</label>
-                  <select
-                    id="ledger-mobile-type"
-                    name="type"
-                    value={ledgerFormData.type}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
-                  >
-                    <option value="payment">Payment (Reduce due)</option>
-                    <option value="credit">Credit (Increase due)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-amount">Amount *</label>
-                  <input
-                    id="ledger-mobile-amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={ledgerFormData.amount}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount"
-                    required
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-payment-mode">Payment Mode</label>
-                  <select
-                    id="ledger-mobile-payment-mode"
-                    name="payment_mode"
-                    value={ledgerFormData.payment_mode}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="credit">Credit</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-transaction-date">Transaction Date</label>
-                  <input
-                    id="ledger-mobile-transaction-date"
-                    name="transaction_date"
-                    type="date"
-                    value={ledgerFormData.transaction_date}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ledger-mobile-reference">Reference</label>
-                  <input
-                    id="ledger-mobile-reference"
-                    name="reference"
-                    type="text"
-                    value={ledgerFormData.reference}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
-                    placeholder="Invoice / PO / Bank ref"
-                    autoComplete="off"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="ledger-mobile-description">Description</label>
-                <textarea
-                  id="ledger-mobile-description"
-                  name="description"
-                  rows="2"
-                  value={ledgerFormData.description}
-                  onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Optional notes"
-                />
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={closeLedgerForm}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Add Distributor Payment / Credit</h2>
-                <button className="close-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handleLedgerSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-distributor">Distributor *</label>
-                    <select
-                      id="ledger-desktop-distributor"
-                      name="distributor_id"
-                      value={ledgerFormData.distributor_id}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                      required
-                    >
-                      <option value="">Select distributor</option>
-                      {distributors.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-type">Type *</label>
-                    <select
-                      id="ledger-desktop-type"
-                      name="type"
-                      value={ledgerFormData.type}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
-                    >
-                      <option value="payment">Payment (Reduce due)</option>
-                      <option value="credit">Credit (Increase due)</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-amount">Amount *</label>
-                  <input
-                    id="ledger-desktop-amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={ledgerFormData.amount}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount"
-                    required
-                    autoComplete="off"
-                  />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-payment-mode">Payment Mode</label>
-                    <select
-                      id="ledger-desktop-payment-mode"
-                      name="payment_mode"
-                      value={ledgerFormData.payment_mode}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="bank">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="credit">Credit</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-transaction-date">Transaction Date</label>
-                    <input
-                      id="ledger-desktop-transaction-date"
-                      name="transaction_date"
-                      type="date"
-                      value={ledgerFormData.transaction_date}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="ledger-desktop-reference">Reference</label>
-                    <input
-                      id="ledger-desktop-reference"
-                      name="reference"
-                      type="text"
-                      value={ledgerFormData.reference}
-                      onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Invoice / PO / Bank ref"
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ledger-desktop-description">Description</label>
-                  <textarea
-                    id="ledger-desktop-description"
-                    name="description"
-                    rows="2"
-                    value={ledgerFormData.description}
-                    onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Optional notes"
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
-                    {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* PO Ledger Correction Modal */}
-      {showPoCorrectionForm && selectedCorrectionOrder && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={closePoCorrectionForm}
-            title="Correct PO Ledger Impact"
-            className="purchase-correction-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={closePoCorrectionForm} disabled={poCorrectionSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="purchase-correction-form" className="submit-btn" disabled={poCorrectionSubmitting}>
-                  {poCorrectionSubmitting ? 'Posting...' : 'Post Correction'}
-                </button>
-              </>
-            )}
-          >
-            <form id="purchase-correction-form" onSubmit={handlePoCorrectionSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-po-number">PO Number</label>
-                  <input id="po-correction-mobile-po-number" type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-distributor">Distributor</label>
-                  <input id="po-correction-mobile-distributor" type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-expected-impact">Expected PO Impact</label>
-                  <input id="po-correction-mobile-expected-impact" type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-current-impact">Current Ledger Impact</label>
-                  <input id="po-correction-mobile-current-impact" type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-delta">Adjustment Needed (Delta)</label>
-                  <input id="po-correction-mobile-delta" type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-linked-entries">Linked Entries</label>
-                  <input id="po-correction-mobile-linked-entries" type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-type">Correction Type *</label>
-                  <select
-                    id="po-correction-mobile-type"
-                    name="type"
-                    value={poCorrectionFormData.type}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, type: e.target.value }))}
-                  >
-                    <option value="payment">Payment (Reduce due)</option>
-                    <option value="credit">Credit (Increase due)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-amount">Amount *</label>
-                  <input
-                    id="po-correction-mobile-amount"
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={poCorrectionFormData.amount}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-mode">Mode</label>
-                  <select
-                    id="po-correction-mobile-mode"
-                    name="payment_mode"
-                    value={poCorrectionFormData.payment_mode}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                  >
-                    <option value="cash">Cash</option>
-                    <option value="bank">Bank Transfer</option>
-                    <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="credit">Credit</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-date">Date</label>
-                  <input
-                    id="po-correction-mobile-date"
-                    name="transaction_date"
-                    type="date"
-                    value={poCorrectionFormData.transaction_date}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="po-correction-mobile-reference">Reference</label>
-                  <input
-                    id="po-correction-mobile-reference"
-                    name="reference"
-                    type="text"
-                    value={poCorrectionFormData.reference}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reference: e.target.value }))}
-                    placeholder="PO number or correction reference"
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="po-correction-mobile-reason">Correction Reason *</label>
-                <textarea
-                  id="po-correction-mobile-reason"
-                  name="reason"
-                  rows="3"
-                  value={poCorrectionFormData.reason}
-                  onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Explain why this correction is needed"
-                  required
-                />
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={closePoCorrectionForm}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Correct PO Ledger Impact</h2>
-                <button className="close-btn" onClick={closePoCorrectionForm}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handlePoCorrectionSubmit}>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-po-number">PO Number</label>
-                    <input id="po-correction-desktop-po-number" type="text" value={selectedCorrectionOrder.po_number || '-'} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-distributor">Distributor</label>
-                    <input id="po-correction-desktop-distributor" type="text" value={selectedCorrectionOrder.distributor_name || getDistributorName(selectedCorrectionOrder)} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-expected-impact">Expected PO Impact</label>
-                    <input id="po-correction-desktop-expected-impact" type="text" value={formatCurrency(poCorrectionContext.expectedAmount)} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-current-impact">Current Ledger Impact</label>
-                    <input id="po-correction-desktop-current-impact" type="text" value={formatCurrency(poCorrectionContext.currentImpact)} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-delta">Adjustment Needed (Delta)</label>
-                    <input id="po-correction-desktop-delta" type="text" value={formatCurrency(poCorrectionContext.delta)} readOnly />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-linked-entries">Linked Entries</label>
-                    <input id="po-correction-desktop-linked-entries" type="text" value={String(poCorrectionContext.linkedEntries)} readOnly />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-type">Correction Type *</label>
-                    <select
-                      id="po-correction-desktop-type"
-                      name="type"
-                      value={poCorrectionFormData.type}
-                      onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, type: e.target.value }))}
-                    >
-                      <option value="payment">Payment (Reduce due)</option>
-                      <option value="credit">Credit (Increase due)</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-amount">Amount *</label>
-                    <input
-                      id="po-correction-desktop-amount"
-                      name="amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={poCorrectionFormData.amount}
-                      onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-mode">Mode</label>
-                    <select
-                      id="po-correction-desktop-mode"
-                      name="payment_mode"
-                      value={poCorrectionFormData.payment_mode}
-                      onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, payment_mode: e.target.value }))}
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="bank">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="credit">Credit</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-date">Date</label>
-                    <input
-                      id="po-correction-desktop-date"
-                      name="transaction_date"
-                      type="date"
-                      value={poCorrectionFormData.transaction_date}
-                      onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, transaction_date: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="po-correction-desktop-reference">Reference</label>
-                    <input
-                      id="po-correction-desktop-reference"
-                      name="reference"
-                      type="text"
-                      value={poCorrectionFormData.reference}
-                      onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reference: e.target.value }))}
-                      placeholder="PO number or correction reference"
-                    />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="po-correction-desktop-reason">Correction Reason *</label>
-                  <textarea
-                    id="po-correction-desktop-reason"
-                    name="reason"
-                    rows="3"
-                    value={poCorrectionFormData.reason}
-                    onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Explain why this correction is needed"
-                    required
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={closePoCorrectionForm} disabled={poCorrectionSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={poCorrectionSubmitting}>
-                    {poCorrectionSubmitting ? 'Posting...' : 'Post Correction'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
-
-      {/* Return Form Modal */}
-      {showReturnForm && (
-        isMobile ? (
-          <MobileBottomSheet
-            open
-            onClose={closeReturnForm}
-            title="Create Purchase Return / Exchange"
-            className="purchase-return-sheet"
-            actions={(
-              <>
-                <button type="button" className="cancel-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
-                  Cancel
-                </button>
-                <button type="submit" form="purchase-return-form" className="submit-btn" disabled={returnSubmitting}>
-                  {returnSubmitting ? 'Saving...' : 'Create Return'}
-                </button>
-              </>
-            )}
-          >
-            <form id="purchase-return-form" onSubmit={handleReturnSubmit}>
-              <div className="form-section">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="return-mobile-distributor">Distributor *</label>
-                    <select
-                      id="return-mobile-distributor"
-                      name="distributor_id"
-                      value={returnFormData.distributor_id}
-                      onChange={e => setReturnFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                      required
-                    >
-                      <option value="">Select distributor</option>
-                      {distributors.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="return-mobile-reference-po">Reference PO</label>
-                    <input
-                      id="return-mobile-reference-po"
-                      name="reference_po"
-                      type="text"
-                      value={returnFormData.reference_po}
-                      onChange={e => setReturnFormData(prev => ({ ...prev, reference_po: e.target.value }))}
-                      placeholder="Original PO number"
-                    />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="return-mobile-return-type">Return Type</label>
-                    <select
-                      id="return-mobile-return-type"
-                      name="return_type"
-                      value={returnFormData.return_type}
-                      onChange={e => setReturnFormData(prev => ({ ...prev, return_type: e.target.value }))}
-                    >
-                      <option value="return">Return</option>
-                      <option value="exchange">Exchange</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="return-mobile-reason">Reason</label>
-                    <input
-                      id="return-mobile-reason"
-                      name="reason"
-                      type="text"
-                      value={returnFormData.reason}
-                      onChange={e => setReturnFormData(prev => ({ ...prev, reason: e.target.value }))}
-                      placeholder="Reason for return/exchange"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-section">
-                <div className="section-header">
-                  <h3>Return Items</h3>
-                  <button type="button" className="add-item-btn" onClick={handleReturnItemAdd}>
-                    <Plus size={16} /> Add Item
-                  </button>
-                </div>
-                <div className="items-list">
-                  {returnFormData.items.map((item, index) => {
-                    const selectedProduct = findProductForItem(products, item);
-                    const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                    const selectedUom = resolvePurchaseUnitForProduct(
-                      selectedProduct,
-                      item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
-                    );
-                    const quantityInBase = toBaseQtyForProduct(item.quantity, selectedUom, selectedProduct);
-                    const lineTotal = quantityInBase * Math.max(0, toNumber(item.unit_price));
-                    const baseUnitLabel = getProductUomProfile(selectedProduct).baseUnit;
-                    return (
-                    <div key={index} className="item-row">
-                      <div className="item-field product">
-                        <label htmlFor={`return-mobile-product-${index}`}>Product</label>
-                        <select
-                          id={`return-mobile-product-${index}`}
-                          name={`return_items_${index}_product_id`}
-                          value={item.product_id}
-                          onChange={e => handleReturnItemChange(index, 'product_id', e.target.value)}
-                        >
-                          <option value="">Select product</option>
-                          {products.map(p => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="item-field qty">
-                        <label htmlFor={`return-mobile-qty-${index}`}>Qty</label>
-                        <input
-                          id={`return-mobile-qty-${index}`}
-                          name={`return_items_${index}_quantity`}
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={e => handleReturnItemChange(index, 'quantity', parseFloat(e.target.value))}
-                        />
-                      </div>
-                      <div className="item-field uom">
-                        <label htmlFor={`return-mobile-uom-${index}`}>UOM</label>
-                        <select
-                          id={`return-mobile-uom-${index}`}
-                          name={`return_items_${index}_uom`}
-                          value={selectedUom}
-                          onChange={e => handleReturnItemChange(index, 'uom', e.target.value)}
-                        >
-                          {uomOptions.map((uomOption) => (
-                            <option key={`return-item-${index}-uom-${uomOption}`} value={uomOption}>
-                              {uomOption}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="item-field price">
-                        <label htmlFor={`return-mobile-unit-price-${index}`}>{`Unit Price (per ${baseUnitLabel})`}</label>
-                        <input
-                          id={`return-mobile-unit-price-${index}`}
-                          name={`return_items_${index}_unit_price`}
-                          type="number"
-                          step="0.01"
-                          value={item.unit_price}
-                          onChange={e => handleReturnItemChange(index, 'unit_price', parseFloat(e.target.value))}
-                        />
-                      </div>
-                      <div className="item-field total">
-                        <span className="field-label">Total</span>
-                        <span>{formatCurrency(lineTotal)}</span>
-                      </div>
-                      <button type="button" className="remove-item-btn" onClick={() => handleReturnItemRemove(index)}>
-                        <X size={16} />
-                      </button>
-                    </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </form>
-          </MobileBottomSheet>
-        ) : (
-          <div className="modal-overlay" onClick={closeReturnForm}>
-            <div className="modal-content large" onClick={e => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Create Purchase Return / Exchange</h2>
-                <button className="close-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handleReturnSubmit}>
-                <div className="form-section">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="return-desktop-distributor">Distributor *</label>
-                      <select
-                        id="return-desktop-distributor"
-                        name="distributor_id"
-                        value={returnFormData.distributor_id}
-                        onChange={e => setReturnFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                        required
-                      >
-                        <option value="">Select distributor</option>
-                        {distributors.map(d => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="return-desktop-reference-po">Reference PO</label>
-                      <input
-                        id="return-desktop-reference-po"
-                        name="reference_po"
-                        type="text"
-                        value={returnFormData.reference_po}
-                        onChange={e => setReturnFormData(prev => ({ ...prev, reference_po: e.target.value }))}
-                        placeholder="Original PO number"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="return-desktop-return-type">Return Type</label>
-                      <select
-                        id="return-desktop-return-type"
-                        name="return_type"
-                        value={returnFormData.return_type}
-                        onChange={e => setReturnFormData(prev => ({ ...prev, return_type: e.target.value }))}
-                      >
-                        <option value="return">Return</option>
-                        <option value="exchange">Exchange</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="return-desktop-reason">Reason</label>
-                      <input
-                        id="return-desktop-reason"
-                        name="reason"
-                        type="text"
-                        value={returnFormData.reason}
-                        onChange={e => setReturnFormData(prev => ({ ...prev, reason: e.target.value }))}
-                        placeholder="Reason for return/exchange"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-section">
-                  <div className="section-header">
-                    <h3>Return Items</h3>
-                    <button type="button" className="add-item-btn" onClick={handleReturnItemAdd}>
-                      <Plus size={16} /> Add Item
-                    </button>
-                  </div>
-                  <div className="items-list">
-                    {returnFormData.items.map((item, index) => {
-                      const selectedProduct = findProductForItem(products, item);
-                      const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
-                      const selectedUom = resolvePurchaseUnitForProduct(
-                        selectedProduct,
-                        item.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
-                      );
-                      const quantityInBase = toBaseQtyForProduct(item.quantity, selectedUom, selectedProduct);
-                      const lineTotal = quantityInBase * Math.max(0, toNumber(item.unit_price));
-                      const baseUnitLabel = getProductUomProfile(selectedProduct).baseUnit;
-                      return (
-                      <div key={index} className="item-row">
-                        <div className="item-field product">
-                          <label htmlFor={`return-desktop-product-${index}`}>Product</label>
-                          <select
-                            id={`return-desktop-product-${index}`}
-                            name={`return_items_${index}_product_id`}
-                            value={item.product_id}
-                            onChange={e => handleReturnItemChange(index, 'product_id', e.target.value)}
-                          >
-                            <option value="">Select product</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="item-field qty">
-                          <label htmlFor={`return-desktop-qty-${index}`}>Qty</label>
-                          <input
-                            id={`return-desktop-qty-${index}`}
-                            name={`return_items_${index}_quantity`}
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={e => handleReturnItemChange(index, 'quantity', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div className="item-field uom">
-                          <label htmlFor={`return-desktop-uom-${index}`}>UOM</label>
-                          <select
-                            id={`return-desktop-uom-${index}`}
-                            name={`return_items_${index}_uom`}
-                            value={selectedUom}
-                            onChange={e => handleReturnItemChange(index, 'uom', e.target.value)}
-                          >
-                            {uomOptions.map((uomOption) => (
-                              <option key={`return-item-${index}-uom-${uomOption}`} value={uomOption}>
-                                {uomOption}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="item-field price">
-                          <label htmlFor={`return-desktop-unit-price-${index}`}>{`Unit Price (per ${baseUnitLabel})`}</label>
-                          <input
-                            id={`return-desktop-unit-price-${index}`}
-                            name={`return_items_${index}_unit_price`}
-                            type="number"
-                            step="0.01"
-                            value={item.unit_price}
-                            onChange={e => handleReturnItemChange(index, 'unit_price', parseFloat(e.target.value))}
-                          />
-                        </div>
-                        <div className="item-field total">
-                          <span className="field-label">Total</span>
-                          <span>{formatCurrency(lineTotal)}</span>
-                        </div>
-                        <button type="button" className="remove-item-btn" onClick={() => handleReturnItemRemove(index)}>
-                          <X size={16} />
-                        </button>
-                      </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="modal-actions">
-                  <button type="button" className="cancel-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="submit-btn" disabled={returnSubmitting}>
-                    {returnSubmitting ? 'Saving...' : 'Create Return'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      )}
     </div>
   );
 }

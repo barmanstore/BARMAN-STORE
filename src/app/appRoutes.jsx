@@ -1,21 +1,21 @@
 import { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-const Home = lazy(() => import('../pages/Home'));
+const Home = lazy(() => import('../features/storefront/Home'));
 const Products = lazy(() => import('../features/catalog/products/Products'));
-const Cart = lazy(() => import('../pages/Cart'));
-const Checkout = lazy(() => import('../pages/Checkout'));
-const Login = lazy(() => import('../pages/login'));
+const Cart = lazy(() => import('../features/cart/Cart'));
+const Checkout = lazy(() => import('../features/checkout/Checkout'));
+const Login = lazy(() => import('../features/auth/Login'));
 const Admin = lazy(() => import('../features/admin/Admin'));
 const CreditHistory = lazy(() => import('../features/credits/history/CreditHistory'));
-const OrderHistory = lazy(() => import('../pages/OrderHistory'));
-const OrderTracking = lazy(() => import('../pages/OrderTracking'));
-const OrderDetails = lazy(() => import('../pages/OrderDetails'));
-const Profile = lazy(() => import('../pages/Profile'));
-const MyBills = lazy(() => import('../pages/MyBills'));
-const ProductRecommendations = lazy(() => import('../pages/ProductRecommendations'));
-const StoreInfo = lazy(() => import('../pages/StoreInfo'));
-const StorePage = lazy(() => import('../pages/StorePage'));
+const OrderHistory = lazy(() => import('../features/orders/OrderHistory'));
+const OrderTracking = lazy(() => import('../features/orders/OrderTracking'));
+const OrderDetails = lazy(() => import('../features/orders/OrderDetails'));
+const Profile = lazy(() => import('../features/auth/Profile'));
+const MyBills = lazy(() => import('../features/sales/billing/MyBills'));
+const ProductRecommendations = lazy(() => import('../features/storefront/ProductRecommendations'));
+const StoreInfo = lazy(() => import('../features/storefront/StoreInfo'));
+const StorePage = lazy(() => import('../features/storefront/StorePage'));
 
 export const AppRoutes = ({
   cartCount,

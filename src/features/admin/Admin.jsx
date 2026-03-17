@@ -1,27 +1,41 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+﻿import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Package, ShoppingCart, Users, TrendingUp, LogOut, Plus, Edit, Trash2, X, FolderOpen, CreditCard, FileText, Truck, ShoppingBag, History, BarChart2, Gift, Eye, Menu, Upload, Download, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, X, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { statsApi, productsApi, ordersApi, usersApi, adminApi, billingApi, resolveMediaUrl } from '../../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../../utils/productImage';
 import { formatCurrency, getSignedCurrencyClassName, truncateUserName } from '../../utils/formatters';
-import ProductForm from '../../pages/ProductForm';
-import CategoryManagement from '../../pages/CategoryManagement';
-import DistributorManagement from '../../pages/DistributorManagement';
+import ProductForm from '../catalog/products/ProductForm';
+import CategoryManagement from '../catalog/categories/CategoryManagement';
+import DistributorManagement from '../distributors/DistributorManagement';
 import PurchaseManagement from '../commerce/purchase/PurchaseManagement';
-import StockLedgerHistory from '../../pages/StockLedgerHistory';
-import ProductInsights from '../../pages/ProductInsights';
-import DistributorInsights from '../../pages/DistributorInsights';
-import CreditAgingReport from '../../pages/CreditAgingReport';
-import UserEditModal from '../../pages/UserEditModal';
-import BillingTab from '../../pages/BillingTab';
-import BillsViewer from '../../pages/BillsViewer';
-import OfferManagement from '../../pages/OfferManagement';
-import CreditKhata from '../../pages/CreditKhata';
-import CustomerRequestsAdmin from '../../pages/CustomerRequestsAdmin';
-import AppModal from '../../components/AppModal';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import StockLedgerHistory from '../inventory/StockLedgerHistory';
+import ProductInsights from '../insights/ProductInsights';
+import DistributorInsights from '../insights/DistributorInsights';
+import CreditAgingReport from '../credits/reports/CreditAgingReport';
+import UserEditModal from '../../shared/components/UserEditModal';
+import BillingTab from '../sales/billing/BillingTab';
+import BillsViewer from '../sales/billing/BillsViewer';
+import OfferManagement from '../marketing/OfferManagement';
+import CreditKhata from '../credits/khata/CreditKhata';
+import CustomerRequestsAdmin from '../customerRequests/CustomerRequestsAdmin';
+import AdminApproveModal from './components/AdminApproveModal';
+import AdminExportModal from './components/AdminExportModal';
+import DashboardSection from './sections/DashboardSection';
+import DailySalesSection from './sections/DailySalesSection';
+import ProductsSection from './sections/ProductsSection';
+import OrdersSection from './sections/OrdersSection';
+import UsersSection from './sections/UsersSection';
+import CategoriesSection from './sections/CategoriesSection';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import useIsMobile from '../../hooks/useIsMobile';
+import { MOBILE_ALLOWED_TABS, MOBILE_SIDEBAR_SECTIONS, SIDEBAR_SECTIONS } from './config/adminSidebarConfig';
+import {
+  PRODUCT_TABLE_ALL_COLUMN_KEYS,
+  PRODUCT_TABLE_COLUMN_MIN_WIDTH,
+  PRODUCT_TABLE_COLUMN_OPTIONS,
+  PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS,
+} from './config/productTableConfig';
+import { asNumber, getBrandPath, getCategoryPath, toLocalDateKey } from './utils/adminHelpers';
 import './Admin.css';
 import './AdminStandard.css';
 
@@ -31,163 +45,6 @@ const formatCurrencyColored = (amount) => {
   return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
 };
 
-const asNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const toLocalDateKey = (value) => {
-  const date = new Date(value || '');
-  if (Number.isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const PRODUCT_TABLE_COLUMN_OPTIONS = [
-  { key: 'name', label: 'Name' },
-  { key: 'brand', label: 'Brand' },
-  { key: 'category', label: 'Category' },
-  { key: 'price', label: 'Price' },
-  { key: 'mrp', label: 'MRP' },
-  { key: 'stock', label: 'Stock' },
-  { key: 'sku', label: 'SKU' },
-  { key: 'barcode', label: 'Barcode' },
-  { key: 'status', label: 'Status' },
-  { key: 'description', label: 'Description' },
-  { key: 'content', label: 'Content' },
-  { key: 'purchase_pack_size', label: 'Pack Size' },
-  { key: 'color', label: 'Color' },
-  { key: 'uom', label: 'UOM' },
-  { key: 'expiry', label: 'Expiry' },
-  { key: 'discount', label: 'Discount' },
-  { key: 'discountType', label: 'Disc Type' },
-  { key: 'id', label: 'ID' },
-  { key: 'created', label: 'Created' },
-  { key: 'src', label: 'Src' },
-];
-
-const PRODUCT_TABLE_ALL_COLUMN_KEYS = PRODUCT_TABLE_COLUMN_OPTIONS.map((column) => column.key);
-const PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS = ['name', 'brand', 'category', 'price', 'stock', 'status'];
-const PRODUCT_TABLE_COLUMN_MIN_WIDTH = {
-  name: 130,
-  brand: 95,
-  category: 95,
-  price: 78,
-  mrp: 78,
-  stock: 60,
-  sku: 90,
-  barcode: 90,
-  status: 70,
-  description: 150,
-  content: 80,
-  purchase_pack_size: 90,
-  color: 70,
-  uom: 55,
-  expiry: 90,
-  discount: 60,
-  discountType: 65,
-  id: 50,
-  created: 85,
-  src: 120,
-};
-
-const formatHierarchyPath = (parent, child) => {
-  const root = String(parent || '').trim();
-  const leaf = String(child || '').trim();
-  if (!root) return '';
-  if (!leaf) return root;
-  return `${root} -> ${leaf}`;
-};
-
-const getCategoryPath = (product) => (
-  String(product?.category_path || '').trim()
-  || formatHierarchyPath(product?.category, product?.subcategory)
-  || String(product?.category || '').trim()
-);
-
-const getBrandPath = (product) => (
-  String(product?.brand_path || '').trim()
-  || formatHierarchyPath(product?.brand, product?.sub_brand)
-  || String(product?.brand || '').trim()
-);
-
-const MOBILE_ALLOWED_TABS = new Set([
-  'dashboard',
-  'orders',
-  'products',
-  'billing',
-  'users',
-  'credit-khata',
-  'customer-requests',
-]);
-
-const SIDEBAR_SECTIONS = [
-  {
-    key: 'general',
-    label: 'General',
-    icon: TrendingUp,
-    items: [
-      { tab: 'dashboard', label: 'Dashboard', icon: TrendingUp, mobile: true },
-      { tab: 'orders', label: 'Orders', icon: ShoppingCart, mobile: true },
-      { tab: 'offers', label: 'Offers', icon: Gift, mobile: false },
-      { tab: 'credit-aging', label: 'Credit Aging', icon: BarChart2, mobile: false },
-    ],
-  },
-  {
-    key: 'products',
-    label: 'Products',
-    icon: Package,
-    items: [
-      { tab: 'products', label: 'Products', icon: Package, mobile: true },
-      { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true, mobile: false },
-    ],
-  },
-  {
-    key: 'billing',
-    label: 'Billing',
-    icon: FileText,
-    items: [
-      { tab: 'billing', label: 'Billing', icon: FileText, mobile: true },
-      { tab: 'daily-sales', label: 'Daily Sales', icon: BarChart2, sub: true, mobile: false },
-      { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true, mobile: false },
-    ],
-  },
-  {
-    key: 'purchase',
-    label: 'Purchase',
-    icon: ShoppingBag,
-    items: [
-      { tab: 'purchases', label: 'Purchases', icon: ShoppingBag, mobile: false },
-      { tab: 'distributors', label: 'Distributors', icon: Truck, sub: true, mobile: false },
-      { tab: 'stock-ledger', label: 'Stock History', icon: History, sub: true, mobile: false },
-      { tab: 'product-insights', label: 'Product Insights', icon: BarChart2, sub: true, mobile: false },
-      { tab: 'distributor-insights', label: 'Distributor Insights', icon: TrendingUp, sub: true, mobile: false },
-    ],
-  },
-  {
-    key: 'users',
-    label: 'Users',
-    icon: Users,
-    items: [
-      { tab: 'users', label: 'Users', icon: Users, mobile: true },
-      { tab: 'credit-khata', label: 'Credit Khata', icon: CreditCard, sub: true, mobile: true },
-      { tab: 'customer-requests', label: 'Customer Requests', icon: FileText, sub: true, mobile: true },
-    ],
-  },
-];
-
-const filterSections = (sections, predicate) => (
-  sections
-    .map((section) => ({
-      ...section,
-      items: section.items.filter(predicate),
-    }))
-    .filter((section) => section.items.length > 0)
-);
-
-const MOBILE_SIDEBAR_SECTIONS = filterSections(SIDEBAR_SECTIONS, (item) => item.mobile);
 
 function Admin({ user }) {
   const navigate = useNavigate();
@@ -716,18 +573,6 @@ function Admin({ user }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getInitials = (name) => {
-    const value = String(name || '').trim();
-    if (!value) return 'U';
-    return value.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-  };
-
-  const formatJoinedDate = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
   };
 
   const toggleUserCompactRow = (userId) => {
@@ -1735,1284 +1580,149 @@ function Admin({ user }) {
       <div className="admin-shell-main">
         <div className="admin-content">
         {activeTab === 'dashboard' && (
-          <div className={`dashboard dashboard-${dashboardDensity}`}>
-            <div className="dashboard-header">
-              <h1>Dashboard</h1>
-              {!isMobile && (
-                <div className="dashboard-density-toggle" role="group" aria-label="Dashboard density">
-                  <button
-                    type="button"
-                    className={`dashboard-density-btn ${dashboardDensity === 'compact' ? 'active' : ''}`}
-                    onClick={() => setDashboardDensity('compact')}
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    className={`dashboard-density-btn ${dashboardDensity === 'standard' ? 'active' : ''}`}
-                    onClick={() => setDashboardDensity('standard')}
-                  >
-                    Standard
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="stats-grid grouped-stats-grid">
-              <div className="stat-group-card">
-                <div className="stat-group-head">
-                  <ShoppingCart size={28} />
-                  <div>
-                    <p className="stat-group-kicker">Sales Snapshot</p>
-                    <h3>{formatCurrencyColored(stats.totalRevenue)}</h3>
-                    <p className="stat-group-main-label">Total Revenue</p>
-                  </div>
-                </div>
-                <div className="stat-group-metrics">
-                  <div className="stat-group-metric"><span>Total Orders</span><strong>{asNumber(stats.totalOrders, 0)}</strong></div>
-                  <div className="stat-group-metric"><span>Ordered (Pending Receive)</span><strong>{pendingOrdersList.length}</strong></div>
-                </div>
-              </div>
-
-              <div className="stat-group-card">
-                <div className="stat-group-head">
-                  <Package size={28} />
-                  <div>
-                    <p className="stat-group-kicker">Catalog Health</p>
-                    <h3>{activeProductsCount}</h3>
-                    <p className="stat-group-main-label">Active Products</p>
-                  </div>
-                </div>
-                <div className="stat-group-metrics">
-                  <div className="stat-group-metric"><span>Inactive Products</span><strong>{inactiveProductsCount}</strong></div>
-                  <div className="stat-group-metric"><span>Low Stock (≤10)</span><strong>{lowStockProducts.length}</strong></div>
-                  <div className="stat-group-metric"><span>Total Products</span><strong>{products.length}</strong></div>
-                </div>
-              </div>
-
-              <div className="stat-group-card">
-                <div className="stat-group-head">
-                  <Users size={28} />
-                  <div>
-                    <p className="stat-group-kicker">Customer Status</p>
-                    <h3>{customerUsers.length}</h3>
-                    <p className="stat-group-main-label">Total Customers</p>
-                  </div>
-                </div>
-                <div className="stat-group-metrics">
-                  <div className="stat-group-metric"><span>Online Logged-In</span><strong>{visitorStats.onlineLoggedInUsers}</strong></div>
-                </div>
-              </div>
-
-              <div className="stat-group-card">
-                <div className="stat-group-head">
-                  <TrendingUp size={28} />
-                  <div>
-                    <p className="stat-group-kicker">Visitor Traffic</p>
-                    <h3>{visitorStats.onlineVisitors}</h3>
-                    <p className="stat-group-main-label">Online Visitors</p>
-                  </div>
-                </div>
-                <div className="stat-group-metrics">
-                  <div className="stat-group-metric"><span>Unique Today</span><strong>{visitorStats.uniqueSessionsToday}</strong></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="dashboard-panels">
-              <div className="dashboard-panel">
-                <div className="dashboard-panel-head">
-                  <h3>Quick Actions</h3>
-                </div>
-                <div className="dashboard-actions">
-                  <button className="admin-btn" onClick={() => handleTabChange('orders')}>Manage Orders</button>
-                  <button className="admin-btn" onClick={() => handleTabChange('products')}>Manage Products</button>
-                  <button className="admin-btn" onClick={() => handleTabChange('billing')}>Create Bill</button>
-                </div>
-              </div>
-
-              <div className="dashboard-panel">
-                <div className="dashboard-panel-head">
-                  <h3>Low Stock (≤ 10)</h3>
-                </div>
-                {lowStockProducts.length === 0 ? (
-                  <p className="dashboard-empty">No low stock products.</p>
-                ) : (
-                  <div className="dashboard-list">
-                    {lowStockProducts.map((product) => (
-                      <div className="dashboard-list-row" key={product.id}>
-                        <span className="dashboard-row-primary">{product.name}</span>
-                        <strong className="dashboard-row-value">Stock: {asNumber(product.stock, 0)}</strong>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="dashboard-panel">
-                <div className="dashboard-panel-head">
-                  <h3>Recent Orders</h3>
-                </div>
-                {recentOrders.length === 0 ? (
-                  <p className="dashboard-empty">No orders yet.</p>
-                ) : (
-                  <div className="dashboard-list">
-                    {recentOrders.map((order) => (
-                      <div className="dashboard-list-row" key={order.id}>
-                        <span className="dashboard-row-primary">{order.order_number || `#${order.id}`}</span>
-                        <span className="dashboard-row-secondary">Date: {new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
-                        <span className="dashboard-row-value">{formatCurrency(order.total_amount || 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="dashboard-panel">
-                <div className="dashboard-panel-head">
-                  <h3>Recent Customers</h3>
-                </div>
-                {recentCustomers.length === 0 ? (
-                  <p className="dashboard-empty">No customers found.</p>
-                ) : (
-                  <div className="dashboard-list">
-                    {recentCustomers.map((customer) => (
-                      <div className="dashboard-list-row" key={customer.id}>
-                        <span className="dashboard-row-primary">{truncateUserName(customer.name || '-', 15)}</span>
-                        <span className="dashboard-row-secondary">{customer.phone || customer.email || '-'}</span>
-                        <Link
-                          className="action-btn credit"
-                          to={`/admin/users/${customer.id}/credit?returnTab=dashboard`}
-                          title="Open credit history"
-                        >
-                          <CreditCard size={14} />
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <DashboardSection
+            dashboardDensity={dashboardDensity}
+            setDashboardDensity={setDashboardDensity}
+            isMobile={isMobile}
+            stats={stats}
+            pendingOrdersList={pendingOrdersList}
+            activeProductsCount={activeProductsCount}
+            inactiveProductsCount={inactiveProductsCount}
+            lowStockProducts={lowStockProducts}
+            products={products}
+            customerUsers={customerUsers}
+            visitorStats={visitorStats}
+            recentOrders={recentOrders}
+            recentCustomers={recentCustomers}
+            onTabChange={handleTabChange}
+          />
         )}
 
         {activeTab === 'daily-sales' && (
-          <div className="daily-sales-summary">
-            <AdminPageHeader
-              className="section-header"
-              title="Daily Sales Summary"
-              actions={(
-                <div className="daily-sales-controls">
-                  <input
-                    id="daily-sales-date"
-                    name="daily_sales_date"
-                    type="date"
-                    className="daily-sales-date-input"
-                    value={selectedDateKey}
-                    onChange={(event) => setDailySalesDate(String(event.target.value || '').trim())}
-                  />
-                  <button
-                    type="button"
-                    className="admin-btn"
-                    onClick={() => { void loadDailySalesBills({ silent: false }); }}
-                    disabled={dailySalesLoading}
-                  >
-                    {dailySalesLoading ? 'Refreshing...' : 'Refresh'}
-                  </button>
-                </div>
-              )}
-            />
-
-            {dailySalesError ? <p className="daily-sales-error">{dailySalesError}</p> : null}
-
-            <div className="stats-grid daily-sales-cards">
-              <div className="stat-card">
-                <BarChart2 size={22} />
-                <div>
-                  <h3>{formatCurrency(dailySalesSummary.totalBilled)}</h3>
-                  <p>Total Billed</p>
-                </div>
-              </div>
-              <div className="stat-card">
-                <ShoppingCart size={22} />
-                <div>
-                  <h3>{formatCurrency(dailySalesSummary.cashCollected)}</h3>
-                  <p>Cash Collected</p>
-                </div>
-              </div>
-              <div className="stat-card">
-                <CreditCard size={22} />
-                <div>
-                  <h3>{formatCurrency(dailySalesSummary.creditIssued)}</h3>
-                  <p>Credit Issued</p>
-                </div>
-              </div>
-              <div className="stat-card">
-                <TrendingUp size={22} />
-                <div>
-                  <h3>{formatCurrency(dailySalesSummary.expectedDrawerCash)}</h3>
-                  <p>Expected Cash In Drawer</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="daily-sales-meta-row">
-              <span>Transactions: <strong>{dailySalesSummary.txCount}</strong></span>
-              <span>Paid Bills: <strong>{dailySalesSummary.paidBills}</strong></span>
-              <span>Pending Bills: <strong>{dailySalesSummary.pendingBills}</strong></span>
-              <span>Avg Ticket: <strong>{formatCurrency(dailySalesSummary.avgTicket)}</strong></span>
-            </div>
-
-            <div className="orders-table daily-sales-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Bill</th>
-                    <th>Customer</th>
-                    <th>Total</th>
-                    <th>Paid</th>
-                    <th>Credit</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedSalesBills.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="orders-empty-row">No sales bills found for selected date.</td>
-                    </tr>
-                  ) : selectedSalesBills.map((bill) => (
-                    <tr key={bill.id}>
-                      <td>{new Date(bill.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                      <td>{bill.bill_number || `#${bill.id}`}</td>
-                      <td>{truncateUserName(bill.customer_name || '-', 15)}</td>
-                      <td>{formatCurrency(asNumber(bill.total_amount, 0))}</td>
-                      <td>{formatCurrency(asNumber(bill.paid_amount, 0))}</td>
-                      <td>{formatCurrency(asNumber(bill.credit_amount, 0))}</td>
-                      <td>{String(bill.payment_status || '-').toUpperCase()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DailySalesSection
+            selectedDateKey={selectedDateKey}
+            onDateChange={setDailySalesDate}
+            onRefresh={() => { void loadDailySalesBills({ silent: false }); }}
+            dailySalesLoading={dailySalesLoading}
+            dailySalesError={dailySalesError}
+            dailySalesSummary={dailySalesSummary}
+            selectedSalesBills={selectedSalesBills}
+          />
         )}
 
         {activeTab === 'products' && (
-          <div className="products-management">
-            <AdminPageHeader
-              className="section-header"
-              title="Products Management"
-              actions={(
-                <div className="products-actions">
-                  <div className="products-actions-right">
-                    {!isMobile && (
-                      <>
-                        <div className="products-io-icons">
-                          <button
-                            type="button"
-                            className="products-icon-btn products-icon-btn-add"
-                            onClick={handleAddProduct}
-                            title="Add product"
-                            aria-label="Add product"
-                          >
-                            <span className="products-icon-plus" aria-hidden="true">+</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="products-icon-btn"
-                            onClick={() => setShowExportDialog(true)}
-                            disabled={importBusy}
-                            title="Export products"
-                            aria-label="Export products"
-                          >
-                            <Download size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            className="products-icon-btn"
-                            onClick={handleStartImport}
-                            disabled={importBusy}
-                            title="Import products"
-                            aria-label="Import products"
-                          >
-                            <Upload size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            className="products-icon-btn"
-                            onClick={handleConfirmImport}
-                            disabled={importBusy || !importPreviewData?.batch_id}
-                            title="Confirm import"
-                            aria-label="Confirm import"
-                          >
-                            <CheckCircle2 size={16} />
-                          </button>
-                        </div>
-                        <div
-                          className={`products-view-switch ${effectiveProductViewMode === 'grid' ? 'is-grid' : 'is-table'}`}
-                          role="group"
-                          aria-label="Product view mode"
-                        >
-                          <button
-                            type="button"
-                            className={`products-view-switch-option table ${effectiveProductViewMode === 'table' ? 'active' : ''}`}
-                            onClick={() => setProductViewMode('table')}
-                            aria-pressed={effectiveProductViewMode === 'table'}
-                          >
-                            Table
-                          </button>
-                          <button
-                            type="button"
-                            className={`products-view-switch-option grid ${effectiveProductViewMode === 'grid' ? 'active' : ''}`}
-                            onClick={() => setProductViewMode('grid')}
-                            aria-pressed={effectiveProductViewMode === 'grid'}
-                          >
-                            Grid
-                          </button>
-                          <span className="products-view-switch-knob" aria-hidden="true">
-                            {effectiveProductViewMode === 'grid' ? <CheckCircle2 size={14} /> : <X size={14} />}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            />
-            <input
-              id="import-file-input"
-              name="import_file"
-              ref={importFileInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileSelected}
-              disabled={importBusy}
-              style={{ display: 'none' }}
-            />
-            {showProductsImportCard ? (
-              <div className="products-import-export-card">
-                {importPreviewData?.batch_id ? (
-                  <div className="products-import-controls">
-                    <span>{importFile ? `Selected: ${importFile.name}` : 'No file selected'}</span>
-                  </div>
-                ) : null}
-                {importPreviewData?.summary && (
-                  <div className="products-import-preview-summary">
-                    <span>Creates: {importPreviewData.summary.creates}</span>
-                    <span>Updates: {importPreviewData.summary.updates}</span>
-                    <span>Errors: {importPreviewData.summary.errors}</span>
-                    <span>Needs Choice: {importPreviewData.summary.needs_confirmation || 0}</span>
-                    <span>Expires: {new Date(importPreviewData.expires_at).toLocaleString()}</span>
-                  </div>
-                )}
-                {Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0 && (
-                  <div className="products-import-preview-table-wrap">
-                    <table className="products-import-preview-table">
-                      <thead>
-                        <tr>
-                          <th>Row</th>
-                          <th>Action</th>
-                          <th>Status</th>
-                          <th>Allow</th>
-                          <th>Details</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importPreviewData.preview.slice(0, 25).map((row) => (
-                          <tr key={`preview-${row.row}`}>
-                            <td>{row.row}</td>
-                            <td>{row.action}</td>
-                            <td>{row.status}</td>
-                            <td>
-                              {row.status === 'needs_confirmation' ? (
-                                <input
-                                  id={`import-allow-identical-${row.row}`}
-                                  name={`import_allow_identical_${row.row}`}
-                                  type="checkbox"
-                                  checked={importAllowIdenticalRows.includes(Number(row.row))}
-                                  onChange={(e) => {
-                                    const rowNo = Number(row.row);
-                                    setImportAllowIdenticalRows((prev) => {
-                                      if (e.target.checked) return Array.from(new Set([...prev, rowNo]));
-                                      return prev.filter((v) => v !== rowNo);
-                                    });
-                                  }}
-                                />
-                              ) : '-'}
-                            </td>
-                            <td>
-                              {row.errors?.length
-                                ? row.errors.join('; ')
-                                : row.warnings?.length
-                                  ? row.warnings.join('; ')
-                                  : 'Ready'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {importPreviewData.preview.length > 25 && (
-                      <p className="products-import-preview-note">
-                        Showing first 25 rows of {importPreviewData.preview.length}. Confirm applies full validated batch.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : null}
-            <div className="products-common-toolbar">
-              <input
-                id="products-search"
-                name="products_search"
-                type="text"
-                className="products-table-search products-common-search"
-                placeholder="Search by name, SKU, barcode, category, brand..."
-                value={productTableSearch}
-                onChange={(e) => setProductTableSearch(e.target.value)}
-              />
-              <span className="products-table-count">Rows: {visibleProducts.length}</span>
-            </div>
-            {effectiveProductViewMode === 'table' ? (
-              <>
-                <div className="products-table-toolbar">
-                  <select
-                    id="products-table-filter-category"
-                    name="products_table_filter_category"
-                    className="products-table-filter products-table-filter-category"
-                    value={productTableCategoryFilter}
-                    onChange={(e) => setProductTableCategoryFilter(e.target.value)}
-                  >
-                    <option value="">All Categories</option>
-                    {productCategories.map((category) => (
-                      <option key={`filter-${category}`} value={category}>{category}</option>
-                    ))}
-                  </select>
-                  <details className="products-column-picker" ref={productColumnPickerRef}>
-                    <summary>Columns ({productTableVisibleColumns.length}/{PRODUCT_TABLE_ALL_COLUMN_KEYS.length})</summary>
-                    <div className="products-column-picker-panel">
-                      <label className="products-column-option products-column-option-all">
-                        <input
-                          id="product-table-all-columns"
-                          name="all_columns"
-                          type="checkbox"
-                          checked={productTableAllColumnsSelected}
-                          onChange={(e) => toggleSelectAllProductTableColumns(e.target.checked)}
-                        />
-                        Select All
-                      </label>
-                      <div className="products-column-list">
-                        {PRODUCT_TABLE_COLUMN_OPTIONS.map((column) => (
-                          <label key={`column-toggle-${column.key}`} className="products-column-option">
-                            <input
-                              id={`product-table-column-${column.key}`}
-                              name={`column_${column.key}`}
-                              type="checkbox"
-                              checked={isProductTableColumnVisible(column.key)}
-                              onChange={() => toggleProductTableColumn(column.key)}
-                            />
-                            {column.label}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </details>
-                  <select
-                    id="products-table-filter-status"
-                    name="products_table_filter_status"
-                    className="products-table-filter products-table-filter-status"
-                    value={productTableStatusFilter}
-                    onChange={(e) => setProductTableStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="available">Available (In Stock)</option>
-                    <option value="out_of_stock">Out of Stock</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                  <label className="products-table-filter products-table-checkbox">
-                    <input
-                      id="product-table-low-stock"
-                      name="low_stock_only"
-                      type="checkbox"
-                      checked={productTableLowStockOnly}
-                      onChange={(e) => setProductTableLowStockOnly(e.target.checked)}
-                    />
-                    Low Stock
-                  </label>
-                </div>
-                {selectedVisibleProduct ? (
-                  <div className="products-selected-actions">
-                    <div className="products-selected-meta">
-                      Selected: <strong title={selectedVisibleProduct.name || '-'}>
-                        {selectedVisibleProduct.name || '-'}
-                      </strong>
-                    </div>
-                    <div className="products-selected-buttons">
-                      {tableEditId === selectedVisibleProduct.id ? (
-                        <>
-                          <button className="action-btn edit" onClick={() => handleTableEditSave(selectedVisibleProduct)} disabled={tableEditSaving}>
-                            {tableEditSaving ? '...' : 'Save'}
-                          </button>
-                          <button className="action-btn delete" onClick={cancelTableEdit} disabled={tableEditSaving}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button className="action-btn edit" onClick={() => openTableEdit(selectedVisibleProduct)} title="Inline edit">
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            className="action-btn edit"
-                            onClick={() => handleEditProduct(selectedVisibleProduct)}
-                            title={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
-                            disabled={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0)}
-                          >
-                            <FolderOpen size={16} />
-                          </button>
-                          <button className="action-btn delete" onClick={() => handleDeleteProduct(selectedVisibleProduct.id)}>
-                            <Trash2 size={16} />
-                          </button>
-                          {Number(selectedVisibleProduct.is_active ?? 1) === 0 ? (
-                            <button
-                              className="action-btn delete"
-                              title="Permanent delete"
-                              onClick={() => handlePermanentDeleteProduct(selectedVisibleProduct)}
-                            >
-                              <X size={16} />
-                            </button>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
-                <div className="products-table">
-                  <table style={{ minWidth: `${productTableCalculatedMinWidth}px` }}>
-                    <thead>
-                      <tr>
-                        <th className="col-pick">Pick</th>
-                        {isProductTableColumnVisible('name') ? <th className="sortable col-name" onClick={() => toggleProductTableSort('name')}>Name{getSortIndicator('name')}</th> : null}
-                        {isProductTableColumnVisible('brand') ? <th className="sortable col-brand" onClick={() => toggleProductTableSort('brand')}>Brand{getSortIndicator('brand')}</th> : null}
-                        {isProductTableColumnVisible('category') ? <th className="sortable col-category" onClick={() => toggleProductTableSort('category')}>Category{getSortIndicator('category')}</th> : null}
-                        {isProductTableColumnVisible('price') ? <th className="sortable col-price" onClick={() => toggleProductTableSort('price')}>Price{getSortIndicator('price')}</th> : null}
-                        {isProductTableColumnVisible('mrp') ? <th className="sortable col-mrp" onClick={() => toggleProductTableSort('mrp')}>MRP{getSortIndicator('mrp')}</th> : null}
-                        {isProductTableColumnVisible('stock') ? <th className="sortable col-stock" onClick={() => toggleProductTableSort('stock')}>Stock{getSortIndicator('stock')}</th> : null}
-                        {isProductTableColumnVisible('sku') ? <th className="sortable col-sku" onClick={() => toggleProductTableSort('sku')}>SKU{getSortIndicator('sku')}</th> : null}
-                        {isProductTableColumnVisible('barcode') ? <th className="sortable col-barcode" onClick={() => toggleProductTableSort('barcode')}>Barcode{getSortIndicator('barcode')}</th> : null}
-                        {isProductTableColumnVisible('status') ? <th className="sortable col-status" onClick={() => toggleProductTableSort('is_active')}>Status{getSortIndicator('is_active')}</th> : null}
-                        {isProductTableColumnVisible('description') ? <th className="col-description">Description</th> : null}
-                        {isProductTableColumnVisible('content') ? <th className="col-content">Content</th> : null}
-                        {isProductTableColumnVisible('purchase_pack_size') ? <th className="sortable col-pack" onClick={() => toggleProductTableSort('purchase_pack_size')}>Pack Size{getSortIndicator('purchase_pack_size')}</th> : null}
-                        {isProductTableColumnVisible('color') ? <th className="col-color">Color</th> : null}
-                        {isProductTableColumnVisible('uom') ? <th className="col-uom">UOM</th> : null}
-                        {isProductTableColumnVisible('expiry') ? <th className="col-expiry">Expiry</th> : null}
-                        {isProductTableColumnVisible('discount') ? <th className="sortable col-discount" onClick={() => toggleProductTableSort('defaultDiscount')}>Discount{getSortIndicator('defaultDiscount')}</th> : null}
-                        {isProductTableColumnVisible('discountType') ? <th className="col-discountType">Disc Type</th> : null}
-                        {isProductTableColumnVisible('id') ? <th className="sortable col-id" onClick={() => toggleProductTableSort('id')}>ID{getSortIndicator('id')}</th> : null}
-                        {isProductTableColumnVisible('created') ? <th className="sortable col-created" onClick={() => toggleProductTableSort('created_at')}>Created{getSortIndicator('created_at')}</th> : null}
-                        {isProductTableColumnVisible('src') ? <th className="sortable col-src" onClick={() => toggleProductTableSort('src')}>Src{getSortIndicator('src')}</th> : null}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visibleProducts.map(product => {
-                        const isEditingRow = tableEditId === product.id;
-                        const cellClassName = (base = '') => [base, !isEditingRow ? 'cell-editable' : ''].filter(Boolean).join(' ');
-                        return (
-                          <tr key={product.id} className={Number(selectedProductId) === Number(product.id) ? 'product-row-selected' : ''}>
-                            <td className="col-pick">
-                              <button
-                                type="button"
-                                className={`row-pick-btn ${Number(selectedProductId) === Number(product.id) ? 'active' : ''}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedProductId(Number(product.id) || 0);
-                                }}
-                                title="Select product"
-                                aria-label={`Select ${product.name || 'product'}`}
-                              />
-                            </td>
-                            {isProductTableColumnVisible('name') ? (
-                              <td className={cellClassName('col-name')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'name') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-name-${product.id}`} ref={setTableEditFieldRef('name')} className="table-edit-input" name="table_edit_name" value={tableEditForm.name} onChange={(e) => handleTableEditChange('name', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate cell-name" title={product.name || '-'}>{product.name || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('brand') ? (
-                              <td className={cellClassName('col-brand')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'brand') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-brand-${product.id}`} ref={setTableEditFieldRef('brand')} className="table-edit-input" name="table_edit_brand" value={tableEditForm.brand} onChange={(e) => handleTableEditChange('brand', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate cell-brand" title={getBrandPath(product) || '-'}>{getBrandPath(product) || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('category') ? (
-                              <td className={cellClassName('col-category')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'category') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-category-${product.id}`} ref={setTableEditFieldRef('category')} className="table-edit-input" name="table_edit_category" list="admin-product-category-list" value={tableEditForm.category} onChange={(e) => handleTableEditChange('category', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate cell-category" title={getCategoryPath(product) || '-'}>{getCategoryPath(product) || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('price') ? (
-                              <td className={cellClassName('col-price')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'price') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-price-${product.id}`} ref={setTableEditFieldRef('price')} className="table-edit-input" name="table_edit_price" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('mrp') ? (
-                              <td className={cellClassName('col-mrp')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'mrp') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-mrp-${product.id}`} ref={setTableEditFieldRef('mrp')} className="table-edit-input" name="table_edit_mrp" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('stock') ? (
-                              <td className={cellClassName('col-stock')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'stock') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-stock-${product.id}`} ref={setTableEditFieldRef('stock')} className="table-edit-input" name="table_edit_stock" type="number" min="0" step="1" value={tableEditForm.stock} onChange={(e) => handleTableEditChange('stock', e.target.value)} /> : <span className={product.stock < 10 ? 'low-stock' : ''}>{product.stock}</span>}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('sku') ? (
-                              <td className={cellClassName('col-sku')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'sku') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-sku-${product.id}`} ref={setTableEditFieldRef('sku')} className="table-edit-input" name="table_edit_sku" value={tableEditForm.sku} onChange={(e) => handleTableEditChange('sku', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate cell-code" title={product.sku || '-'}>{product.sku || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('barcode') ? (
-                              <td className={cellClassName('col-barcode')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'barcode') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-barcode-${product.id}`} ref={setTableEditFieldRef('barcode')} className="table-edit-input" name="table_edit_barcode" value={tableEditForm.barcode} onChange={(e) => handleTableEditChange('barcode', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate cell-code" title={product.barcode || '-'}>{product.barcode || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('status') ? (
-                              <td className={cellClassName('col-status')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'is_active') : undefined}>
-                                {isEditingRow ? (
-                                  <select id={`table-edit-is-active-${product.id}`} ref={setTableEditFieldRef('is_active')} className="table-edit-input" name="table_edit_is_active" value={tableEditForm.is_active ? '1' : '0'} onChange={(e) => handleTableEditChange('is_active', e.target.value === '1')}>
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                  </select>
-                                ) : (Number(product.is_active ?? 1) === 1 ? 'Active' : 'Inactive')}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('description') ? (
-                              <td className={cellClassName('col-description')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'description') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-description-${product.id}`} ref={setTableEditFieldRef('description')} className="table-edit-input" name="table_edit_description" value={tableEditForm.description} onChange={(e) => handleTableEditChange('description', e.target.value)} />
-                                ) : (
-                                  <span className="description-snippet" title={product.description || '-'}>{product.description || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('content') ? (
-                              <td className={cellClassName('col-content')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'content') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-content-${product.id}`} ref={setTableEditFieldRef('content')} className="table-edit-input" name="table_edit_content" value={tableEditForm.content} onChange={(e) => handleTableEditChange('content', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate" title={product.content || '-'}>{product.content || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('purchase_pack_size') ? (
-                              <td className={cellClassName('col-pack')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'purchase_pack_size') : undefined}>
-                                {isEditingRow ? (
-                                  <input
-                                    id={`table-edit-pack-size-${product.id}`}
-                                    ref={setTableEditFieldRef('purchase_pack_size')}
-                                    className="table-edit-input"
-                                    name="table_edit_purchase_pack_size"
-                                    type="number"
-                                    min="0.01"
-                                    step="0.01"
-                                    value={tableEditForm.purchase_pack_size}
-                                    onChange={(e) => handleTableEditChange('purchase_pack_size', e.target.value)}
-                                  />
-                                ) : (
-                                  <span className="cell-truncate" title={product.purchase_pack_size ?? '-'}>{product.purchase_pack_size ?? '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('color') ? (
-                              <td className={cellClassName('col-color')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'color') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-color-${product.id}`} ref={setTableEditFieldRef('color')} className="table-edit-input" name="table_edit_color" value={tableEditForm.color} onChange={(e) => handleTableEditChange('color', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate" title={product.color || '-'}>{product.color || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('uom') ? (
-                              <td className={cellClassName('col-uom')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'uom') : undefined}>
-                                {isEditingRow ? (
-                                  <input id={`table-edit-uom-${product.id}`} ref={setTableEditFieldRef('uom')} className="table-edit-input" name="table_edit_uom" value={tableEditForm.uom} onChange={(e) => handleTableEditChange('uom', e.target.value)} />
-                                ) : (
-                                  <span className="cell-truncate" title={product.uom || '-'}>{product.uom || '-'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('expiry') ? (
-                              <td className={cellClassName('col-expiry')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'expiry_date') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-expiry-date-${product.id}`} ref={setTableEditFieldRef('expiry_date')} className="table-edit-input" name="table_edit_expiry_date" type="date" value={tableEditForm.expiry_date} onChange={(e) => handleTableEditChange('expiry_date', e.target.value)} /> : (product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : '-')}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('discount') ? (
-                              <td className={cellClassName('col-discount')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'defaultDiscount') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-discount-${product.id}`} ref={setTableEditFieldRef('defaultDiscount')} className="table-edit-input" name="table_edit_default_discount" type="number" min="0" step="0.01" value={tableEditForm.defaultDiscount} onChange={(e) => handleTableEditChange('defaultDiscount', e.target.value)} /> : asNumber(product.defaultDiscount, 0)}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('discountType') ? (
-                              <td className={cellClassName('col-discountType')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'discountType') : undefined}>
-                                {isEditingRow ? (
-                                  <select id={`table-edit-discount-type-${product.id}`} ref={setTableEditFieldRef('discountType')} className="table-edit-input" name="table_edit_discount_type" value={tableEditForm.discountType} onChange={(e) => handleTableEditChange('discountType', e.target.value)}>
-                                    <option value="fixed">fixed</option>
-                                    <option value="percentage">percentage</option>
-                                  </select>
-                                ) : (
-                                  <span className="cell-truncate" title={product.discountType || 'fixed'}>{product.discountType || 'fixed'}</span>
-                                )}
-                              </td>
-                            ) : null}
-                            {isProductTableColumnVisible('id') ? (
-                              <td className={cellClassName('col-id')} onClick={() => handleTableCellClick(product, 'name')}>{product.id}</td>
-                            ) : null}
-                            {isProductTableColumnVisible('created') ? (
-                              <td className={cellClassName('col-created')} onClick={() => handleTableCellClick(product, 'name')}>{product.created_at ? new Date(product.created_at).toLocaleDateString() : '-'}</td>
-                            ) : null}
-                            {isProductTableColumnVisible('src') ? (
-                              <td className={cellClassName('col-src')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'image') : undefined}>
-                                {isEditingRow ? <input id={`table-edit-image-${product.id}`} ref={setTableEditFieldRef('image')} className="table-edit-input" name="table_edit_image" value={tableEditForm.image} onChange={(e) => handleTableEditChange('image', e.target.value)} /> : <span className="src-cell" title={product.image || '-'}>{product.image || '-'}</span>}
-                              </td>
-                            ) : null}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <div className="products-grid-admin">
-                <div className="product-admin-card add-product-card">
-                  {!showQuickAdd ? (
-                    <button className="quick-add-trigger" onClick={() => setShowQuickAdd(true)}>
-                      <Plus size={18} /> Quick Add Product
-                    </button>
-                  ) : (
-                    <div className="quick-form">
-                      <h3>Quick Add</h3>
-                      <input
-                        id="quick-add-name"
-                        name="name"
-                        type="text"
-                        placeholder="Product name"
-                        value={quickAddForm.name}
-                        onChange={(e) => setQuickAddForm(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                      <input
-                        id="quick-add-category"
-                        name="category"
-                        type="text"
-                        list="admin-product-category-list"
-                        placeholder="Category"
-                        value={quickAddForm.category}
-                        onChange={(e) => setQuickAddForm(prev => ({ ...prev, category: e.target.value }))}
-                      />
-                      <input
-                        id="quick-add-price"
-                        name="price"
-                        type="number"
-                        placeholder="Price"
-                        min="0"
-                        step="0.01"
-                        value={quickAddForm.price}
-                        onChange={(e) => setQuickAddForm(prev => ({ ...prev, price: e.target.value }))}
-                      />
-                      <input
-                        id="quick-add-stock"
-                        name="stock"
-                        type="number"
-                        placeholder="Stock"
-                        min="0"
-                        step="1"
-                        value={quickAddForm.stock}
-                        onChange={(e) => setQuickAddForm(prev => ({ ...prev, stock: e.target.value }))}
-                      />
-                      <input
-                        id="quick-add-image"
-                        name="image"
-                        type="text"
-                        placeholder="Image URL (optional)"
-                        value={quickAddForm.image}
-                        onChange={(e) => setQuickAddForm(prev => ({ ...prev, image: e.target.value }))}
-                      />
-                      <div className="quick-form-actions">
-                        <button className="admin-btn" onClick={() => { setShowQuickAdd(false); resetQuickAdd(); }} disabled={quickSaving}>
-                          Cancel
-                        </button>
-                        <button className="admin-btn primary" onClick={handleQuickAddSave} disabled={quickSaving}>
-                          {quickSaving ? 'Saving...' : 'Save'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {visibleProducts.map(product => {
-                  const isEditingQuick = quickEditId === product.id;
-                  const imageSourceProduct = isEditingQuick
-                    ? {
-                        image: quickEditForm.image,
-                        name: quickEditForm.name || product.name,
-                        category: quickEditForm.category || getCategoryPath(product),
-                        brand: getBrandPath(product)
-                      }
-                    : product;
-                  return (
-                    <div key={product.id} className="product-admin-card">
-                      <img
-                        src={getProductImageSrc(imageSourceProduct)}
-                        alt={product.name}
-                        className="product-thumbnail-large"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = getProductFallbackImage(imageSourceProduct);
-                        }}
-                      />
-                      {isEditingQuick ? (
-                        <div className="quick-form">
-                          <input
-                            id={`quick-edit-name-${product.id}`}
-                            name="name"
-                            type="text"
-                            placeholder="Product name"
-                            value={quickEditForm.name}
-                            onChange={(e) => setQuickEditForm(prev => ({ ...prev, name: e.target.value }))}
-                          />
-                          <input
-                            id={`quick-edit-category-${product.id}`}
-                            name="category"
-                            type="text"
-                            list="admin-product-category-list"
-                            placeholder="Category"
-                            value={quickEditForm.category}
-                            onChange={(e) => setQuickEditForm(prev => ({ ...prev, category: e.target.value }))}
-                          />
-                          <input
-                            id={`quick-edit-price-${product.id}`}
-                            name="price"
-                            type="number"
-                            placeholder="Price"
-                            min="0"
-                            step="0.01"
-                            value={quickEditForm.price}
-                            onChange={(e) => setQuickEditForm(prev => ({ ...prev, price: e.target.value }))}
-                          />
-                          <input
-                            id={`quick-edit-stock-${product.id}`}
-                            name="stock"
-                            type="number"
-                            placeholder="Stock"
-                            min="0"
-                            step="1"
-                            value={quickEditForm.stock}
-                            onChange={(e) => setQuickEditForm(prev => ({ ...prev, stock: e.target.value }))}
-                          />
-                          <input
-                            id={`quick-edit-image-${product.id}`}
-                            name="image"
-                            type="text"
-                            placeholder="Image URL (optional)"
-                            value={quickEditForm.image}
-                            onChange={(e) => setQuickEditForm(prev => ({ ...prev, image: e.target.value }))}
-                          />
-                          <div className="quick-form-actions">
-                            <button className="admin-btn" onClick={cancelQuickEdit} disabled={quickSaving}>
-                              Cancel
-                            </button>
-                            <button className="admin-btn primary" onClick={() => handleQuickEditSave(product)} disabled={quickSaving}>
-                              {quickSaving ? 'Saving...' : 'Update'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="product-card-title-row">
-                            <h3>{product.name}</h3>
-                            {Number(product.is_active ?? 1) === 0 ? (
-                              <span className="product-status-badge inactive">Inactive</span>
-                            ) : null}
-                          </div>
-                          <p className="product-meta">{getBrandPath(product) || 'Unbranded'}</p>
-                          <p className="product-meta">{getCategoryPath(product)}</p>
-                          <p className="product-meta">{formatCurrencyColored(product.price)}</p>
-                          <p className={product.stock < 10 ? 'product-stock-label low-stock' : 'product-stock-label'}>
-                            Stock: {product.stock}
-                          </p>
-                          <div className="product-card-actions">
-                            <button className="action-btn edit" onClick={() => startQuickEdit(product)} title="Quick edit">
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              className="action-btn edit"
-                              onClick={() => handleEditProduct(product)}
-                              title={Number(productEditLoadingId || 0) === Number(product.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
-                              disabled={Number(productEditLoadingId || 0) === Number(product.id || 0)}
-                            >
-                              <FolderOpen size={16} />
-                            </button>
-                            <button className="action-btn delete" onClick={() => handleDeleteProduct(product.id)} title="Delete">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                <datalist id="admin-product-category-list">
-                  {productCategories.map(category => (
-                    <option key={category} value={category} />
-                  ))}
-                </datalist>
-              </div>
-            )}
-          </div>
+          <ProductsSection
+            isMobile={isMobile}
+            handleAddProduct={handleAddProduct}
+            setShowExportDialog={setShowExportDialog}
+            importBusy={importBusy}
+            handleStartImport={handleStartImport}
+            handleConfirmImport={handleConfirmImport}
+            showProductsImportCard={showProductsImportCard}
+            importPreviewData={importPreviewData}
+            importFile={importFile}
+            importAllowIdenticalRows={importAllowIdenticalRows}
+            setImportAllowIdenticalRows={setImportAllowIdenticalRows}
+            effectiveProductViewMode={effectiveProductViewMode}
+            setProductViewMode={setProductViewMode}
+            importFileInputRef={importFileInputRef}
+            handleFileSelected={handleFileSelected}
+            productTableSearch={productTableSearch}
+            setProductTableSearch={setProductTableSearch}
+            visibleProducts={visibleProducts}
+            productTableCategoryFilter={productTableCategoryFilter}
+            setProductTableCategoryFilter={setProductTableCategoryFilter}
+            productCategories={productCategories}
+            productColumnPickerRef={productColumnPickerRef}
+            productTableVisibleColumns={productTableVisibleColumns}
+            productTableAllColumnsSelected={productTableAllColumnsSelected}
+            toggleSelectAllProductTableColumns={toggleSelectAllProductTableColumns}
+            isProductTableColumnVisible={isProductTableColumnVisible}
+            toggleProductTableColumn={toggleProductTableColumn}
+            productTableStatusFilter={productTableStatusFilter}
+            setProductTableStatusFilter={setProductTableStatusFilter}
+            productTableLowStockOnly={productTableLowStockOnly}
+            setProductTableLowStockOnly={setProductTableLowStockOnly}
+            selectedVisibleProduct={selectedVisibleProduct}
+            tableEditId={tableEditId}
+            handleTableEditSave={handleTableEditSave}
+            tableEditSaving={tableEditSaving}
+            cancelTableEdit={cancelTableEdit}
+            openTableEdit={openTableEdit}
+            handleEditProduct={handleEditProduct}
+            productEditLoadingId={productEditLoadingId}
+            handleDeleteProduct={handleDeleteProduct}
+            handlePermanentDeleteProduct={handlePermanentDeleteProduct}
+            productTableCalculatedMinWidth={productTableCalculatedMinWidth}
+            toggleProductTableSort={toggleProductTableSort}
+            getSortIndicator={getSortIndicator}
+            tableEditForm={tableEditForm}
+            handleTableCellClick={handleTableCellClick}
+            setTableEditFieldRef={setTableEditFieldRef}
+            handleTableEditChange={handleTableEditChange}
+            setSelectedProductId={setSelectedProductId}
+            selectedProductId={selectedProductId}
+            showQuickAdd={showQuickAdd}
+            setShowQuickAdd={setShowQuickAdd}
+            quickAddForm={quickAddForm}
+            setQuickAddForm={setQuickAddForm}
+            resetQuickAdd={resetQuickAdd}
+            quickSaving={quickSaving}
+            handleQuickAddSave={handleQuickAddSave}
+            quickEditId={quickEditId}
+            quickEditForm={quickEditForm}
+            setQuickEditForm={setQuickEditForm}
+            cancelQuickEdit={cancelQuickEdit}
+            handleQuickEditSave={handleQuickEditSave}
+            startQuickEdit={startQuickEdit}
+            getProductImageSrc={getProductImageSrc}
+            getProductFallbackImage={getProductFallbackImage}
+            getCategoryPath={getCategoryPath}
+            getBrandPath={getBrandPath}
+            formatCurrencyColored={formatCurrencyColored}
+          />
         )}
 
         {activeTab === 'orders' && (
-          <div className="orders-management">
-            <AdminPageHeader className="section-header" title="Orders Management" />
-            <div className="orders-toolbar">
-              <input
-                id="orders-search"
-                name="orders_search"
-                type="text"
-                className="orders-search-input"
-                aria-label="Search orders"
-                placeholder="Search order #, customer, email, status..."
-                value={ordersSearchQuery}
-                onChange={(e) => setOrdersSearchQuery(e.target.value)}
-              />
-              <span className="orders-search-count">
-                Showing {visibleOrders.length} of {orders.length} orders
-              </span>
-            </div>
-            <div className="orders-mobile-list">
-              {visibleOrders.length === 0 ? (
-                <p className="orders-empty-text">No orders match your search.</p>
-              ) : visibleOrders.map((order) => {
-                const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
-                const isReceived = String(order.status || '').toLowerCase() === 'received';
-                const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
-                const pendingQty = Math.max(0, Number(order?.pending_qty || 0));
-                const canProceedBilling = !isBilled && (isOrdered || isReceived);
-                return (
-                  <article key={`mobile-${order.id}`} className="order-mobile-card">
-                    <div className="order-mobile-head">
-                      <div className="order-mobile-title">
-                        <strong>#{order.order_number || order.id}</strong>
-                        <span className="order-mobile-date">{new Date(order.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <span className={`status ${order.status}`}>{order.status}</span>
-                    </div>
-                    <div className="order-mobile-meta">
-                      <p><strong>{truncateUserName(order.customer_name || '-', 15)}</strong></p>
-                      <p>{formatCurrency(order.total_amount || 0)}</p>
-                    </div>
-                    {pendingQty > 0 ? (
-                      <p className="order-mobile-subtle">Partial stock: Pending {pendingQty}</p>
-                    ) : null}
-                    {isBilled ? (
-                      <p className="order-mobile-subtle">Bill: {order.linked_bill_number || `#${order.bill_id}`}</p>
-                    ) : null}
-                    {(isOrdered || isReceived) ? (
-                      <div className="order-mobile-actions">
-                        {isOrdered ? (
-                          <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>Mark Received</button>
-                        ) : null}
-                        {canProceedBilling ? (
-                          <button
-                            className="admin-btn order-action-btn"
-                            onClick={() => handleProceedToBilling(order)}
-                            disabled={proceedBillingOrderId === Number(order.id)}
-                          >
-                            {proceedBillingOrderId === Number(order.id)
-                              ? 'Opening...'
-                              : isOrdered
-                                ? 'Confirm + Billing'
-                                : 'Proceed Billing'}
-                          </button>
-                        ) : (
-                          <span className="order-mobile-muted">Already billed</span>
-                        )}
-                        {isReceived && pendingQty > 0 ? (
-                          <button
-                            className="admin-btn order-action-btn"
-                            onClick={() => handleApplyPendingFulfillment(order.id)}
-                          >
-                            Apply Pending
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="order-mobile-muted">No pending action</span>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-            <div className="orders-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Order</th>
-                    <th>Customer</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOrders.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="orders-empty-row">No orders match your search.</td>
-                    </tr>
-                  ) : visibleOrders.map((order) => {
-                    const isOrdered = String(order.status || '').toLowerCase() === 'ordered';
-                    const isReceived = String(order.status || '').toLowerCase() === 'received';
-                    const isBilled = Boolean(Number(order.bill_id || 0) || String(order.linked_bill_number || '').trim());
-                    const pendingQty = Math.max(0, Number(order?.pending_qty || 0));
-                    const canProceedBilling = !isBilled && (isOrdered || isReceived);
-                    return (
-                      <tr key={order.id}>
-                        <td>#{order.order_number || order.id}</td>
-                        <td>
-                          <div className="order-customer-cell">
-                            <strong>{truncateUserName(order.customer_name || '-', 15)}</strong>
-                            <span>{order.customer_email || '-'}</span>
-                          </div>
-                        </td>
-                        <td>{formatCurrencyColored(order.total_amount)}</td>
-                        <td>
-                          <span className={`status ${order.status}`}>{order.status}</span>
-                          {pendingQty > 0 ? (
-                            <div className="order-status-detail pending">
-                              Partial stock: Pending {pendingQty}
-                            </div>
-                          ) : null}
-                          {isBilled ? (
-                            <div className="order-status-detail billed">
-                              Bill: {order.linked_bill_number || `#${order.bill_id}`}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
-                        <td>
-                          {(isOrdered || isReceived) ? (
-                            <div className="order-actions">
-                              {isOrdered ? (
-                                <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>Mark Received</button>
-                              ) : null}
-                              {canProceedBilling ? (
-                                <button
-                                  className="admin-btn order-action-btn"
-                                  onClick={() => handleProceedToBilling(order)}
-                                  disabled={proceedBillingOrderId === Number(order.id)}
-                                >
-                                  {proceedBillingOrderId === Number(order.id)
-                                    ? 'Opening...'
-                                    : isOrdered
-                                      ? 'Confirm + Billing'
-                                      : 'Proceed Billing'}
-                                </button>
-                              ) : (
-                                <span className="order-mobile-muted">Already billed</span>
-                              )}
-                              {isReceived && pendingQty > 0 ? (
-                                <button
-                                  className="admin-btn order-action-btn"
-                                  onClick={() => handleApplyPendingFulfillment(order.id)}
-                                >
-                                  Apply Pending
-                                </button>
-                              ) : null}
-                            </div>
-                          ) : (
-                            <span className="order-mobile-muted">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <OrdersSection
+            ordersSearchQuery={ordersSearchQuery}
+            setOrdersSearchQuery={setOrdersSearchQuery}
+            visibleOrders={visibleOrders}
+            orders={orders}
+            openApproveModal={openApproveModal}
+            handleProceedToBilling={handleProceedToBilling}
+            proceedBillingOrderId={proceedBillingOrderId}
+            handleApplyPendingFulfillment={handleApplyPendingFulfillment}
+            formatCurrencyColored={formatCurrencyColored}
+          />
         )}
 
         {activeTab === 'categories' && (
-          <div className="categories-management">
-            <AdminPageHeader
-              className="section-header"
-              title="Categories Management"
-              actions={(
-                <button className="admin-btn primary" onClick={() => setShowCategoryManagement(true)}>
-                  <Plus size={20} /> Manage Categories
-                </button>
-              )}
-            />
-            <div className="categories-info">
-              <p>Click "Manage Categories" to create, edit, or delete product categories.</p>
-            </div>
-          </div>
+          <CategoriesSection
+            setShowCategoryManagement={setShowCategoryManagement}
+          />
         )}
 
         {activeTab === 'users' && (
-          <div className="users-management">
-            <AdminPageHeader
-              className="section-header"
-              title="Users Management"
-              actions={(
-                <button className="admin-btn primary" onClick={handleAddUser}>
-                  <Plus size={20} /> Add Customer
-                </button>
-              )}
-            />
-            <div className="users-toolbar">
-              <input
-                id="users-search-input"
-                name="users_search_query"
-                type="text"
-                className="users-search-input"
-                placeholder="Search users by name, email, phone, id..."
-                value={usersSearchQuery}
-                onChange={(e) => setUsersSearchQuery(e.target.value)}
-              />
-              <span className="users-search-count">
-                Showing {filteredUsersCount} of {users.length} users
-              </span>
-            </div>
-            <div className="users-group">
-              <h2>Admins ({filteredUsers.admins.length}/{adminUsers.length})</h2>
-              <div className="users-compact-list">
-                {filteredUsers.admins.length === 0 ? (
-                  <p className="users-empty">No admins found.</p>
-                ) : filteredUsers.admins.map((u) => {
-                  const isExpanded = Boolean(expandedUsersMap[u.id]);
-                  return (
-                    <article className={`user-compact-card${isExpanded ? ' expanded' : ''}`} key={u.id}>
-                      <div
-                        className="user-compact-summary"
-                        role="button"
-                        tabIndex={0}
-                        aria-expanded={isExpanded}
-                        onClick={() => toggleUserCompactRow(u.id)}
-                        onKeyDown={(event) => handleCompactRowKeyToggle(event, u.id)}
-                      >
-                        <div className="user-compact-name-wrap">
-                          {u.profile_image && !userAvatarErrors[u.id] ? (
-                            <img
-                              src={resolveMediaUrl(u.profile_image)}
-                              alt={u.name || 'User'}
-                              className="admin-user-avatar"
-                              onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
-                            />
-                          ) : (
-                            <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
-                          )}
-                          <span className="user-compact-name">{truncateUserName(u.name || '-', 15)}</span>
-                        </div>
-                        <span className="admin-badge">Admin</span>
-                      </div>
-                      {isExpanded && (
-                        <div className="user-compact-details">
-                          <p><strong>Email:</strong> {u.email || '-'}</p>
-                          <p><strong>Phone:</strong> {u.phone || '-'}</p>
-                          <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="users-group">
-              <h2>Customers ({filteredUsers.customers.length}/{customerUsers.length})</h2>
-              <div className="users-compact-list">
-                {filteredUsers.customers.length === 0 ? (
-                  <p className="users-empty">No customers found.</p>
-                ) : filteredUsers.customers.map((u) => {
-                  const isExpanded = Boolean(expandedUsersMap[u.id]);
-                  return (
-                    <article className={`user-compact-card${isExpanded ? ' expanded' : ''}`} key={u.id}>
-                      <div
-                        className="user-compact-summary"
-                        role="button"
-                        tabIndex={0}
-                        aria-expanded={isExpanded}
-                        onClick={() => toggleUserCompactRow(u.id)}
-                        onKeyDown={(event) => handleCompactRowKeyToggle(event, u.id)}
-                      >
-                        <div className="user-compact-name-wrap">
-                          {u.profile_image && !userAvatarErrors[u.id] ? (
-                            <img
-                              src={resolveMediaUrl(u.profile_image)}
-                              alt={u.name || 'User'}
-                              className="admin-user-avatar"
-                              onError={() => setUserAvatarErrors((prev) => ({ ...prev, [u.id]: true }))}
-                            />
-                          ) : (
-                            <span className="admin-user-avatar-fallback">{getInitials(u.name)}</span>
-                          )}
-                          <span className="user-compact-name">{truncateUserName(u.name || '-', 15)}</span>
-                        </div>
-                        <Link
-                          to={`/admin/users/${u.id}/credit?returnTab=users`}
-                          className="action-btn credit user-compact-credit-btn"
-                          title="Credit Khata"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <CreditCard size={15} />
-                          <span>Credit Khata</span>
-                        </Link>
-                      </div>
-                      {isExpanded && (
-                        <div className="user-compact-details">
-                          <p><strong>Email:</strong> {u.email || '-'}</p>
-                          <p><strong>Phone:</strong> {u.phone || '-'}</p>
-                          <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
-                          <div className="user-compact-actions">
-                            <button
-                              className="action-btn edit"
-                              onClick={() => handleEditUser(u)}
-                              title={u.email_verified && u.phone_verified ? 'Change user type' : 'Requires verified email and phone'}
-                              disabled={!u.email_verified || !u.phone_verified}
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              className="action-btn delete"
-                              onClick={() => handleDeleteUser(u.id)}
-                              title="Delete user"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <UsersSection
+            handleAddUser={handleAddUser}
+            usersSearchQuery={usersSearchQuery}
+            setUsersSearchQuery={setUsersSearchQuery}
+            filteredUsersCount={filteredUsersCount}
+            users={users}
+            filteredUsers={filteredUsers}
+            adminUsers={adminUsers}
+            customerUsers={customerUsers}
+            expandedUsersMap={expandedUsersMap}
+            toggleUserCompactRow={toggleUserCompactRow}
+            handleCompactRowKeyToggle={handleCompactRowKeyToggle}
+            resolveMediaUrl={resolveMediaUrl}
+            userAvatarErrors={userAvatarErrors}
+            setUserAvatarErrors={setUserAvatarErrors}
+            truncateUserName={truncateUserName}
+            handleEditUser={handleEditUser}
+            handleDeleteUser={handleDeleteUser}
+          />
         )}
 
         {activeTab === 'billing' && (
@@ -3064,98 +1774,24 @@ function Admin({ user }) {
           onSave={handleProductSave}
         />
       )}
-      {showApproveModal && modalOrder && (
-        <AppModal
-          open={showApproveModal}
-          title={`Mark Received ${modalOrder.order_number || `#${modalOrder.id}`}`}
-          onClose={() => setShowApproveModal(false)}
-        >
-          {modalLoading ? (
-            <p>Loading...</p>
-          ) : (
-            <>
-              <p>Customer: {truncateUserName(modalOrder.customer_name || '-', 15)} ({modalOrder.customer_email})</p>
-              <div style={{ maxHeight: 300, overflow: 'auto', marginTop: 8 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Qty</th>
-                      <th>Stock</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalItems.map(it => (
-                      <tr key={it.id}>
-                        <td style={{ padding: 6 }}>{it.product_name || it.name}</td>
-                        <td style={{ padding: 6 }}>{it.quantity}</td>
-                        <td style={{ padding: 6 }}>{/* we will fetch current stock via server when loading */}
-                          {it.stock !== undefined ? it.stock : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-                <button className="admin-btn" onClick={() => setShowApproveModal(false)} disabled={modalLoading}>Close</button>
-                {!(Number(modalOrder?.bill_id || 0) || String(modalOrder?.linked_bill_number || '').trim()) ? (
-                  <button
-                    className="admin-btn"
-                    onClick={() => handleProceedToBilling(modalOrder)}
-                    disabled={modalLoading || proceedBillingOrderId === Number(modalOrder?.id || 0)}
-                  >
-                    {proceedBillingOrderId === Number(modalOrder?.id || 0)
-                      ? 'Opening...'
-                      : String(modalOrder?.status || '').toLowerCase() === 'ordered'
-                        ? 'Confirm + Billing'
-                        : 'Proceed Billing'}
-                  </button>
-                ) : (
-                  <span style={{ opacity: 0.75, alignSelf: 'center' }}>
-                    Bill: {modalOrder?.linked_bill_number || `#${modalOrder?.bill_id}`}
-                  </span>
-                )}
-                <button className="admin-btn primary" onClick={confirmApprove} disabled={modalLoading}>Confirm Received</button>
-              </div>
-            </>
-          )}
-        </AppModal>
-      )}
-      {showExportDialog && (
-        <AppModal
-          open={showExportDialog}
-          title="Export Products"
-          onClose={() => setShowExportDialog(false)}
-          dialogClassName="export-modal-card"
-        >
-            <p>Select format, then confirm export.</p>
-            <div className="export-format-toggle-group">
-              <button
-                className={`admin-btn ${exportFormat === 'csv' ? 'primary' : ''}`}
-                onClick={() => setExportFormat('csv')}
-                disabled={importBusy}
-              >
-                CSV (.csv)
-              </button>
-              <button
-                className={`admin-btn ${exportFormat === 'xlsx' ? 'primary' : ''}`}
-                onClick={() => setExportFormat('xlsx')}
-                disabled={importBusy}
-              >
-                Excel (.xlsx)
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-              <button className="admin-btn" onClick={() => setShowExportDialog(false)} disabled={importBusy}>
-                Cancel
-              </button>
-              <button className="admin-btn primary" onClick={handleExportProducts} disabled={importBusy}>
-                Confirm Export
-              </button>
-            </div>
-        </AppModal>
-      )}
+      <AdminApproveModal
+        showApproveModal={showApproveModal}
+        modalOrder={modalOrder}
+        modalItems={modalItems}
+        modalLoading={modalLoading}
+        onClose={() => setShowApproveModal(false)}
+        confirmApprove={confirmApprove}
+        proceedBillingOrderId={proceedBillingOrderId}
+        handleProceedToBilling={handleProceedToBilling}
+      />
+      <AdminExportModal
+        showExportDialog={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        exportFormat={exportFormat}
+        setExportFormat={setExportFormat}
+        importBusy={importBusy}
+        handleExportProducts={handleExportProducts}
+      />
       {/* Category Management Modal */}
       {showCategoryManagement && (
         <CategoryManagement
@@ -3190,3 +1826,7 @@ function Admin({ user }) {
 }
 
 export default Admin;
+
+
+
+

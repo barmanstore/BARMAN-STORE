@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, DollarSign, CreditCard, RefreshCw, Printer, Upload, FileText, Eye, Download, MessageCircle, X, Trash2 } from 'lucide-react';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { DollarSign, Plus, RefreshCw } from 'lucide-react';
 import { creditApi, usersApi, adminApi, createClientRequestId } from '../../../services/api';
 import { sendWhatsAppSmart } from '../../../utils/whatsapp';
-import * as info from '../../../pages/info';
+import * as info from '../../../shared/info';
 import { printHtmlDocument, escapeHtml } from '../../../utils/printService';
 import { createPdfDoc, addAutoTable, addPdfFooterWithPagination, savePdf, safeFileName } from '../../../utils/pdfService';
 import { formatCurrency, getSignedCurrencyClassName } from '../../../utils/formatters';
@@ -17,126 +17,26 @@ import {
 } from '../../../utils/creditHistoryUi.mjs';
 import { buildCreditReportText, buildCreditEntryText, buildCreditTransactionText } from '../../../utils/messageTemplates';
 import useLockBodyScroll from '../../../hooks/useLockBodyScroll';
+import CreditAddTransactionModal from './components/CreditAddTransactionModal';
+import CreditInvoiceModal from './components/CreditInvoiceModal';
+import CreditEntrySharePanel from './components/CreditEntrySharePanel';
+import CreditHistoryHeader from './components/CreditHistoryHeader';
+import CreditIssuesAdminInbox from './components/CreditIssuesAdminInbox';
+import CreditQuickFilters from './components/CreditQuickFilters';
+import CreditReportPreview from './components/CreditReportPreview';
+import CreditTransactionsSection from './components/CreditTransactionsSection';
+import {
+  PDF_TABLE_LAYOUT,
+  FIVE_DAYS_MS,
+  compareTransactionsByDateDesc,
+  formatPdfCurrency,
+  formatTransactionDate,
+  getEffectiveTransactionDateKey,
+  getEffectiveTransactionTimestamp,
+  getPdfColumnStyles,
+  getTodayDateInputValue,
+} from './utils/creditHistoryHelpers';
 import './CreditHistory.css';
-
-// Currency format for PDF table and summary values.
-const formatPdfCurrency = (amount) => {
-  const numeric = Number(amount || 0);
-  const abs = Math.abs(numeric);
-  const value = new Intl.NumberFormat('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(abs);
-  return `${numeric < 0 ? '-' : ''}Rs ${value}`;
-};
-
-// Tune this object to adjust PDF column widths and row sizing.
-const PDF_TABLE_LAYOUT = {
-  marginLeft: 14,
-  marginRight: 14,
-  fontSize: 9.5,
-  cellPadding: 3.2,
-  minCellHeight: 8,
-  columnWeight: {
-    date: 0.11,
-    type: 0.09,
-    reference: 0.12,
-    amount: 0.14,
-    balance: 0.16,
-    description: 0.38
-  }
-};
-
-const pad2 = (value) => String(value).padStart(2, '0');
-
-const toLocalDateKey = (date) => {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-};
-
-const getTodayDateInputValue = () => toLocalDateKey(new Date());
-
-const getEffectiveTransactionDateKey = (transaction) => {
-  const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
-  if (txDateRaw) {
-    if (typeof txDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(txDateRaw)) {
-      return txDateRaw;
-    }
-    const d = new Date(txDateRaw);
-    if (!Number.isNaN(d.getTime())) {
-      return toLocalDateKey(d);
-    }
-  }
-  const tsRaw = transaction?.transaction_ts ?? transaction?.transactionTs;
-  if (tsRaw) {
-    const tsDate = new Date(tsRaw);
-    if (!Number.isNaN(tsDate.getTime())) return toLocalDateKey(tsDate);
-  }
-  const created = new Date(transaction?.created_at || '');
-  return toLocalDateKey(created);
-};
-
-const getEffectiveTransactionTimestamp = (transaction) => {
-  const tsRaw = transaction?.transaction_ts ?? transaction?.transactionTs;
-  if (tsRaw) {
-    const ts = new Date(tsRaw).getTime();
-    if (Number.isFinite(ts)) return ts;
-  }
-  const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
-  if (txDateRaw) {
-    if (typeof txDateRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(txDateRaw)) {
-      const [year, month, day] = txDateRaw.split('-').map((v) => Number(v));
-      const createdAt = new Date(transaction?.created_at || '');
-      const withTime = !Number.isNaN(createdAt.getTime())
-        ? new Date(year, month - 1, day, createdAt.getHours(), createdAt.getMinutes(), createdAt.getSeconds(), createdAt.getMilliseconds())
-        : new Date(year, month - 1, day);
-      if (!Number.isNaN(withTime.getTime())) return withTime.getTime();
-    }
-    const d = new Date(txDateRaw);
-    if (!Number.isNaN(d.getTime())) return d.getTime();
-  }
-  const createdTs = new Date(transaction?.created_at || '').getTime();
-  return Number.isFinite(createdTs) ? createdTs : 0;
-};
-
-const compareTransactionsByDateDesc = (a, b) => {
-  const timeDiff = getEffectiveTransactionTimestamp(b) - getEffectiveTransactionTimestamp(a);
-  if (timeDiff !== 0) return timeDiff;
-  return Number(b?.id || 0) - Number(a?.id || 0);
-};
-
-const formatTransactionDate = (transaction, { long = false } = {}) => {
-  const key = getEffectiveTransactionDateKey(transaction);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
-    const [year, month, day] = key.split('-').map((v) => Number(v));
-    const localDate = new Date(year, month - 1, day);
-    if (long) {
-      return localDate.toLocaleDateString('en-IN', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
-    return localDate.toLocaleDateString('en-IN');
-  }
-  return '-';
-};
-
-const getPdfColumnStyles = (doc) => {
-  const pageWidth = typeof doc?.internal?.pageSize?.getWidth === 'function'
-    ? doc.internal.pageSize.getWidth()
-    : 210;
-  const usableWidth = pageWidth - PDF_TABLE_LAYOUT.marginLeft - PDF_TABLE_LAYOUT.marginRight;
-  const w = PDF_TABLE_LAYOUT.columnWeight;
-  return {
-    0: { cellWidth: usableWidth * w.date },
-    1: { cellWidth: usableWidth * w.type },
-    2: { cellWidth: usableWidth * w.reference },
-    3: { cellWidth: usableWidth * w.amount, halign: 'right' },
-    4: { cellWidth: usableWidth * w.balance, halign: 'right' },
-    5: { cellWidth: usableWidth * w.description, overflow: 'linebreak', valign: 'top' }
-  };
-};
 
 // Currency formatter with conditional color styling
 const formatCurrencyColored = (amount) => {
@@ -144,7 +44,6 @@ const formatCurrencyColored = (amount) => {
   return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
 };
 
-const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
 
 function CreditHistory({ user }) {
   const { userId } = useParams();
@@ -1189,676 +1088,106 @@ function CreditHistory({ user }) {
   return (
     <MobileAccountLayout>
       <div className="credit-history-page">
-        <div className="page-header">
-        <Link to={backHref} className="back-link">
-          <ArrowLeft size={20} /> {backLabel}
-        </Link>
-        <div className="header-content">
-          <h1>{isAdminView ? 'Credit History' : 'My Credit History'}</h1>
-          {customer && <p className="customer-name">{customer.name}</p>}
-        </div>
-      </div>
+        <CreditHistoryHeader
+          backHref={backHref}
+          backLabel={backLabel}
+          isAdminView={isAdminView}
+          customer={customer}
+          balanceSummary={balanceSummary}
+          balance={balance}
+          lastTransactionLine={lastTransactionLine}
+          trustLine={trustLine}
+          showPaymentBadges={showPaymentBadges}
+          paymentBadgesLoading={paymentBadgesLoading}
+          paymentBadges={paymentBadges}
+          paymentBadgeSummary={paymentBadgeSummary}
+          inactivityHint={inactivityHint}
+          error={error}
+          success={success}
+          isMobile={isMobile}
+          openAddModalWithType={openAddModalWithType}
+        />
 
-      <section className="balance-card summary-hero-card">
-        <span className="balance-label">{balanceSummary.headline}</span>
-        <span className={`balance-amount ${balanceSummary.toneClass}`}>
-          {formatCurrency(Math.abs(Number(balance || 0)))}
-        </span>
-        <span className="summary-direction">{balanceSummary.directionLine}</span>
-        <span className="summary-last-line">{lastTransactionLine}</span>
-        <span className="summary-trust-line">{trustLine}</span>
-      </section>
-
-      {showPaymentBadges && (
-        <section className="payment-badge-panel">
-          <div className="payment-badge-header">
-            <span className="payment-badge-title">Payment Badges</span>
-            {paymentBadgeSummary?.last_payment_label ? (
-              <span className="payment-badge-meta">Last paid {paymentBadgeSummary.last_payment_label}</span>
-            ) : null}
-          </div>
-          {paymentBadgesLoading ? (
-            <div className="payment-badge-loading">Loading badges...</div>
-          ) : (
-            paymentBadges.length === 0 ? (
-              <div className="payment-badge-empty">No badges yet. Pay quickly to start earning your score.</div>
-            ) : (
-              <>
-                <div className="payment-badge-list">
-                  {paymentBadges.map((badge) => (
-                    <span
-                      key={badge.id || badge.label}
-                      className={`payment-badge-chip ${badge.tone || 'neutral'}`}
-                      title={badge.description || badge.label}
-                    >
-                      {badge.label}
-                    </span>
-                  ))}
-                </div>
-                {paymentBadgeSummary?.summary_line ? (
-                  <div className="payment-badge-summary">{paymentBadgeSummary.summary_line}</div>
-                ) : null}
-              </>
-            )
-          )}
-          <div className="payment-badge-rules">
-            <div><strong>How it works:</strong></div>
-            <div>Gold Score: Balance cleared and paid within 7 days.</div>
-            <div>Silver Score: 2+ payments in 60 days.</div>
-            <div>Bronze Score: Any payment in 90 days.</div>
-            <div>Streak Star: Pay every month for 6+ months.</div>
-          </div>
-        </section>
-      )}
-
-      {inactivityHint && (
-        <div className="inactivity-hint">{inactivityHint}</div>
-      )}
-
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-
-      {isAdminView && !isMobile && (
-        <div className="actions-bar">
-          <button className="admin-btn primary" onClick={() => openAddModalWithType('payment')}>
-            <RefreshCw size={18} /> Add Payment
-          </button>
-          <button className="admin-btn" onClick={() => openAddModalWithType('given')}>
-            <Plus size={18} /> Add Credit
-          </button>
-        </div>
-      )}
-
-      <div className="quick-filter-panel">
-        <div className="quick-filter-group">
-          <span className="quick-filter-title">Type</span>
-          <div className="quick-filter-chips">
-            <button
-              type="button"
-              className={`quick-chip ${quickTypeFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setQuickTypeFilter('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`quick-chip ${quickTypeFilter === 'given' ? 'active' : ''}`}
-              onClick={() => setQuickTypeFilter('given')}
-            >
-              Given
-            </button>
-            <button
-              type="button"
-              className={`quick-chip ${quickTypeFilter === 'payment' ? 'active' : ''}`}
-              onClick={() => setQuickTypeFilter('payment')}
-            >
-              Payment
-            </button>
-          </div>
-        </div>
-        <div className="quick-filter-group">
-          <span className="quick-filter-title">Range</span>
-          <div className="quick-filter-chips">
-            <button
-              type="button"
-              className={`quick-chip ${quickRangeFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setQuickRangeFilter('all')}
-            >
-              All Time
-            </button>
-            <button
-              type="button"
-              className={`quick-chip ${quickRangeFilter === '7d' ? 'active' : ''}`}
-              onClick={() => setQuickRangeFilter('7d')}
-            >
-              7 Days
-            </button>
-            <button
-              type="button"
-              className={`quick-chip ${quickRangeFilter === '30d' ? 'active' : ''}`}
-              onClick={() => setQuickRangeFilter('30d')}
-            >
-              30 Days
-            </button>
-            <button
-              type="button"
-              className={`quick-chip ${quickRangeFilter === 'this_month' ? 'active' : ''}`}
-              onClick={() => setQuickRangeFilter('this_month')}
-            >
-              This Month
-            </button>
-          </div>
-        </div>
-      </div>
+        <CreditQuickFilters
+          quickTypeFilter={quickTypeFilter}
+          setQuickTypeFilter={setQuickTypeFilter}
+          quickRangeFilter={quickRangeFilter}
+          setQuickRangeFilter={setQuickRangeFilter}
+        />
 
       {isAdminView && (
-        <div className="report-box admin-issue-workbench">
-          <div className="report-header">
-            <strong>Transaction Issue Inbox</strong>
-          </div>
-          {adminVisibleIssues.length === 0 ? (
-            <p className="muted">No customer transaction issues right now.</p>
-          ) : (
-            <div className="admin-issue-list">
-              {adminVisibleIssues.map((issue) => {
-                const issueId = Number(issue?.id || 0);
-                const draft = getAdminIssueDraft(issue);
-                const isFocused = focusIssueId > 0 && issueId === focusIssueId;
-                const entryId = Number(issue?.credit_entry_id || 0) || null;
-                return (
-                  <article key={issueId || `issue-${issue.created_at || ''}`} className={`admin-issue-card ${isFocused ? 'focused' : ''}`}>
-                    <div className="admin-issue-top">
-                      <strong>Issue #{issueId}</strong>
-                      <span className={`status-chip ${issue.status}`}>{issue.status}</span>
-                    </div>
-                    <div className="admin-issue-meta">
-                      <span>Type: {issue.issue_type}</span>
-                      {entryId ? <span>Entry: #{entryId}</span> : null}
-                      {issue.customer_response_status ? (
-                        <span>Customer: {issue.customer_response_status}</span>
-                      ) : null}
-                    </div>
-                    <p>{issue.message}</p>
-                    {(issue.admin_reason || issue.resolution_note) ? (
-                      <p><strong>Reason:</strong> {issue.admin_reason || issue.resolution_note}</p>
-                    ) : null}
-                    {entryId ? (
-                      <button
-                        type="button"
-                        className="report-btn secondary-action"
-                        onClick={() => scrollToTransactionEntry(entryId)}
-                      >
-                        Go to Transaction
-                      </button>
-                    ) : null}
-                    {activeAdminIssueId !== issueId ? (
-                      <button
-                        type="button"
-                        className="report-btn secondary-action"
-                        onClick={() => setActiveAdminIssueId(issueId)}
-                      >
-                        Open Action Panel
-                      </button>
-                    ) : (
-                      <>
-                        <label>
-                          Resolution Reason
-                          <textarea
-                            id={`issue-admin-reason-${issueId}`}
-                            name={`issue_admin_reason_${issueId}`}
-                            value={draft.admin_reason}
-                            onChange={(e) => setAdminIssueDraft(issueId, { admin_reason: e.target.value })}
-                            rows={2}
-                            placeholder="Reason visible to customer"
-                          />
-                        </label>
-                        <div className="request-correction-grid">
-                          <label>
-                            Correction Type
-                            <select
-                              id={`issue-correction-type-${issueId}`}
-                              name={`issue_correction_type_${issueId}`}
-                              value={draft.correction_type}
-                              onChange={(e) => setAdminIssueDraft(issueId, { correction_type: e.target.value })}
-                            >
-                              <option value="">None</option>
-                              <option value="given">Credit</option>
-                              <option value="payment">Payment</option>
-                            </select>
-                          </label>
-                          <label>
-                            Correction Amount
-                            <input
-                              id={`issue-correction-amount-${issueId}`}
-                              name={`issue_correction_amount_${issueId}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={draft.correction_amount}
-                              onChange={(e) => setAdminIssueDraft(issueId, { correction_amount: e.target.value })}
-                              placeholder="0"
-                            />
-                          </label>
-                        </div>
-                        <label>
-                          Correction Description
-                          <input
-                            id={`issue-correction-description-${issueId}`}
-                            name={`issue_correction_description_${issueId}`}
-                            type="text"
-                            value={draft.correction_description}
-                            onChange={(e) => setAdminIssueDraft(issueId, { correction_description: e.target.value })}
-                            placeholder="Optional"
-                          />
-                        </label>
-                        <div className="request-correction-actions">
-                          <button
-                            type="button"
-                            className="report-btn secondary-action"
-                            onClick={() => handleAdminIssueAction(issue, 'in_review')}
-                            disabled={adminIssueSavingId === issueId}
-                          >
-                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Needs Review'}
-                          </button>
-                          <button
-                            type="button"
-                            className="report-btn secondary-action"
-                            onClick={() => handleAdminIssueAction(issue, 'rejected')}
-                            disabled={adminIssueSavingId === issueId}
-                          >
-                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Reject'}
-                          </button>
-                          <button
-                            type="button"
-                            className="report-btn primary-action"
-                            onClick={() => handleAdminIssueAction(issue, 'corrected')}
-                            disabled={adminIssueSavingId === issueId}
-                          >
-                            {adminIssueSavingId === issueId ? 'Submitting...' : 'Submit Correction'}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <CreditIssuesAdminInbox
+          adminVisibleIssues={adminVisibleIssues}
+          focusIssueId={focusIssueId}
+          getAdminIssueDraft={getAdminIssueDraft}
+          setAdminIssueDraft={setAdminIssueDraft}
+          activeAdminIssueId={activeAdminIssueId}
+          setActiveAdminIssueId={setActiveAdminIssueId}
+          handleAdminIssueAction={handleAdminIssueAction}
+          adminIssueSavingId={adminIssueSavingId}
+          scrollToTransactionEntry={scrollToTransactionEntry}
+        />
       )}
 
-      <div className="credit-table-container">
-        {filteredTransactions.length === 0 ? (
-          <div className="empty-state">
-            {creditHistory.length === 0 ? (
-              <>
-                <p>No entries yet{isAdminView ? ' for this customer.' : '.'}</p>
-                {isAdminView && <p>Tap "Add Credit" for first sale or "Add Payment" when customer pays.</p>}
-              </>
-            ) : (
-              <>
-                <p>No entries match current filters.</p>
-                {hasFiltersApplied && <p>Switch filters to "All" to view complete history.</p>}
-              </>
-            )}
-          </div>
-        ) : (
-          <>
-            <table className="credit-table">
-              <thead>
-                <tr>
-                  <th className="credit-col-date">Date</th>
-                  <th>Invoice #</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Balance</th>
-                  <th>Description</th>
-                  <th className="credit-col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTransactions.map((transaction) => {
-                  const descriptionWithRef = transaction.reference
-                    ? `${transaction.description || ''} (${transaction.reference})`.trim()
-                    : transaction.description || '-';
-                  const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
-                  const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
-                  return (
-                    <tr
-                      key={transaction.id}
-                      data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                      className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
-                    >
-                      <td>{formatTransactionDate(transaction, { long: true })}</td>
-                      <td className="invoice-number">{transaction.invoice_number || '-'}</td>
-                      <td>
-                        {getTypeIcon(transaction.type)}
-                        <span>{getTypeLabel(transaction.type)}</span>
-                      </td>
-                      <td className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
-                        {formatCurrencyColored(transaction.type === 'payment' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount))}
-                      </td>
-                      <td>{formatCurrencyColored(parseFloat(transaction.balance))}</td>
-                      <td>
-                        {descriptionWithRef}
-                        {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
-                      </td>
-                      <td className="actions-cell">
-                        {!isAdminView && (
-                          <button
-                            className="action-icon"
-                            onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
-                            title="Report issue on this entry"
-                          >
-                            <FileText size={16} />
-                          </button>
-                        )}
-                        {transaction.image_path && (
-                          <a
-                            href={transaction.image_path}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="action-icon view"
-                            title="View Invoice"
-                          >
-                            <Eye size={16} />
-                          </a>
-                        )}
-                        <button
-                          className="action-icon print mobile-hide-print"
-                          onClick={() => handlePrintInvoice(transaction)}
-                          title="Print Invoice"
-                          disabled={isMobile}
-                          aria-disabled={isMobile}
-                        >
-                          <Printer size={16} />
-                        </button>
-                        {canShareTransaction && (
-                          <button
-                            className="action-icon whatsapp"
-                            onClick={() => handleSendTransactionWhatsApp(transaction)}
-                            title="Share on WhatsApp"
-                          >
-                            <MessageCircle size={16} />
-                          </button>
-                        )}
-                        {isAdminView && (
-                          <button
-                            className="action-icon delete"
-                            onClick={() => handleDeleteTransaction(transaction)}
-                            title="Delete entry"
-                            disabled={deletingEntryId === Number(transaction.id || 0)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div className="credit-mobile-list">
-              {groupedTransactions.map((group) => (
-                <section key={group.dateKey} className="credit-day-group">
-                  <h3 className="credit-day-title">{group.dateLabel}</h3>
-                  <div className="credit-tile-stack">
-                    {group.transactions.map((transaction) => {
-                      const description = String(transaction.description || '').trim();
-                      const reference = String(transaction.reference || '').trim();
-                      const signedAmount = transaction.type === 'payment'
-                        ? -parseFloat(transaction.amount)
-                        : parseFloat(transaction.amount);
-                      const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
-                      const isExpanded = expandedTransactionId === transaction.id;
-                      const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
-                      return (
-                        <article
-                          key={`mobile-${transaction.id}`}
-                          data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                          className={`credit-transaction-tile ${transaction.type === 'payment' ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
-                        >
-                          <header className="tile-top-row">
-                            <span className="tile-type-wrap">
-                              <span className={`tile-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
-                                {getTypeLabel(transaction.type)}
-                              </span>
-                              {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
-                            </span>
-                            <span className={`tile-amount ${transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}`}>
-                              {formatCurrencyColored(signedAmount)}
-                            </span>
-                          </header>
-
-                          <div className="tile-meta-row">
-                            <span>{formatTransactionDate(transaction, { long: false })}</span>
-                            <span>Invoice: {transaction.invoice_number || '-'}</span>
-                          </div>
-
-                          <div className="tile-description">
-                            {truncateCreditDescription(description || 'No description', 44)}
-                          </div>
-
-                          <div className="tile-footer-row">
-                            <span className="tile-balance-pill">
-                              Balance: {formatCurrencyColored(parseFloat(transaction.balance))}
-                            </span>
-                            <button
-                              type="button"
-                              className="tile-expand-btn"
-                              onClick={() => setExpandedTransactionId(isExpanded ? null : transaction.id)}
-                            >
-                              {isExpanded ? 'Less' : 'More'}
-                            </button>
-                          </div>
-
-                          {isExpanded && (
-                            <div className="tile-expanded">
-                              <div className="tile-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
-                              {reference ? <div className="tile-detail"><strong>Ref:</strong> {reference}</div> : null}
-                              <div className="tile-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
-                              <div className="tile-actions">
-                                {!isAdminView && (
-                                  <button
-                                    className="action-icon"
-                                    onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
-                                    title="Report issue on this entry"
-                                  >
-                                    <FileText size={16} />
-                                  </button>
-                                )}
-                                {transaction.image_path && (
-                                  <a
-                                    href={transaction.image_path}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="action-icon view"
-                                    title="View Invoice"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Eye size={16} />
-                                  </a>
-                                )}
-                                <button
-                                  className="action-icon print mobile-hide-print"
-                                  onClick={() => handlePrintInvoice(transaction)}
-                                  title="Print Invoice"
-                                  disabled={isMobile}
-                                  aria-disabled={isMobile}
-                                >
-                                  <Printer size={16} />
-                                </button>
-                                {canShareTransaction && (
-                                  <button
-                                    className="action-icon whatsapp"
-                                    onClick={() => handleSendTransactionWhatsApp(transaction)}
-                                    title="Share on WhatsApp"
-                                  >
-                                    <MessageCircle size={16} />
-                                  </button>
-                                )}
-                                {isAdminView && (
-                                  <button
-                                    className="action-icon delete"
-                                    onClick={() => handleDeleteTransaction(transaction)}
-                                    title="Delete entry"
-                                    disabled={deletingEntryId === Number(transaction.id || 0)}
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </>
-              )}
-         {!isAdminView && (
-            <div className="report-box">
-              <div className="report-header">
-                <strong>Report Credit Entry Issue</strong>
-              </div>
-              <form className="credit-issue-form" onSubmit={handleReportIssue}>
-                <label>
-                  Entry
-                  <select
-                    id="credit-issue-entry"
-                    name="credit_entry_id"
-                    value={issueForm.credit_entry_id}
-                    onChange={(e) => setIssueForm((prev) => ({ ...prev, credit_entry_id: e.target.value }))}
-                  >
-                    <option value="">Select (optional)</option>
-                    {creditHistory.map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        #{entry.id} | {getTypeLabel(entry.type)} | {formatCurrency(entry.amount || 0)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Issue Type
-                  <select
-                    id="credit-issue-type"
-                    name="issue_type"
-                    value={issueForm.issue_type}
-                    onChange={(e) => setIssueForm((prev) => ({ ...prev, issue_type: e.target.value }))}
-                  >
-                    <option value="wrong_entry">Wrong Entry</option>
-                    <option value="missing_entry">Missing Entry</option>
-                    <option value="wrong_amount">Wrong Amount</option>
-                    <option value="other">Other</option>
-                  </select>
-                </label>
-                <label>
-                  Message
-                  <textarea
-                    id="credit-issue-message"
-                    name="issue_message"
-                    value={issueForm.message}
-                    onChange={(e) => setIssueForm((prev) => ({ ...prev, message: e.target.value }))}
-                    placeholder="Explain what is wrong so admin can correct it."
-                    rows={3}
-                    required
-                  />
-                </label>
-                <button type="submit" className="report-btn primary-action" disabled={issueSubmitting}>
-                  {issueSubmitting ? 'Submitting...' : 'Submit Issue'}
-                </button>
-              </form>
-              {creditIssues.length > 0 && (
-                <div className="credit-issues-list">
-                  {creditIssues.map((issue) => (
-                    <div key={issue.id} className="credit-issue-row">
-                      <div>
-                        <strong>#{issue.id}</strong> {issue.issue_type}
-                      </div>
-                      <div>{issue.message}</div>
-                      <div className={`status-chip ${issue.status}`}>{issue.status}</div>
-                      {issue.admin_reason || issue.resolution_note ? (
-                        <div><strong>Admin reason:</strong> {issue.admin_reason || issue.resolution_note}</div>
-                      ) : null}
-                      {issue.correction_entry_id ? (
-                        <div><strong>Correction entry:</strong> #{issue.correction_entry_id}</div>
-                      ) : null}
-                      {issue.customer_response_status ? (
-                        <div><strong>Your response:</strong> {issue.customer_response_status}</div>
-                      ) : null}
-                      {(issue.status === 'corrected' || issue.status === 'rejected') && !issue.customer_response_status ? (
-                        <div className="credit-issue-response">
-                          <textarea
-                            id={`credit-issue-response-${issue.id}`}
-                            name={`credit_issue_response_${issue.id}`}
-                            value={issueResponseDrafts[issue.id] || ''}
-                            onChange={(e) => setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: e.target.value }))}
-                            placeholder="Optional note. Required if you still disagree."
-                            rows={2}
-                          />
-                          <div className="credit-issue-response-actions">
-                            <button
-                              type="button"
-                              className="report-btn secondary-action"
-                              onClick={() => handleIssueResponse(issue, 'acknowledged')}
-                              disabled={issueRespondingId === Number(issue.id)}
-                            >
-                              {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Acknowledge'}
-                            </button>
-                            <button
-                              type="button"
-                              className="report-btn primary-action"
-                              onClick={() => handleIssueResponse(issue, 'disputed')}
-                              disabled={issueRespondingId === Number(issue.id)}
-                            >
-                              {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Still Wrong'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-         )}
-         {isAdminView && (
-            <div id="credit-report-controls" className="report-controls credit-secondary-tools report-controls-light">
-               <label htmlFor="credit-report-from-date">
-                 <span>From:</span>
-                 <input id="credit-report-from-date" name="from_date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-               </label>
-               <label htmlFor="credit-report-to-date">
-                 <span>To:</span>
-                 <input id="credit-report-to-date" name="to_date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-              </label>
-              <button type="button" className="report-btn primary-action" onClick={handleGenerateReport} title="Generate credit report for date range">
-                Generate Report
-              </button>
-           </div>
-         )}
-      </div>
+      <CreditTransactionsSection
+        filteredTransactions={filteredTransactions}
+        creditHistory={creditHistory}
+        hasFiltersApplied={hasFiltersApplied}
+        isAdminView={isAdminView}
+        isMobile={isMobile}
+        issueFlagByEntryId={issueFlagByEntryId}
+        groupedTransactions={groupedTransactions}
+        expandedTransactionId={expandedTransactionId}
+        setExpandedTransactionId={setExpandedTransactionId}
+        getTypeIcon={getTypeIcon}
+        getTypeLabel={getTypeLabel}
+        formatTransactionDate={formatTransactionDate}
+        formatCurrencyColored={formatCurrencyColored}
+        isTransactionWithinFiveDays={isTransactionWithinFiveDays}
+        truncateCreditDescription={truncateCreditDescription}
+        setIssueForm={setIssueForm}
+        handlePrintInvoice={handlePrintInvoice}
+        handleSendTransactionWhatsApp={handleSendTransactionWhatsApp}
+        handleDeleteTransaction={handleDeleteTransaction}
+        deletingEntryId={deletingEntryId}
+        issueForm={issueForm}
+        handleReportIssue={handleReportIssue}
+        issueSubmitting={issueSubmitting}
+        creditIssues={creditIssues}
+        issueResponseDrafts={issueResponseDrafts}
+        setIssueResponseDrafts={setIssueResponseDrafts}
+        handleIssueResponse={handleIssueResponse}
+        issueRespondingId={issueRespondingId}
+        fromDate={fromDate}
+        toDate={toDate}
+        setFromDate={setFromDate}
+        setToDate={setToDate}
+        handleGenerateReport={handleGenerateReport}
+      />
 
       {/* Report preview / share box */}
-      {isAdminView && showReport && (
-        <div className="report-box">
-          <div className="report-header">
-            <strong>Credit Report {customer?.name ? `- ${customer.name}` : ''}</strong>
-          </div>
-          {reportSummary && (
-            <div className="report-summary-line">
-              <span>{reportSummary.entryCount} entries</span>
-              <span>{reportSummary.fromDate} to {reportSummary.toDate}</span>
-              <span>Net change: {formatCurrencyColored(reportSummary.netChange)}</span>
-              <span>Ending balance: {formatCurrencyColored(reportSummary.endingBalance)}</span>
-            </div>
-          )}
-          <textarea id="credit-report-preview" name="credit_report_preview" className="report-text" readOnly value={reportText} />
-          <div className="report-actions">
-            <button className="report-btn primary-action" onClick={handleCopyReport}>Copy Text</button>
-            <button className="report-btn whatsapp primary-action" onClick={handleSendWhatsApp}>Share on WhatsApp</button>
-            <button className="report-btn pdf secondary-action" onClick={generatePDFReport}><Download size={14} /> PDF</button>
-            <button className="report-btn secondary-action" onClick={() => { setShowReport(false); setReportSummary(null); }}>Close</button>
-          </div>
-        </div>
+      {isAdminView && (
+        <CreditReportPreview
+          showReport={showReport}
+          reportSummary={reportSummary}
+          reportText={reportText}
+          customer={customer}
+          formatCurrencyColored={formatCurrencyColored}
+          handleCopyReport={handleCopyReport}
+          handleSendWhatsApp={handleSendWhatsApp}
+          generatePDFReport={generatePDFReport}
+          setShowReport={setShowReport}
+          setReportSummary={setReportSummary}
+        />
       )}
 
-      {isAdminView && entryShareText && (
-        <div className="report-box">
-          <div className="report-header">
-            <strong>Manual Entry Message</strong>
-          </div>
-          <textarea id="credit-entry-share-text" name="credit_entry_share_text" className="report-text" readOnly value={entryShareText} />
-          <div className="report-actions">
-            <button className="report-btn" onClick={handleCopyEntryShare}>Copy</button>
-            <button className="report-btn whatsapp" onClick={handleSendEntryWhatsApp}>WhatsApp</button>
-            <button className="report-btn" onClick={() => setEntryShareText('')}>Close</button>
-          </div>
-        </div>
+      {isAdminView && (
+        <CreditEntrySharePanel
+          entryShareText={entryShareText}
+          handleCopyEntryShare={handleCopyEntryShare}
+          handleSendEntryWhatsApp={handleSendEntryWhatsApp}
+          setEntryShareText={setEntryShareText}
+        />
       )}
 
       {isAdminView && isMobile && (
@@ -1881,202 +1210,36 @@ function CreditHistory({ user }) {
       )}
 
       {/* Add Transaction Modal */}
-      {isAdminView && showAddModal && (
-        <div className="modal-overlay" onClick={closeAddModal}>
-          <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{addModalTitle}</h2>
-              <button className="close-btn" onClick={closeAddModal} disabled={addingTransaction}>x</button>
-            </div>
-            <form onSubmit={handleAddTransaction}>
-              <div className="form-group">
-                <label>Transaction Type</label>
-                <select
-                  id="credit-tx-type"
-                  name="transaction_type"
-                  value={newTransaction.type}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
-                >
-                  <option value="given">Credit (customer will give)</option>
-                  <option value="payment">Payment (customer paid)</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Amount (₹)</label>
-                <input
-                  id="credit-tx-amount"
-                  name="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={newTransaction.amount}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                  placeholder="Enter amount"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Date</label>
-                <input
-                  id="credit-tx-date"
-                  name="transaction_date"
-                  type="date"
-                  value={newTransaction.transactionDate}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, transactionDate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Description *</label>
-                <input
-                  id="credit-tx-description"
-                  name="description"
-                  type="text"
-                  value={newTransaction.description}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                  placeholder="Enter description"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Reference</label>
-                <input
-                  id="credit-tx-reference"
-                  name="reference"
-                  type="text"
-                  value={newTransaction.reference}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, reference: e.target.value })}
-                  placeholder="Reference number (optional)"
-                />
-              </div>
-              <div className="form-group">
-                <label>Upload Invoice/Bill</label>
-                <div className="file-upload-area">
-                  <input
-                    id="credit-tx-invoice-file"
-                    name="invoice_file"
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept="image/*,.pdf"
-                    style={{ display: 'none' }}
-                  />
-                  <button 
-                    type="button"
-                    className="upload-btn"
-                    onClick={() => fileInputRef.current.click()}
-                    disabled={uploading || addingTransaction}
-                  >
-                    <Upload size={16} />
-                    {uploading ? 'Uploading...' : 'Choose File'}
-                  </button>
-                  {newTransaction.imagePath && (
-                    <span className="uploaded-file">
-                      <FileText size={14} /> Invoice uploaded
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={closeAddModal} disabled={addingTransaction}>
-                  Cancel
-                </button>
-                <button type="submit" className="submit-btn" disabled={addingTransaction}>
-                  {addingTransaction ? 'Saving...' : `Save ${addModalActionLabel}`}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CreditAddTransactionModal
+        showAddModal={isAdminView && showAddModal}
+        closeAddModal={closeAddModal}
+        addingTransaction={addingTransaction}
+        handleAddTransaction={handleAddTransaction}
+        newTransaction={newTransaction}
+        setNewTransaction={setNewTransaction}
+        fileInputRef={fileInputRef}
+        handleFileUpload={handleFileUpload}
+        uploading={uploading}
+        addModalTitle={addModalTitle}
+        addModalActionLabel={addModalActionLabel}
+      />
 
       {/* Invoice Modal */}
-      {showInvoiceModal && selectedTransaction && (
-        <div className="modal-overlay invoice-modal-overlay" onClick={() => setShowInvoiceModal(false)}>
-          <div className="invoice-template fade-in-up" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="invoice-close-btn"
-              onClick={() => setShowInvoiceModal(false)}
-              aria-label="Close invoice"
-            >
-              <X size={20} />
-            </button>
-            <div className="invoice-header">
-              <h1>INVOICE</h1>
-              <div className="company-details">
-                <h3>Barman Store</h3>
-                <p>Quality Groceries & Everyday Essentials</p>
-                <p>Email: info@barmanstore.com</p>
-              </div>
-            </div>
-            
-            <div className="invoice-details">
-              <div className="invoice-info">
-                <p><strong>Invoice #:</strong> {selectedTransaction.invoice_number}</p>
-                <p><strong>Date:</strong> {formatTransactionDate(selectedTransaction, { long: true })}</p>
-              </div>
-              <div className="customer-info">
-                <h4>Bill To:</h4>
-                <p><strong>{customer?.name}</strong></p>
-                <p>{customer?.email || 'No email'}</p>
-                <p>{customer?.phone || 'No phone'}</p>
-                {customer?.address && <p>{customer.address}</p>}
-              </div>
-            </div>
+      <CreditInvoiceModal
+        showInvoiceModal={showInvoiceModal}
+        selectedTransaction={selectedTransaction}
+        setShowInvoiceModal={setShowInvoiceModal}
+        formatTransactionDate={formatTransactionDate}
+        customer={customer}
+        getTypeLabel={getTypeLabel}
+        formatCurrencyColored={formatCurrencyColored}
+        printInvoice={printInvoice}
+      />
 
-            <table className="invoice-items">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{selectedTransaction.description}</td>
-                  <td>{getTypeLabel(selectedTransaction.type)}</td>
-                  <td>{formatCurrencyColored(parseFloat(selectedTransaction.amount))}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div className="invoice-summary">
-              <div className="summary-row">
-                <span>Previous Balance:</span>
-                <span>{formatCurrencyColored(parseFloat(selectedTransaction.balance) + parseFloat(selectedTransaction.amount))}</span>
-              </div>
-              <div className="summary-row">
-                <span>Amount:</span>
-                <span>{formatCurrencyColored(parseFloat(selectedTransaction.amount))}</span>
-              </div>
-              <div className="summary-row total">
-                <span>Current Balance:</span>
-                <span>{formatCurrencyColored(parseFloat(selectedTransaction.balance))}</span>
-              </div>
-            </div>
-
-            {selectedTransaction.reference && (
-              <div className="invoice-footer">
-                <p><strong>Reference:</strong> {selectedTransaction.reference}</p>
-              </div>
-            )}
-
-            <div className="invoice-actions no-print">
-              <button className="admin-btn" onClick={printInvoice}>
-                <Printer size={16} /> Print Invoice
-              </button>
-              <button className="admin-btn secondary" onClick={() => setShowInvoiceModal(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>
     </MobileAccountLayout>
   );
 }
 
 export default CreditHistory;
+
