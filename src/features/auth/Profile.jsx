@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, Phone, MapPin, Mail, Save, CheckCircle, 
-  AlertCircle, ArrowLeft, Camera, Trash2
-} from 'lucide-react';
 import { authApi, usersApi, resolveMediaSourceForDisplay } from '../../services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../utils/phone';
 import { validateEmail } from '../../utils/validation';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import ProfileView from './components/ProfileView';
+import { getEmailRequestStatusClassName, getEmailRequestStatusMessage, getPhoneChangeStatusClassName, getPhoneChangeStatusMessage } from './utils/profileVerificationUtils';
 import './Profile.css';
 
 function Profile() {
@@ -28,25 +25,8 @@ function Profile() {
   const [phoneCancelLoading, setPhoneCancelLoading] = useState(false);
   const [verificationRequestStatus, setVerificationRequestStatus] = useState({ email: null, phone: null });
   const [phoneChangeRequest, setPhoneChangeRequest] = useState(null);
-  const [authModeInfo, setAuthModeInfo] = useState({
-    supabaseEnabled: false,
-    supabaseMode: 'hybrid',
-    supabaseClientReady: false,
-    emailProvider: 'legacy',
-  });
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    profile_image: '',
-    street: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'India',
-  });
-  
+  const [authModeInfo, setAuthModeInfo] = useState({ supabaseEnabled: false, supabaseMode: 'hybrid', supabaseClientReady: false, emailProvider: 'legacy' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', profile_image: '', street: '', city: '', state: '', zip: '', country: 'India' });
   const [validationIssues, setValidationIssues] = useState([]);
 
   useEffect(() => {
@@ -105,43 +85,9 @@ function Profile() {
     }
   };
 
-  const getPhoneChangeStatusClassName = () => {
-    const status = String(phoneChangeRequest?.status || '').trim().toLowerCase();
-    return status ? `phone-change-status ${status}` : '';
-  };
 
-  const getPhoneChangeStatusMessage = () => {
-    const status = String(phoneChangeRequest?.status || '').trim().toUpperCase();
-    const requestedPhone = String(phoneChangeRequest?.new_phone || '').trim();
-    if (!status || !requestedPhone) return '';
-    if (status === 'PENDING_VALIDATION') {
-      return 'Phone update is pending. You will be notified once it is updated.';
-    }
-    if (status === 'APPROVED') {
-      return `Phone update to ${requestedPhone} was approved and applied.`;
-    }
-    if (status === 'REJECTED') {
-      return phoneChangeRequest?.rejection_reason
-        ? `Phone update was rejected: ${phoneChangeRequest.rejection_reason}`
-        : 'Latest phone update request was rejected.';
-    }
-    return '';
-  };
 
-  const getEmailRequestStatusClassName = () => {
-    const status = String(verificationRequestStatus?.email?.status || '').trim().toLowerCase();
-    return status ? `request-status ${status}` : '';
-  };
 
-  const getEmailRequestStatusMessage = () => {
-    const status = String(verificationRequestStatus?.email?.status || '').trim().toLowerCase();
-    if (!status) return 'Admin will review and send your code/link via email.';
-    if (status === 'pending') return 'Verification request is pending admin review (email).';
-    if (status === 'sent') return 'Admin has sent your verification code/link via email. Enter it below.';
-    if (status === 'rejected') return 'Verification request was rejected by admin. You can request again.';
-    if (status === 'completed') return 'Latest verification request is already completed.';
-    return `Latest verification request status: ${status}.`;
-  };
 
   const loadProfile = async () => {
     try {
@@ -531,369 +477,51 @@ function Profile() {
     }
   };
 
-  if (loading) {
-    return (
-      <MobileAccountLayout>
-        <div className="profile-page">
-          <div className="loading-container">
-            <User size={40} className="spinning" />
-            <p>Loading profile...</p>
-          </div>
-        </div>
-      </MobileAccountLayout>
-    );
-  }
-
   return (
-    <MobileAccountLayout>
-      <div className="profile-page">
-        <div className="profile-header fade-in-up">
-          <button className="back-btn" onClick={() => navigate('/')}>
-            <ArrowLeft size={20} /> Back
-          </button>
-          <h1>My Profile</h1>
-          <p>Manage your account information</p>
-        </div>
-
-      {/* Validation Issues Warning */}
-      {validationIssues.length > 0 && (
-        <div className="validation-warning fade-in-up">
-          <AlertCircle size={24} />
-          <div className="warning-content">
-            <h3>Complete Your Profile for Orders</h3>
-            <p>The following information is required to place orders:</p>
-            <ul className="issues-list">
-              {validationIssues.map((issue, idx) => (
-                <li key={idx}>
-                  <span className="issue-icon">•</span>
-                  {issue.message}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {/* Success Message */}
-      {success && (
-        <div className="success-alert fade-in-up">
-          <CheckCircle size={20} />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <div className="error-alert fade-in-up">
-          <AlertCircle size={20} />
-          <span>{error}</span>
-        </div>
-      )}
-
-      <div className="profile-content">
-        <form onSubmit={handleSubmit} className="profile-form slide-in-up">
-          
-          {/* Personal Information */}
-          <div className="form-section">
-            <h2><User size={20} /> Personal Information</h2>
-
-            <div className="profile-image-section">
-              <div className="profile-image-preview">
-                {displayProfileImageSrc && !imageLoadFailed ? (
-                  <img
-                    src={displayProfileImageSrc}
-                    alt="Profile"
-                    onError={() => setImageLoadFailed(true)}
-                  />
-                ) : (
-                  <span>{(formData.name || 'U').slice(0, 1).toUpperCase()}</span>
-                )}
-              </div>
-              <div className="profile-image-actions">
-                <label className="image-upload-btn">
-                  <Camera size={16} />
-                  {imageUploading ? 'Uploading...' : 'Upload Photo'}
-                  <input
-                    id="profile-image-upload"
-                    name="profile_image_upload"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleProfileImageUpload}
-                    disabled={imageUploading}
-                    style={{ display: 'none' }}
-                  />
-                </label>
-                <span className="image-adjust-note">Auto-cropped and optimized below 2MB</span>
-                {formData.profile_image && (
-                  <button
-                    type="button"
-                    className="image-remove-btn"
-                    onClick={handleRemoveProfileImage}
-                    disabled={imageUploading}
-                  >
-                    <Trash2 size={16} /> Remove
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="name">Full Name *</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                required
-                placeholder="Your full name"
-                autoComplete="name"
-                className={validationIssues.find(i => i.field === 'name') ? 'error-field' : ''}
-              />
-            </div>
-
-            <div className="form-row two-col">
-              <div className="form-group">
-                <label htmlFor="email">
-                  <Mail size={16} /> Email Address
-                  {formData.email && (
-                    <span
-                      className={`verification-pill ${emailVerified ? 'verified' : 'unverified'}`}
-                      title={emailVerified ? 'Verified email' : 'Unverified email'}
-                    >
-                      {emailVerified ? 'Verified' : 'Unverified'}
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="your@email.com"
-                autoComplete="email"
-                  className={validationIssues.find(i => i.field === 'email') ? 'error-field' : ''}
-                />
-                {formData.email && (
-                  <div className="verification-tools">
-                    {emailDraftChanged && (
-                      <span className="verification-note">Save email changes before verification actions</span>
-                    )}
-                    {!emailVerified && (
-                      <>
-                        <span className={`verification-note ${getEmailRequestStatusClassName()}`}>
-                          {getEmailRequestStatusMessage()}
-                        </span>
-                        <div className="verification-actions">
-                          <button
-                            type="button"
-                            className="verify-btn"
-                            onClick={handleRequestEmailVerification}
-                            disabled={verificationLoading === 'email_request' || emailDraftChanged}
-                          >
-                            {verificationLoading === 'email_request'
-                              ? 'Requesting...'
-                              : (authModeInfo.emailProvider === 'supabase'
-                                ? 'Send Verification Email'
-                                : 'Request Verification')}
-                          </button>
-                          <div className="verify-token-group">
-                            <select
-                              id="email-verification-token-type"
-                              name="email_verification_token_type"
-                              value={emailVerificationTokenType}
-                              onChange={(e) => setEmailVerificationTokenType(e.target.value)}
-                              disabled={emailDraftChanged}
-                            >
-                              <option value="token">token</option>
-                              <option value="token_hash">token_hash</option>
-                            </select>
-                            <input
-                              id="email-verification-token"
-                              name="email_verification_token"
-                              type="text"
-                              value={emailVerificationToken}
-                              onChange={(e) => setEmailVerificationToken(e.target.value)}
-                              placeholder={emailVerificationTokenType === 'token_hash' ? 'Enter email token_hash' : 'Enter email token'}
-                              disabled={emailDraftChanged}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="verify-btn secondary"
-                            onClick={handleConfirmEmailVerification}
-                            disabled={verificationLoading === 'email_confirm' || emailDraftChanged}
-                          >
-                            {verificationLoading === 'email_confirm' ? 'Confirming...' : 'Confirm Email'}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="form-group">
-                <label htmlFor="phone">
-                  <Phone size={16} /> Phone Number *
-                  {formData.phone && (
-                    <span
-                      className={`verification-pill ${phoneVerified ? 'verified' : 'unverified'}`}
-                      title={phoneVerified ? 'Verified phone' : 'Unverified phone'}
-                    >
-                      {phoneVerified ? 'Verified' : 'Unverified'}
-                    </span>
-                  )}
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="+91 98765 43210"
-                autoComplete="tel"
-                  className={validationIssues.find(i => i.field === 'phone') ? 'error-field' : ''}
-                />
-                {phoneChangeRequest && (
-                  <span className={`verification-note ${getPhoneChangeStatusClassName()}`}>
-                    {getPhoneChangeStatusMessage()}
-                  </span>
-                )}
-                {pendingPhoneChangeRequest && (
-                  <div className="verification-tools">
-                    <span className="verification-note">Current phone: {normalizedSavedPhone || '-'}</span>
-                    <span className="verification-note">Requested phone: {phoneChangeRequest?.new_phone || '-'}</span>
-                    <div className="verification-actions">
-                      <button
-                        type="button"
-                        className="verify-btn secondary"
-                        onClick={handleCancelPendingPhoneChange}
-                        disabled={phoneCancelLoading || saving}
-                      >
-                        {phoneCancelLoading ? 'Cancelling...' : 'Cancel Pending Request'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {formData.phone && (
-                  <div className="verification-tools">
-                    {phoneDraftChanged && (
-                      <span className="verification-note">Save phone changes to submit update request</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Shipping Address */}
-          <div className="form-section">
-            <h2><MapPin size={20} /> Shipping Address</h2>
-            <p className="section-help">This address will be used for all orders</p>
-            
-            <div className="form-group">
-              <label htmlFor="street">Street Address *</label>
-              <input
-                type="text"
-                id="street"
-                name="street"
-                value={formData.street}
-                onChange={handleInputChange}
-                placeholder="123 Main Street, Apartment 4B"
-                autoComplete="street-address"
-                className={validationIssues.find(i => i.field === 'street') ? 'error-field' : ''}
-              />
-            </div>
-
-            <div className="form-row three-col">
-              <div className="form-group">
-                <label htmlFor="city">City *</label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  placeholder="Mumbai"
-                autoComplete="address-level2"
-                  className={validationIssues.find(i => i.field === 'city') ? 'error-field' : ''}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="state">State/Region *</label>
-                <input
-                  type="text"
-                  id="state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  placeholder="Maharashtra"
-                autoComplete="address-level1"
-                  className={validationIssues.find(i => i.field === 'state') ? 'error-field' : ''}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="zip">Postal Code *</label>
-                <input
-                  type="text"
-                  id="zip"
-                  name="zip"
-                  value={formData.zip}
-                  onChange={handleInputChange}
-                  placeholder="400001"
-                autoComplete="postal-code"
-                  className={validationIssues.find(i => i.field === 'zip') ? 'error-field' : ''}
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="country">Country</label>
-              <input
-                type="text"
-                id="country"
-                name="country"
-                value={formData.country}
-                onChange={handleInputChange}
-                placeholder="India"
-                autoComplete="country"
-              />
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="form-actions">
-            <button type="button" className="cancel-btn" onClick={() => navigate('/')}>
-              Cancel
-            </button>
-            <button type="submit" className="save-btn" disabled={saving}>
-              <Save size={18} />
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-
-        {/* Quick Actions */}
-        <div className="quick-actions slide-in-up">
-          <h3>Quick Actions</h3>
-          <button className="action-btn" onClick={() => navigate('/cart')}>
-            View Cart
-          </button>
-          <button className="action-btn" onClick={() => navigate('/my-credit')}>
-            View Credit History
-          </button>
-          <button className="action-btn" onClick={() => navigate('/my-bills')}>
-            View Bills
-          </button>
-          <button className="action-btn" onClick={() => navigate('/product-requests')}>
-            Request Missing Product
-          </button>
-        </div>
-      </div>
-    </div>
-    </MobileAccountLayout>
+    <ProfileView
+      loading={loading}
+      user={user}
+      success={success}
+      error={error}
+      validationIssues={validationIssues}
+      formData={formData}
+      displayProfileImageSrc={displayProfileImageSrc}
+      imageLoadFailed={imageLoadFailed}
+      imageUploading={imageUploading}
+      onImageError={() => setImageLoadFailed(true)}
+      handleProfileImageUpload={handleProfileImageUpload}
+      handleRemoveProfileImage={handleRemoveProfileImage}
+      handleInputChange={handleInputChange}
+      handleSubmit={handleSubmit}
+      saving={saving}
+      onBack={() => navigate('/')}
+      onCancel={() => navigate('/')}
+      onNavigateCart={() => navigate('/cart')}
+      onNavigateCredit={() => navigate('/my-credit')}
+      onNavigateBills={() => navigate('/my-bills')}
+      onNavigateRequests={() => navigate('/product-requests')}
+      emailVerified={emailVerified}
+      phoneVerified={phoneVerified}
+      emailDraftChanged={emailDraftChanged}
+      phoneDraftChanged={phoneDraftChanged}
+      getEmailRequestStatusClassName={() => getEmailRequestStatusClassName(verificationRequestStatus)}
+      getEmailRequestStatusMessage={() => getEmailRequestStatusMessage(verificationRequestStatus)}
+      handleRequestEmailVerification={handleRequestEmailVerification}
+      verificationLoading={verificationLoading}
+      authModeInfo={authModeInfo}
+      emailVerificationTokenType={emailVerificationTokenType}
+      setEmailVerificationTokenType={setEmailVerificationTokenType}
+      emailVerificationToken={emailVerificationToken}
+      setEmailVerificationToken={setEmailVerificationToken}
+      handleConfirmEmailVerification={handleConfirmEmailVerification}
+      phoneChangeRequest={phoneChangeRequest}
+      getPhoneChangeStatusClassName={() => getPhoneChangeStatusClassName(phoneChangeRequest)}
+      getPhoneChangeStatusMessage={() => getPhoneChangeStatusMessage(phoneChangeRequest)}
+      pendingPhoneChangeRequest={pendingPhoneChangeRequest}
+      normalizedSavedPhone={normalizedSavedPhone}
+      handleCancelPendingPhoneChange={handleCancelPendingPhoneChange}
+      phoneCancelLoading={phoneCancelLoading}
+    />
   );
 }
 

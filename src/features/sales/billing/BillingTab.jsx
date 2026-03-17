@@ -1,138 +1,14 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Trash2, UserPlus } from 'lucide-react';
 import { customersApi, productsApi, billingApi, creditApi } from '../../../services/api';
 import { sendWhatsAppSmart } from '../../../utils/whatsapp';
 import { formatCurrency } from '../../../utils/formatters';
 import { buildBillShareText } from '../../../utils/messageTemplates';
 import * as info from '../../../shared/info';
-import UserEditModal from '../../../shared/components/UserEditModal';
+import BillingTabView from './components/BillingTabView';
+import { createEmptyItem, getProductOptionLabel } from './utils/billingLineItemUtils';
+import { calculateLineAmount } from './utils/billingAmountUtils';
+import { getAllowedUnitsForProduct, resolveLineUnitForProduct, toPricingQtyFromProduct } from './utils/billingUnitUtils';
 import './BillingTab.css';
-
-const createEmptyItem = () => ({
-  id: Date.now() + Math.random(),
-  name: '',
-  price: 0,
-  qty: 1,
-  unit: 'pcs',
-  disc: 0,
-  discType: 'fixed',
-  amount: 0
-});
-
-const normalizeUomToken = (value, fallback = 'pcs') =>
-  String(value || fallback).trim().toLowerCase() || fallback;
-
-const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
-  pcs: 'pcs',
-  dozen: 'pcs',
-  kg: 'kg',
-  g: 'kg',
-  l: 'l',
-  ml: 'l',
-});
-
-const UNIT_FAMILY_MULTIPLIERS = Object.freeze({
-  pcs: Object.freeze({ pcs: 1, dozen: 12 }),
-  kg: Object.freeze({ kg: 1, g: 0.001 }),
-  l: Object.freeze({ l: 1, ml: 0.001 }),
-});
-
-const getUomFamily = (baseUnit = 'pcs') => {
-  const normalizedBase = normalizeUomToken(baseUnit, 'pcs');
-  const familyBase = UNIT_FAMILY_BASE_BY_UNIT[normalizedBase];
-  if (!familyBase) return null;
-  const multipliers = UNIT_FAMILY_MULTIPLIERS[familyBase];
-  if (!multipliers || !Number.isFinite(multipliers[normalizedBase])) return null;
-  return {
-    normalizedBase,
-    multipliers,
-  };
-};
-
-const getAllowedUnitsFromBaseUnit = (baseUnit = 'pcs') => {
-  const family = getUomFamily(baseUnit);
-  if (!family) return [];
-  const allUnits = Object.keys(family.multipliers);
-  return [family.normalizedBase, ...allUnits.filter((unit) => unit !== family.normalizedBase)];
-};
-
-const convertQtyBetweenFamilyUnits = (qty, fromUnit, toUnit, baseUnit = 'pcs') => {
-  const numericQty = Math.max(0, Number(qty || 0));
-  if (numericQty <= 0) return 0;
-  const family = getUomFamily(baseUnit);
-  if (!family) return null;
-  const from = normalizeUomToken(fromUnit, family.normalizedBase);
-  const to = normalizeUomToken(toUnit, family.normalizedBase);
-  const fromMultiplier = family.multipliers[from];
-  const toMultiplier = family.multipliers[to];
-  if (!Number.isFinite(fromMultiplier) || !Number.isFinite(toMultiplier) || toMultiplier <= 0) {
-    return null;
-  }
-  const qtyInCanonicalBase = numericQty * fromMultiplier;
-  return qtyInCanonicalBase / toMultiplier;
-};
-
-const getProductUomProfile = (product = null) => {
-  const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
-  const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
-  const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-    ? conversionFactorRaw
-    : 1;
-  return { sellingUnit, baseUnit, conversionFactor };
-};
-
-const getAllowedUnitsForProduct = (product = null) => {
-  if (!product) return ['pcs'];
-  const profile = getProductUomProfile(product);
-  const familyUnits = getAllowedUnitsFromBaseUnit(profile.baseUnit);
-  if (familyUnits.length) return familyUnits;
-  if (profile.baseUnit === profile.sellingUnit) return [profile.baseUnit];
-  return [...new Set([profile.baseUnit, profile.sellingUnit])];
-};
-
-const getProductOptionLabel = (product = null) => {
-  if (!product) return '';
-  const name = String(product.name || '').trim() || 'Product';
-  const price = Number(product.price ?? product.mrp ?? 0) || 0;
-  const defaultUnit = resolveLineUnitForProduct(
-    product,
-    product.base_unit || product.uom || product.unit || 'pcs'
-  );
-  const parts = [name];
-  if (price > 0) {
-    parts.push(`${formatCurrency(price)} / ${defaultUnit}`);
-  }
-  if (product.sku) {
-    parts.push(`SKU: ${String(product.sku).trim()}`);
-  }
-  if (product.brand) {
-    parts.push(String(product.brand).trim());
-  }
-  return parts.join(' • ');
-};
-
-const resolveLineUnitForProduct = (product = null, unit = 'pcs') => {
-  if (!product) return normalizeUomToken(unit, 'pcs');
-  const allowedUnits = getAllowedUnitsForProduct(product);
-  const requestedUnit = normalizeUomToken(unit, allowedUnits[0] || 'pcs');
-  return allowedUnits.includes(requestedUnit) ? requestedUnit : (allowedUnits[0] || requestedUnit);
-};
-
-const toPricingQtyFromProduct = (qty, unit, product = null) => {
-  const numericQty = Math.max(0, Number(qty || 0));
-  if (numericQty <= 0) return 0;
-  if (!product) return numericQty;
-  const profile = getProductUomProfile(product);
-  const inputUnit = resolveLineUnitForProduct(product, unit);
-  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
-  if (familyConverted !== null) return familyConverted;
-  if (inputUnit === profile.baseUnit) return numericQty;
-  if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
-    return numericQty / profile.conversionFactor;
-  }
-  return numericQty;
-};
 
 const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const [customer, setCustomer] = useState({ id: null, name: '', email: '', phone: '', address: '' });
@@ -199,24 +75,11 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     ) || null;
   }, [productsList]);
 
-  const calculateAmount = useCallback((price, qty, disc, discType, unit = 'pcs', product = null) => {
-    const priceNum = Number(price) || 0;
-    const qtyNum = Math.max(1, Number(qty) || 1);
-    const pricingQty = toPricingQtyFromProduct(qtyNum, unit, product);
-    const discNum = Number(disc) || 0;
-
-    const subtotal = priceNum * pricingQty;
-
-    let discountAmount = 0;
-    if (discType === 'percentage') {
-      const validDiscPercent = Math.min(100, Math.max(0, discNum));
-      discountAmount = (subtotal * validDiscPercent) / 100;
-    } else {
-      discountAmount = Math.min(subtotal, Math.max(0, discNum));
-    }
-
-    return { amount: Math.max(0, subtotal - discountAmount) };
-  }, []);
+  const calculateAmount = useCallback(
+    (price, qty, disc, discType, unit = 'pcs', product = null) =>
+      calculateLineAmount(price, qty, disc, discType, unit, product),
+    []
+  );
 
   useEffect(() => {
     const prefillKey = String(initialPrefill?.key || '').trim();
@@ -638,288 +501,46 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     }
   };
 
+  const getProductOptionLabelWithFormat = useCallback((product) => getProductOptionLabel(product, formatCurrency), []);
+  const handleClear = useCallback(() => { setCustomer({ id: null, name: '', email: '', phone: '', address: '' }); setItems([createEmptyItem()]); setPaidAmount(0); setPrefillSummary(''); setLinkedOrderId(0); setFulfillmentMode('available_now'); }, []);
+
   return (
-    <div className="billing-content">
-      <div className="billing-header">
-        <h1>Billing Invoice</h1>
-        {!isOrderLinked ? (
-          <button
-            type="button"
-            className="add-customer-btn"
-            onClick={handleAddCustomer}
-            disabled={isSubmitting}
-            aria-label="Add customer"
-          >
-            <UserPlus size={16} />
-            Add Customer
-          </button>
-        ) : null}
-      </div>
-      {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
-      {isOrderLinked ? (
-        <div className="billing-prefill-note">
-          Linked order mode: customer details are locked. You can edit bill items, quantities, prices, and add/remove rows.
-        </div>
-      ) : null}
-
-      {error && (
-        <div className="error-message" role="alert">
-          {error}
-        </div>
-      )}
-
-      {loading && <div className="loading-indicator">Loading...</div>}
-
-      <div className="form-section">
-        <div className="form-row">
-          <label className="form-label" htmlFor="customerName">Customer Name {isOrderLinked ? '' : '*'}</label>
-          <input
-            id="customerName"
-            list="customer-list"
-            className="form-input"
-            value={customer.name}
-            onChange={handleCustomerChange}
-            placeholder="Type or select name..."
-            aria-label="Customer name"
-            aria-autocomplete="list"
-            autoComplete="name"
-            required={!isOrderLinked}
-            readOnly={isOrderLinked}
-          />
-          <datalist id="customer-list">
-            {customersList.map((c) => (
-              <option key={c.id} value={c.name} />
-            ))}
-          </datalist>
-        </div>
-      </div>
-
-      <div className="table-container">
-        <table className="billing-table">
-          <thead>
-            <tr>
-              <th>Product Name</th>
-              <th className="w-24">Price</th>
-              <th className="w-20">Qty</th>
-              <th className="w-24">Unit</th>
-              <th className="w-28">Disc</th>
-              <th className="w-32">Amount</th>
-              <th className="w-12"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => {
-              const rowProduct = getProductForLine(item);
-              const unitOptions = rowProduct ? getAllowedUnitsForProduct(rowProduct) : [];
-              const selectedUnit = rowProduct
-                ? resolveLineUnitForProduct(rowProduct, item.unit)
-                : (String(item.unit || '').trim() || 'pcs');
-              return (
-              <tr key={item.id}>
-                <td data-label="Product Name">
-                  <input
-                    id={`product-name-${item.id}`}
-                    name="product_name"
-                    list="product-list"
-                    value={item.name}
-                    onChange={(e) => handleProductChange(index, 'name', e.target.value)}
-                    aria-label="Product name"
-                    placeholder="Type or select product..."
-                    autoComplete="off"
-                  />
-                  <datalist id="product-list">
-                    {productsList.map((p) => (
-                      <option key={p.id} value={getProductOptionLabel(p)} />
-                    ))}
-                  </datalist>
-                </td>
-                <td data-label="Price">
-                  <input
-                    type="number"
-                    id={`product-price-${item.id}`}
-                    name="price"
-                    value={item.price}
-                    onChange={(e) => handleProductChange(index, 'price', e.target.value)}
-                    aria-label="Price per unit"
-                    min="0"
-                    step="0.01"
-                  />
-                </td>
-                <td data-label="Quantity">
-                  <input
-                    type="number"
-                    id={`product-qty-${item.id}`}
-                    name="qty"
-                    value={item.qty}
-                    onChange={(e) => handleProductChange(index, 'qty', e.target.value)}
-                    aria-label="Quantity"
-                    min="1"
-                  />
-                </td>
-                <td data-label="Unit">
-                  {rowProduct ? (
-                    <select
-                      id={`product-unit-${item.id}`}
-                      name="unit"
-                      value={selectedUnit}
-                      onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
-                      aria-label="Unit of measurement"
-                    >
-                      {unitOptions.map((unitOption) => (
-                        <option key={`${item.id}-unit-${unitOption}`} value={unitOption}>
-                          {unitOption}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      id={`product-unit-${item.id}`}
-                      name="unit"
-                      value={item.unit}
-                      onChange={(e) => handleProductChange(index, 'unit', e.target.value)}
-                      aria-label="Unit of measurement"
-                      placeholder="pcs, kg, etc."
-                    />
-                  )}
-                </td>
-                <td data-label="Discount">
-                  <div className="discount-field">
-                    <input
-                      type="number"
-                      id={`product-disc-${item.id}`}
-                      name="disc"
-                      value={item.disc}
-                      onChange={(e) => handleProductChange(index, 'disc', e.target.value)}
-                      aria-label="Discount value"
-                      min="0"
-                      step={item.discType === 'percentage' ? '1' : '0.01'}
-                      className="disc-input"
-                    />
-                    <select
-                      id={`product-disc-type-${item.id}`}
-                      name="discType"
-                      value={item.discType}
-                      onChange={(e) => handleProductChange(index, 'discType', e.target.value)}
-                      aria-label="Discount type"
-                      className="disc-type-select"
-                    >
-                      <option value="fixed">Rs</option>
-                      <option value="percentage">%</option>
-                    </select>
-                  </div>
-                </td>
-                <td className="amount-cell" data-label="Amount">{formatCurrency(item.amount)}</td>
-                <td className="text-center" data-label="Action">
-                  <button
-                    onClick={() => removeItem(index)}
-                    disabled={items.length === 1}
-                    className="delete-btn"
-                    aria-label="Remove item"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="actions">
-        <button onClick={addItem} className="add-btn" aria-label="Add new product">
-          <Plus size={18} /> Add Item
-        </button>
-        <div className="total-section">
-          <p>Total Payable:</p>
-          <p>{formatCurrency(totalBill)}</p>
-        </div>
-      </div>
-
-      <div className="form-section">
-        {isOrderLinked ? (
-          <div className="form-row">
-            <label className="form-label" htmlFor="fulfillmentMode">Billing Mode</label>
-            <select
-              id="fulfillmentMode"
-              className="form-input"
-              value={fulfillmentMode}
-              onChange={(e) => setFulfillmentMode(String(e.target.value || 'available_now'))}
-            >
-              <option value="available_now">Bill available now</option>
-              <option value="full_now">Bill full now</option>
-            </select>
-          </div>
-        ) : null}
-        <div className="form-row">
-          <label className="form-label" htmlFor="paidAmount">Paid Amount</label>
-          <input
-            id="paidAmount"
-            type="number"
-            min="0"
-            step="0.01"
-            className="form-input"
-            value={paidAmount}
-            onChange={(e) => setPaidAmount(e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
-        <div className="form-row">
-          <label className="form-label">Credit </label>
-          <div className="form-input" aria-live="polite">
-            {formatCurrency(creditAmount)}
-          </div>
-        </div>
-      </div>
-
-      <div className="billing-form-controls">
-        <button className="reset" onClick={() => {
-          setCustomer({ id: null, name: '', email: '', phone: '', address: '' });
-          setItems([createEmptyItem()]);
-          setPaidAmount(0);
-          setPrefillSummary('');
-          setLinkedOrderId(0);
-          setFulfillmentMode('available_now');
-        }}>
-          Clear
-        </button>
-        <button 
-          className="submit" 
-          onClick={handleCreateBill} 
-          disabled={isSubmitting}
-        >
-          Create Bill
-        </button>
-      </div>
-
-      {lastShareText && (
-        <div className="share-box">
-          <div className="share-header">
-            <strong>Share Bill {lastShareNumber ? `#${lastShareNumber}` : ''}</strong>
-          </div>
-          <textarea className="share-text" id="billing-share-text" name="share_text" readOnly value={lastShareText} />
-          <div className="share-actions">
-            <button className="share-btn" onClick={handleCopyShare}>Copy</button>
-            <button
-              type="button"
-              className="share-btn whatsapp"
-              onClick={handleSendWhatsApp}
-            >
-              WhatsApp
-            </button>
-          </div>
-        </div>
-      )}
-      {showCustomerCreateModal ? (
-        <UserEditModal
-          isCreate={true}
-          createPrefill={{ name: String(customer?.name || '').trim() }}
-          onClose={() => setShowCustomerCreateModal(false)}
-          onSave={handleCustomerModalSave}
-        />
-      ) : null}
-    </div>
+    <BillingTabView
+      isOrderLinked={isOrderLinked}
+      isSubmitting={isSubmitting}
+      handleAddCustomer={handleAddCustomer}
+      prefillSummary={prefillSummary}
+      error={error}
+      loading={loading}
+      customer={customer}
+      customersList={customersList}
+      handleCustomerChange={handleCustomerChange}
+      items={items}
+      productsList={productsList}
+      getProductOptionLabel={getProductOptionLabelWithFormat}
+      getProductForLine={getProductForLine}
+      getAllowedUnitsForProduct={getAllowedUnitsForProduct}
+      resolveLineUnitForProduct={resolveLineUnitForProduct}
+      handleProductChange={handleProductChange}
+      removeItem={removeItem}
+      addItem={addItem}
+      totalBill={totalBill}
+      fulfillmentMode={fulfillmentMode}
+      setFulfillmentMode={setFulfillmentMode}
+      paidAmount={paidAmount}
+      setPaidAmount={setPaidAmount}
+      creditAmount={creditAmount}
+      onClear={handleClear}
+      handleCreateBill={handleCreateBill}
+      lastShareText={lastShareText}
+      lastShareNumber={lastShareNumber}
+      handleCopyShare={handleCopyShare}
+      handleSendWhatsApp={handleSendWhatsApp}
+      showCustomerCreateModal={showCustomerCreateModal}
+      handleCustomerModalClose={() => setShowCustomerCreateModal(false)}
+      handleCustomerModalSave={handleCustomerModalSave}
+      customerCreateName={String(customer?.name || '').trim()}
+    />
   );
 };
 

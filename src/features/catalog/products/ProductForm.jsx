@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Package, QrCode, Plus, Trash2 } from 'lucide-react';
 import { productsApi, categoriesApi } from '../../../services/api';
-import { getProductImageSrc } from '../../../utils/productImage';
-import ImageUrlPicker from '../../../components/ImageUrlPicker';
 import useIsMobile from '../../../hooks/useIsMobile';
 import useLockBodyScroll from '../../../hooks/useLockBodyScroll';
-import MobileBottomSheet from '../../../components/mobile/MobileBottomSheet';
 import {
   splitCommaValues,
   joinCommaValues,
@@ -16,8 +12,8 @@ import {
   generateDescriptionSuggestion,
   prepareFormDataForSubmit,
 } from './utils/productFormHelpers';
-import { UOM_OPTIONS } from './utils/productFormOptions';
 import { validateProductFormData } from './utils/productFormValidation';
+import ProductFormView from './components/form/ProductFormView';
 import './ProductForm.css';
 
 function ProductForm({ product, onClose, onSave, mode = 'full' }) {
@@ -251,12 +247,11 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
     if (name === 'stock') {
       setIsStockAutoFromPrice(false);
     }
-    
-    // Clear error when user starts typing
+
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    
+
     const pricingVariantCount = getPricingVariantCount(nextFormData);
     if (['price', 'mrp'].includes(name) && pricingVariantCount > 1) {
       if (isContentAutoFromPrice || splitCommaValues(nextFormData.content).length === 0) {
@@ -277,7 +272,6 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
       }
     }
 
-    // Auto-generate SKU when relevant fields change
     if (['name', 'brand', 'content', 'purchase_pack_size', 'price', 'mrp'].includes(name)) {
       const contentValues = splitCommaValues(nextFormData.content);
       const packValues = splitCommaValues(nextFormData.purchase_pack_size);
@@ -366,7 +360,6 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
           return;
         }
 
-        // Soft margin check: warn if selling below latest cost for single-variant edits.
         if (variantRows.length === 1 && product.latest_cost != null) {
           const latestCost = Number(product.latest_cost || 0);
           if (latestCost > 0) {
@@ -474,579 +467,34 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
   const visibleAdvancedFields = showAdvancedFields && !isQuickMode;
   const formHeading = isEditing ? 'Edit Product' : (isQuickMode ? 'Quick Add Product' : 'Add New Product');
 
-  const formContent = (
-    <>
-      {error && <div className="error-message">{error}</div>}
-
-      <form onSubmit={handleSubmit} className={`product-form${isQuickMode ? ' compact-product-form' : ''}`}>
-          {!isEditing && !isQuickMode && (
-            <div className="form-section batch-section">
-              <h3 className="section-title">Batch Add Products</h3>
-              <p className="batch-help">
-                Fill product details and click <strong>Add To Batch</strong>. You can submit all queued products at once.
-              </p>
-              <div className="batch-actions">
-                <button type="button" className="submit-btn batch-add-btn" onClick={handleAddToBatch} disabled={loading}>
-                  <Plus size={16} /> Add To Batch
-                </button>
-              </div>
-              {batchProducts.length > 0 && (
-                <div className="batch-summary-bar">
-                  <span>{batchProducts.length} product(s) queued for one-click save</span>
-                  <button type="button" className="batch-clear-btn" onClick={handleClearBatch}>
-                    Clear Queue
-                  </button>
-                </div>
-              )}
-              {batchProducts.length > 0 && (
-                <div className="batch-list">
-                  {batchProducts.map((item, index) => (
-                    <div key={`${item.name}-${index}`} className="batch-item">
-                      <div className="batch-item-info">
-                        <strong>{item.name}</strong>
-                        <span>{item.category} | Rs {Number(item.price || 0).toFixed(2)} | Stock: {item.stock}</span>
-                      </div>
-                      <button type="button" className="batch-item-remove" onClick={() => handleRemoveBatchItem(index)} title="Remove">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {!isQuickMode && (
-            <div className="advanced-fields-toggle">
-            <button
-              type="button"
-              className="advanced-toggle-btn"
-              onClick={() => setShowAdvancedFields((prev) => !prev)}
-            >
-              {showAdvancedFields ? 'Hide advanced fields' : 'Show advanced fields'}
-            </button>
-            <small className="field-help">Advanced: UOM conversion, SKU and barcode.</small>
-          </div>
-          )}
-
-          {/* Basic Information Section */}
-          <div className="form-section">
-            <h3 className="section-title">{isQuickMode ? 'Quick Product Details' : 'Basic Information'}</h3>
-            
-            <div className="form-group">
-              <label htmlFor="name">Product Name *</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Enter product name"
-                className={`input-field ${errors.name ? 'error' : ''}`}
-              />
-              {errors.name && <span className="field-error">{errors.name}</span>}
-            </div>
-
-            {!isQuickMode ? (
-            <div className="form-group">
-              <div className="description-header">
-                <label htmlFor="description">Description *</label>
-                <button type="button" className="suggest-description-btn" onClick={handleSuggestDescription}>
-                  Suggest
-                </button>
-              </div>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Enter product description"
-                rows="3"
-                className={`input-field ${errors.description ? 'error' : ''}`}
-              />
-              <small className="field-help">Description is auto-suggested from product name. You can edit it anytime.</small>
-              {errors.description && <span className="field-error">{errors.description}</span>}
-            </div>
-            ) : (
-            <div className="compact-product-grid">
-              <div className="form-group compact-span-2">
-                <label htmlFor="category">Category *</label>
-                <input
-                  type="text"
-                  id="category"
-                  name="category"
-                  list="product-form-category-list"
-                  value={formData.category}
-                  onChange={handleChange}
-                  placeholder="Groceries -> Dairy"
-                  className={`input-field ${errors.category ? 'error' : ''}`}
-                />
-                <datalist id="product-form-category-list">
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name} />
-                  ))}
-                </datalist>
-                {errors.category && <span className="field-error">{errors.category}</span>}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="brand">Brand</label>
-                <input
-                  type="text"
-                  id="brand"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={handleChange}
-                  placeholder="Optional brand"
-                  className="input-field"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="price">Price *</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  id="price"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  className={`input-field ${errors.price ? 'error' : ''}`}
-                />
-                {errors.price && <span className="field-error">{errors.price}</span>}
-              </div>
-
-              <div className="form-group compact-span-2">
-                <label htmlFor="uom">UOM *</label>
-                <select
-                  id="uom"
-                  name="uom"
-                  value={formData.uom}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  {UOM_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group compact-span-2">
-                <label htmlFor="purchase_pack_size">Purchase Pack Size</label>
-                <input
-                  type="number"
-                  id="purchase_pack_size"
-                  name="purchase_pack_size"
-                  min="0"
-                  step="1"
-                  value={formData.purchase_pack_size}
-                  onChange={handleChange}
-                  placeholder="e.g., 12"
-                  className={`input-field ${errors.purchase_pack_size ? 'error' : ''}`}
-                />
-                {errors.purchase_pack_size && <span className="field-error">{errors.purchase_pack_size}</span>}
-              </div>
-            </div>
-            )}
-
-            {!isQuickMode && (
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="brand">Brand</label>
-                <input
-                  type="text"
-                  id="brand"
-                  name="brand"
-                  value={formData.brand}
-                  onChange={handleChange}
-                  placeholder="e.g., Nescafe, Parle"
-                  className="input-field"
-                />
-                <small className="field-help">Optional format: Parent {'->'} Child. Example: Dove {'->'} Baby Care.</small>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="content">Content/Size</label>
-                <input
-                  type="text"
-                  id="content"
-                  name="content"
-                  value={formData.content}
-                  onChange={handleChange}
-                  placeholder="e.g., 250g, 1L, 500ml"
-                  className="input-field"
-                />
-                <small className="field-help">Multiple variants: use comma values, e.g. `250g,500g,1kg`.</small>
-              </div>
-            </div>
-            )}
-
-            {!isQuickMode && (
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="purchase_pack_size">Purchase Pack Size</label>
-                <input
-                  type="number"
-                  id="purchase_pack_size"
-                  name="purchase_pack_size"
-                  min="0"
-                  step="1"
-                  value={formData.purchase_pack_size}
-                  onChange={handleChange}
-                  placeholder="e.g., 12"
-                  className={`input-field ${errors.purchase_pack_size ? 'error' : ''}`}
-                />
-                <small className="field-help">Used for PO quantity step and SKU (format: P12).</small>
-                {errors.purchase_pack_size && <span className="field-error">{errors.purchase_pack_size}</span>}
-              </div>
-            </div>
-            )}
-
-            {!isQuickMode && (
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="color">Color</label>
-                <input
-                  type="text"
-                  id="color"
-                  name="color"
-                  value={formData.color}
-                  onChange={handleChange}
-                  placeholder="e.g., Brown, White, Red"
-                  className="input-field"
-                />
-                <small className="field-help">Optional comma values for variants, e.g. `Red,Blue,Green`.</small>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="category">Category *</label>
-                <input
-                  type="text"
-                  id="category"
-                  name="category"
-                  list="product-form-category-list"
-                  value={formData.category}
-                  onChange={handleChange}
-                  placeholder="e.g., Baby Products -> Haircare"
-                  className={`input-field ${errors.category ? 'error' : ''}`}
-                />
-                <datalist id="product-form-category-list">
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name} />
-                  ))}
-                </datalist>
-                <small className="field-help">Use Parent {'->'} Child for sub-category. Example: Baby Products {'->'} Haircare.</small>
-                {errors.category && <span className="field-error">{errors.category}</span>}
-              </div>
-            </div>
-            )}
-          </div>
-
-          {!isQuickMode && (
-          <div className="form-section">
-            <h3 className="section-title">{isQuickMode ? 'Rates & Stock' : 'Pricing'}</h3>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="price">Selling Price (₹) *</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  id="price"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  className={`input-field ${errors.price ? 'error' : ''}`}
-                />
-                {errors.price && <span className="field-error">{errors.price}</span>}
-                <small className="field-help">For multiple variants use comma values, e.g. `5,10,50`. Content/Size and Stock auto-fill from this and stay editable.</small>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="mrp">MRP (₹)</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  id="mrp"
-                  name="mrp"
-                  value={formData.mrp}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  className="input-field"
-                />
-                <small className="field-help">Optional comma values. If blank, each variant uses selling price as MRP.</small>
-              </div>
-            </div>
-
-            {!isQuickMode && (
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="defaultDiscount">Discount</label>
-                <input
-                  type="number"
-                  id="defaultDiscount"
-                  name="defaultDiscount"
-                  value={formData.defaultDiscount}
-                  onChange={handleChange}
-                  placeholder="0"
-                  step="0.01"
-                  min="0"
-                  className="input-field"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="discountType">Discount Type</label>
-                <select
-                  id="discountType"
-                  name="discountType"
-                  value={formData.discountType}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  <option value="fixed">Fixed (₹)</option>
-                  <option value="percentage">Percentage (%)</option>
-                </select>
-              </div>
-            </div>
-            )}
-          </div>
-          )}
-
-          {/* Inventory Section */}
-          {!isQuickMode && (
-          <div className="form-section">
-            <h3 className="section-title">Inventory</h3>
-            
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="stock">Stock Quantity *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  id="stock"
-                  name="stock"
-                  value={formData.stock}
-                  onChange={handleChange}
-                  placeholder="0"
-                  className={`input-field ${errors.stock ? 'error' : ''}`}
-                />
-                {errors.stock && <span className="field-error">{errors.stock}</span>}
-                <small className="field-help">Defaults to `0` per variant (e.g., `0,0,0`) and can be edited.</small>
-              </div>
-
-              {isQuickMode ? (
-              <div className="form-group">
-                <label htmlFor="uom">Unit</label>
-                <select
-                  id="uom"
-                  name="uom"
-                  value={formData.uom}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  {UOM_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              ) : (
-              <div className="form-group">
-                <label htmlFor="base_unit">Base Unit</label>
-                <select
-                  id="base_unit"
-                  name="base_unit"
-                  value={formData.base_unit}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  {UOM_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <small className="field-help">Primary unit for inventory</small>
-              </div>
-              )}
-            </div>
-
-            {!isQuickMode && (
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="uom">Selling UOM</label>
-                  <select
-                    id="uom"
-                    name="uom"
-                    value={formData.uom}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    {UOM_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="expiry_date">Expiry Date</label>
-                  <input
-                    type="date"
-                    id="expiry_date"
-                    name="expiry_date"
-                    value={formData.expiry_date}
-                    onChange={handleChange}
-                    className="input-field"
-                  />
-                </div>
-              </div>
-            )}
-
-            {visibleAdvancedFields && (
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="uom_type">UOM Type</label>
-                  <select
-                    id="uom_type"
-                    name="uom_type"
-                    value={formData.uom_type}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    <option value="selling">Selling Only</option>
-                    <option value="purchasing">Purchasing Only</option>
-                    <option value="both">Both Selling & Purchasing</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="conversion_factor">Conversion Factor</label>
-                  <input
-                    type="number"
-                    id="conversion_factor"
-                    name="conversion_factor"
-                    value={formData.conversion_factor}
-                    onChange={handleChange}
-                    placeholder="1"
-                    step="0.0001"
-                    min="0"
-                    className={`input-field ${errors.conversion_factor ? 'error' : ''}`}
-                  />
-                  {errors.conversion_factor && <span className="field-error">{errors.conversion_factor}</span>}
-                  <small className="field-help">Selling units per base unit (e.g., 1000 when selling g and base is kg)</small>
-                </div>
-              </div>
-            )}
-          </div>
-          )}
-
-          {visibleAdvancedFields && (
-            <div className="form-section">
-              <h3 className="section-title">SKU & Barcode</h3>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="sku">
-                    <Package size={16} /> SKU (Auto-generated)
-                  </label>
-                  <input
-                    type="text"
-                    id="sku"
-                    name="sku"
-                    value={formData.sku}
-                    onChange={handleChange}
-                  placeholder="Auto-generated SKU"
-                  className="input-field"
-                  readOnly={!isEditing}
-                />
-                  <small className="field-help">Format: Name[:4] + Brand[:4] + Content[:2] + Price[:4]. For multi-variant, comma SKUs are supported.</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="barcode">
-                    <QrCode size={16} /> Barcode
-                  </label>
-                  <input
-                    type="text"
-                    id="barcode"
-                    name="barcode"
-                    value={formData.barcode}
-                    onChange={handleChange}
-                    placeholder="Enter barcode (numeric)"
-                    className="input-field"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isQuickMode && (
-          <div className="form-section">
-            <h3 className="section-title">Product Image</h3>
-            
-            <div className="form-group">
-              <label htmlFor="image">Image URL</label>
-              <ImageUrlPicker
-                value={formData.image}
-                disabled={loading}
-                productMeta={{
-                  name: formData.name,
-                  brand: formData.brand,
-                  content: formData.content,
-                  category: formData.category,
-                }}
-                onChange={(nextUrl) => {
-                  setFormData((prev) => ({ ...prev, image: nextUrl }));
-                }}
-              />
-            </div>
-
-            {formData.image && (
-              <div className="image-preview">
-                <img src={getProductImageSrc(formData.image)} alt="Product preview" onError={(e) => e.target.style.display = 'none'} />
-              </div>
-            )}
-
-          </div>
-          )}
-
-          <div className="form-actions">
-            <button type="button" className="cancel-btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Saving...' : (isEditing ? 'Update Product' : (isQuickMode ? 'Add Now' : `Add Product${batchProducts.length ? ` (${batchProducts.length} queued)` : ''}`))}
-            </button>
-          </div>
-      </form>
-    </>
-  );
-
-  if (isMobile) {
-    return (
-      <MobileBottomSheet
-        open
-        title={formHeading}
-        onClose={onClose}
-        className={`product-form-sheet${isQuickMode ? ' product-form-sheet-compact' : ''}`}
-      >
-        {formContent}
-      </MobileBottomSheet>
-    );
-  }
+  const handleImageChange = (nextUrl) => {
+    setFormData((prev) => ({ ...prev, image: nextUrl }));
+  };
 
   return (
-    <div className="product-form-overlay">
-      <div className={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}>
-        <div className="product-form-header">
-          <h2>{formHeading}</h2>
-          <button className="close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
-        </div>
-        {formContent}
-      </div>
-    </div>
+    <ProductFormView
+      isMobile={isMobile}
+      formHeading={formHeading}
+      isQuickMode={isQuickMode}
+      isEditing={isEditing}
+      error={error}
+      formData={formData}
+      errors={errors}
+      categories={categories}
+      loading={loading}
+      showAdvancedFields={showAdvancedFields}
+      setShowAdvancedFields={setShowAdvancedFields}
+      visibleAdvancedFields={visibleAdvancedFields}
+      batchProducts={batchProducts}
+      onClose={onClose}
+      onSubmit={handleSubmit}
+      onChange={handleChange}
+      onSuggestDescription={handleSuggestDescription}
+      onAddToBatch={handleAddToBatch}
+      onClearBatch={handleClearBatch}
+      onRemoveBatchItem={handleRemoveBatchItem}
+      onImageChange={handleImageChange}
+    />
   );
 }
 

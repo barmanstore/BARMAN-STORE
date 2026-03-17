@@ -171,6 +171,7 @@ const usePurchasePrintOrder = ({
 
   return {
     handlePrintOrderDetail,
+    getItemFinancials,
   };
 };
 

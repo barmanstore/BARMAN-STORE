@@ -1,84 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
-import { formatCurrency, getSignedCurrencyClassName } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import { productRecommendationsApi, productsApi } from '../../services/api';
 import { getProductImageSrc } from '../../utils/productImage';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import CartView from './components/CartView';
+import { formatCurrencyColored } from './utils/cartFormatters';
+import { parseQuantityText, rankManualMatches, QUICK_QTY_OPTIONS } from './utils/cartSearchUtils';
 import './Cart.css';
 
-const formatCurrencyColored = (amount) => {
-  const formatted = formatCurrency(Math.abs(amount));
-  return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
-};
-
-const parseQuantityText = (rawValue) => {
-  const cleaned = String(rawValue || '').trim();
-  if (!cleaned) return { quantity: 1, quantityLabel: '1' };
-  const numberMatch = cleaned.match(/(\d+(?:\.\d+)?)/);
-  const parsedQuantity = Number(numberMatch?.[1] || 0);
-  return {
-    quantity: Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1,
-    quantityLabel: cleaned,
-  };
-};
-
-const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
-
-const getManualSearchScore = (product, query) => {
-  const q = normalizeSearchText(query);
-  if (!q) return 0;
-  const tokens = q.split(/\s+/).filter(Boolean);
-  const name = normalizeSearchText(product?.name);
-  const category = normalizeSearchText(product?.category);
-  const brand = normalizeSearchText(product?.brand);
-  const content = normalizeSearchText(product?.content);
-  const color = normalizeSearchText(product?.color);
-  const sku = normalizeSearchText(product?.sku);
-  const barcode = normalizeSearchText(product?.barcode);
-  const haystack = [name, category, brand, content, color, sku, barcode].join(' ');
-
-  let score = 0;
-  if (name === q) score += 300;
-  else if (name.startsWith(q)) score += 220;
-  else if (name.includes(q)) score += 150;
-
-  if (category.startsWith(q)) score += 80;
-  if (brand.startsWith(q)) score += 70;
-  if (sku === q || barcode === q) score += 240;
-
-  for (const token of tokens) {
-    if (!token) continue;
-    if (name.startsWith(token)) score += 35;
-    else if (name.includes(token)) score += 22;
-    if (category.includes(token)) score += 12;
-    if (brand.includes(token)) score += 10;
-    if (content.includes(token) || color.includes(token)) score += 8;
-    if (sku.includes(token) || barcode.includes(token)) score += 15;
-  }
-
-  if (haystack.includes(q)) score += 20;
-  if (Number(product?.stock || 0) > 0) score += 6;
-  return score;
-};
-
-const rankManualMatches = (rows, query) => (
-  (Array.isArray(rows) ? rows : [])
-    .filter((product) => Number(product?.id || 0) > 0)
-    .map((product) => ({ product, score: getManualSearchScore(product, query) }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      const bStock = Number(b.product?.stock || 0);
-      const aStock = Number(a.product?.stock || 0);
-      if (bStock !== aStock) return bStock - aStock;
-      return String(a.product?.name || '').localeCompare(String(b.product?.name || ''));
-    })
-    .slice(0, 8)
-    .map((row) => row.product)
-);
-
-const QUICK_QTY_OPTIONS = ['1', '2', '5', '1kg', '500g'];
 
 function Cart({ cartCount, setCartCount }) {
   const [cart, setCart] = useState([]);
@@ -478,159 +407,23 @@ function Cart({ cartCount, setCartCount }) {
     </form>
   );
 
-  if (cart.length === 0) {
-    return (
-      <MobileAccountLayout>
-        <div className="empty-cart fade-in-up">
-          <div className="empty-cart-icon">
-            <ShoppingBag size={80} />
-          </div>
-          <h2>Your cart is empty</h2>
-          <p>Add products or manual requested items to start your order.</p>
-          {renderManualEntryCard()}
-          <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
-            Continue Shopping
-          </button>
-        </div>
-      </MobileAccountLayout>
-    );
-  }
-
-  const hasUnknownPriceItems = cart.some((item) => isUnknownPriceItem(item));
-
   return (
-    <MobileAccountLayout>
-      <div className="cart-page">
-        <div className="cart-header fade-in-up">
-          <h1>Shopping Cart</h1>
-          <p>{cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart</p>
-        </div>
-
-      <div className="cart-content">
-        <div className="cart-items">
-          {renderManualEntryCard()}
-          {cart.map((item, index) => {
-            const manual = isManualItem(item);
-            const requestedCatalog = !manual && Number(item?.out_of_stock_request || 0) === 1;
-            const unknownPrice = isUnknownPriceItem(item);
-            const quantityLabel = getItemQuantityLabel(item);
-            const requestedQtyNumeric = Math.max(0, Number(item?.quantity || 0));
-            const stockQtyNumeric = Math.max(0, Number(item?.stock || 0));
-            const availableNowQty = requestedCatalog
-              ? Math.min(stockQtyNumeric, requestedQtyNumeric)
-              : requestedQtyNumeric;
-            const pendingQty = requestedCatalog
-              ? Math.max(0, requestedQtyNumeric - availableNowQty)
-              : 0;
-            return (
-              <div
-                key={getCartItemKey(item)}
-                className="cart-item slide-in-left"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="cart-item-image">
-                  {manual || !item.image ? (
-                    <div className="manual-item-placeholder">{String(item?.name || 'M').slice(0, 1).toUpperCase()}</div>
-                  ) : (
-                    <img src={item.image} alt={item.name} />
-                  )}
-                </div>
-                <div className="cart-item-details">
-                  <h3>{item.name}</h3>
-                  <p className="cart-item-category">
-                    {manual ? 'Requested / Manual' : requestedCatalog ? 'Requested / Out of Stock' : item.category}
-                  </p>
-                  <p className="cart-item-quantity-text">Qty: {quantityLabel}</p>
-                  {requestedCatalog ? (
-                    <p className="cart-item-request-note">
-                      {`${Number(availableNowQty || 0)} available now, ${Number(pendingQty || 0)} pending.`}
-                    </p>
-                  ) : null}
-                  {unknownPrice ? (
-                    <p className="cart-item-price-unknown">Price: Unknown (set at billing)</p>
-                  ) : (
-                    <p className="cart-item-price">{formatCurrencyColored(item.price)} each</p>
-                  )}
-                </div>
-                <div className="cart-item-actions">
-                  {manual ? (
-                    <div className="manual-qty-badge">Qty {quantityLabel}</div>
-                  ) : (
-                    <div className="quantity-control">
-                      <button
-                        type="button"
-                        className="quantity-btn"
-                        onClick={() => updateQuantity(getCartItemKey(item), -1)}
-                        disabled={Number(item.quantity || 1) <= 1}
-                      >
-                        <Minus size={16} />
-                      </button>
-                      <span className="quantity-display">{Number(item.quantity || 1)}</span>
-                      <button
-                        type="button"
-                        className="quantity-btn"
-                        onClick={() => updateQuantity(getCartItemKey(item), 1)}
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                  )}
-                  <div className="cart-item-total">
-                    <span className="total-label">Total</span>
-                    {unknownPrice ? (
-                      <span className="total-value unknown">Unknown</span>
-                    ) : (
-                      <span className="total-value">{formatCurrencyColored(item.price * item.quantity)}</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => removeItem(getCartItemKey(item))}
-                    title="Remove item"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="cart-summary slide-in-right">
-          <h2>Order Summary</h2>
-          <div className="summary-details">
-            <div className="summary-row">
-              <span>Subtotal</span>
-              <span>{formatCurrencyColored(getTotal())}</span>
-            </div>
-            <div className="summary-row">
-              <span>Shipping</span>
-              <span>Free</span>
-            </div>
-            <div className="summary-row">
-              <span>Tax (estimated)</span>
-              <span>{formatCurrencyColored(getTotal() * 0.1)}</span>
-            </div>
-            <div className="summary-divider"></div>
-            <div className="summary-total">
-              <span>Total</span>
-              <span>{formatCurrencyColored(getTotal() * 1.1)}</span>
-            </div>
-          </div>
-          {hasUnknownPriceItems ? (
-            <p className="unknown-price-note">Requested/manual items are sent with price as Unknown and finalized at confirmation.</p>
-          ) : null}
-          <button className="checkout-btn" onClick={handleCheckout}>
-            Proceed to Checkout
-          </button>
-          <button className="clear-cart-btn" onClick={clearCart}>
-            Clear Cart
-          </button>
-        </div>
-      </div>
-      </div>
-    </MobileAccountLayout>
+    <CartView
+      cart={cart}
+      cartCount={cartCount}
+      renderManualEntryCard={renderManualEntryCard}
+      onContinueShopping={() => navigate('/products')}
+      getCartItemKey={getCartItemKey}
+      isManualItem={isManualItem}
+      isUnknownPriceItem={isUnknownPriceItem}
+      getItemQuantityLabel={getItemQuantityLabel}
+      updateQuantity={updateQuantity}
+      removeItem={removeItem}
+      formatCurrencyColored={formatCurrencyColored}
+      getTotal={getTotal}
+      handleCheckout={handleCheckout}
+      clearCart={clearCart}
+    />
   );
 }
 

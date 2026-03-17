@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '../../services/api';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import useExpandableCards from './hooks/useExpandableCards';
+import useIssueDrafts from './hooks/useIssueDrafts';
+import { formatMergeImpact, issueStatuses, phoneStatuses, recommendationStatuses } from './utils/customerRequestsAdminUtils';
 import './CustomerRequestsAdmin.css';
-
-const recommendationStatuses = ['open', 'reviewed', 'fulfilled', 'rejected'];
-const issueStatuses = ['open', 'in_review', 'corrected', 'rejected'];
-const phoneStatuses = ['open', 'pending_validation', 'approved', 'rejected', 'all'];
 
 function CustomerRequestsAdmin() {
   const [activeView, setActiveView] = useState('recommendations');
@@ -17,11 +16,11 @@ function CustomerRequestsAdmin() {
   const [recommendations, setRecommendations] = useState([]);
   const [issues, setIssues] = useState([]);
   const [phoneRequests, setPhoneRequests] = useState([]);
-  const [issueDrafts, setIssueDrafts] = useState({});
   const [issueSavingId, setIssueSavingId] = useState(0);
   const [phoneSavingId, setPhoneSavingId] = useState(0);
   const [activeIssueEditorId, setActiveIssueEditorId] = useState(0);
-  const [expandedCards, setExpandedCards] = useState({});
+  const { setIssueDraft, getIssueDraft } = useIssueDrafts();
+  const { isCardExpanded, toggleCard, handleCardKeyToggle } = useExpandableCards();
 
   const load = async () => {
     setLoading(true);
@@ -39,54 +38,6 @@ function CustomerRequestsAdmin() {
       setError(err.message || 'Failed to load customer requests');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const setIssueDraft = (id, patch) => {
-    setIssueDrafts((prev) => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] || {}),
-        ...patch,
-      },
-    }));
-  };
-
-  const getIssueDraft = (issue) => {
-    const current = issueDrafts[issue.id] || {};
-    return {
-      admin_reason: current.admin_reason ?? issue.admin_reason ?? issue.resolution_note ?? '',
-      correction_type: current.correction_type ?? '',
-      correction_amount: current.correction_amount ?? '',
-      correction_description: current.correction_description ?? '',
-      correction_reference: current.correction_reference ?? '',
-    };
-  };
-
-  const formatMergeImpact = (impact) => {
-    if (!impact || typeof impact !== 'object') return '';
-    const total = Number(impact.total_records || 0);
-    const parts = [
-      `total ${total}`,
-      `credit ${Number(impact.credit_history || 0)}`,
-      `issues ${Number(impact.credit_entry_issues || 0)}`,
-      `bills ${Number(impact.bills || 0)}`,
-      `orders ${Number(impact.orders || 0)}`,
-      `reco ${Number(impact.product_recommendations || 0)}`,
-    ];
-    return parts.join(' | ');
-  };
-
-  const getCardKey = (scope, id) => `${scope}:${Number(id || 0)}`;
-  const isCardExpanded = (scope, id) => Boolean(expandedCards[getCardKey(scope, id)]);
-  const toggleCard = (scope, id) => {
-    const key = getCardKey(scope, id);
-    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-  const handleCardKeyToggle = (event, scope, id) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      toggleCard(scope, id);
     }
   };
 
