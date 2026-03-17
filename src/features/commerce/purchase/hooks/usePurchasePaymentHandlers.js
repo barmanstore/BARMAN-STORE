@@ -1,0 +1,142 @@
+import { useCallback } from 'react';
+
+const usePurchasePaymentHandlers = ({
+  purchaseOrders,
+  getPoBalanceDue,
+  getDefaultPoPaymentFormData,
+  setPoPaymentFormData,
+  setPaymentOrder,
+  setShowPoPaymentModal,
+  setPoPaymentSubmitting,
+  poPaymentSubmitting,
+  poPaymentLockRef,
+  poPaymentClientRequestIdRef,
+  purchaseOrdersApi,
+  createClientRequestId,
+  getTodayDate,
+  toNumber,
+  user,
+  paymentOrder,
+  poPaymentFormData,
+  fetchOrders,
+  fetchDistributorLedger,
+  setError,
+}) => {
+  const handleOpenPoPaymentModal = useCallback((order) => {
+    if (!order) return;
+    const balanceDue = getPoBalanceDue(order);
+    setError('');
+    setPaymentOrder(order);
+    setPoPaymentFormData({
+      ...getDefaultPoPaymentFormData(),
+      amount: balanceDue > 0 ? balanceDue.toFixed(2) : '',
+      reference: String(order.bill_number || order.invoice_number || order.po_number || '').trim(),
+      transaction_date: getTodayDate(),
+      notes: '',
+    });
+    poPaymentLockRef.current = false;
+    poPaymentClientRequestIdRef.current = createClientRequestId('popay');
+    setShowPoPaymentModal(true);
+  }, [
+    getPoBalanceDue,
+    getDefaultPoPaymentFormData,
+    setError,
+    setPaymentOrder,
+    setPoPaymentFormData,
+    getTodayDate,
+    poPaymentLockRef,
+    poPaymentClientRequestIdRef,
+    createClientRequestId,
+    setShowPoPaymentModal,
+  ]);
+
+  const handleOpenPoPaymentById = useCallback((orderId) => {
+    const order = (purchaseOrders || []).find((row) => Number(row.id) === Number(orderId));
+    if (order) handleOpenPoPaymentModal(order);
+  }, [purchaseOrders, handleOpenPoPaymentModal]);
+
+  const closePoPaymentModal = useCallback(() => {
+    setShowPoPaymentModal(false);
+    setPaymentOrder(null);
+    setPoPaymentFormData(getDefaultPoPaymentFormData());
+    setPoPaymentSubmitting(false);
+    poPaymentLockRef.current = false;
+    poPaymentClientRequestIdRef.current = '';
+  }, [
+    setShowPoPaymentModal,
+    setPaymentOrder,
+    setPoPaymentFormData,
+    getDefaultPoPaymentFormData,
+    setPoPaymentSubmitting,
+    poPaymentLockRef,
+    poPaymentClientRequestIdRef,
+  ]);
+
+  const handlePoPaymentSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    if (!paymentOrder) return;
+    if (poPaymentSubmitting || poPaymentLockRef.current) return;
+    poPaymentLockRef.current = true;
+    const amount = Math.max(0, toNumber(poPaymentFormData.amount));
+    const balanceDue = getPoBalanceDue(paymentOrder);
+    if (amount <= 0) {
+      poPaymentLockRef.current = false;
+      setError('Payment amount must be greater than 0');
+      return;
+    }
+    if (amount > balanceDue) {
+      poPaymentLockRef.current = false;
+      setError('Payment amount cannot exceed current balance due');
+      return;
+    }
+
+    try {
+      setError('');
+      setPoPaymentSubmitting(true);
+      const clientRequestId = poPaymentClientRequestIdRef.current || createClientRequestId('popay');
+      poPaymentClientRequestIdRef.current = clientRequestId;
+      await purchaseOrdersApi.addPayment(paymentOrder.id, {
+        amount: Number(amount.toFixed(2)),
+        payment_mode: poPaymentFormData.payment_mode,
+        reference: poPaymentFormData.reference,
+        transaction_date: poPaymentFormData.transaction_date || getTodayDate(),
+        notes: poPaymentFormData.notes,
+        created_by: user?.id,
+        client_request_id: clientRequestId,
+      });
+      closePoPaymentModal();
+      fetchOrders();
+      fetchDistributorLedger();
+    } catch (err) {
+      setError(err?.message || 'Failed to add PO payment');
+      setPoPaymentSubmitting(false);
+      poPaymentLockRef.current = false;
+    }
+  }, [
+    poPaymentSubmitting,
+    poPaymentLockRef,
+    toNumber,
+    getPoBalanceDue,
+    setError,
+    setPoPaymentSubmitting,
+    poPaymentClientRequestIdRef,
+    createClientRequestId,
+    purchaseOrdersApi,
+    getTodayDate,
+    user,
+    paymentOrder,
+    poPaymentFormData,
+    closePoPaymentModal,
+    fetchOrders,
+    fetchDistributorLedger,
+  ]);
+
+  return {
+    handleOpenPoPaymentModal,
+    handleOpenPoPaymentById,
+    closePoPaymentModal,
+    handlePoPaymentSubmit,
+  };
+};
+
+export default usePurchasePaymentHandlers;

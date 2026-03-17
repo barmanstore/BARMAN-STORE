@@ -36,6 +36,8 @@ import {
   PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS,
 } from './config/productTableConfig';
 import { asNumber, getBrandPath, getCategoryPath, toLocalDateKey } from './utils/adminHelpers';
+import useAdminProductHandlers from './hooks/useAdminProductHandlers';
+import useAdminQuickProductActions from './hooks/useAdminQuickProductActions';
 import './Admin.css';
 import './AdminStandard.css';
 
@@ -586,45 +588,6 @@ function Admin({ user }) {
     }
   };
 
-  const handleDeleteProduct = async (id) => {
-    if (!window.confirm('Mark this product as inactive?')) return;
-    
-    try {
-      await productsApi.delete(id);
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
-      showNotification('Product marked inactive', 'success');
-      
-      // Refresh stats
-      const statsData = await statsApi.orders();
-      setStats(statsData);
-    } catch (error) {
-      showNotification('Failed to delete product', 'error');
-    }
-  };
-
-  const handlePermanentDeleteProduct = async (product) => {
-    if (Number(product?.is_active ?? 1) === 1) {
-      showNotification('Deactivate product before permanent delete', 'error');
-      return;
-    }
-    const productName = String(product?.name || '').trim();
-    const confirmed = window.prompt(
-      `Permanent delete "${productName}"? This cannot be undone.\nType DELETE to confirm:`,
-      ''
-    );
-    if (confirmed !== 'DELETE') return;
-
-    try {
-      await productsApi.deletePermanent(product.id);
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
-      showNotification('Product permanently deleted', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Failed to permanently delete product', 'error');
-    }
-  };
-
   const handleDeleteUser = async (id) => {
     if (!window.confirm('Are you sure you want to delete this customer?')) return;
     
@@ -637,58 +600,48 @@ function Admin({ user }) {
     }
   };
 
-  const handleEditProduct = async (product) => {
-    const productId = Number(product?.id || 0);
-    if (!productId) return;
-    try {
-      setProductEditLoadingId(productId);
-      const fullProduct = await productsApi.getById(productId, { include_inactive: 'true' });
-      setEditingProduct(fullProduct || product);
-      setShowProductForm(true);
-    } catch (error) {
-      showNotification(error.message || 'Failed to load product details', 'error');
-      setEditingProduct(product);
-      setShowProductForm(true);
-    } finally {
-      setProductEditLoadingId(null);
-    }
-  };
-
-  const handleAddProduct = () => {
-    setEditingProduct(null);
-    setShowProductForm(true);
-  };
-
-  const handleProductSave = async (meta = {}) => {
-    try {
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
-      
-      // Refresh stats
-      const statsData = await statsApi.orders();
-      setStats(statsData);
-
-      if (meta?.mode === 'create' && Number(meta?.createdCount) > 1) {
-        showNotification(`${meta.createdCount} products added successfully`, 'success');
-      } else if (meta?.mode === 'edit_split') {
-        const created = Number(meta?.createdCount || 0);
-        showNotification(`Product updated and ${created} additional variant(s) created successfully`, 'success');
-      } else if (meta?.mode === 'edit') {
-        showNotification('Product updated successfully', 'success');
-      } else if (meta?.mode === 'create') {
-        showNotification('Product added successfully', 'success');
-      } else {
-        showNotification(editingProduct ? 'Product updated successfully' : 'Product added successfully', 'success');
-      }
-    } catch (error) {
-      showNotification('Failed to refresh products', 'error');
-    }
-  };
-
-  const showNotification = (message, type) => {
+  function showNotification(message, type) {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
-  };
+  }
+
+  const {
+    handleDeleteProduct,
+    handlePermanentDeleteProduct,
+    handleEditProduct,
+    handleAddProduct,
+    handleProductSave,
+  } = useAdminProductHandlers({
+    productsApi,
+    statsApi,
+    setProducts,
+    setStats,
+    showNotification,
+    setEditingProduct,
+    setShowProductForm,
+    setProductEditLoadingId,
+    editingProduct,
+  });
+  const {
+    resetQuickAdd,
+    handleQuickAddSave,
+    startQuickEdit,
+    cancelQuickEdit,
+    handleQuickEditSave,
+  } = useAdminQuickProductActions({
+    quickAddForm,
+    quickEditForm,
+    setQuickAddForm,
+    setQuickEditForm,
+    setQuickEditId,
+    setShowQuickAdd,
+    setQuickSaving,
+    productsApi,
+    handleProductSave,
+    showNotification,
+    getBrandPath,
+    getCategoryPath,
+  });
 
   const closeNotification = () => {
     setNotification(null);
@@ -1123,142 +1076,7 @@ function Admin({ user }) {
     }
   };
 
-  const resetQuickAdd = () => {
-    setQuickAddForm({
-      name: '',
-      category: '',
-      price: '',
-      stock: '',
-      image: ''
-    });
-  };
-
-  const makeQuickPayload = (form, baseProduct = {}) => {
-    const cleanName = String(form.name || '').trim();
-    const cleanCategory = String(form.category || '').trim();
-    const cleanDescription = String(baseProduct.description || '').trim() || `${cleanName} product`;
-    const price = Number(form.price || 0);
-    const stock = Number(form.stock || 0);
-
-    return {
-      name: cleanName,
-      description: cleanDescription,
-      brand: getBrandPath(baseProduct) || '',
-      content: baseProduct.content || '',
-      color: baseProduct.color || '',
-      price,
-      mrp: Number(baseProduct.mrp || 0) > 0 ? Number(baseProduct.mrp) : price,
-      uom: baseProduct.uom || 'pcs',
-      base_unit: baseProduct.base_unit || 'pcs',
-      uom_type: baseProduct.uom_type || 'selling',
-      conversion_factor: Number(baseProduct.conversion_factor || 1) || 1,
-      barcode: baseProduct.barcode || '',
-      sku: baseProduct.sku || '',
-      image: String(form.image || '').trim(),
-      stock,
-      expiry_date: baseProduct.expiry_date || null,
-      category: cleanCategory,
-      defaultDiscount: Number(baseProduct.defaultDiscount || 0) || 0,
-      discountType: baseProduct.discountType || 'fixed'
-    };
-  };
-
-  const validateQuickForm = (form) => {
-    if (!String(form.name || '').trim()) {
-      showNotification('Product name is required', 'error');
-      return false;
-    }
-    if (!String(form.category || '').trim()) {
-      showNotification('Category is required', 'error');
-      return false;
-    }
-    if (!(Number(form.price) > 0)) {
-      showNotification('Price must be greater than 0', 'error');
-      return false;
-    }
-    if (!(Number(form.stock) >= 0)) {
-      showNotification('Stock must be 0 or more', 'error');
-      return false;
-    }
-    return true;
-  };
-
-  const handleQuickAddSave = async () => {
-    if (!validateQuickForm(quickAddForm)) return;
-
-    try {
-      setQuickSaving(true);
-      const payload = makeQuickPayload(quickAddForm);
-      try {
-        await productsApi.create(payload);
-      } catch (error) {
-        const conflictType = String(error?.payload?.conflict_type || '');
-        if (Number(error?.status) === 409 && conflictType === 'identical') {
-          const ok = window.confirm(`${error.message}\n\nContinue anyway?`);
-          if (!ok) return;
-          await productsApi.create({ ...payload, allow_identical: true });
-        } else {
-          throw error;
-        }
-      }
-      await handleProductSave({ mode: 'create', createdCount: 1 });
-      setShowQuickAdd(false);
-      resetQuickAdd();
-    } catch (error) {
-      showNotification(error.message || 'Failed to add product', 'error');
-    } finally {
-      setQuickSaving(false);
-    }
-  };
-
-  const startQuickEdit = (product) => {
-    setQuickEditId(product.id);
-    setQuickEditForm({
-      name: product.name || '',
-      category: getCategoryPath(product),
-      price: String(product.price ?? ''),
-      stock: String(product.stock ?? 0),
-      image: product.image || ''
-    });
-  };
-
-  const cancelQuickEdit = () => {
-    setQuickEditId(null);
-    setQuickEditForm({
-      name: '',
-      category: '',
-      price: '',
-      stock: '',
-      image: ''
-    });
-  };
-
-  const handleQuickEditSave = async (product) => {
-    if (!validateQuickForm(quickEditForm)) return;
-
-    try {
-      setQuickSaving(true);
-      const payload = makeQuickPayload(quickEditForm, product);
-      try {
-        await productsApi.update(product.id, payload);
-      } catch (error) {
-        const conflictType = String(error?.payload?.conflict_type || '');
-        if (Number(error?.status) === 409 && conflictType === 'identical') {
-          const ok = window.confirm(`${error.message}\n\nContinue anyway?`);
-          if (!ok) return;
-          await productsApi.update(product.id, { ...payload, allow_identical: true });
-        } else {
-          throw error;
-        }
-      }
-      await handleProductSave({ mode: 'edit', createdCount: 0 });
-      cancelQuickEdit();
-    } catch (error) {
-      showNotification(error.message || 'Failed to update product', 'error');
-    } finally {
-      setQuickSaving(false);
-    }
-  };
+  // Quick add/edit handlers extracted to hooks
 
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {

@@ -1,10 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import Fuse from 'fuse.js';
-import { resolveMediaSourceForDisplay } from '../../../services/api';
-import { productService } from '../../../services/productService';
-import { categoryService } from '../../../services/categoryService';
-import { getProductImageSrc, getProductFallbackImage } from '../../../utils/productImage';
+import { getProductFallbackImage } from '../../../utils/productImage';
 import { formatCurrency } from '../../../utils/formatters';
 import useIsMobile from '../../../hooks/useIsMobile';
 import * as info from '../../../shared/info.js';
@@ -14,6 +10,16 @@ import useProductsRenderers from './hooks/useProductsRenderers.jsx';
 import useProductSearchSuggestions from './hooks/useProductSearchSuggestions';
 import useProductsTelemetry from './hooks/useProductsTelemetry';
 import useProductsSearchHandlers from './hooks/useProductsSearchHandlers';
+import useProductsLocalSuggestions from './hooks/useProductsLocalSuggestions';
+import useProductsLayoutEffects from './hooks/useProductsLayoutEffects';
+import useProductsDataFetch from './hooks/useProductsDataFetch';
+import useProductsUserProfile from './hooks/useProductsUserProfile';
+import useProductsBootstrap from './hooks/useProductsBootstrap';
+import useProductsSearchParamsSync from './hooks/useProductsSearchParamsSync';
+import useProductsUiEffects from './hooks/useProductsUiEffects';
+import useProductsVitals from './hooks/useProductsVitals';
+import useProductsCatalogFilters from './hooks/useProductsCatalogFilters';
+import buildProductFamilies from './utils/productFamilies';
 import {
   normalizeText,
   getProductPageSize,
@@ -51,11 +57,8 @@ import {
   buildResponsiveImageSources,
   splitHierarchyValue,
   composeHierarchyLabel,
-  getProductHierarchy,
-  getFamilyKey,
   safeReadJson,
   getInitials,
-  readLocalUser,
   safeWriteJson,
   safeReadSessionJson,
   safeWriteSessionJson,
@@ -102,9 +105,12 @@ function Products({
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [searchSuggestionsEnabled, setSearchSuggestionsEnabled] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
-  const [localUser, setLocalUser] = useState(() => readLocalUser());
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const [avatarSrc, setAvatarSrc] = useState('');
+  const {
+    localUser,
+    avatarLoadFailed,
+    avatarSrc,
+    setAvatarLoadFailed,
+  } = useProductsUserProfile();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [sortBy, setSortBy] = useState(normalizeSortBy(searchParams.get('sort')));
   const [groupBy, setGroupBy] = useState(initialGroupBy);
@@ -145,168 +151,93 @@ function Products({
   const storeTitle = String(info.TITLE || 'Store').trim() || 'Store';
   const productPageSize = getProductPageSize(isMobile);
   const serverCategoryFilter = groupBy === GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
-  const suggestionFuse = useMemo(() => {
-    if (!products.length) return null;
-    return new Fuse(products, {
-      keys: ['name', 'brand', 'category', 'subcategory', 'content', 'uom'],
-      threshold: 0.3,
-      includeScore: false,
-      ignoreLocation: true,
-      minMatchCharLength: 2,
-    });
-  }, [products]);
+  const { getLocalSuggestions } = useProductsLocalSuggestions({
+    products,
+    normalizeText,
+    SEARCH_SUGGESTIONS_MIN_CHARS,
+    SEARCH_SUGGESTIONS_MAX_ITEMS,
+  });
 
-  const getLocalSuggestions = useCallback((query) => {
-    const trimmedQuery = String(query || '').trim();
-    if (!suggestionFuse || trimmedQuery.length < SEARCH_SUGGESTIONS_MIN_CHARS) return [];
-    const results = suggestionFuse.search(trimmedQuery, {
-      limit: SEARCH_SUGGESTIONS_MAX_ITEMS * 2,
-    });
-    const items = [];
-    const seen = new Set();
-    results.forEach((result) => {
-      if (!result?.item || items.length >= SEARCH_SUGGESTIONS_MAX_ITEMS) return;
-      const item = result.item;
-      const id = Number(item.id || 0);
-      const name = String(item.name || '').trim();
-      const brand = String(item.brand || '').trim();
-      const key = id ? `id:${id}` : `${normalizeText(name)}|${normalizeText(brand)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      items.push({
-        id,
-        name: name || 'Product',
-        brand,
-        size: String(item.content || item.uom || '').trim(),
-        price: Number(item.price || 0),
-        mrp: Number(item.mrp || 0),
-        image: String(item.image || '').trim(),
-        category: String(item.category || '').trim(),
-        stock: Number(item.stock || 0),
-      });
-    });
-    return items;
-  }, [suggestionFuse]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const pageNode = productsPageRef.current;
-    const controlsNode = controlsRef.current;
-    if (!pageNode || !controlsNode) return undefined;
-
-    const updateStickyMetrics = () => {
-      const controlsHeight = Math.ceil(controlsNode.getBoundingClientRect().height || 0);
-      pageNode.style.setProperty('--products-controls-height', `${Math.max(0, controlsHeight)}px`);
-    };
-
-    updateStickyMetrics();
-    window.addEventListener('resize', updateStickyMetrics);
-    let resizeObserver;
-    if (typeof window.ResizeObserver === 'function') {
-      resizeObserver = new window.ResizeObserver(() => updateStickyMetrics());
-      resizeObserver.observe(controlsNode);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateStickyMetrics);
-      if (resizeObserver) resizeObserver.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isMobile || typeof window === 'undefined') return undefined;
-    const pageNode = productsPageRef.current;
-    const headerNode = mobileHeaderRef.current;
-    if (!pageNode || !headerNode) return undefined;
-
-    const updateHeaderHeight = () => {
-      const nextHeight = Math.ceil(headerNode.getBoundingClientRect().height || 0);
-      pageNode.style.setProperty('--mobile-shop-header-height', `${Math.max(0, nextHeight)}px`);
-    };
-
-    updateHeaderHeight();
-    window.addEventListener('resize', updateHeaderHeight);
-    let resizeObserver;
-    if (typeof window.ResizeObserver === 'function') {
-      resizeObserver = new window.ResizeObserver(() => updateHeaderHeight());
-      resizeObserver.observe(headerNode);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateHeaderHeight);
-      if (resizeObserver) resizeObserver.disconnect();
-      pageNode.style.removeProperty('--mobile-shop-header-height');
-    };
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-    if (isMobile) {
-      document.body.classList.add('mobile-shop-active');
-    } else {
-      document.body.classList.remove('mobile-shop-active');
-    }
-    return () => {
-      document.body.classList.remove('mobile-shop-active');
-    };
-  }, [isMobile]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const syncUser = () => setLocalUser(readLocalUser());
-    window.addEventListener('storage', syncUser);
-    window.addEventListener('user-updated', syncUser);
-    return () => {
-      window.removeEventListener('storage', syncUser);
-      window.removeEventListener('user-updated', syncUser);
-    };
-  }, []);
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [localUser?.profile_image]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let revokeUrl = null;
-    const run = async () => {
-      if (avatarLoadFailed || !localUser?.profile_image) {
-        setAvatarSrc('');
-        return;
-      }
-      const resolved = await resolveMediaSourceForDisplay(localUser.profile_image);
-      if (cancelled) {
-        if (resolved.revoke && resolved.src) URL.revokeObjectURL(resolved.src);
-        return;
-      }
-      setAvatarSrc(resolved.src || '');
-      revokeUrl = resolved.revoke ? resolved.src : null;
-    };
-    run();
-    return () => {
-      cancelled = true;
-      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
-    };
-  }, [localUser?.profile_image, avatarLoadFailed]);
+  useProductsLayoutEffects({
+    productsPageRef,
+    controlsRef,
+    mobileHeaderRef,
+    isMobile,
+  });
+  const { fetchProductsPage } = useProductsDataFetch({
+    serverCategoryFilter,
+    appliedSearchQuery,
+    sortBy,
+    inStockOnly,
+    productPageSize,
+    SORT_API_FALLBACK,
+    buildProductsListSessionCacheKey,
+    PRODUCTS_LIST_CACHE_TTL_MS,
+    safeReadSessionJson,
+    safeWriteSessionJson,
+    latestProductsRequestRef,
+    productsLoadingMoreRef,
+    productsAbortControllerRef,
+    setProducts,
+    setProductsPage,
+    setProductsHasMore,
+    setError,
+    setLoading,
+    setIsLoadingMore,
+  });
+  useProductsBootstrap({
+    setCategories,
+    setRecentlyBought,
+    setCart,
+    setCartCount,
+    setUsageHistory,
+    safeReadJson,
+    safeReadSessionJson,
+    safeWriteSessionJson,
+    PRODUCTS_CATEGORIES_CACHE_KEY,
+    PRODUCTS_CATEGORIES_CACHE_TTL_MS,
+    USAGE_HISTORY_KEY,
+    RECENTLY_BOUGHT_LIMIT,
+    hasActiveUserSession,
+  });
+  useProductsSearchParamsSync({
+    searchParams,
+    setSearchParams,
+    selectedCategory,
+    appliedSearchQuery,
+    sortBy,
+    groupBy,
+    inStockOnly,
+    setSelectedCategory,
+    setSearchInputValue,
+    setAppliedSearchQuery,
+    setSortBy,
+    setGroupBy,
+    setInStockOnly,
+    setSearchSuggestionsEnabled,
+    setShowSearchSuggestions,
+    setActiveSuggestionIndex,
+    normalizeSortBy,
+    GROUP_BY_OPTIONS,
+    DEFAULT_SORT_BY,
+  });
+  useProductsUiEffects({
+    isMobile,
+    notice,
+    setNotice,
+    showSearchSuggestions,
+    searchInputRef,
+    setSearchSuggestionsEnabled,
+    setShowSearchSuggestions,
+    setActiveSuggestionIndex,
+    swipeAddedFamilyId,
+    setSwipeAddedFamilyId,
+  });
+  useProductsVitals({ productsTelemetryRef });
 
   useEffect(() => {
     setSelectedSubcategory('all');
   }, [selectedCategory]);
-
-  useEffect(() => {
-    let recentlyBoughtTimer = 0;
-    fetchCategories();
-    if (hasActiveUserSession()) {
-      recentlyBoughtTimer = window.setTimeout(() => {
-        fetchRecentlyBought();
-      }, 450);
-    }
-    loadCart();
-    setUsageHistory(safeReadJson(USAGE_HISTORY_KEY, {}));
-    return () => {
-      if (recentlyBoughtTimer) window.clearTimeout(recentlyBoughtTimer);
-    };
-  }, []);
 
   useProductSearchSuggestions({
     searchInputValue,
@@ -344,289 +275,6 @@ function Products({
     }, { throttleMs: 1200, throttleKey: 'products_search_changed' });
   }, [appliedSearchQuery, trackProductsEvent]);
 
-  useEffect(() => {
-    const nextCategory = searchParams.get('category') || 'all';
-    const nextQuery = String(searchParams.get('q') || '');
-    const nextSortBy = normalizeSortBy(searchParams.get('sort'));
-    const nextGroupBy = searchParams.get('group') === GROUP_BY_OPTIONS.brand
-      ? GROUP_BY_OPTIONS.brand
-      : GROUP_BY_OPTIONS.category;
-    const nextInStockOnly = searchParams.get('stock') === '1';
-
-    setSelectedCategory((prev) => (prev === nextCategory ? prev : nextCategory));
-    setSearchInputValue((prev) => (prev === nextQuery ? prev : nextQuery));
-    setAppliedSearchQuery((prev) => (prev === nextQuery ? prev : nextQuery));
-    setSortBy((prev) => (prev === nextSortBy ? prev : nextSortBy));
-    setGroupBy((prev) => (prev === nextGroupBy ? prev : nextGroupBy));
-    setInStockOnly((prev) => (prev === nextInStockOnly ? prev : nextInStockOnly));
-    setSearchSuggestionsEnabled(false);
-    setShowSearchSuggestions(false);
-    setActiveSuggestionIndex(-1);
-  }, [searchParams]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams);
-    const previous = params.toString();
-    if (selectedCategory !== 'all') params.set('category', selectedCategory);
-    else params.delete('category');
-    if (appliedSearchQuery) params.set('q', appliedSearchQuery);
-    else params.delete('q');
-    if (sortBy !== DEFAULT_SORT_BY) params.set('sort', sortBy);
-    else params.delete('sort');
-    if (groupBy !== GROUP_BY_OPTIONS.category) params.set('group', groupBy);
-    else params.delete('group');
-    if (inStockOnly) params.set('stock', '1');
-    else params.delete('stock');
-    if (params.toString() !== previous) {
-      setSearchParams(params, { replace: true, preventScrollReset: true });
-    }
-  }, [selectedCategory, appliedSearchQuery, sortBy, groupBy, inStockOnly, searchParams, setSearchParams]);
-
-  useEffect(() => {
-    if (!notice) return undefined;
-    const timer = setTimeout(() => setNotice(null), 2200);
-    return () => clearTimeout(timer);
-  }, [notice]);
-
-  useEffect(() => {
-    const handleOutside = (event) => {
-      if (!showSearchSuggestions) return;
-      const root = searchInputRef.current;
-      if (!root) return;
-      if (root.contains(event.target)) return;
-      setSearchSuggestionsEnabled(false);
-      setShowSearchSuggestions(false);
-      setActiveSuggestionIndex(-1);
-    };
-    document.addEventListener('mousedown', handleOutside);
-    document.addEventListener('touchstart', handleOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleOutside);
-      document.removeEventListener('touchstart', handleOutside);
-    };
-  }, [showSearchSuggestions]);
-
-  useEffect(() => {
-    if (!swipeAddedFamilyId) return undefined;
-    const timer = setTimeout(() => setSwipeAddedFamilyId(''), 850);
-    return () => clearTimeout(timer);
-  }, [swipeAddedFamilyId]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return undefined;
-    const metrics = { lcp: 0, cls: 0, inp: 0 };
-    let lcpObserver;
-    let clsObserver;
-    let inpObserver;
-    let flushed = false;
-
-    const flushVitals = () => {
-      if (flushed) return;
-      flushed = true;
-      const sessionId = String(productsTelemetryRef.current.sessionId || '').trim();
-      if (!sessionId) return;
-      analyticsApi.heartbeat({
-        session_id: sessionId,
-        path: '/products',
-        web_vitals: {
-          session_id: sessionId,
-          ab_variant: productsTelemetryRef.current.abVariant,
-          lcp_ms: Math.round(Number(metrics.lcp || 0)),
-          inp_ms: Math.round(Number(metrics.inp || 0)),
-          cls: Number((metrics.cls || 0).toFixed(4)),
-          captured_at: new Date().toISOString()
-        }
-      }).catch(() => {});
-    };
-
-    try {
-      lcpObserver = new PerformanceObserver((entryList) => {
-        const entries = entryList.getEntries();
-        const lastEntry = entries[entries.length - 1];
-        if (lastEntry?.startTime) metrics.lcp = Math.max(metrics.lcp, lastEntry.startTime);
-      });
-      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-    } catch (_) {}
-
-    try {
-      clsObserver = new PerformanceObserver((entryList) => {
-        entryList.getEntries().forEach((entry) => {
-          if (!entry.hadRecentInput && Number.isFinite(entry.value)) {
-            metrics.cls += entry.value;
-          }
-        });
-      });
-      clsObserver.observe({ type: 'layout-shift', buffered: true });
-    } catch (_) {}
-
-    try {
-      inpObserver = new PerformanceObserver((entryList) => {
-        entryList.getEntries().forEach((entry) => {
-          const duration = Number(entry.duration || 0);
-          if (duration > metrics.inp) metrics.inp = duration;
-        });
-      });
-      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
-    } catch (_) {}
-
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') flushVitals();
-    };
-
-    window.addEventListener('pagehide', flushVitals);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      lcpObserver?.disconnect();
-      clsObserver?.disconnect();
-      inpObserver?.disconnect();
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', flushVitals);
-      flushVitals();
-    };
-  }, []);
-
-  const fetchProductsPage = async ({ page, append, requestId, cacheKey = '' }) => {
-    const controller = new AbortController();
-    productsAbortControllerRef.current = controller;
-    try {
-      const serverSortBy = SORT_API_FALLBACK[sortBy] || sortBy;
-      const params = {
-        page: String(page),
-        page_size: String(productPageSize),
-        sort: serverSortBy,
-      };
-      if (serverCategoryFilter !== 'all') params.category = serverCategoryFilter;
-      if (appliedSearchQuery) params.name = appliedSearchQuery;
-      if (inStockOnly) params.in_stock = 'true';
-
-      const data = await productService.list(params, { signal: controller.signal });
-      if (requestId !== latestProductsRequestRef.current) return;
-
-      const nextItems = Array.isArray(data)
-        ? data
-        : (Array.isArray(data?.items) ? data.items : []);
-      const nextPagination = Array.isArray(data) ? null : (data?.pagination || null);
-      const nextPage = Number(nextPagination?.page || page || 1);
-      const nextHasMore = Boolean(nextPagination?.has_more);
-
-      setProducts((prev) => {
-        const merged = append ? [...prev, ...nextItems] : nextItems;
-        if (!append && cacheKey) {
-          safeWriteSessionJson(cacheKey, {
-            items: merged,
-            page: nextPage,
-            has_more: nextHasMore,
-            at: Date.now()
-          });
-        }
-        return merged;
-      });
-      setProductsPage(nextPage);
-      setProductsHasMore(nextHasMore);
-      setError('');
-    } catch (fetchError) {
-      if (fetchError?.name === 'AbortError') return;
-      if (requestId !== latestProductsRequestRef.current) return;
-      console.error('Error fetching products:', fetchError);
-      setError('Failed to load products. Please refresh and try again.');
-      if (!append) {
-        setProductsHasMore(false);
-      } else {
-        setProductsHasMore(false);
-      }
-    } finally {
-      if (requestId !== latestProductsRequestRef.current) return;
-      productsLoadingMoreRef.current = false;
-      setLoading(false);
-      setIsLoadingMore(false);
-      if (productsAbortControllerRef.current === controller) {
-        productsAbortControllerRef.current = null;
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (productsAbortControllerRef.current) {
-      productsAbortControllerRef.current.abort();
-      productsAbortControllerRef.current = null;
-    }
-    const cacheKey = buildProductsListSessionCacheKey({
-      selectedCategory: serverCategoryFilter,
-      query: appliedSearchQuery,
-      sortBy,
-      inStockOnly,
-      pageSize: productPageSize
-    });
-    const cached = safeReadSessionJson(cacheKey, null);
-    const isCacheFresh = Number(cached?.at || 0) > 0
-      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_LIST_CACHE_TTL_MS
-      && Array.isArray(cached?.items);
-    if (isCacheFresh) {
-      setProducts(cached.items);
-      setProductsPage(Math.max(1, Number(cached?.page || 1)));
-      setProductsHasMore(Boolean(cached?.has_more));
-      setError('');
-      setLoading(false);
-    } else {
-      setProducts((prev) => prev);
-      setError('');
-      setLoading(true);
-    }
-    const requestId = latestProductsRequestRef.current + 1;
-    latestProductsRequestRef.current = requestId;
-    productsLoadingMoreRef.current = false;
-    setIsLoadingMore(false);
-    fetchProductsPage({ page: 1, append: false, requestId, cacheKey });
-    return () => {
-      if (productsAbortControllerRef.current) {
-        productsAbortControllerRef.current.abort();
-        productsAbortControllerRef.current = null;
-      }
-    };
-  }, [serverCategoryFilter, appliedSearchQuery, sortBy, inStockOnly, productPageSize]);
-
-  const fetchCategories = async () => {
-    const cached = safeReadSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, null);
-    const hasFreshCache = Number(cached?.at || 0) > 0
-      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_CATEGORIES_CACHE_TTL_MS
-      && Array.isArray(cached?.items);
-    if (hasFreshCache) {
-      setCategories(cached.items);
-    }
-    try {
-      const data = await categoryService.list();
-      const items = Array.isArray(data) ? data : [];
-      setCategories(items);
-      safeWriteSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, { items, at: Date.now() });
-    } catch (fetchError) {
-      console.error('Error fetching categories:', fetchError);
-    }
-  };
-
-  const fetchRecentlyBought = async () => {
-    try {
-      const data = await productService.recentlyBought({ limit: RECENTLY_BOUGHT_LIMIT });
-      setRecentlyBought(Array.isArray(data) ? data : []);
-    } catch (_) {
-      setRecentlyBought([]);
-    }
-  };
-
-  const loadCart = () => {
-    try {
-      const savedCart = localStorage.getItem('barman_cart');
-      if (!savedCart) return;
-      const parsed = JSON.parse(savedCart);
-      const cartData = Array.isArray(parsed) ? parsed : [];
-      setCart(cartData);
-      setCartCount(cartData.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-    } catch (cartError) {
-      console.error('Invalid cart data in localStorage, resetting cart', cartError);
-      localStorage.removeItem('barman_cart');
-      setCart([]);
-      setCartCount(0);
-    }
-  };
 
   const cartQtyById = useMemo(() => {
     return cart.reduce((acc, item) => {
@@ -635,236 +283,24 @@ function Products({
     }, {});
   }, [cart]);
 
-  const productFamilies = useMemo(() => {
-    const familyMap = new Map();
-    products.forEach((product) => {
-      const hierarchy = getProductHierarchy(product);
-      const key = getFamilyKey(product, hierarchy);
-      const variationSignature = [
-        normalizeText(product?.name),
-        normalizeText(hierarchy.brandPath || hierarchy.brand),
-        Number(product?.price || 0).toFixed(2),
-        Number(product?.mrp || product?.price || 0).toFixed(2),
-        normalizeText(product?.content),
-        normalizeText(product?.color)
-      ].join('|');
+  const productFamilies = useMemo(() => buildProductFamilies(products), [products]);
 
-      if (!familyMap.has(key)) {
-        familyMap.set(key, {
-          id: key,
-          key,
-          name: String(product.name || 'Product').trim() || 'Product',
-          brand: hierarchy.brandPath || hierarchy.brand || '',
-          brandRoot: hierarchy.brand || '',
-          subBrand: hierarchy.subBrand || '',
-          category: hierarchy.category || '',
-          subcategory: hierarchy.subcategory || '',
-          categoryPath: hierarchy.categoryPath || hierarchy.category || '',
-          categoryIds: new Set(),
-          description: String(product.description || '').trim(),
-          variations: []
-        });
-      }
-      const family = familyMap.get(key);
-      const productCategoryId = Number(product?.category_id || 0);
-      if (Number.isInteger(productCategoryId) && productCategoryId > 0) {
-        family.categoryIds.add(productCategoryId);
-      }
-      const existingVariation = family.variations.find((variation) => variation.signature === variationSignature);
-      if (existingVariation) {
-        existingVariation.stock = Number(existingVariation.stock || 0) + Number(product.stock || 0);
-        if (!existingVariation.description && product.description) {
-          existingVariation.description = String(product.description || '').trim();
-        }
-      } else {
-        family.variations.push({
-          id: product.id,
-          signature: variationSignature,
-          name: String(product.name || '').trim(),
-          brand: hierarchy.brandPath || hierarchy.brand || '',
-          brandRoot: hierarchy.brand || '',
-          subBrand: hierarchy.subBrand || '',
-          category: hierarchy.categoryPath || hierarchy.category || '',
-          categoryRoot: hierarchy.category || '',
-          subcategory: hierarchy.subcategory || '',
-          description: String(product.description || '').trim(),
-          color: String(product.color || '').trim(),
-          content: String(product.content || '').trim(),
-          sku: String(product.sku || '').trim(),
-          price: Number(product.price || 0),
-          mrp: Number(product.mrp || 0),
-          stock: Number(product.stock || 0),
-          uom: String(product.uom || 'pcs').trim(),
-          image: getProductImageSrc(product),
-          raw: product
-        });
-      }
-      if (!family.description && product.description) {
-        family.description = String(product.description || '').trim();
-      }
-      if (!family.category && hierarchy.category) {
-        family.category = hierarchy.category;
-      }
-      if (!family.categoryPath && hierarchy.categoryPath) {
-        family.categoryPath = hierarchy.categoryPath;
-      }
-      if (!family.brand && (hierarchy.brandPath || hierarchy.brand)) {
-        family.brand = hierarchy.brandPath || hierarchy.brand;
-      }
-      if (!family.brandRoot && hierarchy.brand) {
-        family.brandRoot = hierarchy.brand;
-      }
-      if (!family.subBrand && hierarchy.subBrand) {
-        family.subBrand = hierarchy.subBrand;
-      }
-      if (!family.subcategory && hierarchy.subcategory) {
-        family.subcategory = hierarchy.subcategory;
-      }
-    });
-
-    return [...familyMap.values()].map((family) => {
-      const sortedVariations = [...family.variations].sort((a, b) => {
-        if (a.price !== b.price) return a.price - b.price;
-        return String(a.content || '').localeCompare(String(b.content || ''));
-      });
-      const searchHaystack = [
-        family.name,
-        family.brand,
-        family.brandRoot,
-        family.subBrand,
-        family.category,
-        family.subcategory,
-        family.categoryPath,
-        family.description,
-        ...sortedVariations.map((variation) => `${variation.content} ${variation.color} ${variation.sku}`)
-      ]
-        .map((value) => normalizeText(value))
-        .join(' ');
-      const searchTokens = Array.from(new Set(tokenizeSearchText(searchHaystack))).slice(0, 96);
-      const minPrice = sortedVariations.reduce((min, variation) => Math.min(min, Number(variation.price || 0)), Infinity);
-      const totalStock = sortedVariations.reduce((sum, variation) => sum + Number(variation.stock || 0), 0);
-      const categoryIds = Array.from(family.categoryIds || [])
-        .map((value) => Number(value || 0))
-        .filter((value) => Number.isInteger(value) && value > 0);
-      return {
-        ...family,
-        categoryIds,
-        variations: sortedVariations,
-        searchHaystack,
-        searchTokens,
-        minPrice: Number.isFinite(minPrice) ? minPrice : 0,
-        totalStock
-      };
-    });
-  }, [products]);
-
-  const effectiveCategories = useMemo(() => {
-    if (categories.length > 0) {
-      return categories
-        .map((category) => ({
-          id: category.id || category.name,
-          name: String(category.name || '').trim(),
-          parent_id: category.parent_id ?? null,
-          icon: String(category.icon || '').trim(),
-          image: String(category.image || '').trim(),
-          image_width: Number(category.image_width || 0) || null,
-          image_height: Number(category.image_height || 0) || null,
-        }))
-        .filter((category) => category.name);
-    }
-
-    const unique = Array.from(new Set(
-      productFamilies
-        .map((family) => {
-          const parsed = splitHierarchyValue(family.categoryPath || family.category);
-          return String(parsed.parent || family.category || '').trim();
-        })
-        .filter(Boolean)
-    ));
-    return unique.map((name) => ({
-      id: name,
-      name,
-      parent_id: null,
-      icon: '',
-      image: '',
-      image_width: null,
-      image_height: null
-    }));
-  }, [categories, productFamilies]);
-
-  const effectiveBrands = useMemo(() => {
-    const byName = new Map();
-    productFamilies.forEach((family) => {
-      const parsed = splitHierarchyValue(family.brandPath || family.brandRoot || family.brand);
-      const rootName = String(parsed.parent || family.brandRoot || family.brand || '').trim();
-      if (!rootName) return;
-      const key = normalizeText(rootName);
-      if (byName.has(key)) return;
-      byName.set(key, {
-        id: key,
-        name: rootName,
-        parent_id: null,
-        icon: '',
-        image: resolveBrandLogoUrl(rootName),
-        image_width: 34,
-        image_height: 34
-      });
-    });
-    return [...byName.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-  }, [productFamilies]);
-
-  const activeFilterOptions = useMemo(
-    () => (groupBy === GROUP_BY_OPTIONS.brand ? effectiveBrands : effectiveCategories),
-    [groupBy, effectiveBrands, effectiveCategories]
-  );
-
-  const mobileRootCategories = useMemo(() => {
-    if (effectiveCategories.length === 0) return [];
-    const roots = effectiveCategories.filter((category) => (
-      category.parent_id === null || category.parent_id === undefined || category.parent_id === '' || category.parent_id === 0
-    ));
-    const base = roots.length > 0 ? roots : effectiveCategories;
-    return [...base].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-  }, [effectiveCategories]);
-
-  const mobileSubcategories = useMemo(() => {
-    const selected = normalizeText(selectedCategory);
-    if (!selected || selected === 'all') return [];
-    const selectedNode = effectiveCategories.find((category) => (
-      normalizeText(category.name) === selected
-    ));
-    let subcategories = [];
-
-    if (selectedNode) {
-      subcategories = effectiveCategories.filter((category) => (
-        String(category.parent_id) === String(selectedNode.id)
-      ));
-    }
-
-    if (subcategories.length === 0) {
-      const fallbackSet = new Set();
-      productFamilies.forEach((family) => {
-        const parsed = splitHierarchyValue(family.categoryPath || family.category);
-        const parent = normalizeText(parsed.parent || family.category);
-        if (parent !== selected) return;
-        const child = String(parsed.child || family.subcategory || '').trim();
-        if (child) fallbackSet.add(child);
-      });
-      subcategories = Array.from(fallbackSet).map((name) => ({
-        id: name,
-        name,
-        parent_id: selectedNode?.id ?? null,
-        icon: '',
-        image: '',
-        image_width: null,
-        image_height: null
-      }));
-    }
-
-    return subcategories
-      .filter((entry) => entry?.name)
-      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-  }, [selectedCategory, effectiveCategories, productFamilies]);
+  const {
+    effectiveCategories,
+    effectiveBrands,
+    activeFilterOptions,
+    mobileRootCategories,
+    mobileSubcategories,
+  } = useProductsCatalogFilters({
+    categories,
+    productFamilies,
+    groupBy,
+    selectedCategory,
+    normalizeText,
+    splitHierarchyValue,
+    resolveBrandLogoUrl,
+    GROUP_BY_OPTIONS,
+  });
 
   const categoryPathScopeSet = useMemo(() => {
     const selected = normalizeText(selectedCategory);

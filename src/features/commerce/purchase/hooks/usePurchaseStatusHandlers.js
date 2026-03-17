@@ -1,0 +1,80 @@
+import { useCallback } from 'react';
+
+const usePurchaseStatusHandlers = ({
+  purchaseOrdersApi,
+  fetchOrders,
+  fetchDistributorLedger,
+  setError,
+  setSuccess,
+  setSendingWhatsAppOrderId,
+}) => {
+  const handleUpdateStatus = useCallback(async (orderId, status, extra = {}) => {
+    try {
+      setError('');
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      const statusResult = normalizedStatus === 'processed'
+        ? await purchaseOrdersApi.process(orderId, extra)
+        : await purchaseOrdersApi.updateStatus(orderId, status, extra);
+      if (normalizedStatus === 'processed' && Number(statusResult?.cap_applied_count || 0) > 0) {
+        const lines = (statusResult.cap_adjustments || [])
+          .slice(0, 5)
+          .map((row) => {
+            const name = String(row?.product_name || row?.product_id || 'Product');
+            return `- ${name}: final stock ${row?.final_stock}`;
+          });
+        const moreCount = Math.max(0, Number(statusResult.cap_applied_count || 0) - lines.length);
+        const moreText = moreCount > 0 ? `\n...and ${moreCount} more item(s)` : '';
+        window.alert(
+          `Stock cap (${Number(statusResult?.stock_cap || 50)}) was applied to ${statusResult.cap_applied_count} item(s).\n\n${lines.join('\n')}${moreText}`
+        );
+      }
+      await fetchOrders();
+      await fetchDistributorLedger();
+    } catch (err) {
+      setError(err?.message || 'Failed to update status');
+      throw err;
+    }
+  }, [purchaseOrdersApi, fetchOrders, fetchDistributorLedger, setError]);
+
+  const handleSendDistributorWhatsApp = useCallback(async (order) => {
+    if (!order?.id) return;
+    try {
+      setError('');
+      setSuccess('');
+      setSendingWhatsAppOrderId(order.id);
+      const response = await purchaseOrdersApi.sendDistributorWhatsApp(order.id);
+      const notice = response?.distributor_notice || null;
+      const whatsappUrl = String(notice?.whatsapp?.whatsapp_url || '').trim();
+      if (!whatsappUrl) {
+        setError('WhatsApp message link is not available for this distributor.');
+        return;
+      }
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      setSuccess('Distributor WhatsApp message is ready.');
+    } catch (err) {
+      setSuccess('');
+      setError(err.message || 'Failed to prepare distributor WhatsApp message');
+    } finally {
+      setSendingWhatsAppOrderId(null);
+    }
+  }, [purchaseOrdersApi, setError, setSuccess, setSendingWhatsAppOrderId]);
+
+  const handleDeleteOrder = useCallback(async (orderId) => {
+    if (!window.confirm('Are you sure you want to delete this purchase order?')) return;
+
+    try {
+      await purchaseOrdersApi.delete(orderId);
+      fetchOrders();
+    } catch (err) {
+      setError('Failed to delete order');
+    }
+  }, [purchaseOrdersApi, fetchOrders, setError]);
+
+  return {
+    handleUpdateStatus,
+    handleSendDistributorWhatsApp,
+    handleDeleteOrder,
+  };
+};
+
+export default usePurchaseStatusHandlers;
