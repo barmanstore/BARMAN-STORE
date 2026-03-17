@@ -1,3 +1,6 @@
+const { persistAnalyticsSnapshots } = require('./summaryResponse/snapshots');
+const { buildSummaryPayload } = require('./summaryResponse/payload');
+
 const createPurchaseOperationsSummaryResponse = (deps) => {
   const {
     buildPurchaseActionRollupsAsync,
@@ -10,41 +13,17 @@ const createPurchaseOperationsSummaryResponse = (deps) => {
     insights,
     persistSnapshots = true,
   }) => {
-    const {
+    const { todayKey, distributorIdFilter, rollupRange } = baseData;
+    await persistAnalyticsSnapshots({
+      persistSnapshots,
+      persistPurchaseAnalyticsSnapshotsAsync,
       todayKey,
-      tomorrowKey,
-      distributorIdFilter,
-      rollupRange,
-    } = baseData;
-
-    const {
-      cards,
-      todayDistributors,
-      tomorrowDistributors,
-      weeklyDistributors,
-      predictedPaymentsToday,
-      predictedPaymentsNext,
-      predictedDeliveriesNext,
-      reminders,
-      payablesWithInsights,
-      workflow,
-      distributorInsights,
-    } = insights;
-
-    if (persistSnapshots) {
-      try {
-        await persistPurchaseAnalyticsSnapshotsAsync({
-          snapshotDate: todayKey,
-          cards,
-          predictedPaymentsToday,
-          predictedPaymentsNext,
-          predictedDeliveriesNext,
-          distributorInsights,
-        });
-      } catch (error) {
-        console.warn('[PURCHASE_OPS] Failed to persist analytics snapshots:', error?.message || error);
-      }
-    }
+      cards: insights.cards,
+      predictedPaymentsToday: insights.predictedPaymentsToday,
+      predictedPaymentsNext: insights.predictedPaymentsNext,
+      predictedDeliveriesNext: insights.predictedDeliveriesNext,
+      distributorInsights: insights.distributorInsights,
+    });
 
     const actionRollups = await buildPurchaseActionRollupsAsync({
       startDate: rollupRange.startDate,
@@ -52,27 +31,12 @@ const createPurchaseOperationsSummaryResponse = (deps) => {
       distributorId: distributorIdFilter,
     });
 
-    return {
-      today: todayKey,
-      tomorrow: tomorrowKey,
-      automation: {
-        notifications: PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED ? 'automatic' : 'disabled',
-        whatsapp: 'manual',
-        po_preparation: 'manual',
-      },
-      cards,
-      today_distributors: todayDistributors,
-      tomorrow_distributors: tomorrowDistributors,
-      weekly_distributors: weeklyDistributors,
-      predicted_payments_today: predictedPaymentsToday,
-      predicted_payments_next: predictedPaymentsNext,
-      predicted_deliveries_next: predictedDeliveriesNext,
-      reminders,
-      payables: payablesWithInsights.slice(0, 20),
-      workflow,
-      distributor_insights: distributorInsights.slice(0, 20),
-      action_rollups: actionRollups,
-    };
+    return buildSummaryPayload({
+      baseData,
+      insights,
+      actionRollups,
+      notificationsEnabled: PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
+    });
   };
 
   return { buildPurchaseOperationsResponse };

@@ -1,0 +1,100 @@
+const sanitizeBillItems = async ({
+  deps,
+  items,
+  createHttpError,
+  allowLineItemsWithoutProduct,
+}) => {
+  const {
+    dbGetAsync,
+    normalizeUomToken,
+    getProductUomProfile,
+    getAllowedBillingUnits,
+    toPricingQty,
+  } = deps;
+
+  const productCache = new Map();
+  const itemErrors = [];
+  const sanitizedItems = [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const it = items[index];
+    const rowNo = index + 1;
+    const productId = Number(it.product_id || 0);
+    if (!productId && !allowLineItemsWithoutProduct) {
+      itemErrors.push(`Item ${rowNo}: product_id is required`);
+      continue;
+    }
+    if (productId && !productCache.has(productId)) {
+      productCache.set(
+        productId,
+        (await dbGetAsync(
+          'SELECT id, name, stock, is_active, uom, base_unit, uom_type, conversion_factor FROM products WHERE id = ?',
+          [productId]
+        )) || null
+      );
+    }
+    const product = productId ? productCache.get(productId) : null;
+    if (!product && productId && !allowLineItemsWithoutProduct) {
+      itemErrors.push(`Item ${rowNo}: Product ${productId} not found`);
+      continue;
+    }
+    if (product && Number(product.is_active ?? 1) !== 1 && !allowLineItemsWithoutProduct) {
+      itemErrors.push(`Item ${rowNo}: Product ${productId} is inactive`);
+      continue;
+    }
+    const qty = Math.max(0, Number(it.qty || 0));
+    const mrp = Math.max(0, Number(it.mrp || 0));
+    const pricingQty = toPricingQty(qty, it.unit, product);
+    const lineSubtotal = mrp * pricingQty;
+    const discount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
+    const amount = Math.max(0, lineSubtotal - discount);
+    const productName =
+      String(it.product_name || '').trim()
+      || String(product?.name || '').trim()
+      || 'Unknown';
+    if (!productName) {
+      itemErrors.push(`Item ${rowNo}: product_name is required`);
+      continue;
+    }
+    const providedUnitRaw = String(it.unit || '').trim();
+    let normalizedUnit = normalizeUomToken(providedUnitRaw, 'pcs');
+    if (product) {
+      const profile = getProductUomProfile(product);
+      const allowedUnits = getAllowedBillingUnits(product);
+      if (providedUnitRaw) {
+        const requestedUnit = normalizeUomToken(providedUnitRaw, profile.sellingUnit);
+        if (!allowedUnits.includes(requestedUnit)) {
+          itemErrors.push(
+            `Item ${rowNo}: unit "${providedUnitRaw}" is invalid for product ${product.id}. Allowed: ${allowedUnits.join(', ')}`
+          );
+          continue;
+        }
+        normalizedUnit = requestedUnit;
+      } else {
+        normalizedUnit = allowedUnits[0] || profile.baseUnit;
+      }
+    }
+    const normalized = {
+      product_id: product ? Number(product.id) : null,
+      product_name: productName,
+      mrp,
+      qty,
+      unit: normalizedUnit,
+      discount,
+      amount,
+    };
+    if (normalized.qty > 0 && normalized.amount >= 0) {
+      sanitizedItems.push(normalized);
+    }
+  }
+
+  if (itemErrors.length) {
+    throw createHttpError(400, 'Invalid bill items', itemErrors);
+  }
+
+  if (!sanitizedItems.length) throw createHttpError(400, 'At least one valid item is required');
+
+  return { sanitizedItems, productCache };
+};
+
+module.exports = { sanitizeBillItems };

@@ -11,6 +11,7 @@ const applyHttpBootstrap = ({
   IS_VERCEL_RUNTIME,
   CANONICAL_HOST,
   LEGACY_HOSTS,
+  profileImagePublicBaseUrl,
   ensureRuntimeReady,
   createRateLimiter,
 } = {}) => {
@@ -25,6 +26,7 @@ const applyHttpBootstrap = ({
     IS_VERCEL_RUNTIME,
     CANONICAL_HOST,
     LEGACY_HOSTS,
+    profileImagePublicBaseUrl,
     ensureRuntimeReady,
   });
 

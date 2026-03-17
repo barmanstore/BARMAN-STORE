@@ -1,3 +1,8 @@
+const { validateMessagePayload, resolveSenderName } = require('./messageToCustomer/validation');
+const { fetchMessageRecipients, mapRecipientNames } = require('./messageToCustomer/recipients');
+const { findExistingBatch, createSendBatch, finalizeSendBatch } = require('./messageToCustomer/batches');
+const { sendCustomerNotifications, sendSenderReceipt } = require('./messageToCustomer/notifications');
+
 const registerMessageToCustomerRoutes = (deps) => {
   const {
     app,
@@ -44,123 +49,74 @@ const registerMessageToCustomerRoutes = (deps) => {
       const idempotency = resolveClientRequestId(req);
       if (idempotency.error) return res.status(400).json({ error: idempotency.error });
       clientRequestId = idempotency.value;
-      const senderName = String(req.authUser?.name || '').trim() || 'Admin';
-      const message = String(req.body?.message || '').trim();
-      if (!message) return res.status(400).json({ error: 'Message is required' });
-      if (message.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
+      const senderName = resolveSenderName(req.authUser);
+      const payload = validateMessagePayload({
+        message: req.body?.message,
+        recipientUserIds: req.body?.recipient_user_ids,
+      });
+      if (payload.error) return res.status(400).json({ error: payload.error });
+
       if (clientRequestId) {
-        const existingBatch = await dbGetAsync(
-          `SELECT id, sent_count, recipient_names, recipient_count
-           FROM notification_send_batches
-           WHERE client_request_id = ? AND sender_user_id = ?
-           LIMIT 1`,
-          [clientRequestId, senderId]
-        );
+        const existingBatch = await findExistingBatch({
+          dbGetAsync,
+          clientRequestId,
+          senderId,
+          parseJsonText,
+        });
         if (existingBatch) {
           return res.json({
             success: true,
             deduplicated: true,
-            sent_count: Number(existingBatch.sent_count || 0),
-            recipient_names: parseJsonText(existingBatch.recipient_names, []) || [],
+            sent_count: existingBatch.sent_count,
+            recipient_names: existingBatch.recipient_names,
           });
         }
       }
-      const recipientIds = Array.from(new Set(
-        (Array.isArray(req.body?.recipient_user_ids) ? req.body.recipient_user_ids : [])
-          .map((value) => Number(value || 0))
-          .filter((value) => value > 0)
-      ));
-      if (!recipientIds.length) {
-        return res.status(400).json({ error: 'Select at least one customer' });
-      }
-      if (recipientIds.length > 100) {
-        return res.status(400).json({ error: 'Too many recipients (max 100)' });
-      }
 
-      const placeholders = recipientIds.map(() => '?').join(', ');
-      const recipients = await dbAllAsync(
-        `SELECT id, name
-         FROM users
-         WHERE role = 'customer'
-           AND id IN (${placeholders})
-         ORDER BY name ASC`,
-        recipientIds
-      );
+      const recipients = await fetchMessageRecipients({
+        dbAllAsync,
+        recipientIds: payload.recipientIds,
+      });
       if (!recipients.length) {
         return res.status(400).json({ error: 'No valid customer recipients found' });
       }
-      const recipientNames = recipients.map((row) => String(row?.name || '').trim()).filter(Boolean);
+      const recipientNames = mapRecipientNames(recipients);
       const sendResult = await dbTxAsync(async () => {
-        let batchId = null;
-        if (clientRequestId) {
-          const inserted = await dbRunAsync(
-            `INSERT INTO notification_send_batches
-            (client_request_id, sender_user_id, message, recipient_user_ids, recipient_names, recipient_count, sent_count, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              clientRequestId,
-              senderId,
-              message,
-              safeSerializeJson(recipientIds),
-              safeSerializeJson(recipientNames),
-              recipients.length,
-              0,
-              'processing',
-            ]
-          );
-          batchId = Number(inserted.lastInsertRowid || 0) || null;
-        }
-
-        for (const recipient of recipients) {
-          const recipientId = Number(recipient?.id || 0);
-          if (!recipientId) continue;
-          const recipientRequestId = clientRequestId
-            ? `notif:${crypto.createHash('sha1').update(`${clientRequestId}:${recipientId}`).digest('hex').slice(0, 32)}`
-            : null;
-          await createAppNotification({
-            userId: recipientId,
-            title: `Message from ${senderName}`,
-            message,
-            level: 'info',
-            entityType: 'conversation',
-            metadata: {
-              kind: 'chat_message',
-              direction: 'admin_to_customer',
-              from_user_id: senderId,
-              from_user_name: senderName,
-              route: '/profile',
-            },
-            createdBy: senderId,
-            clientRequestId: recipientRequestId,
-          });
-        }
-
-        const senderRequestId = clientRequestId
-          ? `notif:${crypto.createHash('sha1').update(`${clientRequestId}:sender`).digest('hex').slice(0, 32)}`
-          : null;
-        await createAppNotification({
-          userId: senderId,
-          title: 'Message sent',
-          message: `Message sent to ${recipients.length} customer${recipients.length === 1 ? '' : 's'}.`,
-          level: 'success',
-          entityType: 'conversation',
-          metadata: {
-            kind: 'chat_message',
-            direction: 'outbound',
-            route: '/admin?tab=users',
-          },
-          createdBy: senderId,
-          clientRequestId: senderRequestId,
+        const batchId = await createSendBatch({
+          dbRunAsync,
+          clientRequestId,
+          senderId,
+          message: payload.message,
+          recipientIds: payload.recipientIds,
+          recipientNames,
+          safeSerializeJson,
         });
 
-        if (batchId) {
-          await dbRunAsync(
-            `UPDATE notification_send_batches
-             SET status = ?, sent_count = ?, updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            ['sent', recipients.length, batchId]
-          );
-        }
+        await sendCustomerNotifications({
+          recipients,
+          senderId,
+          senderName,
+          message: payload.message,
+          clientRequestId,
+          createAppNotification,
+          crypto,
+        });
+
+        await sendSenderReceipt({
+          senderId,
+          senderName,
+          message: payload.message,
+          recipientCount: recipients.length,
+          clientRequestId,
+          createAppNotification,
+          crypto,
+        });
+
+        await finalizeSendBatch({
+          dbRunAsync,
+          batchId,
+          sentCount: recipients.length,
+        });
 
         return {
           sentCount: recipients.length,
@@ -175,19 +131,18 @@ const registerMessageToCustomerRoutes = (deps) => {
     } catch (error) {
       if (clientRequestId && isUniqueViolationError(error)) {
         const senderId = Number(req.authUser?.id || 0);
-        const existingBatch = await dbGetAsync(
-          `SELECT sent_count, recipient_names
-           FROM notification_send_batches
-           WHERE client_request_id = ? AND sender_user_id = ?
-           LIMIT 1`,
-          [clientRequestId, senderId]
-        );
+        const existingBatch = await findExistingBatch({
+          dbGetAsync,
+          clientRequestId,
+          senderId,
+          parseJsonText,
+        });
         if (existingBatch) {
           return res.json({
             success: true,
             deduplicated: true,
-            sent_count: Number(existingBatch.sent_count || 0),
-            recipient_names: parseJsonText(existingBatch.recipient_names, []) || [],
+            sent_count: existingBatch.sent_count,
+            recipient_names: existingBatch.recipient_names,
           });
         }
       }

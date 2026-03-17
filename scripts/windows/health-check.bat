@@ -8,6 +8,18 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set "LOADENV_JS=%REPO_ROOT%\server\loadEnv.js"
+if exist "%LOADENV_JS%" (
+  echo %NODE_OPTIONS% | find /I "%LOADENV_JS%" >nul
+  if errorlevel 1 (
+    if defined NODE_OPTIONS (
+      set "NODE_OPTIONS=%NODE_OPTIONS% --require %LOADENV_JS%"
+    ) else (
+      set "NODE_OPTIONS=--require %LOADENV_JS%"
+    )
+  )
+)
+
 set "MODE=%~1"
 if /i "%MODE%"=="" set "MODE=quick"
 
@@ -107,6 +119,9 @@ if defined PG_HOST set "HAS_DB_ENV=1"
 if defined POSTGRES_HOST set "HAS_DB_ENV=1"
 if defined HAS_DB_ENV goto :eof
 
+call :has_db_in_env_file
+if defined HAS_DB_ENV goto :eof
+
 if /i "%SUPABASE_AUTO_START%"=="1" call :start_supabase
 
 set "HAS_DB_ENV="
@@ -124,6 +139,18 @@ echo [WARN] No database connection configured. Set SUPABASE_DB_URL/DATABASE_URL 
 echo [WARN] Phone workflow smoke test will be skipped if the DB is unavailable.
 set "PHONE_TEST_ALLOW_NO_DB=1"
 set "SMOKE_ALLOW_NO_DB=1"
+goto :eof
+
+:has_db_in_env_file
+if not exist "%REPO_ROOT%\.env" goto :eof
+findstr /I "^SUPABASE_DB_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^DATABASE_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^POSTGRES_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^POSTGRES_PRISMA_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^PG_CONNECTION_STRING=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^PGHOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^PG_HOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^POSTGRES_HOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
 goto :eof
 
 :start_supabase

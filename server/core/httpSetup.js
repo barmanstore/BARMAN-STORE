@@ -1,3 +1,5 @@
+const path = require('path');
+
 const applyBaseMiddleware = ({
   app,
   express,
@@ -9,6 +11,7 @@ const applyBaseMiddleware = ({
   IS_VERCEL_RUNTIME,
   CANONICAL_HOST,
   LEGACY_HOSTS,
+  profileImagePublicBaseUrl,
   ensureRuntimeReady,
 } = {}) => {
   app.use(cors(corsOptions));
@@ -28,6 +31,16 @@ const applyBaseMiddleware = ({
   if (!fs.existsSync(PROFILE_UPLOAD_DIR)) fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
   app.use('/uploads', express.static(UPLOADS_DIR));
   app.use('/api/uploads', express.static(UPLOADS_DIR));
+  const profileBase = String(profileImagePublicBaseUrl || '').trim().replace(/\/+$/, '');
+  if (profileBase) {
+    const redirectProfileImage = (req, res, next) => {
+      const fileName = path.basename(String(req.params?.file || '').trim());
+      if (!fileName) return next();
+      return res.redirect(302, `${profileBase}/profiles/${encodeURIComponent(fileName)}`);
+    };
+    app.get(['/uploads/profiles/:file', '/api/uploads/profiles/:file'], redirectProfileImage);
+    app.head(['/uploads/profiles/:file', '/api/uploads/profiles/:file'], redirectProfileImage);
+  }
   app.use(async (req, res, next) => {
     try {
       await ensureRuntimeReady();

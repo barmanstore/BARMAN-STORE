@@ -1,27 +1,11 @@
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { MessageCircle, Phone } from 'lucide-react';
-import { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Header from './header/Header';
 import useIsMobile from '../hooks/useIsMobile';
 import { analyticsApi } from '../services/api';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
 import * as info from '../pages/info.js';
-
-const Home = lazy(() => import('../pages/Home'));
-const Products = lazy(() => import('../pages/Products'));
-const Cart = lazy(() => import('../pages/Cart'));
-const Checkout = lazy(() => import('../pages/Checkout'));
-const Login = lazy(() => import('../pages/login'));
-const Admin = lazy(() => import('../pages/Admin'));
-const CreditHistory = lazy(() => import('../pages/CreditHistory'));
-const OrderHistory = lazy(() => import('../pages/OrderHistory'));
-const OrderTracking = lazy(() => import('../pages/OrderTracking'));
-const OrderDetails = lazy(() => import('../pages/OrderDetails'));
-const Profile = lazy(() => import('../pages/Profile'));
-const MyBills = lazy(() => import('../pages/MyBills'));
-const ProductRecommendations = lazy(() => import('../pages/ProductRecommendations'));
-const StoreInfo = lazy(() => import('../pages/StoreInfo'));
-const StorePage = lazy(() => import('../pages/StorePage'));
 
 const VISITOR_SESSION_STORAGE_KEY = 'visitor_session_id';
 
@@ -110,6 +94,7 @@ function AppShell({
   whatsappHref,
   publicFileUrl,
   setCartCount,
+  routesElement,
 }) {
   const {
     notificationPanelOpen,
@@ -165,7 +150,6 @@ function AppShell({
       return null;
     }
   });
-  const homeRouteElement = <Home />;
   const resolvePublicFileUrl = publicFileUrl || ((filename) => String(filename || ''));
 
   useEffect(() => {
@@ -349,36 +333,7 @@ function AppShell({
             </div>
           )}
         >
-          <Routes>
-            <Route path="/" element={homeRouteElement} />
-            <Route path="/products" element={<Products setCartCount={setCartCount} />} />
-            <Route path="/cart" element={<Cart cartCount={cartCount} setCartCount={setCartCount} />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/login" element={<Login setUser={setUser} />} />
-            <Route path="/admin" element={<Admin user={user} />} />
-            <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
-            <Route path="/my-credit" element={<CreditHistory user={user} />} />
-            <Route path="/order-history" element={<OrderHistory />} />
-            <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />
-            <Route path="/orders/:id" element={<OrderDetails />} />
-            <Route path="/order-tracking" element={<OrderTracking />} />
-            <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/my-bills" element={<MyBills />} />
-            <Route path="/product-requests" element={<ProductRecommendations />} />
-            <Route path="/store-info" element={<StoreInfo />} />
-            <Route
-              path="/store"
-              element={(
-                <StorePage
-                  notifications={notifications}
-                  unreadNotificationCount={unreadNotificationCount}
-                  onResolveNotificationHref={onResolveNotificationHref}
-                  onMarkNotificationRead={onMarkNotificationRead}
-                />
-              )}
-            />
-          </Routes>
+          {routesElement}
         </Suspense>
       </main>
       <div
