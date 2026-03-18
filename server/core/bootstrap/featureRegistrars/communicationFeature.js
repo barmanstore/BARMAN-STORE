@@ -3,6 +3,7 @@ const registerCommunicationFeatureBootstrap = (deps) => {
     app,
     registerCommunicationFeature,
     requireAdmin,
+    requireCapability,
     requireAuth,
     requireCronSecret,
     dbGetAsync,
@@ -41,6 +42,7 @@ const registerCommunicationFeatureBootstrap = (deps) => {
   registerCommunicationFeature({
     app,
     requireAdmin,
+    requireCapability,
     requireAuth,
     requireCronSecret,
     dbGetAsync,

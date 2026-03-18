@@ -8,6 +8,7 @@ const registerUserProfileRoutes = (deps) => {
   const {
     app,
     requireAuth,
+    userHasCapability,
     dbGetAsync,
     dbRunAsync,
     normalizeEmail,
@@ -37,7 +38,7 @@ const registerUserProfileRoutes = (deps) => {
     try {
       const targetUserId = Number(req.params.id);
       if (!targetUserId) return res.status(400).json({ error: 'Invalid user id' });
-      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId });
+      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId, userHasCapability });
       ensureProfileAccess({ isAdmin, isSelf });
       const user = sanitizeUser(await loadUserForRead({ dbGetAsync, userId: targetUserId }));
       if (!user) return res.status(404).json({ error: 'User not found' });
@@ -52,7 +53,7 @@ const registerUserProfileRoutes = (deps) => {
     try {
       const targetUserId = Number(req.params.id);
       if (!targetUserId) return res.status(400).json({ error: 'Invalid user id' });
-      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId });
+      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId, userHasCapability });
       ensureProfileAccess({ isAdmin, isSelf });
 
       const current = await loadUserById({ dbGetAsync, userId: targetUserId });
@@ -106,7 +107,7 @@ const registerUserProfileRoutes = (deps) => {
     try {
       const targetUserId = Number(req.params.id);
       if (!targetUserId) return res.status(400).json({ error: 'Invalid user id' });
-      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId });
+      const { isAdmin, isSelf } = resolveProfileTarget({ req, targetUserId, userHasCapability });
       ensureProfileAccess({ isAdmin, isSelf });
 
       const result = await uploadProfileImage({

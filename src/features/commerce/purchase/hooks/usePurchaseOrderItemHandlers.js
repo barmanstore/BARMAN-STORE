@@ -30,12 +30,16 @@ const usePurchaseOrderItemHandlers = ({
         items[index].product_query = getProductSearchLabel(product);
         items[index].unit_price = baseRate;
         items[index].rate = baseRate;
+        items[index].reference_rate = baseRate;
+        items[index].reference_rate_source = baseRate > 0 ? 'product default rate' : '';
         items[index].uom = defaultUom;
         items[index].last_purchase_hint = '';
       } else {
         items[index].product_query = '';
         items[index].product_name = '';
         items[index].uom = 'pcs';
+        items[index].reference_rate = 0;
+        items[index].reference_rate_source = '';
         items[index].last_purchase_hint = '';
       }
       setOrderFormData((prev) => ({ ...prev, items }));
@@ -65,6 +69,8 @@ const usePurchaseOrderItemHandlers = ({
             ...current,
             unit_price: suggestedRate,
             rate: suggestedRate,
+            reference_rate: suggestedRate,
+            reference_rate_source: `last purchase ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
             gst_rate: suggestedGst,
             uom: suggestedUom,
             last_purchase_hint: `Suggested from ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
@@ -110,6 +116,8 @@ const usePurchaseOrderItemHandlers = ({
     if (!match) {
       items[index].product_id = '';
       items[index].product_name = value;
+      items[index].reference_rate = 0;
+      items[index].reference_rate_source = '';
       items[index].last_purchase_hint = '';
       setOrderFormData((prev) => ({ ...prev, items }));
       return;

@@ -1,5 +1,43 @@
 import { useCallback } from 'react';
 
+const mergeProductsById = (currentList = [], nextList = []) => {
+  const byId = new Map();
+  currentList.forEach((product) => {
+    const id = Number(product?.id || 0);
+    if (id > 0) byId.set(id, product);
+  });
+  nextList.forEach((product) => {
+    const id = Number(product?.id || 0);
+    if (id > 0) byId.set(id, product);
+  });
+  return Array.from(byId.values());
+};
+
+const findCustomerByName = (list = [], customerName = '') => {
+  const nameKey = String(customerName || '').trim().toLowerCase();
+  if (!nameKey) return null;
+  return list.find(
+    (entry) => String(entry?.name || '').trim().toLowerCase() === nameKey
+  ) || null;
+};
+
+const findProductByItem = (list = [], item = {}) => {
+  const productId = Number(item?.product_id || 0);
+  if (productId > 0) {
+    const byId = list.find((product) => Number(product?.id || 0) === productId);
+    if (byId) return byId;
+  }
+
+  const nameKey = String(item?.product_name || '').trim().toLowerCase();
+  if (!nameKey) return null;
+  return list.find((product) => {
+    const productName = String(product?.name || '').trim().toLowerCase();
+    const sku = String(product?.sku || '').trim().toLowerCase();
+    const barcode = String(product?.barcode || '').trim().toLowerCase();
+    return productName === nameKey || sku === nameKey || barcode === nameKey;
+  }) || null;
+};
+
 const useBillingCreateBill = ({
   billingApi,
   creditApi,
@@ -12,6 +50,7 @@ const useBillingCreateBill = ({
   totalBill,
   paidClamped,
   creditAmount,
+  paymentMethod,
   totalDiscount,
   isOrderLinked,
   linkedOrderId,
@@ -46,7 +85,7 @@ const useBillingCreateBill = ({
       total_amount: Number(totalBill.toFixed(2)),
       paid_amount: Number(paid.toFixed(2)),
       credit_amount: Number(creditAmount.toFixed(2)),
-      payment_method: 'cash',
+      payment_method: paymentMethod || 'cash',
       payment_status: paid < Number(totalBill || 0) ? 'pending' : 'paid',
       bill_type: 'sales',
       order_id: isOrderLinked ? Number(linkedOrderId || 0) : null,
@@ -77,46 +116,56 @@ const useBillingCreateBill = ({
 
       // Keep order-linked billing minimal: backend binds to order and skips stock checks.
       let resolvedCustomerId = payload.customer_id || null;
+      let resolvedCustomerRecord = customer;
       let itemsWithProducts = payload.items;
 
       if (!isOrderLinked) {
         if (!resolvedCustomerId) {
-          const byName = customersList.find(
-            (entry) =>
-              String(entry?.name || '').trim().toLowerCase() ===
-              String(payload.customer_name || '').trim().toLowerCase()
-          );
+          const byName = findCustomerByName(customersList, payload.customer_name);
           resolvedCustomerId = byName?.id || null;
+          resolvedCustomerRecord = byName || resolvedCustomerRecord;
+        }
+
+        if (!resolvedCustomerId && String(payload.customer_name || '').trim()) {
+          const customerSearchResults = await billingApi.searchCustomers(String(payload.customer_name || '').trim());
+          const matchedCustomer = findCustomerByName(customerSearchResults, payload.customer_name);
+          if (matchedCustomer) {
+            resolvedCustomerId = Number(matchedCustomer.id || 0) || null;
+            resolvedCustomerRecord = matchedCustomer;
+          }
         }
 
         const productUpdates = [];
         itemsWithProducts = payload.items.map((it) => {
-          let product = null;
-          if (it.product_id) {
-            product = productsList.find((p) => p.id === it.product_id) || null;
-          }
-          if (!product) {
-            const name = String(it.product_name || '').trim().toLowerCase();
-            product = productsList.find((p) => String(p.name || '').trim().toLowerCase() === name) || null;
-          }
-          if (product) {
-            it.product_id = product.id;
+          const cachedProduct = findProductByItem(productsList, it);
+          if (cachedProduct) {
+            it.product_id = cachedProduct.id;
             return it;
           }
-          productUpdates.push(productsApi.create({
-            name: it.product_name,
-            price: Number(it.mrp || 0),
-            mrp: Number(it.mrp) || 0,
-            uom: it.unit || 'pcs',
-            category: 'Groceries',
-            stock: 0
-          }).then((createdProduct) => {
+
+          productUpdates.push((async () => {
+            const productSearchResults = await billingApi.searchProducts(String(it.product_name || '').trim());
+            const matchedProduct = findProductByItem(productSearchResults, it);
+            if (matchedProduct?.id) {
+              it.product_id = matchedProduct.id;
+              setProductsList((prev) => mergeProductsById(prev, [matchedProduct]));
+              return it;
+            }
+
+            const createdProduct = await productsApi.create({
+              name: it.product_name,
+              price: Number(it.mrp || 0),
+              mrp: Number(it.mrp) || 0,
+              uom: it.unit || 'pcs',
+              category: 'Groceries',
+              stock: 0
+            });
             if (createdProduct?.id) {
               it.product_id = createdProduct.id;
-              setProductsList((prev) => [...prev, createdProduct]);
+              setProductsList((prev) => mergeProductsById(prev, [createdProduct]));
             }
             return it;
-          }));
+          })());
           return it;
         });
 
@@ -124,8 +173,17 @@ const useBillingCreateBill = ({
           await Promise.all(productUpdates);
         }
       } else if (!resolvedCustomerId) {
-        const byName = customersList.find((c) => String(c.name || '').trim().toLowerCase() === String(payload.customer_name || '').trim().toLowerCase());
+        const byName = findCustomerByName(customersList, payload.customer_name);
         resolvedCustomerId = byName?.id || null;
+        resolvedCustomerRecord = byName || resolvedCustomerRecord;
+        if (!resolvedCustomerId && String(payload.customer_name || '').trim()) {
+          const customerSearchResults = await billingApi.searchCustomers(String(payload.customer_name || '').trim());
+          const matchedCustomer = findCustomerByName(customerSearchResults, payload.customer_name);
+          if (matchedCustomer) {
+            resolvedCustomerId = Number(matchedCustomer.id || 0) || null;
+            resolvedCustomerRecord = matchedCustomer;
+          }
+        }
       }
 
       if (!isOrderLinked && !resolvedCustomerId) {
@@ -134,7 +192,9 @@ const useBillingCreateBill = ({
       }
 
       const resolvedCustomer =
-        customersList.find((entry) => Number(entry?.id || 0) === Number(resolvedCustomerId || 0)) || customer;
+        customersList.find((entry) => Number(entry?.id || 0) === Number(resolvedCustomerId || 0))
+        || resolvedCustomerRecord
+        || customer;
       payload.customer_id = resolvedCustomerId;
       payload.customer_email = resolvedCustomer?.email || null;
       payload.customer_phone = resolvedCustomer?.phone || null;
@@ -198,6 +258,7 @@ const useBillingCreateBill = ({
     totalBill,
     paidClamped,
     creditAmount,
+    paymentMethod,
     totalDiscount,
     isOrderLinked,
     linkedOrderId,

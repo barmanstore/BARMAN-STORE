@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { creditApi } from '../../../shared/services/api';
 import { formatCurrency } from '../../../shared/utils/formatters';
-import AdminPageHeader from '../../admin/components/AdminPageHeader';
+import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
 import './CreditAgingReport.css';
 
 function CreditAgingReport({ user }) {
@@ -55,7 +55,7 @@ function CreditAgingReport({ user }) {
 
   return (
     <div className="credit-aging-report">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="page-header"
         title="Credit Aging Report"
         actions={(

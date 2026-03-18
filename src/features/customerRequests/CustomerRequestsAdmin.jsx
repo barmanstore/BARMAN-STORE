@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '../../shared/services/api';
 import CalculatedAmountInput from '../../shared/components/CalculatedAmountInput';
-import AdminPageHeader from '../admin/components/AdminPageHeader';
+import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
 import useExpandableCards from './hooks/useExpandableCards';
 import useIssueDrafts from './hooks/useIssueDrafts';
 import useCustomerRequestActions from './hooks/useCustomerRequestActions';
@@ -65,7 +65,7 @@ function CustomerRequestsAdmin() {
 
   return (
     <div className="customer-requests-admin">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="customer-requests-header"
         title="Customer Requests"
         subtitle="Resolved and rejected requests are auto-deleted after retention period."

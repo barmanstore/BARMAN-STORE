@@ -1,7 +1,7 @@
 const registerUserRoleRoutes = (deps) => {
   const {
     app,
-    requireAdmin,
+    requireCapability,
     dbGetAsync,
     dbRunAsync,
     normalizeEmail,
@@ -14,7 +14,7 @@ const registerUserRoleRoutes = (deps) => {
     logAdminAuditAsync,
   } = deps;
 
-  app.post('/api/users', requireAdmin, async (req, res) => {
+  app.post('/api/users', requireCapability('manage_users', 'User management access required'), async (req, res) => {
     try {
       const { name, email, phone, address, role } = req.body || {};
       const normalizedEmail = normalizeEmail(email);
@@ -66,7 +66,7 @@ const registerUserRoleRoutes = (deps) => {
     }
   });
 
-  app.delete('/api/users/:id', requireAdmin, async (req, res) => {
+  app.delete('/api/users/:id', requireCapability('manage_users', 'User management access required'), async (req, res) => {
     try {
       const user = await dbGetAsync('SELECT * FROM users WHERE id = ?', [req.params.id]);
       if (!user) return res.status(404).json({ error: 'User not found' });

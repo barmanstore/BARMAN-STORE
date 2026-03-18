@@ -3,6 +3,7 @@ const registerSalesFeatureBootstrap = (deps) => {
     app,
     registerSalesFeature,
     requireAdmin,
+    requireCapability,
     requireAuth,
     dbAllAsync,
     dbGetAsync,
@@ -33,6 +34,7 @@ const registerSalesFeatureBootstrap = (deps) => {
   registerSalesFeature({
     app,
     requireAdmin,
+    requireCapability,
     requireAuth,
     dbAllAsync,
     dbGetAsync,

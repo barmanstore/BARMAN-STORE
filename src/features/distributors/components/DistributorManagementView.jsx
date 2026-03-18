@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
-import AdminPageHeader from '../../admin/components/AdminPageHeader';
+import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
 
 const DistributorManagementView = ({
   loading,
@@ -31,7 +31,7 @@ const DistributorManagementView = ({
 
   return (
     <div className="distributor-management">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="page-header"
         title="Distributor Management"
         actions={(

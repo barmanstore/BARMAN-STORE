@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
+import { getPurchaseDraftDiagnostics } from '../utils/orderDraftValidation';
+import { resolveProductByInput } from '../utils/productSearch';
 
 export function PurchaseOrderFormModal({
   open,
@@ -43,6 +46,60 @@ export function PurchaseOrderFormModal({
 
   const activeDistributors = distributors.filter((distributor) => distributor.status === 'active');
   const canLoadDistributorItems = Boolean(String(orderFormData.distributor_id || '').trim());
+  const draftDiagnostics = getPurchaseDraftDiagnostics({
+    items: orderFormData.items,
+    products,
+    findProductForItem,
+    calculateOrderItem,
+  });
+  const [mobileStep, setMobileStep] = useState(0);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    setMobileStep(0);
+    const frameId = window.requestAnimationFrame(() => {
+      document.getElementById('po-entry-product-0')?.focus();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open]);
+
+  const handleProductFieldKeyDown = (event, index, item) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (!String(item?.product_id || '').trim()) {
+      const match = resolveProductByInput(item?.product_query, products);
+      if (match) {
+        handleOrderProductInputChange(index, item.product_query);
+      }
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById(`po-entry-qty-${index}`)?.focus();
+    });
+  };
+
+  const handleQuantityFieldKeyDown = (event, index, item) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (!String(item?.product_id || '').trim()) {
+      document.getElementById(`po-entry-product-${index}`)?.focus();
+      return;
+    }
+    const nextIndex = index + 1;
+    if (nextIndex >= orderFormData.items.length) {
+      handleOrderItemAdd();
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById(`po-entry-product-${nextIndex}`)?.focus();
+    });
+  };
+
+  const handleMobileStepNext = () => {
+    setMobileStep((prev) => Math.min(prev + 1, 2));
+  };
+
+  const handleMobileStepBack = () => {
+    setMobileStep((prev) => Math.max(prev - 1, 0));
+  };
 
   return (
     <div className="modal-overlay" onClick={closeOrderForm}>
@@ -71,7 +128,15 @@ export function PurchaseOrderFormModal({
           </div>
         </div>
 
-        <form onSubmit={handleOrderSubmit} className="po-entry-form po-entry-view-form" noValidate>
+        {isMobile ? (
+          <div className="po-mobile-stepper" role="tablist" aria-label="Purchase order steps">
+            <button type="button" className={`po-mobile-step-btn${mobileStep === 0 ? ' active' : ''}`} onClick={() => setMobileStep(0)}>Basics</button>
+            <button type="button" className={`po-mobile-step-btn${mobileStep === 1 ? ' active' : ''}`} onClick={() => setMobileStep(1)}>Items</button>
+            <button type="button" className={`po-mobile-step-btn${mobileStep === 2 ? ' active' : ''}`} onClick={() => setMobileStep(2)}>Review</button>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleOrderSubmit} className={`po-entry-form po-entry-view-form${isMobile ? ' mobile-step-mode' : ''}`} noValidate>
           <div className="po-invoice-preview po-entry-preview">
             <div className="po-invoice-header po-entry-preview-header">
               <div>
@@ -104,7 +169,7 @@ export function PurchaseOrderFormModal({
               </div>
             </div>
 
-            <div className="po-party-grid po-entry-header-grid">
+            <div className={`po-party-grid po-entry-header-grid po-mobile-panel${!isMobile || mobileStep === 0 ? ' active' : ''}`}>
               <div className="po-party-card">
                 <h4>Supplier</h4>
                 <div className="form-group">
@@ -149,6 +214,22 @@ export function PurchaseOrderFormModal({
                     <strong>{formatCurrency(orderTotals.totalAmount)}</strong>
                   </div>
                 </div>
+                {draftDiagnostics.hasDuplicateErrors ? (
+                  <div className="po-entry-alert error">
+                    {draftDiagnostics.blockingMessage}
+                  </div>
+                ) : null}
+                {draftDiagnostics.rateWarningCount > 0 ? (
+                  <div className="po-entry-alert warning">
+                    {draftDiagnostics.rateWarningCount} row(s) differ from the latest reference rate.
+                  </div>
+                ) : null}
+                <div className="po-entry-shortcuts">
+                  <span>Enter on product</span>
+                  <strong>Qty</strong>
+                  <span>Enter on qty</span>
+                  <strong>Next row</strong>
+                </div>
                 {orderFullMode ? (
                   <div className="po-entry-advanced-fields">
                     <div className="form-group">
@@ -187,7 +268,7 @@ export function PurchaseOrderFormModal({
               </div>
             </div>
 
-            <div className="po-entry-table-shell">
+            <div className={`po-entry-table-shell po-mobile-panel${!isMobile || mobileStep === 1 ? ' active' : ''}`}>
               <table className="po-invoice-table po-entry-table">
                 <thead>
                   <tr>
@@ -209,12 +290,20 @@ export function PurchaseOrderFormModal({
                   {orderFormData.items.map((item, index) => {
                     const selectedProduct = findProductForItem(products, item);
                     const line = calculateOrderItem(item);
+                    const rowDiagnostics = draftDiagnostics.rowDiagnostics[index] || {};
                     const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
                     const packStep = typeof getPurchasePackStep === 'function'
                       ? getPurchasePackStep(selectedProduct, line.uom)
                       : 1;
                     return (
-                      <tr key={`po-entry-row-${index}`} className={toNumber(item.quantity) === 0 ? 'po-entry-row-zero' : ''}>
+                      <tr
+                        key={`po-entry-row-${index}`}
+                        className={[
+                          toNumber(item.quantity) === 0 ? 'po-entry-row-zero' : '',
+                          rowDiagnostics.duplicateMessage ? 'po-entry-row-error' : '',
+                          rowDiagnostics.rateWarningMessage ? 'po-entry-row-warning' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
                         <td>{index + 1}</td>
                         <td>
                           <input
@@ -225,6 +314,7 @@ export function PurchaseOrderFormModal({
                             value={item.product_query || ''}
                             onChange={(event) => handleOrderProductInputChange(index, event.target.value)}
                             onFocus={() => handleOrderProductFieldFocus(index)}
+                            onKeyDown={(event) => handleProductFieldKeyDown(event, index, item)}
                             placeholder="Type product name / SKU"
                           />
                           <datalist id={`po-product-list-${index}`}>
@@ -238,6 +328,9 @@ export function PurchaseOrderFormModal({
                           {item.last_purchase_hint ? (
                             <small className="field-hint">{item.last_purchase_hint}</small>
                           ) : null}
+                          {rowDiagnostics.duplicateMessage ? (
+                            <small className="field-warning">{rowDiagnostics.duplicateMessage}</small>
+                          ) : null}
                         </td>
                         <td>
                           <input
@@ -248,6 +341,7 @@ export function PurchaseOrderFormModal({
                             step={packStep}
                             value={item.quantity}
                             onChange={(event) => handleOrderItemChange(index, 'quantity', toNumber(event.target.value))}
+                            onKeyDown={(event) => handleQuantityFieldKeyDown(event, index, item)}
                           />
                         </td>
                         <td>
@@ -275,6 +369,9 @@ export function PurchaseOrderFormModal({
                               value={item.rate ?? item.unit_price}
                               onChange={(event) => handleOrderItemChange(index, 'rate', toNumber(event.target.value))}
                             />
+                            {rowDiagnostics.rateWarningMessage ? (
+                              <small className="field-warning subtle">{rowDiagnostics.rateWarningMessage}</small>
+                            ) : null}
                           </td>
                         ) : null}
                         {orderFullMode ? (
@@ -340,7 +437,7 @@ export function PurchaseOrderFormModal({
             </div>
           </div>
 
-          <div className="form-section po-form-section po-form-footer">
+          <div className={`form-section po-form-section po-form-footer po-mobile-panel${!isMobile || mobileStep === 2 ? ' active' : ''}`}>
             <div className="order-summary">
               {orderFullMode ? (
                 <>
@@ -368,6 +465,23 @@ export function PurchaseOrderFormModal({
               </button>
             </div>
           </div>
+
+          {isMobile ? (
+            <div className="po-mobile-step-footer">
+              <button type="button" className="cancel-btn" onClick={mobileStep === 0 ? closeOrderForm : handleMobileStepBack}>
+                {mobileStep === 0 ? 'Cancel' : 'Back'}
+              </button>
+              {mobileStep < 2 ? (
+                <button type="button" className="submit-btn" onClick={handleMobileStepNext}>
+                  Next
+                </button>
+              ) : (
+                <button type="submit" className="submit-btn" disabled={orderSubmitting}>
+                  {orderSubmitting ? 'Saving...' : (editingOrderId ? 'Update Order' : 'Create Order')}
+                </button>
+              )}
+            </div>
+          ) : null}
         </form>
 
         {!isMobile && (

@@ -19,6 +19,8 @@ const createEmptyOrderItem = () => ({
   uom: 'pcs',
   unit_price: 0,
   rate: 0,
+  reference_rate: 0,
+  reference_rate_source: '',
   gst_rate: 5,
   discount_type: 'percent',
   discount_value: 0,

@@ -222,6 +222,7 @@ const usePurchaseManagementHandlers = ({
     toNumber,
     calculateOrderItem,
     calculateOrderTotals,
+    findProductForItem,
     purchaseOrdersApi,
     user,
     editingOrderId,

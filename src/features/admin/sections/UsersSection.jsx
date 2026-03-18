@@ -12,6 +12,10 @@ function UsersSection({
   filteredUsers,
   adminUsers,
   customerUsers,
+  usersPage,
+  setUsersPage,
+  usersTotal,
+  usersLoading,
   expandedUsersMap,
   toggleUserCompactRow,
   handleCompactRowKeyToggle,
@@ -22,6 +26,8 @@ function UsersSection({
   handleEditUser,
   handleDeleteUser,
 }) {
+  const totalPages = Math.max(1, Math.ceil(Number(usersTotal || 0) / 25));
+
   return (
 
           <div className="users-management">
@@ -45,11 +51,37 @@ function UsersSection({
                 onChange={(e) => setUsersSearchQuery(e.target.value)}
               />
               <span className="users-search-count">
-                Showing {filteredUsersCount} of {users.length} users
+                Showing {filteredUsersCount} of {usersTotal || users.length} users
               </span>
             </div>
+            <div className="admin-pagination">
+              <span className="admin-pagination-label">
+                Page {usersPage} of {totalPages}
+              </span>
+              <div className="admin-pagination-actions">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setUsersPage(Math.max(1, usersPage - 1))}
+                  disabled={usersPage <= 1 || usersLoading}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setUsersPage(Math.min(totalPages, usersPage + 1))}
+                  disabled={usersPage >= totalPages || usersLoading}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            {usersLoading ? (
+              <p className="admin-list-loading">Loading users...</p>
+            ) : null}
             <div className="users-group">
-              <h2>Admins ({filteredUsers.admins.length}/{adminUsers.length})</h2>
+              <h2>Admins ({filteredUsers.admins.length})</h2>
               <div className="users-compact-list">
                 {filteredUsers.admins.length === 0 ? (
                   <p className="users-empty">No admins found.</p>
@@ -93,7 +125,7 @@ function UsersSection({
               </div>
             </div>
             <div className="users-group">
-              <h2>Customers ({filteredUsers.customers.length}/{customerUsers.length})</h2>
+              <h2>Customers ({filteredUsers.customers.length})</h2>
               <div className="users-compact-list">
                 {filteredUsers.customers.length === 0 ? (
                   <p className="users-empty">No customers found.</p>

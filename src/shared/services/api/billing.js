@@ -23,6 +23,12 @@ export const billingApi = {
   // Get bill by ID or number
   getById: (identifier) => apiFetch(`/api/bills/${identifier}`),
 
+  // Delete bill
+  delete: (id) =>
+    apiFetch(`/api/bills/${id}`, {
+      method: 'DELETE',
+    }),
+
   // Update bill payment
   updatePayment: (id, paymentData) =>
     apiFetch(`/api/bills/${id}/payment`, {
@@ -31,15 +37,15 @@ export const billingApi = {
     }),
 
   // Search customers for billing
-  searchCustomers: (query) =>
-    apiFetch(`/api/billing/customers/search?q=${encodeURIComponent(query)}`),
+  searchCustomers: (query, options = {}) =>
+    apiFetch(`/api/billing/customers/search?q=${encodeURIComponent(query)}`, options),
 
   // Search products for billing
-  searchProducts: (query, category) => {
+  searchProducts: (query, category, options = {}) => {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
     if (category) params.append('category', category);
-    return apiFetch(`/api/billing/products/search?${params.toString()}`);
+    return apiFetch(`/api/billing/products/search?${params.toString()}`, options);
   },
 
   // Get billing statistics

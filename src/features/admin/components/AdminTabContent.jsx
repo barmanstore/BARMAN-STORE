@@ -22,13 +22,12 @@ const AdminTabContent = ({
   setDashboardDensity,
   isMobile,
   stats,
-  pendingOrdersList,
   activeProductsCount,
   inactiveProductsCount,
   lowStockProducts,
   products,
-  customerUsers,
   visitorStats,
+  totalCustomers,
   recentOrders,
   recentCustomers,
   handleTabChange,
@@ -109,6 +108,10 @@ const AdminTabContent = ({
   setOrdersSearchQuery,
   visibleOrders,
   orders,
+  ordersPage,
+  setOrdersPage,
+  ordersTotal,
+  ordersLoading,
   openApproveModal,
   handleProceedToBilling,
   proceedBillingOrderId,
@@ -121,6 +124,11 @@ const AdminTabContent = ({
   users,
   filteredUsers,
   adminUsers,
+  customerUsers,
+  usersPage,
+  setUsersPage,
+  usersTotal,
+  usersLoading,
   expandedUsersMap,
   toggleUserCompactRow,
   handleCompactRowKeyToggle,
@@ -141,12 +149,12 @@ const AdminTabContent = ({
         setDashboardDensity={setDashboardDensity}
         isMobile={isMobile}
         stats={stats}
-        pendingOrdersList={pendingOrdersList}
+        pendingOrdersCount={Number(stats?.pendingOrders || 0)}
         activeProductsCount={activeProductsCount}
         inactiveProductsCount={inactiveProductsCount}
         lowStockProducts={lowStockProducts}
         products={products}
-        customerUsers={customerUsers}
+        totalCustomers={totalCustomers}
         visitorStats={visitorStats}
         recentOrders={recentOrders}
         recentCustomers={recentCustomers}
@@ -158,7 +166,7 @@ const AdminTabContent = ({
       <DailySalesSection
         selectedDateKey={selectedDateKey}
         onDateChange={setDailySalesDate}
-        onRefresh={() => { void loadDailySalesBills({ silent: false }); }}
+        onRefresh={() => { void loadDailySalesBills({ silent: false, dateKey: selectedDateKey }); }}
         dailySalesLoading={dailySalesLoading}
         dailySalesError={dailySalesError}
         dailySalesSummary={dailySalesSummary}
@@ -244,6 +252,10 @@ const AdminTabContent = ({
         setOrdersSearchQuery={setOrdersSearchQuery}
         visibleOrders={visibleOrders}
         orders={orders}
+        ordersPage={ordersPage}
+        setOrdersPage={setOrdersPage}
+        ordersTotal={ordersTotal}
+        ordersLoading={ordersLoading}
         openApproveModal={openApproveModal}
         handleProceedToBilling={handleProceedToBilling}
         proceedBillingOrderId={proceedBillingOrderId}
@@ -267,6 +279,10 @@ const AdminTabContent = ({
         filteredUsers={filteredUsers}
         adminUsers={adminUsers}
         customerUsers={customerUsers}
+        usersPage={usersPage}
+        setUsersPage={setUsersPage}
+        usersTotal={usersTotal}
+        usersLoading={usersLoading}
         expandedUsersMap={expandedUsersMap}
         toggleUserCompactRow={toggleUserCompactRow}
         handleCompactRowKeyToggle={handleCompactRowKeyToggle}
@@ -285,7 +301,7 @@ const AdminTabContent = ({
         onPrefillApplied={() => setBillingPrefill(null)}
       />
     )}
-    {activeTab === 'view-bills' && <BillsViewer />}
+    {activeTab === 'view-bills' && <BillsViewer user={user} />}
 
     {activeTab === 'distributors' && (
       <DistributorManagement user={user} />

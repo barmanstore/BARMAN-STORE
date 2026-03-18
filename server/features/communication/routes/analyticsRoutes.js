@@ -14,6 +14,7 @@ const registerAnalyticsRoutes = (deps) => {
   const {
     app,
     requireAdmin,
+    requireCapability,
     requireAuth,
     requireCronSecret,
     dbGetAsync,
@@ -97,7 +98,7 @@ const registerAnalyticsRoutes = (deps) => {
     }
   });
 
-  app.get('/api/admin/analytics/summary', requireAdmin, async (_, res) => {
+  app.get('/api/admin/analytics/summary', requireCapability('view_backoffice', 'Backoffice access required'), async (_, res) => {
     try {
       const windowArg = -VISITOR_ONLINE_WINDOW_MINUTES;
 

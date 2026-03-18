@@ -2,6 +2,7 @@ const { createSupabaseAuthHelpers } = require('./auth/supabaseHelpers');
 const { createLocalAuthSync } = require('./auth/localSync');
 const { createRequestAuth } = require('./auth/requestAuth');
 const { createAuthGuards } = require('./auth/guards');
+const { userHasCapability } = require('./auth/capabilities');
 
 const createAuthMiddleware = (deps) => {
   const {
@@ -51,6 +52,7 @@ const createAuthMiddleware = (deps) => {
     ...localSync,
     ...requestAuth,
     ...guards,
+    userHasCapability,
   };
 };
 

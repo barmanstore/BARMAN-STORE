@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import AdminShell from './AdminShell';
 import AdminTabContent from './AdminTabContent';
 import AdminModals from './AdminModals';
+import { hasCapability } from '../../../shared/auth/capabilities';
 
 const AdminPageLayout = ({
   user,
@@ -25,13 +26,12 @@ const AdminPageLayout = ({
   setDashboardDensity,
   isMobile,
   stats,
-  pendingOrdersList,
   activeProductsCount,
   inactiveProductsCount,
   lowStockProducts,
   products,
-  customerUsers,
   visitorStats,
+  userDirectorySummary,
   recentOrders,
   recentCustomers,
   selectedDateKey,
@@ -111,6 +111,10 @@ const AdminPageLayout = ({
   setOrdersSearchQuery,
   visibleOrders,
   orders,
+  ordersPage,
+  setOrdersPage,
+  ordersTotal,
+  ordersLoading,
   openApproveModal,
   handleProceedToBilling,
   proceedBillingOrderId,
@@ -122,6 +126,11 @@ const AdminPageLayout = ({
   users,
   filteredUsers,
   adminUsers,
+  customerUsers,
+  usersPage,
+  setUsersPage,
+  usersTotal,
+  usersLoading,
   expandedUsersMap,
   toggleUserCompactRow,
   handleCompactRowKeyToggle,
@@ -159,7 +168,7 @@ const AdminPageLayout = ({
   isCreatingUser,
   handleCreateUser,
 }) => {
-  if (!user || user.role !== 'admin') {
+  if (!user || !hasCapability(user, 'view_backoffice')) {
     return (
       <div className="admin-page">
         <div className="admin-container">
@@ -191,12 +200,12 @@ const AdminPageLayout = ({
       setDashboardDensity={setDashboardDensity}
       isMobile={isMobile}
       stats={stats}
-      pendingOrdersList={pendingOrdersList}
+      pendingOrdersCount={Number(stats?.pendingOrders || 0)}
       activeProductsCount={activeProductsCount}
       inactiveProductsCount={inactiveProductsCount}
       lowStockProducts={lowStockProducts}
       products={products}
-      customerUsers={customerUsers}
+      totalCustomers={Number(userDirectorySummary?.customerCount || 0)}
       visitorStats={visitorStats}
       recentOrders={recentOrders}
       recentCustomers={recentCustomers}
@@ -278,6 +287,10 @@ const AdminPageLayout = ({
       setOrdersSearchQuery={setOrdersSearchQuery}
       visibleOrders={visibleOrders}
       orders={orders}
+      ordersPage={ordersPage}
+      setOrdersPage={setOrdersPage}
+      ordersTotal={ordersTotal}
+      ordersLoading={ordersLoading}
       openApproveModal={openApproveModal}
       handleProceedToBilling={handleProceedToBilling}
       proceedBillingOrderId={proceedBillingOrderId}
@@ -289,6 +302,11 @@ const AdminPageLayout = ({
       users={users}
       filteredUsers={filteredUsers}
       adminUsers={adminUsers}
+      customerUsers={customerUsers}
+      usersPage={usersPage}
+      setUsersPage={setUsersPage}
+      usersTotal={usersTotal}
+      usersLoading={usersLoading}
       expandedUsersMap={expandedUsersMap}
       toggleUserCompactRow={toggleUserCompactRow}
       handleCompactRowKeyToggle={handleCompactRowKeyToggle}

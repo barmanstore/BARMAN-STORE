@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { insightsApi } from '../../shared/services/api';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
-import AdminPageHeader from '../admin/components/AdminPageHeader';
+import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
 import './Insights.css';
 
 const formatPercent = (value) => {
@@ -86,7 +86,7 @@ const DistributorInsights = () => {
 
   return (
     <div className="insights-page distributor-insights">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="insights-header"
         title="Distributor Insights"
         subtitle="Compare landed costs, lead times, and delivery reliability across suppliers."

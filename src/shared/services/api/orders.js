@@ -5,7 +5,10 @@ import { apiFetch } from './core';
 // ============================================
 
 export const ordersApi = {
-  getAll: () => apiFetch('/api/orders'),
+  getAll: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/orders${query ? `?${query}` : ''}`);
+  },
   getById: (id) => apiFetch(`/api/orders/${id}`),
   getByOrderNumber: (orderNumber) => apiFetch(`/api/orders/number/${orderNumber}`),
   getByUser: (userId) => apiFetch(`/api/users/${userId}/orders`),

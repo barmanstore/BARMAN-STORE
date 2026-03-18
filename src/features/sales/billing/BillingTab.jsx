@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { customersApi, productsApi, billingApi, creditApi } from '../../../shared/services/api';
+import { productsApi, billingApi, creditApi } from '../../../shared/services/api';
 import { sendWhatsAppSmart } from '../../../shared/utils/whatsapp';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { validateAmountInput } from '../../../shared/utils/amountExpression';
 import { buildBillShareText } from '../../../shared/utils/messageTemplates';
+import useIsMobile from '../../../shared/hooks/useIsMobile';
 import * as info from '../../../shared/info';
 import BillingTabView from './components/BillingTabView';
 import { createEmptyItem, getProductOptionLabel } from './utils/billingLineItemUtils';
@@ -12,7 +13,34 @@ import { getAllowedUnitsForProduct, resolveLineUnitForProduct, toPricingQtyFromP
 import useBillingCreateBill from './hooks/useBillingCreateBill';
 import './BillingTab.css';
 
+const mergeProductsById = (currentList = [], nextList = []) => {
+  const byId = new Map();
+  currentList.forEach((product) => {
+    const id = Number(product?.id || 0);
+    if (id > 0) byId.set(id, product);
+  });
+  nextList.forEach((product) => {
+    const id = Number(product?.id || 0);
+    if (id > 0) byId.set(id, product);
+  });
+  return Array.from(byId.values());
+};
+
+const mergeCustomersById = (currentList = [], nextList = []) => {
+  const byId = new Map();
+  currentList.forEach((customer) => {
+    const id = Number(customer?.id || 0);
+    if (id > 0) byId.set(id, customer);
+  });
+  nextList.forEach((customer) => {
+    const id = Number(customer?.id || 0);
+    if (id > 0) byId.set(id, customer);
+  });
+  return Array.from(byId.values());
+};
+
 const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
+  const isMobile = useIsMobile();
   const [customer, setCustomer] = useState({ id: null, name: '', email: '', phone: '', address: '' });
   const [items, setItems] = useState([createEmptyItem()]);
   const [loading, setLoading] = useState(false);
@@ -26,11 +54,19 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const [linkedOrderId, setLinkedOrderId] = useState(0);
   const [fulfillmentMode, setFulfillmentMode] = useState('available_now');
   const [showCustomerCreateModal, setShowCustomerCreateModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
+  const [activeProductSuggestionIndex, setActiveProductSuggestionIndex] = useState(0);
 
   const [customersList, setCustomersList] = useState([]);
   const [productsList, setProductsList] = useState([]);
 
   const customerSearchTimeout = useRef(null);
+  const productSearchTimeout = useRef(null);
+  const productSearchAbortController = useRef(null);
+  const productSearchInputRef = useRef(null);
   const appliedPrefillKeyRef = useRef('');
 
   useEffect(() => {
@@ -40,11 +76,11 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
       try {
         const [customersData, productsData] = await Promise.all([
-          customersApi.getAll(),
-          productsApi.getAll()
+          billingApi.searchCustomers(''),
+          billingApi.searchProducts('')
         ]);
-        setCustomersList(customersData || []);
-        setProductsList(productsData || []);
+        setCustomersList(Array.isArray(customersData) ? customersData : []);
+        setProductsList(Array.isArray(productsData) ? productsData : []);
       } catch (err) {
         console.error('Error fetching initial data:', err);
         setError('Failed to load data. Please try again later.');
@@ -61,6 +97,12 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       if (customerSearchTimeout.current) {
         clearTimeout(customerSearchTimeout.current);
       }
+      if (productSearchTimeout.current) {
+        clearTimeout(productSearchTimeout.current);
+      }
+      if (productSearchAbortController.current) {
+        productSearchAbortController.current.abort();
+      }
     };
   }, []);
 
@@ -76,6 +118,29 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       (product) => String(product?.name || '').trim().toLowerCase() === nameKey
     ) || null;
   }, [productsList]);
+
+  const buildBillingItemFromProduct = useCallback((product, baseItem = null) => {
+    const nextItem = baseItem ? { ...baseItem } : createEmptyItem();
+    const price = Number(product?.price || product?.mrp || 0) || 0;
+    const disc = Number(product?.defaultDiscount || 0) || 0;
+    const discType = product?.discountType || 'fixed';
+    const unit = resolveLineUnitForProduct(
+      product,
+      product?.base_unit || product?.uom || product?.unit || 'pcs'
+    );
+
+    return {
+      ...nextItem,
+      name: String(product?.name || '').trim(),
+      productId: Number(product?.id || 0) || null,
+      price,
+      qty: 1,
+      unit,
+      disc,
+      discType,
+      amount: calculateLineAmount(price, 1, disc, discType, unit, product).amount,
+    };
+  }, []);
 
   const calculateAmount = useCallback(
     (price, qty, disc, discType, unit = 'pcs', product = null) =>
@@ -134,6 +199,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     setLastSharePhone('');
     setLinkedOrderId(Number(initialPrefill?.source?.order_id || 0) || 0);
     setFulfillmentMode(Number(initialPrefill?.source?.order_id || 0) ? 'available_now' : 'full_now');
+    setSelectedPaymentMethod('cash');
 
     const sourceOrderLabel = String(initialPrefill?.source?.order_number || '').trim()
       || (Number(initialPrefill?.source?.order_id || 0) ? `#${Number(initialPrefill.source.order_id)}` : '');
@@ -156,32 +222,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
         });
 
         if (matchedProduct) {
-          const price = Number(matchedProduct.price) || 0;
-          const disc = Number(matchedProduct.defaultDiscount) || 0;
-          const discType = matchedProduct.discountType || 'fixed';
-          const defaultUnit = resolveLineUnitForProduct(
-            matchedProduct,
-            matchedProduct.base_unit || matchedProduct.uom || matchedProduct.unit || 'pcs'
-          );
-
-          newItems[index] = {
-            ...newItems[index],
-            name: matchedProduct.name,
-            productId: matchedProduct.id,
-            price,
-            qty: 1,
-            unit: defaultUnit,
-            disc,
-            discType,
-            amount: calculateAmount(
-              price,
-              1,
-              disc,
-              discType,
-              defaultUnit,
-              matchedProduct
-            ).amount
-          };
+          newItems[index] = buildBillingItemFromProduct(matchedProduct, newItems[index]);
         } else {
           newItems[index] = { ...newItems[index], name: rawValue };
         }
@@ -213,13 +254,143 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
       return newItems;
     });
-  }, [calculateAmount, getProductForLine, productsList]);
+  }, [buildBillingItemFromProduct, calculateAmount, getProductForLine, productsList]);
 
   const addItem = () => setItems((prev) => [...prev, createEmptyItem()]);
 
   const removeItem = (index) => {
     setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   };
+
+  const appendProductFromQuickAdd = useCallback((product) => {
+    if (!product) return;
+
+    setItems((prevItems) => {
+      const lastItem = prevItems[prevItems.length - 1];
+      const canReuseLastRow = prevItems.length === 1
+        && !lastItem?.productId
+        && !String(lastItem?.name || '').trim()
+        && Number(lastItem?.amount || 0) <= 0;
+
+      if (canReuseLastRow) {
+        return [buildBillingItemFromProduct(product, lastItem)];
+      }
+
+      return [...prevItems, buildBillingItemFromProduct(product)];
+    });
+
+    setProductSearchQuery('');
+    setProductSearchResults([]);
+    setActiveProductSuggestionIndex(0);
+    window.requestAnimationFrame(() => {
+      productSearchInputRef.current?.focus();
+    });
+  }, [buildBillingItemFromProduct]);
+
+  useEffect(() => {
+    const query = String(productSearchQuery || '').trim();
+
+    if (productSearchTimeout.current) {
+      clearTimeout(productSearchTimeout.current);
+    }
+    if (productSearchAbortController.current) {
+      productSearchAbortController.current.abort();
+      productSearchAbortController.current = null;
+    }
+
+    if (!query) {
+      setProductSearchLoading(false);
+      setProductSearchResults([]);
+      setActiveProductSuggestionIndex(0);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    productSearchAbortController.current = controller;
+    setProductSearchLoading(true);
+
+    productSearchTimeout.current = setTimeout(async () => {
+      try {
+        const rows = await billingApi.searchProducts(query, undefined, { signal: controller.signal });
+        const list = Array.isArray(rows) ? rows : [];
+        const visibleResults = list.slice(0, 8);
+        setProductSearchResults(visibleResults);
+        setActiveProductSuggestionIndex(0);
+        if (visibleResults.length > 0) {
+          setProductsList((prev) => mergeProductsById(prev, visibleResults));
+        }
+      } catch (err) {
+        if (err?.name !== 'AbortError') {
+          console.error('Error searching billing products:', err);
+          setProductSearchResults([]);
+        }
+      } finally {
+        if (productSearchAbortController.current === controller) {
+          productSearchAbortController.current = null;
+        }
+        setProductSearchLoading(false);
+      }
+    }, 180);
+
+    return () => {
+      clearTimeout(productSearchTimeout.current);
+      controller.abort();
+    };
+  }, [productSearchQuery]);
+
+  useEffect(() => {
+    if (loading || showCustomerCreateModal) return undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      productSearchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [loading, showCustomerCreateModal]);
+
+  const resolveQuickAddProductMatch = useCallback(() => {
+    const query = String(productSearchQuery || '').trim().toLowerCase();
+    if (!query) return null;
+
+    const exactMatch = [...productSearchResults, ...productsList].find((product) => {
+      const name = String(product?.name || '').trim().toLowerCase();
+      const sku = String(product?.sku || '').trim().toLowerCase();
+      const barcode = String(product?.barcode || '').trim().toLowerCase();
+      return name === query || sku === query || barcode === query;
+    });
+
+    if (exactMatch) return exactMatch;
+    return productSearchResults[activeProductSuggestionIndex] || productSearchResults[0] || null;
+  }, [activeProductSuggestionIndex, productSearchQuery, productSearchResults, productsList]);
+
+  const handleQuickAddKeyDown = useCallback((event) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveProductSuggestionIndex((prev) => {
+        if (productSearchResults.length === 0) return 0;
+        return Math.min(prev + 1, productSearchResults.length - 1);
+      });
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveProductSuggestionIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setProductSearchResults([]);
+      setActiveProductSuggestionIndex(0);
+      return;
+    }
+
+    if (event.key !== 'Enter') return;
+
+    const matchedProduct = resolveQuickAddProductMatch();
+    if (!matchedProduct) return;
+
+    event.preventDefault();
+    appendProductFromQuickAdd(matchedProduct);
+  }, [appendProductFromQuickAdd, productSearchResults.length, resolveQuickAddProductMatch]);
 
   const totalBill = items.reduce((sum, item) => sum + item.amount, 0);
   const paidAmountEvaluation = useMemo(
@@ -229,7 +400,24 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   const paidResolved = paidAmountEvaluation.valid ? Number(paidAmountEvaluation.value) : 0;
   const paidClamped = Math.max(0, Math.min(paidResolved, Number(totalBill || 0)));
   const creditAmount = Math.max(0, Number(totalBill) - paidClamped);
+  const paymentIntent = totalBill <= 0
+    ? 'full_payment'
+    : paidClamped <= 0
+      ? 'full_credit'
+      : paidClamped >= totalBill
+        ? 'full_payment'
+        : 'partial_payment';
+  const effectivePaymentMethod = paymentIntent === 'full_credit'
+    ? 'credit'
+    : selectedPaymentMethod;
   const isOrderLinked = Number(linkedOrderId || 0) > 0;
+  const subtotalAmount = items.reduce((sum, item) => {
+    const priceNum = Number(item.price) || 0;
+    const qtyNum = Math.max(1, Number(item.qty) || 1);
+    const product = getProductForLine(item);
+    const pricingQty = toPricingQtyFromProduct(qtyNum, item.unit, product);
+    return sum + (priceNum * pricingQty);
+  }, 0);
   const totalDiscount = items.reduce((sum, item) => {
     const priceNum = Number(item.price) || 0;
     const qtyNum = Math.max(1, Number(item.qty) || 1);
@@ -242,6 +430,33 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     }
     return sum + Math.min(priceNum * pricingQty, Math.max(0, discNum));
   }, 0);
+  const activeLineItemsCount = items.filter((item) =>
+    String(item?.name || '').trim() || Number(item?.amount || 0) > 0
+  ).length;
+  const paymentStatusLabel = creditAmount > 0
+    ? (paidClamped > 0 ? 'Partially paid' : 'Credit due')
+    : 'Fully paid';
+
+  const focusPaidAmountField = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById('paidAmount')?.focus();
+    });
+  }, []);
+
+  const handleSelectFullPayment = useCallback(() => {
+    setPaidAmount(totalBill > 0 ? Number(totalBill.toFixed(2)) : 0);
+  }, [totalBill]);
+
+  const handleSelectPartialPayment = useCallback(() => {
+    if (!(paidClamped > 0 && paidClamped < totalBill)) {
+      setPaidAmount('');
+    }
+    focusPaidAmountField();
+  }, [focusPaidAmountField, paidClamped, totalBill]);
+
+  const handleSelectFullCredit = useCallback(() => {
+    setPaidAmount(0);
+  }, []);
 
   const handleCustomerChange = useCallback((e) => {
     const { value } = e.target;
@@ -261,9 +476,16 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     if (value.length >= 2) {
       customerSearchTimeout.current = setTimeout(async () => {
         try {
-          const searchResults = await customersApi.search(value);
-          if (searchResults && searchResults.length > 0) {
-            setCustomer({ ...searchResults[0] });
+          const searchResults = await billingApi.searchCustomers(value);
+          const list = Array.isArray(searchResults) ? searchResults : [];
+          if (list.length > 0) {
+            setCustomersList((prev) => mergeCustomersById(prev, list));
+            const matched = list.find(
+              (entry) => String(entry?.name || '').trim().toLowerCase() === value.trim().toLowerCase()
+            );
+            if (matched) {
+              setCustomer({ ...matched });
+            }
           }
         } catch (err) {
           console.error('Error searching customers:', err);
@@ -288,24 +510,29 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 
   const handleCustomerModalSave = useCallback(async (createdUser = null) => {
     try {
-      const latestCustomers = await customersApi.getAll();
-      const list = Array.isArray(latestCustomers) ? latestCustomers : [];
-      setCustomersList(list);
-
       const createdId = Number(createdUser?.id || createdUser?.user_id || 0);
       const createdName = String(createdUser?.name || '').trim().toLowerCase();
+      let matched = createdUser && createdId > 0
+        ? {
+            id: createdId,
+            name: String(createdUser?.name || '').trim(),
+            email: String(createdUser?.email || '').trim(),
+            phone: String(createdUser?.phone || '').trim(),
+            address: String(createdUser?.address || '').trim(),
+          }
+        : null;
 
-      let matched = null;
-      if (createdId > 0) {
-        matched = list.find((entry) => Number(entry?.id || 0) === createdId) || null;
-      }
       if (!matched && createdName) {
+        const latestCustomers = await billingApi.searchCustomers(createdName);
+        const list = Array.isArray(latestCustomers) ? latestCustomers : [];
+        setCustomersList((prev) => mergeCustomersById(prev, list));
         matched = list.find(
           (entry) => String(entry?.name || '').trim().toLowerCase() === createdName
         ) || null;
       }
 
       if (matched) {
+        setCustomersList((prev) => mergeCustomersById(prev, [matched]));
         setCustomer({ ...matched });
       }
     } catch (err) {
@@ -325,6 +552,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     totalBill,
     paidClamped,
     creditAmount,
+    paymentMethod: effectivePaymentMethod,
     totalDiscount,
     isOrderLinked,
     linkedOrderId,
@@ -387,10 +615,22 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   };
 
   const getProductOptionLabelWithFormat = useCallback((product) => getProductOptionLabel(product, formatCurrency), []);
-  const handleClear = useCallback(() => { setCustomer({ id: null, name: '', email: '', phone: '', address: '' }); setItems([createEmptyItem()]); setPaidAmount(0); setPrefillSummary(''); setLinkedOrderId(0); setFulfillmentMode('available_now'); }, []);
+  const handleClear = useCallback(() => {
+    setCustomer({ id: null, name: '', email: '', phone: '', address: '' });
+    setItems([createEmptyItem()]);
+    setPaidAmount(0);
+    setPrefillSummary('');
+    setLinkedOrderId(0);
+    setFulfillmentMode('available_now');
+    setSelectedPaymentMethod('cash');
+    setProductSearchQuery('');
+    setProductSearchResults([]);
+    setActiveProductSuggestionIndex(0);
+  }, []);
 
   return (
     <BillingTabView
+      isMobile={isMobile}
       isOrderLinked={isOrderLinked}
       isSubmitting={isSubmitting}
       handleAddCustomer={handleAddCustomer}
@@ -407,14 +647,34 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       getAllowedUnitsForProduct={getAllowedUnitsForProduct}
       resolveLineUnitForProduct={resolveLineUnitForProduct}
       handleProductChange={handleProductChange}
+      productSearchInputRef={productSearchInputRef}
+      productSearchQuery={productSearchQuery}
+      setProductSearchQuery={setProductSearchQuery}
+      productSearchResults={productSearchResults}
+      productSearchLoading={productSearchLoading}
+      activeProductSuggestionIndex={activeProductSuggestionIndex}
+      handleQuickAddKeyDown={handleQuickAddKeyDown}
+      handleQuickAddSelect={appendProductFromQuickAdd}
       removeItem={removeItem}
       addItem={addItem}
+      subtotalAmount={subtotalAmount}
+      totalDiscount={totalDiscount}
       totalBill={totalBill}
+      paidClamped={paidClamped}
+      paymentIntent={paymentIntent}
+      selectedPaymentMethod={selectedPaymentMethod}
+      effectivePaymentMethod={effectivePaymentMethod}
+      setSelectedPaymentMethod={setSelectedPaymentMethod}
+      handleSelectFullPayment={handleSelectFullPayment}
+      handleSelectPartialPayment={handleSelectPartialPayment}
+      handleSelectFullCredit={handleSelectFullCredit}
       fulfillmentMode={fulfillmentMode}
       setFulfillmentMode={setFulfillmentMode}
       paidAmount={paidAmount}
       setPaidAmount={setPaidAmount}
       creditAmount={creditAmount}
+      activeLineItemsCount={activeLineItemsCount}
+      paymentStatusLabel={paymentStatusLabel}
       onClear={handleClear}
       handleCreateBill={handleCreateBillClick}
       lastShareText={lastShareText}

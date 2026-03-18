@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { getPurchaseDraftDiagnostics } from '../utils/orderDraftValidation';
 
 const usePurchaseOrderFormHandlers = ({
   setFilters,
@@ -23,6 +24,7 @@ const usePurchaseOrderFormHandlers = ({
   toNumber,
   calculateOrderItem,
   calculateOrderTotals,
+  findProductForItem,
   purchaseOrdersApi,
   user,
   editingOrderId,
@@ -152,6 +154,19 @@ const usePurchaseOrderFormHandlers = ({
         return;
       }
 
+      const draftDiagnostics = getPurchaseDraftDiagnostics({
+        items: validItems,
+        products,
+        findProductForItem,
+        calculateOrderItem,
+      });
+      if (draftDiagnostics.hasDuplicateErrors) {
+        setError(draftDiagnostics.blockingMessage);
+        setOrderSubmitting(false);
+        orderSubmitLockRef.current = false;
+        return;
+      }
+
       const calculatedItems = validItems.map((item) => {
         const line = calculateOrderItem(item);
         return {
@@ -212,6 +227,8 @@ const usePurchaseOrderFormHandlers = ({
     setOrderSubmitting,
     distributors,
     orderFormData,
+    products,
+    findProductForItem,
     calculateOrderItem,
     calculateOrderTotals,
     user,

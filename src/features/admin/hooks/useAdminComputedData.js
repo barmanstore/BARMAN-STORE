@@ -4,9 +4,9 @@ const useAdminComputedData = ({
   products,
   users,
   orders,
+  recentOrdersPreview,
+  recentCustomersPreview,
   bills,
-  usersSearchQuery,
-  ordersSearchQuery,
   dailySalesDate,
   toLocalDateKey,
   asNumber,
@@ -36,65 +36,26 @@ const useAdminComputedData = ({
   );
 
   const filteredUsers = useMemo(() => {
-    const query = String(usersSearchQuery || '').trim().toLowerCase();
-    const matchesQuery = (entry) => {
-      if (!query) return true;
-      const searchable = [
-        entry?.id,
-        entry?.name,
-        entry?.email,
-        entry?.phone,
-      ]
-        .map((value) => String(value ?? '').toLowerCase())
-        .join(' ');
-      return searchable.includes(query);
-    };
     return {
-      admins: adminUsers.filter(matchesQuery),
-      customers: customerUsers.filter(matchesQuery),
+      admins: adminUsers,
+      customers: customerUsers,
     };
-  }, [adminUsers, customerUsers, usersSearchQuery]);
+  }, [adminUsers, customerUsers]);
 
   const filteredUsersCount = filteredUsers.admins.length + filteredUsers.customers.length;
 
   const visibleOrders = useMemo(() => {
-    const query = String(ordersSearchQuery || '').trim().toLowerCase();
     const list = Array.isArray(orders) ? [...orders] : [];
-
-    const sorted = list.sort(
+    return list.sort(
       (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
     );
-
-    if (!query) return sorted;
-
-    return sorted.filter((order) => {
-      const searchable = [
-        order?.id,
-        order?.order_number,
-        order?.customer_name,
-        order?.customer_email,
-        order?.status,
-        order?.total_amount,
-        order?.bill_id,
-        order?.linked_bill_number,
-        order?.created_at,
-      ]
-        .map((value) => String(value ?? '').toLowerCase())
-        .join(' ');
-      return searchable.includes(query);
-    });
-  }, [orders, ordersSearchQuery]);
-
-  const pendingOrdersList = useMemo(
-    () => orders.filter((order) => String(order?.status || '').toLowerCase() === 'ordered'),
-    [orders]
-  );
+  }, [orders]);
 
   const recentOrders = useMemo(
-    () => [...orders]
+    () => [...(Array.isArray(recentOrdersPreview) ? recentOrdersPreview : [])]
       .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
       .slice(0, 3),
-    [orders]
+    [recentOrdersPreview]
   );
 
   const lowStockProducts = useMemo(
@@ -106,10 +67,10 @@ const useAdminComputedData = ({
   );
 
   const recentCustomers = useMemo(
-    () => [...customerUsers]
+    () => [...(Array.isArray(recentCustomersPreview) ? recentCustomersPreview : [])]
       .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
       .slice(0, 3),
-    [customerUsers]
+    [recentCustomersPreview]
   );
 
   const selectedDateKey = String(dailySalesDate || '').trim() || toLocalDateKey(new Date());
@@ -158,7 +119,6 @@ const useAdminComputedData = ({
     filteredUsers,
     filteredUsersCount,
     visibleOrders,
-    pendingOrdersList,
     recentOrders,
     lowStockProducts,
     recentCustomers,

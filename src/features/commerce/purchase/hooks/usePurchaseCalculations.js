@@ -27,6 +27,8 @@ function usePurchaseCalculations({
       uom: resolvedUom,
       unit_price: resolvedRate,
       rate: resolvedRate,
+      reference_rate: Math.max(0, toNumber(overrides.reference_rate ?? resolvedRate)),
+      reference_rate_source: String(overrides.reference_rate_source || (resolvedRate > 0 ? 'current reference rate' : '')).trim(),
       gst_rate: normalizeGstRateOption(overrides.gst_rate ?? 5),
       discount_type: overrides.discount_type === 'fixed' ? 'fixed' : 'percent',
       discount_value: Math.max(0, toNumber(overrides.discount_value || 0)),

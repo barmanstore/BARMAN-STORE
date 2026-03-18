@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { insightsApi, distributorsApi, categoriesApi } from '../../shared/services/api';
 import SignedCurrency from '../../shared/components/SignedCurrency';
 import { formatCurrency, formatDate, getSignedCurrencyClassName } from '../../shared/utils/formatters';
-import AdminPageHeader from '../admin/components/AdminPageHeader';
+import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
 import './Insights.css';
 
 const formatPercent = (value) => {
@@ -147,7 +147,7 @@ const ProductInsights = () => {
 
   return (
     <div className="insights-page product-insights">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="insights-header"
         title="Product Insights"
         subtitle="Track landed costs, volatility, availability, and supplier performance."

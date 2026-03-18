@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Trash2, Search } from 'lucide-react';
 import { billingApi } from '../../../shared/services/api';
+import { hasCapability } from '../../../shared/auth/capabilities';
 import { sendWhatsAppSmart } from '../../../shared/utils/whatsapp';
 import {
   buildBillShareTextForBill,
@@ -8,30 +9,47 @@ import {
   downloadBillPdf,
   printBillInvoice
 } from './utils/billsViewerHelpers';
-import AdminPageHeader from '../../admin/components/AdminPageHeader';
-import AdminToolbar from '../../admin/components/AdminToolbar';
+import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
+import BackofficeToolbar from '../../../shared/components/backoffice/BackofficeToolbar';
 import './BillsViewer.css';
 
-const BillsViewer = () => {
+const BillsViewer = ({ user }) => {
+  const pageSize = 25;
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedBillLoading, setSelectedBillLoading] = useState(false);
   const [selectedBillError, setSelectedBillError] = useState('');
+  const canDeleteBills = hasCapability(user, 'delete_bills');
 
-  // Fetch all bills
   useEffect(() => {
-    fetchBills();
-  }, []);
+    const timer = window.setTimeout(() => {
+      void fetchBills({ nextPage: page, nextQuery: searchTerm });
+    }, searchTerm ? 180 : 0);
+    return () => window.clearTimeout(timer);
+  }, [page, searchTerm]);
 
-  const fetchBills = async () => {
+  const fetchBills = async ({ nextPage = page, nextQuery = searchTerm } = {}) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await billingApi.getAll();
-      setBills(data || []);
+      const data = await billingApi.getAll({
+        paginated: 1,
+        page: nextPage,
+        limit: pageSize,
+        q: String(nextQuery || '').trim(),
+      });
+      const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+      const totalCount = Number(data?.total || items.length || 0);
+      setBills(items);
+      setTotal(totalCount);
+      if (nextPage > 1 && items.length === 0 && totalCount > 0) {
+        setPage(nextPage - 1);
+      }
     } catch (err) {
       console.error('Error fetching bills:', err);
       setError('Failed to load bills. Please try again.');
@@ -57,15 +75,21 @@ const BillsViewer = () => {
   };
 
   const deleteBill = async (billId) => {
+    if (!canDeleteBills) {
+      alert('You do not have permission to delete bills.');
+      return;
+    }
     if (!window.confirm('Are you sure you want to delete this bill?')) return;
 
     try {
-      const response = await fetch(`/api/bills/${billId}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) throw new Error('Failed to delete bill');
-      setBills(bills.filter(b => b.id !== billId));
+      await billingApi.delete(billId);
       setSelectedBill(null);
+      const shouldMoveBack = bills.length === 1 && page > 1;
+      if (shouldMoveBack) {
+        setPage(page - 1);
+      } else {
+        void fetchBills({ nextPage: page, nextQuery: searchTerm });
+      }
       alert('Bill deleted successfully');
     } catch (err) {
       console.error('Error deleting bill:', err);
@@ -113,17 +137,14 @@ const BillsViewer = () => {
     }
   };
 
-  const filteredBills = bills.filter(bill =>
-    bill.bill_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bill.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    bill.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBills = bills;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (loading) return <div className="bills-viewer-loading">Loading bills...</div>;
 
   return (
     <div className="bills-viewer">
-      <AdminPageHeader
+      <BackofficePageHeader
         className="bills-viewer-header"
         title="Bills History"
         subtitle="View and manage all created bills"
@@ -132,11 +153,11 @@ const BillsViewer = () => {
       {error && (
         <div className="bills-viewer-error">
           {error}
-          <button onClick={fetchBills}>Retry</button>
+          <button onClick={() => { void fetchBills({ nextPage: page, nextQuery: searchTerm }); }}>Retry</button>
         </div>
       )}
 
-      <AdminToolbar className="bills-viewer-controls">
+      <BackofficeToolbar className="bills-viewer-controls">
         <div className="search-box">
           <Search size={18} />
           <input
@@ -145,13 +166,39 @@ const BillsViewer = () => {
             name="bill-search"
             placeholder="Search by bill number, customer name, or email..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
-        <button className="refresh-btn" onClick={fetchBills}>
+        <button className="refresh-btn" onClick={() => { void fetchBills({ nextPage: page, nextQuery: searchTerm }); }}>
           Refresh
         </button>
-      </AdminToolbar>
+      </BackofficeToolbar>
+      <div className="admin-pagination bills-pagination">
+        <span className="admin-pagination-label">
+          Page {page} of {totalPages} | {total} bills
+        </span>
+        <div className="admin-pagination-actions">
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page <= 1 || loading}
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages || loading}
+          >
+            Next
+          </button>
+        </div>
+      </div>
 
       {filteredBills.length === 0 ? (
         <div className="bills-viewer-empty">
@@ -226,13 +273,15 @@ const BillsViewer = () => {
                   >
                     WhatsApp
                   </button>
-                  <button
-                    className="action-btn delete-btn"
-                    onClick={() => deleteBill(selectedBill.id)}
-                    title="Delete bill"
-                  >
-                    <Trash2 size={18} /> Delete
-                  </button>
+                  {canDeleteBills ? (
+                    <button
+                      className="action-btn delete-btn"
+                      onClick={() => deleteBill(selectedBill.id)}
+                      title="Delete bill"
+                    >
+                      <Trash2 size={18} /> Delete
+                    </button>
+                  ) : null}
                 </div>
               </div>
 

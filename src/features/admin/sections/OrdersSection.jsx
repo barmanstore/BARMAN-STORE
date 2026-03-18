@@ -7,11 +7,17 @@ function OrdersSection({
   setOrdersSearchQuery,
   visibleOrders,
   orders,
+  ordersPage,
+  setOrdersPage,
+  ordersTotal,
+  ordersLoading,
   openApproveModal,
   handleProceedToBilling,
   proceedBillingOrderId,
   handleApplyPendingFulfillment,
 }) {
+  const totalPages = Math.max(1, Math.ceil(Number(ordersTotal || 0) / 25));
+
   return (
 
           <div className="orders-management">
@@ -28,9 +34,35 @@ function OrdersSection({
                 onChange={(e) => setOrdersSearchQuery(e.target.value)}
               />
               <span className="orders-search-count">
-                Showing {visibleOrders.length} of {orders.length} orders
+                Showing {visibleOrders.length} of {ordersTotal || orders.length} orders
               </span>
             </div>
+            <div className="admin-pagination">
+              <span className="admin-pagination-label">
+                Page {ordersPage} of {totalPages}
+              </span>
+              <div className="admin-pagination-actions">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
+                  disabled={ordersPage <= 1 || ordersLoading}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setOrdersPage(Math.min(totalPages, ordersPage + 1))}
+                  disabled={ordersPage >= totalPages || ordersLoading}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            {ordersLoading ? (
+              <p className="admin-list-loading">Loading orders...</p>
+            ) : null}
             <div className="orders-mobile-list">
               {visibleOrders.length === 0 ? (
                 <p className="orders-empty-text">No orders match your search.</p>

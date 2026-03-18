@@ -29,6 +29,19 @@ const useAdminState = ({
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
+  const [recentOrdersPreview, setRecentOrdersPreview] = useState([]);
+  const [recentCustomersPreview, setRecentCustomersPreview] = useState([]);
+  const [userDirectorySummary, setUserDirectorySummary] = useState({
+    total: 0,
+    adminCount: 0,
+    customerCount: 0,
+  });
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [bills, setBills] = useState([]);
   const [dailySalesDate, setDailySalesDate] = useState(() => toLocalDateKey(new Date()) || '');
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
@@ -169,6 +182,24 @@ const useAdminState = ({
     setOrders,
     users,
     setUsers,
+    recentOrdersPreview,
+    setRecentOrdersPreview,
+    recentCustomersPreview,
+    setRecentCustomersPreview,
+    userDirectorySummary,
+    setUserDirectorySummary,
+    ordersPage,
+    setOrdersPage,
+    ordersTotal,
+    setOrdersTotal,
+    ordersLoading,
+    setOrdersLoading,
+    usersPage,
+    setUsersPage,
+    usersTotal,
+    setUsersTotal,
+    usersLoading,
+    setUsersLoading,
     bills,
     setBills,
     dailySalesDate,

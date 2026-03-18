@@ -1,16 +1,24 @@
 import { useEffect } from 'react';
+import { hasCapability } from '../../../shared/auth/capabilities';
 
 const useAdminEffects = ({
   user,
   navigate,
   fetchData,
   orders,
-  ordersApi,
-  setOrders,
   activeTab,
+  ordersPage,
+  setOrdersPage,
+  ordersSearchQuery,
+  loadOrdersPage,
+  usersPage,
+  setUsersPage,
+  usersSearchQuery,
+  loadUsersPage,
   latestKnownOrderIdRef,
   showNotification,
   loadDailySalesBills,
+  dailySalesDate,
   productColumnPickerRef,
   tableEditId,
   tableEditFocusField,
@@ -22,7 +30,7 @@ const useAdminEffects = ({
   desktopPanelCollapsed,
 }) => {
   const userId = Number(user?.id || 0) || 0;
-  const userRole = String(user?.role || '').trim().toLowerCase();
+  const canViewBackoffice = hasCapability(user, 'view_backoffice');
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -42,13 +50,13 @@ const useAdminEffects = ({
 
   useEffect(() => {
     if (!userId) return;
-    if (userRole !== 'admin') {
+    if (!canViewBackoffice) {
       navigate('/');
       return;
     }
 
     void fetchData();
-  }, [userId, userRole, navigate, fetchData]);
+  }, [canViewBackoffice, userId, navigate, fetchData]);
 
   useEffect(() => {
     const maxOrderId = (Array.isArray(orders) ? orders : []).reduce(
@@ -61,19 +69,30 @@ const useAdminEffects = ({
   }, [orders, latestKnownOrderIdRef]);
 
   useEffect(() => {
-    if (!userId || userRole !== 'admin' || activeTab !== 'orders') return;
+    setOrdersPage(1);
+  }, [ordersSearchQuery, setOrdersPage]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [usersSearchQuery, setUsersPage]);
+
+  useEffect(() => {
+    if (!userId || !canViewBackoffice || activeTab !== 'orders') return;
     let cancelled = false;
     const pollOrders = async (initialLoad = false) => {
       try {
-        const rows = await ordersApi.getAll();
+        const result = await loadOrdersPage({
+          page: ordersPage,
+          query: ordersSearchQuery,
+          silent: !initialLoad,
+        });
         if (cancelled) return;
-        const list = Array.isArray(rows) ? rows : [];
+        const list = Array.isArray(result?.items) ? result.items : [];
         const latestId = list.reduce((maxId, row) => Math.max(maxId, Number(row?.id || 0)), 0);
         if (!initialLoad && latestId > latestKnownOrderIdRef.current) {
           showNotification('New order received. List refreshed.', 'success');
         }
         latestKnownOrderIdRef.current = Math.max(latestKnownOrderIdRef.current, latestId);
-        setOrders(list);
       } catch (_) {
         // keep polling silent
       }
@@ -85,12 +104,32 @@ const useAdminEffects = ({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeTab, userId, userRole, ordersApi, setOrders, showNotification, latestKnownOrderIdRef]);
+  }, [
+    activeTab,
+    canViewBackoffice,
+    loadOrdersPage,
+    latestKnownOrderIdRef,
+    ordersPage,
+    ordersSearchQuery,
+    showNotification,
+    userId,
+  ]);
 
   useEffect(() => {
-    if (!userId || userRole !== 'admin' || activeTab !== 'daily-sales') return;
-    void loadDailySalesBills({ silent: false });
-  }, [activeTab, userId, userRole, loadDailySalesBills]);
+    if (!userId || !canViewBackoffice || activeTab !== 'users') return;
+    const timer = window.setTimeout(() => {
+      void loadUsersPage({ page: usersPage, query: usersSearchQuery, silent: false })
+        .catch((error) => {
+          showNotification(error?.message || 'Failed to load users', 'error');
+        });
+    }, usersSearchQuery ? 180 : 0);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, canViewBackoffice, loadUsersPage, showNotification, userId, usersPage, usersSearchQuery]);
+
+  useEffect(() => {
+    if (!userId || !canViewBackoffice || activeTab !== 'daily-sales') return;
+    void loadDailySalesBills({ silent: false, dateKey: dailySalesDate });
+  }, [activeTab, canViewBackoffice, dailySalesDate, loadDailySalesBills, userId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

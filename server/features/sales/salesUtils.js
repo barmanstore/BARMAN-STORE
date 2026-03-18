@@ -34,6 +34,10 @@ const normalizePaymentMethod = (method) => {
   const raw = String(method || '').trim().toLowerCase();
   if (!raw) return 'cash';
   if (raw === 'cod' || raw === 'cash') return 'cash';
+  if (raw === 'upi') return 'upi';
+  if (raw === 'card' || raw === 'credit_card' || raw === 'debit_card') return 'card';
+  if (raw === 'bank' || raw === 'bank_transfer' || raw === 'transfer' || raw === 'netbanking') return 'bank';
+  if (raw === 'credit') return 'credit';
   return 'cash';
 };
 

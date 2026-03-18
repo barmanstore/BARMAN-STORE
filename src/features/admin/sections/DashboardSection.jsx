@@ -9,12 +9,12 @@ function DashboardSection({
   setDashboardDensity,
   isMobile,
   stats,
-  pendingOrdersList,
+  pendingOrdersCount,
   activeProductsCount,
   inactiveProductsCount,
   lowStockProducts,
   products,
-  customerUsers,
+  totalCustomers,
   visitorStats,
   recentOrders,
   recentCustomers,
@@ -60,7 +60,7 @@ function DashboardSection({
             </div>
             <div className="stat-group-metric">
               <span>Ordered (Pending Receive)</span>
-              <strong>{pendingOrdersList.length}</strong>
+              <strong>{pendingOrdersCount}</strong>
             </div>
           </div>
         </div>
@@ -95,7 +95,7 @@ function DashboardSection({
             <Users size={28} />
             <div>
               <p className="stat-group-kicker">Customer Status</p>
-              <h3>{customerUsers.length}</h3>
+              <h3>{totalCustomers}</h3>
               <p className="stat-group-main-label">Total Customers</p>
             </div>
           </div>
