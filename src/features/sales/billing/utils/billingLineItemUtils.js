@@ -1,3 +1,4 @@
+import { formatCurrency as formatCurrencyDefault } from '../../../../shared/utils/formatters';
 import { resolveLineUnitForProduct } from './billingUnitUtils';
 
 const createEmptyItem = () => ({
@@ -13,15 +14,18 @@ const createEmptyItem = () => ({
 
 const getProductOptionLabel = (product = null, formatCurrency) => {
   if (!product) return '';
+
   const name = String(product.name || '').trim() || 'Product';
   const price = Number(product.price ?? product.mrp ?? 0) || 0;
   const defaultUnit = resolveLineUnitForProduct(
     product,
     product.base_unit || product.uom || product.unit || 'pcs'
   );
+  const formatPrice = typeof formatCurrency === 'function' ? formatCurrency : formatCurrencyDefault;
   const parts = [name];
+
   if (price > 0) {
-    parts.push(`${formatCurrency(price)} / ${defaultUnit}`);
+    parts.push(`${formatPrice(price)} / ${defaultUnit}`);
   }
   if (product.sku) {
     parts.push(`SKU: ${String(product.sku).trim()}`);
@@ -29,7 +33,8 @@ const getProductOptionLabel = (product = null, formatCurrency) => {
   if (product.brand) {
     parts.push(String(product.brand).trim());
   }
-  return parts.join(' • ');
+
+  return parts.join(' | ');
 };
 
 export { createEmptyItem, getProductOptionLabel };
