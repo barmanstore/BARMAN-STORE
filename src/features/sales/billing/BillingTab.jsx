@@ -150,7 +150,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
         const matchedProduct = productsList.find((product) => {
           const nameKey = String(product?.name || '').trim().toLowerCase();
           if (nameKey && nameKey === valueKey) return true;
-          const optionLabel = getProductOptionLabel(product).trim().toLowerCase();
+          const optionLabel = getProductOptionLabel(product, formatCurrency).trim().toLowerCase();
           return optionLabel && optionLabel === valueKey;
         });
 

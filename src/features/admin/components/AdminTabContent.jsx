@@ -113,6 +113,7 @@ const AdminTabContent = ({
   handleProceedToBilling,
   proceedBillingOrderId,
   handleApplyPendingFulfillment,
+  setShowCategoryManagement,
   usersSearchQuery,
   setUsersSearchQuery,
   filteredUsersCount,
