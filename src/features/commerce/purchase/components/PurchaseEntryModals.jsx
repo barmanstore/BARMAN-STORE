@@ -41,6 +41,16 @@ export function PurchaseOrderFormModal({
   orderSubmitting,
 }) {
   useLockBodyScroll(open);
+  const [mobileStep, setMobileStep] = useState(0);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    setMobileStep(0);
+    const frameId = window.requestAnimationFrame(() => {
+      document.getElementById('po-entry-product-0')?.focus();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open]);
 
   if (!open) return null;
 
@@ -52,16 +62,6 @@ export function PurchaseOrderFormModal({
     findProductForItem,
     calculateOrderItem,
   });
-  const [mobileStep, setMobileStep] = useState(0);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    setMobileStep(0);
-    const frameId = window.requestAnimationFrame(() => {
-      document.getElementById('po-entry-product-0')?.focus();
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [open]);
 
   const handleProductFieldKeyDown = (event, index, item) => {
     if (event.key !== 'Enter') return;
