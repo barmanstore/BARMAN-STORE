@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Package, ShoppingCart, Users, TrendingUp, CreditCard } from 'lucide-react';
 import SignedCurrency from '../../../shared/components/SignedCurrency';
-import { truncateUserName } from '../../../shared/utils/formatters';
+import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 import { asNumber } from '../utils/adminHelpers';
 
 function DashboardSection({
