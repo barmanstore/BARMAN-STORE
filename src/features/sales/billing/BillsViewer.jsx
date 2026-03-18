@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Trash2, Search } from 'lucide-react';
-import { billingApi } from '../../../services/api';
-import { sendWhatsAppSmart } from '../../../utils/whatsapp';
+import { billingApi } from '../../../shared/services/api';
+import { sendWhatsAppSmart } from '../../../shared/utils/whatsapp';
 import {
   buildBillShareTextForBill,
   buildBillSmsText,
   downloadBillPdf,
   printBillInvoice
 } from './utils/billsViewerHelpers';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
-import AdminToolbar from '../../../components/admin/AdminToolbar';
+import AdminPageHeader from '../../admin/components/AdminPageHeader';
+import AdminToolbar from '../../admin/components/AdminToolbar';
 import './BillsViewer.css';
 
 const BillsViewer = () => {
@@ -337,5 +337,6 @@ const BillsViewer = () => {
 };
 
 export default BillsViewer;
+
 
 

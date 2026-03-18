@@ -9,8 +9,8 @@ import {
   Search,
   Shield
 } from 'lucide-react';
-import { formatCurrency } from '../../../utils/formatters';
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import { formatCurrency } from '../../../shared/utils/formatters';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 
 const CheckoutView = ({
   loading,
@@ -351,3 +351,4 @@ const CheckoutView = ({
 };
 
 export default CheckoutView;
+

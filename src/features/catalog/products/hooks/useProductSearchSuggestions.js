@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { productService } from '../../../../services/productService';
+import { productService } from '../../../../shared/services/productService';
 
 function useProductSearchSuggestions({
   searchInputValue,
@@ -130,3 +130,4 @@ function useProductSearchSuggestions({
 }
 
 export default useProductSearchSuggestions;
+

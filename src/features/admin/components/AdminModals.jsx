@@ -1,5 +1,5 @@
 import CategoryManagement from '../../catalog/categories/CategoryManagement';
-import ProductForm from '../../catalog/products/ProductForm';
+import ProductForm from '../../catalog/products/components/form/ProductForm';
 import UserEditModal from '../../../shared/components/UserEditModal';
 import AdminApproveModal from './AdminApproveModal';
 import AdminExportModal from './AdminExportModal';

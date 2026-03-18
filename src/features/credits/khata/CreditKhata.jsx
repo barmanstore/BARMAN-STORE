@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { createClientRequestId, creditApi, usersApi } from '../../../services/api';
-import { formatCurrency, truncateUserName } from '../../../utils/formatters';
-import { getTodayDate } from '../../../utils/dateTime';
-import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../utils/ledger';
-import useLockBodyScroll from '../../../hooks/useLockBodyScroll';
+import { createClientRequestId, creditApi, usersApi } from '../../../shared/services/api';
+import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
+import { getTodayDate } from '../../../shared/utils/dateTime';
+import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
+import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
 import { evaluateMathExpression } from './utils/ledgerMathUtils';
 import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
 import './CreditKhata.css';
@@ -446,3 +446,4 @@ function CreditKhata({ user }) {
 }
 
 export default CreditKhata;
+

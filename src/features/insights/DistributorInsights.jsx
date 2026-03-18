@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { insightsApi } from '../../services/api';
-import { formatCurrency, formatDate } from '../../utils/formatters';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import { insightsApi } from '../../shared/services/api';
+import { formatCurrency, formatDate } from '../../shared/utils/formatters';
+import AdminPageHeader from '../admin/components/AdminPageHeader';
 import './Insights.css';
 
 const formatPercent = (value) => {
@@ -234,3 +234,4 @@ const DistributorInsights = () => {
 };
 
 export default DistributorInsights;
+

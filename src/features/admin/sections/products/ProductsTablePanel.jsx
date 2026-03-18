@@ -1,4 +1,5 @@
 import { Edit, FolderOpen, Trash2, X } from 'lucide-react';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
 import {
   PRODUCT_TABLE_ALL_COLUMN_KEYS,
   PRODUCT_TABLE_COLUMN_OPTIONS,
@@ -41,7 +42,6 @@ const ProductsTablePanel = ({
   selectedProductId,
   getCategoryPath,
   getBrandPath,
-  formatCurrencyColored,
 }) => (
   <>
     <div className="products-table-toolbar">
@@ -231,12 +231,12 @@ const ProductsTablePanel = ({
                 ) : null}
                 {isProductTableColumnVisible('price') ? (
                   <td className={cellClassName('col-price')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'price') : undefined}>
-                    {isEditingRow ? <input id={`table-edit-price-${product.id}`} ref={setTableEditFieldRef('price')} className="table-edit-input" name="table_edit_price" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : formatCurrencyColored(product.price)}
+                    {isEditingRow ? <input id={`table-edit-price-${product.id}`} ref={setTableEditFieldRef('price')} className="table-edit-input" name="table_edit_price" type="number" min="0" step="0.01" value={tableEditForm.price} onChange={(e) => handleTableEditChange('price', e.target.value)} /> : <SignedCurrency amount={product.price} />}
                   </td>
                 ) : null}
                 {isProductTableColumnVisible('mrp') ? (
                   <td className={cellClassName('col-mrp')} onClick={!isEditingRow ? () => handleTableCellClick(product, 'mrp') : undefined}>
-                    {isEditingRow ? <input id={`table-edit-mrp-${product.id}`} ref={setTableEditFieldRef('mrp')} className="table-edit-input" name="table_edit_mrp" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : formatCurrencyColored(product.mrp)}
+                    {isEditingRow ? <input id={`table-edit-mrp-${product.id}`} ref={setTableEditFieldRef('mrp')} className="table-edit-input" name="table_edit_mrp" type="number" min="0" step="0.01" value={tableEditForm.mrp} onChange={(e) => handleTableEditChange('mrp', e.target.value)} /> : <SignedCurrency amount={product.mrp} />}
                   </td>
                 ) : null}
                 {isProductTableColumnVisible('stock') ? (

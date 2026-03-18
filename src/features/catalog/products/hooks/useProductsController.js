@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { getProductFallbackImage } from '../../../../utils/productImage';
-import { formatCurrency } from '../../../../utils/formatters';
-import useIsMobile from '../../../../hooks/useIsMobile';
+import { getProductFallbackImage } from '../../../../shared/utils/productImage';
+import { formatCurrency } from '../../../../shared/utils/formatters';
+import useIsMobile from '../../../../shared/hooks/useIsMobile';
 import * as info from '../../../../shared/info.js';
 import useProductsRenderers from './useProductsRenderers.jsx';
 import useProductsCartActions from './useProductsCartActions';
@@ -25,8 +25,8 @@ import useProductsFamilyGroups from './useProductsFamilyGroups';
 import useProductsFilterScopes from './useProductsFilterScopes';
 import useProductsRecommendations from './useProductsRecommendations';
 import buildProductFamilies from '../utils/productFamilies';
-import buildProductsControllerView from './buildProductsControllerView';
-import * as productHelpers from '../utils/productHelpers.jsx';
+import buildProductsPageProps from './buildProductsPageProps';
+import * as productHelpers from '../utils/productHelpers.js';
 export default function useProductsController({
   setCartCount,
   notifications = [],
@@ -399,7 +399,7 @@ export default function useProductsController({
     handleAddCombo,
   };
 
-  return buildProductsControllerView({
+  return buildProductsPageProps({
     isMobile,
     loading: productsState.loading,
     products: productsState.products,
@@ -497,3 +497,4 @@ export default function useProductsController({
     smartSectionsProps,
   });
 }
+

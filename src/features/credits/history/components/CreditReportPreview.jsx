@@ -1,11 +1,11 @@
 import { Download } from 'lucide-react';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
 
 function CreditReportPreview({
   showReport,
   reportSummary,
   reportText,
   customer,
-  formatCurrencyColored,
   handleCopyReport,
   handleSendWhatsApp,
   generatePDFReport,
@@ -23,8 +23,8 @@ function CreditReportPreview({
         <div className="report-summary-line">
           <span>{reportSummary.entryCount} entries</span>
           <span>{reportSummary.fromDate} to {reportSummary.toDate}</span>
-          <span>Net change: {formatCurrencyColored(reportSummary.netChange)}</span>
-          <span>Ending balance: {formatCurrencyColored(reportSummary.endingBalance)}</span>
+          <span>Net change: <SignedCurrency amount={reportSummary.netChange} /></span>
+          <span>Ending balance: <SignedCurrency amount={reportSummary.endingBalance} /></span>
         </div>
       )}
       <textarea id="credit-report-preview" name="credit_report_preview" className="report-text" readOnly value={reportText} />

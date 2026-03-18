@@ -11,7 +11,7 @@ import OfferManagement from '../../marketing/OfferManagement';
 import OrdersSection from '../sections/OrdersSection';
 import ProductInsights from '../../insights/ProductInsights';
 import ProductsSection from '../sections/ProductsSection';
-import PurchaseManagement from '../../commerce/purchase/PurchaseManagement';
+import PurchaseManagementPage from '../../commerce/purchase/pages/PurchaseManagementPage';
 import StockLedgerHistory from '../../inventory/StockLedgerHistory';
 import UsersSection from '../sections/UsersSection';
 import CategoriesSection from '../sections/CategoriesSection';
@@ -105,7 +105,6 @@ const AdminTabContent = ({
   getProductFallbackImage,
   getCategoryPath,
   getBrandPath,
-  formatCurrencyColored,
   ordersSearchQuery,
   setOrdersSearchQuery,
   visibleOrders,
@@ -235,7 +234,6 @@ const AdminTabContent = ({
         getProductFallbackImage={getProductFallbackImage}
         getCategoryPath={getCategoryPath}
         getBrandPath={getBrandPath}
-        formatCurrencyColored={formatCurrencyColored}
       />
     )}
 
@@ -249,7 +247,6 @@ const AdminTabContent = ({
         handleProceedToBilling={handleProceedToBilling}
         proceedBillingOrderId={proceedBillingOrderId}
         handleApplyPendingFulfillment={handleApplyPendingFulfillment}
-        formatCurrencyColored={formatCurrencyColored}
       />
     )}
 
@@ -294,7 +291,7 @@ const AdminTabContent = ({
     )}
 
     {activeTab === 'purchases' && (
-      <PurchaseManagement user={user} />
+      <PurchaseManagementPage user={user} />
     )}
 
     {activeTab === 'stock-ledger' && (

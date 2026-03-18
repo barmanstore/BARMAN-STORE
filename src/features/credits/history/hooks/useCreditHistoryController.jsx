@@ -1,31 +1,31 @@
 import { useCallback } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DollarSign, RefreshCw } from 'lucide-react';
-import { creditApi, usersApi, adminApi, createClientRequestId } from '../../../../services/api';
-import { sendWhatsAppSmart } from '../../../../utils/whatsapp';
+import { creditApi, usersApi, adminApi, createClientRequestId } from '../../../../shared/services/api';
+import { sendWhatsAppSmart } from '../../../../shared/utils/whatsapp';
 import * as info from '../../../../shared/info';
-import { printHtmlDocument, escapeHtml } from '../../../../utils/printService';
+import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
 import {
   createPdfDoc,
   addAutoTable,
   addPdfFooterWithPagination,
   savePdf,
   safeFileName,
-} from '../../../../utils/pdfService';
-import { formatCurrency } from '../../../../utils/formatters';
-import useLockBodyScroll from '../../../../hooks/useLockBodyScroll';
+} from '../../../../shared/utils/pdfService';
+import { formatCurrency } from '../../../../shared/utils/formatters';
+import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import {
   applyCreditQuickFilters,
   getBalanceSummary,
   getLastTransactionFromHistory,
   getRecentActivityHint,
   truncateCreditDescription,
-} from '../../../../utils/creditHistoryUi.mjs';
+} from '../../../../shared/utils/creditHistoryUi.mjs';
 import {
   buildCreditReportText,
   buildCreditEntryText,
   buildCreditTransactionText,
-} from '../../../../utils/messageTemplates';
+} from '../../../../shared/utils/messageTemplates';
 import {
   PDF_TABLE_LAYOUT,
   FIVE_DAYS_MS,
@@ -422,3 +422,4 @@ const useCreditHistoryController = ({ user }) => {
 };
 
 export default useCreditHistoryController;
+

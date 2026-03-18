@@ -1,5 +1,6 @@
 import { FileText, Eye, Printer, MessageCircle, Trash2 } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
+import { formatCurrency } from '../../../../shared/utils/formatters';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
 
 function CreditTransactionsSection({
   filteredTransactions,
@@ -14,7 +15,6 @@ function CreditTransactionsSection({
   getTypeIcon,
   getTypeLabel,
   formatTransactionDate,
-  formatCurrencyColored,
   isTransactionWithinFiveDays,
   truncateCreditDescription,
   setIssueForm,
@@ -86,9 +86,9 @@ function CreditTransactionsSection({
                       <span>{getTypeLabel(transaction.type)}</span>
                     </td>
                     <td className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
-                      {formatCurrencyColored(transaction.type === 'payment' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount))}
+                      <SignedCurrency amount={transaction.type === 'payment' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount)} />
                     </td>
-                    <td>{formatCurrencyColored(parseFloat(transaction.balance))}</td>
+                    <td><SignedCurrency amount={parseFloat(transaction.balance)} /></td>
                     <td>
                       {descriptionWithRef}
                       {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
@@ -173,13 +173,13 @@ function CreditTransactionsSection({
                           <span className="tile-type-wrap">
                             <span className={`tile-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
                               {getTypeLabel(transaction.type)}
-                            </span>
-                            {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
                           </span>
-                          <span className={`tile-amount ${transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}`}>
-                            {formatCurrencyColored(signedAmount)}
-                          </span>
-                        </header>
+                          {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
+                        </span>
+                        <span className={`tile-amount ${transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}`}>
+                          <SignedCurrency amount={signedAmount} />
+                        </span>
+                      </header>
 
                         <div className="tile-meta-row">
                           <span>{formatTransactionDate(transaction, { long: false })}</span>
@@ -192,7 +192,7 @@ function CreditTransactionsSection({
 
                         <div className="tile-footer-row">
                           <span className="tile-balance-pill">
-                            Balance: {formatCurrencyColored(parseFloat(transaction.balance))}
+                            Balance: <SignedCurrency amount={parseFloat(transaction.balance)} />
                           </span>
                           <button
                             type="button"
@@ -398,3 +398,4 @@ function CreditTransactionsSection({
 }
 
 export default CreditTransactionsSection;
+

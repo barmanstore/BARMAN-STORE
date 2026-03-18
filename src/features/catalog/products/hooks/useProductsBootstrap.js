@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
-import { productService } from '../../../../services/productService';
-import { categoryService } from '../../../../services/categoryService';
+import { productService } from '../../../../shared/services/productService';
+import { categoryService } from '../../../../shared/services/categoryService';
 
 const useProductsBootstrap = ({
   setCategories,
@@ -91,3 +91,4 @@ const useProductsBootstrap = ({
 };
 
 export default useProductsBootstrap;
+

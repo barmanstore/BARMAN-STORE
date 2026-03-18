@@ -1,4 +1,4 @@
-import { toNumber } from '../../../../utils/ledger';
+import { toNumber } from '../../../../shared/utils/ledger';
 
 const GST_RATE_OPTIONS = [0, 5, 18];
 
@@ -130,3 +130,4 @@ export {
   normalizeGstRateOption,
   normalizePoPaymentStatus,
 };
+

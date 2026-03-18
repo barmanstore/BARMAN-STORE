@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { distributorsApi } from '../../services/api';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../utils/phone';
-import useLockBodyScroll from '../../hooks/useLockBodyScroll';
+import { distributorsApi } from '../../shared/services/api';
+import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
+import useLockBodyScroll from '../../shared/hooks/useLockBodyScroll';
 import DistributorManagementView from './components/DistributorManagementView';
 import './DistributorManagement.css';
 
@@ -219,3 +219,4 @@ function DistributorManagement({ user }) {
 }
 
 export default DistributorManagement;
+

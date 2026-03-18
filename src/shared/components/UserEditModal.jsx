@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { usersApi } from '../../services/api';
-import useIsMobile from '../../hooks/useIsMobile';
-import useLockBodyScroll from '../../hooks/useLockBodyScroll';
-import MobileBottomSheet from '../../components/mobile/MobileBottomSheet';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../utils/phone';
+import { usersApi } from '../services/api';
+import useIsMobile from '../hooks/useIsMobile';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
+import MobileBottomSheet from './mobile/MobileBottomSheet';
+import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
 
 function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill = null }) {
@@ -252,3 +252,4 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
 }
 
 export default UserEditModal;
+

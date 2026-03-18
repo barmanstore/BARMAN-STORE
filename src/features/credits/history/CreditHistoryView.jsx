@@ -1,6 +1,5 @@
 import { Plus, RefreshCw } from 'lucide-react';
-import { formatCurrency, getSignedCurrencyClassName } from '../../../utils/formatters';
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import CreditAddTransactionModal from './components/CreditAddTransactionModal';
 import CreditEntrySharePanel from './components/CreditEntrySharePanel';
 import CreditHistoryHeader from './components/CreditHistoryHeader';
@@ -10,11 +9,6 @@ import CreditQuickFilters from './components/CreditQuickFilters';
 import CreditReportPreview from './components/CreditReportPreview';
 import CreditTransactionsSection from './components/CreditTransactionsSection';
 import './CreditHistory.css';
-
-const formatCurrencyColored = (amount) => {
-  const formatted = formatCurrency(Math.abs(amount));
-  return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
-};
 
 const CreditHistoryView = ({
   backHref,
@@ -161,7 +155,6 @@ const CreditHistoryView = ({
         getTypeIcon={getTypeIcon}
         getTypeLabel={getTypeLabel}
         formatTransactionDate={formatTransactionDate}
-        formatCurrencyColored={formatCurrencyColored}
         isTransactionWithinFiveDays={isTransactionWithinFiveDays}
         truncateCreditDescription={truncateCreditDescription}
         setIssueForm={setIssueForm}
@@ -190,7 +183,6 @@ const CreditHistoryView = ({
           reportSummary={reportSummary}
           reportText={reportText}
           customer={customer}
-          formatCurrencyColored={formatCurrencyColored}
           handleCopyReport={handleCopyReport}
           handleSendWhatsApp={handleSendWhatsApp}
           generatePDFReport={generatePDFReport}
@@ -248,7 +240,6 @@ const CreditHistoryView = ({
         formatTransactionDate={formatTransactionDate}
         customer={customer}
         getTypeLabel={getTypeLabel}
-        formatCurrencyColored={formatCurrencyColored}
         printInvoice={printInvoice}
       />
     </div>
@@ -256,3 +247,4 @@ const CreditHistoryView = ({
 );
 
 export default CreditHistoryView;
+

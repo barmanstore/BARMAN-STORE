@@ -1,10 +1,10 @@
-import { getProductImageSrc } from '../../../../utils/productImage';
+import { getProductImageSrc } from '../../../../shared/utils/productImage';
 import {
   getFamilyKey,
   getProductHierarchy,
   normalizeText,
   tokenizeSearchText,
-} from './productHelpers.jsx';
+} from './productHelpers.js';
 
 const buildProductFamilies = (products = []) => {
   const familyMap = new Map();
@@ -130,3 +130,4 @@ const buildProductFamilies = (products = []) => {
 };
 
 export default buildProductFamilies;
+

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { getSignedLedgerAmount } from '../../../../utils/ledger';
+import { getSignedLedgerAmount } from '../../../../shared/utils/ledger';
 
 const usePurchaseLedgerCorrections = ({
   distributorLedgerApi,
@@ -318,3 +318,4 @@ const usePurchaseLedgerCorrections = ({
 };
 
 export default usePurchaseLedgerCorrections;
+

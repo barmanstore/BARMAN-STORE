@@ -5,7 +5,7 @@ import {
   getLastTransactionFromHistory,
   getRecentActivityHint,
   truncateCreditDescription,
-} from '../src/utils/creditHistoryUi.mjs';
+} from '../src/shared/utils/creditHistoryUi.mjs';
 
 const NOW = new Date('2026-02-26T12:00:00Z').getTime();
 

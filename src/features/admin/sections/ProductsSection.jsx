@@ -1,5 +1,5 @@
 import { CheckCircle2, Download, Upload, X } from 'lucide-react';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
+import AdminPageHeader from '../components/AdminPageHeader';
 import ProductsGridPanel from './products/ProductsGridPanel';
 import ProductsImportCard from './products/ProductsImportCard';
 import ProductsTablePanel from './products/ProductsTablePanel';
@@ -72,7 +72,6 @@ function ProductsSection({
   getProductFallbackImage,
   getCategoryPath,
   getBrandPath,
-  formatCurrencyColored,
 }) {
   return (
     <div className="products-management">
@@ -215,7 +214,6 @@ function ProductsSection({
           selectedProductId={selectedProductId}
           getCategoryPath={getCategoryPath}
           getBrandPath={getBrandPath}
-          formatCurrencyColored={formatCurrencyColored}
         />
       ) : (
         <ProductsGridPanel
@@ -237,7 +235,6 @@ function ProductsSection({
           getProductFallbackImage={getProductFallbackImage}
           getCategoryPath={getCategoryPath}
           getBrandPath={getBrandPath}
-          formatCurrencyColored={formatCurrencyColored}
           handleEditProduct={handleEditProduct}
           productEditLoadingId={productEditLoadingId}
           handleDeleteProduct={handleDeleteProduct}
@@ -249,3 +246,4 @@ function ProductsSection({
 }
 
 export default ProductsSection;
+

@@ -1,4 +1,5 @@
 import { Edit, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
 
 const ProductsGridPanel = ({
   showQuickAdd,
@@ -19,7 +20,6 @@ const ProductsGridPanel = ({
   getProductFallbackImage,
   getCategoryPath,
   getBrandPath,
-  formatCurrencyColored,
   handleEditProduct,
   productEditLoadingId,
   handleDeleteProduct,
@@ -177,7 +177,7 @@ const ProductsGridPanel = ({
               </div>
               <p className="product-meta">{getBrandPath(product) || 'Unbranded'}</p>
               <p className="product-meta">{getCategoryPath(product)}</p>
-              <p className="product-meta">{formatCurrencyColored(product.price)}</p>
+              <p className="product-meta"><SignedCurrency amount={product.price} /></p>
               <p className={product.stock < 10 ? 'product-stock-label low-stock' : 'product-stock-label'}>
                 Stock: {product.stock}
               </p>

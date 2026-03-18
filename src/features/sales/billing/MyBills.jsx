@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Receipt, RefreshCw } from 'lucide-react';
-import { billingApi } from '../../../services/api';
-import { formatCurrency } from '../../../utils/formatters';
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import { billingApi } from '../../../shared/services/api';
+import { formatCurrency } from '../../../shared/utils/formatters';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import './MyBills.css';
 
 const getStoredUser = () => {
@@ -172,4 +172,5 @@ function MyBills() {
 }
 
 export default MyBills;
+
 

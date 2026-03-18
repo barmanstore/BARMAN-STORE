@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CreditCard, MapPin, HelpCircle, ShieldCheck, Receipt, BellRing } from 'lucide-react';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './StorePage.css';
 
 const readLocalUser = () => {
@@ -184,3 +184,4 @@ function StorePage({
 }
 
 export default StorePage;
+

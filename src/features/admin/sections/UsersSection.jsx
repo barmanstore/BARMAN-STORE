@@ -1,6 +1,6 @@
-﻿import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { CreditCard, Edit, Plus, Trash2 } from 'lucide-react';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
+import AdminPageHeader from '../components/AdminPageHeader';
 import { formatJoinedDate, getInitials } from '../utils/adminHelpers';
 
 function UsersSection({
@@ -166,3 +166,4 @@ function UsersSection({
 }
 
 export default UsersSection;
+

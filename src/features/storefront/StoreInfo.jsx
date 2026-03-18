@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import * as info from '../../shared/info.js';
 import './StoreInfo.css';
 
@@ -70,4 +70,5 @@ function StoreInfo() {
 }
 
 export default StoreInfo;
+
 

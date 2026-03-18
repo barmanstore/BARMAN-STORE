@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Download, RefreshCw, ArrowUp, ArrowDown, Minus } from 'lucide-react';
-import { stockLedgerApi, productsApi } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import { stockLedgerApi, productsApi } from '../../shared/services/api';
+import { formatCurrency } from '../../shared/utils/formatters';
+import AdminPageHeader from '../admin/components/AdminPageHeader';
 import './StockLedgerHistory.css';
 
 function StockLedgerHistory({ user }) {
@@ -257,3 +257,4 @@ function StockLedgerHistory({ user }) {
 }
 
 export default StockLedgerHistory;
+

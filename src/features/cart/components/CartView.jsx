@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
+import SignedCurrency from '../../../shared/components/SignedCurrency';
 
 const CartView = ({
   cart,
@@ -13,7 +14,6 @@ const CartView = ({
   getItemQuantityLabel,
   updateQuantity,
   removeItem,
-  formatCurrencyColored,
   getTotal,
   handleCheckout,
   clearCart,
@@ -89,7 +89,7 @@ const CartView = ({
                     {unknownPrice ? (
                       <p className="cart-item-price-unknown">Price: Unknown (set at billing)</p>
                     ) : (
-                      <p className="cart-item-price">{formatCurrencyColored(item.price)} each</p>
+                      <p className="cart-item-price"><SignedCurrency amount={item.price} /> each</p>
                     )}
                   </div>
                   <div className="cart-item-actions">
@@ -120,7 +120,7 @@ const CartView = ({
                       {unknownPrice ? (
                         <span className="total-value unknown">Unknown</span>
                       ) : (
-                        <span className="total-value">{formatCurrencyColored(item.price * item.quantity)}</span>
+                        <span className="total-value"><SignedCurrency amount={item.price * item.quantity} /></span>
                       )}
                     </div>
                     <button
@@ -142,7 +142,7 @@ const CartView = ({
             <div className="summary-details">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span>{formatCurrencyColored(getTotal())}</span>
+                <span><SignedCurrency amount={getTotal()} /></span>
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
@@ -150,12 +150,12 @@ const CartView = ({
               </div>
               <div className="summary-row">
                 <span>Tax (estimated)</span>
-                <span>{formatCurrencyColored(getTotal() * 0.1)}</span>
+                <span><SignedCurrency amount={getTotal() * 0.1} /></span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-total">
                 <span>Total</span>
-                <span>{formatCurrencyColored(getTotal() * 1.1)}</span>
+                <span><SignedCurrency amount={getTotal() * 1.1} /></span>
               </div>
             </div>
             {hasUnknownPriceItems ? (
@@ -175,3 +175,4 @@ const CartView = ({
 };
 
 export default CartView;
+

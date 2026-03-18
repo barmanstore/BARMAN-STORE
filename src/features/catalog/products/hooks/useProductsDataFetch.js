@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { productService } from '../../../../services/productService';
+import { productService } from '../../../../shared/services/productService';
 
 const resolveProductsPayload = (payload) => {
   if (Array.isArray(payload)) {
@@ -165,3 +165,4 @@ const useProductsDataFetch = ({
 };
 
 export default useProductsDataFetch;
+

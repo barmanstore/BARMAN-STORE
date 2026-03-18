@@ -11,7 +11,7 @@ import {
   Camera,
   Trash2
 } from 'lucide-react';
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 
 const ProfileView = ({
   loading,
@@ -416,3 +416,4 @@ const ProfileView = ({
 };
 
 export default ProfileView;
+

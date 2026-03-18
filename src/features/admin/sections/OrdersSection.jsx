@@ -1,5 +1,6 @@
-﻿import AdminPageHeader from '../../../components/admin/AdminPageHeader';
-import { formatCurrency, truncateUserName } from '../../../utils/formatters';
+import AdminPageHeader from '../components/AdminPageHeader';
+import SignedCurrency from '../../../shared/components/SignedCurrency';
+import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 
 function OrdersSection({
   ordersSearchQuery,
@@ -10,7 +11,6 @@ function OrdersSection({
   handleProceedToBilling,
   proceedBillingOrderId,
   handleApplyPendingFulfillment,
-  formatCurrencyColored,
 }) {
   return (
 
@@ -127,7 +127,7 @@ function OrdersSection({
                             <span>{order.customer_email || '-'}</span>
                           </div>
                         </td>
-                        <td>{formatCurrencyColored(order.total_amount)}</td>
+                        <td><SignedCurrency amount={order.total_amount} /></td>
                         <td>
                           <span className={`status ${order.status}`}>{order.status}</span>
                           {pendingQty > 0 ? (
@@ -187,3 +187,4 @@ function OrdersSection({
 }
 
 export default OrdersSection;
+

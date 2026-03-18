@@ -12,6 +12,12 @@
   - `appRoutes.jsx`
   - `bootstrap/`
 - `src/features/`
+  - `<feature>/`
+    - `pages/`
+    - `components/`
+    - `hooks/`
+    - `utils/`
+    - `api/`
   - `auth/`
   - `commerce/`
   - `catalog/`
@@ -56,7 +62,7 @@
 
 7. **API surface split**
    - Split `src/services/api.js` into `src/services/api/*` modules.
-   - Keep a thin `src/services/api.js` barrel to preserve imports.
+   - Promote the barrel to `src/shared/services/api/index.js` so `api/` is the canonical entry point.
    - Later: promote feature-specific API modules into `src/features/*/api` when ready.
 
 8. **Catalog modals**
@@ -113,6 +119,12 @@
 - [x] Phase 17: Catalog products helpers
 
 ## Mapping Notes (initial)
-- `src/services/api` will be split into `src/features/*/api` as migration progresses.
+- `src/shared/services/api` is the shared canonical entry point.
+- Initial feature-local API entry points now exist in:
+  - `src/features/admin/api`
+  - `src/features/catalog/products/api`
+  - `src/features/commerce/purchase/api`
+  - `src/features/orders/api`
+- Those feature-local barrels currently re-export shared clients and provide a stable migration boundary for later feature-owned implementations.
 - Cross-feature utilities will move to `src/shared/utils`.
 - Common UI moves to `src/shared/components`.

@@ -1,5 +1,5 @@
-import MobileBottomSheet from '../../../../components/mobile/MobileBottomSheet';
-import MobileFooter from '../../../../components/mobile/MobileFooter';
+import MobileBottomSheet from '../../../../shared/components/mobile/MobileBottomSheet';
+import MobileFooter from '../../../../shared/components/mobile/MobileFooter';
 import MobileProductsHeader from './MobileProductsHeader';
 import MobileShopBody from './mobile/MobileShopBody';
 import ProductDetailView from './ProductDetailView';
@@ -173,3 +173,4 @@ function ProductsMobileView({
 }
 
 export default ProductsMobileView;
+

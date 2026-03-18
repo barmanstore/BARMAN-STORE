@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { offersApi } from '../../services/api';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import { offersApi } from '../../shared/services/api';
+import AdminPageHeader from '../admin/components/AdminPageHeader';
 
 function OfferManagement() {
   const [offers, setOffers] = useState([]);
@@ -116,3 +116,4 @@ function OfferManagement() {
 }
 
 export default OfferManagement;
+

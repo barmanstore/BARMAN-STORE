@@ -1,5 +1,5 @@
-import AppModal from '../../../components/AppModal';
-import { truncateUserName } from '../../../utils/formatters';
+import AppModal from '../../../shared/components/AppModal';
+import { truncateUserName } from '../../../shared/utils/formatters';
 
 const AdminApproveModal = ({
   showApproveModal,
@@ -74,3 +74,4 @@ const AdminApproveModal = ({
 };
 
 export default AdminApproveModal;
+

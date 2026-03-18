@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { categoriesApi } from '../../../../services/api';
-import useLockBodyScroll from '../../../../hooks/useLockBodyScroll';
+import { categoriesApi } from '../../../../shared/services/api';
+import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import useCategoryManagementComputed from './useCategoryManagementComputed';
 import useCategoryManagementProducts from './useCategoryManagementProducts';
 
@@ -335,3 +335,4 @@ const useCategoryManagementController = ({ onClose }) => {
 };
 
 export default useCategoryManagementController;
+

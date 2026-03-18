@@ -1,4 +1,5 @@
 import { Printer, X } from 'lucide-react';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
 
 const CreditInvoiceModal = ({
   showInvoiceModal,
@@ -7,7 +8,6 @@ const CreditInvoiceModal = ({
   formatTransactionDate,
   customer,
   getTypeLabel,
-  formatCurrencyColored,
   printInvoice,
 }) => {
   if (!showInvoiceModal || !selectedTransaction) return null;
@@ -58,7 +58,7 @@ const CreditInvoiceModal = ({
             <tr>
               <td>{selectedTransaction.description}</td>
               <td>{getTypeLabel(selectedTransaction.type)}</td>
-              <td>{formatCurrencyColored(parseFloat(selectedTransaction.amount))}</td>
+              <td><SignedCurrency amount={parseFloat(selectedTransaction.amount)} /></td>
             </tr>
           </tbody>
         </table>
@@ -66,15 +66,15 @@ const CreditInvoiceModal = ({
         <div className="invoice-summary">
           <div className="summary-row">
             <span>Previous Balance:</span>
-            <span>{formatCurrencyColored(parseFloat(selectedTransaction.balance) + parseFloat(selectedTransaction.amount))}</span>
+            <span><SignedCurrency amount={parseFloat(selectedTransaction.balance) + parseFloat(selectedTransaction.amount)} /></span>
           </div>
           <div className="summary-row">
             <span>Amount:</span>
-            <span>{formatCurrencyColored(parseFloat(selectedTransaction.amount))}</span>
+            <span><SignedCurrency amount={parseFloat(selectedTransaction.amount)} /></span>
           </div>
           <div className="summary-row total">
             <span>Current Balance:</span>
-            <span>{formatCurrencyColored(parseFloat(selectedTransaction.balance))}</span>
+            <span><SignedCurrency amount={parseFloat(selectedTransaction.balance)} /></span>
           </div>
         </div>
 

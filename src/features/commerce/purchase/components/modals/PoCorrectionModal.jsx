@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 
 const PoCorrectionModal = ({
   isMobile,
@@ -283,3 +283,4 @@ const PoCorrectionModal = ({
 };
 
 export default PoCorrectionModal;
+

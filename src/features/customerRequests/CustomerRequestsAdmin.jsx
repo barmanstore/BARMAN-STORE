@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { adminApi } from '../../services/api';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import { adminApi } from '../../shared/services/api';
+import AdminPageHeader from '../admin/components/AdminPageHeader';
 import useExpandableCards from './hooks/useExpandableCards';
 import useIssueDrafts from './hooks/useIssueDrafts';
 import useCustomerRequestActions from './hooks/useCustomerRequestActions';
@@ -401,3 +401,4 @@ function CustomerRequestsAdmin() {
 }
 
 export default CustomerRequestsAdmin;
+

@@ -1,9 +1,9 @@
 import { BrowserRouter } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import ErrorBoundary from './components/ErrorBoundary';
-import AppShell from './components/AppShell';
-import useLockBodyScroll from './hooks/useLockBodyScroll';
-import { safeLocalStorageGet, safeLocalStorageRemove } from './utils/storage';
+import ErrorBoundary from './shared/components/ErrorBoundary';
+import AppShell from './shared/components/AppShell';
+import useLockBodyScroll from './shared/hooks/useLockBodyScroll';
+import { safeLocalStorageGet, safeLocalStorageRemove } from './shared/utils/storage';
 import { useNotificationsInbox } from './features/notifications/hooks/useNotificationsInbox';
 import { AppRoutes } from './app/appRoutes';
 import './index.css';
@@ -196,4 +196,5 @@ function App() {
 }
 
 export default App;
+
 

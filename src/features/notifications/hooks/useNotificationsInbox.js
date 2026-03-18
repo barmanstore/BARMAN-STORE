@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { notificationsApi } from '../../../services/api';
+import { notificationsApi } from '../../../shared/services/api';
 
 export const useNotificationsInbox = ({ user, isAdminUser }) => {
   const [notifications, setNotifications] = useState([]);
@@ -330,3 +330,4 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     onClearRecipientSelection: clearRecipientSelection,
   };
 };
+

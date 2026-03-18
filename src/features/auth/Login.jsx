@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi } from '../../services/api';
-import { validateEmail } from '../../utils/validation';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import { authApi } from '../../shared/services/api';
+import { validateEmail } from '../../shared/utils/validation';
+import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './Login.css';
 
 const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
@@ -459,3 +459,4 @@ function Login({ setUser }) {
 }
 
 export default Login;
+

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { insightsApi, distributorsApi, categoriesApi } from '../../services/api';
-import { formatCurrency, formatDate, getSignedCurrencyClassName } from '../../utils/formatters';
-import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import { insightsApi, distributorsApi, categoriesApi } from '../../shared/services/api';
+import SignedCurrency from '../../shared/components/SignedCurrency';
+import { formatCurrency, formatDate, getSignedCurrencyClassName } from '../../shared/utils/formatters';
+import AdminPageHeader from '../admin/components/AdminPageHeader';
 import './Insights.css';
 
 const formatPercent = (value) => {
@@ -249,13 +250,13 @@ const ProductInsights = () => {
                     <td className={marginClass}>
                       <div>{row.price != null ? formatCurrency(row.price) : (row.mrp != null ? formatCurrency(row.mrp) : '-')}</div>
                       <div>
-                        {row.margin_amount != null ? formatCurrency(row.margin_amount) : '-'}
+                        {row.margin_amount != null ? <SignedCurrency amount={row.margin_amount} /> : '-'}
                         {' '}
                         {row.margin_pct != null ? `(${row.margin_pct.toFixed(1)}%)` : ''}
                       </div>
                     </td>
                       <td className={changeClass}>
-                        {row.cost_change !== null ? formatCurrency(row.cost_change) : '-'}
+                        {row.cost_change !== null ? <SignedCurrency amount={row.cost_change} /> : '-'}
                         <div>{row.cost_change_pct !== null ? formatPercent(row.cost_change_pct) : '-'}</div>
                       </td>
                       <td>
@@ -310,8 +311,8 @@ const ProductInsights = () => {
                   </div>
                   <div className="detail-metric">
                     <span>Cost Change</span>
-                    <strong className={getSignedCurrencyClassName(detail.cost_change || 0)}>
-                      {detail.cost_change !== null ? formatCurrency(detail.cost_change) : '-'}
+                    <strong>
+                      {detail.cost_change !== null ? <SignedCurrency amount={detail.cost_change} /> : '-'}
                     </strong>
                   </div>
                   <div className="detail-metric">
@@ -375,3 +376,4 @@ const ProductInsights = () => {
 };
 
 export default ProductInsights;
+

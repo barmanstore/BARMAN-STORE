@@ -2,15 +2,15 @@ import { lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 const Home = lazy(() => import('../features/storefront/Home'));
-const Products = lazy(() => import('../features/catalog/products/Products'));
+const ProductsPage = lazy(() => import('../features/catalog/products/pages/ProductsPage'));
 const Cart = lazy(() => import('../features/cart/Cart'));
 const Checkout = lazy(() => import('../features/checkout/Checkout'));
 const Login = lazy(() => import('../features/auth/Login'));
-const Admin = lazy(() => import('../features/admin/Admin'));
+const AdminPage = lazy(() => import('../features/admin/pages/AdminPage'));
 const CreditHistory = lazy(() => import('../features/credits/history/CreditHistory'));
-const OrderHistory = lazy(() => import('../features/orders/OrderHistory'));
-const OrderTracking = lazy(() => import('../features/orders/OrderTracking'));
-const OrderDetails = lazy(() => import('../features/orders/OrderDetails'));
+const OrderHistoryPage = lazy(() => import('../features/orders/pages/OrderHistoryPage'));
+const OrderTrackingPage = lazy(() => import('../features/orders/pages/OrderTrackingPage'));
+const OrderDetailsPage = lazy(() => import('../features/orders/pages/OrderDetailsPage'));
 const Profile = lazy(() => import('../features/auth/Profile'));
 const MyBills = lazy(() => import('../features/sales/billing/MyBills'));
 const ProductRecommendations = lazy(() => import('../features/storefront/ProductRecommendations'));
@@ -34,18 +34,18 @@ export const AppRoutes = ({
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/products" element={<Products setCartCount={setCartCount} />} />
+      <Route path="/products" element={<ProductsPage setCartCount={setCartCount} />} />
       <Route path="/cart" element={<Cart cartCount={cartCount} setCartCount={setCartCount} />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/login" element={<Login setUser={setUser} />} />
-      <Route path="/admin" element={<Admin user={user} />} />
+      <Route path="/admin" element={<AdminPage user={user} />} />
       <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
       <Route path="/my-credit" element={<CreditHistory user={user} />} />
-      <Route path="/order-history" element={<OrderHistory />} />
+      <Route path="/order-history" element={<OrderHistoryPage />} />
       <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />
-      <Route path="/orders/:id" element={<OrderDetails />} />
-      <Route path="/order-tracking" element={<OrderTracking />} />
-      <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+      <Route path="/orders/:id" element={<OrderDetailsPage />} />
+      <Route path="/order-tracking" element={<OrderTrackingPage />} />
+      <Route path="/order-tracking/:orderId" element={<OrderTrackingPage />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/my-bills" element={<MyBills />} />
       <Route path="/product-requests" element={<ProductRecommendations />} />

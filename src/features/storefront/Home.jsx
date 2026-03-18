@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, ShoppingBag, Truck, Shield } from 'lucide-react';
-import { resolveMediaUrl } from '../../services/api';
-import { productService } from '../../services/productService';
-import { categoryService } from '../../services/categoryService';
-import { formatCurrency } from '../../utils/formatters';
-import { getProductFallbackImage } from '../../utils/productImage';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import { resolveMediaUrl } from '../../shared/services/api';
+import { productService } from '../../shared/services/productService';
+import { categoryService } from '../../shared/services/categoryService';
+import { formatCurrency } from '../../shared/utils/formatters';
+import { getProductFallbackImage } from '../../shared/utils/productImage';
+import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './Home.css';
 import * as info from '../../shared/info';
 
@@ -270,4 +270,5 @@ function Home() {
 }
 
 export default Home;
+
 

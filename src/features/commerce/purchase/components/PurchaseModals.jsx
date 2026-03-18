@@ -1,4 +1,4 @@
-import ProductForm from '../../../catalog/products/ProductForm';
+import ProductForm from '../../../catalog/products/components/form/ProductForm';
 import { PurchaseOrderFormModal } from './PurchaseEntryModals';
 import LedgerEntryModal from './modals/LedgerEntryModal';
 import OrderDetailModal from './modals/OrderDetailModal';

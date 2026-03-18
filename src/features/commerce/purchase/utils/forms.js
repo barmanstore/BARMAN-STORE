@@ -1,4 +1,4 @@
-import { getTodayDate } from '../../../../utils/dateTime';
+import { getTodayDate } from '../../../../shared/utils/dateTime';
 import { createEmptyOrderItem } from './items';
 
 const createDefaultOrderFormData = () => ({
@@ -54,3 +54,4 @@ export {
   createDefaultPoPaymentFormData,
   createDefaultProcessFormData,
 };
+

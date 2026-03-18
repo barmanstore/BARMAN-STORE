@@ -1,13 +1,13 @@
-﻿import { Plus } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
+import { Plus } from 'lucide-react';
+import SignedCurrency from '../../../../shared/components/SignedCurrency';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 import SafeProductImage from './SafeProductImage';
 import {
   LOW_STOCK_THRESHOLD,
-  formatCurrencyColored,
   getFirstAvailableVariation,
   getVariationLabel,
   normalizeText,
-} from '../utils/productHelpers.jsx';
+} from '../utils/productHelpers.js';
 
 function ProductDetailView({
   family,
@@ -79,7 +79,7 @@ function ProductDetailView({
 
       <div className="detail-selected-meta">
         <div className="detail-price-line">
-          <span>{formatCurrencyColored(Number(selectedVariation.price || 0))}</span>
+          <SignedCurrency amount={Number(selectedVariation.price || 0)} />
           <small>/ {selectedVariation.uom || 'pcs'}</small>
         </div>
         {selectedVariation.mrp && Number(selectedVariation.mrp) > Number(selectedVariation.price) && (
@@ -132,4 +132,5 @@ function ProductDetailView({
 }
 
 export default ProductDetailView;
+
 

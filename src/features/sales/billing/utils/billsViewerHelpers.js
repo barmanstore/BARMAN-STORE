@@ -1,12 +1,12 @@
-import { printHtmlDocument, escapeHtml } from '../../../../utils/printService';
+import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
 import {
   createPdfDoc,
   addAutoTable,
   addPdfFooterWithPagination,
   savePdf,
   safeFileName
-} from '../../../../utils/pdfService';
-import { buildBillShareText } from '../../../../utils/messageTemplates';
+} from '../../../../shared/utils/pdfService';
+import { buildBillShareText } from '../../../../shared/utils/messageTemplates';
 import company from '../../../../config/company';
 import * as info from '../../../../shared/info';
 
@@ -220,3 +220,4 @@ export const printBillInvoice = (bill) => {
     onError: (message) => alert(message)
   });
 };
+

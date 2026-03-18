@@ -1,5 +1,5 @@
-﻿import { useState } from 'react';
-import { resolveMediaUrl } from '../../../../services/api';
+import { useState } from 'react';
+import { resolveMediaUrl } from '../api/index.js';
 
 function BrandFilterVisual({ logo, name }) {
   const [failed, setFailed] = useState(false);
@@ -22,4 +22,5 @@ function BrandFilterVisual({ logo, name }) {
 }
 
 export default BrandFilterVisual;
+
 

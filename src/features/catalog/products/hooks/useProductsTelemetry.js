@@ -1,12 +1,12 @@
 import { useCallback, useEffect } from 'react';
-import { analyticsApi } from '../../../../services/api';
+import { analyticsApi } from '../api/index.js';
 import {
   PRODUCTS_TELEMETRY_SESSION_KEY,
   PRODUCTS_AB_VARIANT_KEY,
   readSessionStorageValue,
   writeSessionStorageValue,
   createTelemetrySessionId,
-} from '../utils/productHelpers.jsx';
+} from '../utils/productHelpers.js';
 
 function useProductsTelemetry({
   productsTelemetryRef,
@@ -77,3 +77,4 @@ function useProductsTelemetry({
 }
 
 export default useProductsTelemetry;
+

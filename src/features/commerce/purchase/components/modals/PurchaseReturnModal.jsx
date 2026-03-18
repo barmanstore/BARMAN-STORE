@@ -1,5 +1,5 @@
 import { Plus, X } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 
 const PurchaseReturnModal = ({
   isMobile,
@@ -352,3 +352,4 @@ const PurchaseReturnModal = ({
 };
 
 export default PurchaseReturnModal;
+

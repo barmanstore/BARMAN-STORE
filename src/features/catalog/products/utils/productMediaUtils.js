@@ -1,5 +1,5 @@
-import { resolveMediaUrl } from '../../../../services/api';
-import { getProductFallbackImage } from '../../../../utils/productImage';
+import { resolveMediaUrl } from '../api/index.js';
+import { getProductFallbackImage } from '../../../../shared/utils/productImage';
 import { RESOLVED_MEDIA_CACHE_MAX_ITEMS } from './productConstants';
 
 const resolvedMediaSourceCache = new Map();
@@ -97,3 +97,4 @@ export {
   getSuggestionImageSrc,
   buildResponsiveImageSources,
 };
+

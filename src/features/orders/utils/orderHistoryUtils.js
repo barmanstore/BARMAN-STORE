@@ -1,5 +1,5 @@
 import { Package, Clock, CheckCircle } from 'lucide-react';
-import { formatDate as formatDateValue } from '../../../utils/formatters';
+import { formatDate as formatDateValue } from '../../../shared/utils/formatters';
 
 const formatDate = (dateString) => (
   formatDateValue(dateString, 'en-US', {
@@ -76,3 +76,4 @@ export {
   buildCartItemFromOrderItem,
   buildRepeatCartFromOrder,
 };
+

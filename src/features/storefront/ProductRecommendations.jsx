@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lightbulb, RefreshCw } from 'lucide-react';
-import { productRecommendationsApi } from '../../services/api';
-import MobileAccountLayout from '../../components/mobile/MobileAccountLayout';
+import { productRecommendationsApi } from '../../shared/services/api';
+import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './ProductRecommendations.css';
 
 const getStoredUser = () => {
@@ -136,4 +136,5 @@ function ProductRecommendations() {
 }
 
 export default ProductRecommendations;
+
 

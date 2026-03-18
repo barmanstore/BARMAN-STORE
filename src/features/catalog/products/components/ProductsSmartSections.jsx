@@ -1,5 +1,5 @@
 import { RotateCcw, Sparkles } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 import SafeProductImage from './SafeProductImage';
 
 function ProductsSmartSections({
@@ -146,3 +146,4 @@ function ProductsSmartSections({
 }
 
 export default ProductsSmartSections;
+

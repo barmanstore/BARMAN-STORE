@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, AlertTriangle, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { creditApi } from '../../../services/api';
-import { formatCurrency } from '../../../utils/formatters';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
+import { creditApi } from '../../../shared/services/api';
+import { formatCurrency } from '../../../shared/utils/formatters';
+import AdminPageHeader from '../../admin/components/AdminPageHeader';
 import './CreditAgingReport.css';
 
 function CreditAgingReport({ user }) {
@@ -204,3 +204,4 @@ function CreditAgingReport({ user }) {
 }
 
 export default CreditAgingReport;
+

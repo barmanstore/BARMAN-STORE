@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { AlertTriangle, CheckCheck, Clock, DollarSign, Truck, Wallet } from 'lucide-react';
-import { createClientRequestId, purchaseOrdersApi, distributorsApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../../../../services/api';
-import { printHtmlDocument, escapeHtml } from '../../../../utils/printService';
-import { formatCurrency, formatDate } from '../../../../utils/formatters';
-import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../../utils/dateTime';
-import { getLedgerTypeLabel, toNumber } from '../../../../utils/ledger';
-import useIsMobile from '../../../../hooks/useIsMobile';
-import useLockBodyScroll from '../../../../hooks/useLockBodyScroll';
+import { createClientRequestId, purchaseOrdersApi, distributorsApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
+import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
+import { formatCurrency, formatDate } from '../../../../shared/utils/formatters';
+import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../../shared/utils/dateTime';
+import { getLedgerTypeLabel, toNumber } from '../../../../shared/utils/ledger';
+import useIsMobile from '../../../../shared/hooks/useIsMobile';
+import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import useOrderDetailComputed from './useOrderDetailComputed';
 import usePurchaseCalculations from './usePurchaseCalculations';
 import usePoModalSizing from './usePoModalSizing';
@@ -56,7 +56,7 @@ import {
   getOrderDistributorInfo,
   getPoPaymentBadge,
   getStatusBadge,
-} from '../utils/orderPresentation.jsx';
+} from '../components/PurchaseOrderPresentation.jsx';
 import {
   getEntryDisplayBalance,
   getLedgerBalanceSummary,
@@ -71,7 +71,7 @@ import {
 } from '../utils/productSearch';
 import { addLocalLedgerEntry } from '../utils/localLedgerStorage';
 import createDefaultOperationsSummary from '../utils/operationsSummary';
-import buildPurchaseManagementViewProps from '../utils/buildPurchaseManagementViewProps';
+import buildPurchaseManagementPageProps from '../utils/buildPurchaseManagementPageProps';
 
 const LOCAL_LEDGER_KEY = 'purchase_distributor_ledger_local_entries';
 const PO_MODAL_SIZE_KEY = 'po_entry_modal_size_v1';
@@ -435,7 +435,7 @@ const usePurchaseManagementController = ({ user }) => {
     getOrderDisplayTotal,
     toDateInputValue,
   });
-  const viewProps = buildPurchaseManagementViewProps(
+  const pageProps = buildPurchaseManagementPageProps(
     {
       loading, error, success, activeSubTab, handlePurchaseSectionChange, operationsSummary, purchaseReturns,
       operationsLoading, operationsCardItems, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
@@ -485,7 +485,8 @@ const usePurchaseManagementController = ({ user }) => {
     },
   );
 
-  return viewProps;
+  return pageProps;
 };
 
 export default usePurchaseManagementController;
+

@@ -1,12 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Package, ShoppingCart, Users, TrendingUp, CreditCard } from 'lucide-react';
-import { formatCurrency, getSignedCurrencyClassName, truncateUserName } from '../../../utils/formatters';
+import SignedCurrency from '../../../shared/components/SignedCurrency';
+import { truncateUserName } from '../../../shared/utils/formatters';
 import { asNumber } from '../utils/adminHelpers';
-
-const formatCurrencyColored = (amount) => {
-  const formatted = formatCurrency(Math.abs(amount));
-  return <span className={getSignedCurrencyClassName(amount)}>{formatted}</span>;
-};
 
 function DashboardSection({
   dashboardDensity,
@@ -53,7 +49,7 @@ function DashboardSection({
             <ShoppingCart size={28} />
             <div>
               <p className="stat-group-kicker">Sales Snapshot</p>
-              <h3>{formatCurrencyColored(stats.totalRevenue)}</h3>
+              <h3><SignedCurrency amount={stats.totalRevenue} /></h3>
               <p className="stat-group-main-label">Total Revenue</p>
             </div>
           </div>
@@ -210,3 +206,4 @@ function DashboardSection({
 }
 
 export default DashboardSection;
+

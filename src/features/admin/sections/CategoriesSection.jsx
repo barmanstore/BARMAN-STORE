@@ -1,5 +1,5 @@
-﻿import { Plus } from 'lucide-react';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
+import { Plus } from 'lucide-react';
+import AdminPageHeader from '../components/AdminPageHeader';
 
 function CategoriesSection({
   setShowCategoryManagement
@@ -24,3 +24,4 @@ function CategoriesSection({
 }
 
 export default CategoriesSection;
+

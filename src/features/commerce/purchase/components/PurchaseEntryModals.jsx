@@ -1,6 +1,6 @@
 import { Plus, X } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
-import useLockBodyScroll from '../../../../hooks/useLockBodyScroll';
+import { formatCurrency } from '../../../../shared/utils/formatters';
+import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 
 export function PurchaseOrderFormModal({
   open,
@@ -383,3 +383,4 @@ export function PurchaseOrderFormModal({
     </div>
   );
 }
+

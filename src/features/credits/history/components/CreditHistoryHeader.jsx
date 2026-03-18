@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 
 function CreditHistoryHeader({
   backHref,
@@ -107,3 +107,4 @@ function CreditHistoryHeader({
 }
 
 export default CreditHistoryHeader;
+

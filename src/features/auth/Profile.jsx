@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authApi, usersApi, resolveMediaSourceForDisplay } from '../../services/api';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../utils/phone';
-import { validateEmail } from '../../utils/validation';
+import { authApi, usersApi, resolveMediaSourceForDisplay } from '../../shared/services/api';
+import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
+import { validateEmail } from '../../shared/utils/validation';
 import ProfileView from './components/ProfileView';
 import { getEmailRequestStatusClassName, getEmailRequestStatusMessage, getPhoneChangeStatusClassName, getPhoneChangeStatusMessage } from './utils/profileVerificationUtils';
 import useProfileVerificationActions from './hooks/useProfileVerificationActions';
@@ -469,3 +469,4 @@ function Profile() {
 }
 
 export default Profile;
+

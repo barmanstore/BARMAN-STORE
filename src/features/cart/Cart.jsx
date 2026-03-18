@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency } from '../../utils/formatters';
-import { productRecommendationsApi, productsApi } from '../../services/api';
-import { getProductImageSrc } from '../../utils/productImage';
+import { formatCurrency } from '../../shared/utils/formatters';
+import { productRecommendationsApi, productsApi } from '../../shared/services/api';
+import { getProductImageSrc } from '../../shared/utils/productImage';
 import CartView from './components/CartView';
-import { formatCurrencyColored } from './utils/cartFormatters';
 import { parseQuantityText, rankManualMatches, QUICK_QTY_OPTIONS } from './utils/cartSearchUtils';
 import './Cart.css';
 
@@ -419,7 +418,6 @@ function Cart({ cartCount, setCartCount }) {
       getItemQuantityLabel={getItemQuantityLabel}
       updateQuantity={updateQuantity}
       removeItem={removeItem}
-      formatCurrencyColored={formatCurrencyColored}
       getTotal={getTotal}
       handleCheckout={handleCheckout}
       clearCart={clearCart}
@@ -428,3 +426,4 @@ function Cart({ cartCount, setCartCount }) {
 }
 
 export default Cart;
+

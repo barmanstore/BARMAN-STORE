@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
+import AdminPageHeader from '../../admin/components/AdminPageHeader';
 
 const DistributorManagementView = ({
   loading,
@@ -408,3 +408,4 @@ const DistributorManagementView = ({
 };
 
 export default DistributorManagementView;
+

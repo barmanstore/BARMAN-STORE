@@ -1,6 +1,6 @@
 import { BarChart2, ShoppingCart, CreditCard, TrendingUp } from 'lucide-react';
-import AdminPageHeader from '../../../components/admin/AdminPageHeader';
-import { formatCurrency, truncateUserName } from '../../../utils/formatters';
+import AdminPageHeader from '../components/AdminPageHeader';
+import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 import { asNumber } from '../utils/adminHelpers';
 
 function DailySalesSection({
@@ -116,3 +116,4 @@ function DailySalesSection({
 }
 
 export default DailySalesSection;
+

@@ -42,3 +42,4 @@ tmp*
 Thumbs.db
 
 .vercel
+.codex-*/

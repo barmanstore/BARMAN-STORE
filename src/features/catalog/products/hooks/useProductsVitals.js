@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { analyticsApi } from '../../../../services/api';
+import { analyticsApi } from '../api/index.js';
 
 const useProductsVitals = ({ productsTelemetryRef }) => {
   useEffect(() => {
@@ -77,3 +77,4 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
 };
 
 export default useProductsVitals;
+

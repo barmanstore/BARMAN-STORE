@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 
 const LedgerEntryModal = ({
   isMobile,
@@ -254,3 +254,4 @@ const LedgerEntryModal = ({
 };
 
 export default LedgerEntryModal;
+

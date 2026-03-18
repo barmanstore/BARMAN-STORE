@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ordersApi, customersApi } from '../../services/api';
-import { formatCurrency } from '../../utils/formatters';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../utils/phone';
+import { ordersApi, customersApi } from '../../shared/services/api';
+import { formatCurrency } from '../../shared/utils/formatters';
+import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
 import { LOGO_URL } from '../../shared/info';
 import CheckoutView from './components/CheckoutView';
 import './Checkout.css';
@@ -384,3 +384,4 @@ function Checkout() {
 }
 
 export default Checkout;
+

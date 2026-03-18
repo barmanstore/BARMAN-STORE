@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { resolveMediaUrl } from '../../../../services/api';
-import ProductCard from '../../../../components/product/ProductCard';
+import { resolveMediaUrl } from '../api/index.js';
+import ProductCard from '../../../../shared/components/product/ProductCard';
 import BrandFilterVisual from '../components/BrandFilterVisual';
 import ProductDetailView from '../components/ProductDetailView';
 import SafeProductImage from '../components/SafeProductImage';
-import { getDefaultCategoryIcon } from '../utils/productHelpers.jsx';
+import { getDefaultCategoryIcon } from '../utils/productHelpers.js';
 
 const resolveUnitPriceValue = (variation) => {
   const candidates = [
@@ -220,3 +220,4 @@ function useProductsRenderers({
 }
 
 export default useProductsRenderers;
+

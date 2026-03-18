@@ -1,4 +1,4 @@
-import MobileAccountLayout from '../../../components/mobile/MobileAccountLayout';
+import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import CreditHistoryView from './CreditHistoryView';
 import useCreditHistoryController from './hooks/useCreditHistoryController.jsx';
 
@@ -19,3 +19,4 @@ function CreditHistory({ user }) {
 }
 
 export default CreditHistory;
+

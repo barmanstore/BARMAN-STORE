@@ -1,5 +1,5 @@
-import { getProductImageSrc } from '../../../../../utils/productImage';
-import ImageUrlPicker from '../../../../../components/ImageUrlPicker';
+import { getProductImageSrc } from '../../../../../shared/utils/productImage';
+import ImageUrlPicker from '../../../../../shared/components/ImageUrlPicker';
 
 const ProductFormImageSection = ({
   formData,
@@ -37,3 +37,4 @@ const ProductFormImageSection = ({
 );
 
 export default ProductFormImageSection;
+

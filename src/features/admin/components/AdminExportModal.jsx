@@ -1,4 +1,4 @@
-import AppModal from '../../../components/AppModal';
+import AppModal from '../../../shared/components/AppModal';
 
 const AdminExportModal = ({
   showExportDialog,
@@ -47,3 +47,4 @@ const AdminExportModal = ({
 };
 
 export default AdminExportModal;
+

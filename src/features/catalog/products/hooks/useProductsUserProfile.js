@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { resolveMediaSourceForDisplay } from '../../../../services/api';
-import { readLocalUser } from '../utils/productHelpers.jsx';
+import { resolveMediaSourceForDisplay } from '../api/index.js';
+import { readLocalUser } from '../utils/productHelpers.js';
 
 const useProductsUserProfile = () => {
   const [localUser, setLocalUser] = useState(() => readLocalUser());
@@ -54,3 +54,4 @@ const useProductsUserProfile = () => {
 };
 
 export default useProductsUserProfile;
+

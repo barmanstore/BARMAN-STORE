@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
-import { resolveMediaUrl, resolveMediaSourceForDisplay } from '../../../../services/api';
-import { getProductFallbackImage } from '../../../../utils/productImage';
-import { buildResponsiveImageSources, cacheResolvedMediaSource, getCachedResolvedMediaSource } from '../utils/productHelpers.jsx';
+import { useEffect, useMemo, useState } from 'react';
+import { resolveMediaUrl, resolveMediaSourceForDisplay } from '../api/index.js';
+import { getProductFallbackImage } from '../../../../shared/utils/productImage';
+import { buildResponsiveImageSources, cacheResolvedMediaSource, getCachedResolvedMediaSource } from '../utils/productHelpers.js';
 
 function SafeProductImage({ src, alt, className, fallbackProduct, width, height, ...rest }) {
   const [resolvedSrc, setResolvedSrc] = useState(() => {
@@ -77,4 +77,5 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
 }
 
 export default SafeProductImage;
+
 

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 
 const ProcessOrderModal = ({
   isMobile,
@@ -247,3 +247,4 @@ const ProcessOrderModal = ({
 };
 
 export default ProcessOrderModal;
+

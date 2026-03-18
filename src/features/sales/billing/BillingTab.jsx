@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { customersApi, productsApi, billingApi, creditApi } from '../../../services/api';
-import { sendWhatsAppSmart } from '../../../utils/whatsapp';
-import { formatCurrency } from '../../../utils/formatters';
-import { buildBillShareText } from '../../../utils/messageTemplates';
+import { customersApi, productsApi, billingApi, creditApi } from '../../../shared/services/api';
+import { sendWhatsAppSmart } from '../../../shared/utils/whatsapp';
+import { formatCurrency } from '../../../shared/utils/formatters';
+import { buildBillShareText } from '../../../shared/utils/messageTemplates';
 import * as info from '../../../shared/info';
 import BillingTabView from './components/BillingTabView';
 import { createEmptyItem, getProductOptionLabel } from './utils/billingLineItemUtils';
@@ -414,4 +414,5 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
 };
 
 export default BillingSystem;
+
 

@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import ProductFormActions from './ProductFormActions';
 import ProductFormBasicSection from './ProductFormBasicSection';
 import ProductFormBatchSection from './ProductFormBatchSection';
@@ -143,3 +143,4 @@ const ProductFormView = ({
 };
 
 export default ProductFormView;
+

@@ -1,5 +1,5 @@
-﻿import { Filter, SlidersHorizontal } from 'lucide-react';
-import MobileBottomSheet from '../../../../../components/mobile/MobileBottomSheet';
+import { Filter, SlidersHorizontal } from 'lucide-react';
+import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 
 const ProductsMobileFilterSheet = ({
   showMobileFilters,
@@ -33,7 +33,7 @@ const ProductsMobileFilterSheet = ({
           onClick={() => setSelectedCategory('all')}
         >
           {renderCategoryChipLabel(
-            { name: 'All', icon: 'ðŸ›’', image: '' },
+            { name: 'All', icon: '🛒', image: '' },
             groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
           )}
         </button>
@@ -90,4 +90,5 @@ const ProductsMobileFilterSheet = ({
 );
 
 export default ProductsMobileFilterSheet;
+
 

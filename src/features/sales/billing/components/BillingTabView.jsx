@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Trash2, UserPlus } from 'lucide-react';
-import { formatCurrency } from '../../../../utils/formatters';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 import UserEditModal from '../../../../shared/components/UserEditModal';
 
 const BillingTabView = ({
@@ -316,3 +316,4 @@ const BillingTabView = ({
 );
 
 export default BillingTabView;
+

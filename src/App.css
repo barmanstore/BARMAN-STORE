@@ -1,4 +1,4 @@
-@import './styles/mobile-design-system.css';
+@import './shared/styles/mobile-design-system.css';
 
 :root {
   --color-primary: #1a1a1a;
@@ -1686,3 +1686,4 @@ body,
     font-size: 0.85rem;
   }
 }
+
