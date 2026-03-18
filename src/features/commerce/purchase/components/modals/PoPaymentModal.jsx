@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
 
 const PoPaymentModal = ({
   isMobile,
@@ -51,15 +52,13 @@ const PoPaymentModal = ({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="po-payment-mobile-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="po-payment-mobile-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
                 max={currentBalanceValue}
                 value={poPaymentFormData.amount}
-                onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                onValueChange={(nextValue) => setPoPaymentFormData((prev) => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
                 autoComplete="off"
               />
@@ -143,15 +142,13 @@ const PoPaymentModal = ({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="po-payment-desktop-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="po-payment-desktop-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
                 max={currentBalanceValue}
                 value={poPaymentFormData.amount}
-                onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                onValueChange={(nextValue) => setPoPaymentFormData((prev) => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
                 autoComplete="off"
               />

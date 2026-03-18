@@ -5,7 +5,7 @@ import { formatCurrency, truncateUserName } from '../../../shared/utils/formatte
 import { getTodayDate } from '../../../shared/utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
 import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
-import { evaluateMathExpression } from './utils/ledgerMathUtils';
+import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
 import './CreditKhata.css';
 
@@ -37,13 +37,6 @@ function CreditKhata({ user }) {
   const ledgerSubmitLockRef = useRef(false);
   const ledgerRequestIdRef = useRef('');
   useLockBodyScroll(showLedgerForm);
-  const amountPreview = useMemo(() => {
-    try {
-      return evaluateMathExpression(ledgerFormData.amount);
-    } catch (error) {
-      return { valid: false, value: 0, message: error.message || 'Invalid expression' };
-    }
-  }, [ledgerFormData.amount]);
 
   const usersById = useMemo(() => {
     const map = {};
@@ -173,7 +166,6 @@ function CreditKhata({ user }) {
     ledgerRequestIdRef,
     setError,
     ledgerSubmitting,
-    amountPreview,
     ledgerFormData,
     editingLedgerEntryId,
     user,
@@ -373,23 +365,14 @@ function CreditKhata({ user }) {
               <div className="form-row">
                 <div className="form-group">
                   <label htmlFor="ledger-amount">Amount *</label>
-                  <input
-                    type="text"
+                  <CalculatedAmountInput
                     id="ledger-amount"
                     name="amount"
-                    inputMode="decimal"
                     value={ledgerFormData.amount}
-                    onChange={(e) => setLedgerFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                    placeholder="Enter amount or expression (example: 2+5)"
+                    onValueChange={(nextValue) => setLedgerFormData((prev) => ({ ...prev, amount: nextValue }))}
+                    placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                     required
                   />
-                  {String(ledgerFormData.amount || '').trim() ? (
-                    <div className={`amount-live-result ${amountPreview.valid ? 'ok' : 'error'}`}>
-                      {amountPreview.valid
-                        ? `Result: ${Number(amountPreview.value).toFixed(2)}`
-                        : `Result: ${amountPreview.message || 'Invalid expression'}`}
-                    </div>
-                  ) : null}
                 </div>
                 <div className="form-group">
                   <label htmlFor="ledger-transaction-date">Transaction Date</label>

@@ -1,3 +1,5 @@
+import { validateAmountInput } from '../../../../shared/utils/amountExpression';
+
 const useCreditKhataLedgerForm = ({
   getDefaultFormData,
   setShowLedgerForm,
@@ -8,7 +10,6 @@ const useCreditKhataLedgerForm = ({
   ledgerRequestIdRef,
   setError,
   ledgerSubmitting,
-  amountPreview,
   ledgerFormData,
   editingLedgerEntryId,
   user,
@@ -57,15 +58,16 @@ const useCreditKhataLedgerForm = ({
     ledgerSubmitLockRef.current = true;
     setError('');
 
-    const amount = amountPreview.valid ? Number(amountPreview.value) : 0;
+    const amountResult = validateAmountInput(ledgerFormData.amount);
+    const amount = amountResult.valid ? Number(amountResult.value) : 0;
     if (!ledgerFormData.user_id) {
       ledgerSubmitLockRef.current = false;
       setError('Please select a customer');
       return;
     }
-    if (!amountPreview.valid || amount <= 0) {
+    if (!amountResult.valid || amount <= 0) {
       ledgerSubmitLockRef.current = false;
-      setError(amountPreview.message || 'Please enter a valid amount');
+      setError(amountResult.message || 'Please enter a valid amount');
       return;
     }
     if (!ledgerFormData.description.trim()) {

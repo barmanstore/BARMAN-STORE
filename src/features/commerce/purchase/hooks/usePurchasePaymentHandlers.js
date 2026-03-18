@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { validateAmountInput } from '../../../../shared/utils/amountExpression';
 
 const usePurchasePaymentHandlers = ({
   purchaseOrders,
@@ -97,11 +98,12 @@ const usePurchasePaymentHandlers = ({
     if (resolvedOrder && resolvedOrder !== paymentOrder) {
       setPaymentOrder(resolvedOrder);
     }
-    const amount = Math.max(0, toNumber(poPaymentFormData.amount));
     const balanceDue = getPoBalanceDue(resolvedOrder);
-    if (amount <= 0) {
+    const amountResult = validateAmountInput(poPaymentFormData.amount, { max: balanceDue });
+    const amount = amountResult.valid ? Math.max(0, Number(amountResult.value)) : 0;
+    if (!amountResult.valid || amount <= 0) {
       poPaymentLockRef.current = false;
-      setError('Payment amount must be greater than 0');
+      setError(amountResult.message || 'Payment amount must be greater than 0');
       return;
     }
     if (amount > balanceDue) {

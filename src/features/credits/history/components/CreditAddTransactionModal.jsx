@@ -1,4 +1,5 @@
 import { FileText, Upload } from 'lucide-react';
+import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
 
 const CreditAddTransactionModal = ({
   showAddModal,
@@ -37,15 +38,12 @@ const CreditAddTransactionModal = ({
           </div>
           <div className="form-group">
             <label>Amount (₹)</label>
-            <input
+            <CalculatedAmountInput
               id="credit-tx-amount"
               name="amount"
-              type="number"
-              step="0.01"
-              min="0.01"
               value={newTransaction.amount}
-              onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-              placeholder="Enter amount"
+              onValueChange={(nextValue) => setNewTransaction({ ...newTransaction, amount: nextValue })}
+              placeholder="Enter amount or expression like (5+7)*100/35+56-25"
               required
             />
           </div>

@@ -1,3 +1,5 @@
+import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
+
 function CreditIssuesAdminInbox({
   adminVisibleIssues,
   focusIssueId,
@@ -94,15 +96,13 @@ function CreditIssuesAdminInbox({
                     </label>
                     <label>
                       Correction Amount
-                      <input
+                      <CalculatedAmountInput
                         id={`issue-correction-amount-${issueId}`}
                         name={`issue_correction_amount_${issueId}`}
-                        type="number"
                         min="0"
-                        step="0.01"
                         value={draft.correction_amount}
-                        onChange={(e) => setAdminIssueDraft(issueId, { correction_amount: e.target.value })}
-                        placeholder="0"
+                        onValueChange={(nextValue) => setAdminIssueDraft(issueId, { correction_amount: nextValue })}
+                        placeholder="0 or expression"
                       />
                     </label>
                   </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { distributorsApi } from '../../shared/services/api';
+import { validateAmountInput } from '../../shared/utils/amountExpression';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
 import useLockBodyScroll from '../../shared/hooks/useLockBodyScroll';
 import DistributorManagementView from './components/DistributorManagementView';
@@ -76,6 +77,14 @@ function DistributorManagement({ user }) {
         setError(PHONE_POLICY_MESSAGE);
         return;
       }
+      const hasCreditLimit = String(formData.credit_limit || '').trim() !== '';
+      const creditLimitResult = hasCreditLimit
+        ? validateAmountInput(formData.credit_limit, { min: 0 })
+        : { valid: true, value: '' };
+      if (hasCreditLimit && !creditLimitResult.valid) {
+        setError(creditLimitResult.message || 'Please enter a valid credit limit');
+        return;
+      }
       const distributorData = {
         name: formData.name.trim(),
         salesman_name: formData.salesman_name.trim(),
@@ -93,7 +102,7 @@ function DistributorManagement({ user }) {
         payment_terms: formData.payment_terms,
         payment_cycle_type: formData.payment_cycle_type,
         payment_due_days: formData.payment_due_days,
-        credit_limit: formData.credit_limit,
+        credit_limit: hasCreditLimit ? Number(creditLimitResult.value) : '',
         inactive_reason: formData.inactive_reason.trim(),
         auto_suggest_items: formData.auto_suggest_items,
         auto_reminders_enabled: formData.auto_reminders_enabled,

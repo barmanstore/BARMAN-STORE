@@ -1,3 +1,5 @@
+import { validateAmountInput } from '../../../shared/utils/amountExpression';
+
 const useCustomerRequestActions = ({
   adminApi,
   load,
@@ -28,7 +30,15 @@ const useCustomerRequestActions = ({
       action: normalizedAction,
       admin_reason: String(draft.admin_reason || '').trim(),
     };
-    const correctionAmount = Number(draft.correction_amount || 0);
+    const hasCorrectionAmount = String(draft.correction_amount || '').trim() !== '';
+    const correctionAmountResult = hasCorrectionAmount
+      ? validateAmountInput(draft.correction_amount, { min: 0 })
+      : { valid: true, value: 0 };
+    const correctionAmount = correctionAmountResult.valid ? Number(correctionAmountResult.value || 0) : 0;
+    if (normalizedAction === 'corrected' && hasCorrectionAmount && !correctionAmountResult.valid) {
+      setError(correctionAmountResult.message || 'Please enter a valid correction amount');
+      return;
+    }
     if (normalizedAction === 'corrected' && correctionAmount > 0) {
       payload.correction_type = draft.correction_type === 'payment' ? 'payment' : 'given';
       payload.correction_amount = correctionAmount;

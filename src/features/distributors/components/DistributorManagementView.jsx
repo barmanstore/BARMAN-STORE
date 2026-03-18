@@ -1,5 +1,6 @@
 import React from 'react';
 import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
+import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import AdminPageHeader from '../../admin/components/AdminPageHeader';
 
 const DistributorManagementView = ({
@@ -338,14 +339,13 @@ const DistributorManagementView = ({
                 <div className="form-row">
                   <div className="form-group">
                     <label>Credit Limit</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <CalculatedAmountInput
+                      id="distributor-credit-limit"
                       name="credit_limit"
+                      min="0"
                       value={formData.credit_limit}
-                      onChange={onFormChange}
-                      placeholder="Optional credit cap"
+                      onValueChange={(nextValue) => onFormChange({ target: { name: 'credit_limit', value: nextValue, type: 'text' } })}
+                      placeholder="Optional credit cap or expression"
                     />
                   </div>
 

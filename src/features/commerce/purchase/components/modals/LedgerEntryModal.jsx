@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
 
 const LedgerEntryModal = ({
   isMobile,
@@ -64,15 +65,12 @@ const LedgerEntryModal = ({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="ledger-mobile-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="ledger-mobile-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
                 value={ledgerFormData.amount}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="Enter amount"
+                onValueChange={nextValue => setLedgerFormData(prev => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
                 autoComplete="off"
               />
@@ -175,15 +173,12 @@ const LedgerEntryModal = ({
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="ledger-desktop-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="ledger-desktop-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0.01"
                 value={ledgerFormData.amount}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="Enter amount"
+                onValueChange={nextValue => setLedgerFormData(prev => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
                 autoComplete="off"
               />

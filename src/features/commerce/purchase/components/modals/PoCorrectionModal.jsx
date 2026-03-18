@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
 
 const PoCorrectionModal = ({
   isMobile,
@@ -80,14 +81,13 @@ const PoCorrectionModal = ({
             </div>
             <div className="form-group">
               <label htmlFor="po-correction-mobile-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="po-correction-mobile-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0"
                 value={poCorrectionFormData.amount}
-                onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                min={0}
+                onValueChange={(nextValue) => setPoCorrectionFormData((prev) => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
               />
             </div>
@@ -204,14 +204,13 @@ const PoCorrectionModal = ({
             </div>
             <div className="form-group">
               <label htmlFor="po-correction-desktop-amount">Amount *</label>
-              <input
+              <CalculatedAmountInput
                 id="po-correction-desktop-amount"
                 name="amount"
-                type="number"
-                step="0.01"
-                min="0"
                 value={poCorrectionFormData.amount}
-                onChange={(e) => setPoCorrectionFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                min={0}
+                onValueChange={(nextValue) => setPoCorrectionFormData((prev) => ({ ...prev, amount: nextValue }))}
+                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
                 required
               />
             </div>

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { getSignedLedgerAmount } from '../../../../shared/utils/ledger';
+import { validateAmountInput } from '../../../../shared/utils/amountExpression';
 
 const usePurchaseLedgerCorrections = ({
   distributorLedgerApi,
@@ -151,11 +152,12 @@ const usePurchaseLedgerCorrections = ({
     if (poCorrectionSubmitting || poCorrectionLockRef.current) return;
     poCorrectionLockRef.current = true;
 
-    const amount = toNumber(poCorrectionFormData.amount);
+    const amountResult = validateAmountInput(poCorrectionFormData.amount, { min: 0 });
+    const amount = amountResult.valid ? Number(amountResult.value) : 0;
     const reason = String(poCorrectionFormData.reason || '').trim();
-    if (amount <= 0) {
+    if (!amountResult.valid || amount <= 0) {
       poCorrectionLockRef.current = false;
-      setError('Correction amount must be greater than 0');
+      setError(amountResult.message || 'Correction amount must be greater than 0');
       return;
     }
     if (!reason) {
@@ -240,15 +242,16 @@ const usePurchaseLedgerCorrections = ({
     ledgerSubmitLockRef.current = true;
     setError('');
 
-    const amount = toNumber(ledgerFormData.amount);
+    const amountResult = validateAmountInput(ledgerFormData.amount);
+    const amount = amountResult.valid ? Number(amountResult.value) : 0;
     if (!ledgerFormData.distributor_id) {
       ledgerSubmitLockRef.current = false;
       setError('Please select a distributor for ledger entry');
       return;
     }
-    if (amount <= 0) {
+    if (!amountResult.valid || amount <= 0) {
       ledgerSubmitLockRef.current = false;
-      setError('Please enter a valid amount');
+      setError(amountResult.message || 'Please enter a valid amount');
       return;
     }
 

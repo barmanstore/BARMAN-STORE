@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Trash2, UserPlus } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
+import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
 import UserEditModal from '../../../../shared/components/UserEditModal';
 
 const BillingTabView = ({
@@ -254,15 +255,15 @@ const BillingTabView = ({
       ) : null}
       <div className="form-row">
         <label className="form-label" htmlFor="paidAmount">Paid Amount</label>
-        <input
+        <CalculatedAmountInput
           id="paidAmount"
-          type="number"
-          min="0"
-          step="0.01"
-          className="form-input"
+          name="paid_amount"
+          min={0}
+          max={totalBill}
           value={paidAmount}
-          onChange={(e) => setPaidAmount(e.target.value)}
-          placeholder="0.00"
+          onValueChange={setPaidAmount}
+          inputClassName="form-input"
+          placeholder="Enter paid amount or expression"
         />
       </div>
       <div className="form-row">

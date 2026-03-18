@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { customersApi, productsApi, billingApi, creditApi } from '../../../shared/services/api';
 import { sendWhatsAppSmart } from '../../../shared/utils/whatsapp';
 import { formatCurrency } from '../../../shared/utils/formatters';
+import { validateAmountInput } from '../../../shared/utils/amountExpression';
 import { buildBillShareText } from '../../../shared/utils/messageTemplates';
 import * as info from '../../../shared/info';
 import BillingTabView from './components/BillingTabView';
@@ -221,7 +222,12 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
   };
 
   const totalBill = items.reduce((sum, item) => sum + item.amount, 0);
-  const paidClamped = Math.max(0, Math.min(Number(paidAmount || 0), Number(totalBill || 0)));
+  const paidAmountEvaluation = useMemo(
+    () => validateAmountInput(paidAmount, { min: 0, max: totalBill }),
+    [paidAmount, totalBill]
+  );
+  const paidResolved = paidAmountEvaluation.valid ? Number(paidAmountEvaluation.value) : 0;
+  const paidClamped = Math.max(0, Math.min(paidResolved, Number(totalBill || 0)));
   const creditAmount = Math.max(0, Number(totalBill) - paidClamped);
   const isOrderLinked = Number(linkedOrderId || 0) > 0;
   const totalDiscount = items.reduce((sum, item) => {
@@ -341,6 +347,16 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     info,
   });
 
+  const handleCreateBillClick = useCallback(() => {
+    const hasPaidAmount = String(paidAmount ?? '').trim() !== '';
+    if (hasPaidAmount && !paidAmountEvaluation.valid) {
+      setError(paidAmountEvaluation.message || 'Please enter a valid paid amount');
+      return;
+    }
+    setError(null);
+    handleCreateBill();
+  }, [paidAmount, paidAmountEvaluation, handleCreateBill]);
+
   const handleCopyShare = async () => {
     if (!lastShareText) return;
     try {
@@ -400,7 +416,7 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
       setPaidAmount={setPaidAmount}
       creditAmount={creditAmount}
       onClear={handleClear}
-      handleCreateBill={handleCreateBill}
+      handleCreateBill={handleCreateBillClick}
       lastShareText={lastShareText}
       lastShareNumber={lastShareNumber}
       handleCopyShare={handleCopyShare}

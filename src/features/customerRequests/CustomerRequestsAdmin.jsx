@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { adminApi } from '../../shared/services/api';
+import CalculatedAmountInput from '../../shared/components/CalculatedAmountInput';
 import AdminPageHeader from '../admin/components/AdminPageHeader';
 import useExpandableCards from './hooks/useExpandableCards';
 import useIssueDrafts from './hooks/useIssueDrafts';
@@ -255,15 +256,13 @@ function CustomerRequestsAdmin() {
                               </label>
                               <label htmlFor={`correction-amount-${item.id}`}>
                                 Correction Amount
-                                <input
-                                  type="number"
+                                <CalculatedAmountInput
                                   id={`correction-amount-${item.id}`}
                                   name="correction_amount"
                                   min="0"
-                                  step="0.01"
                                   value={getIssueDraft(item).correction_amount}
-                                  onChange={(e) => setIssueDraft(item.id, { correction_amount: e.target.value })}
-                                  placeholder="0"
+                                  onValueChange={(nextValue) => setIssueDraft(item.id, { correction_amount: nextValue })}
+                                  placeholder="0 or expression"
                                 />
                               </label>
                             </div>

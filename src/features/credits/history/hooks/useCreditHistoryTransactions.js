@@ -1,3 +1,5 @@
+import { validateAmountInput } from '../../../../shared/utils/amountExpression';
+
 const useCreditHistoryTransactions = ({
   creditApi,
   effectiveUserId,
@@ -86,9 +88,12 @@ const useCreditHistoryTransactions = ({
     setError('');
     setSuccess('');
 
-    if (!newTransaction.amount || parseFloat(newTransaction.amount) <= 0) {
+    const amountResult = validateAmountInput(newTransaction.amount);
+    const amount = amountResult.valid ? Number(amountResult.value) : 0;
+
+    if (!amountResult.valid || amount <= 0) {
       addTransactionLockRef.current = false;
-      setError('Please enter a valid amount');
+      setError(amountResult.message || 'Please enter a valid amount');
       return;
     }
 
@@ -109,7 +114,7 @@ const useCreditHistoryTransactions = ({
       const previousBalance = Number(balance || 0);
       const txSnapshot = {
         type: newTransaction.type,
-        amount: parseFloat(newTransaction.amount),
+        amount,
         description: String(newTransaction.description || '').trim(),
         reference: String(newTransaction.reference || '').trim(),
         transactionDate: newTransaction.transactionDate || getTodayDateInputValue()
@@ -120,7 +125,7 @@ const useCreditHistoryTransactions = ({
 
       await creditApi.addTransaction(effectiveUserId, {
         ...newTransaction,
-        amount: parseFloat(newTransaction.amount),
+        amount,
         created_by: authUser?.id,
         client_request_id: clientRequestId
       });
