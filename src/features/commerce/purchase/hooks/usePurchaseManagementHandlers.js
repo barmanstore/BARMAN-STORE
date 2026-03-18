@@ -35,7 +35,6 @@ const usePurchaseManagementHandlers = ({
   mergeProductsById,
   setFilters,
   setActiveSubTab,
-  closePoProductForm,
   getDefaultOrderFormData,
   setEditingOrderId,
   setOrderFullMode,
@@ -196,16 +195,14 @@ const usePurchaseManagementHandlers = ({
 
   const {
     handleFilterChange,
-    openCreateOrderForm,
-    openCreateOrderFormForDistributor,
-    closeOrderForm,
-    handlePurchaseSectionChange,
+    openCreateOrderForm, openCreateOrderFormForDistributor,
+    closeOrderForm, handlePurchaseSectionChange,
     handleOrderSubmit,
     handleEditOrder,
   } = usePurchaseOrderFormHandlers({
     setFilters,
     setActiveSubTab,
-    closePoProductForm,
+    closePoProductForm: closePoProductFormLocal,
     getDefaultOrderFormData,
     setOrderFormData,
     setEditingOrderId,
@@ -239,8 +236,7 @@ const usePurchaseManagementHandlers = ({
   });
 
   const {
-    handleOrderItemChange,
-    handleOrderProductInputChange,
+    handleOrderItemChange, handleOrderProductInputChange,
   } = usePurchaseOrderItemHandlers({
     orderFormData,
     setOrderFormData,
@@ -337,12 +333,9 @@ const usePurchaseManagementHandlers = ({
   });
 
   const {
-    closeOrderDetail,
-    handleOrderDetailFieldChange,
-    handleOrderDetailItemChange,
-    handleOrderDetailProductInputChange,
-    handleOrderDetailItemAdd,
-    handleOrderDetailItemRemove,
+    closeOrderDetail, handleOrderDetailFieldChange,
+    handleOrderDetailItemChange, handleOrderDetailProductInputChange,
+    handleOrderDetailItemAdd, handleOrderDetailItemRemove,
     openOrderDetailEditMode,
     handleOrderDetailSave,
     handleViewOrder,

@@ -22,22 +22,38 @@ const usePurchasePaymentHandlers = ({
   fetchDistributorLedger,
   setError,
 }) => {
+  const resolveLatestPaymentOrder = useCallback(async (order) => {
+    if (!order?.id || typeof purchaseOrdersApi?.getById !== 'function') return order;
+    try {
+      const latest = await purchaseOrdersApi.getById(order.id);
+      if (latest && Number(latest.id || 0) === Number(order.id || 0)) return latest;
+    } catch (_) {
+      // ignore fetch failures and fall back to the provided order
+    }
+    return order;
+  }, [purchaseOrdersApi]);
+
   const handleOpenPoPaymentModal = useCallback((order) => {
     if (!order) return;
-    const balanceDue = getPoBalanceDue(order);
-    setError('');
-    setPaymentOrder(order);
-    setPoPaymentFormData({
-      ...getDefaultPoPaymentFormData(),
-      amount: balanceDue > 0 ? balanceDue.toFixed(2) : '',
-      reference: String(order.bill_number || order.invoice_number || order.po_number || '').trim(),
-      transaction_date: getTodayDate(),
-      notes: '',
-    });
-    poPaymentLockRef.current = false;
-    poPaymentClientRequestIdRef.current = createClientRequestId('popay');
-    setShowPoPaymentModal(true);
+    const openModal = async () => {
+      const resolvedOrder = await resolveLatestPaymentOrder(order);
+      const balanceDue = getPoBalanceDue(resolvedOrder);
+      setError('');
+      setPaymentOrder(resolvedOrder);
+      setPoPaymentFormData({
+        ...getDefaultPoPaymentFormData(),
+        amount: balanceDue > 0 ? balanceDue.toFixed(2) : '',
+        reference: String(resolvedOrder.bill_number || resolvedOrder.invoice_number || resolvedOrder.po_number || '').trim(),
+        transaction_date: getTodayDate(),
+        notes: '',
+      });
+      poPaymentLockRef.current = false;
+      poPaymentClientRequestIdRef.current = createClientRequestId('popay');
+      setShowPoPaymentModal(true);
+    };
+    void openModal();
   }, [
+    resolveLatestPaymentOrder,
     getPoBalanceDue,
     getDefaultPoPaymentFormData,
     setError,
@@ -77,8 +93,12 @@ const usePurchasePaymentHandlers = ({
     if (!paymentOrder) return;
     if (poPaymentSubmitting || poPaymentLockRef.current) return;
     poPaymentLockRef.current = true;
+    const resolvedOrder = await resolveLatestPaymentOrder(paymentOrder);
+    if (resolvedOrder && resolvedOrder !== paymentOrder) {
+      setPaymentOrder(resolvedOrder);
+    }
     const amount = Math.max(0, toNumber(poPaymentFormData.amount));
-    const balanceDue = getPoBalanceDue(paymentOrder);
+    const balanceDue = getPoBalanceDue(resolvedOrder);
     if (amount <= 0) {
       poPaymentLockRef.current = false;
       setError('Payment amount must be greater than 0');
@@ -86,7 +106,7 @@ const usePurchasePaymentHandlers = ({
     }
     if (amount > balanceDue) {
       poPaymentLockRef.current = false;
-      setError('Payment amount cannot exceed current balance due');
+      setError(`Payment amount cannot exceed current balance due (${balanceDue.toFixed(2)})`);
       return;
     }
 
@@ -129,6 +149,8 @@ const usePurchasePaymentHandlers = ({
     closePoPaymentModal,
     fetchOrders,
     fetchDistributorLedger,
+    resolveLatestPaymentOrder,
+    setPaymentOrder,
   ]);
 
   return {

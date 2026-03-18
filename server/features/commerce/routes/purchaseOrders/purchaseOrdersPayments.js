@@ -133,7 +133,10 @@ const registerPurchaseOrdersPaymentsRoutes = (deps) => {
         balance_due: record.nextSnapshot.balanceDue,
       });
     } catch (error) {
-      if (clientRequestId && isUniqueViolationError(error)) {
+      const uniqueViolation = clientRequestId
+        && typeof isUniqueViolationError === 'function'
+        && isUniqueViolationError(error);
+      if (uniqueViolation) {
         const existing = await dbGetAsync(
           `SELECT id FROM purchase_order_payments WHERE client_request_id = ? LIMIT 1`,
           [clientRequestId]

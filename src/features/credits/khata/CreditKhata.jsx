@@ -6,6 +6,7 @@ import { getTodayDate } from '../../../utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../utils/ledger';
 import useLockBodyScroll from '../../../hooks/useLockBodyScroll';
 import { evaluateMathExpression } from './utils/ledgerMathUtils';
+import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
 import './CreditKhata.css';
 
 const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']);
@@ -157,104 +158,31 @@ function CreditKhata({ user }) {
     setFilters({ user_id: e.target.value });
   };
 
-  const handleOpenLedgerForm = () => {
-    setError('');
-    setEditingLedgerEntryId(null);
-    setLedgerFormData({
-      ...getDefaultFormData(),
-      user_id: filters.user_id || ''
-    });
-    ledgerSubmitLockRef.current = false;
-    ledgerRequestIdRef.current = createClientRequestId('credit');
-    setShowLedgerForm(true);
-  };
-
-  const handleOpenLedgerEdit = (entry) => {
-    setError('');
-    setEditingLedgerEntryId(Number(entry.id || 0));
-    setLedgerFormData({
-      user_id: String(entry.user_id || ''),
-      type: entry.type === 'payment' ? 'payment' : 'given',
-      amount: String(toNumber(entry.amount || 0)),
-      transactionDate: String(entry.transaction_date || '').slice(0, 10) || getTodayDate(),
-      reference: entry.reference || '',
-      description: entry.description || ''
-    });
-    ledgerSubmitLockRef.current = false;
-    ledgerRequestIdRef.current = '';
-    setShowLedgerForm(true);
-  };
-
-  const closeLedgerForm = () => {
-    setShowLedgerForm(false);
-    setEditingLedgerEntryId(null);
-    setLedgerFormData(getDefaultFormData());
-    setLedgerSubmitting(false);
-    ledgerSubmitLockRef.current = false;
-    ledgerRequestIdRef.current = '';
-  };
-
-  const handleLedgerSubmit = async (e) => {
-    e.preventDefault();
-    if (ledgerSubmitting || ledgerSubmitLockRef.current) return;
-    ledgerSubmitLockRef.current = true;
-    setError('');
-
-    const amount = amountPreview.valid ? Number(amountPreview.value) : 0;
-    if (!ledgerFormData.user_id) {
-      ledgerSubmitLockRef.current = false;
-      setError('Please select a customer');
-      return;
-    }
-    if (!amountPreview.valid || amount <= 0) {
-      ledgerSubmitLockRef.current = false;
-      setError(amountPreview.message || 'Please enter a valid amount');
-      return;
-    }
-    if (!ledgerFormData.description.trim()) {
-      ledgerSubmitLockRef.current = false;
-      setError('Please enter a description');
-      return;
-    }
-
-    try {
-      setLedgerSubmitting(true);
-      if (editingLedgerEntryId) {
-        await creditApi.updateTransaction(ledgerFormData.user_id, editingLedgerEntryId, {
-          type: ledgerFormData.type,
-          amount: Number(amount.toFixed(2)),
-          reference: ledgerFormData.reference,
-          description: ledgerFormData.description,
-          transactionDate: ledgerFormData.transactionDate,
-          edited_by: user?.id
-        });
-      } else {
-        const clientRequestId = ledgerRequestIdRef.current || createClientRequestId('credit');
-        ledgerRequestIdRef.current = clientRequestId;
-        await creditApi.addTransaction(ledgerFormData.user_id, {
-          type: ledgerFormData.type,
-          amount: Number(amount.toFixed(2)),
-          reference: ledgerFormData.reference,
-          description: ledgerFormData.description,
-          transactionDate: ledgerFormData.transactionDate,
-          created_by: user?.id,
-          client_request_id: clientRequestId
-        });
-      }
-      closeLedgerForm();
-      await fetchLedger(filters.user_id, users);
-    } catch (err) {
-      if (err?.status === 401) {
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        return;
-      }
-      setError(err.message || (editingLedgerEntryId ? 'Failed to edit ledger transaction' : 'Failed to add ledger transaction'));
-    } finally {
-      setLedgerSubmitting(false);
-      ledgerSubmitLockRef.current = false;
-    }
-  };
+  const {
+    handleOpenLedgerForm,
+    handleOpenLedgerEdit,
+    closeLedgerForm,
+    handleLedgerSubmit,
+  } = useCreditKhataLedgerForm({
+    getDefaultFormData,
+    setShowLedgerForm,
+    setEditingLedgerEntryId,
+    setLedgerFormData,
+    setLedgerSubmitting,
+    ledgerSubmitLockRef,
+    ledgerRequestIdRef,
+    setError,
+    ledgerSubmitting,
+    amountPreview,
+    ledgerFormData,
+    editingLedgerEntryId,
+    user,
+    creditApi,
+    createClientRequestId,
+    fetchLedger,
+    filters,
+    users,
+  });
 
   const ledgerBalanceSummary = useMemo(() => {
     const balanceByUser = {};

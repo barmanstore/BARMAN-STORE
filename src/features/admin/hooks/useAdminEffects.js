@@ -21,6 +21,9 @@ const useAdminEffects = ({
   desktopActiveGroup,
   desktopPanelCollapsed,
 }) => {
+  const userId = Number(user?.id || 0) || 0;
+  const userRole = String(user?.role || '').trim().toLowerCase();
+
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
     const handleOutsideClick = (event) => {
@@ -38,14 +41,14 @@ const useAdminEffects = ({
   }, [productColumnPickerRef]);
 
   useEffect(() => {
-    if (!user) return;
-    if (user.role !== 'admin') {
+    if (!userId) return;
+    if (userRole !== 'admin') {
       navigate('/');
       return;
     }
 
-    fetchData();
-  }, [user, navigate, fetchData]);
+    void fetchData();
+  }, [userId, userRole, navigate, fetchData]);
 
   useEffect(() => {
     const maxOrderId = (Array.isArray(orders) ? orders : []).reduce(
@@ -58,7 +61,7 @@ const useAdminEffects = ({
   }, [orders, latestKnownOrderIdRef]);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin' || activeTab !== 'orders') return;
+    if (!userId || userRole !== 'admin' || activeTab !== 'orders') return;
     let cancelled = false;
     const pollOrders = async (initialLoad = false) => {
       try {
@@ -82,12 +85,12 @@ const useAdminEffects = ({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeTab, user, ordersApi, setOrders, showNotification, latestKnownOrderIdRef]);
+  }, [activeTab, userId, userRole, ordersApi, setOrders, showNotification, latestKnownOrderIdRef]);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin' || activeTab !== 'daily-sales') return;
+    if (!userId || userRole !== 'admin' || activeTab !== 'daily-sales') return;
     void loadDailySalesBills({ silent: false });
-  }, [activeTab, user, loadDailySalesBills]);
+  }, [activeTab, userId, userRole, loadDailySalesBills]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

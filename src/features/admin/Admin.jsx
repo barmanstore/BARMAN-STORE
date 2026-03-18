@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { statsApi, productsApi, ordersApi, usersApi, adminApi, billingApi, resolveMediaUrl } from '../../services/api';
 import { getProductImageSrc, getProductFallbackImage } from '../../utils/productImage';
@@ -166,14 +167,14 @@ function Admin({ user }) {
     SIDEBAR_SECTIONS,
   });
 
-  const showNotification = (message, type) => {
+  const showNotification = useCallback((message, type) => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
-  };
+  }, [setNotification]);
 
-  const closeNotification = () => {
+  const closeNotification = useCallback(() => {
     setNotification(null);
-  };
+  }, [setNotification]);
 
   const {
     refreshAdminData,
@@ -409,6 +410,26 @@ function Admin({ user }) {
     setShowExportDialog,
     exportFormat,
   });
+  const {
+    openApproveModal,
+    confirmApprove,
+    handleApplyPendingFulfillment,
+    handleProceedToBilling,
+  } = useAdminOrderActions({
+    ordersApi,
+    productsApi,
+    user,
+    setModalLoading,
+    setModalOrder,
+    setModalItems,
+    setShowApproveModal,
+    modalOrder,
+    showNotification,
+    refreshAdminData,
+    setProceedBillingOrderId,
+    setBillingPrefill,
+    handleTabChange,
+  });
 
   const effectiveProductViewMode = isMobile ? 'grid' : productViewMode;
 
@@ -458,15 +479,16 @@ function Admin({ user }) {
       handleProceedToBilling, proceedBillingOrderId, handleApplyPendingFulfillment,
     },
     users: {
+      handleAddUser,
       usersSearchQuery, setUsersSearchQuery, filteredUsersCount, users, filteredUsers, adminUsers, customerUsers,
       expandedUsersMap, toggleUserCompactRow, handleCompactRowKeyToggle, resolveMediaUrl,
       userAvatarErrors, setUserAvatarErrors, truncateUserName, handleEditUser, handleDeleteUser,
-      editingUser, setShowUserForm, setIsCreatingUser, handleUserSave, showUserForm,
+      editingUser, setEditingUser, setShowUserForm, setIsCreatingUser, handleUserSave, showUserForm,
       isCreatingUser, handleCreateUser,
     },
     modals: {
       showProductForm, setShowProductForm, editingProduct, setEditingProduct, handleProductSave,
-      showApproveModal, modalOrder, modalItems, modalLoading, confirmApprove, showExportDialog,
+      showApproveModal, setShowApproveModal, modalOrder, modalItems, modalLoading, confirmApprove, showExportDialog,
       exportFormat, setExportFormat, handleExportProducts, showCategoryManagement, setShowCategoryManagement,
     },
   });

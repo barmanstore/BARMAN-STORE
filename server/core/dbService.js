@@ -1,6 +1,8 @@
 const createDatabaseService = ({
   executionMode,
   postgresMigrationsDir,
+  runMigrationsOnStartup = true,
+  runBootstrapOnStartup = true,
   createPostgresPool,
   pingPostgresPool,
   getPostgresConnectionLabel,
@@ -46,20 +48,31 @@ const createDatabaseService = ({
       postgresPool = createPostgresPool();
       await pingPostgresPool(postgresPool);
       console.log(`[DB] Postgres/Supabase connected (${getPostgresConnectionLabel()})`);
-      const migrationResult = await applyPostgresMigrations(postgresPool, postgresMigrationsDir);
-      if (migrationResult.applied.length) {
-        console.log(`[DB] Postgres migrations applied (${migrationResult.applied.length}/${migrationResult.total}): ${migrationResult.applied.join(', ')}`);
+
+      if (runMigrationsOnStartup) {
+        const migrationResult = await applyPostgresMigrations(postgresPool, postgresMigrationsDir);
+        if (migrationResult.applied.length) {
+          console.log(`[DB] Postgres migrations applied (${migrationResult.applied.length}/${migrationResult.total}): ${migrationResult.applied.join(', ')}`);
+        } else {
+          console.log(`[DB] Postgres migrations up-to-date (${migrationResult.total} files).`);
+        }
       } else {
-        console.log(`[DB] Postgres migrations up-to-date (${migrationResult.total} files).`);
+        console.log('[DB] Skipping Postgres migrations during runtime startup.');
       }
-      await ensurePostgresBootstrapData({
-        pool: postgresPool,
-        normalizeEmail,
-        isStrongPassword,
-        hashPassword,
-        generateSku,
-      });
-      console.log('[DB] Postgres schema/bootstrap completed');
+
+      if (runBootstrapOnStartup) {
+        await ensurePostgresBootstrapData({
+          pool: postgresPool,
+          normalizeEmail,
+          isStrongPassword,
+          hashPassword,
+          generateSku,
+        });
+        console.log('[DB] Postgres bootstrap completed');
+      } else {
+        console.log('[DB] Skipping Postgres bootstrap during runtime startup.');
+      }
+
       runtimeBootstrapError = null;
       return true;
     } catch (error) {

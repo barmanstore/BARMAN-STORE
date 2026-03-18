@@ -259,7 +259,6 @@ const usePurchaseManagementController = ({ user }) => {
     mergeProductsById,
     setFilters,
     setActiveSubTab,
-    closePoProductForm,
     getDefaultOrderFormData,
     setEditingOrderId,
     setOrderFullMode,

@@ -1,3 +1,15 @@
+const isTransientAnalyticsWriteError = (error) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === '53300'
+    || code === '57P03'
+    || message.includes('timeout exceeded when trying to connect')
+    || message.includes('max client connections reached')
+    || message.includes('remaining connection slots are reserved')
+  );
+};
+
 const registerAnalyticsRoutes = (deps) => {
   const {
     app,
@@ -38,9 +50,9 @@ const registerAnalyticsRoutes = (deps) => {
   } = deps;
 
   app.post('/api/analytics/session/start', async (req, res) => {
+    let sessionId = normalizeVisitorSessionId(req.body?.session_id || req.body?.sessionId);
+    if (!sessionId) sessionId = generateVisitorSessionId();
     try {
-      let sessionId = normalizeVisitorSessionId(req.body?.session_id || req.body?.sessionId);
-      if (!sessionId) sessionId = generateVisitorSessionId();
       const trackedPath = sanitizeTrackedPath(req.body?.path || req.body?.pathname || '/');
       const referrer = sanitizeShortText(req.body?.referrer || req.headers.referer, 500);
       const userAgent = sanitizeShortText(req.headers['user-agent'], 500);
@@ -52,13 +64,17 @@ const registerAnalyticsRoutes = (deps) => {
 
       return res.status(201).json({ success: true, session_id: sessionId });
     } catch (error) {
+      if (isTransientAnalyticsWriteError(error)) {
+        console.warn('[analytics] session start degraded:', error.message || error);
+        return res.status(202).json({ success: false, degraded: true, session_id: sessionId });
+      }
       return res.status(500).json({ error: error.message || 'Failed to start visitor session' });
     }
   });
 
   app.post('/api/analytics/session/heartbeat', async (req, res) => {
+    let sessionId = normalizeVisitorSessionId(req.body?.session_id || req.body?.sessionId);
     try {
-      let sessionId = normalizeVisitorSessionId(req.body?.session_id || req.body?.sessionId);
       if (!sessionId) {
         return res.status(400).json({ error: 'session_id is required' });
       }
@@ -73,6 +89,10 @@ const registerAnalyticsRoutes = (deps) => {
 
       return res.json({ success: true });
     } catch (error) {
+      if (isTransientAnalyticsWriteError(error)) {
+        console.warn('[analytics] heartbeat degraded:', error.message || error);
+        return res.status(202).json({ success: false, degraded: true, session_id: sessionId });
+      }
       return res.status(500).json({ error: error.message || 'Failed to track visitor heartbeat' });
     }
   });

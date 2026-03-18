@@ -12,7 +12,11 @@ const isVercelRuntime = () => (
 );
 
 const buildPostgresConfigFromEnv = () => {
-  const poolLimitRaw = Number(process.env.PG_POOL_LIMIT || 10);
+  const vercelRuntime = isVercelRuntime();
+  const defaultPoolLimit = vercelRuntime ? 2 : 10;
+  const defaultIdleTimeoutMs = vercelRuntime ? 5000 : 30000;
+  const defaultConnectionTimeoutMs = vercelRuntime ? 10000 : 10000;
+  const poolLimitRaw = Number(process.env.PG_POOL_LIMIT || defaultPoolLimit);
   const connectionString = String(
     process.env.SUPABASE_DB_URL
     || process.env.DATABASE_URL
@@ -32,9 +36,11 @@ const buildPostgresConfigFromEnv = () => {
   );
 
   const base = {
-    max: Number.isFinite(poolLimitRaw) && poolLimitRaw > 0 ? poolLimitRaw : 10,
-    idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
-    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS || 10000),
+    // Serverless runtimes should keep pool fan-out minimal or they can exhaust
+    // the shared Postgres connection budget during concurrent cold starts.
+    max: Number.isFinite(poolLimitRaw) && poolLimitRaw > 0 ? poolLimitRaw : defaultPoolLimit,
+    idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || defaultIdleTimeoutMs),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS || defaultConnectionTimeoutMs),
   };
 
   if (connectionString) {
@@ -76,7 +82,7 @@ const buildPostgresConfigFromEnv = () => {
     || 5432
   );
 
-  if (isVercelRuntime() && !host) {
+  if (vercelRuntime && !host) {
     throw new Error(
       '[DB] Missing SUPABASE_DB_URL/DATABASE_URL/POSTGRES_URL (or PGHOST-based settings) in Vercel environment.'
     );

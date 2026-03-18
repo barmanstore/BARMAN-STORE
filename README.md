@@ -76,6 +76,12 @@ Supported by backend (`server/index.js`):
 - `POSTGRES_MIGRATIONS_DIR`
   - Default: `supabase/migrations`
   - Directory scanned for `.sql` migrations in Postgres mode
+- `POSTGRES_RUN_MIGRATIONS_ON_STARTUP`
+  - Default: `true` locally, `false` on Vercel/serverless
+  - Controls whether API cold starts apply SQL migrations before serving requests
+- `POSTGRES_RUN_BOOTSTRAP_ON_STARTUP`
+  - Default: `true` locally, `false` on Vercel/serverless
+  - Controls whether API cold starts run bootstrap/seed normalization before serving requests
 - `PG_SSL`
   - Default: `true` for Supabase connection strings
   - Enables TLS for Postgres connections
@@ -96,6 +102,7 @@ Notes:
 - Backend and DB helper scripts auto-load project env files (`.env`, `.env.local`, `.env.<NODE_ENV>`, `.env.<NODE_ENV>.local`).
 - Shell-defined environment variables still take priority over file values.
 - Secrets must never be committed. Keep real values only in deployment/runtime environment variables.
+- For Vercel/serverless, run `npm run db:supabase:migrate` as an explicit operational step when schema changes are deployed. Runtime startup now skips migrations/bootstrap by default to reduce cold-start timeouts.
 
 ## Scripts
 - `npm run dev` start Vite dev server

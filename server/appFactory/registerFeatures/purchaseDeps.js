@@ -32,6 +32,7 @@ const buildPurchaseDeps = ({ core, domain }) => {
     getPurchaseProductUomProfile: purchaseHelpers.getPurchaseProductUomProfile,
     handlePurchaseOperationsSummary: purchaseOperations.handlePurchaseOperationsSummary,
     isPoEditableLifecycle: purchaseHelpers.isPoEditableLifecycle,
+    isUniqueViolationError: core.constants.isUniqueViolationError,
     logStockLedgerAsync: purchaseHelpers.logStockLedgerAsync,
     normalizePoLifecycleStatus: purchaseHelpers.normalizePoLifecycleStatus,
     normalizePoPaymentStatus: purchaseHelpers.normalizePoPaymentStatus,

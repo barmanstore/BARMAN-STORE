@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { analyticsApi } from '../../../../services/api';
 
 const useProductsVitals = ({ productsTelemetryRef }) => {
   useEffect(() => {

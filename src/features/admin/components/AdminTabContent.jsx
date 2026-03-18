@@ -117,6 +117,7 @@ const AdminTabContent = ({
   usersSearchQuery,
   setUsersSearchQuery,
   filteredUsersCount,
+  handleAddUser,
   users,
   filteredUsers,
   adminUsers,

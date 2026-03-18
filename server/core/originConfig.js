@@ -3,14 +3,23 @@ const { normalizeOrigin } = require('./envUtils');
 const createOriginConfig = ({
   frontendOrigin = '',
   defaultAllowedOrigins = [],
+  vercelUrl = '',
 } = {}) => {
   const envAllowedOrigins = String(frontendOrigin || '')
     .split(',')
     .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
+  const vercelDeploymentOrigin = normalizeOrigin(
+    String(vercelUrl || '').trim()
+      ? `https://${String(vercelUrl || '').trim()}`
+      : ''
+  );
 
   const normalizedDefaults = (defaultAllowedOrigins || []).map((origin) => normalizeOrigin(origin)).filter(Boolean);
-  const allowedOrigins = new Set((envAllowedOrigins.length ? envAllowedOrigins : normalizedDefaults));
+  const allowedOrigins = new Set([
+    ...(envAllowedOrigins.length ? envAllowedOrigins : normalizedDefaults),
+    ...(vercelDeploymentOrigin ? [vercelDeploymentOrigin] : []),
+  ]);
   const defaultOnlineStoreUrl = envAllowedOrigins.find((origin) => origin.startsWith('https://'))
     || normalizedDefaults.find((origin) => origin.startsWith('https://'))
     || normalizedDefaults[0]

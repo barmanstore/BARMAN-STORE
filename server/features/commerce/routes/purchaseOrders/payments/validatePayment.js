@@ -33,8 +33,14 @@ const validatePurchaseOrderPayment = async ({
     Number(order.total_amount ?? order.total ?? 0),
     Number(order.paid_amount || 0)
   );
-  if (amount > totalSnapshotBefore.balanceDue) {
-    throw createInputError(400, 'Payment amount cannot exceed balance due');
+  const balanceDueCents = Math.round(Number(totalSnapshotBefore.balanceDue || 0) * 100);
+  const amountCents = Math.round(amount * 100);
+  if (amountCents > balanceDueCents) {
+    const balanceDueText = (balanceDueCents / 100).toFixed(2);
+    throw createInputError(
+      400,
+      `Payment amount cannot exceed balance due (${balanceDueText})`
+    );
   }
 
   return {

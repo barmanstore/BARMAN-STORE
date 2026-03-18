@@ -15,6 +15,10 @@ const PoPaymentModal = ({
 }) => {
   if (!showPoPaymentModal || !paymentOrder) return null;
 
+  const currentBalance = getPoBalanceDue(paymentOrder);
+  const currentBalanceValue = currentBalance > 0 ? currentBalance.toFixed(2) : '0.00';
+  const currentBalanceLabel = formatCurrency(currentBalance);
+
   if (isMobile) {
     return (
       <MobileBottomSheet
@@ -41,7 +45,7 @@ const PoPaymentModal = ({
             </div>
             <div className="form-group">
               <label htmlFor="po-payment-mobile-current-balance">Current Balance</label>
-              <input id="po-payment-mobile-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
+              <input id="po-payment-mobile-current-balance" type="text" value={currentBalanceLabel} readOnly />
             </div>
           </div>
           <div className="form-row">
@@ -53,11 +57,13 @@ const PoPaymentModal = ({
                 type="number"
                 step="0.01"
                 min="0.01"
+                max={currentBalanceValue}
                 value={poPaymentFormData.amount}
                 onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
                 required
                 autoComplete="off"
               />
+              <small>Max payable now: {currentBalanceLabel}</small>
             </div>
             <div className="form-group">
               <label htmlFor="po-payment-mobile-payment-mode">Payment Mode</label>
@@ -131,7 +137,7 @@ const PoPaymentModal = ({
             </div>
             <div className="form-group">
               <label htmlFor="po-payment-desktop-current-balance">Current Balance</label>
-              <input id="po-payment-desktop-current-balance" type="text" value={formatCurrency(getPoBalanceDue(paymentOrder))} readOnly />
+              <input id="po-payment-desktop-current-balance" type="text" value={currentBalanceLabel} readOnly />
             </div>
           </div>
           <div className="form-row">
@@ -143,11 +149,13 @@ const PoPaymentModal = ({
                 type="number"
                 step="0.01"
                 min="0.01"
+                max={currentBalanceValue}
                 value={poPaymentFormData.amount}
                 onChange={(e) => setPoPaymentFormData((prev) => ({ ...prev, amount: e.target.value }))}
                 required
                 autoComplete="off"
               />
+              <small>Max payable now: {currentBalanceLabel}</small>
             </div>
             <div className="form-group">
               <label htmlFor="po-payment-desktop-payment-mode">Payment Mode</label>

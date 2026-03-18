@@ -12,6 +12,7 @@ const createBootstrapConfig = ({
   const { corsOptions, defaultOnlineStoreUrl } = createOriginConfig({
     frontendOrigin: env.FRONTEND_ORIGIN,
     defaultAllowedOrigins,
+    vercelUrl: env.VERCEL_URL,
   });
 
   const serverConfig = createServerConfig({

@@ -118,6 +118,7 @@ const AdminView = ({
   usersSearchQuery,
   setUsersSearchQuery,
   filteredUsersCount,
+  handleAddUser,
   users,
   filteredUsers,
   adminUsers,
@@ -138,6 +139,7 @@ const AdminView = ({
   setEditingProduct,
   handleProductSave,
   showApproveModal,
+  setShowApproveModal,
   modalOrder,
   modalItems,
   modalLoading,
@@ -149,6 +151,7 @@ const AdminView = ({
   showCategoryManagement,
   setShowCategoryManagement,
   editingUser,
+  setEditingUser,
   setShowUserForm,
   setIsCreatingUser,
   handleUserSave,
@@ -283,6 +286,7 @@ const AdminView = ({
       usersSearchQuery={usersSearchQuery}
       setUsersSearchQuery={setUsersSearchQuery}
       filteredUsersCount={filteredUsersCount}
+      handleAddUser={handleAddUser}
       users={users}
       filteredUsers={filteredUsers}
       adminUsers={adminUsers}
