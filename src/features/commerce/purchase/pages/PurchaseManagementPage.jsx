@@ -2,8 +2,16 @@ import usePurchaseManagementController from '../hooks/usePurchaseManagementContr
 import PurchaseManagementPageLayout from '../components/PurchaseManagementPageLayout';
 import './PurchaseManagementPage.css';
 
-function PurchaseManagementPage({ user }) {
-  const pageProps = usePurchaseManagementController({ user });
+function PurchaseManagementPage({
+  user,
+  shortcutOpenOrderRequest = 0,
+  onShortcutOpenOrderHandled = null,
+}) {
+  const pageProps = usePurchaseManagementController({
+    user,
+    shortcutOpenOrderRequest,
+    onShortcutOpenOrderHandled,
+  });
   return <PurchaseManagementPageLayout {...pageProps} />;
 }
 

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Plus, Edit, Trash2, X, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
+import WindowModal from '../../../shared/components/window/WindowModal';
 
 const DistributorManagementView = ({
   loading,
@@ -149,16 +150,17 @@ const DistributorManagementView = ({
       </div>
 
       {showForm && (
-        <div className="modal-overlay" onClick={onCloseForm}>
-          <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingDistributor ? 'Edit Distributor' : 'Add New Distributor'}</h2>
-              <button className="close-btn" onClick={onCloseForm}>
-                <X size={24} />
-              </button>
-            </div>
-
-            <form onSubmit={onFormSubmit}>
+        <WindowModal
+          open
+          title={editingDistributor ? 'Edit Distributor' : 'Add New Distributor'}
+          onClose={onCloseForm}
+          dialogClassName="modal-content fade-in-up"
+          headerClassName="modal-header"
+          closeButtonClassName="close-btn"
+          themeClassName="distributor-management"
+          initialSize={{ width: 860, height: 760 }}
+        >
+          <form onSubmit={onFormSubmit}>
               <div className="form-section">
                 <h3 className="section-title">Basic Information</h3>
 
@@ -399,9 +401,8 @@ const DistributorManagementView = ({
                   {editingDistributor ? 'Update Distributor' : 'Add Distributor'}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
+          </form>
+        </WindowModal>
       )}
     </div>
   );

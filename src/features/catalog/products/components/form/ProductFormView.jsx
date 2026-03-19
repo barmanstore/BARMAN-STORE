@@ -1,5 +1,5 @@
-import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 import ProductFormActions from './ProductFormActions';
 import ProductFormBasicSection from './ProductFormBasicSection';
 import ProductFormBatchSection from './ProductFormBatchSection';
@@ -120,6 +120,7 @@ const ProductFormView = ({
         open
         title={formHeading}
         onClose={onClose}
+        dismissible={!loading}
         className={`product-form-sheet${isQuickMode ? ' product-form-sheet-compact' : ''}`}
       >
         {formContent}
@@ -128,17 +129,18 @@ const ProductFormView = ({
   }
 
   return (
-    <div className="product-form-overlay">
-      <div className={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}>
-        <div className="product-form-header">
-          <h2>{formHeading}</h2>
-          <button className="close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
-        </div>
-        {formContent}
-      </div>
-    </div>
+    <WindowModal
+      open
+      title={formHeading}
+      onClose={onClose}
+      dismissible={!loading}
+      dialogClassName={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}
+      headerClassName="product-form-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: isQuickMode ? 560 : 860, height: 760 }}
+    >
+      {formContent}
+    </WindowModal>
   );
 };
 

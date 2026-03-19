@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { distributorsApi } from '../../shared/services/api';
 import { validateAmountInput } from '../../shared/utils/amountExpression';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
-import useLockBodyScroll from '../../shared/hooks/useLockBodyScroll';
 import DistributorManagementView from './components/DistributorManagementView';
 import './DistributorManagement.css';
 
@@ -13,7 +12,6 @@ function DistributorManagement({ user }) {
   const [showForm, setShowForm] = useState(false);
   const [editingDistributor, setEditingDistributor] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  useLockBodyScroll(showForm);
 
   const [formData, setFormData] = useState({
     name: '',

@@ -1,5 +1,6 @@
 import { FileText, Upload } from 'lucide-react';
 import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
+import WindowModal from '../../../../shared/components/window/WindowModal';
 
 const CreditAddTransactionModal = ({
   showAddModal,
@@ -17,13 +18,18 @@ const CreditAddTransactionModal = ({
   if (!showAddModal) return null;
 
   return (
-    <div className="modal-overlay" onClick={closeAddModal}>
-      <div className="modal-content fade-in-up" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{addModalTitle}</h2>
-          <button className="close-btn" onClick={closeAddModal} disabled={addingTransaction}>x</button>
-        </div>
-        <form onSubmit={handleAddTransaction}>
+    <WindowModal
+      open
+      title={addModalTitle}
+      onClose={closeAddModal}
+      dismissible={!addingTransaction}
+      dialogClassName="modal-content fade-in-up"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      themeClassName="credit-history-page"
+      initialSize={{ width: 520, height: 660 }}
+    >
+      <form onSubmit={handleAddTransaction}>
           <div className="form-group">
             <label>Transaction Type</label>
             <select
@@ -117,9 +123,8 @@ const CreditAddTransactionModal = ({
               {addingTransaction ? 'Saving...' : `Save ${addModalActionLabel}`}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

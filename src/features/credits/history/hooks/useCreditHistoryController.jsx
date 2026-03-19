@@ -13,7 +13,6 @@ import {
   safeFileName,
 } from '../../../../shared/utils/pdfService';
 import { formatCurrency } from '../../../../shared/utils/formatters';
-import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import {
   applyCreditQuickFilters,
   getBalanceSummary,
@@ -130,8 +129,6 @@ const useCreditHistoryController = ({ user }) => {
     addTransactionLockRef,
     addTransactionRequestIdRef,
   } = state;
-
-  useLockBodyScroll(showAddModal || showInvoiceModal);
 
   const { fetchCreditData } = useCreditHistoryLoaders({
     creditApi,

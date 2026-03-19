@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { usersApi } from '../services/api';
 import useIsMobile from '../hooks/useIsMobile';
-import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import MobileBottomSheet from './mobile/MobileBottomSheet';
+import WindowModal from './window/WindowModal';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
 
@@ -20,7 +19,6 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
   const [success, setSuccess] = useState('');
   const [errors, setErrors] = useState({});
   const isMobile = useIsMobile();
-  useLockBodyScroll(!isMobile);
 
   useEffect(() => {
     if (user && !isCreate) {
@@ -229,6 +227,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
         open
         title={isCreate ? 'Add New Customer' : 'Update User Type'}
         onClose={onClose}
+        dismissible={!loading}
         className="user-edit-sheet"
       >
         {formContent}
@@ -237,17 +236,18 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
   }
 
   return (
-    <div className="user-edit-overlay">
-      <div className="user-edit-modal fade-in-up">
-        <div className="user-edit-header">
-          <h2>{isCreate ? 'Add New Customer' : 'Update User Type'}</h2>
-          <button className="close-btn" onClick={onClose} aria-label="Close">
-            <X size={24} />
-          </button>
-        </div>
-        {formContent}
-      </div>
-    </div>
+    <WindowModal
+      open
+      title={isCreate ? 'Add New Customer' : 'Update User Type'}
+      onClose={onClose}
+      dismissible={!loading}
+      dialogClassName="user-edit-modal fade-in-up"
+      headerClassName="user-edit-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 520, height: isCreate ? 620 : 520 }}
+    >
+      {formContent}
+    </WindowModal>
   );
 }
 

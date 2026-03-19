@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const LedgerEntryModal = ({
   isMobile,
@@ -21,6 +22,7 @@ const LedgerEntryModal = ({
         onClose={closeLedgerForm}
         title="Add Distributor Payment / Credit"
         className="purchase-ledger-sheet"
+        dismissible={!ledgerSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
@@ -132,15 +134,18 @@ const LedgerEntryModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={closeLedgerForm}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Add Distributor Payment / Credit</h2>
-          <button className="close-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
-            <X size={24} />
-          </button>
-        </div>
-        <form onSubmit={handleLedgerSubmit}>
+    <WindowModal
+      open
+      title="Add Distributor Payment / Credit"
+      onClose={closeLedgerForm}
+      dismissible={!ledgerSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 720, height: 560 }}
+    >
+      <form onSubmit={handleLedgerSubmit}>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="ledger-desktop-distributor">Distributor *</label>
@@ -242,9 +247,8 @@ const LedgerEntryModal = ({
               {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

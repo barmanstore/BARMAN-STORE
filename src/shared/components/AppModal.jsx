@@ -1,48 +1,54 @@
-import { useEffect } from 'react';
-import { X } from 'lucide-react';
-import useLockBodyScroll from '../hooks/useLockBodyScroll';
+import useIsMobile from '../hooks/useIsMobile';
+import MobileBottomSheet from './mobile/MobileBottomSheet';
+import WindowModal from './window/WindowModal';
 import './AppModal.css';
 
-function AppModal({ open, title, onClose, children, dialogClassName = '', contentClassName = '' }) {
-  useLockBodyScroll(open);
+function AppModal({
+  open,
+  title,
+  onClose,
+  children,
+  dialogClassName = '',
+  contentClassName = '',
+  dismissible = true,
+  closeOnBackdrop = true,
+  closeOnEscape = true,
+  initialSize = { width: 720, height: 480 },
+}) {
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && typeof onClose === 'function') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  if (isMobile) {
+    return (
+      <MobileBottomSheet
+        open={open}
+        title={title}
+        onClose={onClose}
+        dismissible={dismissible}
+        closeOnBackdrop={closeOnBackdrop}
+        closeOnEscape={closeOnEscape}
+        className={dialogClassName}
+      >
+        <div className={`app-modal-content ${contentClassName}`.trim()}>{children}</div>
+      </MobileBottomSheet>
+    );
+  }
 
   return (
-    <div
-      className="app-modal-overlay"
-      onClick={() => {
-        if (typeof onClose === 'function') onClose();
-      }}
-      role="presentation"
+    <WindowModal
+      open={open}
+      title={title}
+      onClose={onClose}
+      dismissible={dismissible}
+      closeOnBackdrop={closeOnBackdrop}
+      closeOnEscape={closeOnEscape}
+      dialogClassName={`app-modal-dialog ${dialogClassName}`.trim()}
+      headerClassName="app-modal-header"
+      contentClassName={`app-modal-content ${contentClassName}`.trim()}
+      closeButtonClassName="app-modal-close-btn"
+      initialSize={initialSize}
     >
-      <div
-        className={`app-modal-dialog ${dialogClassName}`.trim()}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title || 'Dialog'}
-      >
-        <div className="app-modal-header">
-          <h2>{title}</h2>
-          <button type="button" className="app-modal-close-btn" onClick={onClose} aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
-        <div className={`app-modal-content ${contentClassName}`.trim()}>{children}</div>
-      </div>
-    </div>
+      {children}
+    </WindowModal>
   );
 }
 

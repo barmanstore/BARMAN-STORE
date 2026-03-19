@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const PoPaymentModal = ({
   isMobile,
@@ -27,6 +28,7 @@ const PoPaymentModal = ({
         onClose={closePoPaymentModal}
         title="Add PO Payment"
         className="purchase-payment-sheet"
+        dismissible={!poPaymentSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
@@ -120,15 +122,18 @@ const PoPaymentModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={closePoPaymentModal}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Add PO Payment</h2>
-          <button className="close-btn" onClick={closePoPaymentModal}>
-            <X size={24} />
-          </button>
-        </div>
-        <form onSubmit={handlePoPaymentSubmit}>
+    <WindowModal
+      open
+      title="Add PO Payment"
+      onClose={closePoPaymentModal}
+      dismissible={!poPaymentSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 720, height: 560 }}
+    >
+      <form onSubmit={handlePoPaymentSubmit}>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="po-payment-desktop-po-number">PO Number</label>
@@ -212,9 +217,8 @@ const PoPaymentModal = ({
               {poPaymentSubmitting ? 'Saving...' : 'Save Payment'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

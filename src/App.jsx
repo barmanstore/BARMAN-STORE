@@ -2,6 +2,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import AppShell from './shared/components/AppShell';
+import { WindowManagerProvider } from './shared/components/window/WindowManagerProvider';
 import useLockBodyScroll from './shared/hooks/useLockBodyScroll';
 import { safeLocalStorageGet, safeLocalStorageRemove } from './shared/utils/storage';
 import { useNotificationsInbox } from './features/notifications/hooks/useNotificationsInbox';
@@ -130,6 +131,14 @@ function App() {
         setMobileMenuOpen(false);
         return;
       }
+      if (document.querySelector('[data-window-modal-root="true"]')) {
+        return;
+      }
+      const mobileSheets = Array.from(document.querySelectorAll('[data-mobile-sheet-open="true"]'));
+      const topMobileSheet = mobileSheets.length ? mobileSheets[mobileSheets.length - 1] : null;
+      if (topMobileSheet?.getAttribute('data-close-on-escape') === 'false') {
+        return;
+      }
       const closer = findTopMostCloseControl();
       if (closer) {
         event.preventDefault();
@@ -166,31 +175,33 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <BrowserRouter
-        basename={routerBasename}
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        <AppShell
-          headerRef={headerRef}
-          mobileMenuOpen={mobileMenuOpen}
-          onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
-          onCloseMobileMenu={closeMobileMenu}
-          logoImage={logoImage}
-          cartCount={cartCount}
-          user={user}
-          setUser={setUser}
-          isAdminUser={isAdminUser}
-          notificationProps={notificationProps}
-          callHref={callHref}
-          whatsappHref={whatsappHref}
-          publicFileUrl={getPublicFileUrl}
-          setCartCount={setCartCount}
-          routesElement={routesElement}
-        />
-    </BrowserRouter>
+      <WindowManagerProvider>
+        <BrowserRouter
+          basename={routerBasename}
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <AppShell
+            headerRef={headerRef}
+            mobileMenuOpen={mobileMenuOpen}
+            onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
+            onCloseMobileMenu={closeMobileMenu}
+            logoImage={logoImage}
+            cartCount={cartCount}
+            user={user}
+            setUser={setUser}
+            isAdminUser={isAdminUser}
+            notificationProps={notificationProps}
+            callHref={callHref}
+            whatsappHref={whatsappHref}
+            publicFileUrl={getPublicFileUrl}
+            setCartCount={setCartCount}
+            routesElement={routesElement}
+          />
+        </BrowserRouter>
+      </WindowManagerProvider>
     </ErrorBoundary>
   );
 }

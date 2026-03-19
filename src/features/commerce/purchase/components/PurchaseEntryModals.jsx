@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
-import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
+import WindowModal from '../../../../shared/components/window/WindowModal';
 import { getPurchaseDraftDiagnostics } from '../utils/orderDraftValidation';
 import { resolveProductByInput } from '../utils/productSearch';
 
@@ -40,7 +40,6 @@ export function PurchaseOrderFormModal({
   getProductSearchOptionLabel,
   orderSubmitting,
 }) {
-  useLockBodyScroll(open);
   const [mobileStep, setMobileStep] = useState(0);
 
   useEffect(() => {
@@ -102,31 +101,39 @@ export function PurchaseOrderFormModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={closeOrderForm}>
+    <WindowModal
+      open={open}
+      title={editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order'}
+      subtitle="Quick entry first. Expand only when rate, GST, or discount details are needed."
+      onClose={closeOrderForm}
+      dismissible={!orderSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content large po-form-modal po-entry-view-modal"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      headerActions={(
+        <div className="po-modal-header-actions">
+          <button
+            type="button"
+            className="po-header-product-btn"
+            onClick={() => handleOpenProductForm()}
+          >
+            <Plus size={16} /> Add New Product
+          </button>
+        </div>
+      )}
+      initialSize={{ width: Math.min(poModalSize.width, 1080), height: 820 }}
+      minWidth={720}
+      minHeight={520}
+      minimizable={!isMobile}
+      maximizable={!isMobile}
+      draggable={!isMobile}
+      resizable={!isMobile}
+    >
       <div
         ref={poModalRef}
-        className="modal-content large po-form-modal po-entry-view-modal"
-        onClick={(event) => event.stopPropagation()}
-        style={isMobile ? undefined : { width: `${Math.min(poModalSize.width, 1080)}px` }}
+        style={isMobile ? undefined : { width: '100%', height: '100%' }}
       >
-        <div className="modal-header">
-          <div>
-            <h2>{editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order'}</h2>
-            <p className="po-entry-modal-subtitle">Quick entry first. Expand only when rate, GST, or discount details are needed.</p>
-          </div>
-          <div className="po-modal-header-actions">
-            <button
-              type="button"
-              className="po-header-product-btn"
-              onClick={() => handleOpenProductForm()}
-            >
-              <Plus size={16} /> Add New Product
-            </button>
-            <button className="close-btn" onClick={closeOrderForm}>
-              <X size={24} />
-            </button>
-          </div>
-        </div>
 
         {isMobile ? (
           <div className="po-mobile-stepper" role="tablist" aria-label="Purchase order steps">
@@ -483,18 +490,8 @@ export function PurchaseOrderFormModal({
             </div>
           ) : null}
         </form>
-
-        {!isMobile && (
-          <button
-            type="button"
-            className="po-modal-resize-handle"
-            onMouseDown={handlePoModalResizeStart}
-            aria-label="Resize purchase order form"
-            title="Drag to resize"
-          />
-        )}
       </div>
-    </div>
+    </WindowModal>
   );
 }
 

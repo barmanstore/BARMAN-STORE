@@ -26,6 +26,10 @@ const AdminPageLayout = ({
   setDashboardDensity,
   isMobile,
   stats,
+  billingShortcutRequest,
+  setBillingShortcutRequest,
+  purchaseShortcutRequest,
+  setPurchaseShortcutRequest,
   activeProductsCount,
   inactiveProductsCount,
   lowStockProducts,
@@ -318,6 +322,10 @@ const AdminPageLayout = ({
       handleDeleteUser={handleDeleteUser}
       billingPrefill={billingPrefill}
       setBillingPrefill={setBillingPrefill}
+      billingShortcutRequest={billingShortcutRequest}
+      onBillingShortcutHandled={() => setBillingShortcutRequest(0)}
+      purchaseShortcutRequest={purchaseShortcutRequest}
+      onPurchaseShortcutHandled={() => setPurchaseShortcutRequest(0)}
       user={user}
     />
   );

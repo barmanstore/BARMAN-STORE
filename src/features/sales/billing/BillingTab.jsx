@@ -39,7 +39,12 @@ const mergeCustomersById = (currentList = [], nextList = []) => {
   return Array.from(byId.values());
 };
 
-const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
+const BillingSystem = ({
+  initialPrefill = null,
+  onPrefillApplied = null,
+  shortcutFocusRequest = 0,
+  onShortcutFocusHandled = null,
+}) => {
   const isMobile = useIsMobile();
   const [customer, setCustomer] = useState({ id: null, name: '', email: '', phone: '', address: '' });
   const [items, setItems] = useState([createEmptyItem()]);
@@ -345,6 +350,22 @@ const BillingSystem = ({ initialPrefill = null, onPrefillApplied = null }) => {
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [loading, showCustomerCreateModal]);
+
+  useEffect(() => {
+    if (!shortcutFocusRequest || loading || showCustomerCreateModal) return undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      productSearchInputRef.current?.focus();
+      if (typeof onShortcutFocusHandled === 'function') {
+        onShortcutFocusHandled();
+      }
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [
+    loading,
+    onShortcutFocusHandled,
+    shortcutFocusRequest,
+    showCustomerCreateModal,
+  ]);
 
   const resolveQuickAddProductMatch = useCallback(() => {
     const query = String(productSearchQuery || '').trim().toLowerCase();

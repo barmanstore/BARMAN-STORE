@@ -1,5 +1,6 @@
-import { Printer, X } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import SignedCurrency from '../../../../shared/components/SignedCurrency';
+import WindowModal from '../../../../shared/components/window/WindowModal';
 
 const CreditInvoiceModal = ({
   showInvoiceModal,
@@ -13,16 +14,14 @@ const CreditInvoiceModal = ({
   if (!showInvoiceModal || !selectedTransaction) return null;
 
   return (
-    <div className="modal-overlay invoice-modal-overlay" onClick={() => setShowInvoiceModal(false)}>
-      <div className="invoice-template fade-in-up" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          className="invoice-close-btn"
-          onClick={() => setShowInvoiceModal(false)}
-          aria-label="Close invoice"
-        >
-          <X size={20} />
-        </button>
+    <WindowModal
+      open
+      title={`Invoice ${selectedTransaction.invoice_number || ''}`.trim()}
+      onClose={() => setShowInvoiceModal(false)}
+      dialogClassName="invoice-template fade-in-up"
+      themeClassName="credit-history-page"
+      initialSize={{ width: 920, height: 820 }}
+    >
         <div className="invoice-header">
           <h1>INVOICE</h1>
           <div className="company-details">
@@ -92,8 +91,7 @@ const CreditInvoiceModal = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </WindowModal>
   );
 };
 

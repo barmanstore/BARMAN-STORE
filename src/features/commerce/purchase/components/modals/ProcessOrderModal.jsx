@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const ProcessOrderModal = ({
   isMobile,
@@ -23,6 +24,7 @@ const ProcessOrderModal = ({
         onClose={closeProcessModal}
         title="Confirm Purchase Order"
         className="purchase-process-sheet"
+        dismissible={!processSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
@@ -132,15 +134,18 @@ const ProcessOrderModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={closeProcessModal}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Confirm Purchase Order</h2>
-          <button className="close-btn" onClick={closeProcessModal}>
-            <X size={24} />
-          </button>
-        </div>
-        <form onSubmit={handleProcessSubmit}>
+    <WindowModal
+      open
+      title="Confirm Purchase Order"
+      onClose={closeProcessModal}
+      dismissible={!processSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 760, height: 560 }}
+    >
+      <form onSubmit={handleProcessSubmit}>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="process-desktop-po-number">PO Number</label>
@@ -240,9 +245,8 @@ const ProcessOrderModal = ({
               {processSubmitting ? 'Confirming...' : 'Confirm PO'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

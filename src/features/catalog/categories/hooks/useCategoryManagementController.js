@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { categoriesApi } from '../../../../shared/services/api';
-import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import useCategoryManagementComputed from './useCategoryManagementComputed';
 import useCategoryManagementProducts from './useCategoryManagementProducts';
 
@@ -10,7 +9,6 @@ const toNumericId = (value) => {
 };
 
 const useCategoryManagementController = ({ onClose }) => {
-  useLockBodyScroll(true);
   const [categories, setCategories] = useState([]);
   const [categoryTree, setCategoryTree] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,5 @@
 import { Plus, Printer, X } from 'lucide-react';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const OrderDetailModal = ({
   showOrderDetail,
@@ -44,14 +45,19 @@ const OrderDetailModal = ({
   if (!showOrderDetail) return null;
 
   return (
-    <div className="modal-overlay" onClick={closeOrderDetail}>
-      <div className="modal-content large po-detail-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Purchase Order: {orderDetail?.po_number || '-'}</h2>
-          <button className="close-btn" onClick={closeOrderDetail}>
-            <X size={24} />
-          </button>
-        </div>
+    <WindowModal
+      open
+      title={`Purchase Order: ${orderDetail?.po_number || '-'}`}
+      onClose={closeOrderDetail}
+      dismissible={!orderDetailSaving}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content large po-detail-modal"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 1180, height: 820 }}
+      minWidth={760}
+      minHeight={520}
+    >
         {orderDetailLoading || !orderDetail ? (
           <div className="order-detail-body">
             <div className="loading">Loading purchase order details...</div>
@@ -422,8 +428,7 @@ const OrderDetailModal = ({
             Close
           </button>
         </div>
-      </div>
-    </div>
+    </WindowModal>
   );
 };
 

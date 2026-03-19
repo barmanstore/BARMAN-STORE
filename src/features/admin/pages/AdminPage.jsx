@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { statsApi, productsApi, ordersApi, usersApi, adminApi, billingApi, resolveMediaUrl } from '../api/index.js';
 import { getProductImageSrc, getProductFallbackImage } from '../../../shared/utils/productImage';
@@ -27,6 +27,25 @@ import useAdminEffects from '../hooks/useAdminEffects';
 import AdminPageLayout from '../components/AdminPageLayout';
 import './AdminPage.css';
 import './AdminStandard.css';
+
+const SHORTCUT_EDITABLE_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable="true"]',
+  '[contenteditable=""]',
+  '[role="textbox"]',
+].join(', ');
+
+const isShortcutEditableTarget = (target) => {
+  if (typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(SHORTCUT_EDITABLE_SELECTOR));
+};
+
+const hasActiveModalDialog = () => {
+  if (typeof document === 'undefined') return false;
+  return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
+};
 
 
 function AdminPage({ user }) {
@@ -178,6 +197,8 @@ function AdminPage({ user }) {
     PRODUCT_TABLE_ALL_COLUMN_KEYS,
     SIDEBAR_SECTIONS,
   });
+  const [billingShortcutRequest, setBillingShortcutRequest] = useState(0);
+  const [purchaseShortcutRequest, setPurchaseShortcutRequest] = useState(0);
 
   const showNotification = useCallback((message, type) => {
     setNotification({ message, type });
@@ -246,6 +267,34 @@ function AdminPage({ user }) {
   });
 
   useLockBodyScroll(isMobileSidebarOpen);
+
+  useEffect(() => {
+    if (isMobile) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (isShortcutEditableTarget(event.target)) return;
+      if (hasActiveModalDialog()) return;
+
+      const key = String(event.key || '').toLowerCase();
+      if (key === 'b') {
+        event.preventDefault();
+        handleTabChange('billing');
+        setBillingShortcutRequest((current) => current + 1);
+        return;
+      }
+
+      if (key === 'p') {
+        event.preventDefault();
+        handleTabChange('purchases');
+        setPurchaseShortcutRequest((current) => current + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleTabChange, isMobile]);
 
   useAdminEffects({
     user,
@@ -477,6 +526,8 @@ function AdminPage({ user }) {
       user, loading, notification, closeNotification, isMobileSidebarOpen, setIsMobileSidebarOpen,
       desktopPanelCollapsed, setDesktopPanelCollapsed, dashboardDensity, setDashboardDensity,
       isMobile, stats, visitorStats, userDirectorySummary,
+      billingShortcutRequest, setBillingShortcutRequest,
+      purchaseShortcutRequest, setPurchaseShortcutRequest,
     },
     navigation: {
       SIDEBAR_SECTIONS, desktopActiveGroup, handleDesktopGroupSelect, desktopCurrentSection,

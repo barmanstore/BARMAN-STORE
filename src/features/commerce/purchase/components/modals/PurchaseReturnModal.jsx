@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const PurchaseReturnModal = ({
   isMobile,
@@ -31,6 +32,7 @@ const PurchaseReturnModal = ({
         onClose={closeReturnForm}
         title="Create Purchase Return / Exchange"
         className="purchase-return-sheet"
+        dismissible={!returnSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
@@ -188,15 +190,20 @@ const PurchaseReturnModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={closeReturnForm}>
-      <div className="modal-content large" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Create Purchase Return / Exchange</h2>
-          <button className="close-btn" onClick={closeReturnForm} disabled={returnSubmitting}>
-            <X size={24} />
-          </button>
-        </div>
-        <form onSubmit={handleReturnSubmit}>
+    <WindowModal
+      open
+      title="Create Purchase Return / Exchange"
+      onClose={closeReturnForm}
+      dismissible={!returnSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content large"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 980, height: 760 }}
+      minWidth={720}
+      minHeight={460}
+    >
+      <form onSubmit={handleReturnSubmit}>
           <div className="form-section">
             <div className="form-row">
               <div className="form-group">
@@ -345,9 +352,8 @@ const PurchaseReturnModal = ({
               {returnSubmitting ? 'Saving...' : 'Create Return'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

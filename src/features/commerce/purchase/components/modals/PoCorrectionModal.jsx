@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const PoCorrectionModal = ({
   isMobile,
@@ -24,6 +25,7 @@ const PoCorrectionModal = ({
         onClose={closePoCorrectionForm}
         title="Correct PO Ledger Impact"
         className="purchase-correction-sheet"
+        dismissible={!poCorrectionSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={closePoCorrectionForm} disabled={poCorrectionSubmitting}>
@@ -150,15 +152,18 @@ const PoCorrectionModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={closePoCorrectionForm}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Correct PO Ledger Impact</h2>
-          <button className="close-btn" onClick={closePoCorrectionForm}>
-            <X size={24} />
-          </button>
-        </div>
-        <form onSubmit={handlePoCorrectionSubmit}>
+    <WindowModal
+      open
+      title="Correct PO Ledger Impact"
+      onClose={closePoCorrectionForm}
+      dismissible={!poCorrectionSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 820, height: 660 }}
+    >
+      <form onSubmit={handlePoCorrectionSubmit}>
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="po-correction-desktop-po-number">PO Number</label>
@@ -275,9 +280,8 @@ const PoCorrectionModal = ({
               {poCorrectionSubmitting ? 'Posting...' : 'Post Correction'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

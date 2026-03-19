@@ -6,7 +6,6 @@ import { formatCurrency, formatDate } from '../../../../shared/utils/formatters'
 import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../../shared/utils/dateTime';
 import { getLedgerTypeLabel, toNumber } from '../../../../shared/utils/ledger';
 import useIsMobile from '../../../../shared/hooks/useIsMobile';
-import useLockBodyScroll from '../../../../shared/hooks/useLockBodyScroll';
 import useOrderDetailComputed from './useOrderDetailComputed';
 import usePurchaseCalculations from './usePurchaseCalculations';
 import usePoModalSizing from './usePoModalSizing';
@@ -76,7 +75,11 @@ import buildPurchaseManagementPageProps from '../utils/buildPurchaseManagementPa
 const LOCAL_LEDGER_KEY = 'purchase_distributor_ledger_local_entries';
 const PO_MODAL_SIZE_KEY = 'po_entry_modal_size_v1';
 
-const usePurchaseManagementController = ({ user }) => {
+const usePurchaseManagementController = ({
+  user,
+  shortcutOpenOrderRequest = 0,
+  onShortcutOpenOrderHandled = null,
+}) => {
   const isMobile = useIsMobile();
   const getDefaultOrderFormData = createDefaultOrderFormData;
   const getDefaultProcessFormData = createDefaultProcessFormData;
@@ -162,17 +165,6 @@ const usePurchaseManagementController = ({ user }) => {
     storageKey: PO_MODAL_SIZE_KEY,
     toNumber,
   });
-  useLockBodyScroll(
-    showOrderForm
-    || showPoProductForm
-    || showReceiveModal
-    || showReturnForm
-    || showLedgerForm
-    || showPoCorrectionForm
-    || showProcessModal
-    || showPoPaymentModal
-    || showOrderDetail
-  );
 
   useEffect(() => {
     if (!success) return undefined;
@@ -363,6 +355,20 @@ const usePurchaseManagementController = ({ user }) => {
     escapeHtml,
     printHtmlDocument,
   });
+
+  useEffect(() => {
+    if (!shortcutOpenOrderRequest) return;
+    setActiveSubTab('orders');
+    openCreateOrderForm();
+    if (typeof onShortcutOpenOrderHandled === 'function') {
+      onShortcutOpenOrderHandled();
+    }
+  }, [
+    onShortcutOpenOrderHandled,
+    openCreateOrderForm,
+    setActiveSubTab,
+    shortcutOpenOrderRequest,
+  ]);
 
   function toDateInputValue(value) {
     if (!value) return '';

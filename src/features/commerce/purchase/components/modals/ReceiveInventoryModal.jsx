@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
+import WindowModal from '../../../../../shared/components/window/WindowModal';
 
 const ReceiveInventoryModal = ({
   isMobile,
@@ -24,6 +25,7 @@ const ReceiveInventoryModal = ({
         onClose={() => setShowReceiveModal(false)}
         title={`Receive Inventory - ${selectedOrder.po_number}`}
         className="purchase-receive-sheet"
+        dismissible={!receiveSubmitting}
         actions={(
           <>
             <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
@@ -111,15 +113,20 @@ const ReceiveInventoryModal = ({
   }
 
   return (
-    <div className="modal-overlay" onClick={() => !receiveSubmitting && setShowReceiveModal(false)}>
-      <div className="modal-content large" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>Receive Inventory - {selectedOrder.po_number}</h2>
-          <button className="close-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
-            <X size={24} />
-          </button>
-        </div>
-        <form id="receive-inventory-form" onSubmit={handleReceiveSubmit}>
+    <WindowModal
+      open
+      title={`Receive Inventory - ${selectedOrder.po_number}`}
+      onClose={() => setShowReceiveModal(false)}
+      dismissible={!receiveSubmitting}
+      themeClassName="purchase-management"
+      dialogClassName="modal-content large"
+      headerClassName="modal-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 980, height: 760 }}
+      minWidth={700}
+      minHeight={420}
+    >
+      <form id="receive-inventory-form" onSubmit={handleReceiveSubmit}>
           <div className="form-section">
             <div className="form-group">
               <label htmlFor="receive-desktop-invoice-number">Invoice Number</label>
@@ -187,9 +194,8 @@ const ReceiveInventoryModal = ({
               {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </WindowModal>
   );
 };
 

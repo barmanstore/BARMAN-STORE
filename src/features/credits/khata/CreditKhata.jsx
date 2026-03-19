@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { createClientRequestId, creditApi, usersApi } from '../../../shared/services/api';
 import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 import { getTodayDate } from '../../../shared/utils/dateTime';
 import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
-import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
+import WindowModal from '../../../shared/components/window/WindowModal';
 import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
 import './CreditKhata.css';
 
@@ -36,7 +36,6 @@ function CreditKhata({ user }) {
   const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
   const ledgerSubmitLockRef = useRef(false);
   const ledgerRequestIdRef = useRef('');
-  useLockBodyScroll(showLedgerForm);
 
   const usersById = useMemo(() => {
     const map = {};
@@ -322,14 +321,16 @@ function CreditKhata({ user }) {
       </div>
 
       {showLedgerForm && (
-        <div className="modal-overlay" onClick={closeLedgerForm}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>{editingLedgerEntryId ? 'Edit Latest Customer Transaction' : 'Add Customer Payment / Credit'}</h2>
-              <button className="close-btn" onClick={closeLedgerForm}>
-                <X size={24} />
-              </button>
-            </div>
+        <WindowModal
+          open
+          title={editingLedgerEntryId ? 'Edit Latest Customer Transaction' : 'Add Customer Payment / Credit'}
+          onClose={closeLedgerForm}
+          dismissible={!ledgerSubmitting}
+          dialogClassName="modal-content"
+          themeClassName="credit-khata"
+          contentClassName="window-modal-body-padded"
+          initialSize={{ width: 640, height: 560 }}
+        >
             <form onSubmit={handleLedgerSubmit}>
               <div className="form-row">
                 <div className="form-group">
@@ -421,8 +422,7 @@ function CreditKhata({ user }) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </WindowModal>
       )}
     </div>
   );

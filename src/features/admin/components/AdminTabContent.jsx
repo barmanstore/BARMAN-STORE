@@ -140,6 +140,10 @@ const AdminTabContent = ({
   handleDeleteUser,
   billingPrefill,
   setBillingPrefill,
+  billingShortcutRequest,
+  onBillingShortcutHandled,
+  purchaseShortcutRequest,
+  onPurchaseShortcutHandled,
   user,
 }) => (
   <>
@@ -299,6 +303,8 @@ const AdminTabContent = ({
       <BillingTab
         initialPrefill={billingPrefill}
         onPrefillApplied={() => setBillingPrefill(null)}
+        shortcutFocusRequest={billingShortcutRequest}
+        onShortcutFocusHandled={onBillingShortcutHandled}
       />
     )}
     {activeTab === 'view-bills' && <BillsViewer user={user} />}
@@ -308,7 +314,11 @@ const AdminTabContent = ({
     )}
 
     {activeTab === 'purchases' && (
-      <PurchaseManagementPage user={user} />
+      <PurchaseManagementPage
+        user={user}
+        shortcutOpenOrderRequest={purchaseShortcutRequest}
+        onShortcutOpenOrderHandled={onPurchaseShortcutHandled}
+      />
     )}
 
     {activeTab === 'stock-ledger' && (

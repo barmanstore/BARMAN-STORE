@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { productsApi, categoriesApi } from '../../api/index.js';
 import useIsMobile from '../../../../../shared/hooks/useIsMobile';
-import useLockBodyScroll from '../../../../../shared/hooks/useLockBodyScroll';
 import {
   splitCommaValues,
   joinCommaValues,
@@ -31,7 +30,6 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
   const [isContentAutoFromPrice, setIsContentAutoFromPrice] = useState(false);
   const [isStockAutoFromPrice, setIsStockAutoFromPrice] = useState(false);
   const isMobile = useIsMobile();
-  useLockBodyScroll(!isMobile);
   const [showAdvancedFields, setShowAdvancedFields] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.innerWidth > 768;
