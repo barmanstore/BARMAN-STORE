@@ -5,6 +5,21 @@ const {
   toPurchaseBaseQty,
 } = require('./productUomProfile');
 
+const RATE_CONFIRMATION_THRESHOLD_PERCENT = 25;
+const UNUSUAL_DISCOUNT_THRESHOLD_PERCENT = 20;
+
+const toPositiveNumber = (value) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
+};
+
+const toBooleanFlag = (value) => {
+  if (value === true || value === false) return value;
+  if (typeof value === 'number') return value === 1;
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
 const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationError } = {}) => {
   const normalizePurchaseOrderItems = async (rawItems = []) => {
     const items = Array.isArray(rawItems) ? rawItems : [];
@@ -18,7 +33,7 @@ const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationErro
       const productId = Number(it.product_id || 0) || 0;
       if (productId && !productCache.has(productId)) {
         const product = await dbGetAsync(
-          `SELECT id, name, uom, base_unit, conversion_factor FROM products WHERE id = ?`,
+          `SELECT id, name, uom, base_unit, conversion_factor, price FROM products WHERE id = ?`,
           [productId]
         );
         productCache.set(productId, product || null);
@@ -56,6 +71,10 @@ const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationErro
       const quantityBase = product ? toPurchaseBaseQty(quantity, normalizedUom, product) : quantity;
       const rate = Math.max(0, Number(it.rate ?? it.unit_price ?? 0));
       const gross = quantityBase * rate;
+      const referenceRate = toPositiveNumber(it.reference_rate || product?.price);
+      const referenceSource = String(it.reference_rate_source || (referenceRate > 0 ? 'reference rate' : '')).trim();
+      const rateAcknowledged = toBooleanFlag(it.rate_warning_acknowledged);
+      const discountAcknowledged = toBooleanFlag(it.discount_warning_acknowledged);
       const discountType = String(it.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
       const discountValue = Math.max(0, Number(it.discount_value || 0));
       const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
@@ -64,10 +83,46 @@ const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationErro
       const gstRate = Math.max(0, Number(it.gst_rate || 0));
       const taxAmount = (taxableValue * gstRate) / 100;
       const lineTotal = taxableValue + taxAmount;
+      const rateDeltaPercent = referenceRate > 0 && rate > 0
+        ? (Math.abs(rate - referenceRate) / referenceRate) * 100
+        : 0;
+      const rateDirection = rate > referenceRate ? 'higher' : 'cheaper';
+      const netUnitCost = quantityBase > 0 ? taxableValue / quantityBase : 0;
+      const netCostDropPercent = referenceRate > 0 && netUnitCost > 0 && netUnitCost < referenceRate
+        ? ((referenceRate - netUnitCost) / referenceRate) * 100
+        : 0;
+      const discountPercent = gross > 0 ? (discountAmountRaw / gross) * 100 : 0;
       const unitPriceBeforeDiscount = quantity > 0 ? (gross / quantity) : rate;
       const unitDiscountAmount = quantity > 0 ? (discountAmount / quantity) : 0;
       const unitTaxAmount = quantity > 0 ? (taxAmount / quantity) : 0;
       const unitCostInclTax = quantity > 0 ? (lineTotal / quantity) : 0;
+
+      if (referenceRate > 0 && rateDeltaPercent >= RATE_CONFIRMATION_THRESHOLD_PERCENT && !rateAcknowledged) {
+        itemErrors.push(
+          `Item ${rowNo}: rate is ${rateDeltaPercent.toFixed(1)}% ${rateDirection} than ${referenceSource || 'reference'} (${referenceRate.toFixed(2)}). Confirm this unusual rate before saving.`
+        );
+        continue;
+      }
+
+      if (gross > 0 && discountAmountRaw >= gross) {
+        itemErrors.push(`Item ${rowNo}: discount reaches or exceeds the base amount. Clear or reduce it before saving.`);
+        continue;
+      }
+
+      const discountNeedsConfirmation = (
+        discountAmount > 0 && (
+          discountPercent > UNUSUAL_DISCOUNT_THRESHOLD_PERCENT
+          || netCostDropPercent >= RATE_CONFIRMATION_THRESHOLD_PERCENT
+        )
+      );
+      if (discountNeedsConfirmation && !discountAcknowledged) {
+        itemErrors.push(
+          netCostDropPercent >= RATE_CONFIRMATION_THRESHOLD_PERCENT
+            ? `Item ${rowNo}: net unit cost is ${netCostDropPercent.toFixed(1)}% cheaper than ${referenceSource || 'reference'} after discount. Confirm this discount before saving.`
+            : `Item ${rowNo}: discount is ${discountPercent.toFixed(1)}% of the base amount. Confirm this discount before saving.`
+        );
+        continue;
+      }
 
       normalizedItems.push({
         ...it,

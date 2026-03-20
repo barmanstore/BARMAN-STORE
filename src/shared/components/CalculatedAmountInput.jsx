@@ -30,13 +30,19 @@ function CalculatedAmountInput({
   const describedBy = showFeedback ? `${id}-calculated-feedback` : undefined;
 
   return (
-    <div className={['calculated-amount-input', className].filter(Boolean).join(' ')}>
+    <div
+      className={[
+        'calculated-amount-input',
+        showFeedback && !evaluation.valid ? 'has-error' : '',
+        className,
+      ].filter(Boolean).join(' ')}
+    >
       <input
         id={id}
         name={name}
         type="text"
         inputMode="text"
-        pattern="[0-9+\\-*/().,\\s]*"
+        pattern="[-+*/()., 0-9]*"
         value={value ?? ''}
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}

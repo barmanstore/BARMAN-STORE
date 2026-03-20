@@ -1,16 +1,19 @@
 import { useCallback } from 'react';
 
-const mergeProductsById = (currentList = [], nextList = []) => {
-  const byId = new Map();
-  currentList.forEach((product) => {
+const PRODUCT_CACHE_LIMIT = 160;
+
+const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_CACHE_LIMIT) => {
+  const merged = [];
+  const seen = new Set();
+
+  [...nextList, ...currentList].forEach((product) => {
     const id = Number(product?.id || 0);
-    if (id > 0) byId.set(id, product);
+    if (id <= 0 || seen.has(id)) return;
+    seen.add(id);
+    merged.push(product);
   });
-  nextList.forEach((product) => {
-    const id = Number(product?.id || 0);
-    if (id > 0) byId.set(id, product);
-  });
-  return Array.from(byId.values());
+
+  return merged.slice(0, maxItems);
 };
 
 const findCustomerByName = (list = [], customerName = '') => {
@@ -62,6 +65,7 @@ const useBillingCreateBill = ({
   setPrefillSummary,
   setLinkedOrderId,
   setFulfillmentMode,
+  setSelectedPaymentMethod,
   setCustomer,
   setItems,
   setPaidAmount,
@@ -69,8 +73,8 @@ const useBillingCreateBill = ({
   resolveLineUnitForProduct,
   toPricingQtyFromProduct,
   buildBillShareText,
-  createEmptyItem,
   info,
+  onResetEntry,
 }) => {
   const handleCreateBill = useCallback(async () => {
     const paid = paidClamped;
@@ -93,19 +97,21 @@ const useBillingCreateBill = ({
       items: items
         .filter((it) => it.name && Number(it.amount) > 0)
         .map((it) => {
+          const itemType = String(it?.type || '').trim().toLowerCase() === 'custom' || Boolean(it?.isCustom)
+            ? 'custom'
+            : 'inventory';
           const product = getProductForLine(it);
           const pricingQty = toPricingQtyFromProduct(it.qty, it.unit, product);
           const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
           return {
+            item_type: itemType,
+            is_custom: itemType === 'custom',
             product_id: it.productId || null,
             product_name: it.name,
             mrp: Number(it.price) || 0,
             qty: Number(it.qty) || 0,
             ...(normalizedUnit ? { unit: normalizedUnit } : {}),
-            discount:
-              it.discType === 'percentage'
-                ? (Number(it.price) || 0) * pricingQty * (Math.min(100, Math.max(0, Number(it.disc) || 0)) / 100)
-                : Number(it.disc) || 0,
+            discount: Number(it.disc) || 0,
             amount: Number(it.amount) || 0
           };
         })
@@ -137,6 +143,11 @@ const useBillingCreateBill = ({
 
         const productUpdates = [];
         itemsWithProducts = payload.items.map((it) => {
+          if (String(it?.item_type || '').trim().toLowerCase() === 'custom' || it?.is_custom) {
+            it.product_id = null;
+            return it;
+          }
+
           const cachedProduct = findProductByItem(productsList, it);
           if (cachedProduct) {
             it.product_id = cachedProduct.id;
@@ -144,7 +155,11 @@ const useBillingCreateBill = ({
           }
 
           productUpdates.push((async () => {
-            const productSearchResults = await billingApi.searchProducts(String(it.product_name || '').trim());
+            const productSearchResults = await billingApi.searchProducts(
+              String(it.product_name || '').trim(),
+              undefined,
+              { limit: 8 }
+            );
             const matchedProduct = findProductByItem(productSearchResults, it);
             if (matchedProduct?.id) {
               it.product_id = matchedProduct.id;
@@ -184,11 +199,6 @@ const useBillingCreateBill = ({
             resolvedCustomerRecord = matchedCustomer;
           }
         }
-      }
-
-      if (!isOrderLinked && !resolvedCustomerId) {
-        alert('Please select an existing customer or click "Add Customer".');
-        return;
       }
 
       const resolvedCustomer =
@@ -237,9 +247,13 @@ const useBillingCreateBill = ({
         setFulfillmentMode('available_now');
       }
       alert('Bill created successfully.');
+      setSelectedPaymentMethod('cash');
       setCustomer({ id: null, name: '', email: '', phone: '', address: '' });
-      setItems([createEmptyItem()]);
+      setItems([]);
       setPaidAmount(0);
+      if (typeof onResetEntry === 'function') {
+        onResetEntry();
+      }
     } catch (err) {
       console.error('Error creating bill:', err);
       alert(`Failed to create bill: ${err.message || 'Unknown error'}`);
@@ -270,6 +284,7 @@ const useBillingCreateBill = ({
     setPrefillSummary,
     setLinkedOrderId,
     setFulfillmentMode,
+    setSelectedPaymentMethod,
     setCustomer,
     setItems,
     setPaidAmount,
@@ -277,8 +292,8 @@ const useBillingCreateBill = ({
     resolveLineUnitForProduct,
     toPricingQtyFromProduct,
     buildBillShareText,
-    createEmptyItem,
     info,
+    onResetEntry,
   ]);
 
   return { handleCreateBill };

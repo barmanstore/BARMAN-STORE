@@ -1,10 +1,12 @@
-import { BrowserRouter } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import AppShell from './shared/components/AppShell';
 import { WindowManagerProvider } from './shared/components/window/WindowManagerProvider';
 import useLockBodyScroll from './shared/hooks/useLockBodyScroll';
+import { hasCapability } from './shared/auth/capabilities';
 import { safeLocalStorageGet, safeLocalStorageRemove } from './shared/utils/storage';
+import { openBackofficePopup } from './shared/utils/backofficePopup';
 import { useNotificationsInbox } from './features/notifications/hooks/useNotificationsInbox';
 import { AppRoutes } from './app/appRoutes';
 import './index.css';
@@ -22,6 +24,100 @@ const getPublicFileUrl = (filename) => {
   const cleanFile = String(filename || '').replace(/^\/+/, '');
   return `${normalizedBase}${cleanFile}`;
 };
+
+const SHORTCUT_EDITABLE_SELECTOR = [
+  'input',
+  'textarea',
+  'select',
+  '[contenteditable="true"]',
+  '[contenteditable=""]',
+  '[role="textbox"]',
+].join(', ');
+
+const isShortcutEditableTarget = (target) => {
+  if (typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(SHORTCUT_EDITABLE_SELECTOR));
+};
+
+const hasActiveModalDialog = () => {
+  if (typeof document === 'undefined') return false;
+  return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
+};
+
+function GlobalAdminShortcuts({ user }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const shortcutSequenceRef = useRef(0);
+  const canUseBackofficeShortcuts = hasCapability(user, 'view_backoffice');
+  const isPopupRoute = location.pathname.startsWith('/popup');
+
+  useEffect(() => {
+    if (!canUseBackofficeShortcuts || isPopupRoute) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented || event.repeat) return;
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      if (typeof document !== 'undefined') {
+        if (document.visibilityState !== 'visible') return;
+        if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
+      }
+      if (isShortcutEditableTarget(event.target)) return;
+      if (hasActiveModalDialog()) return;
+
+      const key = String(event.key || '').toLowerCase();
+      let shortcutAction = '';
+      let targetTab = '';
+
+      if (key === 'b') {
+        event.preventDefault();
+        const popupResult = openBackofficePopup('billing');
+        if (popupResult.status === 'blocked') {
+          shortcutSequenceRef.current += 1;
+          const next = new URLSearchParams();
+          next.set('tab', 'billing');
+          next.set('shortcut', 'billing-focus');
+          next.set('shortcutToken', String(shortcutSequenceRef.current));
+          navigate(`/admin?${next.toString()}`, {
+            replace: location.pathname.startsWith('/admin'),
+          });
+        }
+        return;
+      }
+
+      if (key === 'p') {
+        shortcutAction = 'open-po';
+        targetTab = 'purchases';
+      } else {
+        return;
+      }
+
+      event.preventDefault();
+      const popupResult = openBackofficePopup('purchase');
+      if (popupResult.status === 'blocked') {
+        shortcutSequenceRef.current += 1;
+        const next = new URLSearchParams();
+        next.set('tab', targetTab);
+        next.set('shortcut', shortcutAction);
+        next.set('shortcutToken', String(shortcutSequenceRef.current));
+        navigate(`/admin?${next.toString()}`, {
+          replace: location.pathname.startsWith('/admin'),
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    canUseBackofficeShortcuts,
+    isPopupRoute,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  return null;
+}
+
 function App() {
   const [cartCount, setCartCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -183,6 +279,7 @@ function App() {
             v7_relativeSplatPath: true,
           }}
         >
+          <GlobalAdminShortcuts user={user} />
           <AppShell
             headerRef={headerRef}
             mobileMenuOpen={mobileMenuOpen}

@@ -81,7 +81,7 @@ const persistBillDraft = async (deps, req, draft) => {
     if (shouldApplySalesStock) {
       for (const [productId, neededQty] of salesQtyByProduct.entries()) {
         const before = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
-        const deductionQty = Math.min(Math.max(0, before), Math.max(0, Number(neededQty || 0)));
+        const deductionQty = Math.max(0, Number(neededQty || 0));
         if (deductionQty <= 0) continue;
         await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [deductionQty, productId]);
         const after = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);

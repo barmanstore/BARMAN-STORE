@@ -1,24 +1,23 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import {
+  logSmokeSkipInfo,
+  parseBooleanEnv,
+  resolveSmokeDbConfig,
+  withResolvedSmokeDbEnv,
+} from './smokeDbConfig.mjs';
 
 const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
 const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
 const CRON_SECRET = 'phone-change-cron-secret';
-const explicitDbUrl = String(process.env.PHONE_TEST_DB_URL || '').trim();
-const allowSkipIfNoDb = ['1', 'true', 'yes', 'on'].includes(String(
+const allowSkipIfNoDb = parseBooleanEnv(String(
   process.env.PHONE_TEST_ALLOW_NO_DB || process.env.SMOKE_ALLOW_NO_DB || ''
-).trim().toLowerCase());
-const hasDbEnv = Boolean(
-  explicitDbUrl
-  || process.env.SUPABASE_DB_URL
-  || process.env.DATABASE_URL
-  || process.env.POSTGRES_URL
-  || process.env.POSTGRES_PRISMA_URL
-  || process.env.PG_CONNECTION_STRING
-  || process.env.PGHOST
-  || process.env.PG_HOST
-  || process.env.POSTGRES_HOST
-);
+), false);
+const smokeDbConfig = resolveSmokeDbConfig({
+  testName: 'Phone workflow smoke test',
+  explicitEnvKeys: ['PHONE_TEST_DB_URL', 'SMOKE_TEST_DB_URL'],
+});
+const hasDbEnv = Boolean(smokeDbConfig.dbUrl);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -134,7 +133,7 @@ const buildTestEnv = (port) => ({
   PHONE_CHANGE_PROCESS_INTERVAL_MS: '60000',
   PHONE_CHANGE_CRON_ENABLED: 'true',
   PHONE_CHANGE_CRON_SECRET: CRON_SECRET,
-  ...(explicitDbUrl ? { SUPABASE_DB_URL: explicitDbUrl, DATABASE_URL: explicitDbUrl } : {}),
+  ...withResolvedSmokeDbEnv({}, smokeDbConfig.dbUrl),
 });
 
 let inProcessApp = null;
@@ -211,14 +210,20 @@ const main = async () => {
   let bootDiagnostics = '';
 
   try {
+    if (smokeDbConfig.shouldSkip) {
+      logSmokeSkipInfo(smokeDbConfig.reason);
+      return;
+    }
     if (!hasDbEnv && !allowSkipIfNoDb) {
       throw new Error(
-        'Phone workflow smoke test requires a database. Set PHONE_TEST_DB_URL/SUPABASE_DB_URL or use PHONE_TEST_ALLOW_NO_DB=1 to skip.'
+        'Phone workflow smoke test requires a dedicated smoke-test database. Set PHONE_TEST_DB_URL or SMOKE_TEST_DB_URL, or use PHONE_TEST_ALLOW_NO_DB=1 to skip.'
       );
     }
     if (allowSkipIfNoDb && !hasDbEnv) {
-      console.warn('[WARN] Phone workflow smoke test skipped because no database configuration is set.');
-      console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL or set PHONE_TEST_DB_URL to run the test.');
+      logSmokeSkipInfo(
+        'Phone workflow smoke test skipped because no dedicated smoke-test database is configured.',
+        ['Set PHONE_TEST_DB_URL or SMOKE_TEST_DB_URL to run the test safely.']
+      );
       return;
     }
 
@@ -248,8 +253,10 @@ const main = async () => {
     if (!ready) {
       const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(bootDiagnostics);
       if (allowSkipIfNoDb && dbBootFailed) {
-        console.warn('[WARN] Phone workflow smoke test skipped because the database is unavailable.');
-        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL or set PHONE_TEST_DB_URL to run the test.');
+        logSmokeSkipInfo(
+          'Phone workflow smoke test skipped because the database is unavailable.',
+          ['Set PHONE_TEST_DB_URL or SMOKE_TEST_DB_URL to run the test safely.']
+        );
         return;
       }
       assert.equal(

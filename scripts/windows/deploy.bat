@@ -10,7 +10,8 @@ if errorlevel 1 (
 
 set "MODE=%~1"
 set "VERCEL_NPX=npx --yes vercel@50.26.0"
-set "PROD_ALIASES=barmanstore.vercel.app barman-store.vercel.app barman-storereact-mysql-migration.vercel.app"
+set "PRIMARY_PROD_ALIAS=barmanstore.vercel.app"
+set "EXTRA_PROD_ALIASES=barman-store.vercel.app"
 set "LAST_LOG="
 set "LATEST_ALIAS="
 set "LOG_STAMP="
@@ -163,18 +164,25 @@ goto :eof
 
 :set_aliases
 set "LATEST_URL="
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$log = Get-Content -Path '%LAST_LOG%'; $match = ($log | Select-String -Pattern 'Production:\\s+(https?://\\S+)' | Select-Object -Last 1); if ($match) { $url = $match.Matches[0].Groups[1].Value } else { $url = ($log | Select-String -Pattern 'https://[^\\s]*vercel\\.app' | Select-Object -Last 1).Matches.Value }; Write-Output $url"`) do set "LATEST_URL=%%I"
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "$raw = Get-Content -Path '%LAST_LOG%' -Raw; $clean = [regex]::Replace($raw, '\x1B\[[0-9;?]*[ -/]*[@-~]', ''); $productionMatches = [regex]::Matches($clean, 'Production:\s+(https?://\S+)'); if ($productionMatches.Count -gt 0) { $url = $productionMatches[$productionMatches.Count - 1].Groups[1].Value } else { $vercelMatches = [regex]::Matches($clean, 'https://[A-Za-z0-9./_-]*vercel\.app[A-Za-z0-9./_-]*'); if ($vercelMatches.Count -gt 0) { $url = $vercelMatches[$vercelMatches.Count - 1].Value } else { $url = '' } }; $url = $url.Trim().TrimEnd('/').TrimEnd('.').TrimEnd(',').TrimEnd(';').TrimEnd(')').TrimEnd(']').TrimEnd('}'); Write-Output $url"`) do set "LATEST_URL=%%I"
 if not defined LATEST_URL (
   echo [WARN] Could not detect production URL from log. Skipping alias update.
   goto :eof
 )
-echo [INFO] Updating aliases to %LATEST_URL%
-for %%A in (%PROD_ALIASES%) do (
-  echo [INFO] Alias %%A -> %LATEST_URL%
-  call %VERCEL_NPX% alias set %LATEST_URL% %%A >> "%LAST_LOG%" 2>&1
-  if errorlevel 1 (
-    echo [WARN] Failed to set alias %%A. See log.
-  )
+echo [INFO] Updating production aliases to %LATEST_URL%
+call :set_single_alias %PRIMARY_PROD_ALIAS%
+for %%A in (%EXTRA_PROD_ALIASES%) do (
+  call :set_single_alias %%A
+)
+goto :eof
+
+:set_single_alias
+set "TARGET_ALIAS=%~1"
+if "%TARGET_ALIAS%"=="" goto :eof
+echo [INFO] Alias %TARGET_ALIAS% -> %LATEST_URL%
+call %VERCEL_NPX% alias set %LATEST_URL% %TARGET_ALIAS% >> "%LAST_LOG%" 2>&1
+if errorlevel 1 (
+  echo [WARN] Failed to set alias %TARGET_ALIAS%. See log.
 )
 goto :eof
 

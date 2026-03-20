@@ -22,9 +22,11 @@ const usePurchaseOrderFormItems = ({
   const handleOrderItemRemove = useCallback((index) => {
     setOrderFormData((prev) => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index),
+      items: prev.items.length <= 1
+        ? [createEmptyOrderItem()]
+        : prev.items.filter((_, i) => i !== index),
     }));
-  }, [setOrderFormData]);
+  }, [setOrderFormData, createEmptyOrderItem]);
 
   const ensureOrderFormItemAtIndex = useCallback((index) => {
     setOrderFormData((prev) => {
@@ -88,7 +90,7 @@ const usePurchaseOrderFormItems = ({
         ...prev,
         items: [...(prev.items || []), ...nextItems],
       }));
-      setSuccess(`Loaded ${nextItems.length} distributor item${nextItems.length === 1 ? '' : 's'} with qty 1.`);
+      setSuccess(`Loaded ${nextItems.length} distributor item${nextItems.length === 1 ? '' : 's'} with recent qty and rate.`);
     } finally {
       setLoadingDistributorItems(false);
     }

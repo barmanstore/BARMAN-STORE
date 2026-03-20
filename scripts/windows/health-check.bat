@@ -109,14 +109,9 @@ goto fail
 
 :ensure_db_env
 set "HAS_DB_ENV="
-if defined SUPABASE_DB_URL set "HAS_DB_ENV=1"
-if defined DATABASE_URL set "HAS_DB_ENV=1"
-if defined POSTGRES_URL set "HAS_DB_ENV=1"
-if defined POSTGRES_PRISMA_URL set "HAS_DB_ENV=1"
-if defined PG_CONNECTION_STRING set "HAS_DB_ENV=1"
-if defined PGHOST set "HAS_DB_ENV=1"
-if defined PG_HOST set "HAS_DB_ENV=1"
-if defined POSTGRES_HOST set "HAS_DB_ENV=1"
+if defined SMOKE_TEST_DB_URL set "HAS_DB_ENV=1"
+if defined PHONE_TEST_DB_URL set "HAS_DB_ENV=1"
+if /i "%SMOKE_TEST_ALLOW_PRIMARY_DB%"=="1" set "HAS_DB_ENV=1"
 if defined HAS_DB_ENV goto :eof
 
 call :has_db_in_env_file
@@ -125,32 +120,22 @@ if defined HAS_DB_ENV goto :eof
 if /i "%SUPABASE_AUTO_START%"=="1" call :start_supabase
 
 set "HAS_DB_ENV="
-if defined SUPABASE_DB_URL set "HAS_DB_ENV=1"
-if defined DATABASE_URL set "HAS_DB_ENV=1"
-if defined POSTGRES_URL set "HAS_DB_ENV=1"
-if defined POSTGRES_PRISMA_URL set "HAS_DB_ENV=1"
-if defined PG_CONNECTION_STRING set "HAS_DB_ENV=1"
-if defined PGHOST set "HAS_DB_ENV=1"
-if defined PG_HOST set "HAS_DB_ENV=1"
-if defined POSTGRES_HOST set "HAS_DB_ENV=1"
+if defined SMOKE_TEST_DB_URL set "HAS_DB_ENV=1"
+if defined PHONE_TEST_DB_URL set "HAS_DB_ENV=1"
+if /i "%SMOKE_TEST_ALLOW_PRIMARY_DB%"=="1" set "HAS_DB_ENV=1"
 if defined HAS_DB_ENV goto :eof
 
-echo [WARN] No database connection configured. Set SUPABASE_DB_URL/DATABASE_URL or run with SUPABASE_AUTO_START=1.
-echo [WARN] Phone workflow smoke test will be skipped if the DB is unavailable.
+echo [INFO] No dedicated smoke-test database configured. Set SMOKE_TEST_DB_URL and optionally PHONE_TEST_DB_URL.
+echo [INFO] Smoke workflows will be skipped to avoid writing to the primary app database.
 set "PHONE_TEST_ALLOW_NO_DB=1"
 set "SMOKE_ALLOW_NO_DB=1"
 goto :eof
 
 :has_db_in_env_file
 if not exist "%REPO_ROOT%\.env" goto :eof
-findstr /I "^SUPABASE_DB_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^DATABASE_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^POSTGRES_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^POSTGRES_PRISMA_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^PG_CONNECTION_STRING=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^PGHOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^PG_HOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
-findstr /I "^POSTGRES_HOST=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^SMOKE_TEST_DB_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^PHONE_TEST_DB_URL=" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+findstr /I "^SMOKE_TEST_ALLOW_PRIMARY_DB=1" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
 goto :eof
 
 :start_supabase

@@ -33,6 +33,10 @@ const usePurchasePrintOrder = ({
     const lineTotal = toNumber(item?.line_total ?? item?.total);
     const resolvedTaxable = taxableValue > 0 ? taxableValue : (taxAmount > 0 ? Math.max(0, lineTotal - taxAmount) : lineTotal);
     const gstRate = toNumber(item?.gst_rate);
+    const resolvedLineTotal = lineTotal > 0 ? lineTotal : fallbackLine;
+    const grossPerDisplayUnit = quantity > 0 ? fallbackLine / quantity : rate;
+    const taxablePerDisplayUnit = quantity > 0 ? resolvedTaxable / quantity : resolvedTaxable;
+    const effectivePerDisplayUnit = quantity > 0 ? resolvedLineTotal / quantity : resolvedLineTotal;
     return {
       quantity,
       quantityInBase,
@@ -40,9 +44,12 @@ const usePurchasePrintOrder = ({
       rate,
       taxableValue: resolvedTaxable,
       taxAmount,
-      lineTotal: lineTotal > 0 ? lineTotal : fallbackLine,
+      lineTotal: resolvedLineTotal,
       gstRate,
       baseUnit: profile.baseUnit,
+      grossPerDisplayUnit,
+      taxablePerDisplayUnit,
+      effectivePerDisplayUnit,
     };
   }, [products, findProductForItem, getProductUomProfile, toNumber, resolvePurchaseUnitForProduct, toBaseQtyForProduct]);
 
@@ -57,7 +64,11 @@ const usePurchasePrintOrder = ({
           <td>${escapeHtml(item?.product_name || '-')}</td>
           <td>${line.quantity}</td>
           <td>${escapeHtml(line.uom || '-')}</td>
-          <td>${formatCurrency(line.rate)} / ${escapeHtml(line.baseUnit || 'pcs')}</td>
+          <td>
+            <div><strong>Base ${formatCurrency(line.rate)}</strong> / ${escapeHtml(line.baseUnit || 'pcs')}</div>
+            <div class="po-print-rate-meta">Net ${formatCurrency(line.taxablePerDisplayUnit)} / ${escapeHtml(line.uom || 'pcs')} before GST</div>
+            <div class="po-print-rate-meta">Effective ${formatCurrency(line.effectivePerDisplayUnit)} / ${escapeHtml(line.uom || 'pcs')}</div>
+          </td>
           <td>${line.gstRate.toFixed(2)}%</td>
           <td>${formatCurrency(line.taxableValue)}</td>
           <td>${formatCurrency(line.taxAmount)}</td>
@@ -108,7 +119,7 @@ const usePurchasePrintOrder = ({
               <th>Product</th>
               <th>Qty</th>
               <th>UOM</th>
-              <th>Rate</th>
+              <th>Pricing</th>
               <th>GST %</th>
               <th>Taxable</th>
               <th>Tax</th>
@@ -157,6 +168,7 @@ const usePurchasePrintOrder = ({
         .po-print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .po-print-table th, .po-print-table td { border: 1px solid #d1d5db; padding: 7px; text-align: left; }
         .po-print-table thead th { background: #f3f4f6; font-weight: 700; }
+        .po-print-rate-meta { margin-top: 3px; color: #4b5563; font-size: 11px; }
         .po-print-summary { margin-top: 14px; margin-left: auto; width: 320px; }
         .po-print-summary div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
         .po-print-summary .grand { font-size: 15px; font-weight: 700; border-bottom: none; }

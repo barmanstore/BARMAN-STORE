@@ -28,25 +28,6 @@ import AdminPageLayout from '../components/AdminPageLayout';
 import './AdminPage.css';
 import './AdminStandard.css';
 
-const SHORTCUT_EDITABLE_SELECTOR = [
-  'input',
-  'textarea',
-  'select',
-  '[contenteditable="true"]',
-  '[contenteditable=""]',
-  '[role="textbox"]',
-].join(', ');
-
-const isShortcutEditableTarget = (target) => {
-  if (typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest(SHORTCUT_EDITABLE_SELECTOR));
-};
-
-const hasActiveModalDialog = () => {
-  if (typeof document === 'undefined') return false;
-  return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
-};
-
 
 function AdminPage({ user }) {
   const navigate = useNavigate();
@@ -269,32 +250,28 @@ function AdminPage({ user }) {
   useLockBodyScroll(isMobileSidebarOpen);
 
   useEffect(() => {
-    if (isMobile) return undefined;
+    const shortcutAction = String(searchParams.get('shortcut') || '').trim().toLowerCase();
+    const shortcutToken = String(searchParams.get('shortcutToken') || '').trim();
+    if (!shortcutAction || !shortcutToken) return;
 
-    const handleKeyDown = (event) => {
-      if (event.defaultPrevented || event.repeat) return;
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (isShortcutEditableTarget(event.target)) return;
-      if (hasActiveModalDialog()) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('shortcut');
+    next.delete('shortcutToken');
 
-      const key = String(event.key || '').toLowerCase();
-      if (key === 'b') {
-        event.preventDefault();
-        handleTabChange('billing');
-        setBillingShortcutRequest((current) => current + 1);
-        return;
+    if (shortcutAction === 'billing-focus') {
+      if (activeTab !== 'billing') {
+        setActiveTab('billing');
       }
-
-      if (key === 'p') {
-        event.preventDefault();
-        handleTabChange('purchases');
-        setPurchaseShortcutRequest((current) => current + 1);
+      setBillingShortcutRequest((current) => current + 1);
+    } else if (shortcutAction === 'open-po') {
+      if (activeTab !== 'purchases') {
+        setActiveTab('purchases');
       }
-    };
+      setPurchaseShortcutRequest((current) => current + 1);
+    }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleTabChange, isMobile]);
+    setSearchParams(next, { replace: true });
+  }, [activeTab, searchParams, setActiveTab, setSearchParams]);
 
   useAdminEffects({
     user,

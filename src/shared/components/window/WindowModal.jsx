@@ -13,6 +13,7 @@ function WindowModal({
   title,
   subtitle = '',
   onClose,
+  windowId: providedWindowId = null,
   children,
   themeClassName = '',
   dialogClassName = '',
@@ -35,7 +36,10 @@ function WindowModal({
   const isMobileViewport = useIsMobile();
   const desktopLike = !isMobileViewport;
   const reactId = useId();
-  const windowId = useMemo(() => `window-${String(reactId).replace(/[:]/g, '')}`, [reactId]);
+  const windowId = useMemo(
+    () => providedWindowId || `window-${String(reactId).replace(/[:]/g, '')}`,
+    [providedWindowId, reactId]
+  );
   const titleId = `${windowId}-title`;
   const subtitleId = `${windowId}-subtitle`;
 
@@ -44,9 +48,15 @@ function WindowModal({
     ?.filter((candidate) => !candidate.minimized)
     .sort((left, right) => Number(left.order || 0) - Number(right.order || 0)) || [];
   const isMinimized = Boolean(entry?.minimized);
-  const isActive = sortedVisibleWindows.length
-    ? sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id === windowId
-    : false;
+  const activeVisibleWindowId = sortedVisibleWindows.some(
+    (candidate) => candidate.id === manager?.activeWindowId
+  )
+    ? manager?.activeWindowId
+    : null;
+  const topVisibleWindowId = activeVisibleWindowId
+    || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id
+    || null;
+  const isActive = !entry || !topVisibleWindowId ? true : topVisibleWindowId === windowId;
 
   const {
     frameRef,
@@ -124,6 +134,7 @@ function WindowModal({
     <div
       className={`window-modal-root ${themeClassName}`.trim()}
       data-window-modal-root="true"
+      style={{ zIndex: 3600 + Number(entry?.order || 0) }}
     >
       <div
         ref={frameRef}
@@ -135,7 +146,9 @@ function WindowModal({
         ].filter(Boolean).join(' ')}
         style={{
           ...windowStyle,
-          zIndex: 3600 + Number(entry?.order || 0),
+          zIndex: 1,
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 32px)',
           overflow: 'hidden',
         }}
         onMouseDown={handleFrameMouseDown}

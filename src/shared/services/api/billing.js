@@ -45,7 +45,17 @@ export const billingApi = {
     const params = new URLSearchParams();
     if (query) params.append('q', query);
     if (category) params.append('category', category);
-    return apiFetch(`/api/billing/products/search?${params.toString()}`, options);
+    const requestedLimit = Math.floor(Number(options?.limit || 0));
+    if (requestedLimit > 0) params.append('limit', String(requestedLimit));
+    if (options?.includeCosts) params.append('include_costs', '1');
+    if (options?.exactOnly) params.append('exact_only', '1');
+
+    const fetchOptions = { ...options };
+    delete fetchOptions.limit;
+    delete fetchOptions.includeCosts;
+    delete fetchOptions.exactOnly;
+
+    return apiFetch(`/api/billing/products/search?${params.toString()}`, fetchOptions);
   },
 
   // Get billing statistics

@@ -24,4 +24,37 @@ const safeLocalStorageRemove = (key) => {
   }
 };
 
-export { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove };
+const safeSessionStorageGet = (key) => {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch (_) {
+    return null;
+  }
+};
+
+const safeSessionStorageSet = (key, value) => {
+  try {
+    window.sessionStorage.setItem(key, value);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+const safeSessionStorageRemove = (key) => {
+  try {
+    window.sessionStorage.removeItem(key);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
+
+export {
+  safeLocalStorageGet,
+  safeLocalStorageSet,
+  safeLocalStorageRemove,
+  safeSessionStorageGet,
+  safeSessionStorageSet,
+  safeSessionStorageRemove,
+};

@@ -6,11 +6,21 @@ function PurchaseManagementPage({
   user,
   shortcutOpenOrderRequest = 0,
   onShortcutOpenOrderHandled = null,
+  popupMode = false,
+  showSectionTabs = true,
+  autoOpenOrderForm = false,
+  initialActiveSubTab = 'dashboard',
+  draftStorageKey = '',
 }) {
   const pageProps = usePurchaseManagementController({
     user,
     shortcutOpenOrderRequest,
     onShortcutOpenOrderHandled,
+    popupMode,
+    showSectionTabs,
+    autoOpenOrderForm,
+    initialActiveSubTab,
+    draftStorageKey,
   });
   return <PurchaseManagementPageLayout {...pageProps} />;
 }

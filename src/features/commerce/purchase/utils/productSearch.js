@@ -14,6 +14,82 @@ const getProductSearchOptionLabel = (product, scope = 'all') => {
   return scope === 'recent' ? `[Recent] ${base}` : `[All] ${base}`;
 };
 
+const getProductSearchSuggestions = ({
+  query = '',
+  prioritized = [],
+  all = [],
+  limit = 12,
+}) => {
+  const normalizedQuery = normalizeProductQuery(query).toLowerCase();
+  const seen = new Set();
+  const corpus = [
+    ...(Array.isArray(prioritized) ? prioritized : []).map((product, orderIndex) => ({
+      product,
+      scope: 'recent',
+      recent: true,
+      orderIndex,
+    })),
+    ...(Array.isArray(all) ? all : []).map((product, orderIndex) => ({
+      product,
+      scope: 'all',
+      recent: false,
+      orderIndex,
+    })),
+  ].filter((entry) => {
+    const productId = String(entry?.product?.id || '').trim();
+    if (!productId || seen.has(productId)) return false;
+    seen.add(productId);
+    return true;
+  });
+
+  if (!normalizedQuery) {
+    return corpus.slice(0, limit);
+  }
+
+  const scoreEntry = (entry) => {
+    const product = entry?.product || {};
+    const name = String(product.name || '').trim().toLowerCase();
+    const sku = String(product.sku || '').trim().toLowerCase();
+    const barcode = String(product.barcode || '').trim().toLowerCase();
+    const label = getProductSearchLabel(product).toLowerCase();
+    const nameWords = name.split(/\s+/).filter(Boolean);
+    let score = 0;
+
+    if ([String(product.id), name, sku, barcode, label].some((value) => String(value || '').toLowerCase() === normalizedQuery)) {
+      score = 1000;
+    } else if ([sku, barcode].some((value) => value.startsWith(normalizedQuery))) {
+      score = 900;
+    } else if (name.startsWith(normalizedQuery)) {
+      score = 860;
+    } else if (label.startsWith(normalizedQuery)) {
+      score = 820;
+    } else if (nameWords.some((word) => word.startsWith(normalizedQuery))) {
+      score = 780;
+    } else if ([sku, barcode].some((value) => value.includes(normalizedQuery))) {
+      score = 720;
+    } else if (name.includes(normalizedQuery)) {
+      score = 680;
+    } else if (label.includes(normalizedQuery)) {
+      score = 640;
+    }
+
+    return score > 0 ? score + (entry.recent ? 25 : 0) : 0;
+  };
+
+  return corpus
+    .map((entry) => ({
+      ...entry,
+      score: scoreEntry(entry),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      if (left.recent !== right.recent) return left.recent ? -1 : 1;
+      return left.orderIndex - right.orderIndex;
+    })
+    .slice(0, limit);
+};
+
 const resolveProductByInput = (value, products = []) => {
   const query = normalizeProductQuery(value).toLowerCase();
   if (!query) return null;
@@ -80,6 +156,45 @@ const getDistributorProductOptions = ({ distributorId, products = [], purchaseOr
   return { prioritized, all };
 };
 
+const getDistributorProductHistoryEntry = ({
+  distributorId,
+  productId,
+  products = [],
+  purchaseOrders = [],
+}) => {
+  const selectedDistributorId = String(distributorId || '').trim();
+  const selectedProductId = String(productId || '').trim();
+  if (!selectedDistributorId || !selectedProductId) return null;
+
+  const product = products.find((entry) => String(entry?.id || '').trim() === selectedProductId) || null;
+  if (!product) return null;
+
+  let bestEntry = null;
+
+  (purchaseOrders || []).forEach((order) => {
+    if (String(order?.distributor_id || '').trim() !== selectedDistributorId) return;
+
+    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
+    const items = Array.isArray(order?.items) ? order.items : [];
+
+    items.forEach((item) => {
+      if (String(item?.product_id || '').trim() !== selectedProductId) return;
+
+      if (!bestEntry || normalizedOrderTime >= bestEntry.latest) {
+        bestEntry = {
+          product,
+          item,
+          order,
+          latest: normalizedOrderTime,
+        };
+      }
+    });
+  });
+
+  return bestEntry;
+};
+
 const getDistributorHistoryProducts = ({
   distributorId,
   products = [],
@@ -109,6 +224,7 @@ const getDistributorHistoryProducts = ({
           count: 1,
           latest: normalizedOrderTime,
           item,
+          order,
         });
         return;
       }
@@ -116,6 +232,7 @@ const getDistributorHistoryProducts = ({
       if (normalizedOrderTime >= existing.latest) {
         existing.latest = normalizedOrderTime;
         existing.item = item;
+        existing.order = order;
       }
     });
   });
@@ -126,14 +243,22 @@ const getDistributorHistoryProducts = ({
       return right.count - left.count;
     })
     .map((entry) => entry.product ? buildOrderDraftItem(entry.product, {
-      quantity: 0,
+      quantity: Math.max(1, Number(entry.item?.quantity || 1) || 1),
       uom: entry.item?.uom || entry.product?.base_unit || entry.product?.uom || 'pcs',
       rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
       unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
+      reference_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+      reference_rate_source: entry.order?.po_number ? `distributor history ${entry.order.po_number}` : 'distributor history',
       gst_rate: entry.item?.gst_rate ?? 5,
-      discount_type: entry.item?.discount_type,
-      discount_value: entry.item?.discount_value ?? 0,
+      discount_type: 'percent',
+      discount_value: 0,
       last_purchase_hint: 'Loaded from distributor history',
+      last_purchase_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+      last_purchase_distributor_name: String(entry.order?.distributor_name || '').trim(),
+      last_purchase_created_at: String(
+        entry.order?.created_at || entry.order?.order_date || entry.order?.expected_delivery || ''
+      ).trim(),
+      last_purchase_po_number: String(entry.order?.po_number || '').trim(),
     }) : null)
     .filter(Boolean);
 };
@@ -142,7 +267,9 @@ export {
   normalizeProductQuery,
   getProductSearchLabel,
   getProductSearchOptionLabel,
+  getProductSearchSuggestions,
   resolveProductByInput,
   getDistributorProductOptions,
+  getDistributorProductHistoryEntry,
   getDistributorHistoryProducts,
 };

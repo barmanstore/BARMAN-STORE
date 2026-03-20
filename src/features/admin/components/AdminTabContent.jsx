@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import BillingTab from '../../sales/billing/BillingTab';
 import BillsViewer from '../../sales/billing/BillsViewer';
 import CreditAgingReport from '../../credits/reports/CreditAgingReport';
@@ -15,6 +16,9 @@ import PurchaseManagementPage from '../../commerce/purchase/pages/PurchaseManage
 import StockLedgerHistory from '../../inventory/StockLedgerHistory';
 import UsersSection from '../sections/UsersSection';
 import CategoriesSection from '../sections/CategoriesSection';
+import PopupWorkspaceNotice from '../../../shared/components/backoffice/PopupWorkspaceNotice';
+import useBackofficePopupStatus from '../../../shared/hooks/useBackofficePopupStatus';
+import { focusBackofficePopup } from '../../../shared/utils/backofficePopup';
 
 const AdminTabContent = ({
   activeTab,
@@ -145,8 +149,26 @@ const AdminTabContent = ({
   purchaseShortcutRequest,
   onPurchaseShortcutHandled,
   user,
-}) => (
-  <>
+}) => {
+  const billingPopupStatus = useBackofficePopupStatus('billing');
+  const purchasePopupStatus = useBackofficePopupStatus('purchase');
+  const [allowInlineBilling, setAllowInlineBilling] = useState(false);
+  const [allowInlinePurchase, setAllowInlinePurchase] = useState(false);
+
+  useEffect(() => {
+    if (!billingPopupStatus.isOpen) {
+      setAllowInlineBilling(false);
+    }
+  }, [billingPopupStatus.isOpen]);
+
+  useEffect(() => {
+    if (!purchasePopupStatus.isOpen) {
+      setAllowInlinePurchase(false);
+    }
+  }, [purchasePopupStatus.isOpen]);
+
+  return (
+    <>
     {activeTab === 'dashboard' && (
       <DashboardSection
         dashboardDensity={dashboardDensity}
@@ -300,12 +322,21 @@ const AdminTabContent = ({
     )}
 
     {activeTab === 'billing' && (
-      <BillingTab
-        initialPrefill={billingPrefill}
-        onPrefillApplied={() => setBillingPrefill(null)}
-        shortcutFocusRequest={billingShortcutRequest}
-        onShortcutFocusHandled={onBillingShortcutHandled}
-      />
+      billingPopupStatus.isOpen && !allowInlineBilling ? (
+        <PopupWorkspaceNotice
+          title="Billing is already open in a popup"
+          message="To avoid duplicate billing fetches and conflicting drafts, the popup workspace stays primary while it is open."
+          onFocusPopup={() => focusBackofficePopup('billing')}
+          onContinueInline={() => setAllowInlineBilling(true)}
+        />
+      ) : (
+        <BillingTab
+          initialPrefill={billingPrefill}
+          onPrefillApplied={() => setBillingPrefill(null)}
+          shortcutFocusRequest={billingShortcutRequest}
+          onShortcutFocusHandled={onBillingShortcutHandled}
+        />
+      )
     )}
     {activeTab === 'view-bills' && <BillsViewer user={user} />}
 
@@ -314,11 +345,20 @@ const AdminTabContent = ({
     )}
 
     {activeTab === 'purchases' && (
-      <PurchaseManagementPage
-        user={user}
-        shortcutOpenOrderRequest={purchaseShortcutRequest}
-        onShortcutOpenOrderHandled={onPurchaseShortcutHandled}
-      />
+      purchasePopupStatus.isOpen && !allowInlinePurchase ? (
+        <PopupWorkspaceNotice
+          title="Purchase entry is already open in a popup"
+          message="The popup workspace stays primary while it is open so the PO draft and heavy purchase data do not mount twice by default."
+          onFocusPopup={() => focusBackofficePopup('purchase')}
+          onContinueInline={() => setAllowInlinePurchase(true)}
+        />
+      ) : (
+        <PurchaseManagementPage
+          user={user}
+          shortcutOpenOrderRequest={purchaseShortcutRequest}
+          onShortcutOpenOrderHandled={onPurchaseShortcutHandled}
+        />
+      )
     )}
 
     {activeTab === 'stock-ledger' && (
@@ -340,6 +380,7 @@ const AdminTabContent = ({
     {activeTab === 'customer-requests' && <CustomerRequestsAdmin />}
     {activeTab === 'offers' && <OfferManagement />}
   </>
-);
+  );
+};
 
 export default AdminTabContent;

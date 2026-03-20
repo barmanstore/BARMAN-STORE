@@ -68,7 +68,15 @@ const PurchaseReturnsSection = ({
         <tbody>
           {purchaseReturns.length === 0 ? (
             <tr>
-              <td colSpan="7" className="empty-state">No purchase returns found</td>
+              <td colSpan="7" className="empty-state">
+                <div className="purchase-empty-state-card">
+                  <strong>No purchase returns yet.</strong>
+                  <p>Record supplier returns and exchanges here when stock needs to move back out.</p>
+                  <button type="button" className="admin-btn primary" onClick={onOpenReturn}>
+                    <RotateCcw size={18} /> New Return / Exchange
+                  </button>
+                </div>
+              </td>
             </tr>
           ) : (
             purchaseReturns.map((ret) => (

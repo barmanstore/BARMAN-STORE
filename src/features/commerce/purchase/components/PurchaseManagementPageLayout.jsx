@@ -64,7 +64,6 @@ const PurchaseManagementPageLayout = ({
   poModalRef,
   isMobile,
   poModalSize,
-  handlePoModalResizeStart,
   editingOrderId,
   handleOrderSubmit,
   orderFullMode,
@@ -73,11 +72,11 @@ const PurchaseManagementPageLayout = ({
   handleLoadDistributorItems,
   orderFormData,
   setOrderFormData,
+  orderDraftProjection,
   handleDistributorInputChange,
   orderProductOptions,
   products,
   findProductForItem,
-  calculateOrderItem,
   getAllowedPurchaseUnitsForProduct,
   getPurchasePackStep,
   handleOrderProductInputChange,
@@ -87,10 +86,12 @@ const PurchaseManagementPageLayout = ({
   handleOrderItemRemove,
   handleOrderItemAdd,
   handleOpenPoProductForm,
+  handleInlinePoProductCreate,
   orderTotals,
   getProductSearchOptionLabel,
   orderSubmitting,
   showPoProductForm,
+  poProductFormTarget,
   closePoProductForm,
   handlePoProductSave,
   showReceiveModal,
@@ -130,6 +131,7 @@ const PurchaseManagementPageLayout = ({
   handleOrderDetailItemAdd,
   orderDetailHasComputedChanges,
   orderDetailComputedTotals,
+  orderDetailDraftDiagnostics,
   orderDetailIsEditable,
   orderDetailSaving,
   handleOrderDetailSave,
@@ -171,30 +173,57 @@ const PurchaseManagementPageLayout = ({
   handleReturnItemAdd,
   handleReturnItemChange,
   handleReturnItemRemove,
+  showSectionTabs,
+  popupMode,
 }) => {
   if (loading) {
     return (
       <div className="purchase-management">
-        <div className="loading">Loading purchase data...</div>
+        <div className="purchase-loading-shell" role="status" aria-live="polite">
+          <div className="purchase-loading-shell__hero">
+            <span className="purchase-loading-shell__kicker">Purchase Workspace</span>
+            <h2>Loading purchase data...</h2>
+            <p>Preparing suppliers, products, and purchase records for the next action.</p>
+          </div>
+          <div className="purchase-loading-shell__grid" aria-hidden="true">
+            <div className="purchase-loading-card purchase-loading-card--wide">
+              <span className="purchase-loading-line purchase-loading-line--title" />
+              <span className="purchase-loading-line" />
+              <span className="purchase-loading-line purchase-loading-line--short" />
+            </div>
+            <div className="purchase-loading-card">
+              <span className="purchase-loading-line purchase-loading-line--title" />
+              <span className="purchase-loading-line purchase-loading-line--short" />
+            </div>
+            <div className="purchase-loading-card purchase-loading-card--wide">
+              <span className="purchase-loading-line purchase-loading-line--title" />
+              <span className="purchase-loading-line" />
+              <span className="purchase-loading-line" />
+              <span className="purchase-loading-line purchase-loading-line--short" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="purchase-management">
+    <div className={`purchase-management${popupMode ? ' purchase-management-popup-entry' : ''}`}>
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
 
-      <PurchaseSectionTabs
-        activeTab={activeSubTab}
-        onChange={handlePurchaseSectionChange}
-        counts={{
-          reminders: operationsSummary?.reminders?.length || 0,
-          returns: purchaseReturns?.length || 0,
-        }}
-      />
+      {showSectionTabs && !popupMode ? (
+        <PurchaseSectionTabs
+          activeTab={activeSubTab}
+          onChange={handlePurchaseSectionChange}
+          counts={{
+            reminders: operationsSummary?.reminders?.length || 0,
+            returns: purchaseReturns?.length || 0,
+          }}
+        />
+      ) : null}
 
-      {activeSubTab === 'dashboard' ? (
+      {!popupMode && activeSubTab === 'dashboard' ? (
         <PurchaseDashboardSection
           operationsLoading={operationsLoading}
           operationsCardItems={operationsCardItems}
@@ -212,7 +241,7 @@ const PurchaseManagementPageLayout = ({
         />
       ) : null}
 
-      {activeSubTab === 'orders' ? (
+      {!popupMode && activeSubTab === 'orders' ? (
         <PurchaseOrdersSection
           filters={filters}
           distributors={distributors}
@@ -245,7 +274,7 @@ const PurchaseManagementPageLayout = ({
         />
       ) : null}
 
-      {activeSubTab === 'payments' ? (
+      {!popupMode && activeSubTab === 'payments' ? (
         <PurchasePaymentsSection
           filters={filters}
           distributors={distributors}
@@ -266,7 +295,7 @@ const PurchaseManagementPageLayout = ({
         />
       ) : null}
 
-      {activeSubTab === 'reminders' ? (
+      {!popupMode && activeSubTab === 'reminders' ? (
         <PurchaseRemindersSection
           operationsLoading={operationsLoading}
           operationsSummary={operationsSummary}
@@ -277,7 +306,7 @@ const PurchaseManagementPageLayout = ({
         />
       ) : null}
 
-      {activeSubTab === 'returns' ? (
+      {!popupMode && activeSubTab === 'returns' ? (
         <PurchaseReturnsSection
           filters={filters}
           distributors={distributors}
@@ -294,7 +323,6 @@ const PurchaseManagementPageLayout = ({
         poModalRef={poModalRef}
         isMobile={isMobile}
         poModalSize={poModalSize}
-        handlePoModalResizeStart={handlePoModalResizeStart}
         editingOrderId={editingOrderId}
         handleOrderSubmit={handleOrderSubmit}
         orderFullMode={orderFullMode}
@@ -303,12 +331,12 @@ const PurchaseManagementPageLayout = ({
         handleLoadDistributorItems={handleLoadDistributorItems}
         orderFormData={orderFormData}
         setOrderFormData={setOrderFormData}
+        orderDraftProjection={orderDraftProjection}
         handleDistributorInputChange={handleDistributorInputChange}
         distributors={distributors}
         orderProductOptions={orderProductOptions}
         products={products}
         findProductForItem={findProductForItem}
-        calculateOrderItem={calculateOrderItem}
         getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
         getPurchasePackStep={getPurchasePackStep}
         handleOrderProductInputChange={handleOrderProductInputChange}
@@ -319,10 +347,12 @@ const PurchaseManagementPageLayout = ({
         handleOrderItemRemove={handleOrderItemRemove}
         handleOrderItemAdd={handleOrderItemAdd}
         handleOpenPoProductForm={handleOpenPoProductForm}
+        handleInlinePoProductCreate={handleInlinePoProductCreate}
         orderTotals={orderTotals}
         getProductSearchOptionLabel={getProductSearchOptionLabel}
         orderSubmitting={orderSubmitting}
         showPoProductForm={showPoProductForm}
+        poProductFormTarget={poProductFormTarget}
         closePoProductForm={closePoProductForm}
         handlePoProductSave={handlePoProductSave}
         showReceiveModal={showReceiveModal}
@@ -366,6 +396,7 @@ const PurchaseManagementPageLayout = ({
         handleOrderDetailItemAdd={handleOrderDetailItemAdd}
         orderDetailHasComputedChanges={orderDetailHasComputedChanges}
         orderDetailComputedTotals={orderDetailComputedTotals}
+        orderDetailDraftDiagnostics={orderDetailDraftDiagnostics}
         orderDetailIsEditable={orderDetailIsEditable}
         orderDetailSaving={orderDetailSaving}
         handleOrderDetailSave={handleOrderDetailSave}
@@ -410,6 +441,7 @@ const PurchaseManagementPageLayout = ({
         handleReturnItemAdd={handleReturnItemAdd}
         handleReturnItemChange={handleReturnItemChange}
         handleReturnItemRemove={handleReturnItemRemove}
+        renderOrderFormInline={popupMode}
       />
     </div>
   );

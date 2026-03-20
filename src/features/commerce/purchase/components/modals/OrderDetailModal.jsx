@@ -33,6 +33,7 @@ const OrderDetailModal = ({
   handleOrderDetailItemAdd,
   orderDetailHasComputedChanges,
   orderDetailComputedTotals,
+  orderDetailDraftDiagnostics,
   orderDetailIsEditable,
   orderDetailSaving,
   handleOrderDetailSave,
@@ -43,6 +44,21 @@ const OrderDetailModal = ({
   formatCurrency,
 }) => {
   if (!showOrderDetail) return null;
+  const hasBlockingDraftIssues = Boolean(
+    orderDetailEditMode
+    && (
+      orderDetailDraftDiagnostics?.hasDuplicateErrors
+      || orderDetailDraftDiagnostics?.hasRateConfirmationErrors
+      || orderDetailDraftDiagnostics?.hasDiscountErrors
+      || orderDetailDraftDiagnostics?.hasDiscountConfirmationErrors
+    )
+  );
+  const passiveRateWarningCount = Math.max(
+    0,
+    Number(orderDetailDraftDiagnostics?.rateWarningCount || 0)
+      - Number(orderDetailDraftDiagnostics?.rateConfirmationCount || 0)
+      - Number(orderDetailDraftDiagnostics?.rateAcknowledgedCount || 0)
+  );
 
   return (
     <WindowModal
@@ -154,7 +170,7 @@ const OrderDetailModal = ({
                     <th>Product</th>
                     <th>Qty</th>
                     <th>UOM</th>
-                    <th>Rate</th>
+                    <th>Base Rate</th>
                     <th>Discount Type</th>
                     <th>Discount</th>
                     <th>GST %</th>
@@ -169,6 +185,7 @@ const OrderDetailModal = ({
                     const line = getItemFinancials(item);
                     const originalItem = getOrderDetailOriginalItem(item, idx);
                     const originalLine = originalItem ? getItemFinancials(originalItem) : null;
+                    const rowDiagnostics = orderDetailDraftDiagnostics?.rowDiagnostics?.[idx] || {};
                     const rowChanged = orderDetailEditMode && hasOrderDetailItemChanged(item, idx);
                     const productChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'product_id');
                     const qtyChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'quantity');
@@ -259,8 +276,22 @@ const OrderDetailModal = ({
                               {rateChanged ? (
                                 <small className="po-detail-change-note">Was {getOrderDetailItemOriginalLabel(item, idx, 'rate')}</small>
                               ) : null}
+                              {line.quantity > 0 ? (
+                                <small className="po-detail-effective-note">
+                                  Net {formatCurrency(line.taxablePerDisplayUnit || 0)} / {line.uom || 'pcs'} before GST | Effective {formatCurrency(line.effectivePerDisplayUnit || 0)} / {line.uom || 'pcs'}
+                                </small>
+                              ) : null}
                             </>
-                          ) : formatCurrency(line.rate)}
+                          ) : (
+                            <>
+                              <div>{formatCurrency(line.rate)}</div>
+                              {line.quantity > 0 ? (
+                                <small className="po-detail-effective-note">
+                                  Net {formatCurrency(line.taxablePerDisplayUnit || 0)} / {line.uom || 'pcs'} before GST | Effective {formatCurrency(line.effectivePerDisplayUnit || 0)} / {line.uom || 'pcs'}
+                                </small>
+                              ) : null}
+                            </>
+                          )}
                         </td>
                         <td className={discountTypeChanged ? 'po-detail-field-changed' : ''}>
                           {orderDetailEditMode ? (
@@ -297,6 +328,57 @@ const OrderDetailModal = ({
                               ) : null}
                             </>
                           ) : String(toNumber(item.discount_value || 0))}
+                          {rowDiagnostics.rateChangeLabel || rowDiagnostics.rateAcknowledgementMessage || rowDiagnostics.rateAcknowledgedLabel || rowDiagnostics.discountAppliedLabel || rowDiagnostics.discountWarningMessage || rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountAcknowledgedLabel || rowDiagnostics.discountBlockingMessage || rowDiagnostics.duplicateMessage ? (
+                            <div className="po-detail-row-status">
+                              {rowDiagnostics.rateChangeLabel ? (
+                                <span className={`po-pos-status-chip ${rowDiagnostics.rateChangeTone || 'neutral'}`} title={rowDiagnostics.rateWarningMessage || undefined}>
+                                  {rowDiagnostics.rateChangeLabel}
+                                </span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.rateAcknowledgementMessage ? (
+                                <span className="po-pos-status-chip danger">{rowDiagnostics.rateAcknowledgementMessage}</span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.rateAcknowledgedLabel ? (
+                                <span className="po-pos-status-chip good">{rowDiagnostics.rateAcknowledgedLabel}</span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.rateRequiresAcknowledgement ? (
+                                <button
+                                  type="button"
+                                  className="po-pos-status-chip-btn danger"
+                                  onClick={() => handleOrderDetailItemChange(idx, 'rate_warning_acknowledged', true)}
+                                >
+                                  Intentional rate
+                                </button>
+                              ) : null}
+                              {rowDiagnostics.discountAppliedLabel ? (
+                                <span className="po-pos-status-chip bad">{rowDiagnostics.discountAppliedLabel}</span>
+                              ) : null}
+                              {rowDiagnostics.discountWarningMessage ? (
+                                <span className="po-pos-status-chip bad">{rowDiagnostics.discountWarningMessage}</span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.discountAcknowledgementMessage ? (
+                                <span className="po-pos-status-chip danger">{rowDiagnostics.discountAcknowledgementMessage}</span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.discountAcknowledgedLabel ? (
+                                <span className="po-pos-status-chip good">{rowDiagnostics.discountAcknowledgedLabel}</span>
+                              ) : null}
+                              {orderDetailEditMode && rowDiagnostics.discountRequiresAcknowledgement ? (
+                                <button
+                                  type="button"
+                                  className="po-pos-status-chip-btn danger"
+                                  onClick={() => handleOrderDetailItemChange(idx, 'discount_warning_acknowledged', true)}
+                                >
+                                  Intentional discount
+                                </button>
+                              ) : null}
+                              {rowDiagnostics.discountBlockingMessage ? (
+                                <span className="po-pos-status-chip danger">{rowDiagnostics.discountBlockingMessage}</span>
+                              ) : null}
+                              {rowDiagnostics.duplicateMessage ? (
+                                <span className="po-pos-status-chip danger">{rowDiagnostics.duplicateMessage}</span>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </td>
                         <td className={gstChanged ? 'po-detail-field-changed' : ''}>
                           {orderDetailEditMode ? (
@@ -345,6 +427,38 @@ const OrderDetailModal = ({
                   })}
                 </tbody>
               </table>
+              {orderDetailDraftDiagnostics?.blockingMessage || (orderDetailEditMode && orderDetailDraftDiagnostics?.rateConfirmationCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.rateAcknowledgedCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.discountConfirmationCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.discountAcknowledgedCount) || orderDetailDraftDiagnostics?.rateWarningCount ? (
+                <div className="po-detail-table-status" aria-live="polite">
+                  {orderDetailDraftDiagnostics?.blockingMessage ? (
+                    <span className="po-pos-status-chip danger">{orderDetailDraftDiagnostics.blockingMessage}</span>
+                  ) : null}
+                  {orderDetailEditMode && orderDetailDraftDiagnostics?.rateConfirmationCount > 0 && !orderDetailDraftDiagnostics?.blockingMessage ? (
+                    <span className="po-pos-status-chip danger">
+                      {orderDetailDraftDiagnostics.rateConfirmationCount} row(s) have unusual rate changes. Confirm them before saving.
+                    </span>
+                  ) : null}
+                  {orderDetailEditMode && orderDetailDraftDiagnostics?.rateAcknowledgedCount > 0 ? (
+                    <span className="po-pos-status-chip good">
+                      {orderDetailDraftDiagnostics.rateAcknowledgedCount} row(s) include confirmed unusual rate changes.
+                    </span>
+                  ) : null}
+                  {orderDetailEditMode && orderDetailDraftDiagnostics?.discountConfirmationCount > 0 && !orderDetailDraftDiagnostics?.blockingMessage ? (
+                    <span className="po-pos-status-chip danger">
+                      {orderDetailDraftDiagnostics.discountConfirmationCount} row(s) have unusual discount values. Confirm them before saving.
+                    </span>
+                  ) : null}
+                  {orderDetailEditMode && orderDetailDraftDiagnostics?.discountAcknowledgedCount > 0 ? (
+                    <span className="po-pos-status-chip good">
+                      {orderDetailDraftDiagnostics.discountAcknowledgedCount} row(s) include confirmed unusual discounts.
+                    </span>
+                  ) : null}
+                  {passiveRateWarningCount > 0 ? (
+                    <span className="po-pos-status-chip bad">
+                      {passiveRateWarningCount} row(s) differ from the latest reference rate.
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
               {orderDetailEditMode ? (
                 <div className="po-detail-table-actions">
                   <button type="button" className="add-item-btn" onClick={handleOrderDetailItemAdd}>
@@ -411,7 +525,7 @@ const OrderDetailModal = ({
               type="button"
               className="submit-btn"
               onClick={orderDetailEditMode ? handleOrderDetailSave : openOrderDetailEditMode}
-              disabled={orderDetailSaving}
+              disabled={orderDetailSaving || hasBlockingDraftIssues}
             >
               {orderDetailEditMode ? (orderDetailSaving ? 'Saving...' : 'Save') : 'Edit'}
             </button>

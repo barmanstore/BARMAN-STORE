@@ -2,6 +2,10 @@ import { useCallback, useEffect } from 'react';
 import createDefaultOperationsSummary from '../utils/operationsSummary';
 import { getLocalLedgerEntries } from '../utils/localLedgerStorage';
 import { getDerivedLedgerFromOrders, mergeLedgerRecords } from '../utils/ledgerHelpers';
+import { safeSessionStorageGet, safeSessionStorageSet } from '../../../../shared/utils/storage';
+
+const PURCHASE_LOOKUP_CACHE_KEY = 'purchase_lookup_cache_v1';
+const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const buildOperationsSummaryParams = ({ filters, rollupParams }) => {
   const params = {};
@@ -13,6 +17,32 @@ const buildOperationsSummaryParams = ({ filters, rollupParams }) => {
     params.rollup_days = rollupParams.days;
   }
   return params;
+};
+
+const readCachedPurchaseLookups = () => {
+  try {
+    const raw = safeSessionStorageGet(PURCHASE_LOOKUP_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const updatedAt = Number(parsed?.updatedAt || 0);
+    if (!updatedAt || (Date.now() - updatedAt) > LOOKUP_CACHE_TTL_MS) {
+      return null;
+    }
+    const distributors = Array.isArray(parsed?.distributors) ? parsed.distributors : null;
+    const products = Array.isArray(parsed?.products) ? parsed.products : null;
+    if (!distributors || !products) return null;
+    return { distributors, products };
+  } catch (_) {
+    return null;
+  }
+};
+
+const writeCachedPurchaseLookups = ({ distributors, products }) => {
+  safeSessionStorageSet(PURCHASE_LOOKUP_CACHE_KEY, JSON.stringify({
+    updatedAt: Date.now(),
+    distributors: Array.isArray(distributors) ? distributors : [],
+    products: Array.isArray(products) ? products : [],
+  }));
 };
 
 const usePurchaseDataFetch = ({
@@ -38,16 +68,32 @@ const usePurchaseDataFetch = ({
   setLedgerRecords,
 }) => {
   const fetchData = useCallback(async () => {
-    try {
+    const cachedLookups = readCachedPurchaseLookups();
+    if (cachedLookups) {
+      setDistributors(cachedLookups.distributors);
+      setProducts(cachedLookups.products);
+      setLoading(false);
+    } else {
       setLoading(true);
+    }
+
+    try {
       const [distributorsData, productsData] = await Promise.all([
         distributorsApi.getAll(),
         productsApi.getAll(),
       ]);
-      setDistributors(distributorsData || []);
-      setProducts(productsData || []);
+      const nextDistributors = Array.isArray(distributorsData) ? distributorsData : [];
+      const nextProducts = Array.isArray(productsData) ? productsData : [];
+      setDistributors(nextDistributors);
+      setProducts(nextProducts);
+      writeCachedPurchaseLookups({
+        distributors: nextDistributors,
+        products: nextProducts,
+      });
     } catch (err) {
-      setError('Failed to load data');
+      if (!cachedLookups) {
+        setError('Failed to load data');
+      }
     } finally {
       setLoading(false);
     }

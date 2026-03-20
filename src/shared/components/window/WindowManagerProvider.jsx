@@ -10,6 +10,7 @@ const sortByOrder = (left, right) => Number(left.order || 0) - Number(right.orde
 
 export function WindowManagerProvider({ children }) {
   const [windows, setWindows] = useState([]);
+  const [activeWindowId, setActiveWindowId] = useState(null);
   const orderRef = useRef(1);
 
   const upsertWindow = useCallback((id, payload) => {
@@ -30,6 +31,7 @@ export function WindowManagerProvider({ children }) {
   }, []);
 
   const activateWindow = useCallback((id) => {
+    setActiveWindowId(id);
     setWindows((current) =>
       current.map((entry) => (
         entry.id === id
@@ -40,6 +42,9 @@ export function WindowManagerProvider({ children }) {
   }, []);
 
   const setWindowMinimized = useCallback((id, minimized) => {
+    if (!minimized) {
+      setActiveWindowId(id);
+    }
     setWindows((current) =>
       current.map((entry) => (
         entry.id === id
@@ -49,6 +54,23 @@ export function WindowManagerProvider({ children }) {
     );
   }, []);
 
+  useEffect(() => {
+    const hasActiveVisibleWindow = windows.some(
+      (entry) => entry.id === activeWindowId && !entry.minimized
+    );
+    if (hasActiveVisibleWindow) return;
+
+    const nextActiveWindow = windows
+      .filter((entry) => !entry.minimized)
+      .sort(sortByOrder)
+      .at(-1) || null;
+    const nextActiveWindowId = nextActiveWindow?.id || null;
+
+    if (nextActiveWindowId !== activeWindowId) {
+      setActiveWindowId(nextActiveWindowId);
+    }
+  }, [activeWindowId, windows]);
+
   const visibleWindows = useMemo(
     () => windows.filter((entry) => !entry.minimized).sort(sortByOrder),
     [windows]
@@ -57,7 +79,13 @@ export function WindowManagerProvider({ children }) {
     () => windows.filter((entry) => entry.minimized).sort(sortByOrder),
     [windows]
   );
-  const topVisibleWindow = visibleWindows.length ? visibleWindows[visibleWindows.length - 1] : null;
+  const topVisibleWindow = useMemo(() => {
+    if (!visibleWindows.length) return null;
+    return (
+      visibleWindows.find((entry) => entry.id === activeWindowId)
+      || visibleWindows[visibleWindows.length - 1]
+    );
+  }, [activeWindowId, visibleWindows]);
   const hasVisibleWindows = visibleWindows.length > 0;
 
   useInertBackground(hasVisibleWindows);
@@ -79,11 +107,12 @@ export function WindowManagerProvider({ children }) {
 
   const contextValue = useMemo(() => ({
     windows,
+    activeWindowId,
     upsertWindow,
     unregisterWindow,
     activateWindow,
     setWindowMinimized,
-  }), [activateWindow, setWindowMinimized, unregisterWindow, upsertWindow, windows]);
+  }), [activateWindow, activeWindowId, setWindowMinimized, unregisterWindow, upsertWindow, windows]);
 
   const handleBackdropClick = () => {
     if (!topVisibleWindow || topVisibleWindow.dismissible === false || topVisibleWindow.closeOnBackdrop === false) return;

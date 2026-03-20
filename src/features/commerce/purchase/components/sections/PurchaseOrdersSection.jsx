@@ -130,7 +130,15 @@ const PurchaseOrdersSection = ({
         <tbody>
           {purchaseOrders.length === 0 ? (
             <tr>
-              <td colSpan="10" className="empty-state">No purchase orders found</td>
+              <td colSpan="10" className="empty-state">
+                <div className="purchase-empty-state-card">
+                  <strong>No purchase orders yet.</strong>
+                  <p>Create a purchase order to start tracking supplier items, receiving, and balance due.</p>
+                  <button type="button" className="admin-btn primary" onClick={onNewOrder}>
+                    <Plus size={18} /> Create First Order
+                  </button>
+                </div>
+              </td>
             </tr>
           ) : (
             purchaseOrders.map((order) => {

@@ -18,7 +18,7 @@ import { validateProductFormData } from '../../utils/productFormValidation';
 import ProductFormView from './ProductFormView';
 import './ProductForm.css';
 
-function ProductForm({ product, onClose, onSave, mode = 'full' }) {
+function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch = null }) {
   const isQuickMode = mode === 'quick';
   const [formData, setFormData] = useState(createInitialFormData());
   const [categories, setCategories] = useState([]);
@@ -65,14 +65,27 @@ function ProductForm({ product, onClose, onSave, mode = 'full' }) {
       setIsStockAutoFromPrice(false);
       setShowAdvancedFields(true);
     } else {
-      setFormData(createInitialFormData());
+      const nextInitialFormData = {
+        ...createInitialFormData(),
+        ...(initialFormPatch && typeof initialFormPatch === 'object' ? initialFormPatch : {}),
+      };
+      if (!String(nextInitialFormData.description || '').trim()) {
+        const suggestedDescription = generateDescriptionSuggestion(nextInitialFormData);
+        if (suggestedDescription) {
+          nextInitialFormData.description = suggestedDescription;
+        }
+      }
+      if (!String(nextInitialFormData.sku || '').trim()) {
+        nextInitialFormData.sku = generateAutoSKU(nextInitialFormData, 0);
+      }
+      setFormData(nextInitialFormData);
       setBatchProducts([]);
-      setIsDescriptionAuto(true);
+      setIsDescriptionAuto(Boolean(String(nextInitialFormData.description || '').trim()));
       setIsContentAutoFromPrice(false);
       setIsStockAutoFromPrice(false);
       setShowAdvancedFields(isQuickMode ? false : !isMobile);
     }
-  }, [product, isMobile, isQuickMode]);
+  }, [product, initialFormPatch, isMobile, isQuickMode]);
 
   const fetchCategories = async () => {
     try {

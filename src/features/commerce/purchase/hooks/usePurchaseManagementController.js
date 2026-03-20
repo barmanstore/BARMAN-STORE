@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AlertTriangle, CheckCheck, Clock, DollarSign, Truck, Wallet } from 'lucide-react';
 import { createClientRequestId, purchaseOrdersApi, distributorsApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from '../../../../shared/utils/formatters'
 import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../../shared/utils/dateTime';
 import { getLedgerTypeLabel, toNumber } from '../../../../shared/utils/ledger';
 import useIsMobile from '../../../../shared/hooks/useIsMobile';
+import usePopupDraftPersistence from '../../../../shared/hooks/usePopupDraftPersistence';
 import useOrderDetailComputed from './useOrderDetailComputed';
 import usePurchaseCalculations from './usePurchaseCalculations';
 import usePoModalSizing from './usePoModalSizing';
@@ -66,6 +67,7 @@ import {
   getProductSearchOptionLabel,
   resolveProductByInput as resolveProductByInputHelper,
   getDistributorProductOptions as getDistributorProductOptionsHelper,
+  getDistributorProductHistoryEntry as getDistributorProductHistoryEntryHelper,
   getDistributorHistoryProducts as getDistributorHistoryProductsHelper,
 } from '../utils/productSearch';
 import { addLocalLedgerEntry } from '../utils/localLedgerStorage';
@@ -79,6 +81,11 @@ const usePurchaseManagementController = ({
   user,
   shortcutOpenOrderRequest = 0,
   onShortcutOpenOrderHandled = null,
+  popupMode = false,
+  showSectionTabs = true,
+  autoOpenOrderForm = false,
+  initialActiveSubTab = 'dashboard',
+  draftStorageKey = '',
 }) => {
   const isMobile = useIsMobile();
   const getDefaultOrderFormData = createDefaultOrderFormData;
@@ -86,6 +93,7 @@ const usePurchaseManagementController = ({
   const getDefaultPoPaymentFormData = createDefaultPoPaymentFormData;
   const getDefaultLedgerFormData = createDefaultLedgerFormData;
   const getDefaultPoCorrectionFormData = createDefaultPoCorrectionFormData;
+  const restoredPopupDraftRef = useRef(false);
 
   const {
     activeSubTab, setActiveSubTab, purchaseOrders, setPurchaseOrders, purchaseReturns, setPurchaseReturns,
@@ -108,6 +116,7 @@ const usePurchaseManagementController = ({
     loadingDistributorItems, setLoadingDistributorItems, activePoProductField, setActivePoProductField, poProductFormTarget, setPoProductFormTarget,
     orderFormData, setOrderFormData, receiveData, setReceiveData, returnFormData, setReturnFormData,
   } = usePurchaseManagementState({
+    initialActiveSubTab,
     getDefaultOrderFormData,
     getDefaultProcessFormData,
     getDefaultPoPaymentFormData,
@@ -159,7 +168,6 @@ const usePurchaseManagementController = ({
   const {
     poModalSize,
     poModalRef,
-    handlePoModalResizeStart,
   } = usePoModalSizing({
     isMobile,
     storageKey: PO_MODAL_SIZE_KEY,
@@ -181,6 +189,7 @@ const usePurchaseManagementController = ({
     handleLoadDistributorItems,
     handleOpenPoProductForm,
     closePoProductForm,
+    handleInlinePoProductCreate,
     handlePoProductSave,
     handleFilterChange,
     openCreateOrderForm,
@@ -240,6 +249,7 @@ const usePurchaseManagementController = ({
     buildOrderDraftItem,
     resolveProductByInputHelper,
     getDistributorProductOptionsHelper,
+    getDistributorProductHistoryEntryHelper,
     getDistributorHistoryProductsHelper,
     createEmptyOrderItem,
     activePoProductField,
@@ -370,6 +380,75 @@ const usePurchaseManagementController = ({
     shortcutOpenOrderRequest,
   ]);
 
+  const defaultOrderFormData = getDefaultOrderFormData();
+  const hasMeaningfulOrderItems = Array.isArray(orderFormData?.items)
+    && orderFormData.items.some((item) => (
+      Number(item?.product_id || item?.productId || 0) > 0
+      || String(item?.product_query || item?.name || '').trim().length > 0
+      || Number(item?.quantity || 0) > 1
+      || Number(item?.rate || item?.unit_price || 0) > 0
+    ));
+  const orderDraftDirty = Boolean(
+    popupMode
+    && showOrderForm
+    && !editingOrderId
+    && (
+      String(orderFormData?.distributor_id || '').trim()
+      || String(orderFormData?.distributor_name || '').trim()
+      || String(orderFormData?.strict_due_date || '').trim()
+      || String(orderFormData?.strict_due_note || '').trim()
+      || String(orderFormData?.notes || '').trim()
+      || String(orderFormData?.expected_delivery || '').trim() !== String(defaultOrderFormData.expected_delivery || '').trim()
+      || hasMeaningfulOrderItems
+    )
+  );
+
+  usePopupDraftPersistence({
+    kind: 'purchase',
+    storageKey: draftStorageKey,
+    enabled: popupMode,
+    isDirty: orderDraftDirty,
+    draft: {
+      activeSubTab: 'orders',
+      orderFullMode,
+      orderFormData,
+      showOrderForm,
+    },
+    onRestore: (draft) => {
+      const restoredOrderForm = draft?.orderFormData && typeof draft.orderFormData === 'object'
+        ? draft.orderFormData
+        : null;
+      if (!restoredOrderForm) return;
+      restoredPopupDraftRef.current = true;
+      setActiveSubTab('orders');
+      setEditingOrderId(null);
+      setOrderFullMode(Boolean(draft?.orderFullMode));
+      setOrderFormData({
+        ...getDefaultOrderFormData(),
+        ...restoredOrderForm,
+        items: Array.isArray(restoredOrderForm.items) && restoredOrderForm.items.length
+          ? restoredOrderForm.items
+          : [createEmptyOrderItem()],
+      });
+      setShowOrderForm(Boolean(draft?.showOrderForm ?? true));
+      setError('');
+      setSuccess('Restored unsaved purchase draft.');
+    },
+  });
+
+  useEffect(() => {
+    if (!popupMode || !autoOpenOrderForm) return;
+    if (restoredPopupDraftRef.current || showOrderForm) return;
+    setActiveSubTab('orders');
+    openCreateOrderForm();
+  }, [
+    autoOpenOrderForm,
+    openCreateOrderForm,
+    popupMode,
+    setActiveSubTab,
+    showOrderForm,
+  ]);
+
   function toDateInputValue(value) {
     if (!value) return '';
     const raw = String(value);
@@ -380,6 +459,7 @@ const usePurchaseManagementController = ({
   }
 
   const {
+    orderDraftProjection,
     orderTotals,
     ledgerBalanceSummary,
     operationsCardItems,
@@ -392,6 +472,7 @@ const usePurchaseManagementController = ({
     getDistributorName,
     getLedgerBillNumber,
   } = usePurchaseManagementDerived({
+    showOrderForm,
     orderFormData,
     purchaseOrders,
     products,
@@ -400,7 +481,9 @@ const usePurchaseManagementController = ({
     ledgerRecords,
     filters,
     orderDetail,
+    calculateOrderItem,
     calculateOrderTotals,
+    findProductForItem,
     getLedgerBalanceSummary,
     getDistributorProductOptions,
     getOrderDistributorInfo,
@@ -430,10 +513,14 @@ const usePurchaseManagementController = ({
     getOrderDetailItemOriginalLabel,
     orderDetailHasComputedChanges,
     orderDetailComputedTotals,
+    orderDetailDraftDiagnostics,
   } = useOrderDetailComputed({
     orderDetail,
     orderDetailDraft,
     orderDetailEditMode,
+    products,
+    findProductForItem,
+    calculateOrderItem,
     toNumber,
     formatCurrency,
     normalizeGstRateOption,
@@ -455,12 +542,12 @@ const usePurchaseManagementController = ({
       getLedgerTypeLabel, getEntryDisplayBalance, getLedgerBillNumber,
     },
     {
-      showOrderForm, closeOrderForm, poModalRef, isMobile, poModalSize, handlePoModalResizeStart, editingOrderId,
+      showOrderForm, closeOrderForm, poModalRef, isMobile, poModalSize, editingOrderId,
       handleOrderSubmit, orderFullMode, setOrderFullMode, loadingDistributorItems, handleLoadDistributorItems,
-      orderFormData, setOrderFormData, handleDistributorInputChange, orderProductOptions, products, findProductForItem,
-      calculateOrderItem, getAllowedPurchaseUnitsForProduct, getPurchasePackStep, handleOrderProductInputChange,
+      orderFormData, setOrderFormData, orderDraftProjection, handleDistributorInputChange, orderProductOptions, products, findProductForItem,
+      getAllowedPurchaseUnitsForProduct, getPurchasePackStep, handleOrderProductInputChange,
       handleOrderProductFieldFocus, handleOrderItemChange, GST_RATE_OPTIONS, handleOrderItemRemove, handleOrderItemAdd,
-      handleOpenPoProductForm, orderTotals, getProductSearchOptionLabel, orderSubmitting, showPoProductForm,
+      handleOpenPoProductForm, handleInlinePoProductCreate, orderTotals, getProductSearchOptionLabel, orderSubmitting, showPoProductForm, poProductFormTarget,
       closePoProductForm, handlePoProductSave,
     },
     {
@@ -474,7 +561,7 @@ const usePurchaseManagementController = ({
       getPoPaidAmount, orderDetailItems, getItemFinancials, getOrderDetailOriginalItem, hasOrderDetailItemChanged,
       getOrderDetailItemFieldChanged, handleOrderDetailProductInputChange, getProductSearchLabel,
       getOrderDetailItemOriginalLabel, handleOrderDetailItemChange, handleOrderDetailItemRemove,
-      handleOrderDetailItemAdd, orderDetailHasComputedChanges, orderDetailComputedTotals, orderDetailIsEditable,
+      handleOrderDetailItemAdd, orderDetailHasComputedChanges, orderDetailComputedTotals, orderDetailDraftDiagnostics, orderDetailIsEditable,
       orderDetailSaving, handleOrderDetailSave, openOrderDetailEditMode, handlePrintOrderDetail,
     },
     {
@@ -488,6 +575,10 @@ const usePurchaseManagementController = ({
       poCorrectionFormData, setPoCorrectionFormData, poCorrectionContext, showReturnForm, closeReturnForm,
       returnSubmitting, handleReturnSubmit, returnFormData, setReturnFormData, handleReturnItemAdd,
       handleReturnItemChange, handleReturnItemRemove,
+    },
+    {
+      popupMode,
+      showSectionTabs,
     },
   );
 

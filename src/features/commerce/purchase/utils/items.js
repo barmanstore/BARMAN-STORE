@@ -19,12 +19,21 @@ const createEmptyOrderItem = () => ({
   uom: 'pcs',
   unit_price: 0,
   rate: 0,
+  rate_warning_acknowledged: false,
   reference_rate: 0,
   reference_rate_source: '',
   gst_rate: 5,
   discount_type: 'percent',
   discount_value: 0,
+  discount_warning_acknowledged: false,
   last_purchase_hint: '',
+  last_purchase_rate: 0,
+  last_purchase_distributor_name: '',
+  last_purchase_created_at: '',
+  last_purchase_po_number: '',
+  auto_fill_seed_rate: null,
+  auto_fill_seed_gst_rate: null,
+  auto_fill_seed_uom: '',
 });
 
 const mergeProductsById = (existingProducts = [], incomingProducts = []) => {

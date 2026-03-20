@@ -24,6 +24,104 @@
     <meta property="og:url" content="https://barmanstore.vercel.app" />
     <meta property="og:image" content="/logo.png?v=darkmetal-20260228" />
     <title>BARMAN STORE</title>
+    <style>
+      .boot-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28%),
+          linear-gradient(180deg, #f8fbff 0%, #edf4fb 100%);
+        color: #0f172a;
+        font-family: "Space Mono", monospace;
+      }
+
+      .boot-shell__card {
+        width: min(100%, 520px);
+        padding: 24px;
+        border: 1px solid #d4e1ee;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      }
+
+      .boot-shell__kicker {
+        margin: 0 0 8px;
+        color: #0369a1;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .boot-shell__card h1 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.15;
+      }
+
+      .boot-shell__card p {
+        margin: 12px 0 0;
+        color: #475569;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .boot-shell__pulse {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .boot-shell__pulse span {
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #dbeafe, #bfdbfe, #dbeafe);
+        background-size: 200% 100%;
+        animation: bootPulse 1.2s linear infinite;
+      }
+
+      .boot-shell__pulse span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .boot-shell__pulse span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      .boot-noscript {
+        width: min(100%, 520px);
+        margin: 12px auto 0;
+        padding: 0 24px 24px;
+        color: #0f172a;
+        font-family: "Space Mono", monospace;
+      }
+
+      .boot-noscript__card {
+        padding: 18px 20px;
+        border: 1px solid #fecaca;
+        border-radius: 18px;
+        background: #fff1f2;
+        color: #9f1239;
+      }
+
+      .boot-noscript__card strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      @keyframes bootPulse {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+    </style>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -39,7 +137,29 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-shell" role="status" aria-live="polite">
+        <div class="boot-shell__card">
+          <p class="boot-shell__kicker">Barman Store</p>
+          <h1>Loading workspace...</h1>
+          <p>Preparing the application shell for billing, purchase entry, and the storefront.</p>
+          <p>If this screen stays here for more than a few seconds, reload the page.</p>
+          <div class="boot-shell__pulse" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <noscript>
+      <div class="boot-noscript">
+        <div class="boot-noscript__card">
+          <strong>JavaScript is required.</strong>
+          Billing and purchase workspaces need JavaScript to open and run correctly.
+        </div>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -7,6 +7,8 @@ const Cart = lazy(() => import('../features/cart/Cart'));
 const Checkout = lazy(() => import('../features/checkout/Checkout'));
 const Login = lazy(() => import('../features/auth/Login'));
 const AdminPage = lazy(() => import('../features/admin/pages/AdminPage'));
+const BillingPopupPage = lazy(() => import('../features/sales/billing/pages/BillingPopupPage'));
+const PurchasePopupPage = lazy(() => import('../features/commerce/purchase/pages/PurchasePopupPage'));
 const CreditHistory = lazy(() => import('../features/credits/history/CreditHistory'));
 const OrderHistoryPage = lazy(() => import('../features/orders/pages/OrderHistoryPage'));
 const OrderTrackingPage = lazy(() => import('../features/orders/pages/OrderTrackingPage'));
@@ -39,6 +41,8 @@ export const AppRoutes = ({
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/login" element={<Login setUser={setUser} />} />
       <Route path="/admin" element={<AdminPage user={user} />} />
+      <Route path="/popup/billing" element={<BillingPopupPage user={user} />} />
+      <Route path="/popup/purchase" element={<PurchasePopupPage user={user} />} />
       <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
       <Route path="/my-credit" element={<CreditHistory user={user} />} />
       <Route path="/order-history" element={<OrderHistoryPage />} />

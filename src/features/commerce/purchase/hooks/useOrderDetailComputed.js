@@ -1,9 +1,13 @@
 import { useCallback, useMemo } from 'react';
+import { getPurchaseDraftDiagnostics } from '../utils/orderDraftValidation';
 
 function useOrderDetailComputed({
   orderDetail,
   orderDetailDraft,
   orderDetailEditMode,
+  products,
+  findProductForItem,
+  calculateOrderItem,
   toNumber,
   formatCurrency,
   normalizeGstRateOption,
@@ -119,6 +123,25 @@ function useOrderDetailComputed({
     toNumber,
   ]);
 
+  const orderDetailDraftDiagnostics = useMemo(() => getPurchaseDraftDiagnostics({
+    items: orderDetailEditMode
+      ? orderDetailItems
+      : orderDetailItems.map((item) => ({
+          ...item,
+          rate_warning_acknowledged: true,
+          discount_warning_acknowledged: true,
+        })),
+    products,
+    findProductForItem,
+    calculateOrderItem,
+  }), [
+    orderDetailEditMode,
+    orderDetailItems,
+    products,
+    findProductForItem,
+    calculateOrderItem,
+  ]);
+
   return {
     orderDetailItems,
     orderDetailOriginalItems,
@@ -128,6 +151,7 @@ function useOrderDetailComputed({
     getOrderDetailItemOriginalLabel,
     orderDetailHasComputedChanges,
     orderDetailComputedTotals,
+    orderDetailDraftDiagnostics,
   };
 }
 

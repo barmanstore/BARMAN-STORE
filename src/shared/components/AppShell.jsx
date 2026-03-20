@@ -5,6 +5,7 @@ import Header from './header/Header';
 import useIsMobile from '../hooks/useIsMobile';
 import { analyticsApi } from '../services/api';
 import { safeLocalStorageGet, safeLocalStorageSet } from '../utils/storage';
+import BackofficePopupGuard from './backoffice/BackofficePopupGuard';
 import * as info from '../info.js';
 
 const VISITOR_SESSION_STORAGE_KEY = 'visitor_session_id';
@@ -123,6 +124,7 @@ function AppShell({
   const location = useLocation();
   const isMobile = useIsMobile();
   const isHomeRoute = location.pathname === '/' || location.pathname === '';
+  const isPopupRoute = location.pathname.startsWith('/popup');
   const shouldHideChrome = isMobile && !isHomeRoute;
   const quickContactRef = useRef(null);
   const dragStateRef = useRef({
@@ -153,12 +155,16 @@ function AppShell({
   const resolvePublicFileUrl = publicFileUrl || ((filename) => String(filename || ''));
 
   useEffect(() => {
+    if (isPopupRoute) {
+      document.body.classList.remove('mobile-hide-chrome');
+      return undefined;
+    }
     if (typeof document === 'undefined') return;
     document.body.classList.toggle('mobile-hide-chrome', shouldHideChrome);
     return () => {
       document.body.classList.remove('mobile-hide-chrome');
     };
-  }, [shouldHideChrome]);
+  }, [isPopupRoute, shouldHideChrome]);
 
   useEffect(() => {
     if (shouldHideChrome && mobileMenuOpen) {
@@ -284,9 +290,29 @@ function AppShell({
     event.stopPropagation();
   };
 
+  if (isPopupRoute) {
+    return (
+      <div className="app app-popup" data-window-background-root="true">
+        <main className="main-content main-content-popup">
+          <Suspense
+            fallback={(
+              <div className="route-loading" role="status" aria-live="polite">
+                <span className="route-loading__spinner" aria-hidden="true" />
+                <span className="route-loading__text">Loading workspace...</span>
+              </div>
+            )}
+          >
+            {routesElement}
+          </Suspense>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="app">
+    <div className="app" data-window-background-root="true">
       <VisitorTracker />
+      <BackofficePopupGuard />
       <Header
         headerRef={headerRef}
         mobileMenuOpen={mobileMenuOpen}

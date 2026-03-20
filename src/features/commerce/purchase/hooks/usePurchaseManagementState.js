@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
 const usePurchaseManagementState = ({
+  initialActiveSubTab = 'dashboard',
   getDefaultOrderFormData,
   getDefaultProcessFormData,
   getDefaultPoPaymentFormData,
@@ -9,7 +10,7 @@ const usePurchaseManagementState = ({
   createDefaultOperationsSummary,
   createClientRequestId,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState(initialActiveSubTab);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [purchaseReturns, setPurchaseReturns] = useState([]);
   const [distributors, setDistributors] = useState([]);

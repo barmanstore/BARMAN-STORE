@@ -1,5 +1,8 @@
 import { useCallback } from 'react';
-import { getPurchaseDraftDiagnostics } from '../utils/orderDraftValidation';
+import {
+  buildPurchaseOrderSavePayload,
+  preparePurchaseOrderSubmission,
+} from '../utils/orderDrafts';
 
 const usePurchaseOrderFormHandlers = ({
   setFilters,
@@ -91,7 +94,15 @@ const usePurchaseOrderFormHandlers = ({
             return buildOrderDraftItem(product, {
               ...item,
               quantity: Math.max(1, toNumber(item.quantity || 1)),
+              discount_type: 'percent',
+              discount_value: 0,
+              reference_rate: item.rate ?? item.unit_price ?? product?.price,
+              reference_rate_source: 'recent distributor history',
               last_purchase_hint: 'Suggested from recent distributor history',
+              last_purchase_rate: item.rate ?? item.unit_price ?? product?.price,
+              last_purchase_distributor_name: distributor?.name || '',
+              last_purchase_created_at: item.created_at || options.order_date || options.expected_delivery || '',
+              last_purchase_po_number: item.po_number || '',
             });
           })
         : [createEmptyOrderItem()],
@@ -136,71 +147,31 @@ const usePurchaseOrderFormHandlers = ({
         return;
       }
 
-      const invalidTypedProducts = orderFormData.items.filter((item) =>
-        String(item.product_query || '').trim() && !item.product_id
-      );
-      if (invalidTypedProducts.length > 0) {
-        setError('Please select valid products from suggestions for all typed product names');
-        setOrderSubmitting(false);
-        orderSubmitLockRef.current = false;
-        return;
-      }
-
-      const validItems = orderFormData.items.filter((item) => item.product_id && item.quantity > 0);
-      if (validItems.length === 0) {
-        setError('Please add at least one item');
-        setOrderSubmitting(false);
-        orderSubmitLockRef.current = false;
-        return;
-      }
-
-      const draftDiagnostics = getPurchaseDraftDiagnostics({
-        items: validItems,
+      const submission = preparePurchaseOrderSubmission({
+        items: orderFormData.items,
         products,
         findProductForItem,
         calculateOrderItem,
+        calculateOrderTotals,
       });
-      if (draftDiagnostics.hasDuplicateErrors) {
-        setError(draftDiagnostics.blockingMessage);
+      if (submission.error) {
+        setError(submission.error);
         setOrderSubmitting(false);
         orderSubmitLockRef.current = false;
         return;
       }
 
-      const calculatedItems = validItems.map((item) => {
-        const line = calculateOrderItem(item);
-        return {
-          ...item,
-          quantity: line.quantity,
-          uom: line.uom,
-          unit_price: line.rate,
-          rate: line.rate,
-          gst_rate: line.gstRate,
-          discount_type: line.discountType,
-          discount_value: line.discountValue,
-          taxable_value: line.taxableValue,
-          tax_amount: line.taxAmount,
-          line_total: line.totalAmount,
-        };
-      });
-
-      const orderTotals = calculateOrderTotals(calculatedItems);
-      const payload = {
-        distributor_id: orderFormData.distributor_id,
-        expected_delivery: orderFormData.expected_delivery,
-        strict_due_date: orderFormData.strict_due_date || null,
-        strict_due_note: orderFormData.strict_due_note || '',
+      const payload = buildPurchaseOrderSavePayload({
+        distributorId: orderFormData.distributor_id,
+        expectedDelivery: orderFormData.expected_delivery,
+        strictDueDate: orderFormData.strict_due_date || null,
+        strictDueNote: orderFormData.strict_due_note || '',
         notes: orderFormData.notes,
-        subtotal: orderTotals.taxableValue,
-        taxable_value: orderTotals.taxableValue,
-        tax_amount: orderTotals.taxAmount,
-        total_amount: orderTotals.totalAmount,
-        grand_total: orderTotals.totalAmount,
-        total: orderTotals.totalAmount,
-        items: calculatedItems,
-        created_by: user?.id,
-        client_request_id: editingOrderId ? undefined : orderFormClientRequestId,
-      };
+        calculatedItems: submission.calculatedItems,
+        totals: submission.totals,
+        createdBy: user?.id,
+        clientRequestId: editingOrderId ? undefined : orderFormClientRequestId,
+      });
 
       if (editingOrderId) {
         await purchaseOrdersApi.update(editingOrderId, payload);
@@ -255,7 +226,9 @@ const usePurchaseOrderFormHandlers = ({
           ...item,
           product_query: item.product_name || '',
           quantity: toNumber(item.quantity),
+          rate_warning_acknowledged: true,
           last_purchase_hint: '',
+          discount_warning_acknowledged: true,
         });
       });
 

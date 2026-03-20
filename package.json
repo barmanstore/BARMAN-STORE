@@ -37,6 +37,8 @@
         "test:po-lifecycle": "node scripts/test-po-lifecycle-flow.mjs",
         "test:credit-ui": "node scripts/test-credit-history-ui.mjs",
         "test:category-tree": "node scripts/test-category-tree-rules.mjs",
+        "cleanup:smoke": "node scripts/cleanup-smoke-test-data.js --apply",
+        "cleanup:smoke:verify": "node scripts/cleanup-smoke-test-data.js --fail-on-matches",
         "preview": "vite preview",
         "server": "node server/index.js",
         "start:prod": "node server/index.js",

@@ -14,7 +14,6 @@ const PurchaseModals = ({
   poModalRef,
   isMobile,
   poModalSize,
-  handlePoModalResizeStart,
   editingOrderId,
   handleOrderSubmit,
   orderFullMode,
@@ -23,12 +22,12 @@ const PurchaseModals = ({
   handleLoadDistributorItems,
   orderFormData,
   setOrderFormData,
+  orderDraftProjection,
   handleDistributorInputChange,
   distributors,
   orderProductOptions,
   products,
   findProductForItem,
-  calculateOrderItem,
   getAllowedPurchaseUnitsForProduct,
   getPurchasePackStep,
   handleOrderProductInputChange,
@@ -38,11 +37,11 @@ const PurchaseModals = ({
   toNumber,
   handleOrderItemRemove,
   handleOrderItemAdd,
-  handleOpenPoProductForm,
+  handleInlinePoProductCreate,
   orderTotals,
-  getProductSearchOptionLabel,
   orderSubmitting,
   showPoProductForm,
+  poProductFormTarget,
   closePoProductForm,
   handlePoProductSave,
   showReceiveModal,
@@ -86,6 +85,7 @@ const PurchaseModals = ({
   handleOrderDetailItemAdd,
   orderDetailHasComputedChanges,
   orderDetailComputedTotals,
+  orderDetailDraftDiagnostics,
   orderDetailIsEditable,
   orderDetailSaving,
   handleOrderDetailSave,
@@ -129,7 +129,8 @@ const PurchaseModals = ({
   setReturnFormData,
   handleReturnItemAdd,
   handleReturnItemChange,
-  handleReturnItemRemove
+  handleReturnItemRemove,
+  renderOrderFormInline = false,
 }) => (
   <>
     <PurchaseOrderFormModal
@@ -138,7 +139,6 @@ const PurchaseModals = ({
       poModalRef={poModalRef}
       isMobile={isMobile}
       poModalSize={poModalSize}
-      handlePoModalResizeStart={handlePoModalResizeStart}
       editingOrderId={editingOrderId}
       handleOrderSubmit={handleOrderSubmit}
       orderFullMode={orderFullMode}
@@ -147,12 +147,10 @@ const PurchaseModals = ({
       handleLoadDistributorItems={handleLoadDistributorItems}
       orderFormData={orderFormData}
       setOrderFormData={setOrderFormData}
+      orderDraftProjection={orderDraftProjection}
       handleDistributorInputChange={handleDistributorInputChange}
       distributors={distributors}
       orderProductOptions={orderProductOptions}
-      products={products}
-      findProductForItem={findProductForItem}
-      calculateOrderItem={calculateOrderItem}
       getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
       getPurchasePackStep={getPurchasePackStep}
       handleOrderProductInputChange={handleOrderProductInputChange}
@@ -162,16 +160,18 @@ const PurchaseModals = ({
       toNumber={toNumber}
       handleOrderItemRemove={handleOrderItemRemove}
       handleOrderItemAdd={handleOrderItemAdd}
-      handleOpenProductForm={handleOpenPoProductForm}
+      handleInlineProductCreate={handleInlinePoProductCreate}
       orderTotals={orderTotals}
-      getProductSearchOptionLabel={getProductSearchOptionLabel}
       orderSubmitting={orderSubmitting}
+      showPoProductForm={showPoProductForm}
+      inline={renderOrderFormInline}
     />
 
     {showPoProductForm && (
       <ProductForm
         product={null}
         mode="quick"
+        initialFormPatch={poProductFormTarget?.draftName ? { name: poProductFormTarget.draftName } : null}
         onClose={closePoProductForm}
         onSave={handlePoProductSave}
       />
@@ -224,6 +224,7 @@ const PurchaseModals = ({
       handleOrderDetailItemAdd={handleOrderDetailItemAdd}
       orderDetailHasComputedChanges={orderDetailHasComputedChanges}
       orderDetailComputedTotals={orderDetailComputedTotals}
+      orderDetailDraftDiagnostics={orderDetailDraftDiagnostics}
       orderDetailIsEditable={orderDetailIsEditable}
       orderDetailSaving={orderDetailSaving}
       handleOrderDetailSave={handleOrderDetailSave}

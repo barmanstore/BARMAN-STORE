@@ -2,21 +2,19 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import pg from 'pg';
-import '../server/loadEnv.js';
+import {
+  logSmokeSkipInfo,
+  parseBooleanEnv,
+  resolveSmokeDbConfig,
+  withResolvedSmokeDbEnv,
+} from './smokeDbConfig.mjs';
 
 const { Pool } = pg;
-const allowSkipIfNoDb = ['1', 'true', 'yes', 'on'].includes(String(process.env.SMOKE_ALLOW_NO_DB || '').trim().toLowerCase());
-const hasDbEnv = Boolean(
-  process.env.SUPABASE_DB_URL
-  || process.env.DATABASE_URL
-  || process.env.POSTGRES_DB_URL
-  || process.env.POSTGRES_URL
-  || process.env.POSTGRES_PRISMA_URL
-  || process.env.PG_CONNECTION_STRING
-  || process.env.PGHOST
-  || process.env.PG_HOST
-  || process.env.POSTGRES_HOST
-);
+const allowSkipIfNoDb = parseBooleanEnv(process.env.SMOKE_ALLOW_NO_DB, false);
+const smokeDbConfig = resolveSmokeDbConfig({
+  testName: 'PO lifecycle smoke test',
+  explicitEnvKeys: ['SMOKE_TEST_DB_URL'],
+});
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -60,6 +58,7 @@ const buildTestEnv = (port, authSecret) => ({
   PORT: String(port),
   AUTH_TOKEN_SECRET: authSecret,
   SUPABASE_AUTH_ENABLED: 'false',
+  ...withResolvedSmokeDbEnv({}, smokeDbConfig.dbUrl),
 });
 
 let inProcessApp = null;
@@ -155,22 +154,41 @@ const toNumber = (value) => {
 const main = async () => {
   const port = 5900 + Math.floor(Math.random() * 100);
   const authSecret = `po-lifecycle-secret-${randomSuffix()}`;
-  const boot = await spawnTestServer(port, authSecret);
-  const { server } = boot;
-  const appInstance = boot.app || null;
-  const readLogs = boot.readLogs;
-
-  const baseUrl = `http://127.0.0.1:${port}`;
-  const request = makeRequest(baseUrl);
+  const hasDbEnv = Boolean(smokeDbConfig.dbUrl);
+  let server = null;
+  let appInstance = null;
+  let readLogs = () => ({ stdout: '', stderr: '' });
+  let request = null;
 
   let pool = null;
   let createdProductId = 0;
   let createdDistributorId = 0;
   let createdPoId = 0;
   try {
+    if (smokeDbConfig.shouldSkip) {
+      logSmokeSkipInfo(smokeDbConfig.reason);
+      return;
+    }
     if (allowSkipIfNoDb && !hasDbEnv) {
-      console.warn('[WARN] PO lifecycle smoke test skipped because no database configuration is set.');
-      console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+      logSmokeSkipInfo(
+        'PO lifecycle smoke test skipped because no dedicated smoke-test database is configured.',
+        ['Set SMOKE_TEST_DB_URL to run the test safely.']
+      );
+      return;
+    }
+    if (!hasDbEnv) {
+      throw new Error('PO lifecycle smoke test requires SMOKE_TEST_DB_URL. Set SMOKE_TEST_ALLOW_PRIMARY_DB=1 only if you intentionally want to reuse the primary app DB.');
+    }
+
+    const boot = await spawnTestServer(port, authSecret);
+    server = boot.server;
+    appInstance = boot.app || null;
+    readLogs = boot.readLogs;
+
+    const baseUrl = `http://127.0.0.1:${port}`;
+    request = makeRequest(baseUrl);
+    if (!request) {
+      throw new Error('PO lifecycle smoke test could not initialize HTTP client.');
       return;
     }
 
@@ -191,21 +209,25 @@ const main = async () => {
       const logs = readLogs();
       const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(logs.stderr);
       if (allowSkipIfNoDb && dbBootFailed) {
-        console.warn('[WARN] PO lifecycle smoke test skipped because the database is unavailable.');
-        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+        logSmokeSkipInfo(
+          'PO lifecycle smoke test skipped because the database is unavailable.',
+          ['Set SMOKE_TEST_DB_URL to run the test safely.']
+        );
         return;
       }
       assert.equal(ready, true, `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`);
     }
 
-    const dbUrl = String(process.env.SUPABASE_DB_URL || process.env.DATABASE_URL || process.env.POSTGRES_DB_URL || '').trim();
-    pool = dbUrl ? new Pool({ connectionString: dbUrl }) : new Pool();
+    const dbUrl = String(smokeDbConfig.dbUrl || '').trim();
+    pool = new Pool({ connectionString: dbUrl });
     try {
       await pool.query('SELECT 1 AS ok');
     } catch (error) {
       if (allowSkipIfNoDb) {
-        console.warn('[WARN] PO lifecycle smoke test skipped because the database is unavailable.');
-        console.warn('[WARN] Provide SUPABASE_DB_URL/DATABASE_URL to run the test.');
+        logSmokeSkipInfo(
+          'PO lifecycle smoke test skipped because the database is unavailable.',
+          ['Set SMOKE_TEST_DB_URL to run the test safely.']
+        );
         return;
       }
       throw error;

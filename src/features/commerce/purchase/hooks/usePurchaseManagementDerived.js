@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { projectPurchaseOrderDraft } from '../utils/orderDrafts';
 
 const usePurchaseManagementDerived = ({
+  showOrderForm,
   orderFormData,
   purchaseOrders,
   products,
@@ -9,7 +11,9 @@ const usePurchaseManagementDerived = ({
   ledgerRecords,
   filters,
   orderDetail,
+  calculateOrderItem,
   calculateOrderTotals,
+  findProductForItem,
   getLedgerBalanceSummary,
   getDistributorProductOptions,
   getOrderDistributorInfo,
@@ -24,7 +28,24 @@ const usePurchaseManagementDerived = ({
   toNumber,
   icons,
 }) => {
-  const orderTotals = calculateOrderTotals(orderFormData.items);
+  const previousProjectionRef = useRef(null);
+  const orderDraftProjection = useMemo(() => projectPurchaseOrderDraft({
+    items: showOrderForm ? orderFormData.items : [],
+    products,
+    findProductForItem,
+    calculateOrderItem,
+    calculateOrderTotals,
+    previousProjection: previousProjectionRef.current,
+  }), [
+    showOrderForm,
+    orderFormData.items,
+    products,
+    findProductForItem,
+    calculateOrderItem,
+    calculateOrderTotals,
+  ]);
+  previousProjectionRef.current = orderDraftProjection;
+  const orderTotals = orderDraftProjection.totals;
   const ledgerBalanceSummary = getLedgerBalanceSummary(ledgerRecords, filters.distributor_id);
   const operationsCards = operationsSummary?.cards || {};
   const operationsCardItems = [
@@ -102,6 +123,7 @@ const usePurchaseManagementDerived = ({
   );
 
   return {
+    orderDraftProjection,
     orderTotals,
     ledgerBalanceSummary,
     operationsCardItems,

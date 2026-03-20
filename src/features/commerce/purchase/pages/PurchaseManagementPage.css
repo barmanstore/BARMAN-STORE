@@ -10,6 +10,92 @@
   font-size: 16px;
 }
 
+.purchase-management .purchase-loading-shell {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #dbe4ef;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+}
+
+.purchase-management .purchase-loading-shell__hero {
+  display: grid;
+  gap: 8px;
+}
+
+.purchase-management .purchase-loading-shell__hero h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.purchase-management .purchase-loading-shell__hero p {
+  margin: 0;
+  max-width: 54ch;
+  color: #475569;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.purchase-management .purchase-loading-shell__kicker {
+  color: #0369a1;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.purchase-management .purchase-loading-shell__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.purchase-management .purchase-loading-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.purchase-management .purchase-loading-card--wide {
+  grid-column: 1 / -1;
+}
+
+.purchase-management .purchase-loading-line {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e2e8f0, #f8fafc, #e2e8f0);
+  background-size: 200% 100%;
+  animation: purchase-loading-shimmer 1.2s linear infinite;
+}
+
+.purchase-management .purchase-loading-line--title {
+  width: 46%;
+  height: 16px;
+}
+
+.purchase-management .purchase-loading-line--short {
+  width: 68%;
+}
+
+@keyframes purchase-loading-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .purchase-management .error-message {
   background: #fee2e2;
   color: #dc2626;
@@ -42,6 +128,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 20px;
   border: none;
   background: transparent;
@@ -126,6 +213,7 @@
 
 .purchase-management .filter-group select,
 .purchase-management .filter-group input {
+  min-height: 44px;
   padding: 8px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -199,6 +287,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 16px;
   border: none;
   border-radius: 8px;
@@ -276,6 +365,33 @@
   text-align: center;
   padding: 40px 20px;
   color: #9ca3af;
+}
+
+.purchase-management .purchase-empty-state-card {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 460px;
+  margin: 0 auto;
+  color: #475569;
+}
+
+.purchase-management .purchase-empty-state-card strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.purchase-management .purchase-empty-state-card p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.purchase-management .purchase-empty-state-card .admin-btn {
+  margin-top: 4px;
+}
+
+.purchase-management .purchase-empty-state-card--muted {
+  max-width: 420px;
 }
 
 /* Status Badges */
@@ -380,8 +496,8 @@
 }
 
 .purchase-management .action-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1132,21 +1248,22 @@
   display: grid;
   gap: 14px;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
 }
 
 .purchase-management .po-party-card {
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 12px;
+  padding: 10px;
   background: #f9fafb;
 }
 
 .purchase-management .po-party-card h4 {
-  margin: 0 0 8px;
-  font-size: 13px;
+  margin: 0 0 6px;
+  font-size: 0.84rem;
   color: #374151;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.08em;
 }
 
 .purchase-management .po-party-card p {
@@ -1223,6 +1340,29 @@
   font-size: 10px;
   line-height: 1.3;
   font-weight: 600;
+}
+
+.purchase-management .po-detail-effective-note {
+  display: block;
+  margin-top: 4px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.purchase-management .po-detail-row-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.purchase-management .po-detail-table-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .purchase-management .po-detail-table-actions {
@@ -1397,6 +1537,7 @@
 }
 
 .purchase-management .po-entry-mode-tabs button {
+  min-height: 44px;
   border: none;
   background: transparent;
   color: #374151;
@@ -1572,9 +1713,10 @@
   border: 1px solid #dbe4ef;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
-  font-size: 13px;
+  font-size: 0.84rem;
   font-weight: 600;
   color: #0f172a;
+  cursor: help;
 }
 
 .purchase-management .po-entry-full-toggle input {
@@ -1584,46 +1726,86 @@
 }
 
 .purchase-management .po-entry-header-grid {
-  grid-template-columns: minmax(260px, 1.1fr) minmax(220px, 0.9fr);
+  grid-template-columns: minmax(280px, 1.26fr) minmax(220px, 0.74fr);
+  align-items: start;
 }
 
 .purchase-management .po-entry-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.purchase-management .po-entry-stats div {
+.purchase-management .po-entry-stat-chip {
   border: 1px solid #dbe4ef;
   border-radius: 10px;
-  padding: 0.7rem 0.85rem;
+  padding: 0.52rem 0.65rem;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+.purchase-management .po-entry-stat-chip.total {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
 }
 
 .purchase-management .po-entry-stats span {
   display: block;
   color: #64748b;
-  font-size: 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
 }
 
 .purchase-management .po-entry-stats strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 2px;
   color: #0f172a;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .purchase-management .po-entry-advanced-fields {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .purchase-management .po-entry-advanced-fields .form-group {
   margin-bottom: 0;
+}
+
+.purchase-management .po-entry-advanced-toggle {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.purchase-management .po-entry-advanced-toggle summary {
+  padding: 0.55rem 0.7rem;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.purchase-management .po-entry-advanced-toggle summary::-webkit-details-marker {
+  display: none;
+}
+
+.purchase-management .po-entry-advanced-toggle[open] summary {
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.purchase-management .po-entry-advanced-toggle-body {
+  display: grid;
+  gap: 8px;
+  padding: 0.7rem;
+}
+
+.purchase-management .po-entry-advanced-toggle-body textarea {
+  min-height: 60px;
 }
 
 .purchase-management .po-entry-table-shell {
@@ -1702,6 +1884,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   padding: 0.55rem 0.85rem;
   background: var(--color-primary);
   border: 1px solid var(--color-primary);
@@ -1717,8 +1900,9 @@
 }
 
 .purchase-management .po-icon-action-btn {
-  width: 38px;
-  height: 38px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 12px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
@@ -1827,6 +2011,40 @@
   color: #b45309;
 }
 
+.purchase-management.purchase-management-popup-entry {
+  padding: 0;
+  min-height: 100%;
+}
+
+.purchase-management .po-entry-inline-surface {
+  display: grid;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.purchase-management .po-entry-inline-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-management .po-entry-inline-banner h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 1.2rem;
+}
+
+.purchase-management .po-entry-inline-banner p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.purchase-management .po-entry-inline-shell .po-invoice-preview {
+  margin: 0;
+}
+
 .purchase-management .po-entry-shortcuts {
   display: flex;
   flex-wrap: wrap;
@@ -1844,6 +2062,794 @@
   background: rgba(148, 163, 184, 0.12);
   color: var(--color-title);
   font-size: 0.72rem;
+}
+
+.purchase-management .po-pos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.34fr) minmax(300px, 0.66fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.purchase-management .po-pos-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.purchase-management .po-pos-entry-panel {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.08);
+}
+
+.purchase-management .po-pos-items-panel {
+  border-color: #e2e8f0;
+  background: linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
+}
+
+.purchase-management .po-pos-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-management .po-pos-panel-kicker {
+  margin: 0 0 4px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.purchase-management .po-pos-panel-header h4 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.purchase-management .po-pos-panel-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.purchase-management .po-pos-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.purchase-management .po-pos-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 10px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.purchase-management .po-pos-action-btn.subtle {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.purchase-management .po-pos-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.purchase-management .po-pos-field-search {
+  position: relative;
+}
+
+.purchase-management .po-pos-field-stage {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.purchase-management .po-pos-field-stage.secondary {
+  background: #f8fafc;
+}
+
+.purchase-management .po-pos-field-stage.compact {
+  gap: 10px;
+}
+
+.purchase-management .po-pos-field-stage.readonly {
+  background: #f8fafc;
+  border-style: dashed;
+}
+
+.purchase-management .po-pos-field-stage-header {
+  display: grid;
+  gap: 4px;
+}
+
+.purchase-management .po-pos-field-stage-header-inline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-management .po-pos-field-stage-header-inline > div {
+  display: grid;
+  gap: 4px;
+}
+
+.purchase-management .po-pos-field-stage-header span {
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.purchase-management .po-pos-field-stage.readonly .po-pos-field-stage-header span {
+  color: #64748b;
+}
+
+.purchase-management .po-pos-field-stage-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.purchase-management .po-pos-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.purchase-management .po-entry-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.purchase-management .po-pos-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0.32rem 0.58rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.purchase-management .po-pos-status-chip.info,
+.purchase-management .po-pos-status-chip.neutral {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.purchase-management .po-pos-status-chip.good {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.purchase-management .po-pos-status-chip.bad,
+.purchase-management .po-pos-status-chip.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.purchase-management .po-pos-status-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.purchase-management .po-pos-status-chip-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.purchase-management .po-pos-status-chip-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.purchase-management .po-pos-status-chip-btn.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.purchase-management .po-pos-field span {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.purchase-management .po-pos-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.purchase-management .po-pos-field input:not(.product-search-input),
+.purchase-management .po-pos-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  font-size: 0.94rem;
+  background: #fff;
+}
+
+.purchase-management .po-pos-field-primary span {
+  color: #0f172a;
+  font-size: 0.88rem;
+}
+
+.purchase-management .po-pos-field-primary input:not(.product-search-input),
+.purchase-management .po-pos-field-primary select {
+  min-height: 52px;
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+  box-shadow: 0 1px 0 rgba(37, 99, 235, 0.06);
+}
+
+.purchase-management .po-pos-field-secondary span {
+  color: #64748b;
+}
+
+.purchase-management .po-pos-field-secondary input:not(.product-search-input),
+.purchase-management .po-pos-field-secondary select {
+  background: #f8fafc;
+}
+
+.purchase-management .product-search-shell {
+  width: 100%;
+  min-width: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.purchase-management .po-pos-field-primary .product-search-shell {
+  min-height: 52px;
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+  box-shadow: 0 1px 0 rgba(37, 99, 235, 0.06);
+}
+
+.purchase-management .product-search-shell svg {
+  color: #64748b;
+}
+
+.purchase-management .po-pos-field-primary .product-search-shell svg {
+  color: #1d4ed8;
+}
+
+.purchase-management .po-pos-field .product-search-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.72rem 0;
+  min-height: 0;
+}
+
+.purchase-management .po-pos-field-primary .product-search-input {
+  background: transparent;
+  box-shadow: none;
+  font-size: 1rem;
+}
+
+.purchase-management .product-search-shell:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.purchase-management .product-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 24;
+  display: grid;
+  gap: 4px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid #dbe4ef;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+}
+
+.purchase-management .product-search-hint {
+  font-size: 0.8rem;
+}
+
+.purchase-management .product-search-summary {
+  font-size: 0.8rem;
+}
+
+.purchase-management .product-search-option-name {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.purchase-management .product-search-option-meta,
+.purchase-management .product-search-state {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.purchase-management .product-search-results {
+  gap: 4px;
+}
+
+.purchase-management .product-search-option {
+  padding: 0.6rem 0.72rem;
+  border-radius: 12px;
+}
+
+.purchase-management .product-search-option:hover,
+.purchase-management .product-search-option.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.purchase-management .product-search-state {
+  padding: 0.6rem 0.72rem;
+}
+
+.purchase-management .po-pos-entry-lane {
+  display: grid;
+  gap: 12px;
+}
+
+.purchase-management .po-pos-inline-create {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #cbd5f5;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.purchase-management .po-pos-inline-create-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.purchase-management .po-pos-inline-create-header strong {
+  display: block;
+  color: #0f172a;
+  font-size: 0.88rem;
+}
+
+.purchase-management .po-pos-inline-create-header p {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.purchase-management .po-pos-inline-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.purchase-management .po-pos-inline-create-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(140px, 0.75fr) minmax(120px, 0.6fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.purchase-management .po-pos-inline-create-note,
+.purchase-management .po-pos-inline-create-error {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.purchase-management .po-pos-inline-create-note {
+  color: #475569;
+}
+
+.purchase-management .po-pos-inline-create-error {
+  color: #b91c1c;
+}
+
+.purchase-management .po-pos-field-search-wide {
+  width: 100%;
+}
+
+.purchase-management .po-pos-field-search-wide .product-search-shell {
+  min-height: 58px;
+  padding: 0 14px;
+}
+
+.purchase-management .po-pos-field-search-wide .product-search-input {
+  min-height: 56px;
+  padding: 0.82rem 0;
+  font-size: 1.04rem;
+}
+
+.purchase-management .po-pos-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.purchase-management .po-pos-primary-grid.full {
+  grid-template-columns: minmax(140px, 0.72fr) minmax(200px, 1fr);
+}
+
+.purchase-management .po-pos-entry-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.purchase-management .po-pos-entry-grid-secondary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.purchase-management .po-pos-stage-toggle-btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.purchase-management .po-pos-adjustments-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.purchase-management .po-pos-adjustments-preview span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0.25rem 0.55rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.purchase-management .po-pos-entry-grid-quick {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.purchase-management .po-pos-field-qty input {
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.purchase-management .po-pos-field-rate input {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.purchase-management .po-pos-entry-grid-secondary .po-pos-field span {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.purchase-management .po-pos-entry-grid-secondary .po-pos-field input:not(.product-search-input),
+.purchase-management .po-pos-entry-grid-secondary .po-pos-field select {
+  min-height: 40px;
+  padding: 0.55rem 0.72rem;
+  font-size: 0.92rem;
+}
+
+.purchase-management .po-pos-field-meta {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.purchase-management .po-pos-field-inline-meta {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.purchase-management .po-pos-stat-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.purchase-management .po-pos-stat-card.readonly {
+  border-style: dashed;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.purchase-management .po-pos-stat-card span {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.purchase-management .po-pos-stat-card strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.purchase-management .po-pos-summary-block {
+  display: grid;
+  gap: 10px;
+}
+
+.purchase-management .po-pos-summary-header {
+  display: grid;
+  gap: 4px;
+}
+
+.purchase-management .po-pos-summary-header span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.purchase-management .po-pos-summary-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.purchase-management .po-pos-line-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.purchase-management .po-pos-line-summary > div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.purchase-management .po-pos-line-summary > div span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.purchase-management .po-pos-line-summary > div strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.purchase-management .po-pos-line-summary > div.total {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-color: #0f172a;
+}
+
+.purchase-management .po-pos-line-summary > div.total span,
+.purchase-management .po-pos-line-summary > div.total strong {
+  color: #fff;
+}
+
+.purchase-management .po-pos-list-summary {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.purchase-management .po-pos-list-summary span {
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.purchase-management .po-pos-list-summary strong {
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.purchase-management .po-pos-items-list {
+  display: grid;
+  gap: 10px;
+  max-height: 460px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.purchase-management .po-pos-item-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.purchase-management .po-pos-item-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.purchase-management .po-pos-item-card.active {
+  border-color: var(--color-primary);
+  background: rgba(37, 99, 235, 0.06);
+}
+
+.purchase-management .po-pos-item-card.draft {
+  border-color: #fbcfe8;
+  background: linear-gradient(180deg, #fff8fb 0%, #fff1f6 100%);
+}
+
+.purchase-management .po-pos-item-card-top,
+.purchase-management .po-pos-item-metrics {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.purchase-management .po-pos-item-title {
+  display: grid;
+  gap: 6px;
+}
+
+.purchase-management .po-pos-item-title strong {
+  color: #0f172a;
+  font-size: 0.96rem;
+}
+
+.purchase-management .po-pos-item-tags,
+.purchase-management .po-pos-item-submetrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.purchase-management .po-pos-item-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.purchase-management .po-pos-item-status .po-pos-status-chip {
+  min-height: 26px;
+  padding: 0.24rem 0.48rem;
+  font-size: 0.76rem;
+}
+
+.purchase-management .po-pos-item-tags span,
+.purchase-management .po-pos-item-submetrics span {
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.purchase-management .po-pos-item-tags span.active {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.purchase-management .po-pos-item-tags span.draft {
+  background: rgba(244, 114, 182, 0.12);
+  color: #be185d;
+}
+
+.purchase-management .po-pos-item-metrics span {
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.purchase-management .po-pos-item-metrics strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.purchase-management .po-pos-remove-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #dc2626;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.purchase-management .po-pos-empty-state {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px 0;
+}
+
+.purchase-management .po-pos-empty-state strong {
+  color: #0f172a;
+}
+
+.purchase-management .po-pos-empty-state p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
 }
 
 .purchase-management .po-mobile-stepper,
@@ -2102,8 +3108,8 @@
 }
 
 .purchase-management .remove-item-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: #fee2e2;
   color: #dc2626;
@@ -2271,6 +3277,7 @@ body.po-modal-resizing {
 }
 
 .purchase-management .cancel-btn {
+  min-height: 44px;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -2286,6 +3293,7 @@ body.po-modal-resizing {
 }
 
 .purchase-management .submit-btn {
+  min-height: 44px;
   padding: 0.55rem 0.85rem;
   border: 1px solid var(--color-primary);
   border-radius: 8px;
@@ -2375,11 +3383,19 @@ body.po-modal-resizing {
   .purchase-management .po-entry-header-grid {
     grid-template-columns: 1fr;
   }
+
+  .purchase-management .po-pos-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
   .purchase-management {
     padding: 16px;
+  }
+
+  .purchase-management .po-entry-inline-banner {
+    flex-direction: column;
   }
 
   .purchase-management .modal-content.po-form-modal {
@@ -2406,7 +3422,7 @@ body.po-modal-resizing {
   }
 
   .purchase-management .po-mobile-step-btn {
-    min-height: 42px;
+    min-height: 44px;
     border: 1px solid var(--color-border);
     border-radius: 12px;
     background: #fff;
@@ -2473,6 +3489,41 @@ body.po-modal-resizing {
 
   .purchase-management .po-entry-table {
     min-width: 680px;
+  }
+
+  .purchase-management .po-pos-panel-header,
+  .purchase-management .po-pos-item-card-top,
+  .purchase-management .po-pos-item-metrics {
+    flex-direction: column;
+  }
+
+  .purchase-management .po-pos-panel-actions {
+    width: 100%;
+  }
+
+  .purchase-management .po-pos-action-btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  .purchase-management .po-pos-primary-grid,
+  .purchase-management .po-pos-inline-create-grid,
+  .purchase-management .po-pos-entry-grid,
+  .purchase-management .po-pos-line-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-management .po-pos-inline-create-header {
+    flex-direction: column;
+  }
+
+  .purchase-management .po-pos-field-stage-header,
+  .purchase-management .po-pos-summary-header {
+    text-align: left;
+  }
+
+  .purchase-management .po-pos-list-summary {
+    text-align: left;
   }
 
   .purchase-management .po-item-main,

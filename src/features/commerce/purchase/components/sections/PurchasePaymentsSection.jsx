@@ -108,11 +108,24 @@ const PurchasePaymentsSection = ({
         <tbody>
           {ledgerLoading ? (
             <tr>
-              <td colSpan="9" className="empty-state">Loading ledger records...</td>
+              <td colSpan="9" className="empty-state">
+                <div className="purchase-empty-state-card purchase-empty-state-card--muted">
+                  <strong>Loading ledger records...</strong>
+                  <p>Pulling payment and credit entries for the selected distributors.</p>
+                </div>
+              </td>
             </tr>
           ) : ledgerRecords.length === 0 ? (
             <tr>
-              <td colSpan="9" className="empty-state">No distributor payment/credit records found</td>
+              <td colSpan="9" className="empty-state">
+                <div className="purchase-empty-state-card">
+                  <strong>No distributor payment or credit records yet.</strong>
+                  <p>Add a payment or manual credit entry to start the ledger.</p>
+                  <button type="button" className="admin-btn primary" onClick={onOpenLedgerForm}>
+                    <Plus size={18} /> New Payment / Credit Entry
+                  </button>
+                </div>
+              </td>
             </tr>
           ) : (
             ledgerRecords.map((entry, index) => (

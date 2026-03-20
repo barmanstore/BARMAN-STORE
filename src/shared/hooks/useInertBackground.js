@@ -4,8 +4,10 @@ function useInertBackground(active) {
   useEffect(() => {
     if (!active || typeof document === 'undefined') return undefined;
 
-    const appRoot = document.getElementById('root');
-    if (!appRoot) return undefined;
+    const appRoot = document.querySelector('[data-window-background-root="true"]')
+      || document.querySelector('.app')
+      || document.getElementById('root');
+    if (!(appRoot instanceof HTMLElement)) return undefined;
 
     const previousAriaHidden = appRoot.getAttribute('aria-hidden');
     const previousPointerEvents = appRoot.style.pointerEvents;

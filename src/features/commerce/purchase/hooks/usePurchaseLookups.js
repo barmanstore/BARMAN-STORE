@@ -10,6 +10,7 @@ const usePurchaseLookups = ({
   setOrderFormData,
   resolveProductByInputHelper,
   getDistributorProductOptionsHelper,
+  getDistributorProductHistoryEntryHelper,
   getDistributorHistoryProductsHelper,
 }) => {
   const resolveDistributorByInput = useCallback((value) => {
@@ -35,6 +36,15 @@ const usePurchaseLookups = ({
     })
   ), [getDistributorProductOptionsHelper, products, purchaseOrders]);
 
+  const getDistributorProductHistoryEntry = useCallback((distributorId, productId) => (
+    getDistributorProductHistoryEntryHelper({
+      distributorId,
+      productId,
+      products,
+      purchaseOrders,
+    })
+  ), [getDistributorProductHistoryEntryHelper, products, purchaseOrders]);
+
   const getDistributorHistoryProducts = useCallback((distributorId) => (
     getDistributorHistoryProductsHelper({
       distributorId,
@@ -57,6 +67,7 @@ const usePurchaseLookups = ({
     resolveDistributorByInput,
     resolveProductByInput,
     getDistributorProductOptions,
+    getDistributorProductHistoryEntry,
     getDistributorHistoryProducts,
     handleDistributorInputChange,
   };

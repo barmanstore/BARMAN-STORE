@@ -1,4 +1,13 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
+import {
+  applyPurchaseDraftFieldChange,
+  applyPurchaseDraftLastPurchaseSuggestion,
+  applyPurchaseDraftProductSelection,
+  buildPurchaseOrderSavePayload,
+  clearPurchaseDraftProductSelection,
+  getLastPurchaseSuggestionPreserveFlags,
+  preparePurchaseOrderSubmission,
+} from '../utils/orderDrafts';
 
 const usePurchaseOrderDetailHandlers = ({
   orderDetail,
@@ -12,6 +21,7 @@ const usePurchaseOrderDetailHandlers = ({
   setError,
   setSuccess,
   purchaseOrdersApi,
+  loadLastPurchaseSuggestion,
   products,
   toDateInputValue,
   getProductSearchLabel,
@@ -23,9 +33,12 @@ const usePurchaseOrderDetailHandlers = ({
   createEmptyOrderItem,
   isPoEditable,
   resolveProductByInput,
+  findProductForItem,
   getPurchaseRequestErrorMessage,
   fetchOrders,
 }) => {
+  const detailDraftHydrationTokenRef = useRef(0);
+
   const buildOrderDetailDraft = useCallback((order) => {
     if (!order) return null;
     return {
@@ -44,9 +57,18 @@ const usePurchaseOrderDetailHandlers = ({
           uom: resolvePurchaseUnitForProduct(product, item.uom || product?.base_unit || product?.uom || 'pcs'),
           rate: toNumber(item.rate ?? item.unit_price),
           unit_price: toNumber(item.unit_price ?? item.rate),
+          rate_warning_acknowledged: true,
           gst_rate: normalizeGstRateOption(item.gst_rate),
           discount_type: item.discount_type === 'fixed' ? 'fixed' : 'percent',
           discount_value: Math.max(0, toNumber(item.discount_value)),
+          discount_warning_acknowledged: true,
+          reference_rate: Math.max(0, toNumber(item.reference_rate ?? item.rate ?? item.unit_price)),
+          reference_rate_source: String(item.reference_rate_source || '').trim(),
+          last_purchase_hint: '',
+          last_purchase_rate: 0,
+          last_purchase_distributor_name: '',
+          last_purchase_created_at: '',
+          last_purchase_po_number: '',
           taxable_value: toNumber(item.taxable_value),
           tax_amount: toNumber(item.tax_amount),
           line_total: toNumber(item.line_total ?? item.total),
@@ -79,58 +101,143 @@ const usePurchaseOrderDetailHandlers = ({
       const items = [...(prev.items || [])];
       const current = items[index];
       if (!current) return prev;
-      const nextValue = field === 'gst_rate' ? normalizeGstRateOption(value) : value;
-      const nextItem = { ...current, [field]: nextValue };
-      if (field === 'uom') {
-        const selectedProduct = products.find((product) => String(product?.id || '') === String(current.product_id || '')) || null;
-        nextItem.uom = resolvePurchaseUnitForProduct(selectedProduct, value);
-      }
-      if (field === 'rate') {
-        nextItem.rate = toNumber(value);
-        nextItem.unit_price = toNumber(value);
-      }
-      if (field === 'unit_price') {
-        nextItem.unit_price = toNumber(value);
-        nextItem.rate = toNumber(value);
-      }
-      if (field === 'quantity') {
-        nextItem.quantity = Math.max(1, toNumber(value));
-      }
-      items[index] = nextItem;
+      items[index] = applyPurchaseDraftFieldChange({
+        item: current,
+        field,
+        value,
+        products,
+        findProductForItem,
+        resolvePurchaseUnitForProduct,
+        normalizeGstRateOption,
+        toNumber,
+      });
       return { ...prev, items };
     });
-  }, [setOrderDetailDraft, normalizeGstRateOption, products, resolvePurchaseUnitForProduct, toNumber]);
+  }, [
+    setOrderDetailDraft,
+    products,
+    findProductForItem,
+    resolvePurchaseUnitForProduct,
+    normalizeGstRateOption,
+    toNumber,
+  ]);
 
-  const handleOrderDetailProductInputChange = useCallback((index, value) => {
+  const handleOrderDetailProductInputChange = useCallback(async (index, value) => {
+    const match = resolveProductByInput(value);
     setOrderDetailDraft((prev) => {
       if (!prev) return prev;
       const items = [...(prev.items || [])];
       const current = items[index];
       if (!current) return prev;
 
-      const nextItem = {
-        ...current,
-        product_query: value,
-      };
-      const match = resolveProductByInput(value);
-      if (!match) {
-        nextItem.product_id = '';
-        nextItem.product_name = value;
-        items[index] = nextItem;
-        return { ...prev, items };
-      }
-
-      const defaultUom = resolvePurchaseUnitForProduct(match, match.base_unit || match.uom || 'pcs');
-      nextItem.product_id = String(match.id);
-      nextItem.product_name = match.name;
-      nextItem.product_query = getProductSearchLabel(match);
-      nextItem.uom = defaultUom;
-      nextItem.rate = toNumber(match.price);
-      nextItem.unit_price = toNumber(match.price);
-      items[index] = nextItem;
+      items[index] = match
+        ? applyPurchaseDraftProductSelection({
+            item: current,
+            product: match,
+            getProductSearchLabel,
+            resolvePurchaseUnitForProduct,
+            toNumber,
+          })
+        : clearPurchaseDraftProductSelection({
+            item: current,
+            query: value,
+          });
       return { ...prev, items };
     });
-  }, [setOrderDetailDraft, resolveProductByInput, resolvePurchaseUnitForProduct, getProductSearchLabel, toNumber]);
+    if (!match) return;
+
+    try {
+      const suggestion = await loadLastPurchaseSuggestion(String(match.id));
+      if (!suggestion) return;
+
+      setOrderDetailDraft((prev) => {
+        if (!prev) return prev;
+        const items = [...(prev.items || [])];
+        const current = items[index];
+        if (!current || String(current.product_id || '') !== String(match.id)) return prev;
+        const preserveFlags = getLastPurchaseSuggestionPreserveFlags({
+          item: current,
+          normalizeGstRateOption,
+          toNumber,
+        });
+        items[index] = applyPurchaseDraftLastPurchaseSuggestion({
+          item: current,
+          product: match,
+          suggestion,
+          resolvePurchaseUnitForProduct,
+          normalizeGstRateOption,
+          toNumber,
+          ...preserveFlags,
+        });
+        return { ...prev, items };
+      });
+    } catch (_) {
+      // keep product defaults when suggestion API is unavailable
+    }
+  }, [
+    setOrderDetailDraft,
+    resolveProductByInput,
+    getProductSearchLabel,
+    resolvePurchaseUnitForProduct,
+    normalizeGstRateOption,
+    toNumber,
+    loadLastPurchaseSuggestion,
+  ]);
+
+  const hydrateOrderDetailDraftSuggestions = useCallback(async (draft) => {
+    if (!draft?.items?.length) return;
+
+    const token = detailDraftHydrationTokenRef.current + 1;
+    detailDraftHydrationTokenRef.current = token;
+
+    const suggestedItems = await Promise.all((draft.items || []).map(async (item) => {
+      const productId = String(item?.product_id || '').trim();
+      if (!productId) return null;
+      try {
+        const suggestion = await loadLastPurchaseSuggestion(productId);
+        if (!suggestion) return null;
+        const product = products.find((entry) => String(entry.id) === productId) || null;
+        return { productId, product, suggestion };
+      } catch (_) {
+        return null;
+      }
+    }));
+
+    if (detailDraftHydrationTokenRef.current !== token) return;
+
+    setOrderDetailDraft((prev) => {
+      if (!prev) return prev;
+      const items = [...(prev.items || [])];
+      let changed = false;
+
+      suggestedItems.forEach((entry, index) => {
+        if (!entry) return;
+        const current = items[index];
+        if (!current || String(current.product_id || '').trim() !== entry.productId) return;
+        items[index] = applyPurchaseDraftLastPurchaseSuggestion({
+          item: current,
+          product: entry.product,
+          suggestion: entry.suggestion,
+          resolvePurchaseUnitForProduct,
+          normalizeGstRateOption,
+          toNumber,
+          preserveRate: true,
+          preserveGst: true,
+          preserveUom: true,
+        });
+        changed = true;
+      });
+
+      return changed ? { ...prev, items } : prev;
+    });
+  }, [
+    loadLastPurchaseSuggestion,
+    normalizeGstRateOption,
+    products,
+    resolvePurchaseUnitForProduct,
+    setOrderDetailDraft,
+    toNumber,
+  ]);
 
   const handleOrderDetailItemAdd = useCallback(() => {
     setOrderDetailDraft((prev) => {
@@ -161,52 +268,50 @@ const usePurchaseOrderDetailHandlers = ({
 
   const openOrderDetailEditMode = useCallback(() => {
     if (!orderDetail || !isPoEditable(orderDetail)) return;
-    setOrderDetailDraft(buildOrderDetailDraft(orderDetail));
+    const draft = buildOrderDetailDraft(orderDetail);
+    setOrderDetailDraft(draft);
+    hydrateOrderDetailDraftSuggestions(draft);
     setOrderDetailEditMode(true);
-  }, [orderDetail, isPoEditable, buildOrderDetailDraft, setOrderDetailDraft, setOrderDetailEditMode]);
+  }, [
+    orderDetail,
+    isPoEditable,
+    buildOrderDetailDraft,
+    hydrateOrderDetailDraftSuggestions,
+    setOrderDetailDraft,
+    setOrderDetailEditMode,
+  ]);
 
   const handleOrderDetailSave = useCallback(async () => {
     if (!orderDetail || !orderDetailDraft) return;
-    const validItems = (orderDetailDraft.items || []).filter((item) => item.product_id && toNumber(item.quantity) > 0);
-    if (!validItems.length) {
-      setError('Please keep at least one valid item in the purchase order');
-      return;
-    }
 
     try {
       setError('');
       setOrderDetailSaving(true);
-      const calculatedItems = validItems.map((item) => {
-        const line = calculateOrderItem(item);
-        return {
-          ...item,
-          quantity: line.quantity,
-          uom: line.uom,
-          unit_price: line.rate,
-          rate: line.rate,
-          gst_rate: line.gstRate,
-          discount_type: line.discountType,
-          discount_value: line.discountValue,
-          taxable_value: line.taxableValue,
-          tax_amount: line.taxAmount,
-          line_total: line.totalAmount,
-        };
+      const submission = preparePurchaseOrderSubmission({
+        items: orderDetailDraft.items || [],
+        products,
+        findProductForItem,
+        calculateOrderItem,
+        calculateOrderTotals,
       });
-      const totals = calculateOrderTotals(calculatedItems);
-      const payload = {
-        distributor_id: orderDetail.distributor_id,
-        expected_delivery: orderDetailDraft.expected_delivery || null,
-        strict_due_date: orderDetailDraft.strict_due_date || null,
-        strict_due_note: orderDetailDraft.strict_due_note || '',
+      if (submission.error) {
+        setError(
+          submission.error === 'Please add at least one item'
+            ? 'Please keep at least one valid item in the purchase order'
+            : submission.error
+        );
+        return;
+      }
+
+      const payload = buildPurchaseOrderSavePayload({
+        distributorId: orderDetail.distributor_id,
+        expectedDelivery: orderDetailDraft.expected_delivery || null,
+        strictDueDate: orderDetailDraft.strict_due_date || null,
+        strictDueNote: orderDetailDraft.strict_due_note || '',
         notes: orderDetailDraft.notes || '',
-        subtotal: totals.taxableValue,
-        taxable_value: totals.taxableValue,
-        tax_amount: totals.taxAmount,
-        total_amount: totals.totalAmount,
-        grand_total: totals.totalAmount,
-        total: totals.totalAmount,
-        items: calculatedItems,
-      };
+        calculatedItems: submission.calculatedItems,
+        totals: submission.totals,
+      });
       await purchaseOrdersApi.update(orderDetail.id, payload);
       const refreshedOrder = await purchaseOrdersApi.getById(orderDetail.id);
       setOrderDetail(refreshedOrder);
@@ -222,11 +327,8 @@ const usePurchaseOrderDetailHandlers = ({
   }, [
     orderDetail,
     orderDetailDraft,
-    toNumber,
     setError,
     setOrderDetailSaving,
-    calculateOrderItem,
-    calculateOrderTotals,
     purchaseOrdersApi,
     setOrderDetail,
     setOrderDetailDraft,
@@ -235,6 +337,10 @@ const usePurchaseOrderDetailHandlers = ({
     setSuccess,
     fetchOrders,
     getPurchaseRequestErrorMessage,
+    products,
+    findProductForItem,
+    calculateOrderItem,
+    calculateOrderTotals,
   ]);
 
   const handleViewOrder = useCallback(async (orderId) => {
@@ -245,8 +351,10 @@ const usePurchaseOrderDetailHandlers = ({
       setOrderDetailEditMode(false);
       setOrderDetailDraft(null);
       const order = await purchaseOrdersApi.getById(orderId);
+      const draft = buildOrderDetailDraft(order);
       setOrderDetail(order);
-      setOrderDetailDraft(buildOrderDetailDraft(order));
+      setOrderDetailDraft(draft);
+      hydrateOrderDetailDraftSuggestions(draft);
     } catch (err) {
       setError('Failed to load order details');
       setShowOrderDetail(false);
@@ -261,6 +369,7 @@ const usePurchaseOrderDetailHandlers = ({
     setOrderDetailDraft,
     purchaseOrdersApi,
     buildOrderDetailDraft,
+    hydrateOrderDetailDraftSuggestions,
     setError,
   ]);
 

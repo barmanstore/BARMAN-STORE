@@ -1,80 +1,131 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import {
+  applyPurchaseDraftFieldChange,
+  applyPurchaseDraftLastPurchaseSuggestion,
+  applyPurchaseDraftProductSelection,
+  clearPurchaseDraftProductSelection,
+  getLastPurchaseSuggestionPreserveFlags,
+} from '../utils/orderDrafts';
 
 const usePurchaseOrderItemHandlers = ({
-  orderFormData,
   setOrderFormData,
   products,
-  productsApi,
+  loadLastPurchaseSuggestion,
+  distributorId,
+  getDistributorProductHistoryEntry,
   resolveProductByInput,
   getProductSearchLabel,
   resolvePurchaseUnitForProduct,
   normalizeGstRateOption,
   toNumber,
   findProductForItem,
+  activePoProductField,
 }) => {
-  const handleOrderItemChange = useCallback(async (index, field, value) => {
-    const items = [...orderFormData.items];
-    const nextValue = field === 'gst_rate' ? normalizeGstRateOption(value) : value;
-    items[index][field] = nextValue;
-    if (field === 'quantity') {
-      items[index].quantity = Math.max(1, toNumber(nextValue));
-    }
+  const activePoProductFieldRef = useRef(activePoProductField);
 
+  useEffect(() => {
+    activePoProductFieldRef.current = activePoProductField;
+  }, [activePoProductField]);
+
+  const handleOrderItemChange = useCallback(async (index, field, value) => {
     if (field === 'product_id') {
       const selectedProductId = String(value || '');
       const product = products.find((p) => String(p.id) === selectedProductId);
-      if (product) {
-        const baseRate = toNumber(product.price);
-        const defaultUom = resolvePurchaseUnitForProduct(product, product.base_unit || product.uom || 'pcs');
-        items[index].product_name = product.name;
-        items[index].product_query = getProductSearchLabel(product);
-        items[index].unit_price = baseRate;
-        items[index].rate = baseRate;
-        items[index].reference_rate = baseRate;
-        items[index].reference_rate_source = baseRate > 0 ? 'product default rate' : '';
-        items[index].uom = defaultUom;
-        items[index].last_purchase_hint = '';
-      } else {
-        items[index].product_query = '';
-        items[index].product_name = '';
-        items[index].uom = 'pcs';
-        items[index].reference_rate = 0;
-        items[index].reference_rate_source = '';
-        items[index].last_purchase_hint = '';
-      }
-      setOrderFormData((prev) => ({ ...prev, items }));
+      setOrderFormData((prev) => {
+        const items = [...prev.items];
+        const current = items[index];
+        if (!current) return prev;
+        items[index] = product
+          ? applyPurchaseDraftProductSelection({
+              item: current,
+              product,
+              getProductSearchLabel,
+              resolvePurchaseUnitForProduct,
+              toNumber,
+            })
+          : clearPurchaseDraftProductSelection({ item: current, query: '' });
+        return { ...prev, items };
+      });
 
       if (!selectedProductId) return;
 
+      const selectedDistributorId = String(distributorId || '').trim();
+      const distributorHistoryEntry = selectedDistributorId && typeof getDistributorProductHistoryEntry === 'function'
+        ? getDistributorProductHistoryEntry(selectedDistributorId, selectedProductId)
+        : null;
+
+      if (distributorHistoryEntry?.item) {
+        setOrderFormData((prev) => {
+          const nextItems = [...prev.items];
+          const current = nextItems[index];
+          if (!current || String(current.product_id) !== selectedProductId) return prev;
+          const selectedProduct = products.find((p) => String(p.id) === selectedProductId) || distributorHistoryEntry.product || null;
+          const preserveFlags = getLastPurchaseSuggestionPreserveFlags({
+            item: current,
+            normalizeGstRateOption,
+            toNumber,
+          });
+          nextItems[index] = applyPurchaseDraftLastPurchaseSuggestion({
+            item: current,
+            product: selectedProduct,
+            suggestion: {
+              found: true,
+              rate: distributorHistoryEntry.item?.rate,
+              unit_price: distributorHistoryEntry.item?.unit_price,
+              gst_rate: distributorHistoryEntry.item?.gst_rate,
+              uom: distributorHistoryEntry.item?.uom,
+              created_at: distributorHistoryEntry.order?.created_at
+                || distributorHistoryEntry.order?.order_date
+                || distributorHistoryEntry.order?.expected_delivery
+                || '',
+              po_number: distributorHistoryEntry.order?.po_number || '',
+              distributor_name: distributorHistoryEntry.order?.distributor_name || '',
+            },
+            suggestedQuantity: distributorHistoryEntry.item?.quantity,
+            preserveQuantity: Number(current?.quantity ?? 1) > 1,
+            resolvePurchaseUnitForProduct,
+            normalizeGstRateOption,
+            toNumber,
+            ...preserveFlags,
+          });
+          return { ...prev, items: nextItems };
+        });
+        return;
+      }
+
       try {
-        const suggestion = await productsApi.getLastPurchase(selectedProductId);
-        if (!suggestion?.found) return;
+        const suggestion = await loadLastPurchaseSuggestion(selectedProductId);
+        if (!suggestion) return;
 
         setOrderFormData((prev) => {
           const nextItems = [...prev.items];
           const current = nextItems[index];
           if (!current || String(current.product_id) !== selectedProductId) return prev;
           const selectedProduct = products.find((p) => String(p.id) === selectedProductId) || null;
-
-          const suggestedRate = toNumber(suggestion.rate ?? suggestion.unit_price ?? current.rate ?? current.unit_price);
-          const suggestedGst = normalizeGstRateOption(suggestion.gst_rate ?? current.gst_rate ?? 5);
-          const suggestedDate = suggestion.created_at ? new Date(suggestion.created_at).toLocaleDateString() : '';
-          const suggestedPo = suggestion.po_number || 'last PO';
-          const suggestedUom = resolvePurchaseUnitForProduct(
-            selectedProduct,
-            suggestion.uom || current.uom || selectedProduct?.base_unit || selectedProduct?.uom || 'pcs'
+          const preserveFlags = getLastPurchaseSuggestionPreserveFlags({
+            item: current,
+            normalizeGstRateOption,
+            toNumber,
+          });
+          const activeField = activePoProductFieldRef.current;
+          const isStillActiveRow = Boolean(
+            activeField?.mode === 'entry'
+            && Number(activeField?.index) === index
           );
-
-          nextItems[index] = {
-            ...current,
-            unit_price: suggestedRate,
-            rate: suggestedRate,
-            reference_rate: suggestedRate,
-            reference_rate_source: `last purchase ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
-            gst_rate: suggestedGst,
-            uom: suggestedUom,
-            last_purchase_hint: `Suggested from ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
-          };
+          if (!isStillActiveRow) {
+            preserveFlags.preserveRate = true;
+            preserveFlags.preserveGst = true;
+            preserveFlags.preserveUom = true;
+          }
+          nextItems[index] = applyPurchaseDraftLastPurchaseSuggestion({
+            item: current,
+            product: selectedProduct,
+            suggestion,
+            resolvePurchaseUnitForProduct,
+            normalizeGstRateOption,
+            toNumber,
+            ...preserveFlags,
+          });
           return { ...prev, items: nextItems };
         });
       } catch (_) {
@@ -83,48 +134,60 @@ const usePurchaseOrderItemHandlers = ({
       return;
     }
 
-    if (field === 'uom') {
-      const selectedProduct = findProductForItem(products, items[index]);
-      items[index].uom = resolvePurchaseUnitForProduct(selectedProduct, value);
-    }
-
-    if (field === 'rate') {
-      items[index].unit_price = toNumber(value);
-    }
-
-    if (field === 'unit_price') {
-      items[index].rate = toNumber(value);
-    }
-
-    setOrderFormData((prev) => ({ ...prev, items }));
+    setOrderFormData((prev) => {
+      const items = [...prev.items];
+      const current = items[index];
+      if (!current) return prev;
+      items[index] = applyPurchaseDraftFieldChange({
+        item: current,
+        field,
+        value,
+        products,
+        findProductForItem,
+        resolvePurchaseUnitForProduct,
+        normalizeGstRateOption,
+        toNumber,
+      });
+      return { ...prev, items };
+    });
   }, [
-    orderFormData.items,
     normalizeGstRateOption,
     toNumber,
+    distributorId,
+    getDistributorProductHistoryEntry,
     products,
     resolvePurchaseUnitForProduct,
     getProductSearchLabel,
     setOrderFormData,
-    productsApi,
+    loadLastPurchaseSuggestion,
     findProductForItem,
+    activePoProductField,
   ]);
 
   const handleOrderProductInputChange = useCallback((index, value) => {
-    const items = [...orderFormData.items];
-    items[index].product_query = value;
     const match = resolveProductByInput(value);
-    if (!match) {
-      items[index].product_id = '';
-      items[index].product_name = value;
-      items[index].reference_rate = 0;
-      items[index].reference_rate_source = '';
-      items[index].last_purchase_hint = '';
-      setOrderFormData((prev) => ({ ...prev, items }));
-      return;
-    }
-    setOrderFormData((prev) => ({ ...prev, items }));
-    handleOrderItemChange(index, 'product_id', String(match.id));
-  }, [orderFormData.items, resolveProductByInput, setOrderFormData, handleOrderItemChange]);
+    setOrderFormData((prev) => {
+      const items = [...prev.items];
+      const current = items[index];
+      if (!current) return prev;
+      const currentProductId = String(current?.product_id || '').trim();
+      const shouldKeepSelection = Boolean(
+        match
+        && currentProductId
+        && String(match.id) === currentProductId
+      );
+      items[index] = shouldKeepSelection
+        ? {
+            ...current,
+            product_query: value,
+          }
+        : clearPurchaseDraftProductSelection({
+            item: current,
+            query: value,
+          });
+      return { ...prev, items };
+    });
+  }, [resolveProductByInput, setOrderFormData]);
 
   return {
     handleOrderItemChange,

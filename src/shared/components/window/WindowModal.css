@@ -72,6 +72,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
+  isolation: isolate;
 }
 
 .window-modal-frame {
