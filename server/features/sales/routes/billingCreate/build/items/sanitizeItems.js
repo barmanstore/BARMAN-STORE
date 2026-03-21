@@ -1,3 +1,6 @@
+const isCustomBillItem = (item = {}) =>
+  String(item?.item_type || '').trim().toLowerCase() === 'custom' || Boolean(item?.is_custom);
+
 const sanitizeBillItems = async ({
   deps,
   items,
@@ -20,7 +23,8 @@ const sanitizeBillItems = async ({
     const it = items[index];
     const rowNo = index + 1;
     const productId = Number(it.product_id || 0);
-    if (!productId && !allowLineItemsWithoutProduct) {
+    const allowMissingProductForItem = allowLineItemsWithoutProduct && isCustomBillItem(it);
+    if (!productId && !allowMissingProductForItem) {
       itemErrors.push(`Item ${rowNo}: product_id is required`);
       continue;
     }
@@ -34,11 +38,11 @@ const sanitizeBillItems = async ({
       );
     }
     const product = productId ? productCache.get(productId) : null;
-    if (!product && productId && !allowLineItemsWithoutProduct) {
+    if (!product && productId && !allowMissingProductForItem) {
       itemErrors.push(`Item ${rowNo}: Product ${productId} not found`);
       continue;
     }
-    if (product && Number(product.is_active ?? 1) !== 1 && !allowLineItemsWithoutProduct) {
+    if (product && Number(product.is_active ?? 1) !== 1 && !allowMissingProductForItem) {
       itemErrors.push(`Item ${rowNo}: Product ${productId} is inactive`);
       continue;
     }

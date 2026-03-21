@@ -104,6 +104,44 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
+.credit-history-page .ledger-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.credit-history-page .ledger-summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+.credit-history-page .ledger-summary-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.credit-history-page .ledger-summary-value {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.credit-history-page .ledger-summary-value.debit {
+  color: #b91c1c;
+}
+
+.credit-history-page .ledger-summary-value.credit {
+  color: #166534;
+}
+
 .credit-history-page .payment-badge-panel {
   margin: 10px 0 14px;
   padding: 12px 14px;
@@ -219,6 +257,10 @@
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
+}
+
+.credit-history-page .actions-bar .admin-btn {
+  text-decoration: none;
 }
 
 .credit-history-page .quick-filter-panel {
@@ -390,6 +432,41 @@
   color: #667eea;
 }
 
+.credit-history-page .debit-amount {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.credit-history-page .credit-amount {
+  color: #166534;
+  font-weight: 700;
+}
+
+.credit-history-page .balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.credit-history-page .balance-pill.due {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-history-page .balance-pill.advance {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.credit-history-page .balance-pill.settled {
+  background: #e2e8f0;
+  color: #334155;
+}
+
 .credit-history-page .type-icon {
   margin-right: 8px;
   display: inline-flex;
@@ -428,6 +505,16 @@
 .credit-history-page .payment-amount {
   color: #22c55e;
   font-weight: 500;
+}
+
+.credit-history-page .credit-ledger-note {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .credit-history-page .empty-state {
@@ -667,13 +754,13 @@
   background: #d2f4e1;
 }
 
-.credit-history-page .action-icon.delete {
-  background: #fee2e2;
-  color: #b91c1c;
+.credit-history-page .action-icon.reverse {
+  background: #fff7ed;
+  color: #c2410c;
 }
 
-.credit-history-page .action-icon.delete:hover {
-  background: #fecaca;
+.credit-history-page .action-icon.reverse:hover {
+  background: #ffedd5;
 }
 
 /* Invoice Modal Styles */
@@ -1291,6 +1378,10 @@
     padding: 12px;
   }
 
+  .credit-history-page .ledger-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
   .credit-history-page .balance-amount {
     font-size: 26px;
   }
@@ -1468,6 +1559,24 @@
     background: #fff;
   }
 
+  .credit-history-page .tile-balance-pill.due {
+    border-color: #fecaca;
+    color: #991b1b;
+    background: #fff1f2;
+  }
+
+  .credit-history-page .tile-balance-pill.advance {
+    border-color: #bbf7d0;
+    color: #166534;
+    background: #f0fdf4;
+  }
+
+  .credit-history-page .tile-balance-pill.settled {
+    border-color: #cbd5e1;
+    color: #334155;
+    background: #fff;
+  }
+
   .credit-history-page .tile-expand-btn {
     height: 26px;
     min-width: 48px;
@@ -1637,6 +1746,7 @@
     justify-content: center;
     gap: 8px;
     cursor: pointer;
+    text-decoration: none;
   }
 
   .credit-history-page .mobile-cta.payment {
@@ -1645,6 +1755,11 @@
 
   .credit-history-page .mobile-cta.given {
     background: #0f4fa8;
+  }
+
+  .credit-history-page .mobile-cta.bills {
+    background: #475569;
+    text-decoration: none;
   }
 
   .credit-history-page .mobile-hide-print {

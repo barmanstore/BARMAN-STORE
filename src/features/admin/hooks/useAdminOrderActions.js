@@ -9,6 +9,7 @@ const useAdminOrderActions = ({
   modalOrder,
   showNotification,
   refreshAdminData,
+  refreshOrdersData,
   setProceedBillingOrderId,
   setBillingPrefill,
   handleTabChange,
@@ -87,6 +88,7 @@ const useAdminOrderActions = ({
       setModalLoading(true);
       await ordersApi.updateStatus(modalOrder.id, 'received', 'Marked received via admin modal', user.id);
       setShowApproveModal(false);
+      await refreshOrdersData();
       await refreshAdminData();
       showNotification('Order marked received and stock applied', 'success');
       await fetch(`/api/notify-order/${modalOrder.id}`, {
@@ -106,6 +108,7 @@ const useAdminOrderActions = ({
     if (!window.confirm('Mark this order as received and apply stock?')) return;
     try {
       await ordersApi.updateStatus(id, status, `Order ${status} via admin panel`, user.id);
+      await refreshOrdersData();
       await refreshAdminData();
       showNotification(`Order ${status} successfully`, 'success');
     } catch (error) {
@@ -124,6 +127,7 @@ const useAdminOrderActions = ({
         user.id,
         { reapply_pending: true }
       );
+      await refreshOrdersData();
       await refreshAdminData();
       showNotification('Pending quantity re-checked against current stock', 'success');
     } catch (error) {
@@ -146,6 +150,7 @@ const useAdminOrderActions = ({
         );
         if (!confirmReceiveThenBill) return;
         await ordersApi.updateStatus(orderId, 'received', 'Auto-confirmed before billing', user.id);
+        await refreshOrdersData();
         await refreshAdminData();
         fullOrder = await ordersApi.getById(orderId);
         showNotification('Order marked received. Billing is now open.', 'success');

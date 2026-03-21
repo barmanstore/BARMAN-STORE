@@ -9,8 +9,10 @@ function CreditHistoryHeader({
   customer,
   balanceSummary,
   balance,
+  ledgerSummary,
   lastTransactionLine,
   trustLine,
+  billsHref,
   showPaymentBadges,
   paymentBadgesLoading,
   paymentBadges,
@@ -41,6 +43,21 @@ function CreditHistoryHeader({
         <span className="summary-direction">{balanceSummary.directionLine}</span>
         <span className="summary-last-line">{lastTransactionLine}</span>
         <span className="summary-trust-line">{trustLine}</span>
+      </section>
+
+      <section className="ledger-summary-strip">
+        <div className="ledger-summary-card">
+          <span className="ledger-summary-label">Total Debits</span>
+          <strong className="ledger-summary-value debit">{formatCurrency(ledgerSummary?.totalDebit || 0)}</strong>
+        </div>
+        <div className="ledger-summary-card">
+          <span className="ledger-summary-label">Total Credits</span>
+          <strong className="ledger-summary-value credit">{formatCurrency(ledgerSummary?.totalCredit || 0)}</strong>
+        </div>
+        <div className="ledger-summary-card">
+          <span className="ledger-summary-label">Running Balance</span>
+          <strong className="ledger-summary-value">{formatCurrency(Math.abs(Number(balance || 0)))}</strong>
+        </div>
       </section>
 
       {showPaymentBadges && (
@@ -98,8 +115,11 @@ function CreditHistoryHeader({
             <RefreshCw size={18} /> Add Payment
           </button>
           <button className="admin-btn" onClick={() => openAddModalWithType('given')}>
-            <Plus size={18} /> Add Credit
+            <Plus size={18} /> Add Manual Sale
           </button>
+          <Link to={billsHref} className="admin-btn secondary">
+            View Bills
+          </Link>
         </div>
       )}
     </>

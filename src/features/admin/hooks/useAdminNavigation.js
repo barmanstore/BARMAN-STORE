@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from 'react';
+import { ADMIN_DEFAULT_TAB, getAdminTabHref, isKnownAdminTab, normalizeAdminTab } from '../config/adminSidebarConfig';
 
 const useAdminNavigation = ({
   activeTab,
   setActiveTab,
   isMobile,
-  searchParams,
-  setSearchParams,
+  routeTab,
+  navigate,
   MOBILE_ALLOWED_TABS,
   SIDEBAR_SECTIONS,
   MOBILE_SIDEBAR_SECTIONS,
@@ -44,24 +45,23 @@ const useAdminNavigation = ({
   }, [activeTab, setExpandedGroups, setDesktopActiveGroup, tabGroupMap]);
 
   useEffect(() => {
-    const tabFromUrl = searchParams.get('tab');
-    if (!tabFromUrl || !tabGroupMap[tabFromUrl]) return;
-    const nextTab = isMobile && !MOBILE_ALLOWED_TABS.has(tabFromUrl)
-      ? 'dashboard'
-      : tabFromUrl;
+    const requestedTab = String(routeTab || '').trim();
+    if (!requestedTab) return;
+    if (!isKnownAdminTab(requestedTab)) {
+      navigate(getAdminTabHref(ADMIN_DEFAULT_TAB), { replace: true });
+      return;
+    }
+    const nextTab = isMobile && !MOBILE_ALLOWED_TABS.has(requestedTab)
+      ? ADMIN_DEFAULT_TAB
+      : requestedTab;
+    if (nextTab !== requestedTab) {
+      navigate(getAdminTabHref(nextTab), { replace: true });
+      return;
+    }
     if (nextTab !== activeTab) {
       setActiveTab(nextTab);
     }
-  }, [searchParams, activeTab, isMobile, setActiveTab, tabGroupMap, MOBILE_ALLOWED_TABS]);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    if (MOBILE_ALLOWED_TABS.has(activeTab)) return;
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', 'dashboard');
-    setSearchParams(next, { replace: true });
-    setActiveTab('dashboard');
-  }, [activeTab, isMobile, searchParams, setSearchParams, setActiveTab, MOBILE_ALLOWED_TABS]);
+  }, [routeTab, activeTab, isMobile, setActiveTab, navigate, MOBILE_ALLOWED_TABS]);
 
   const toggleSidebarGroup = (groupKey) => {
     setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
@@ -77,11 +77,10 @@ const useAdminNavigation = ({
   const isTabAllowed = (tab) => !isMobile || MOBILE_ALLOWED_TABS.has(tab);
 
   const handleTabChange = (tab) => {
-    const nextTab = isTabAllowed(tab) ? tab : 'dashboard';
+    const normalizedTab = normalizeAdminTab(tab);
+    const nextTab = isTabAllowed(normalizedTab) ? normalizedTab : ADMIN_DEFAULT_TAB;
     setActiveTab(nextTab);
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', nextTab);
-    setSearchParams(next, { replace: true });
+    navigate(getAdminTabHref(nextTab));
     if (isMobile) {
       setIsMobileSidebarOpen(false);
     }

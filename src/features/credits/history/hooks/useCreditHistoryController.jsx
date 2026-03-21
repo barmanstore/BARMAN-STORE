@@ -36,6 +36,7 @@ import {
   getPdfColumnStyles,
   getTodayDateInputValue,
 } from '../utils/creditHistoryHelpers';
+import { getAdminTabHref } from '../../../admin/config/adminSidebarConfig';
 import useCreditHistoryComputed from './useCreditHistoryComputed';
 import useCreditHistoryEffects from './useCreditHistoryEffects';
 import useCreditHistoryIssues from './useCreditHistoryIssues';
@@ -43,6 +44,10 @@ import useCreditHistoryLoaders from './useCreditHistoryLoaders';
 import useCreditHistoryReports from './useCreditHistoryReports';
 import useCreditHistoryState from './useCreditHistoryState';
 import useCreditHistoryTransactions from './useCreditHistoryTransactions';
+import {
+  getCreditEntryDelta,
+  getCreditEntryTypeLabel,
+} from '../utils/creditLedgerPresentation';
 
 const useCreditHistoryController = ({ user }) => {
   const { userId } = useParams();
@@ -75,6 +80,7 @@ const useCreditHistoryController = ({ user }) => {
     setUploading,
     newTransaction,
     setNewTransaction,
+    createNewTransactionDraft,
     error,
     setError,
     success,
@@ -147,26 +153,13 @@ const useCreditHistoryController = ({ user }) => {
   });
 
   const getTypeIcon = (type) => {
-    switch (type) {
-      case 'given':
-        return <DollarSign size={16} className="type-icon given" />;
-      case 'payment':
-        return <RefreshCw size={16} className="type-icon payment" />;
-      default:
-        return <DollarSign size={16} />;
-    }
+    const entry = type && typeof type === 'object' ? type : { type };
+    return getCreditEntryDelta(entry) < 0
+      ? <RefreshCw size={16} className="type-icon payment" />
+      : <DollarSign size={16} className="type-icon given" />;
   };
 
-  const getTypeLabel = (type) => {
-    switch (type) {
-      case 'given':
-        return 'Given';
-      case 'payment':
-        return 'Payment';
-      default:
-        return type;
-    }
-  };
+  const getTypeLabel = (type) => getCreditEntryTypeLabel(type);
 
   const scrollToTransactionEntry = useCallback((entryId) => {
     const numericId = Number(entryId || 0);
@@ -223,6 +216,7 @@ const useCreditHistoryController = ({ user }) => {
     setUploading,
     newTransaction,
     setNewTransaction,
+    createNewTransactionDraft,
     setError,
     setSuccess,
     balance,
@@ -312,17 +306,18 @@ const useCreditHistoryController = ({ user }) => {
   const getBackToAdminUrl = () => {
     const params = new URLSearchParams(location.search || '');
     const returnTab = params.get('returnTab') || location.state?.returnTab;
-    if (returnTab) return `/admin?tab=${encodeURIComponent(returnTab)}`;
-    return '/admin';
+    if (returnTab) return getAdminTabHref(returnTab);
+    return getAdminTabHref();
   };
 
   const backHref = isAdminView ? getBackToAdminUrl() : '/profile';
   const backLabel = isAdminView ? 'Back to Admin' : 'Back to Profile';
+  const billsHref = isAdminView ? getAdminTabHref('view-bills') : '/my-bills';
   const trustLine = isAdminView
-    ? 'Data stored safely in your Barman Store system. Backup available in Admin > Backup.'
-    : 'Data stored safely in your Barman Store system.';
-  const addModalTitle = newTransaction.type === 'payment' ? 'Add Payment' : 'Add Credit';
-  const addModalActionLabel = newTransaction.type === 'payment' ? 'Payment' : 'Credit';
+    ? 'Running balance is recalculated after every entry. Reversals are audit logged.'
+    : 'Running balance is recalculated after every entry.';
+  const addModalTitle = newTransaction.type === 'payment' ? 'Add Payment' : 'Add Manual Sale';
+  const addModalActionLabel = newTransaction.type === 'payment' ? 'Payment' : 'Manual Sale';
 
   return {
     loading,
@@ -333,8 +328,10 @@ const useCreditHistoryController = ({ user }) => {
       customer,
       balanceSummary: computed.balanceSummary,
       balance,
+      ledgerSummary: computed.ledgerSummary,
       lastTransactionLine: computed.lastTransactionLine,
       trustLine,
+      billsHref,
       showPaymentBadges: computed.showPaymentBadges,
       paymentBadgesLoading,
       paymentBadges,
@@ -405,6 +402,7 @@ const useCreditHistoryController = ({ user }) => {
       handleAddTransaction: transactions.handleAddTransaction,
       newTransaction,
       setNewTransaction,
+      handleClearAttachment: transactions.handleClearAttachment,
       fileInputRef,
       handleFileUpload: transactions.handleFileUpload,
       uploading,

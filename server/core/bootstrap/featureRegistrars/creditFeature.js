@@ -23,6 +23,13 @@ const registerCreditFeatureBootstrap = (deps) => {
     toTimestampMs,
     resolveClientRequestId,
     isUniqueViolationError,
+    parseDataUrlImage,
+    PROFILE_IMAGE_ALLOWED_MIME,
+    PROFILE_IMAGE_MAX_BYTES,
+    mimeToExt,
+    deleteManagedProfileImage,
+    profileImageStorage,
+    crypto,
   } = deps;
 
   registerCreditFeature({
@@ -44,11 +51,18 @@ const registerCreditFeatureBootstrap = (deps) => {
     recalculateCreditBalancesForUser,
     normalizeTransactionDate,
     buildCreditTransactionTimestamp,
-    CREDIT_ENTRY_DEDUP_WINDOW_MS,
-    toTimestampMs,
-    resolveClientRequestId,
-    isUniqueViolationError,
-  });
+      CREDIT_ENTRY_DEDUP_WINDOW_MS,
+      toTimestampMs,
+      resolveClientRequestId,
+      isUniqueViolationError,
+      parseDataUrlImage,
+      PROFILE_IMAGE_ALLOWED_MIME,
+      PROFILE_IMAGE_MAX_BYTES,
+      mimeToExt,
+      deleteManagedProfileImage,
+      profileImageStorage,
+      crypto,
+    });
 };
 
 module.exports = { registerCreditFeatureBootstrap };

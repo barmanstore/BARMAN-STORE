@@ -18,15 +18,15 @@ export const getBalanceSummary = (rawBalance, { viewerRole = 'customer' } = {}) 
   const isAdminViewer = String(viewerRole || '').toLowerCase() === 'admin';
   if (balance > 0) {
     return {
-      headline: isAdminViewer ? 'Customer will give' : 'You will give',
-      directionLine: isAdminViewer ? 'Customer owes this amount' : 'You owe this amount',
+      headline: 'Balance Due',
+      directionLine: isAdminViewer ? 'Customer owes the store' : 'You owe the store',
       toneClass: 'positive',
     };
   }
   if (balance < 0) {
     return {
-      headline: isAdminViewer ? 'You will give' : 'You will get',
-      directionLine: isAdminViewer ? 'You owe customer this amount' : 'Store owes you this amount',
+      headline: 'Advance Balance',
+      directionLine: isAdminViewer ? 'Store owes the customer' : 'Store owes you this amount',
       toneClass: 'negative',
     };
   }

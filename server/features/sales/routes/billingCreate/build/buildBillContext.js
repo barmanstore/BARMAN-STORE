@@ -95,6 +95,16 @@ const buildBillContext = async (deps, req, createHttpError) => {
       role: 'customer',
     };
   }
+  if (!customer && !linkedOrderId && !customerIdFromBody) {
+    customer = {
+      id: null,
+      name: String(b.customer_name || '').trim() || 'Walk-in',
+      email: normalizeEmail(b.customer_email),
+      phone: normalizePhone(b.customer_phone),
+      address: b.customer_address ? String(b.customer_address).trim() : null,
+      role: 'guest',
+    };
+  }
   if (!customer) throw createHttpError(400, 'customer not found');
   if (!String(customer.name || '').trim()) throw createHttpError(400, 'Customer name is required');
 

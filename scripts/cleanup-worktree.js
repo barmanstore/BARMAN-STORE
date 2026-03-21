@@ -7,23 +7,33 @@ const repoRoot = path.resolve(__dirname, '..');
 const args = new Set(process.argv.slice(2));
 const apply = args.has('--apply');
 
-const EXACT_TARGETS = [
+const ROOT_EXACT_TARGETS = [
   'dist',
   'coverage',
   '.nyc_output',
   '.eslintcache',
   '.stylelintcache',
   '.vite',
+  '.cache',
+  '.turbo',
+  '.vs',
+  'playwright-report',
+  'test-results',
   'tmp.workbench.input.txt',
 ];
 
 const NESTED_EXACT_TARGETS = [
   'node_modules/.vite',
   'node_modules/.cache',
+  '.vercel/output',
 ];
 
 const ROOT_PREFIX_PATTERNS = [
   /^tmp\..+$/,
+  /^npm-debug\.log.*$/i,
+  /^yarn-debug\.log.*$/i,
+  /^yarn-error\.log.*$/i,
+  /^pnpm-debug\.log.*$/i,
 ];
 
 const targets = [];
@@ -41,7 +51,7 @@ const addTarget = (label, targetPath) => {
 };
 
 const collectTargets = () => {
-  EXACT_TARGETS.forEach((name) => {
+  ROOT_EXACT_TARGETS.forEach((name) => {
     addTarget(name, path.join(repoRoot, name));
   });
 
@@ -52,7 +62,7 @@ const collectTargets = () => {
   const rootEntries = fs.readdirSync(repoRoot, { withFileTypes: true });
   rootEntries.forEach((entry) => {
     const name = String(entry.name || '');
-    if (EXACT_TARGETS.includes(name)) return;
+    if (ROOT_EXACT_TARGETS.includes(name)) return;
     if (!ROOT_PREFIX_PATTERNS.some((pattern) => pattern.test(name))) return;
     addTarget(name, path.join(repoRoot, name));
   });
@@ -73,11 +83,11 @@ const removeTarget = (targetPath) => {
 collectTargets();
 
 if (targets.length === 0) {
-  console.log('[INFO] No cleanup targets found.');
+  console.log('[INFO] No worktree cleanup targets found.');
   process.exit(0);
 }
 
-console.log(apply ? '[APPLY] Code cleanup targets:' : '[DRY-RUN] Code cleanup targets:');
+console.log(apply ? '[APPLY] Worktree cleanup targets:' : '[DRY-RUN] Worktree cleanup targets:');
 targets
   .sort((a, b) => a.label.localeCompare(b.label))
   .forEach((target) => {
@@ -90,4 +100,4 @@ if (!apply) {
 }
 
 targets.forEach((target) => removeTarget(target.path));
-console.log(`[SUCCESS] Removed ${targets.length} cleanup target(s).`);
+console.log(`[SUCCESS] Removed ${targets.length} worktree cleanup target(s).`);

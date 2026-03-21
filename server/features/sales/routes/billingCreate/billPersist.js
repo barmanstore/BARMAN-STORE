@@ -112,8 +112,22 @@ const persistBillDraft = async (deps, req, draft) => {
       const nextBalance = currentBalance + Number(creditAmount || 0);
       const creditTransactionTs = new Date().toISOString();
       await dbRunAsync(
-        `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO credit_history (
+           user_id,
+           type,
+           amount,
+           balance,
+           description,
+           reference,
+           transaction_date,
+           transaction_ts,
+           created_by,
+           client_request_id,
+           source_type,
+           source_id,
+           source_label
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Number(customer.id),
           'given',
@@ -125,6 +139,9 @@ const persistBillDraft = async (deps, req, draft) => {
           creditTransactionTs,
           createdBy,
           clientRequestId ? `${clientRequestId}:credit` : null,
+          'bill',
+          String(billId),
+          billNumber,
         ]
       );
     }

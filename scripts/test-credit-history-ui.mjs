@@ -19,12 +19,24 @@ const getTimestamp = (transaction) => new Date(transaction.created_at).getTime()
 
 const run = () => {
   const positive = getBalanceSummary(450);
-  assert.equal(positive.headline, 'You will give');
+  assert.equal(positive.headline, 'Balance Due');
+  assert.equal(positive.directionLine, 'You owe the store');
   assert.equal(positive.toneClass, 'positive');
 
+  const positiveAdmin = getBalanceSummary(450, { viewerRole: 'admin' });
+  assert.equal(positiveAdmin.headline, 'Balance Due');
+  assert.equal(positiveAdmin.directionLine, 'Customer owes the store');
+  assert.equal(positiveAdmin.toneClass, 'positive');
+
   const negative = getBalanceSummary(-10);
-  assert.equal(negative.headline, 'You will get');
+  assert.equal(negative.headline, 'Advance Balance');
+  assert.equal(negative.directionLine, 'Store owes you this amount');
   assert.equal(negative.toneClass, 'negative');
+
+  const negativeAdmin = getBalanceSummary(-10, { viewerRole: 'admin' });
+  assert.equal(negativeAdmin.headline, 'Advance Balance');
+  assert.equal(negativeAdmin.directionLine, 'Store owes the customer');
+  assert.equal(negativeAdmin.toneClass, 'negative');
 
   const settled = getBalanceSummary(0);
   assert.equal(settled.headline, 'All settled');

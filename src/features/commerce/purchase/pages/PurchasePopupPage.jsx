@@ -4,6 +4,7 @@ import BackofficePopupShell from '../../../../shared/components/backoffice/Backo
 import PopupWorkspaceNotice from '../../../../shared/components/backoffice/PopupWorkspaceNotice';
 import useBackofficePopupLifecycle from '../../../../shared/hooks/useBackofficePopupLifecycle';
 import { getBackofficePopupDraftKey } from '../../../../shared/utils/backofficePopup';
+import { getAdminTabHref } from '../../../admin/config/adminSidebarConfig';
 import PurchaseManagementPage from './PurchaseManagementPage';
 
 function PurchasePopupWorkspace({ user }) {
@@ -17,7 +18,7 @@ function PurchasePopupWorkspace({ user }) {
     <BackofficePopupShell
       title="Purchase Order Workspace"
       subtitle="Dedicated browser window for purchase entry with draft restore."
-      adminHref="/admin?tab=purchases"
+      adminHref={getAdminTabHref('purchases')}
     >
       <PurchaseManagementPage
         user={user}

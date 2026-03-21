@@ -80,8 +80,22 @@ const resolveCreditIssue = async ({
       const transactionTs = buildCreditTransactionTimestamp(correctionDateRaw, new Date());
       const insert = await dbRunAsync(
         `INSERT INTO credit_history
-         (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         (
+           user_id,
+           type,
+           amount,
+           balance,
+           description,
+           reference,
+           transaction_date,
+           transaction_ts,
+           created_by,
+           client_request_id,
+           source_type,
+           source_id,
+           source_label
+         )
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
         [
           userId,
           correctionType,
@@ -92,6 +106,9 @@ const resolveCreditIssue = async ({
           normalizedCorrectionDate,
           transactionTs,
           Number(req.authUser?.id || 0) || null,
+          'issue_correction',
+          String(issueId),
+          correctionReference || `ISSUE-${issueId}`,
         ]
       );
       correctionEntryId = Number(insert.lastInsertRowid || 0) || null;

@@ -1,25 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
-import { createClientRequestId, creditApi, usersApi } from '../../../shared/services/api';
+import { Paperclip, Plus, RefreshCw } from 'lucide-react';
+import { createClientRequestId, creditApi, resolveMediaUrl, usersApi } from '../../../shared/services/api';
 import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 import { getTodayDate } from '../../../shared/utils/dateTime';
-import { getLedgerEntryTimestamp, getLedgerTypeLabel, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
+import { getLedgerEntryTimestamp, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import WindowModal from '../../../shared/components/window/WindowModal';
 import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
+import { getCreditEntryTypeLabel } from '../history/utils/creditLedgerPresentation';
 import './CreditKhata.css';
 
 const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']);
 const getRecordDateLabel = (entry) => new Date(getRecordDate(entry)).toLocaleDateString();
 const isLedgerEntryEdited = (entry) => Number(entry?.edited || 0) === 1 || !!entry?.edited_at;
 
-const getDefaultFormData = () => ({
-  user_id: '',
-  type: 'payment',
+const getDefaultFormData = (selectedUserId = '', type = 'payment') => ({
+  user_id: selectedUserId ? String(selectedUserId) : '',
+  type: type === 'given' ? 'given' : 'payment',
   amount: '',
   transactionDate: getTodayDate(),
   reference: '',
-  description: ''
+  description: '',
+  imageBase64: '',
+  imagePath: '',
+  attachmentName: '',
 });
 
 
@@ -34,8 +38,10 @@ function CreditKhata({ user }) {
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultFormData());
   const [editingLedgerEntryId, setEditingLedgerEntryId] = useState(null);
   const [ledgerSubmitting, setLedgerSubmitting] = useState(false);
+  const [ledgerUploading, setLedgerUploading] = useState(false);
   const ledgerSubmitLockRef = useRef(false);
   const ledgerRequestIdRef = useRef('');
+  const ledgerFileInputRef = useRef(null);
 
   const usersById = useMemo(() => {
     const map = {};
@@ -58,7 +64,7 @@ function CreditKhata({ user }) {
     try {
       let merged = [];
       try {
-        merged = await creditApi.getLedger(selectedUserId || '');
+        merged = await creditApi.getLedger(selectedUserId ? { user_id: selectedUserId } : {});
       } catch (err) {
         const errMsg = String(err?.message || '').toLowerCase();
         const isMissingLedgerEndpoint =
@@ -154,6 +160,8 @@ function CreditKhata({ user }) {
     handleOpenLedgerForm,
     handleOpenLedgerEdit,
     closeLedgerForm,
+    handleLedgerFileUpload,
+    handleClearLedgerAttachment,
     handleLedgerSubmit,
   } = useCreditKhataLedgerForm({
     getDefaultFormData,
@@ -161,10 +169,12 @@ function CreditKhata({ user }) {
     setEditingLedgerEntryId,
     setLedgerFormData,
     setLedgerSubmitting,
+    setLedgerUploading,
     ledgerSubmitLockRef,
     ledgerRequestIdRef,
     setError,
     ledgerSubmitting,
+    ledgerUploading,
     ledgerFormData,
     editingLedgerEntryId,
     user,
@@ -173,7 +183,10 @@ function CreditKhata({ user }) {
     fetchLedger,
     filters,
     users,
+    ledgerFileInputRef,
   });
+
+  const ledgerEntryLabel = ledgerFormData.type === 'payment' ? 'Payment' : 'Manual Sale';
 
   const ledgerBalanceSummary = useMemo(() => {
     const balanceByUser = {};
@@ -245,11 +258,14 @@ function CreditKhata({ user }) {
       </div>
 
       <div className="actions-bar ledger-header">
-        <h2>Customer Credit / Payment Ledger</h2>
+          <h2>Customer Manual Sale / Payment Ledger</h2>
         <div className="action-buttons">
-          <button className="admin-btn primary" onClick={handleOpenLedgerForm}>
-            <Plus size={18} /> Payment / Credit Entry
-          </button>
+            <button className="admin-btn primary" onClick={() => handleOpenLedgerForm('payment')}>
+              <RefreshCw size={18} /> Add Payment
+            </button>
+            <button className="admin-btn" onClick={() => handleOpenLedgerForm('given')}>
+              <Plus size={18} /> Add Manual Sale
+            </button>
         </div>
       </div>
 
@@ -282,7 +298,7 @@ function CreditKhata({ user }) {
               </tr>
             ) : ledgerRecords.length === 0 ? (
               <tr>
-                <td colSpan="9" className="empty-state">No customer payment/credit records found</td>
+                <td colSpan="9" className="empty-state">No customer payment/manual sale records found</td>
               </tr>
             ) : (
               ledgerRecords.map((entry, index) => {
@@ -292,13 +308,24 @@ function CreditKhata({ user }) {
                   <tr key={entry.id || index}>
                     <td>{getRecordDateLabel(entry)}</td>
                     <td>{truncateUserName(usersById[userKey]?.name || entry.customer_name || '-', 15)}</td>
-                    <td>{getLedgerTypeLabel(entry)}</td>
+                    <td>{getCreditEntryTypeLabel(entry)}</td>
                     <td>{formatCurrency(toNumber(entry.amount))}</td>
                     <td>{formatCurrency(toNumber(entry.computed_balance ?? entry.balance))}</td>
                     <td>{entry.reference || entry.invoice_number || '-'}</td>
                     <td>{entry.description || '-'}</td>
                     <td>{isLedgerEntryEdited(entry) ? 'EDITED' : '-'}</td>
                     <td>
+                      {entry.image_path ? (
+                        <a
+                          href={resolveMediaUrl(entry.image_path)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="admin-btn"
+                          title="View attachment"
+                        >
+                          <Paperclip size={14} /> File
+                        </a>
+                      ) : null}
                       {isLatestForCustomer ? (
                         <button
                           type="button"
@@ -323,9 +350,9 @@ function CreditKhata({ user }) {
       {showLedgerForm && (
         <WindowModal
           open
-          title={editingLedgerEntryId ? 'Edit Latest Customer Transaction' : 'Add Customer Payment / Credit'}
+          title={editingLedgerEntryId ? `Edit Latest ${ledgerEntryLabel}` : `Add ${ledgerEntryLabel}`}
           onClose={closeLedgerForm}
-          dismissible={!ledgerSubmitting}
+          dismissible={!ledgerSubmitting && !ledgerUploading}
           dialogClassName="modal-content"
           themeClassName="credit-khata"
           contentClassName="window-modal-body-padded"
@@ -347,18 +374,6 @@ function CreditKhata({ user }) {
                     {users.map((customer) => (
                       <option key={customer.id} value={customer.id}>{truncateUserName(customer.name, 15)}</option>
                     ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="ledger-type">Type *</label>
-                  <select
-                    id="ledger-type"
-                    name="type"
-                    value={ledgerFormData.type}
-                    onChange={(e) => setLedgerFormData((prev) => ({ ...prev, type: e.target.value }))}
-                  >
-                    <option value="payment">Payment (Reduce due)</option>
-                    <option value="given">Credit (Increase due)</option>
                   </select>
                 </div>
               </div>
@@ -400,25 +415,64 @@ function CreditKhata({ user }) {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="ledger-description">Description *</label>
+                  <label htmlFor="ledger-description">Note *</label>
                   <input
                     type="text"
                     id="ledger-description"
                     name="description"
                     value={ledgerFormData.description}
                     onChange={(e) => setLedgerFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Enter description"
+                    placeholder={`Add a short note for this ${ledgerEntryLabel.toLowerCase()}`}
                     required
                   />
                 </div>
               </div>
 
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="ledger-attachment">File Upload</label>
+                  <input
+                    ref={ledgerFileInputRef}
+                    type="file"
+                    id="ledger-attachment"
+                    name="attachment"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleLedgerFileUpload}
+                    disabled={ledgerSubmitting || ledgerUploading}
+                  />
+                  {ledgerFormData.attachmentName ? (
+                    <div className="credit-ledger-note">
+                      <span>{ledgerFormData.attachmentName}</span>
+                      <button
+                        type="button"
+                        className="admin-btn"
+                        onClick={handleClearLedgerAttachment}
+                        disabled={ledgerSubmitting || ledgerUploading}
+                      >
+                        Remove File
+                      </button>
+                    </div>
+                  ) : null}
+                  {!ledgerFormData.attachmentName && ledgerFormData.imagePath ? (
+                    <div className="credit-ledger-note">
+                      <a
+                        href={resolveMediaUrl(ledgerFormData.imagePath)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View Current Attachment
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
               <div className="modal-actions">
-                <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
+                <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting || ledgerUploading}>
                   Cancel
                 </button>
-                <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
-                  {ledgerSubmitting ? 'Saving...' : (editingLedgerEntryId ? 'Update Entry' : 'Save Entry')}
+                <button type="submit" className="submit-btn" disabled={ledgerSubmitting || ledgerUploading}>
+                  {ledgerSubmitting ? 'Saving...' : ledgerUploading ? 'Preparing File...' : (editingLedgerEntryId ? `Update ${ledgerEntryLabel}` : `Save ${ledgerEntryLabel}`)}
                 </button>
               </div>
             </form>

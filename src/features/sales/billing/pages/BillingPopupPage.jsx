@@ -5,6 +5,7 @@ import BackofficePopupShell from '../../../../shared/components/backoffice/Backo
 import PopupWorkspaceNotice from '../../../../shared/components/backoffice/PopupWorkspaceNotice';
 import useBackofficePopupLifecycle from '../../../../shared/hooks/useBackofficePopupLifecycle';
 import { getBackofficePopupDraftKey } from '../../../../shared/utils/backofficePopup';
+import { getAdminTabHref } from '../../../admin/config/adminSidebarConfig';
 
 function BillingPopupWorkspace() {
   useBackofficePopupLifecycle('billing');
@@ -17,7 +18,7 @@ function BillingPopupWorkspace() {
     <BackofficePopupShell
       title="Billing Workspace"
       subtitle="Dedicated browser window for billing with draft restore."
-      adminHref="/admin?tab=billing"
+      adminHref={getAdminTabHref('billing')}
     >
       <BillingTab
         popupMode

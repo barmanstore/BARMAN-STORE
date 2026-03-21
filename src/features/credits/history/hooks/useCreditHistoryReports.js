@@ -1,3 +1,10 @@
+import {
+  getCreditEntryDelta,
+  getCreditEntryDescription,
+  getCreditEntrySourceLabel,
+  getCreditPreviousBalance,
+} from '../utils/creditLedgerPresentation';
+
 const useCreditHistoryReports = ({
   creditHistory,
   customer,
@@ -41,13 +48,13 @@ const useCreditHistoryReports = ({
       ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
       : 0;
 
-    const normalizedTransactions = (transactions || []).map((t) => ({
-      dateLabel: formatTransactionDate(t),
-      typeLabel: getTypeLabel(t.type),
-      type: t.type,
-      amount: Number(t.amount) || 0,
-      balance: Number(t.balance || 0),
-      description: t.reference ? `${t.description || ''} (${t.reference})`.trim() : (t.description || '-')
+    const normalizedTransactions = (transactions || []).map((transaction) => ({
+      dateLabel: formatTransactionDate(transaction),
+      typeLabel: getTypeLabel(transaction),
+      type: transaction.type,
+      amount: Number(transaction.amount) || 0,
+      balance: Number(transaction.balance || 0),
+      description: `${getCreditEntrySourceLabel(transaction)} | ${getCreditEntryDescription(transaction)}`.trim(),
     }));
 
     return buildCreditReportText({
@@ -60,7 +67,7 @@ const useCreditHistoryReports = ({
       periodEndingBalance,
       currentDayBalance: parseFloat(balance || 0),
       onlineStoreUrl: info.ONLINE_STORE_URL,
-      thankYouLine: 'à¦†à¦®à¦¾à§° à¦“à¦šà§°à¦¤ à¦¬à¦œà¦¾à§° à¦•à§°à¦¾à§° à¦¬à¦¾à¦¬à§‡ à¦§à¦¨à§à¦¯à¦¬à¦¾à¦¦à¥¤'
+      thankYouLine: 'Thank you.',
     });
   };
 
@@ -76,24 +83,27 @@ const useCreditHistoryReports = ({
     setError('');
     setSuccess('');
     setReportSummary(null);
-    const filtered = creditHistory.filter((t) => {
-      const dateKey = getEffectiveTransactionDateKey(t);
-      return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
-    }).sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+
+    const filtered = creditHistory
+      .filter((transaction) => {
+        const dateKey = getEffectiveTransactionDateKey(transaction);
+        return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
+      })
+      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
     const totals = filtered.reduce((acc, transaction) => {
-      const numericAmount = Number(transaction?.amount || 0);
-      if (String(transaction?.type || '').toLowerCase() === 'payment') {
-        acc.totalPayment += numericAmount;
+      const delta = getCreditEntryDelta(transaction);
+      if (delta >= 0) {
+        acc.totalDebit += delta;
       } else {
-        acc.totalGiven += numericAmount;
+        acc.totalCredit += Math.abs(delta);
       }
       return acc;
-    }, { totalGiven: 0, totalPayment: 0 });
+    }, { totalDebit: 0, totalCredit: 0 });
 
     const allThroughPeriod = creditHistory
-      .filter((t) => {
-        const dateKey = getEffectiveTransactionDateKey(t);
+      .filter((transaction) => {
+        const dateKey = getEffectiveTransactionDateKey(transaction);
         return Boolean(dateKey) && dateKey <= toDate;
       })
       .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
@@ -107,7 +117,8 @@ const useCreditHistoryReports = ({
       entryCount: filtered.length,
       fromDate,
       toDate,
-      netChange: totals.totalGiven - totals.totalPayment,
+      totalDebit: totals.totalDebit,
+      totalCredit: totals.totalCredit,
       endingBalance,
     });
     setShowReport(true);
@@ -118,7 +129,7 @@ const useCreditHistoryReports = ({
     try {
       await navigator.clipboard.writeText(reportText);
       setSuccess('Report copied to clipboard');
-    } catch (err) {
+    } catch (_) {
       setError('Failed to copy report');
     }
   };
@@ -155,7 +166,7 @@ const useCreditHistoryReports = ({
     entryDate,
     previousBalance,
     updatedBalance,
-    thankYouLine
+    thankYouLine,
   }) => buildCreditEntryText({
     companyTitle: companyTitle || info.TITLE || 'BARMAN STORE',
     entryTypeLabel: getTypeLabel(entryType),
@@ -166,7 +177,7 @@ const useCreditHistoryReports = ({
     previousBalance,
     updatedBalance,
     onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine: thankYouLine || 'à¦†à¦®à¦¾à§° à¦“à¦šà§°à¦¤ à¦¬à¦œà¦¾à§° à¦•à§°à¦¾à§° à¦¬à¦¾à¦¬à§‡ à¦§à¦¨à§à¦¯à¦¬à¦¾à¦¦à¥¤'
+    thankYouLine: thankYouLine || 'Thank you.',
   });
 
   const handleCopyEntryShare = async () => {
@@ -195,21 +206,19 @@ const useCreditHistoryReports = ({
   const buildTransactionShareText = (transaction) => {
     const amount = Number(transaction?.amount || 0);
     const updatedBalance = Number(transaction?.balance || 0);
-    const previousBalance = String(transaction?.type || '').toLowerCase() === 'payment'
-      ? updatedBalance + amount
-      : updatedBalance - amount;
+    const previousBalance = getCreditPreviousBalance(transaction);
 
     return buildCreditTransactionText({
       companyTitle: info.TITLE || 'BARMAN STORE',
       dateLabel: formatTransactionDate(transaction),
-      typeLabel: getTypeLabel(transaction?.type),
+      typeLabel: getTypeLabel(transaction),
       amount,
-      description: transaction?.description || 'à¦…à¦¤à¦¿à§°à¦¿à¦•à§à¦¤ à¦Ÿà§‹à¦•à¦¾ à¦¨à¦¾à¦‡',
-      reference: transaction?.reference || '',
+      description: getCreditEntryDescription(transaction),
+      reference: getCreditEntrySourceLabel(transaction),
       previousBalance,
       updatedBalance,
       onlineStoreUrl: info.ONLINE_STORE_URL,
-      thankYouLine: 'à¦†à¦®à¦¾à§° à¦“à¦šà§°à¦¤ à¦¬à¦œà¦¾à§° à¦•à§°à¦¾à§° à¦¬à¦¾à¦¬à§‡ à¦§à¦¨à§à¦¯à¦¬à¦¾à¦¦à¥¤'
+      thankYouLine: 'Thank you.',
     });
   };
 
@@ -229,15 +238,18 @@ const useCreditHistoryReports = ({
     }
     setError('');
     setSuccess('');
+
     try {
-      const filtered = creditHistory.filter((t) => {
-        const dateKey = getEffectiveTransactionDateKey(t);
-        return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
-      }).sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+      const filtered = creditHistory
+        .filter((transaction) => {
+          const dateKey = getEffectiveTransactionDateKey(transaction);
+          return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
+        })
+        .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
       const allThroughPeriod = creditHistory
-        .filter((t) => {
-          const dateKey = getEffectiveTransactionDateKey(t);
+        .filter((transaction) => {
+          const dateKey = getEffectiveTransactionDateKey(transaction);
           return Boolean(dateKey) && dateKey <= toDate;
         })
         .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
@@ -248,7 +260,6 @@ const useCreditHistoryReports = ({
       const currentDayBalance = Number(balance || 0);
 
       const doc = createPdfDoc();
-
       const primaryColor = [41, 128, 185];
       const secondaryColor = [52, 73, 94];
       const accentColor = [39, 174, 96];
@@ -294,18 +305,22 @@ const useCreditHistoryReports = ({
       doc.text(`Period: ${fromDate} to ${toDate}`, 100, 86);
 
       if (filtered.length > 0) {
-        const tableData = filtered.map((t) => [
-          formatTransactionDate(t),
-          getTypeLabel(t.type),
-          t.reference || '-',
-          { content: formatPdfCurrency(t.type === 'payment' ? -Number(t.amount) : Number(t.amount)), styles: { halign: 'right' } },
-          { content: formatPdfCurrency(Number(t.balance)), styles: { halign: 'right' } },
-          t.description || '-'
-        ]);
+        const tableData = filtered.map((transaction) => {
+          const delta = getCreditEntryDelta(transaction);
+          return [
+            formatTransactionDate(transaction),
+            getTypeLabel(transaction),
+            getCreditEntrySourceLabel(transaction),
+            { content: delta >= 0 ? formatPdfCurrency(Math.abs(delta)) : '-', styles: { halign: 'right' } },
+            { content: delta < 0 ? formatPdfCurrency(Math.abs(delta)) : '-', styles: { halign: 'right' } },
+            { content: formatPdfCurrency(Number(transaction.balance || 0)), styles: { halign: 'right' } },
+            getCreditEntryDescription(transaction),
+          ];
+        });
 
         addAutoTable(doc, {
           startY: 95,
-          head: [['Date', 'Type', 'Reference', 'Amount', 'Balance', 'Description']],
+          head: [['Date', 'Type', 'Ref', 'Debit', 'Credit', 'Balance', 'Description']],
           body: tableData,
           theme: 'plain',
           headStyles: {
@@ -314,7 +329,7 @@ const useCreditHistoryReports = ({
             fontStyle: 'bold',
             fontSize: PDF_TABLE_LAYOUT.fontSize,
             cellPadding: PDF_TABLE_LAYOUT.cellPadding,
-            lineWidth: 0
+            lineWidth: 0,
           },
           bodyStyles: {
             fontSize: PDF_TABLE_LAYOUT.fontSize,
@@ -323,24 +338,25 @@ const useCreditHistoryReports = ({
             minCellHeight: PDF_TABLE_LAYOUT.minCellHeight,
             overflow: 'linebreak',
             valign: 'top',
-            lineWidth: 0
+            lineWidth: 0,
           },
           styles: {
-            lineWidth: 0
+            lineWidth: 0,
           },
           columnStyles: getPdfColumnStyles(doc),
-          margin: { left: PDF_TABLE_LAYOUT.marginLeft, right: PDF_TABLE_LAYOUT.marginRight }
+          margin: { left: PDF_TABLE_LAYOUT.marginLeft, right: PDF_TABLE_LAYOUT.marginRight },
         });
 
         const finalY = Number(doc?.lastAutoTable?.finalY || 95) + 10;
 
-        let totalGiven = 0;
-        let totalPayment = 0;
-        filtered.forEach((t) => {
-          const amount = Number(t.amount) || 0;
-          if (t.type === 'given') totalGiven += amount;
-          else if (t.type === 'payment') totalPayment += amount;
+        let totalDebit = 0;
+        let totalCredit = 0;
+        filtered.forEach((transaction) => {
+          const delta = getCreditEntryDelta(transaction);
+          if (delta >= 0) totalDebit += delta;
+          else totalCredit += Math.abs(delta);
         });
+
         const summaryHeight = 42;
         const footerReserve = 14;
         const pageHeight = doc.internal.pageSize.height;
@@ -362,9 +378,9 @@ const useCreditHistoryReports = ({
         doc.setFont('helvetica', 'normal');
 
         const summaryY = summaryTop + 18;
-        doc.text(`Total Credit Given: ${formatPdfCurrency(totalGiven)}`, 20, summaryY);
-        doc.text(`Total Payments Received: ${formatPdfCurrency(totalPayment)}`, 20, summaryY + 7);
-        doc.text(`Net Change: ${formatPdfCurrency(totalGiven - totalPayment)}`, 20, summaryY + 14);
+        doc.text(`Total Debits: ${formatPdfCurrency(totalDebit)}`, 20, summaryY);
+        doc.text(`Total Credits: ${formatPdfCurrency(totalCredit)}`, 20, summaryY + 7);
+        doc.text(`Net Change: ${formatPdfCurrency(totalDebit - totalCredit)}`, 20, summaryY + 14);
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
@@ -386,11 +402,11 @@ const useCreditHistoryReports = ({
         doc.text(`Current Day Balance: ${formatPdfCurrency(currentDayBalance)}`, 105, 124, { align: 'center' });
       }
 
-      addPdfFooterWithPagination(doc, (pdf, i, pageCount) => {
+      addPdfFooterWithPagination(doc, (pdf, pageIndex, pageCount) => {
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text(
-          `Generated on ${new Date().toLocaleString('en-IN')} | Page ${i} of ${pageCount}`,
+          `Generated on ${new Date().toLocaleString('en-IN')} | Page ${pageIndex} of ${pageCount}`,
           105,
           pdf.internal.pageSize.height - 10,
           { align: 'center' }

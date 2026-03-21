@@ -1,4 +1,3 @@
-import { FileText, Upload } from 'lucide-react';
 import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
 import WindowModal from '../../../../shared/components/window/WindowModal';
 
@@ -9,6 +8,7 @@ const CreditAddTransactionModal = ({
   handleAddTransaction,
   newTransaction,
   setNewTransaction,
+  handleClearAttachment,
   fileInputRef,
   handleFileUpload,
   uploading,
@@ -27,102 +27,92 @@ const CreditAddTransactionModal = ({
       headerClassName="modal-header"
       closeButtonClassName="close-btn"
       themeClassName="credit-history-page"
-      initialSize={{ width: 520, height: 660 }}
+      initialSize={{ width: 520, height: 620 }}
     >
       <form onSubmit={handleAddTransaction}>
-          <div className="form-group">
-            <label>Transaction Type</label>
-            <select
-              id="credit-tx-type"
-              name="transaction_type"
-              value={newTransaction.type}
-              onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value })}
-            >
-              <option value="given">Credit (customer will give)</option>
-              <option value="payment">Payment (customer paid)</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Amount (₹)</label>
-            <CalculatedAmountInput
-              id="credit-tx-amount"
-              name="amount"
-              value={newTransaction.amount}
-              onValueChange={(nextValue) => setNewTransaction({ ...newTransaction, amount: nextValue })}
-              placeholder="Enter amount or expression like (5+7)*100/35+56-25"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Date</label>
-            <input
-              id="credit-tx-date"
-              name="transaction_date"
-              type="date"
-              value={newTransaction.transactionDate}
-              onChange={(e) => setNewTransaction({ ...newTransaction, transactionDate: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Description *</label>
-            <input
-              id="credit-tx-description"
-              name="description"
-              type="text"
-              value={newTransaction.description}
-              onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-              placeholder="Enter description"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>Reference</label>
-            <input
-              id="credit-tx-reference"
-              name="reference"
-              type="text"
-              value={newTransaction.reference}
-              onChange={(e) => setNewTransaction({ ...newTransaction, reference: e.target.value })}
-              placeholder="Reference number (optional)"
-            />
-          </div>
-          <div className="form-group">
-            <label>Upload Invoice/Bill</label>
-            <div className="file-upload-area">
-              <input
-                id="credit-tx-invoice-file"
-                name="invoice_file"
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                accept="image/*,.pdf"
-                style={{ display: 'none' }}
-              />
+        <div className="form-group">
+          <label>Amount (Rs)</label>
+          <CalculatedAmountInput
+            id="credit-tx-amount"
+            name="amount"
+            value={newTransaction.amount}
+            onValueChange={(nextValue) => setNewTransaction({ ...newTransaction, amount: nextValue })}
+            placeholder="Enter amount or expression like (5+7)*100/35+56-25"
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Date</label>
+          <input
+            id="credit-tx-date"
+            name="transaction_date"
+            type="date"
+            value={newTransaction.transactionDate}
+            onChange={(event) => setNewTransaction({ ...newTransaction, transactionDate: event.target.value })}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Note *</label>
+          <input
+            id="credit-tx-description"
+            name="description"
+            type="text"
+            value={newTransaction.description}
+            onChange={(event) => setNewTransaction({ ...newTransaction, description: event.target.value })}
+            placeholder={`Add a short note for this ${addModalActionLabel.toLowerCase()}`}
+            required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Reference</label>
+          <input
+            id="credit-tx-reference"
+            name="reference"
+            type="text"
+            value={newTransaction.reference}
+            onChange={(event) => setNewTransaction({ ...newTransaction, reference: event.target.value })}
+            placeholder="Bill number, receipt number, or note"
+          />
+        </div>
+
+        <div className="form-group">
+          <label>File Upload</label>
+          <input
+            ref={fileInputRef}
+            id="credit-tx-attachment"
+            name="attachment"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleFileUpload}
+            disabled={addingTransaction || uploading}
+          />
+          {newTransaction.attachmentName ? (
+            <div className="credit-ledger-note">
+              <span>{newTransaction.attachmentName}</span>
               <button
                 type="button"
-                className="upload-btn"
-                onClick={() => fileInputRef.current.click()}
-                disabled={uploading || addingTransaction}
+                className="admin-btn"
+                onClick={handleClearAttachment}
+                disabled={addingTransaction || uploading}
               >
-                <Upload size={16} />
-                {uploading ? 'Uploading...' : 'Choose File'}
+                Remove File
               </button>
-              {newTransaction.imagePath && (
-                <span className="uploaded-file">
-                  <FileText size={14} /> Invoice uploaded
-                </span>
-              )}
             </div>
-          </div>
-          <div className="modal-actions">
-            <button type="button" className="cancel-btn" onClick={closeAddModal} disabled={addingTransaction}>
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={addingTransaction}>
-              {addingTransaction ? 'Saving...' : `Save ${addModalActionLabel}`}
-            </button>
-          </div>
+          ) : null}
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" className="cancel-btn" onClick={closeAddModal} disabled={addingTransaction}>
+            Cancel
+          </button>
+          <button type="submit" className="submit-btn" disabled={addingTransaction || uploading}>
+            {addingTransaction ? 'Saving...' : uploading ? 'Preparing File...' : `Save ${addModalActionLabel}`}
+          </button>
+        </div>
       </form>
     </WindowModal>
   );

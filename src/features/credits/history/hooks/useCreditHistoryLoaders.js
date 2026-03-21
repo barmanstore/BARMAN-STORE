@@ -48,7 +48,7 @@ const useCreditHistoryLoaders = ({
       setBalance(balanceData.balance);
       setCustomer(customerData);
       try {
-        const issueRows = await creditApi.listIssues(targetUserId);
+        const issueRows = await creditApi.getIssues(targetUserId);
         setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
       } catch (_) {
         setCreditIssues([]);

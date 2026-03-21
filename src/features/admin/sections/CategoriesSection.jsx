@@ -1,27 +1,17 @@
-import { Plus } from 'lucide-react';
+import CategoryManagement from '../../catalog/categories/CategoryManagement';
 import AdminPageHeader from '../components/AdminPageHeader';
 
-function CategoriesSection({
-  setShowCategoryManagement
-}) {
+function CategoriesSection() {
   return (
-
-          <div className="categories-management">
-            <AdminPageHeader
-              className="section-header"
-              title="Categories Management"
-              actions={(
-                <button className="admin-btn primary" onClick={() => setShowCategoryManagement(true)}>
-                  <Plus size={20} /> Manage Categories
-                </button>
-              )}
-            />
-            <div className="categories-info">
-              <p>Click "Manage Categories" to create, edit, or delete product categories.</p>
-            </div>
-          </div>
+    <div className="categories-management">
+      <AdminPageHeader
+        className="section-header"
+        title="Categories Management"
+        subtitle="Manage the category tree, edit metadata, and reassign products without leaving the tab."
+      />
+      <CategoryManagement inline={true} />
+    </div>
   );
 }
 
 export default CategoriesSection;
-

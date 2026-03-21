@@ -39,7 +39,20 @@ Runs:
 - dependency check/install if needed
 - `node --check server/index.js`
 - `npm run test:phone`
+- `npm run test:order-flow`
 - `npm run test:credit-ui`
+
+### Smoke suite only
+```bat
+scripts\windows\health-check.bat smoke
+```
+Runs:
+- dependency check/install if needed
+- `npm run test:phone`
+- `npm run test:order-flow`
+- `npm run test:po-lifecycle`
+- `npm run test:credit-ui`
+- `npm run test:category-tree`
 
 ### Full checks (recommended before release)
 ```bat
@@ -80,6 +93,30 @@ scripts\windows\workbench.bat
 ```
 
 Use this if you prefer selecting options instead of remembering commands.
+
+Notable maintenance entries in the workbench:
+- smoke suite and individual smoke-test runners
+- smoke cleanup dry-run / apply + verify
+- code cleanup preview / apply
+- worktree cleanup preview / apply
+- staged secret scan
+- production build
+
+## 5) Cleanup helpers
+
+### Code cleanup
+```bat
+npm run cleanup:code
+npm run cleanup:code:apply
+```
+Targets build output and common code-generation temp artifacts.
+
+### Worktree cleanup
+```bat
+npm run cleanup:worktree
+npm run cleanup:worktree:apply
+```
+Targets generated workspace artifacts such as cache directories, reports, `.vs`, and nested Vite caches without touching tracked files.
 
 ## Recommended procedure
 

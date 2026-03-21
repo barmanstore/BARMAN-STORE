@@ -10,6 +10,12 @@ const buildCreditDeps = ({ core, domain }) => {
     buildCreditTransactionTimestamp: creditUtils.buildCreditTransactionTimestamp,
     CREDIT_ENTRY_DEDUP_WINDOW_MS: configValues.CREDIT_ENTRY_DEDUP_WINDOW_MS,
     toTimestampMs: requestUtils.toTimestampMs,
+    parseDataUrlImage: core.profileImages.parseDataUrlImage,
+    PROFILE_IMAGE_ALLOWED_MIME: core.profileImages.PROFILE_IMAGE_ALLOWED_MIME,
+    PROFILE_IMAGE_MAX_BYTES: core.profileImages.PROFILE_IMAGE_MAX_BYTES,
+    mimeToExt: core.profileImages.mimeToExt,
+    deleteManagedProfileImage: core.profileImages.deleteManagedProfileImage,
+    profileImageStorage: core.profileImages.profileImageStorage,
   };
 };
 

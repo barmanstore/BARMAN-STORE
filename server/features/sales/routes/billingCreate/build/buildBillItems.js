@@ -17,7 +17,7 @@ const buildBillItems = async (deps, context, createHttpError) => {
     linkedOrderItems,
   } = context;
 
-  // Uninterrupted billing: manual/unlisted lines are allowed for all bill flows.
+  // Explicit custom lines may be billed without product linkage across bill flows.
   const allowLineItemsWithoutProduct = true;
   const { sanitizedItems, productCache } = await sanitizeBillItems({
     deps,

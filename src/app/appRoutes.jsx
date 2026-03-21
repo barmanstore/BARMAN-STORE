@@ -1,5 +1,6 @@
 import { lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { ADMIN_DEFAULT_TAB, getAdminTabHref, normalizeAdminTab } from '../features/admin/config/adminSidebarConfig';
 
 const Home = lazy(() => import('../features/storefront/Home'));
 const ProductsPage = lazy(() => import('../features/catalog/products/pages/ProductsPage'));
@@ -26,12 +27,20 @@ export const AppRoutes = ({
   user,
   notificationProps,
 }) => {
+  const location = useLocation();
   const {
     notifications,
     unreadNotificationCount,
     onResolveNotificationHref,
     onMarkNotificationRead,
   } = notificationProps || {};
+  const adminRedirectTarget = (() => {
+    const next = new URLSearchParams(location.search || '');
+    const nextTab = normalizeAdminTab(next.get('tab') || ADMIN_DEFAULT_TAB);
+    next.delete('tab');
+    const nextSearch = next.toString();
+    return `${getAdminTabHref(nextTab)}${nextSearch ? `?${nextSearch}` : ''}`;
+  })();
 
   return (
     <Routes>
@@ -40,10 +49,11 @@ export const AppRoutes = ({
       <Route path="/cart" element={<Cart cartCount={cartCount} setCartCount={setCartCount} />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/login" element={<Login setUser={setUser} />} />
-      <Route path="/admin" element={<AdminPage user={user} />} />
+      <Route path="/admin" element={<Navigate to={adminRedirectTarget} replace />} />
       <Route path="/popup/billing" element={<BillingPopupPage user={user} />} />
       <Route path="/popup/purchase" element={<PurchasePopupPage user={user} />} />
       <Route path="/admin/users/:userId/credit" element={<CreditHistory user={user} />} />
+      <Route path="/admin/:tab" element={<AdminPage user={user} />} />
       <Route path="/my-credit" element={<CreditHistory user={user} />} />
       <Route path="/order-history" element={<OrderHistoryPage />} />
       <Route path="/my-orders" element={<Navigate to="/order-history" replace />} />

@@ -1,4 +1,11 @@
 import { validateAmountInput } from '../../../../shared/utils/amountExpression';
+import { readFileAsDataUrl } from '../../../../shared/utils/readFileAsDataUrl';
+
+const toDateInputValue = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return raw.slice(0, 10);
+};
 
 const useCreditKhataLedgerForm = ({
   getDefaultFormData,
@@ -6,10 +13,12 @@ const useCreditKhataLedgerForm = ({
   setEditingLedgerEntryId,
   setLedgerFormData,
   setLedgerSubmitting,
+  setLedgerUploading,
   ledgerSubmitLockRef,
   ledgerRequestIdRef,
   setError,
   ledgerSubmitting,
+  ledgerUploading,
   ledgerFormData,
   editingLedgerEntryId,
   user,
@@ -18,10 +27,19 @@ const useCreditKhataLedgerForm = ({
   fetchLedger,
   filters,
   users,
+  ledgerFileInputRef,
 }) => {
-  const handleOpenLedgerForm = () => {
+  const resetLedgerAttachmentInput = () => {
+    if (ledgerFileInputRef?.current) {
+      ledgerFileInputRef.current.value = '';
+    }
+  };
+
+  const handleOpenLedgerForm = (type = 'payment') => {
     setEditingLedgerEntryId(null);
-    setLedgerFormData(getDefaultFormData());
+    setLedgerUploading(false);
+    setLedgerFormData(getDefaultFormData(filters.user_id, type));
+    resetLedgerAttachmentInput();
     ledgerSubmitLockRef.current = false;
     ledgerRequestIdRef.current = '';
     setShowLedgerForm(true);
@@ -30,14 +48,19 @@ const useCreditKhataLedgerForm = ({
   const handleOpenLedgerEdit = (entry) => {
     if (!entry) return;
     setEditingLedgerEntryId(entry.id);
+    setLedgerUploading(false);
     setLedgerFormData({
       user_id: entry.user_id || '',
       type: entry.type || 'payment',
       amount: String(entry.amount || ''),
-      transactionDate: entry.transaction_date || entry.transaction_ts || entry.created_at || '',
+      transactionDate: toDateInputValue(entry.transaction_date || entry.transaction_ts || entry.created_at),
       reference: entry.reference || '',
-      description: entry.description || ''
+      description: entry.description || '',
+      imageBase64: '',
+      imagePath: entry.image_path || '',
+      attachmentName: ''
     });
+    resetLedgerAttachmentInput();
     ledgerSubmitLockRef.current = false;
     ledgerRequestIdRef.current = '';
     setShowLedgerForm(true);
@@ -46,15 +69,54 @@ const useCreditKhataLedgerForm = ({
   const closeLedgerForm = () => {
     setShowLedgerForm(false);
     setEditingLedgerEntryId(null);
-    setLedgerFormData(getDefaultFormData());
+    setLedgerFormData(getDefaultFormData(filters.user_id));
     setLedgerSubmitting(false);
+    setLedgerUploading(false);
+    resetLedgerAttachmentInput();
     ledgerSubmitLockRef.current = false;
     ledgerRequestIdRef.current = '';
   };
 
+  const handleLedgerFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setLedgerFormData((prev) => ({
+        ...prev,
+        imageBase64: '',
+        attachmentName: '',
+      }));
+      return;
+    }
+
+    setLedgerUploading(true);
+    setError('');
+    try {
+      const imageBase64 = await readFileAsDataUrl(file);
+      setLedgerFormData((prev) => ({
+        ...prev,
+        imageBase64,
+        attachmentName: String(file.name || '').trim(),
+      }));
+    } catch (_) {
+      setError('Failed to read file');
+      resetLedgerAttachmentInput();
+    } finally {
+      setLedgerUploading(false);
+    }
+  };
+
+  const handleClearLedgerAttachment = () => {
+    setLedgerFormData((prev) => ({
+      ...prev,
+      imageBase64: '',
+      attachmentName: '',
+    }));
+    resetLedgerAttachmentInput();
+  };
+
   const handleLedgerSubmit = async (e) => {
     e.preventDefault();
-    if (ledgerSubmitting || ledgerSubmitLockRef.current) return;
+    if (ledgerSubmitting || ledgerUploading || ledgerSubmitLockRef.current) return;
     ledgerSubmitLockRef.current = true;
     setError('');
 
@@ -72,7 +134,7 @@ const useCreditKhataLedgerForm = ({
     }
     if (!ledgerFormData.description.trim()) {
       ledgerSubmitLockRef.current = false;
-      setError('Please enter a description');
+      setError('Please enter a note');
       return;
     }
 
@@ -85,6 +147,7 @@ const useCreditKhataLedgerForm = ({
           reference: ledgerFormData.reference,
           description: ledgerFormData.description,
           transactionDate: ledgerFormData.transactionDate,
+          image_base64: String(ledgerFormData.imageBase64 || '').trim() || undefined,
           edited_by: user?.id
         });
       } else {
@@ -96,6 +159,7 @@ const useCreditKhataLedgerForm = ({
           reference: ledgerFormData.reference,
           description: ledgerFormData.description,
           transactionDate: ledgerFormData.transactionDate,
+          image_base64: String(ledgerFormData.imageBase64 || '').trim() || undefined,
           created_by: user?.id,
           client_request_id: clientRequestId
         });
@@ -119,6 +183,8 @@ const useCreditKhataLedgerForm = ({
     handleOpenLedgerForm,
     handleOpenLedgerEdit,
     closeLedgerForm,
+    handleLedgerFileUpload,
+    handleClearLedgerAttachment,
     handleLedgerSubmit,
   };
 };

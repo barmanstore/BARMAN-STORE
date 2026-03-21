@@ -21,6 +21,7 @@ set "NON_INTERACTIVE="
 if not "%~1"=="" (
   set "NON_INTERACTIVE=1"
   set "CHOICE=%~1"
+  set "ARG2=%~2"
   goto :dispatch
 )
 if /i "%OPS_INTERACTIVE%"=="1" set "NON_INTERACTIVE="
@@ -42,14 +43,22 @@ echo 9. Smoke suite + cleanup
 echo 10. Code cleanup (preview)
 echo 11. Code cleanup (apply)
 echo 12. Git status
-echo 13. Transaction history smoke test
+echo 13. Credit history UI smoke test
 echo 14. Health check (quick)
 echo 15. Health check (full)
 echo 16. Migrate DB (Supabase)
 echo 17. Exit
+echo 18. Worktree cleanup (preview)
+echo 19. Worktree cleanup (apply)
+echo 20. Phone workflow smoke test
+echo 21. Order+billing workflow smoke test
+echo 22. PO lifecycle smoke test
+echo 23. Category tree smoke test
+echo 24. Secrets scan (staged)
+echo 25. Production build
 echo.
 set "CHOICE="
-set /p CHOICE=Select option [1-17]: 
+set /p CHOICE=Select option [1-25]: 
 
 :dispatch
 if "%CHOICE%"=="1" goto :git_quick
@@ -64,11 +73,19 @@ if "%CHOICE%"=="9" goto :smoke_suite_and_cleanup
 if "%CHOICE%"=="10" goto :code_cleanup_preview
 if "%CHOICE%"=="11" goto :code_cleanup_apply
 if "%CHOICE%"=="12" goto :git_status
-if "%CHOICE%"=="13" goto :transaction_history_smoke
+if "%CHOICE%"=="13" goto :credit_history_smoke
 if "%CHOICE%"=="14" goto :health_quick
 if "%CHOICE%"=="15" goto :health_full
 if "%CHOICE%"=="16" goto :db_migrate
 if "%CHOICE%"=="17" goto :done
+if "%CHOICE%"=="18" goto :wt_cleanup_preview
+if "%CHOICE%"=="19" goto :wt_cleanup_apply
+if "%CHOICE%"=="20" goto :phone_smoke
+if "%CHOICE%"=="21" goto :order_flow_smoke
+if "%CHOICE%"=="22" goto :po_lifecycle_smoke
+if "%CHOICE%"=="23" goto :category_tree_smoke
+if "%CHOICE%"=="24" goto :secrets_scan_staged
+if "%CHOICE%"=="25" goto :build_production
 if "%CHOICE%"=="" goto :menu
 goto :menu
 
@@ -112,7 +129,7 @@ call "%~dp0deploy.bat" git origin main
 goto :pause_and_menu
 
 :smoke_suite_all
-call :run_smoke_suite
+call "%~dp0health-check.bat" smoke
 goto :pause_and_menu
 
 :smoke_cleanup_dry
@@ -120,47 +137,82 @@ node "%~dp0..\cleanup-smoke-test-data.js"
 goto :pause_and_menu
 
 :smoke_cleanup_apply
-set "CONFIRM="
-set /p CONFIRM=Type YES to delete smoke test data from DB: 
-if /i not "%CONFIRM%"=="YES" goto :pause_and_menu
+call :confirm_or_abort "Type YES to delete smoke test data from DB: " || goto :pause_and_menu
 node "%~dp0..\cleanup-smoke-test-data.js" --apply
 goto :pause_and_menu
 
 :transaction_history_smoke
+:credit_history_smoke
 call npm run test:credit-ui
 goto :pause_and_menu
 
 :smoke_cleanup_all_apply_verify
-set "CONFIRM="
-set /p CONFIRM=Type YES to delete all smoke test data and verify zero residue: 
-if /i not "%CONFIRM%"=="YES" goto :pause_and_menu
+call :confirm_or_abort "Type YES to delete all smoke test data and verify zero residue: " || goto :pause_and_menu
 node "%~dp0..\cleanup-smoke-test-data.js" --apply || goto :pause_and_menu
 node "%~dp0..\cleanup-smoke-test-data.js" --fail-on-matches || goto :pause_and_menu
 echo [SUCCESS] Smoke cleanup verification passed (no residue found).
 goto :pause_and_menu
 
 :smoke_suite_and_cleanup
-call :run_smoke_suite
-if errorlevel 1 goto :pause_and_menu
-node "%~dp0..\cleanup-smoke-test-data.js" --apply || goto :pause_and_menu
-node "%~dp0..\cleanup-smoke-test-data.js" --fail-on-matches || goto :pause_and_menu
-echo [SUCCESS] Smoke suite finished and residue cleanup verified.
-goto :pause_and_menu
+call "%~dp0health-check.bat" smoke || goto :pause_and_menu
+ node "%~dp0..\cleanup-smoke-test-data.js" --apply || goto :pause_and_menu
+ node "%~dp0..\cleanup-smoke-test-data.js" --fail-on-matches || goto :pause_and_menu
+ echo [SUCCESS] Smoke suite finished and residue cleanup verified.
+ goto :pause_and_menu
 
 :code_cleanup_preview
 call npm run cleanup:code
 goto :pause_and_menu
 
 :code_cleanup_apply
-set "CONFIRM="
-set /p CONFIRM=Type YES to delete build output and temp workspace artifacts: 
-if /i not "%CONFIRM%"=="YES" goto :pause_and_menu
+call :confirm_or_abort "Type YES to delete build output and temp workspace artifacts: " || goto :pause_and_menu
 call npm run cleanup:code:apply
 goto :pause_and_menu
 
-:run_smoke_suite
-call npm test || exit /b 1
-exit /b 0
+:wt_cleanup_preview
+call npm run cleanup:worktree
+goto :pause_and_menu
+
+:wt_cleanup_apply
+call :confirm_or_abort "Type YES to delete generated worktree artifacts: " || goto :pause_and_menu
+call npm run cleanup:worktree:apply
+goto :pause_and_menu
+
+:phone_smoke
+call npm run test:phone
+goto :pause_and_menu
+
+:order_flow_smoke
+call npm run test:order-flow
+goto :pause_and_menu
+
+:po_lifecycle_smoke
+call npm run test:po-lifecycle
+goto :pause_and_menu
+
+:category_tree_smoke
+call npm run test:category-tree
+goto :pause_and_menu
+
+:secrets_scan_staged
+call npm run secrets:scan:staged
+goto :pause_and_menu
+
+:build_production
+call npm run build
+goto :pause_and_menu
+
+:confirm_or_abort
+set "CONFIRM="
+if /i "%NON_INTERACTIVE%"=="1" (
+  if /i "%ARG2%"=="YES" exit /b 0
+  echo [INFO] Confirmation required. Re-run with YES as the second argument.
+  exit /b 1
+)
+set /p CONFIRM=%~1
+if /i "%CONFIRM%"=="YES" exit /b 0
+echo [INFO] Cancelled.
+exit /b 1
 
 :pause_and_menu
 echo.

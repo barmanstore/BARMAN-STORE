@@ -33,7 +33,7 @@ const registerBillingCreateRoutes = (deps) => {
         requestId: clientRequestId,
         details: {
           bill_number: draft.billNumber,
-          customer_id: Number(draft.customer.id),
+          customer_id: Number(draft.customer?.id || 0) || null,
           bill_type: draft.billType,
           total_amount: Number(draft.totalAmount || 0),
           credit_amount: Number(draft.creditAmount || 0),

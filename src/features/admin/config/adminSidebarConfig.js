@@ -75,3 +75,20 @@ export const SIDEBAR_SECTIONS = [
 ];
 
 export const MOBILE_SIDEBAR_SECTIONS = filterSections(SIDEBAR_SECTIONS, (item) => item.mobile);
+
+export const ADMIN_DEFAULT_TAB = 'dashboard';
+
+export const ALL_ADMIN_TABS = Array.from(new Set(
+  SIDEBAR_SECTIONS.flatMap((section) => section.items.map((item) => item.tab))
+));
+
+const ADMIN_TAB_SET = new Set(ALL_ADMIN_TABS);
+
+export const isKnownAdminTab = (tab) => ADMIN_TAB_SET.has(String(tab || '').trim());
+
+export const normalizeAdminTab = (tab) => {
+  const value = String(tab || '').trim();
+  return isKnownAdminTab(value) ? value : ADMIN_DEFAULT_TAB;
+};
+
+export const getAdminTabHref = (tab = ADMIN_DEFAULT_TAB) => `/admin/${normalizeAdminTab(tab)}`;

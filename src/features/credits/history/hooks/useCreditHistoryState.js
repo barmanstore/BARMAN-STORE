@@ -1,5 +1,16 @@
 import { useRef, useState } from 'react';
 
+const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => ({
+  type: type === 'given' ? 'given' : 'payment',
+  amount: '',
+  description: '',
+  reference: '',
+  transactionDate: getTodayDateInputValue(),
+  imageBase64: '',
+  imagePath: '',
+  attachmentName: '',
+});
+
 const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputValue }) => {
   const authUser = (() => {
     if (user) return user;
@@ -21,14 +32,7 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [addingTransaction, setAddingTransaction] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [newTransaction, setNewTransaction] = useState({
-    type: 'given',
-    amount: '',
-    description: '',
-    reference: '',
-    transactionDate: getTodayDateInputValue(),
-    imagePath: ''
-  });
+  const [newTransaction, setNewTransaction] = useState(() => createNewTransactionDraft(getTodayDateInputValue));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [paymentBadges, setPaymentBadges] = useState([]);
@@ -93,6 +97,7 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
     setUploading,
     newTransaction,
     setNewTransaction,
+    createNewTransactionDraft,
     error,
     setError,
     success,

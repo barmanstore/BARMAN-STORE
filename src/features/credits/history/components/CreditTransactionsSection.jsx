@@ -1,6 +1,14 @@
-import { FileText, Eye, Printer, MessageCircle, Trash2 } from 'lucide-react';
+import { FileText, Eye, Printer, MessageCircle, RotateCcw } from 'lucide-react';
+import { resolveMediaUrl } from '../../../../shared/services/api/core';
 import { formatCurrency } from '../../../../shared/utils/formatters';
-import SignedCurrency from '../../../../shared/components/SignedCurrency';
+import {
+  canReverseCreditEntry,
+  getCreditBalanceMeta,
+  getCreditEntryDelta,
+  getCreditEntryDescription,
+  getCreditEntrySourceLabel,
+  getCreditEntryTypeLabel,
+} from '../utils/creditLedgerPresentation';
 
 function CreditTransactionsSection({
   filteredTransactions,
@@ -12,8 +20,6 @@ function CreditTransactionsSection({
   groupedTransactions,
   expandedTransactionId,
   setExpandedTransactionId,
-  getTypeIcon,
-  getTypeLabel,
   formatTransactionDate,
   isTransactionWithinFiveDays,
   truncateCreditDescription,
@@ -42,13 +48,13 @@ function CreditTransactionsSection({
         <div className="empty-state">
           {creditHistory.length === 0 ? (
             <>
-              <p>No entries yet{isAdminView ? ' for this customer.' : '.'}</p>
-              {isAdminView && <p>Tap "Add Credit" for first sale or "Add Payment" when customer pays.</p>}
+              <p>No ledger entries yet{isAdminView ? ' for this customer.' : '.'}</p>
+              {isAdminView && <p>Use "Add Manual Sale" when a customer purchase is added to due, or "Add Payment" when money is received.</p>}
             </>
           ) : (
             <>
               <p>No entries match current filters.</p>
-              {hasFiltersApplied && <p>Switch filters to "All" to view complete history.</p>}
+              {hasFiltersApplied && <p>Switch filters to "All" to view the full ledger.</p>}
             </>
           )}
         </div>
@@ -58,9 +64,10 @@ function CreditTransactionsSection({
             <thead>
               <tr>
                 <th className="credit-col-date">Date</th>
-                <th>Invoice #</th>
+                <th>Ref</th>
                 <th>Type</th>
-                <th>Amount</th>
+                <th>Debit</th>
+                <th>Credit</th>
                 <th>Balance</th>
                 <th>Description</th>
                 <th className="credit-col-actions">Actions</th>
@@ -68,11 +75,17 @@ function CreditTransactionsSection({
             </thead>
             <tbody>
               {filteredTransactions.map((transaction) => {
-                const descriptionWithRef = transaction.reference
-                  ? `${transaction.description || ''} (${transaction.reference})`.trim()
-                  : transaction.description || '-';
+                const sourceLabel = getCreditEntrySourceLabel(transaction);
+                const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+                const description = getCreditEntryDescription(transaction);
+                const delta = getCreditEntryDelta(transaction);
+                const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
+                const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
+                const balanceMeta = getCreditBalanceMeta(transaction.balance);
                 const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+                const canReverse = isAdminView && canReverseCreditEntry(transaction);
                 const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
+
                 return (
                   <tr
                     key={transaction.id}
@@ -80,17 +93,19 @@ function CreditTransactionsSection({
                     className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
                   >
                     <td>{formatTransactionDate(transaction, { long: true })}</td>
-                    <td className="invoice-number">{transaction.invoice_number || '-'}</td>
+                    <td className="invoice-number">{sourceLabel}</td>
                     <td>
-                      {getTypeIcon(transaction.type)}
-                      <span>{getTypeLabel(transaction.type)}</span>
+                      <span>{entryTypeLabel}</span>
                     </td>
-                    <td className={transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}>
-                      <SignedCurrency amount={transaction.type === 'payment' ? -parseFloat(transaction.amount) : parseFloat(transaction.amount)} />
-                    </td>
-                    <td><SignedCurrency amount={parseFloat(transaction.balance)} /></td>
+                    <td className="debit-amount">{debitAmount}</td>
+                    <td className="credit-amount">{creditAmount}</td>
                     <td>
-                      {descriptionWithRef}
+                      <span className={`balance-pill ${balanceMeta.tone}`}>
+                        {balanceMeta.label} {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
+                      </span>
+                    </td>
+                    <td>
+                      {description}
                       {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
                     </td>
                     <td className="actions-cell">
@@ -105,11 +120,11 @@ function CreditTransactionsSection({
                       )}
                       {transaction.image_path && (
                         <a
-                          href={transaction.image_path}
+                          href={resolveMediaUrl(transaction.image_path)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="action-icon view"
-                          title="View Invoice"
+                          title="View attachment"
                         >
                           <Eye size={16} />
                         </a>
@@ -117,7 +132,7 @@ function CreditTransactionsSection({
                       <button
                         className="action-icon print mobile-hide-print"
                         onClick={() => handlePrintInvoice(transaction)}
-                        title="Print Invoice"
+                        title="Print entry"
                         disabled={isMobile}
                         aria-disabled={isMobile}
                       >
@@ -134,12 +149,12 @@ function CreditTransactionsSection({
                       )}
                       {isAdminView && (
                         <button
-                          className="action-icon delete"
+                          className="action-icon reverse"
                           onClick={() => handleDeleteTransaction(transaction)}
-                          title="Delete entry"
-                          disabled={deletingEntryId === Number(transaction.id || 0)}
+                          title={canReverse ? 'Reverse entry' : 'Already reversed'}
+                          disabled={!canReverse || deletingEntryId === Number(transaction.id || 0)}
                         >
-                          <Trash2 size={16} />
+                          <RotateCcw size={16} />
                         </button>
                       )}
                     </td>
@@ -155,35 +170,39 @@ function CreditTransactionsSection({
                 <h3 className="credit-day-title">{group.dateLabel}</h3>
                 <div className="credit-tile-stack">
                   {group.transactions.map((transaction) => {
-                    const description = String(transaction.description || '').trim();
-                    const reference = String(transaction.reference || '').trim();
-                    const signedAmount = transaction.type === 'payment'
-                      ? -parseFloat(transaction.amount)
-                      : parseFloat(transaction.amount);
+                    const description = getCreditEntryDescription(transaction);
+                    const sourceLabel = getCreditEntrySourceLabel(transaction);
+                    const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+                    const delta = getCreditEntryDelta(transaction);
+                    const balanceMeta = getCreditBalanceMeta(transaction.balance);
                     const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+                    const canReverse = isAdminView && canReverseCreditEntry(transaction);
                     const isExpanded = expandedTransactionId === transaction.id;
                     const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
+                    const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
+                    const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
+
                     return (
                       <article
                         key={`mobile-${transaction.id}`}
                         data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                        className={`credit-transaction-tile ${transaction.type === 'payment' ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
+                        className={`credit-transaction-tile ${delta < 0 ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
                       >
                         <header className="tile-top-row">
                           <span className="tile-type-wrap">
-                            <span className={`tile-type-pill ${transaction.type === 'payment' ? 'payment' : 'given'}`}>
-                              {getTypeLabel(transaction.type)}
+                            <span className={`tile-type-pill ${delta < 0 ? 'payment' : 'given'}`}>
+                              {entryTypeLabel}
+                            </span>
+                            {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
                           </span>
-                          {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
-                        </span>
-                        <span className={`tile-amount ${transaction.type === 'payment' ? 'payment-amount' : 'given-amount'}`}>
-                          <SignedCurrency amount={signedAmount} />
-                        </span>
-                      </header>
+                          <span className={`tile-amount ${delta < 0 ? 'credit-amount' : 'debit-amount'}`}>
+                            {delta >= 0 ? `Debit ${debitAmount}` : `Credit ${creditAmount}`}
+                          </span>
+                        </header>
 
                         <div className="tile-meta-row">
                           <span>{formatTransactionDate(transaction, { long: false })}</span>
-                          <span>Invoice: {transaction.invoice_number || '-'}</span>
+                          <span>Ref: {sourceLabel}</span>
                         </div>
 
                         <div className="tile-description">
@@ -191,8 +210,8 @@ function CreditTransactionsSection({
                         </div>
 
                         <div className="tile-footer-row">
-                          <span className="tile-balance-pill">
-                            Balance: <SignedCurrency amount={parseFloat(transaction.balance)} />
+                          <span className={`tile-balance-pill ${balanceMeta.tone}`}>
+                            {balanceMeta.label}: {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
                           </span>
                           <button
                             type="button"
@@ -205,8 +224,10 @@ function CreditTransactionsSection({
 
                         {isExpanded && (
                           <div className="tile-expanded">
-                            <div className="tile-detail"><strong>Invoice:</strong> {transaction.invoice_number || '-'}</div>
-                            {reference ? <div className="tile-detail"><strong>Ref:</strong> {reference}</div> : null}
+                            <div className="tile-detail"><strong>Ref:</strong> {sourceLabel}</div>
+                            <div className="tile-detail"><strong>Type:</strong> {entryTypeLabel}</div>
+                            <div className="tile-detail"><strong>Debit:</strong> {debitAmount}</div>
+                            <div className="tile-detail"><strong>Credit:</strong> {creditAmount}</div>
                             <div className="tile-detail"><strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}</div>
                             <div className="tile-actions">
                               {!isAdminView && (
@@ -220,12 +241,12 @@ function CreditTransactionsSection({
                               )}
                               {transaction.image_path && (
                                 <a
-                                  href={transaction.image_path}
+                                  href={resolveMediaUrl(transaction.image_path)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="action-icon view"
-                                  title="View Invoice"
-                                  onClick={(e) => e.stopPropagation()}
+                                  title="View attachment"
+                                  onClick={(event) => event.stopPropagation()}
                                 >
                                   <Eye size={16} />
                                 </a>
@@ -233,7 +254,7 @@ function CreditTransactionsSection({
                               <button
                                 className="action-icon print mobile-hide-print"
                                 onClick={() => handlePrintInvoice(transaction)}
-                                title="Print Invoice"
+                                title="Print entry"
                                 disabled={isMobile}
                                 aria-disabled={isMobile}
                               >
@@ -250,12 +271,12 @@ function CreditTransactionsSection({
                               )}
                               {isAdminView && (
                                 <button
-                                  className="action-icon delete"
+                                  className="action-icon reverse"
                                   onClick={() => handleDeleteTransaction(transaction)}
-                                  title="Delete entry"
-                                  disabled={deletingEntryId === Number(transaction.id || 0)}
+                                  title={canReverse ? 'Reverse entry' : 'Already reversed'}
+                                  disabled={!canReverse || deletingEntryId === Number(transaction.id || 0)}
                                 >
-                                  <Trash2 size={16} />
+                                  <RotateCcw size={16} />
                                 </button>
                               )}
                             </div>
@@ -283,12 +304,12 @@ function CreditTransactionsSection({
                 id="credit-issue-entry"
                 name="credit_entry_id"
                 value={issueForm.credit_entry_id}
-                onChange={(e) => setIssueForm((prev) => ({ ...prev, credit_entry_id: e.target.value }))}
+                onChange={(event) => setIssueForm((prev) => ({ ...prev, credit_entry_id: event.target.value }))}
               >
                 <option value="">Select (optional)</option>
                 {creditHistory.map((entry) => (
                   <option key={entry.id} value={entry.id}>
-                    #{entry.id} | {getTypeLabel(entry.type)} | {formatCurrency(entry.amount || 0)}
+                    #{entry.id} | {getCreditEntryTypeLabel(entry)} | {formatCurrency(entry.amount || 0)}
                   </option>
                 ))}
               </select>
@@ -299,7 +320,7 @@ function CreditTransactionsSection({
                 id="credit-issue-type"
                 name="issue_type"
                 value={issueForm.issue_type}
-                onChange={(e) => setIssueForm((prev) => ({ ...prev, issue_type: e.target.value }))}
+                onChange={(event) => setIssueForm((prev) => ({ ...prev, issue_type: event.target.value }))}
               >
                 <option value="wrong_entry">Wrong Entry</option>
                 <option value="missing_entry">Missing Entry</option>
@@ -313,7 +334,7 @@ function CreditTransactionsSection({
                 id="credit-issue-message"
                 name="issue_message"
                 value={issueForm.message}
-                onChange={(e) => setIssueForm((prev) => ({ ...prev, message: e.target.value }))}
+                onChange={(event) => setIssueForm((prev) => ({ ...prev, message: event.target.value }))}
                 placeholder="Explain what is wrong so admin can correct it."
                 rows={3}
                 required
@@ -347,7 +368,7 @@ function CreditTransactionsSection({
                         id={`credit-issue-response-${issue.id}`}
                         name={`credit_issue_response_${issue.id}`}
                         value={issueResponseDrafts[issue.id] || ''}
-                        onChange={(e) => setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: e.target.value }))}
+                        onChange={(event) => setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: event.target.value }))}
                         placeholder="Optional note. Required if you still disagree."
                         rows={2}
                       />
@@ -358,7 +379,7 @@ function CreditTransactionsSection({
                           onClick={() => handleIssueResponse(issue, 'acknowledged')}
                           disabled={issueRespondingId === Number(issue.id)}
                         >
-                          {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Acknowledge'}
+                          {issueRespondingId === Number(issue.id) ? 'Saving...' : 'Acknowledge'}
                         </button>
                         <button
                           type="button"
@@ -366,7 +387,7 @@ function CreditTransactionsSection({
                           onClick={() => handleIssueResponse(issue, 'disputed')}
                           disabled={issueRespondingId === Number(issue.id)}
                         >
-                          {issueRespondingId === Number(issue.id) ? 'Sending...' : 'Still Wrong'}
+                          {issueRespondingId === Number(issue.id) ? 'Saving...' : 'Still Incorrect'}
                         </button>
                       </div>
                     </div>
@@ -379,18 +400,23 @@ function CreditTransactionsSection({
       )}
 
       {isAdminView && (
-        <div id="credit-report-controls" className="report-controls credit-secondary-tools report-controls-light">
-          <label htmlFor="credit-report-from-date">
-            <span>From:</span>
-            <input id="credit-report-from-date" name="from_date" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </label>
-          <label htmlFor="credit-report-to-date">
-            <span>To:</span>
-            <input id="credit-report-to-date" name="to_date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </label>
-          <button type="button" className="report-btn primary-action" onClick={handleGenerateReport} title="Generate credit report for date range">
-            Generate Report
-          </button>
+        <div className="report-box">
+          <div className="report-header">
+            <strong>Generate Credit Report</strong>
+          </div>
+          <div className="report-controls">
+            <label>
+              From
+              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+            </label>
+            <label>
+              To
+              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            </label>
+            <button className="report-btn primary-action" onClick={handleGenerateReport}>
+              Generate
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -398,4 +424,3 @@ function CreditTransactionsSection({
 }
 
 export default CreditTransactionsSection;
-

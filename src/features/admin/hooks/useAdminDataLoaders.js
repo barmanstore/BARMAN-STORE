@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 const ADMIN_PREVIEW_LIMIT = 3;
 const ADMIN_LIST_PAGE_LIMIT = 25;
@@ -75,6 +75,14 @@ const useAdminDataLoaders = ({
   showNotification,
   asNumber,
 }) => {
+  const loadedDomainsRef = useRef({
+    dashboard: false,
+    products: false,
+    orders: false,
+    users: false,
+    dailySalesDateKey: '',
+  });
+
   const requestWithRetry = useCallback(async (request, { retries = 2, delayMs = 350 } = {}) => {
     let attempt = 0;
     let lastError = null;
@@ -91,10 +99,10 @@ const useAdminDataLoaders = ({
     throw lastError;
   }, []);
 
-  const refreshAdminData = useCallback(async () => {
-    // The admin dashboard runs against a serverless API. Fan-out loading all
-    // datasets at once can overwhelm the Postgres connection budget during cold
-    // starts, so load them in a controlled sequence.
+  const loadDashboardSnapshot = useCallback(async ({ force = false } = {}) => {
+    if (loadedDomainsRef.current.dashboard && !force) return;
+    // Dashboard needs a broad summary view, but keep it isolated to dashboard
+    // bootstrap instead of making every admin tab pay this cost up front.
     const statsData = await requestWithRetry(() => statsApi.orders());
     const productsData = await requestWithRetry(() => productsApi.getAll({ include_inactive: true }));
     const ordersPreviewPayload = await requestWithRetry(() => ordersApi.getAll({
@@ -132,6 +140,8 @@ const useAdminDataLoaders = ({
       uniqueSessionsMonth: asNumber(analyticsData?.unique_sessions_month, 0),
       uniqueSessionsYear: asNumber(analyticsData?.unique_sessions_year, 0),
     });
+    loadedDomainsRef.current.dashboard = true;
+    loadedDomainsRef.current.products = true;
   }, [
     adminApi,
     asNumber,
@@ -154,6 +164,17 @@ const useAdminDataLoaders = ({
     usersApi,
   ]);
 
+  const loadProductCatalog = useCallback(async ({ force = false } = {}) => {
+    if (loadedDomainsRef.current.products && !force) return;
+    const productsData = await requestWithRetry(() => productsApi.getAll({ include_inactive: true }));
+    setProducts(productsData);
+    loadedDomainsRef.current.products = true;
+  }, [
+    productsApi,
+    requestWithRetry,
+    setProducts,
+  ]);
+
   const loadOrdersPage = useCallback(async ({ page = 1, query = '', silent = false } = {}) => {
     try {
       if (!silent) setOrdersLoading(true);
@@ -170,6 +191,7 @@ const useAdminDataLoaders = ({
       setOrders(normalized.items);
       setOrdersPage(normalized.page);
       setOrdersTotal(normalized.total);
+      loadedDomainsRef.current.orders = true;
       return normalized;
     } finally {
       if (!silent) setOrdersLoading(false);
@@ -200,6 +222,7 @@ const useAdminDataLoaders = ({
       setUsersPage(normalized.page);
       setUsersTotal(normalized.total);
       setUserDirectorySummary(buildUserDirectorySummary(normalized));
+      loadedDomainsRef.current.users = true;
       return normalized;
     } finally {
       if (!silent) setUsersLoading(false);
@@ -225,6 +248,7 @@ const useAdminDataLoaders = ({
       }));
       const normalized = normalizePagedResponse(rows);
       setBills(normalized.items);
+      loadedDomainsRef.current.dailySalesDateKey = effectiveDateKey;
     } catch (error) {
       if (!silent) setDailySalesError(error.message || 'Failed to load bills for daily summary');
     } finally {
@@ -238,10 +262,60 @@ const useAdminDataLoaders = ({
     setDailySalesLoading,
   ]);
 
-  const fetchData = useCallback(async () => {
+  const ensureTabData = useCallback(async (
+    tab,
+    { force = false, showGlobalLoading = false, dateKey = '' } = {}
+  ) => {
+    try {
+      if (showGlobalLoading) setLoading(true);
+      const nextTab = String(tab || '').trim().toLowerCase();
+      switch (nextTab) {
+        case 'dashboard':
+          await loadDashboardSnapshot({ force });
+          break;
+        case 'products':
+          await loadProductCatalog({ force });
+          break;
+        case 'orders':
+          if (force || !loadedDomainsRef.current.orders) {
+            await loadOrdersPage({ page: 1, query: '', silent: false });
+          }
+          break;
+        case 'users':
+          if (force || !loadedDomainsRef.current.users) {
+            await loadUsersPage({ page: 1, query: '', silent: false });
+          }
+          break;
+        case 'daily-sales': {
+          const effectiveDateKey = String(dateKey || '').trim();
+          if (force || loadedDomainsRef.current.dailySalesDateKey !== effectiveDateKey) {
+            await loadDailySalesBills({ silent: false, dateKey: effectiveDateKey });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch (error) {
+      console.error('Error fetching admin tab data:', error);
+      showNotification(error.message || 'Failed to load admin workspace data', 'error');
+    } finally {
+      if (showGlobalLoading) setLoading(false);
+    }
+  }, [
+    loadDashboardSnapshot,
+    loadDailySalesBills,
+    loadOrdersPage,
+    loadProductCatalog,
+    loadUsersPage,
+    setLoading,
+    showNotification,
+  ]);
+
+  const fetchData = useCallback(async (tab = 'dashboard') => {
     try {
       setLoading(true);
-      await refreshAdminData();
+      await ensureTabData(tab, { force: true, showGlobalLoading: false });
     } catch (error) {
       console.error('Error fetching data:', error);
       showNotification(error.message || 'Failed to load admin dashboard data', 'error');
@@ -249,16 +323,23 @@ const useAdminDataLoaders = ({
       setLoading(false);
     }
   }, [
-    refreshAdminData,
+    ensureTabData,
     setLoading,
     showNotification,
   ]);
 
+  const refreshAdminData = useCallback(async () => {
+    await loadDashboardSnapshot({ force: true });
+  }, [loadDashboardSnapshot]);
+
   return {
     refreshAdminData,
+    loadDashboardSnapshot,
+    loadProductCatalog,
     loadOrdersPage,
     loadUsersPage,
     loadDailySalesBills,
+    ensureTabData,
     fetchData,
   };
 };

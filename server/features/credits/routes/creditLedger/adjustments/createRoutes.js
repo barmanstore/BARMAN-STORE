@@ -1,3 +1,5 @@
+const { createCreditEntryImageStorage } = require('./creditEntryImageStorage');
+
 const registerCreditLedgerCreateRoutes = (deps) => {
   const {
     app,
@@ -14,7 +16,24 @@ const registerCreditLedgerCreateRoutes = (deps) => {
     toTimestampMs,
     resolveClientRequestId,
     isUniqueViolationError,
+    parseDataUrlImage,
+    PROFILE_IMAGE_ALLOWED_MIME,
+    PROFILE_IMAGE_MAX_BYTES,
+    mimeToExt,
+    deleteManagedProfileImage,
+    profileImageStorage,
+    crypto,
   } = deps;
+
+  const { storeCreditEntryImage } = createCreditEntryImageStorage({
+    parseDataUrlImage,
+    PROFILE_IMAGE_ALLOWED_MIME,
+    PROFILE_IMAGE_MAX_BYTES,
+    mimeToExt,
+    profileImageStorage,
+    deleteManagedProfileImage,
+    crypto,
+  });
 
   app.post('/api/users/:userId/credit', requireAdmin, async (req, res) => {
     let clientRequestId = null;
@@ -39,19 +58,35 @@ const registerCreditLedgerCreateRoutes = (deps) => {
           }
         }
 
-        const { type, amount, description, reference, transactionDate } = req.body || {};
+        const { type, amount, description, reference, transactionDate, image_base64: imageBase64 } = req.body || {};
         if (!type || !['given', 'payment'].includes(type)) {
-          throw new Error('Invalid transaction type');
+          const error = new Error('Invalid transaction type');
+          error.status = 400;
+          throw error;
         }
         const parsedAmount = Number(amount);
         if (!parsedAmount || parsedAmount <= 0) {
-          throw new Error('Amount must be positive');
+          const error = new Error('Amount must be positive');
+          error.status = 400;
+          throw error;
         }
         const normalizedDescription = String(description || '').trim();
         const normalizedReference = String(reference || '').trim();
         const createdById = Number(req.authUser?.id || 0);
         const last = await getLatestCreditEntryAsync(req.params.userId);
         const current = Number(last?.balance || 0);
+        if (type === 'payment') {
+          if (current <= 0) {
+            const error = new Error('Customer has no due balance for a payment entry');
+            error.status = 400;
+            throw error;
+          }
+          if (parsedAmount > current) {
+            const error = new Error(`Payment exceeds current due of Rs ${current.toFixed(2)}`);
+            error.status = 400;
+            throw error;
+          }
+        }
         const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
         const normalizedDate = normalizeTransactionDate(transactionDate);
         const transactionTs = buildCreditTransactionTimestamp(transactionDate, new Date());
@@ -100,8 +135,22 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         }
 
         const insertResult = await dbRunAsync(
-          `INSERT INTO credit_history (user_id, type, amount, balance, description, reference, transaction_date, transaction_ts, created_by, client_request_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO credit_history (
+             user_id,
+             type,
+             amount,
+             balance,
+             description,
+             reference,
+             transaction_date,
+             transaction_ts,
+             created_by,
+             client_request_id,
+             source_type,
+             source_id,
+             source_label
+           )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.params.userId,
             type,
@@ -113,8 +162,21 @@ const registerCreditLedgerCreateRoutes = (deps) => {
             transactionTs,
             createdById || null,
             clientRequestId,
+            'adjustment',
+            null,
+            normalizedReference || null,
           ]
         );
+
+        const entryId = Number(insertResult.lastInsertRowid || 0) || null;
+        if (entryId && String(imageBase64 || '').trim()) {
+          const nextImagePath = await storeCreditEntryImage({
+            imageBase64,
+            userId: req.params.userId,
+            entryId,
+          });
+          await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ?', [nextImagePath, entryId]);
+        }
 
         await recalculateCreditBalancesForUser(req.params.userId);
 
@@ -158,7 +220,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         }
       }
       const message = error.message || 'Failed to create credit entry';
-      const status = message.includes('Invalid') || message.includes('positive') ? 400 : 500;
+      const status = Number(error?.status || 0) || (message.includes('Invalid') || message.includes('positive') ? 400 : 500);
       return res.status(status).json({ error: message });
     }
   });

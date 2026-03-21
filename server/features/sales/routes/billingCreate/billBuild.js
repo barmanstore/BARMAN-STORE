@@ -15,7 +15,7 @@ const buildBillDraft = async (deps, req) => {
   const { context } = contextResult;
 
   const itemResult = await buildBillItems(deps, context, createHttpError);
-  const draft = buildBillTotals(deps, context, itemResult);
+  const draft = buildBillTotals(deps, context, itemResult, createHttpError);
 
   return {
     clientRequestId: context.clientRequestId,

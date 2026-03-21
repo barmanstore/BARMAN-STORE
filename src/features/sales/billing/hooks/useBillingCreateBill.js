@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 const PRODUCT_CACHE_LIMIT = 160;
+const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
 
 const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_CACHE_LIMIT) => {
   const merged = [];
@@ -24,6 +25,15 @@ const findCustomerByName = (list = [], customerName = '') => {
   ) || null;
 };
 
+const findCustomerById = (list = [], customerId = null) => {
+  const id = Number(customerId || 0);
+  if (id <= 0) return null;
+  return list.find((entry) => Number(entry?.id || 0) === id) || null;
+};
+
+const isCustomBillingItem = (item = {}) =>
+  String(item?.item_type || '').trim().toLowerCase() === 'custom' || Boolean(item?.is_custom);
+
 const findProductByItem = (list = [], item = {}) => {
   const productId = Number(item?.product_id || 0);
   if (productId > 0) {
@@ -31,20 +41,32 @@ const findProductByItem = (list = [], item = {}) => {
     if (byId) return byId;
   }
 
-  const nameKey = String(item?.product_name || '').trim().toLowerCase();
-  if (!nameKey) return null;
-  return list.find((product) => {
-    const productName = String(product?.name || '').trim().toLowerCase();
-    const sku = String(product?.sku || '').trim().toLowerCase();
-    const barcode = String(product?.barcode || '').trim().toLowerCase();
-    return productName === nameKey || sku === nameKey || barcode === nameKey;
-  }) || null;
+  const lookupKey = normalizeLookupKey(item?.product_name);
+  if (!lookupKey) return null;
+
+  const barcodeMatches = list.filter((product) =>
+    normalizeLookupKey(product?.barcode) === lookupKey
+  );
+  if (barcodeMatches.length > 0) {
+    return barcodeMatches.length === 1 ? barcodeMatches[0] : null;
+  }
+
+  const skuMatches = list.filter((product) =>
+    normalizeLookupKey(product?.sku) === lookupKey
+  );
+  if (skuMatches.length > 0) {
+    return skuMatches.length === 1 ? skuMatches[0] : null;
+  }
+
+  const nameMatches = list.filter((product) =>
+    normalizeLookupKey(product?.name) === lookupKey
+  );
+  return nameMatches.length === 1 ? nameMatches[0] : null;
 };
 
 const useBillingCreateBill = ({
   billingApi,
   creditApi,
-  productsApi,
   customersList,
   productsList,
   setProductsList,
@@ -71,7 +93,6 @@ const useBillingCreateBill = ({
   setPaidAmount,
   getProductForLine,
   resolveLineUnitForProduct,
-  toPricingQtyFromProduct,
   buildBillShareText,
   info,
   onResetEntry,
@@ -100,14 +121,14 @@ const useBillingCreateBill = ({
           const itemType = String(it?.type || '').trim().toLowerCase() === 'custom' || Boolean(it?.isCustom)
             ? 'custom'
             : 'inventory';
-          const product = getProductForLine(it);
-          const pricingQty = toPricingQtyFromProduct(it.qty, it.unit, product);
+          const explicitProductId = Number(it?.productId || it?.product_id || 0) || null;
+          const product = explicitProductId ? getProductForLine(it) : null;
           const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
           return {
             item_type: itemType,
             is_custom: itemType === 'custom',
-            product_id: it.productId || null,
-            product_name: it.name,
+            product_id: explicitProductId,
+            product_name: String(it?.name || it?.product_name || '').trim(),
             mrp: Number(it.price) || 0,
             qty: Number(it.qty) || 0,
             ...(normalizedUnit ? { unit: normalizedUnit } : {}),
@@ -121,8 +142,8 @@ const useBillingCreateBill = ({
       setIsSubmitting(true);
 
       // Keep order-linked billing minimal: backend binds to order and skips stock checks.
-      let resolvedCustomerId = payload.customer_id || null;
-      let resolvedCustomerRecord = customer;
+      let resolvedCustomerId = Number(payload.customer_id || 0) || null;
+      let resolvedCustomerRecord = findCustomerById(customersList, resolvedCustomerId) || customer;
       let itemsWithProducts = payload.items;
 
       if (!isOrderLinked) {
@@ -141,81 +162,125 @@ const useBillingCreateBill = ({
           }
         }
 
+        if (!resolvedCustomerId && Number(payload.credit_amount || 0) > 0) {
+          throw new Error('Select or save a customer before creating a credit bill.');
+        }
+
         const productUpdates = [];
+        const productSearchRequests = new Map();
         itemsWithProducts = payload.items.map((it) => {
-          if (String(it?.item_type || '').trim().toLowerCase() === 'custom' || it?.is_custom) {
-            it.product_id = null;
+          if (isCustomBillingItem(it)) {
+            return { ...it, product_id: null };
+          }
+
+          if (Number(it?.product_id || 0) > 0) {
             return it;
           }
 
           const cachedProduct = findProductByItem(productsList, it);
           if (cachedProduct) {
-            it.product_id = cachedProduct.id;
-            return it;
+            return { ...it, product_id: cachedProduct.id };
           }
 
+          const nextItem = { ...it, product_id: null };
           productUpdates.push((async () => {
-            const productSearchResults = await billingApi.searchProducts(
-              String(it.product_name || '').trim(),
-              undefined,
-              { limit: 8 }
-            );
-            const matchedProduct = findProductByItem(productSearchResults, it);
+            const productName = String(nextItem.product_name || '').trim();
+            const searchKey = normalizeLookupKey(productName);
+            if (!searchKey) {
+              return nextItem;
+            }
+            let searchRequest = productSearchRequests.get(searchKey);
+            if (!searchRequest) {
+              searchRequest = billingApi.searchProducts(
+                productName,
+                undefined,
+                { limit: 10, exactOnly: true }
+              );
+              productSearchRequests.set(searchKey, searchRequest);
+            }
+            const productSearchResults = await searchRequest;
+            const matchedProduct = findProductByItem(productSearchResults, nextItem);
             if (matchedProduct?.id) {
-              it.product_id = matchedProduct.id;
+              nextItem.product_id = matchedProduct.id;
               setProductsList((prev) => mergeProductsById(prev, [matchedProduct]));
-              return it;
+              return nextItem;
             }
-
-            const createdProduct = await productsApi.create({
-              name: it.product_name,
-              price: Number(it.mrp || 0),
-              mrp: Number(it.mrp) || 0,
-              uom: it.unit || 'pcs',
-              category: 'Groceries',
-              stock: 0
-            });
-            if (createdProduct?.id) {
-              it.product_id = createdProduct.id;
-              setProductsList((prev) => mergeProductsById(prev, [createdProduct]));
-            }
-            return it;
+            return nextItem;
           })());
-          return it;
+          return nextItem;
         });
 
         if (productUpdates.length) {
           await Promise.all(productUpdates);
         }
-      } else if (!resolvedCustomerId) {
-        const byName = findCustomerByName(customersList, payload.customer_name);
-        resolvedCustomerId = byName?.id || null;
-        resolvedCustomerRecord = byName || resolvedCustomerRecord;
-        if (!resolvedCustomerId && String(payload.customer_name || '').trim()) {
-          const customerSearchResults = await billingApi.searchCustomers(String(payload.customer_name || '').trim());
-          const matchedCustomer = findCustomerByName(customerSearchResults, payload.customer_name);
-          if (matchedCustomer) {
-            resolvedCustomerId = Number(matchedCustomer.id || 0) || null;
-            resolvedCustomerRecord = matchedCustomer;
-          }
-        }
+      }
+
+      const unresolvedInventoryItems = itemsWithProducts.filter((it) =>
+        !isCustomBillingItem(it) && !Number(it?.product_id || 0)
+      );
+      if (unresolvedInventoryItems.length > 0) {
+        const unresolvedLabels = unresolvedInventoryItems
+          .map((it, index) => String(it?.product_name || `Item ${index + 1}`).trim())
+          .filter(Boolean);
+        const previewLabel = unresolvedLabels.slice(0, 3).join(', ');
+        const extraCount = Math.max(0, unresolvedLabels.length - 3);
+        const details = previewLabel
+          ? `: ${previewLabel}${extraCount > 0 ? ` and ${extraCount} more` : ''}`
+          : '.';
+        throw new Error(
+          `Select each inventory product from search or mark it as custom before creating the bill${details}`
+        );
       }
 
       const resolvedCustomer =
-        customersList.find((entry) => Number(entry?.id || 0) === Number(resolvedCustomerId || 0))
+        findCustomerById(customersList, resolvedCustomerId)
         || resolvedCustomerRecord
         || customer;
       payload.customer_id = resolvedCustomerId;
-      payload.customer_email = resolvedCustomer?.email || null;
-      payload.customer_phone = resolvedCustomer?.phone || null;
-      payload.customer_address = resolvedCustomer?.address || null;
+      payload.customer_name = String(resolvedCustomer?.name || payload.customer_name || '').trim()
+        || (isOrderLinked ? 'Customer' : 'Walk-in');
+      payload.customer_email = resolvedCustomer?.email || payload.customer_email || null;
+      payload.customer_phone = resolvedCustomer?.phone || payload.customer_phone || null;
+      payload.customer_address = resolvedCustomer?.address || payload.customer_address || null;
       payload.items = itemsWithProducts;
 
       const result = await billingApi.createBill(payload);
-      let currentTotalCredit = Number(payload.credit_amount || 0);
-      if (payload.customer_id) {
+      let persistedBill = null;
+      try {
+        const billLookupKey = result?.bill_id || result?.bill_number;
+        if (billLookupKey) {
+          persistedBill = await billingApi.getById(billLookupKey);
+        }
+      } catch (_) {
+        // Keep the success flow resilient; fall back to the local payload for sharing.
+      }
+
+      const shareSource = persistedBill && typeof persistedBill === 'object'
+        ? persistedBill
+        : {
+          bill_number: result?.bill_number,
+          created_at: new Date().toISOString(),
+          customer_id: payload.customer_id,
+          customer_name: payload.customer_name,
+          customer_email: payload.customer_email,
+          customer_phone: payload.customer_phone,
+          customer_address: payload.customer_address,
+          items: payload.items,
+          total_amount: payload.total_amount,
+          paid_amount: payload.paid_amount,
+          credit_amount: payload.credit_amount,
+          payment_status: payload.payment_status,
+        };
+
+      const shareCustomerId = Number(shareSource?.customer_id || 0) || null;
+      const shareTotalAmount = shareSource?.total_amount ?? payload.total_amount;
+      const sharePaidAmount = shareSource?.paid_amount ?? payload.paid_amount;
+      const shareCreditAmount = shareSource?.credit_amount ?? payload.credit_amount;
+      const shareItems = Array.isArray(shareSource?.items) ? shareSource.items : payload.items;
+      let currentTotalCredit = Number(shareCreditAmount || 0);
+      if (shareCustomerId) {
         try {
-          const balanceData = await creditApi.getBalance(payload.customer_id);
+          const balanceData = await creditApi.getBalance(shareCustomerId);
           currentTotalCredit = Number(balanceData?.balance || 0);
         } catch (_) {
           // Keep bill flow resilient; fall back to this bill's credit amount.
@@ -223,24 +288,24 @@ const useBillingCreateBill = ({
       }
       const shareText = buildBillShareText({
         companyTitle: info.TITLE || 'BARMAN STORE',
-        billNumber: result?.bill_number,
-        createdAt: new Date().toISOString(),
-        customerName: payload.customer_name,
-        customerPhone: payload.customer_phone,
-        customerEmail: payload.customer_email,
-        customerAddress: payload.customer_address,
-        items: payload.items,
-        totalAmount: payload.total_amount,
-        paidAmount: payload.paid_amount,
-        creditAmount: payload.credit_amount,
+        billNumber: shareSource?.bill_number || result?.bill_number,
+        createdAt: shareSource?.created_at || new Date().toISOString(),
+        customerName: shareSource?.customer_name || payload.customer_name,
+        customerPhone: shareSource?.customer_phone || payload.customer_phone,
+        customerEmail: shareSource?.customer_email || payload.customer_email,
+        customerAddress: shareSource?.customer_address || payload.customer_address,
+        items: shareItems,
+        totalAmount: shareTotalAmount,
+        paidAmount: sharePaidAmount,
+        creditAmount: shareCreditAmount,
         currentTotalCredit,
-        paymentStatus: payload.payment_status,
+        paymentStatus: shareSource?.payment_status || payload.payment_status,
         onlineStoreUrl: info.ONLINE_STORE_URL,
         thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
       });
       setLastShareText(shareText);
-      setLastShareNumber(result?.bill_number || '');
-      setLastSharePhone(payload.customer_phone || '');
+      setLastShareNumber(shareSource?.bill_number || result?.bill_number || '');
+      setLastSharePhone(shareSource?.customer_phone || payload.customer_phone || '');
       setPrefillSummary('');
       if (isOrderLinked) {
         setLinkedOrderId(0);
@@ -263,7 +328,6 @@ const useBillingCreateBill = ({
   }, [
     billingApi,
     creditApi,
-    productsApi,
     customersList,
     productsList,
     setProductsList,
@@ -290,7 +354,6 @@ const useBillingCreateBill = ({
     setPaidAmount,
     getProductForLine,
     resolveLineUnitForProduct,
-    toPricingQtyFromProduct,
     buildBillShareText,
     info,
     onResetEntry,

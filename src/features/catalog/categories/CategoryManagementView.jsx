@@ -8,6 +8,7 @@ import './CategoryManagement.css';
 
 const CategoryManagementView = ({
   onClose,
+  inline = false,
   error,
   success,
   activeView,
@@ -53,16 +54,9 @@ const CategoryManagementView = ({
   onSaveEdit,
   onDragStart,
   onDragEnd,
-}) => (
-  <WindowModal
-    open
-    title="Category Management"
-    onClose={onClose}
-    dialogClassName="category-management-container fade-in-up"
-    headerClassName="category-management-header"
-    closeButtonClassName="close-btn"
-    initialSize={{ width: 1240, height: 820 }}
-  >
+}) => {
+  const content = (
+    <>
     {error ? <div className="error-message">{error}</div> : null}
     {success ? <div className="success-message">{success}</div> : null}
 
@@ -137,7 +131,36 @@ const CategoryManagementView = ({
         />
       </div>
     </div>
-  </WindowModal>
-);
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div className="category-management-container category-management-container-inline fade-in-up">
+        <div className="category-management-header category-management-header-inline">
+          <div>
+            <h2>Category Management</h2>
+            <p>Work directly with the category tree and linked products in this section.</p>
+          </div>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <WindowModal
+      open
+      title="Category Management"
+      onClose={onClose}
+      dialogClassName="category-management-container fade-in-up"
+      headerClassName="category-management-header"
+      closeButtonClassName="close-btn"
+      initialSize={{ width: 1240, height: 820 }}
+    >
+      {content}
+    </WindowModal>
+  );
+};
 
 export default CategoryManagementView;

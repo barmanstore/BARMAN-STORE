@@ -1299,7 +1299,6 @@ const BillingSystem = ({
   const { handleCreateBill } = useBillingCreateBill({
     billingApi,
     creditApi,
-    productsApi,
     customersList,
     productsList,
     setProductsList,
@@ -1326,7 +1325,6 @@ const BillingSystem = ({
     setPaidAmount,
     getProductForLine,
     resolveLineUnitForProduct,
-    toPricingQtyFromProduct,
     buildBillShareText,
     info,
     onResetEntry: () => {

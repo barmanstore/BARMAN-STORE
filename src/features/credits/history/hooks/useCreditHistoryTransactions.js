@@ -1,4 +1,12 @@
 import { validateAmountInput } from '../../../../shared/utils/amountExpression';
+import { readFileAsDataUrl } from '../../../../shared/utils/readFileAsDataUrl';
+import {
+  getCreditBalanceMeta,
+  getCreditEntryDescription,
+  getCreditEntrySourceLabel,
+  getCreditEntryTypeLabel,
+  getCreditPreviousBalance,
+} from '../utils/creditLedgerPresentation';
 
 const useCreditHistoryTransactions = ({
   creditApi,
@@ -13,6 +21,7 @@ const useCreditHistoryTransactions = ({
   setUploading,
   newTransaction,
   setNewTransaction,
+  createNewTransactionDraft,
   setError,
   setSuccess,
   balance,
@@ -31,51 +40,71 @@ const useCreditHistoryTransactions = ({
   info,
   formatTransactionDate,
   customer,
-  getTypeLabel,
   formatCurrency,
   isMobile,
   selectedTransaction,
 }) => {
+  const resetAttachmentInput = () => {
+    if (fileInputRef?.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const resetTransactionDraft = (type = 'payment') => {
+    setNewTransaction(createNewTransactionDraft(getTodayDateInputValue, type));
+    resetAttachmentInput();
+  };
+
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const file = event.target.files?.[0];
+    if (!file) {
+      setNewTransaction((prev) => ({
+        ...prev,
+        imageBase64: '',
+        attachmentName: '',
+      }));
+      return;
+    }
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('invoice', file);
+    setError('');
 
     try {
-      const response = await fetch('/api/upload/invoice', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await response.json();
-      if (data.success) {
-        setNewTransaction({ ...newTransaction, imagePath: data.imagePath });
-        setSuccess('Invoice uploaded successfully');
-      } else {
-        setError(data.error || 'Upload failed');
-      }
-    } catch (err) {
-      setError('Failed to upload file');
+      const imageBase64 = await readFileAsDataUrl(file);
+      setNewTransaction((prev) => ({
+        ...prev,
+        imageBase64,
+        attachmentName: String(file.name || '').trim(),
+      }));
+    } catch (_) {
+      setError('Failed to read file');
     } finally {
       setUploading(false);
     }
   };
 
+  const handleClearAttachment = () => {
+    setNewTransaction((prev) => ({
+      ...prev,
+      imageBase64: '',
+      attachmentName: '',
+    }));
+    resetAttachmentInput();
+  };
+
   const closeAddModal = () => {
     setShowAddModal(false);
+    setUploading(false);
+    resetTransactionDraft();
     addTransactionLockRef.current = false;
     addTransactionRequestIdRef.current = '';
   };
 
-  const openAddModalWithType = (type = 'given') => {
+  const openAddModalWithType = (type = 'payment') => {
     setError('');
     setSuccess('');
-    setNewTransaction((prev) => ({
-      ...prev,
-      type: type === 'payment' ? 'payment' : 'given',
-    }));
+    setUploading(false);
+    resetTransactionDraft(type);
     addTransactionLockRef.current = false;
     addTransactionRequestIdRef.current = createClientRequestId('credit');
     setShowAddModal(true);
@@ -117,28 +146,24 @@ const useCreditHistoryTransactions = ({
         amount,
         description: String(newTransaction.description || '').trim(),
         reference: String(newTransaction.reference || '').trim(),
-        transactionDate: newTransaction.transactionDate || getTodayDateInputValue()
+        transactionDate: newTransaction.transactionDate || getTodayDateInputValue(),
       };
 
       const clientRequestId = addTransactionRequestIdRef.current || createClientRequestId('credit');
       addTransactionRequestIdRef.current = clientRequestId;
 
       await creditApi.addTransaction(effectiveUserId, {
-        ...newTransaction,
         amount,
+        type: txSnapshot.type,
+        description: txSnapshot.description,
+        reference: txSnapshot.reference,
+        transactionDate: txSnapshot.transactionDate,
+        image_base64: String(newTransaction.imageBase64 || '').trim() || undefined,
         created_by: authUser?.id,
-        client_request_id: clientRequestId
+        client_request_id: clientRequestId,
       });
-      setSuccess('Transaction added successfully');
+      setSuccess('Ledger entry added successfully');
       setEntryShareText('');
-      setNewTransaction({
-        type: 'given',
-        amount: '',
-        description: '',
-        reference: '',
-        transactionDate: getTodayDateInputValue(),
-        imagePath: ''
-      });
       closeAddModal();
       const refreshed = await fetchCreditData(effectiveUserId);
       let updatedBalance = Number(refreshed?.balance);
@@ -155,7 +180,7 @@ const useCreditHistoryTransactions = ({
         entryDate: txSnapshot.transactionDate,
         previousBalance,
         updatedBalance,
-        thankYouLine: 'à¦†à¦ªà§‹à¦¨à¦¾à§° à¦ªà§°à¦¿à¦¶à§‹à¦§ à¦†à§°à§ à¦¬à¦¿à¦¶à§à¦¬à¦¾à¦¸à§° à¦¬à¦¾à¦¬à§‡ à¦§à¦¨à§à¦¯à¦¬à¦¾à¦¦à¥¤'
+        thankYouLine: 'Thank you.',
       });
       setEntryShareText(manualShare);
     } catch (err) {
@@ -163,7 +188,7 @@ const useCreditHistoryTransactions = ({
         localStorage.removeItem('user');
         return;
       }
-      setError(err.message || 'Failed to add transaction');
+      setError(err.message || 'Failed to add ledger entry');
     } finally {
       setAddingTransaction(false);
       addTransactionLockRef.current = false;
@@ -174,16 +199,16 @@ const useCreditHistoryTransactions = ({
     if (!isAdminView) return;
     const entryId = Number(transaction?.id || 0);
     if (!entryId || !effectiveUserId) return;
-    if (!window.confirm(`Delete credit entry #${entryId}? This will recalculate balances.`)) return;
+    if (!window.confirm(`Create a reversal for ledger entry #${entryId}? This keeps history intact and recalculates the running balance.`)) return;
     try {
       setDeletingEntryId(entryId);
       setError('');
       setSuccess('');
       await creditApi.deleteTransaction(effectiveUserId, entryId);
       await fetchCreditData(effectiveUserId);
-      setSuccess('Credit entry deleted.');
+      setSuccess('Reversal entry added.');
     } catch (err) {
-      setError(err.message || 'Failed to delete credit entry');
+      setError(err.message || 'Failed to reverse ledger entry');
     } finally {
       setDeletingEntryId(0);
     }
@@ -198,19 +223,21 @@ const useCreditHistoryTransactions = ({
   const buildCreditInvoiceHtml = (transaction) => {
     const amount = Number(transaction?.amount || 0);
     const balanceNow = Number(transaction?.balance || 0);
-    const previousBalance = transaction?.type === 'payment'
-      ? balanceNow + amount
-      : balanceNow - amount;
+    const previousBalance = getCreditPreviousBalance(transaction);
+    const balanceMeta = getCreditBalanceMeta(balanceNow);
+    const sourceLabel = getCreditEntrySourceLabel(transaction);
+    const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+    const description = getCreditEntryDescription(transaction);
 
     return `
       <div class="credit-invoice">
         <div class="credit-invoice-header">
           <div>
-            <h1>INVOICE</h1>
+            <h1>LEDGER ENTRY</h1>
             <div class="meta">${escapeHtml(info.TITLE || 'BARMAN STORE')}</div>
           </div>
           <div class="meta-right">
-            <div><strong>Invoice #:</strong> ${escapeHtml(transaction?.invoice_number || '-')}</div>
+            <div><strong>Entry #:</strong> ${escapeHtml(transaction?.id || '-')}</div>
             <div><strong>Date:</strong> ${escapeHtml(formatTransactionDate(transaction, { long: true }))}</div>
           </div>
         </div>
@@ -222,25 +249,27 @@ const useCreditHistoryTransactions = ({
         <table class="credit-table">
           <thead>
             <tr>
-              <th>Description</th>
+              <th>Source</th>
               <th>Type</th>
               <th>Amount</th>
+              <th>Description</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>${escapeHtml(transaction?.description || '-')}</td>
-              <td>${escapeHtml(getTypeLabel(transaction?.type || '-'))}</td>
+              <td>${escapeHtml(sourceLabel)}</td>
+              <td>${escapeHtml(entryTypeLabel)}</td>
               <td>${escapeHtml(formatCurrency(amount))}</td>
+              <td>${escapeHtml(description)}</td>
             </tr>
           </tbody>
         </table>
         <div class="credit-summary">
-          <div><span>Previous Balance</span><strong>${escapeHtml(formatCurrency(previousBalance))}</strong></div>
-          <div><span>Amount</span><strong>${escapeHtml(formatCurrency(amount))}</strong></div>
-          <div class="total"><span>Updated Balance</span><strong>${escapeHtml(formatCurrency(balanceNow))}</strong></div>
+          <div><span>Previous Balance</span><strong>${escapeHtml(formatCurrency(Math.abs(previousBalance)))}</strong></div>
+          <div><span>Movement</span><strong>${escapeHtml(formatCurrency(amount))}</strong></div>
+          <div class="total"><span>${escapeHtml(balanceMeta.label)} Balance</span><strong>${escapeHtml(formatCurrency(Math.abs(balanceNow)))}</strong></div>
         </div>
-        <div class="credit-reference"><strong>Reference:</strong> ${escapeHtml(transaction?.reference || '-')}</div>
+        <div class="credit-reference"><strong>Reference:</strong> ${escapeHtml(sourceLabel)}</div>
       </div>
     `;
   };
@@ -248,8 +277,9 @@ const useCreditHistoryTransactions = ({
   const printInvoice = () => {
     if (!selectedTransaction) return;
     const html = buildCreditInvoiceHtml(selectedTransaction);
+    const sourceLabel = getCreditEntrySourceLabel(selectedTransaction);
     printHtmlDocument({
-      title: `Invoice ${selectedTransaction?.invoice_number || ''}`,
+      title: `Ledger Entry ${sourceLabel !== '-' ? sourceLabel : selectedTransaction?.id || ''}`.trim(),
       bodyHtml: html,
       cssText: `
         .credit-invoice { max-width: 780px; margin: 0 auto; font-family: 'Arial', sans-serif; }
@@ -276,6 +306,7 @@ const useCreditHistoryTransactions = ({
     handleDeleteTransaction,
     closeAddModal,
     openAddModalWithType,
+    handleClearAttachment,
     handlePrintInvoice,
     printInvoice,
   };

@@ -21,7 +21,7 @@ function CreditQuickFilters({
             className={`quick-chip ${quickTypeFilter === 'given' ? 'active' : ''}`}
             onClick={() => setQuickTypeFilter('given')}
           >
-            Given
+            Charges
           </button>
           <button
             type="button"

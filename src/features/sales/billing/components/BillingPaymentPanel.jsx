@@ -39,7 +39,7 @@ const BillingPaymentPanel = ({
       <div>
         <p className="billing-panel-kicker">Customer & Payment</p>
         <h2>Finish The Bill</h2>
-        <p className="billing-panel-copy">Customer is optional. Payment stays fast even without it.</p>
+        <p className="billing-panel-copy">Customer is optional for paid bills. Select or save one when credit is due.</p>
       </div>
       <span className="billing-panel-badge neutral">{effectivePaymentMethod}</span>
     </div>
@@ -168,7 +168,7 @@ const BillingPaymentPanel = ({
     ) : null}
 
     <div className="billing-entry-search-state">
-      Set paid amount to <strong>0</strong> or tap <strong>Credit</strong> to create a full-credit bill.
+      Set paid amount to <strong>0</strong> or tap <strong>Credit</strong> to create a full-credit bill. Saved customer required.
     </div>
 
     {createBillConfirmationOpen ? (

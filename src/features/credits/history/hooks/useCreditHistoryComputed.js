@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getCreditEntryDelta } from '../utils/creditLedgerPresentation';
 
 const useCreditHistoryComputed = ({
   creditHistory,
@@ -52,14 +53,26 @@ const useCreditHistoryComputed = ({
         dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
           ? formatTransactionDate({ transaction_date: dateKey }, { long: true })
           : dateKey,
-        transactions: [...transactions].sort(compareTransactionsByDateDesc)
+        transactions: [...transactions].sort(compareTransactionsByDateDesc),
       }));
   }, [filteredTransactions, getEffectiveTransactionDateKey, formatTransactionDate, compareTransactionsByDateDesc]);
 
   const lastTransaction = getLastTransactionFromHistory(creditHistory, getEffectiveTransactionTimestamp);
   const lastTransactionLine = lastTransaction
-    ? `Last: ${getTypeLabel(lastTransaction.type)} · ${formatTransactionDate(lastTransaction, { long: true })}`
+    ? `Last: ${getTypeLabel(lastTransaction)} · ${formatTransactionDate(lastTransaction, { long: true })}`
     : 'Last: No transactions yet';
+
+  const ledgerSummary = useMemo(() => {
+    return creditHistory.reduce((acc, transaction) => {
+      const delta = getCreditEntryDelta(transaction);
+      if (delta >= 0) {
+        acc.totalDebit += delta;
+      } else {
+        acc.totalCredit += Math.abs(delta);
+      }
+      return acc;
+    }, { totalDebit: 0, totalCredit: 0 });
+  }, [creditHistory]);
 
   const balanceSummary = getBalanceSummary(balance, {
     viewerRole: isAdminView ? 'admin' : 'customer',
@@ -133,6 +146,7 @@ const useCreditHistoryComputed = ({
     filteredTransactions,
     groupedTransactions,
     lastTransactionLine,
+    ledgerSummary,
     balanceSummary,
     inactivityHint,
     showPaymentBadges,

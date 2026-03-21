@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { notificationsApi } from '../../../shared/services/api';
+import { getAdminTabHref } from '../../admin/config/adminSidebarConfig';
 
 export const useNotificationsInbox = ({ user, isAdminUser }) => {
   const [notifications, setNotifications] = useState([]);
@@ -195,9 +196,10 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     }
     if (entityType === 'product_recommendation') {
       if (user?.role === 'admin') {
+        const adminHref = getAdminTabHref('customer-requests');
         return recommendationId
-          ? `/admin?tab=customer-requests&recommendationId=${encodeURIComponent(String(recommendationId))}`
-          : '/admin?tab=customer-requests';
+          ? `${adminHref}?recommendationId=${encodeURIComponent(String(recommendationId))}`
+          : adminHref;
       }
       return '/product-requests';
     }
@@ -211,12 +213,12 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
           const query = params.toString();
           return `/admin/users/${targetUserId}/credit${query ? `?${query}` : ''}`;
         }
-        return '/admin?tab=customer-requests';
+        return getAdminTabHref('customer-requests');
       }
       const query = params.toString();
       return query ? `/my-credit?${query}` : '/my-credit';
     }
-    return user?.role === 'admin' ? '/admin' : '/profile';
+    return user?.role === 'admin' ? getAdminTabHref() : '/profile';
   };
 
   const markNotificationRead = async (id) => {

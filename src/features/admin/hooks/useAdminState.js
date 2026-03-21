@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { ADMIN_DEFAULT_TAB, normalizeAdminTab } from '../config/adminSidebarConfig';
 
 const useAdminState = ({
   toLocalDateKey,
@@ -7,16 +8,11 @@ const useAdminState = ({
   SIDEBAR_SECTIONS,
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window === 'undefined') return 'dashboard';
-    const tab = new URLSearchParams(window.location.search).get('tab');
-    const allowedTabs = new Set([
-      'dashboard', 'orders', 'offers', 'credit-aging',
-      'products', 'categories',
-      'billing', 'daily-sales', 'view-bills',
-      'purchases', 'distributors', 'stock-ledger', 'product-insights', 'distributor-insights',
-      'users', 'credit-khata', 'customer-requests',
-    ]);
-    return allowedTabs.has(tab) ? tab : 'dashboard';
+    if (typeof window === 'undefined') return ADMIN_DEFAULT_TAB;
+    const pathMatch = String(window.location.pathname || '').match(/\/admin\/([^/?#]+)/i);
+    const pathTab = pathMatch?.[1] || '';
+    const queryTab = new URLSearchParams(window.location.search).get('tab') || '';
+    return normalizeAdminTab(pathTab || queryTab || ADMIN_DEFAULT_TAB);
   });
   const [stats, setStats] = useState({ totalOrders: 0, totalRevenue: 0, pendingOrders: 0 });
   const [visitorStats, setVisitorStats] = useState({
@@ -49,7 +45,6 @@ const useAdminState = ({
   const [loading, setLoading] = useState(true);
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showCategoryManagement, setShowCategoryManagement] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showUserForm, setShowUserForm] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
@@ -214,8 +209,6 @@ const useAdminState = ({
     setShowProductForm,
     editingProduct,
     setEditingProduct,
-    showCategoryManagement,
-    setShowCategoryManagement,
     editingUser,
     setEditingUser,
     showUserForm,

@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react';
-import SignedCurrency from '../../../../shared/components/SignedCurrency';
+import { formatCurrency } from '../../../../shared/utils/formatters';
 
 function CreditReportPreview({
   showReport,
@@ -13,6 +13,8 @@ function CreditReportPreview({
   setReportSummary,
 }) {
   if (!showReport) return null;
+  const endingBalance = Number(reportSummary?.endingBalance || 0);
+  const endingBalanceLabel = endingBalance < 0 ? 'Advance' : endingBalance > 0 ? 'Due' : 'Settled';
 
   return (
     <div className="report-box">
@@ -23,8 +25,9 @@ function CreditReportPreview({
         <div className="report-summary-line">
           <span>{reportSummary.entryCount} entries</span>
           <span>{reportSummary.fromDate} to {reportSummary.toDate}</span>
-          <span>Net change: <SignedCurrency amount={reportSummary.netChange} /></span>
-          <span>Ending balance: <SignedCurrency amount={reportSummary.endingBalance} /></span>
+          <span>Total debits: {formatCurrency(reportSummary.totalDebit || 0)}</span>
+          <span>Total credits: {formatCurrency(reportSummary.totalCredit || 0)}</span>
+          <span>Ending balance: {endingBalanceLabel} {formatCurrency(Math.abs(endingBalance))}</span>
         </div>
       )}
       <textarea id="credit-report-preview" name="credit_report_preview" className="report-text" readOnly value={reportText} />

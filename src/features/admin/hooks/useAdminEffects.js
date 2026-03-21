@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { hasCapability } from '../../../shared/auth/capabilities';
 
 const useAdminEffects = ({
   user,
   navigate,
-  fetchData,
+  ensureTabData,
+  setLoading,
   orders,
   activeTab,
   ordersPage,
@@ -31,6 +32,7 @@ const useAdminEffects = ({
 }) => {
   const userId = Number(user?.id || 0) || 0;
   const canViewBackoffice = hasCapability(user, 'view_backoffice');
+  const didResolveInitialRouteRef = useRef(false);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -54,9 +56,19 @@ const useAdminEffects = ({
       navigate('/');
       return;
     }
-
-    void fetchData();
-  }, [canViewBackoffice, userId, navigate, fetchData]);
+    if (activeTab === 'dashboard' || activeTab === 'products') {
+      const showGlobalLoading = !didResolveInitialRouteRef.current;
+      void ensureTabData(activeTab, { showGlobalLoading })
+        .finally(() => {
+          didResolveInitialRouteRef.current = true;
+        });
+      return;
+    }
+    if (!didResolveInitialRouteRef.current) {
+      didResolveInitialRouteRef.current = true;
+      setLoading(false);
+    }
+  }, [activeTab, canViewBackoffice, ensureTabData, navigate, setLoading, userId]);
 
   useEffect(() => {
     const maxOrderId = (Array.isArray(orders) ? orders : []).reduce(

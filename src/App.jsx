@@ -8,6 +8,7 @@ import { hasCapability } from './shared/auth/capabilities';
 import { safeLocalStorageGet, safeLocalStorageRemove } from './shared/utils/storage';
 import { openBackofficePopup } from './shared/utils/backofficePopup';
 import { useNotificationsInbox } from './features/notifications/hooks/useNotificationsInbox';
+import { getAdminTabHref } from './features/admin/config/adminSidebarConfig';
 import { AppRoutes } from './app/appRoutes';
 import './index.css';
 import './App.css';
@@ -74,10 +75,9 @@ function GlobalAdminShortcuts({ user }) {
         if (popupResult.status === 'blocked') {
           shortcutSequenceRef.current += 1;
           const next = new URLSearchParams();
-          next.set('tab', 'billing');
           next.set('shortcut', 'billing-focus');
           next.set('shortcutToken', String(shortcutSequenceRef.current));
-          navigate(`/admin?${next.toString()}`, {
+          navigate(`${getAdminTabHref('billing')}?${next.toString()}`, {
             replace: location.pathname.startsWith('/admin'),
           });
         }
@@ -96,10 +96,9 @@ function GlobalAdminShortcuts({ user }) {
       if (popupResult.status === 'blocked') {
         shortcutSequenceRef.current += 1;
         const next = new URLSearchParams();
-        next.set('tab', targetTab);
         next.set('shortcut', shortcutAction);
         next.set('shortcutToken', String(shortcutSequenceRef.current));
-        navigate(`/admin?${next.toString()}`, {
+        navigate(`${getAdminTabHref(targetTab)}?${next.toString()}`, {
           replace: location.pathname.startsWith('/admin'),
         });
       }

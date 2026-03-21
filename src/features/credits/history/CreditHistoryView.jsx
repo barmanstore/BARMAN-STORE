@@ -1,4 +1,5 @@
 import { Plus, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import CreditAddTransactionModal from './components/CreditAddTransactionModal';
 import CreditEntrySharePanel from './components/CreditEntrySharePanel';
@@ -17,8 +18,10 @@ const CreditHistoryView = ({
   customer,
   balanceSummary,
   balance,
+  ledgerSummary,
   lastTransactionLine,
   trustLine,
+  billsHref,
   showPaymentBadges,
   paymentBadgesLoading,
   paymentBadges,
@@ -89,6 +92,7 @@ const CreditHistoryView = ({
   handleAddTransaction,
   newTransaction,
   setNewTransaction,
+  handleClearAttachment,
   fileInputRef,
   handleFileUpload,
   uploading,
@@ -108,8 +112,10 @@ const CreditHistoryView = ({
         customer={customer}
         balanceSummary={balanceSummary}
         balance={balance}
+        ledgerSummary={ledgerSummary}
         lastTransactionLine={lastTransactionLine}
         trustLine={trustLine}
+        billsHref={billsHref}
         showPaymentBadges={showPaymentBadges}
         paymentBadgesLoading={paymentBadgesLoading}
         paymentBadges={paymentBadges}
@@ -214,8 +220,11 @@ const CreditHistoryView = ({
             className="mobile-cta given"
             onClick={() => openAddModalWithType('given')}
           >
-            <Plus size={16} /> Add Credit
+            <Plus size={16} /> Add Manual Sale
           </button>
+          <Link to={billsHref} className="mobile-cta bills">
+            View Bills
+          </Link>
         </div>
       )}
 
@@ -226,6 +235,7 @@ const CreditHistoryView = ({
         handleAddTransaction={handleAddTransaction}
         newTransaction={newTransaction}
         setNewTransaction={setNewTransaction}
+        handleClearAttachment={handleClearAttachment}
         fileInputRef={fileInputRef}
         handleFileUpload={handleFileUpload}
         uploading={uploading}

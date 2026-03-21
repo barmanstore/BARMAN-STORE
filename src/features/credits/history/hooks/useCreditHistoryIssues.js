@@ -36,8 +36,8 @@ const useCreditHistoryIssues = ({
       if (!payload.message) {
         throw new Error('Please describe the issue');
       }
-      await creditApi.reportIssue(effectiveUserId, payload);
-      const issueRows = await creditApi.listIssues(effectiveUserId);
+      await creditApi.addIssue(effectiveUserId, payload);
+      const issueRows = await creditApi.getIssues(effectiveUserId);
       setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
       setIssueForm((prev) => ({ ...prev, message: '' }));
       setSuccess('Issue submitted. Admin will review and correct if needed.');
@@ -61,11 +61,11 @@ const useCreditHistoryIssues = ({
       setIssueRespondingId(Number(issue.id || 0));
       setError('');
       setSuccess('');
-      await creditApi.respondIssue(effectiveUserId, issue.id, {
+      await creditApi.respondToIssue(effectiveUserId, issue.id, {
         response_status: nextResponse,
         message: note,
       });
-      const issueRows = await creditApi.listIssues(effectiveUserId);
+      const issueRows = await creditApi.getIssues(effectiveUserId);
       setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
       setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: '' }));
       setSuccess(nextResponse === 'acknowledged'
