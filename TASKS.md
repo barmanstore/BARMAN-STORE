@@ -29,6 +29,10 @@ Use this file for cross-session task tracking only.
 - Fixed the broken lifecycle status badge class binding in `src/features/marketing/components/OfferLibraryTable.jsx`.
 - Brought `src/shared/components/mobile/MobileBottomSheet.jsx` up to the same shared portal, focus-trap, and background-isolation model as the desktop modal runtime.
 - Consolidated modal-related `.fade-in-up` ownership back to the shared utility and renamed the user-menu-specific dropdown animation so it no longer collides with shared modal motion.
+- Added `scripts/manual-modal-regression.ps1` and `npm run test:modal-regression` so the shared modal regression pass can boot local services, verify stacked desktop windows plus mobile sheets, and clean up automatically.
+- Updated `docs/workflows/finalization.md` so modal-shell changes explicitly require the browser regression pass before sign-off or deployment.
+- Filtered expected embedded-Postgres teardown noise from `scripts/run-local-smoke-suite.mjs` so successful smoke runs no longer print misleading `ECONNRESET` shutdown warnings.
+- Fixed `scripts/windows/git-maintain.bat` and `scripts/windows/workbench.bat` so quick-commit flows keep spaced commit messages intact and non-interactive mode does not hang on a prompt.
 
 ## Notes
 

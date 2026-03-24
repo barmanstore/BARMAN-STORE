@@ -95,8 +95,18 @@ goto :pause_and_menu
 
 :git_quick
 set "MSG="
-set /p MSG=Commit message: 
-if "%MSG%"=="" goto :menu
+if /i "%NON_INTERACTIVE%"=="1" (
+  set "MSG=%ARG2%"
+) else (
+  set /p MSG=Commit message: 
+)
+if "%MSG%"=="" (
+  if /i "%NON_INTERACTIVE%"=="1" (
+    echo [ERROR] Commit message is required for non-interactive git quick mode.
+    goto :done
+  )
+  goto :menu
+)
 call "%~dp0git-maintain.bat" quick "%MSG%" origin main
 goto :pause_and_menu
 

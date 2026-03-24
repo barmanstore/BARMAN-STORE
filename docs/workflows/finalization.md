@@ -7,6 +7,8 @@ Execute this checklist before marking work done or preparing a deployment.
 - Run the repo smoke suite:
   - `cmd /c scripts\\windows\\health-check.bat smoke`
   - or `node scripts/run-local-smoke-suite.mjs all`
+- If the shared modal shell, `WindowModal`, `MobileBottomSheet`, focus-trap, or inert-background code changed, also run:
+  - `npm run test:modal-regression`
 - Verify the core flows covered by the current suite:
   - OTP auth endpoints
   - product listing
@@ -84,6 +86,10 @@ Execute this checklist before marking work done or preparing a deployment.
   - order creation
   - admin flows
   - shared modal behavior
+- For modal-shell releases, specifically re-check:
+  - stacked desktop modal focus order
+  - mobile sheet focus containment
+  - reduced-motion behavior
 
 ## Reporting
 

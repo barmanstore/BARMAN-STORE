@@ -36,15 +36,15 @@ git log -n 5 --oneline
 if errorlevel 1 goto :git_failed
 goto :success
 
-:run_or_dry
+:run_git
 set "ACTION=%~1"
-set "COMMAND=%~2"
+set "COMMAND_LINE=git %~2 %~3 %4 %5 %6 %7 %8 %9"
 if /i "%OPS_DRY_RUN%"=="1" (
   echo [DRY-RUN] %ACTION%
-  echo [DRY-RUN] %COMMAND%
+  echo [DRY-RUN] %COMMAND_LINE%
   exit /b 0
 )
-call %COMMAND%
+git %~2 %~3 %4 %5 %6 %7 %8 %9
 exit /b %errorlevel%
 
 :pull
@@ -55,7 +55,7 @@ if "%BRANCH%"=="" (
   for /f %%B in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%B"
 )
 echo [INFO] Pulling latest changes from %REMOTE%/%BRANCH% ...
-call :run_or_dry "Pull latest changes" "git pull %REMOTE% %BRANCH%"
+call :run_git "Pull latest changes" pull %REMOTE% %BRANCH%
 if errorlevel 1 goto :git_failed
 goto :success
 
@@ -67,10 +67,10 @@ if "%MSG%"=="" (
   goto :end_error
 )
 echo [INFO] Staging all tracked and untracked changes...
-call :run_or_dry "Stage all changes" "git add -A"
+call :run_git "Stage all changes" add -A
 if errorlevel 1 goto :git_failed
 echo [INFO] Creating commit...
-call :run_or_dry "Create commit" "git commit -m ""%MSG%"""
+call :run_git "Create commit" commit -m "%MSG%"
 if errorlevel 1 goto :git_failed
 goto :success
 
@@ -82,7 +82,7 @@ if "%BRANCH%"=="" (
   for /f %%B in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%B"
 )
 echo [INFO] Pushing to %REMOTE%/%BRANCH% ...
-call :run_or_dry "Push changes" "git push %REMOTE% %BRANCH%"
+call :run_git "Push changes" push %REMOTE% %BRANCH%
 if errorlevel 1 goto :git_failed
 goto :success
 
@@ -100,13 +100,13 @@ if "%BRANCH%"=="" (
   for /f %%B in ('git rev-parse --abbrev-ref HEAD') do set "BRANCH=%%B"
 )
 echo [INFO] Staging changes...
-call :run_or_dry "Stage all changes" "git add -A"
+call :run_git "Stage all changes" add -A
 if errorlevel 1 goto :git_failed
 echo [INFO] Committing...
-call :run_or_dry "Create commit" "git commit -m ""%MSG%"""
+call :run_git "Create commit" commit -m "%MSG%"
 if errorlevel 1 goto :git_failed
 echo [INFO] Pushing to %REMOTE%/%BRANCH% ...
-call :run_or_dry "Push changes" "git push %REMOTE% %BRANCH%"
+call :run_git "Push changes" push %REMOTE% %BRANCH%
 if errorlevel 1 goto :git_failed
 goto :success
 

@@ -64,6 +64,13 @@ const dbDir = path.join(repoRoot, '.local', 'embedded-postgres', 'smoke-utf8');
 const verbose = String(process.env.LOCAL_SMOKE_DB_VERBOSE || '').trim() === '1';
 const POSTGRES_READY_TIMEOUT_MS = Math.max(1000, Number(process.env.LOCAL_SMOKE_DB_READY_TIMEOUT_MS || 12000) || 12000);
 const POSTGRES_READY_POLL_MS = 250;
+const EXPECTED_POSTGRES_SHUTDOWN_PATTERNS = [
+  /read ECONNRESET/i,
+  /Connection terminated unexpectedly/i,
+  /Connection ended unexpectedly/i,
+  /server closed the connection unexpectedly/i,
+  /terminating connection due to administrator command/i,
+];
 
 const isPortAvailable = (port) => new Promise((resolve) => {
   const server = net.createServer();
@@ -219,6 +226,11 @@ const buildConnectionString = (databaseName, port) => {
 const describeConnectionTarget = (databaseName, port) =>
   `127.0.0.1:${port}/${databaseName}`;
 
+const isExpectedPostgresShutdownError = (error) => {
+  const message = formatError(error);
+  return EXPECTED_POSTGRES_SHUTDOWN_PATTERNS.some((pattern) => pattern.test(message));
+};
+
 const main = async () => {
   await fs.mkdir(dbDir, { recursive: true });
   const initializedCluster = await hasInitializedCluster(dbDir);
@@ -235,6 +247,7 @@ const main = async () => {
   const adminDbUrl = buildConnectionString('postgres', port);
   const smokeDbUrl = buildConnectionString(dbName, port);
   const startupErrors = [];
+  let embeddedPostgresStopping = false;
 
   const pg = new EmbeddedPostgres({
     databaseDir: dbDir,
@@ -245,6 +258,12 @@ const main = async () => {
     initdbFlags: ['--encoding=UTF8'],
     onLog: verbose ? console.log : () => {},
     onError: (error) => {
+      if (embeddedPostgresStopping && isExpectedPostgresShutdownError(error)) {
+        if (verbose) {
+          console.log(`[LOCAL_SMOKE_DB] Ignoring expected embedded Postgres shutdown error: ${formatError(error)}`);
+        }
+        return;
+      }
       const message = formatError(error);
       startupErrors.push(message);
       console.error(message);
@@ -299,6 +318,7 @@ const main = async () => {
     console.log(`[LOCAL_SMOKE_DB] Suite "${suiteName}" passed.`);
   } finally {
     console.log('[LOCAL_SMOKE_DB] Stopping embedded Postgres...');
+    embeddedPostgresStopping = true;
     await pg.stop().catch((error) => {
       console.warn(`[LOCAL_SMOKE_DB] Failed to stop embedded Postgres cleanly: ${error.message}`);
     });

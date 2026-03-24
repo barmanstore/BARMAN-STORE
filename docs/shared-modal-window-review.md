@@ -59,6 +59,9 @@ This review covers the shared modal stack used by the React app:
 - The initial high-severity runtime problems are still resolved in the inspected code.
 - I did not find another geometry-reset, drag-loop, manager-churn, or CSS-contract regression in the reviewed desktop paths.
 - The stale app-shell Escape selector dependency, the last no-op `dialogClassName="modal-content"` caller, the mobile sheet isolation gap, and the shared motion-selector drift were removed during final cleanup.
+- A local browser regression pass was rerun on 2026-03-24 against `http://127.0.0.1:3000` with the Vite dev proxy and backend on `http://127.0.0.1:5000`.
+- That pass is now codified in `scripts/manual-modal-regression.ps1` and exposed through `npm run test:modal-regression` so it can be rerun as part of the sign-off workflow.
+- That pass verified stacked desktop modals, desktop drag behavior, top-window ARIA exposure, desktop and mobile focus trapping, shared background inertness, and reduced-motion behavior.
 
 ## Current Findings
 
@@ -73,7 +76,7 @@ This review covers the shared modal stack used by the React app:
 
 ## Remaining Follow-Ups
 
-- Run manual regression checks on desktop and mobile layouts, especially stacked modals, sheet focus order, and reduced-motion behavior.
+- Keep the browser regression pass in the release checklist when modal shell code changes again, especially for stacked-window focus order and motion overrides.
 
 ## Bottom Line
 
