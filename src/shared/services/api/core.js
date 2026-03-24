@@ -109,9 +109,12 @@ export const apiFetch = async (endpoint, options = {}) => {
   if (!contentType.includes('application/json')) {
     const bodyText = await response.text().catch(() => '');
     const preview = bodyText.slice(0, 120).replace(/\s+/g, ' ').trim();
-    throw new Error(
+    const err = new Error(
       `Expected JSON but received ${contentType || 'unknown content-type'} from ${url}. Response starts with: ${preview}`
     );
+    err.status = response.status;
+    err.payload = { error: err.message };
+    throw err;
   }
 
   return response.json();

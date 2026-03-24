@@ -658,7 +658,11 @@ const buildProductOfferDisplay = (product = {}, offers = [], { offersArePrepared
   const normalizedOffers = prepareOffersForEvaluation(offers, { offersArePrepared })
     .filter((offer) => productMatchesOfferForBadge(offer, product));
 
-  const badges = normalizedOffers.map((offer) => offer.label || getOfferLabel(offer)).filter(Boolean).slice(0, 3);
+  const badges = [...new Set(
+    normalizedOffers
+      .map((offer) => offer.label || getOfferLabel(offer))
+      .filter(Boolean)
+  )];
   const basePrice = Math.max(0, Number(product?.price || 0));
   let displayPrice = basePrice;
   let originalPrice = Math.max(basePrice, Number(product?.mrp || basePrice || 0));

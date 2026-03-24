@@ -1,5 +1,8 @@
-import { useEffect } from 'react';
+import { useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import useFocusTrap from '../../hooks/useFocusTrap';
+import useInertBackground from '../../hooks/useInertBackground';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import './MobileBottomSheet.css';
 
@@ -15,26 +18,18 @@ function MobileBottomSheet({
   closeOnBackdrop = true,
   closeOnEscape = true,
 }) {
+  const reactId = useId();
+  const sheetRef = useRef(null);
+  const titleId = title ? `mobile-sheet-${String(reactId).replace(/[:]/g, '')}-title` : undefined;
+
   useLockBodyScroll(open);
-
-  useEffect(() => {
-    if (!open || dismissible === false || closeOnEscape === false) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      if (typeof onClose === 'function') {
-        event.preventDefault();
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeOnEscape, dismissible, onClose, open]);
+  useFocusTrap(sheetRef, open);
+  useInertBackground(open);
 
   if (!open) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
+  const sheet = (
     <div
       className="mobile-sheet-scrim"
       onClick={() => {
@@ -44,24 +39,29 @@ function MobileBottomSheet({
       role="presentation"
       data-mobile-sheet-open="true"
       data-close-on-escape={closeOnEscape ? 'true' : 'false'}
+      data-mobile-sheet-root="true"
     >
       <div
+        ref={sheetRef}
         className={`mobile-bottom-sheet ${className}`.trim()}
         style={{ maxHeight: height }}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={title || 'Dialog'}
+        aria-labelledby={titleId}
+        aria-label={title ? undefined : 'Dialog'}
+        tabIndex={-1}
       >
         <div className="mobile-sheet-handle" />
         <div className="mobile-sheet-header">
-          <h3>{title}</h3>
+          <h3 id={titleId}>{title}</h3>
           <button
             type="button"
             className="mobile-sheet-close-btn"
             onClick={onClose}
             aria-label="Close"
             disabled={dismissible === false}
+            data-modal-close="true"
           >
             <X size={20} />
           </button>
@@ -71,6 +71,8 @@ function MobileBottomSheet({
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }
 
 export default MobileBottomSheet;

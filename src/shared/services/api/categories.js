@@ -27,7 +27,7 @@ export const categoriesApi = {
     }),
   move: (id, data) =>
     apiFetch(`/api/categories/${id}/move`, {
-      method: 'PUT',
+      method: 'POST',
       body: data,
     }),
   delete: (id) =>
@@ -36,7 +36,7 @@ export const categoriesApi = {
     }),
   updateProductCategory: (productId, data) =>
     apiFetch(`/api/products/${productId}/category`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: data,
     }),
 };

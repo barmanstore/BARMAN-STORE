@@ -31,10 +31,8 @@ const registerCreditIssuesAdminRoutes = (deps) => {
       });
       return res.json(rows);
     } catch (error) {
-      if (error?.status === 400) {
-        return res.status(400).json({ error: error.message || 'Invalid status filter' });
-      }
-      return res.status(500).json({ error: error.message });
+      const status = Number(error?.status || 0) || 500;
+      return res.status(status).json({ error: error?.message || 'Failed to load credit issues' });
     }
   });
 
@@ -58,13 +56,9 @@ const registerCreditIssuesAdminRoutes = (deps) => {
       });
       return res.json({ success: true, issue: issueDetails || updated });
     } catch (error) {
-      if (error?.status === 400) {
-        return res.status(400).json({ error: error.message });
-      }
-      if (error?.code === 'NOT_FOUND') {
-        return res.status(404).json({ error: 'Credit issue not found' });
-      }
-      return res.status(500).json({ error: error.message });
+      const status = Number(error?.status || 0) || (error?.code === 'NOT_FOUND' ? 404 : 500);
+      const message = error?.message || (status === 404 ? 'Credit issue not found' : 'Failed to update credit issue');
+      return res.status(status).json({ error: message });
     }
   });
 };

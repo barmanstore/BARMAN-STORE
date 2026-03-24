@@ -154,9 +154,9 @@ const DistributorManagementView = ({
           open
           title={editingDistributor ? 'Edit Distributor' : 'Add New Distributor'}
           onClose={onCloseForm}
-          dialogClassName="modal-content fade-in-up"
-          headerClassName="modal-header"
-          closeButtonClassName="close-btn"
+          dialogClassName="distributor-modal-frame fade-in-up"
+          headerClassName="distributor-modal-header"
+          closeButtonClassName="distributor-modal-close-btn"
           themeClassName="distributor-management"
           initialSize={{ width: 860, height: 760 }}
         >

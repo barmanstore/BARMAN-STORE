@@ -158,9 +158,9 @@ const PoCorrectionModal = ({
       onClose={closePoCorrectionForm}
       dismissible={!poCorrectionSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="modal-content"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="purchase-modal-frame"
+      headerClassName="purchase-modal-header"
+      closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: 820, height: 660 }}
     >
       <form onSubmit={handlePoCorrectionSubmit}>

@@ -163,65 +163,10 @@ const registerOffersRoutes = (deps) => {
   const {
     app,
     requireAdmin,
-    requireCronSecret,
     dbAllAsync,
     dbGetAsync,
     dbRunAsync,
-    dbTxAsync,
-    acquirePurchaseDuplicateLockAsync,
-    buildPurchaseDuplicateKey,
-    buildPurchaseTransactionTimestamp,
-    calculatePoPaymentSnapshot,
-    canPoAcceptPayment,
-    canPoReceiveInventory,
-    computeAverageDays,
-    computeAverageGapDays,
-    computePurchasePaymentDueDate,
-    computeStdDev,
-    createDistributorLedgerEntry,
-    createPurchaseConflictError,
-    derivePoLifecycleFromPaymentStatus,
-    derivePurchaseNextAction,
-    deriveStockoutRisk,
-    findDuplicateDistributorBillAsync,
-    findDuplicatePurchaseOrderAsync,
-    findDuplicatePurchasePaymentAsync,
-    generatePONumber,
-    generateReturnNumber,
-    getAllowedPurchaseUnitsForProductRow,
-    getDistributorByIdAsync,
-    getPurchaseOrderLifecycleStatus,
-    getPurchaseProductUomProfile,
-    handlePurchaseOperationsSummary,
-    isPoEditableLifecycle,
-    isUniqueViolationError,
     logAdminAuditAsync,
-    logStockLedgerAsync,
-    normalizePoLifecycleStatus,
-    normalizePoPaymentStatus,
-    normalizePurchaseOrderItems,
-    normalizePurchaseUomToken,
-    normalizeTransactionDate,
-    notifyDistributorPurchaseOrderAsync,
-    recordProductCostHistoryEntryAsync,
-    recordPurchaseOrderStatusHistoryAsync,
-    resolveClientRequestId,
-    resolveInsightDateRange,
-    saveDistributorPurchaseReminderAsync,
-    syncDistributorProductsSuppliedAsync,
-    toPurchaseBaseQty,
-    upsertSupplierProductsAsync,
-    PO_LIFECYCLE_CANCELLED,
-    PO_LIFECYCLE_CLOSED,
-    PO_LIFECYCLE_CONFIRMED,
-    PO_LIFECYCLE_FULLY_PAID,
-    PO_LIFECYCLE_PART_PAID,
-    PO_LIFECYCLE_PREPARED,
-    PO_LIFECYCLE_REVISED,
-    PO_LIFECYCLE_SENT,
-    PO_PAYMENT_PAID,
-    PO_PAYMENT_UNPAID,
-    PURCHASE_STOCK_CAP,
   } = deps;
 
   app.get('/api/offers', requireAdmin, async (_, res) => {
@@ -260,7 +205,7 @@ const registerOffersRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.post('/api/offers', requireAdmin, async (req, res) => {
     try {
       const validation = await validateOfferPayload({
@@ -309,7 +254,7 @@ const registerOffersRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.put('/api/offers/:id', requireAdmin, async (req, res) => {
     try {
       const cur = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [req.params.id]);
@@ -362,7 +307,7 @@ const registerOffersRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.delete('/api/offers/:id', requireAdmin, async (req, res) => {
     try {
       const existing = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [req.params.id]);

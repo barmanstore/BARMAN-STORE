@@ -23,9 +23,10 @@ const CreditAddTransactionModal = ({
       title={addModalTitle}
       onClose={closeAddModal}
       dismissible={!addingTransaction}
-      dialogClassName="modal-content fade-in-up"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="credit-history-modal-frame fade-in-up"
+      headerClassName="credit-history-modal-header"
+      contentClassName="credit-history-modal-body"
+      closeButtonClassName="credit-history-modal-close-btn"
       themeClassName="credit-history-page"
       initialSize={{ width: 520, height: 620 }}
     >

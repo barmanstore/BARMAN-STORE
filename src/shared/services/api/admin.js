@@ -42,17 +42,17 @@ export const adminApi = {
     }),
   markNotificationsSent: (id, payload) =>
     apiFetch(`/api/admin/notifications/${id}/mark-sent`, {
-      method: 'PUT',
+      method: 'POST',
       body: payload,
     }),
   verifyUserEmail: (id, payload) =>
     apiFetch(`/api/admin/users/${id}/email/verify`, {
-      method: 'PUT',
+      method: 'POST',
       body: payload,
     }),
   verifyUserPhone: (id, payload) =>
     apiFetch(`/api/admin/users/${id}/phone/verify`, {
-      method: 'PUT',
+      method: 'POST',
       body: payload,
     }),
   getProductRecommendations: (status = '') =>

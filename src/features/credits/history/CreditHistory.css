@@ -556,55 +556,33 @@
 }
 
 /* Modal styles */
-.credit-history-page .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.credit-history-page .modal-content {
+.credit-history-page .credit-history-modal-frame {
   background: white;
   border-radius: 12px;
-  padding: 25px;
-  width: 100%;
   max-width: 450px;
-  max-height: 90vh;
-  max-height: 90dvh;
-  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-.credit-history-page .modal-header {
-  display: flex;
-  justify-content: space-between;
+.credit-history-page .credit-history-modal-header {
   align-items: center;
-  margin-bottom: 20px;
 }
 
-.credit-history-page .modal-header h2 {
+.credit-history-page .credit-history-modal-header h2 {
   margin: 0;
   font-size: 20px;
   color: #333;
 }
 
-.credit-history-page .close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-  padding: 0;
-  line-height: 1;
+.credit-history-page .credit-history-modal-body {
+  padding: 25px;
 }
 
-.credit-history-page .close-btn:hover {
-  color: #333;
+.credit-history-page .credit-history-modal-close-btn {
+  color: #64748b;
+}
+
+.credit-history-page .credit-history-modal-close-btn:hover:not(:disabled) {
+  color: #0f172a;
 }
 
 .credit-history-page .form-group {
@@ -764,38 +742,15 @@
 }
 
 /* Invoice Modal Styles */
-.credit-history-page .invoice-modal-overlay {
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.credit-history-page .invoice-template {
-  position: relative;
+.credit-history-page .credit-history-invoice-frame {
   background: white;
-  width: 100%;
   max-width: 700px;
-  padding: 40px;
   border-radius: 8px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
-.credit-history-page .invoice-close-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #111827;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.credit-history-page .invoice-close-btn:hover {
-  background: #f3f4f6;
+.credit-history-page .credit-history-invoice-body {
+  padding: 40px;
 }
 
 .credit-history-page .invoice-header {
@@ -943,8 +898,9 @@
 
 /* Print Styles */
 @media print {
+  .window-manager-backdrop,
+  .window-manager-dock,
   .credit-history-page .no-print,
-  .credit-history-page .modal-overlay,
   .credit-history-page .invoice-actions,
   .credit-history-page .page-header,
   .credit-history-page .actions-bar,
@@ -952,36 +908,42 @@
     display: none !important;
   }
 
-  .credit-history-page .invoice-modal-overlay {
+  .window-modal-root.credit-history-page {
     position: static;
-    background: none;
+    inset: auto;
+    pointer-events: auto;
+    isolation: auto;
   }
 
-  .credit-history-page .invoice-template {
+  .credit-history-page .window-modal-header {
+    display: none !important;
+  }
+
+  .credit-history-page .credit-history-invoice-frame {
+    position: static;
     box-shadow: none;
     max-width: 100%;
+    max-height: none !important;
+    border: none;
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
+  .credit-history-page .window-modal-body,
+  .credit-history-page .credit-history-invoice-body {
+    overflow: visible;
+  }
+
+  .credit-history-page .credit-history-invoice-body {
     padding: 20px;
   }
-
-  .credit-history-page body {
-    background: white;
-  }
 }
 
-/* Fade in animation */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
+@media (prefers-reduced-motion: reduce) {
+  .credit-history-page .credit-mobile-cta-bar {
+    backdrop-filter: none;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.credit-history-page .fade-in-up {
-  animation: fadeInUp 0.3s ease-out;
 }
 
 /* Report Box Styles */

@@ -2,6 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { notificationsApi } from '../../../shared/services/api';
 import { getAdminTabHref } from '../../admin/config/adminSidebarConfig';
 
+const unpackNotificationPayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return {
+      items: payload,
+      nextBeforeId: null,
+      hasMore: false,
+    };
+  }
+  return {
+    items: Array.isArray(payload?.items) ? payload.items : [],
+    nextBeforeId: Number(payload?.paging?.next_before_id || 0) || null,
+    hasMore: Boolean(payload?.paging?.has_more),
+  };
+};
+
 export const useNotificationsInbox = ({ user, isAdminUser }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
@@ -15,7 +30,9 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   const [recipientSearch, setRecipientSearch] = useState('');
   const [messageSending, setMessageSending] = useState(false);
   const [messageFeedback, setMessageFeedback] = useState({ type: '', text: '' });
+  const [notificationFeedback, setNotificationFeedback] = useState({ type: '', text: '' });
   const notificationInboxRef = useRef(null);
+  const notificationPanelOpenRef = useRef(false);
 
   const toggleNotificationPanel = () => setNotificationPanelOpen((prev) => !prev);
   const handleRecipientSearchChange = (value) => setRecipientSearch(value);
@@ -25,34 +42,52 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     setRecipientSearch('');
   };
 
+  const clearNotificationFeedback = () => {
+    setNotificationFeedback((current) => (
+      current?.text || current?.type
+        ? { type: '', text: '' }
+        : current
+    ));
+  };
+
+  const setNotificationError = (message) => {
+    setNotificationFeedback({
+      type: 'error',
+      text: String(message || 'Failed to load notifications.'),
+    });
+  };
+
+  const resetNotificationState = () => {
+    setNotifications([]);
+    setUnreadNotificationCount(0);
+    setNotificationsNextBeforeId(null);
+    setNotificationsHasMore(false);
+  };
+
+  const applyNotificationSnapshot = (rows, unreadCount) => {
+    const unpacked = unpackNotificationPayload(rows);
+    setNotifications(unpacked.items);
+    setNotificationsNextBeforeId(unpacked.nextBeforeId);
+    setNotificationsHasMore(unpacked.hasMore);
+    if (unreadCount !== undefined) {
+      setUnreadNotificationCount(Number(unreadCount?.count || 0));
+    }
+  };
+
+  useEffect(() => {
+    notificationPanelOpenRef.current = notificationPanelOpen;
+  }, [notificationPanelOpen]);
+
   useEffect(() => {
     let isCancelled = false;
     let timerId = null;
     let bootstrapTimerId = null;
 
-    const unpackNotificationPayload = (payload) => {
-      if (Array.isArray(payload)) {
-        return {
-          items: payload,
-          nextBeforeId: null,
-          hasMore: false,
-        };
-      }
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      return {
-        items,
-        nextBeforeId: Number(payload?.paging?.next_before_id || 0) || null,
-        hasMore: Boolean(payload?.paging?.has_more),
-      };
-    };
-
     const loadNotifications = async (silent = false) => {
       if (!user?.id) {
         if (!isCancelled) {
-          setNotifications([]);
-          setUnreadNotificationCount(0);
-          setNotificationsNextBeforeId(null);
-          setNotificationsHasMore(false);
+          resetNotificationState();
+          clearNotificationFeedback();
         }
         return;
       }
@@ -62,17 +97,17 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
           notificationsApi.getUnreadCount(),
         ]);
         if (isCancelled) return;
-        const unpacked = unpackNotificationPayload(rows);
-        setNotifications(unpacked.items);
-        setNotificationsNextBeforeId(unpacked.nextBeforeId);
-        setNotificationsHasMore(unpacked.hasMore);
-        setUnreadNotificationCount(Number(unreadCount?.count || 0));
-      } catch (_) {
-        if (!silent && !isCancelled) {
-          setNotifications([]);
-          setUnreadNotificationCount(0);
-          setNotificationsNextBeforeId(null);
-          setNotificationsHasMore(false);
+        clearNotificationFeedback();
+        applyNotificationSnapshot(rows, unreadCount);
+      } catch (error) {
+        if (isCancelled) return;
+        if (!silent) {
+          resetNotificationState();
+        }
+        if (!silent || notificationPanelOpenRef.current) {
+          setNotificationError(
+            error?.message || (silent ? 'Failed to refresh notifications.' : 'Failed to load notifications.')
+          );
         }
       }
     };
@@ -88,10 +123,8 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         void loadNotifications(true);
       }, 45000);
     } else {
-      setNotifications([]);
-      setUnreadNotificationCount(0);
-      setNotificationsNextBeforeId(null);
-      setNotificationsHasMore(false);
+      resetNotificationState();
+      clearNotificationFeedback();
     }
 
     return () => {
@@ -108,15 +141,10 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         notificationsApi.listMine({ unreadOnly: false, limit: 40 }),
         notificationsApi.getUnreadCount(),
       ]);
-      const items = Array.isArray(rows)
-        ? rows
-        : (Array.isArray(rows?.items) ? rows.items : []);
-      setNotifications(items);
-      setNotificationsNextBeforeId(Number(rows?.paging?.next_before_id || 0) || null);
-      setNotificationsHasMore(Boolean(rows?.paging?.has_more));
-      setUnreadNotificationCount(Number(unreadCount?.count || 0));
-    } catch (_) {
-      // ignore refresh errors
+      clearNotificationFeedback();
+      applyNotificationSnapshot(rows, unreadCount);
+    } catch (error) {
+      setNotificationError(error?.message || 'Failed to refresh notifications.');
     }
   };
 
@@ -128,13 +156,11 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         limit: 40,
         beforeId: notificationsNextBeforeId,
       });
-      const items = Array.isArray(rows)
-        ? rows
-        : (Array.isArray(rows?.items) ? rows.items : []);
+      const unpacked = unpackNotificationPayload(rows);
       setNotifications((prev) => {
         const seen = new Set((prev || []).map((row) => Number(row?.id || 0)));
         const nextRows = [...prev];
-        items.forEach((row) => {
+        unpacked.items.forEach((row) => {
           const id = Number(row?.id || 0);
           if (!id || seen.has(id)) return;
           nextRows.push(row);
@@ -142,10 +168,11 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         });
         return nextRows;
       });
-      setNotificationsNextBeforeId(Number(rows?.paging?.next_before_id || 0) || null);
-      setNotificationsHasMore(Boolean(rows?.paging?.has_more));
-    } catch (_) {
-      // ignore load-more errors
+      setNotificationsNextBeforeId(unpacked.nextBeforeId);
+      setNotificationsHasMore(unpacked.hasMore);
+      clearNotificationFeedback();
+    } catch (error) {
+      setNotificationError(error?.message || 'Failed to load older notifications.');
     }
   };
 
@@ -161,8 +188,12 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         const rows = await notificationsApi.listMessageRecipients(recipientSearch, 20);
         if (cancelled) return;
         setMessageRecipients(Array.isArray(rows) ? rows : []);
-      } catch (_) {
-        if (!cancelled) setMessageRecipients([]);
+        clearNotificationFeedback();
+      } catch (error) {
+        if (!cancelled) {
+          setMessageRecipients([]);
+          setNotificationError(error?.message || 'Failed to load message recipients.');
+        }
       }
     }, 220);
 
@@ -175,6 +206,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   useEffect(() => {
     if (!notificationPanelOpen) {
       setMessageFeedback({ type: '', text: '' });
+      clearNotificationFeedback();
       setExpandedNotificationId(null);
     }
   }, [notificationPanelOpen]);
@@ -232,8 +264,9 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
           : row
       )));
       setUnreadNotificationCount((prev) => Math.max(0, Number(prev || 0) - 1));
-    } catch (_) {
-      // ignore mark-read failures in inbox
+      clearNotificationFeedback();
+    } catch (error) {
+      setNotificationError(error?.message || 'Failed to mark notification as read.');
     }
   };
 
@@ -320,6 +353,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     recipientSearch,
     messageSending,
     messageFeedback,
+    notificationFeedback,
     notificationInboxRef,
     onToggleRecipientSelection: toggleRecipientSelection,
     onSendInboxMessage: sendInboxMessage,

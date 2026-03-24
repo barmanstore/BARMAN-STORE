@@ -49,7 +49,7 @@ export const creditApi = {
     }),
   respondToIssue: (userId, issueId, payload) =>
     apiFetch(`/api/users/${userId}/credit-issues/${issueId}/respond`, {
-      method: 'PUT',
+      method: 'POST',
       body: payload,
     }),
 };

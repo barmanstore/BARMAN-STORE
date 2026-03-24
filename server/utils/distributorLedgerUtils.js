@@ -6,6 +6,8 @@
     SQL_CAST_TO_INT,
   } = deps;
 
+  const createHttpError = (status, message) => Object.assign(new Error(message), { status });
+
   const normalizeDistributorLedgerType = (type) => {
     const raw = String(type || '').trim().toLowerCase();
     if (raw === 'payment' || raw === 'paid') return 'payment';
@@ -67,13 +69,13 @@
 
   const createDistributorLedgerEntry = async (distributorIdRaw, body = {}) => {
     const distributorId = Number(distributorIdRaw || body.distributor_id || body.user_id);
-    if (!distributorId) throw new Error('distributor_id is required');
+    if (!distributorId) throw createHttpError(400, 'distributor_id is required');
 
     const distributor = await dbGetAsync(`SELECT id FROM distributors WHERE id = ?`, [distributorId]);
-    if (!distributor) throw new Error('Distributor not found');
+    if (!distributor) throw createHttpError(404, 'Distributor not found');
 
     const rawAmount = Math.abs(Number(body.amount || 0));
-    if (!rawAmount) throw new Error('amount must be greater than 0');
+    if (!rawAmount) throw createHttpError(400, 'amount must be greater than 0');
 
     const type = normalizeDistributorLedgerType(body.type || body.transaction_type);
     const signedAmount = type === 'payment' ? -rawAmount : rawAmount;
@@ -147,11 +149,9 @@
       const row = await createDistributorLedgerEntry(distributorId, req.body || {});
       return res.status(201).json(row);
     } catch (error) {
-      const message = String(error.message || '');
-      if (message.includes('required') || message.includes('not found') || message.includes('greater than 0')) {
-        return res.status(400).json({ error: message });
-      }
-      return res.status(500).json({ error: message });
+      const status = Number(error?.status || 0) || 500;
+      const message = String(error?.message || 'Failed to create distributor ledger entry');
+      return res.status(status).json({ error: message });
     }
   };
 

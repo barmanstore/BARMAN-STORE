@@ -243,7 +243,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
       dismissible={!loading}
       dialogClassName="user-edit-modal fade-in-up"
       headerClassName="user-edit-header"
-      closeButtonClassName="close-btn"
+      closeButtonClassName="user-edit-modal-close-btn"
       initialSize={{ width: 520, height: isCreate ? 620 : 520 }}
     >
       {formContent}

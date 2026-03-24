@@ -1,15 +1,3 @@
-.category-management-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(10, 18, 32, 0.56);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: max(18px, env(safe-area-inset-top, 0px)) 18px max(18px, env(safe-area-inset-bottom, 0px));
-  overscroll-behavior: contain;
-}
-
 .category-management-container {
   background: #f9fafc;
   border-radius: 14px;
@@ -20,6 +8,13 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 20px 52px rgba(15, 23, 42, 0.36);
+}
+
+.category-management-dialog {
+  background: #f9fafc;
+  border-radius: 14px;
+  max-width: 1180px;
   box-shadow: 0 20px 52px rgba(15, 23, 42, 0.36);
 }
 
@@ -57,20 +52,15 @@
   line-height: 1.45;
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
+.category-management-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
-  cursor: pointer;
-  border-radius: 8px;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.close-btn:hover {
+.category-management-close-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.32);
 }
 
 .category-toolbar {
@@ -612,10 +602,6 @@
 }
 
 @media (max-width: 980px) {
-  .category-management-container {
-    max-height: 96vh;
-  }
-
   .categories-workspace {
     grid-template-columns: 1fr;
   }
@@ -626,16 +612,6 @@
 }
 
 @media (max-width: 640px) {
-  .category-management-overlay {
-    padding: 0;
-  }
-
-  .category-management-container {
-    border-radius: 0;
-    max-height: 100vh;
-    max-height: 100dvh;
-  }
-
   .category-management-content {
     padding: 12px;
   }
@@ -664,19 +640,4 @@
   .tree-node-actions {
     grid-column: 2;
   }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.fade-in-up {
-  animation: fadeInUp 0.28s ease-out;
 }

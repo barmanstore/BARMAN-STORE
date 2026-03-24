@@ -117,10 +117,8 @@ const registerOrderStatusRoutes = (deps) => {
         pending_qty: Number(result.totalPendingQty || 0),
       });
     } catch (error) {
-      if (error.status) {
-        return res.status(error.status).json({ error: error.message });
-      }
-      return res.status(400).json({ error: error.message });
+      const status = Number(error?.status || 0) || 500;
+      return res.status(status).json({ error: error?.message || 'Failed to update order status' });
     }
   });
 

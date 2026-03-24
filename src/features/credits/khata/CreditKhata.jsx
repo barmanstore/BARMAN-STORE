@@ -353,7 +353,6 @@ function CreditKhata({ user }) {
           title={editingLedgerEntryId ? `Edit Latest ${ledgerEntryLabel}` : `Add ${ledgerEntryLabel}`}
           onClose={closeLedgerForm}
           dismissible={!ledgerSubmitting && !ledgerUploading}
-          dialogClassName="modal-content"
           themeClassName="credit-khata"
           contentClassName="window-modal-body-padded"
           initialSize={{ width: 640, height: 560 }}

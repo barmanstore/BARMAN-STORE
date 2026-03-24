@@ -764,9 +764,9 @@ export function PurchaseOrderFormModal({
       onClose={closeOrderForm}
       dismissible={!orderSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="modal-content large po-form-modal po-entry-view-modal"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="purchase-modal-frame large po-form-modal po-entry-view-modal"
+      headerClassName="purchase-modal-header"
+      closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: Math.min(poModalSize.width, 1080), height: 820 }}
       minWidth={720}
       minHeight={520}

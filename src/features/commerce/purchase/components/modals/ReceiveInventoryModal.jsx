@@ -119,9 +119,9 @@ const ReceiveInventoryModal = ({
       onClose={() => setShowReceiveModal(false)}
       dismissible={!receiveSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="modal-content large"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="purchase-modal-frame large"
+      headerClassName="purchase-modal-header"
+      closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: 980, height: 760 }}
       minWidth={700}
       minHeight={420}

@@ -211,9 +211,7 @@ function App() {
         '[data-modal-close="true"]',
         '.app-modal-close-btn',
         '.mobile-sheet-close-btn',
-        '.invoice-close-btn',
         '.dropdown-close-btn',
-        '.close-btn',
       ].join(', ');
       const candidates = Array.from(document.querySelectorAll(selector)).filter(isVisible);
       if (candidates.length === 0) return null;

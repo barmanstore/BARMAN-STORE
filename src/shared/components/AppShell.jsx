@@ -110,6 +110,7 @@ function AppShell({
     recipientSearch,
     messageSending,
     messageFeedback,
+    notificationFeedback,
     notificationInboxRef,
     onToggleRecipientSelection,
     onSendInboxMessage,
@@ -335,6 +336,7 @@ function AppShell({
         recipientSearch={recipientSearch}
         messageSending={messageSending}
         messageFeedback={messageFeedback}
+        notificationFeedback={notificationFeedback}
         notificationInboxRef={notificationInboxRef}
         onToggleRecipientSelection={onToggleRecipientSelection}
         onSendInboxMessage={onSendInboxMessage}

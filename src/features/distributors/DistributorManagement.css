@@ -219,44 +219,23 @@
 }
 
 /* Modal Styles */
-.distributor-management .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.distributor-management .modal-content {
+.distributor-management .distributor-modal-frame {
   background: white;
   border-radius: 16px;
-  width: 100%;
   max-width: 600px;
-  max-height: 90vh;
-  max-height: 90dvh;
-  overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-.distributor-management .modal-header {
+.distributor-management .distributor-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
   border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
   background: white;
-  z-index: 10;
 }
 
-.distributor-management .modal-header h2 {
+.distributor-management .distributor-modal-header h2 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
@@ -271,17 +250,11 @@
   color: #374151;
 }
 
-.distributor-management .close-btn {
-  background: none;
-  border: none;
+.distributor-management .distributor-modal-close-btn {
   color: #6b7280;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
 }
 
-.distributor-management .close-btn:hover {
+.distributor-management .distributor-modal-close-btn:hover:not(:disabled) {
   background: #f3f4f6;
   color: #111827;
 }

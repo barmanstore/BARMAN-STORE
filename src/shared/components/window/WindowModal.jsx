@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minus, X } from 'lucide-react';
 import useIsMobile from '../../hooks/useIsMobile';
@@ -42,6 +42,15 @@ function WindowModal({
   );
   const titleId = `${windowId}-title`;
   const subtitleId = `${windowId}-subtitle`;
+  const registrationPayload = useMemo(() => ({
+    title,
+    onClose,
+    dismissible,
+    closeOnBackdrop,
+    closeOnEscape,
+    minimized: false,
+  }), [closeOnBackdrop, closeOnEscape, dismissible, onClose, title]);
+  const registrationPayloadRef = useRef(registrationPayload);
 
   const entry = manager?.windows?.find((candidate) => candidate.id === windowId) || null;
   const sortedVisibleWindows = manager?.windows
@@ -57,6 +66,8 @@ function WindowModal({
     || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id
     || null;
   const isActive = !entry || !topVisibleWindowId ? true : topVisibleWindowId === windowId;
+  const isAccessibleDialog = isActive;
+  const headerIsDraggable = desktopLike && draggable && dismissible;
 
   const {
     frameRef,
@@ -71,48 +82,31 @@ function WindowModal({
     interactive: dismissible,
     draggable: desktopLike && draggable,
     resizable: desktopLike && resizable,
+    resetKey: windowId,
     initialSize,
     minWidth,
     minHeight,
   });
 
-  useFocusTrap(frameRef, open && !isMinimized);
+  useFocusTrap(frameRef, open && !isMinimized && isAccessibleDialog);
+
+  useEffect(() => {
+    registrationPayloadRef.current = registrationPayload;
+  }, [registrationPayload]);
 
   useEffect(() => {
     if (!open || !manager) return undefined;
 
-    manager.upsertWindow(windowId, {
-      title,
-      onClose,
-      dismissible,
-      closeOnBackdrop,
-      closeOnEscape,
-      minimized: false,
-    });
+    manager.upsertWindow(windowId, registrationPayloadRef.current);
     manager.activateWindow(windowId);
 
     return () => manager.unregisterWindow(windowId);
-  }, [
-    closeOnBackdrop,
-    closeOnEscape,
-    dismissible,
-    manager,
-    onClose,
-    open,
-    title,
-    windowId,
-  ]);
+  }, [manager, open, windowId]);
 
   useEffect(() => {
     if (!open || !manager) return;
-    manager.upsertWindow(windowId, {
-      title,
-      onClose,
-      dismissible,
-      closeOnBackdrop,
-      closeOnEscape,
-    });
-  }, [closeOnBackdrop, closeOnEscape, dismissible, manager, onClose, open, title, windowId]);
+    manager.upsertWindow(windowId, registrationPayload);
+  }, [manager, open, registrationPayload, windowId]);
 
   const handleClose = () => {
     if (!dismissible || typeof onClose !== 'function') return;
@@ -125,7 +119,9 @@ function WindowModal({
   };
 
   const handleFrameMouseDown = () => {
-    manager?.activateWindow(windowId);
+    if (!isActive) {
+      manager?.activateWindow(windowId);
+    }
   };
 
   if (!open || isMinimized || typeof document === 'undefined') return null;
@@ -149,17 +145,21 @@ function WindowModal({
           zIndex: 1,
           maxWidth: 'calc(100vw - 32px)',
           maxHeight: 'calc(100vh - 32px)',
-          overflow: 'hidden',
         }}
         onMouseDown={handleFrameMouseDown}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
-        aria-describedby={subtitle ? subtitleId : undefined}
-        tabIndex={-1}
+        role={isAccessibleDialog ? 'dialog' : undefined}
+        aria-modal={isAccessibleDialog ? 'true' : undefined}
+        aria-hidden={isAccessibleDialog ? undefined : 'true'}
+        aria-labelledby={isAccessibleDialog && title ? titleId : undefined}
+        aria-describedby={isAccessibleDialog && subtitle ? subtitleId : undefined}
+        tabIndex={isAccessibleDialog ? -1 : undefined}
       >
         <div
-          className={['window-modal-header', headerClassName].filter(Boolean).join(' ')}
+          className={[
+            'window-modal-header',
+            headerIsDraggable ? 'is-draggable' : 'is-static',
+            headerClassName,
+          ].filter(Boolean).join(' ')}
           onMouseDown={handleDragStart}
           data-window-drag-handle="true"
         >

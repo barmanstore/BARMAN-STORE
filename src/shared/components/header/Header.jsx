@@ -43,6 +43,7 @@ const Header = memo(function Header({
   recipientSearch,
   messageSending,
   messageFeedback,
+  notificationFeedback,
   notificationInboxRef,
   onToggleRecipientSelection,
   onSendInboxMessage,
@@ -150,6 +151,11 @@ const Header = memo(function Header({
                   <div className="notification-inbox-head">
                     <strong>Notification Inbox</strong>
                   </div>
+                  {notificationFeedback?.text ? (
+                    <p className={`notification-compose-feedback ${notificationFeedback.type === 'error' ? 'error' : 'success'}`}>
+                      {notificationFeedback.text}
+                    </p>
+                  ) : null}
                   {isSimpleInbox ? null : (
                     <div className="notification-compose-box">
                       <strong className="notification-compose-title">Conversation</strong>

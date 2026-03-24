@@ -1,4 +1,5 @@
 import classNames from 'classnames';
+
 import { memo } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import {
@@ -86,11 +87,11 @@ function OfferLibraryTable({
                   <td>{buildScheduleSummary(offer)}</td>
                   <td>
                     <span className={classNames('offer-status-badge', {
-  'tone-success': meta.tone === 'success',
-  'tone-pending': meta.tone === 'pending',
-  'tone-danger': meta.tone === 'danger',
-  'tone-muted': meta.tone === 'muted',
-})}>
+                      'tone-success': lifecycleMeta.tone === 'success',
+                      'tone-pending': lifecycleMeta.tone === 'pending',
+                      'tone-danger': lifecycleMeta.tone === 'danger',
+                      'tone-muted': lifecycleMeta.tone === 'muted',
+                    })}>
                       {lifecycleMeta.label}
                     </span>
                   </td>

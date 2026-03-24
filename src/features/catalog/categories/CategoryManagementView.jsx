@@ -153,9 +153,9 @@ const CategoryManagementView = ({
       open
       title="Category Management"
       onClose={onClose}
-      dialogClassName="category-management-container fade-in-up"
+      dialogClassName="category-management-dialog fade-in-up"
       headerClassName="category-management-header"
-      closeButtonClassName="close-btn"
+      closeButtonClassName="category-management-close-btn"
       initialSize={{ width: 1240, height: 820 }}
     >
       {content}

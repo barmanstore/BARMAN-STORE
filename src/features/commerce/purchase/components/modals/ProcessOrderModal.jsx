@@ -140,9 +140,9 @@ const ProcessOrderModal = ({
       onClose={closeProcessModal}
       dismissible={!processSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="modal-content"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="purchase-modal-frame"
+      headerClassName="purchase-modal-header"
+      closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: 760, height: 560 }}
     >
       <form onSubmit={handleProcessSubmit}>

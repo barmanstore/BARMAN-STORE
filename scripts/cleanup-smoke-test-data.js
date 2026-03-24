@@ -5,6 +5,12 @@ const {
   pingPostgresPool,
 } = require('../server/db/postgresScaffold');
 
+const explicitSmokeDbUrl = String(process.env.SMOKE_TEST_DB_URL || process.env.PHONE_TEST_DB_URL || '').trim();
+if (explicitSmokeDbUrl) {
+  process.env.SUPABASE_DB_URL = explicitSmokeDbUrl;
+  process.env.DATABASE_URL = explicitSmokeDbUrl;
+}
+
 const SMOKE_EMAIL_REGEX = '^(admin|customer|phone|po-admin)-smoke-[^@]*@example\\.com$|^category-admin-[^@]*@example\\.com$';
 const SMOKE_MESSAGE_REGEX = '(phone-smoke-|customer-smoke-|admin-smoke-|po-admin-smoke-|category-admin-|Smoke Customer|Smoke Product|Smoke PO Product|Smoke Distributor|Category Tree Product|Category tree smoke|Category Smoke Admin|SMOKE-PART-|SMOKE-FINAL-|Smoke lifecycle|SMK-)';
 

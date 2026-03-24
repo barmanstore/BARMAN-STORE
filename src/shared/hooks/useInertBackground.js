@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+const backgroundStateByRoot = new WeakMap();
+
 function useInertBackground(active) {
   useEffect(() => {
     if (!active || typeof document === 'undefined') return undefined;
@@ -9,30 +11,49 @@ function useInertBackground(active) {
       || document.getElementById('root');
     if (!(appRoot instanceof HTMLElement)) return undefined;
 
-    const previousAriaHidden = appRoot.getAttribute('aria-hidden');
-    const previousPointerEvents = appRoot.style.pointerEvents;
-    const supportsInert = 'inert' in appRoot;
-    const previousInert = supportsInert ? Boolean(appRoot.inert) : false;
-
-    if (supportsInert) {
-      appRoot.inert = true;
-    } else {
-      appRoot.style.pointerEvents = 'none';
+    let state = backgroundStateByRoot.get(appRoot);
+    if (!state) {
+      const supportsInert = 'inert' in appRoot;
+      state = {
+        count: 0,
+        supportsInert,
+        previousAriaHidden: appRoot.getAttribute('aria-hidden'),
+        previousPointerEvents: appRoot.style.pointerEvents,
+        previousInert: supportsInert ? Boolean(appRoot.inert) : false,
+      };
+      backgroundStateByRoot.set(appRoot, state);
     }
-    appRoot.setAttribute('aria-hidden', 'true');
+
+    if (state.count === 0) {
+      if (state.supportsInert) {
+        appRoot.inert = true;
+      } else {
+        appRoot.style.pointerEvents = 'none';
+      }
+      appRoot.setAttribute('aria-hidden', 'true');
+    }
+    state.count += 1;
 
     return () => {
-      if (supportsInert) {
-        appRoot.inert = previousInert;
+      const currentState = backgroundStateByRoot.get(appRoot);
+      if (!currentState) return;
+
+      currentState.count = Math.max(0, Number(currentState.count || 0) - 1);
+      if (currentState.count > 0) return;
+
+      if (currentState.supportsInert) {
+        appRoot.inert = currentState.previousInert;
       } else {
-        appRoot.style.pointerEvents = previousPointerEvents;
+        appRoot.style.pointerEvents = currentState.previousPointerEvents;
       }
 
-      if (previousAriaHidden == null) {
+      if (currentState.previousAriaHidden == null) {
         appRoot.removeAttribute('aria-hidden');
       } else {
-        appRoot.setAttribute('aria-hidden', previousAriaHidden);
+        appRoot.setAttribute('aria-hidden', currentState.previousAriaHidden);
       }
+
+      backgroundStateByRoot.delete(appRoot);
     };
   }, [active]);
 }

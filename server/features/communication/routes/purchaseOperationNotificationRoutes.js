@@ -1,40 +1,9 @@
 const registerPurchaseOperationNotificationRoutes = (deps) => {
   const {
     app,
-    requireAdmin,
-    requireAuth,
     requireCronSecret,
-    dbGetAsync,
-    dbRunAsync,
-    dbAllAsync,
-    dbTxAsync,
-    normalizeEmail,
-    parsePhoneInput,
-    normalizePhone,
-    parseBooleanEnv,
-    normalizeVisitorSessionId,
-    generateVisitorSessionId,
-    sanitizeTrackedPath,
-    sanitizeShortText,
-    hashVisitorIp,
-    getAuthUserFromRequest,
-    SQL_UPSERT_VISITOR_SESSION,
-    VISITOR_ONLINE_WINDOW_MINUTES,
-    sendEmailVerificationChallenge,
-    sendPhoneVerificationChallenge,
-    updateNotificationEventStatus,
-    createAppNotification,
-    notifyAdmins,
-    purgeOldAppNotificationsAsync,
-    APP_NOTIFICATION_RETENTION_DAYS,
-    APP_NOTIFICATION_PURGE_BATCH_LIMIT,
     runPurchaseOperationNotificationsAsync,
     PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
-    resolveClientRequestId,
-    parseJsonText,
-    safeSerializeJson,
-    isUniqueViolationError,
-    crypto,
   } = deps;
 
   const handlePurchaseOperationNotificationsRun = async (req, res) => {
@@ -55,7 +24,6 @@ const registerPurchaseOperationNotificationRoutes = (deps) => {
 
   app.get('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
   app.post('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
-
 };
 
 module.exports = { registerPurchaseOperationNotificationRoutes };

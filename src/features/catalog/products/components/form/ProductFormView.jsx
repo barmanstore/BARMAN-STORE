@@ -136,7 +136,7 @@ const ProductFormView = ({
       dismissible={!loading}
       dialogClassName={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}
       headerClassName="product-form-header"
-      closeButtonClassName="close-btn"
+      closeButtonClassName="product-form-close-btn"
       initialSize={{ width: isQuickMode ? 560 : 860, height: 760 }}
     >
       {formContent}

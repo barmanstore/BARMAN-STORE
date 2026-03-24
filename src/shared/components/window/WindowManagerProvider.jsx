@@ -7,6 +7,11 @@ import './WindowModal.css';
 const WindowManagerContext = createContext(null);
 
 const sortByOrder = (left, right) => Number(left.order || 0) - Number(right.order || 0);
+const getTopVisibleWindowId = (list = []) =>
+  list
+    .filter((entry) => !entry.minimized)
+    .sort(sortByOrder)
+    .at(-1)?.id || null;
 
 export function WindowManagerProvider({ children }) {
   const [windows, setWindows] = useState([]);
@@ -20,6 +25,12 @@ export function WindowManagerProvider({ children }) {
         return [...current, { id, order: orderRef.current++, minimized: false, ...payload }];
       }
 
+      const existing = current[index];
+      const hasChanges = Object.entries(payload).some(([key, value]) => existing[key] !== value);
+      if (!hasChanges) {
+        return current;
+      }
+
       const next = [...current];
       next[index] = { ...next[index], ...payload };
       return next;
@@ -31,14 +42,21 @@ export function WindowManagerProvider({ children }) {
   }, []);
 
   const activateWindow = useCallback((id) => {
-    setActiveWindowId(id);
-    setWindows((current) =>
-      current.map((entry) => (
-        entry.id === id
-          ? { ...entry, order: orderRef.current++ }
-          : entry
-      ))
-    );
+    setActiveWindowId((currentId) => (currentId === id ? currentId : id));
+    setWindows((current) => {
+      if (getTopVisibleWindowId(current) === id) {
+        return current;
+      }
+
+      let changed = false;
+      const next = current.map((entry) => {
+        if (entry.id !== id) return entry;
+        changed = true;
+        return { ...entry, order: orderRef.current++ };
+      });
+
+      return changed ? next : current;
+    });
   }, []);
 
   const setWindowMinimized = useCallback((id, minimized) => {

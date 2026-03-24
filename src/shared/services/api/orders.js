@@ -22,21 +22,6 @@ export const ordersApi = {
       method: 'POST',
       body: { ...orderData, payment_method: 'stripe' },
     }),
-  verifyInventory: (items) =>
-    apiFetch('/api/orders/verify-inventory', {
-      method: 'POST',
-      body: { items },
-    }),
-  verifyAddress: (address) =>
-    apiFetch('/api/orders/verify-address', {
-      method: 'POST',
-      body: address,
-    }),
-  getShippingOptions: (params) =>
-    apiFetch('/api/orders/shipping-options', {
-      method: 'POST',
-      body: params,
-    }),
   updateStatus: (id, status, extra = {}) => {
     const normalizedExtra = typeof extra === 'string'
       ? { description: extra }

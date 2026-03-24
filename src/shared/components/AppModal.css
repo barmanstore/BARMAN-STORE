@@ -1,22 +1,5 @@
-.app-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  background: rgba(2, 6, 23, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: max(1rem, env(safe-area-inset-top, 0px)) 1rem max(1rem, env(safe-area-inset-bottom, 0px));
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
 .app-modal-dialog {
   width: min(720px, 100%);
-  max-height: 90vh;
-  max-height: 90dvh;
-  overflow: auto;
-  overscroll-behavior: contain;
   border-radius: 14px;
   border: 1px solid var(--color-border);
   background: var(--color-card);

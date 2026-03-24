@@ -1,41 +1,5 @@
 const registerMediaProxyRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    requireAuth,
-    requireCronSecret,
-    dbGetAsync,
-    dbRunAsync,
-    dbAllAsync,
-    dbTxAsync,
-    normalizeEmail,
-    parsePhoneInput,
-    normalizePhone,
-    parseBooleanEnv,
-    normalizeVisitorSessionId,
-    generateVisitorSessionId,
-    sanitizeTrackedPath,
-    sanitizeShortText,
-    hashVisitorIp,
-    getAuthUserFromRequest,
-    SQL_UPSERT_VISITOR_SESSION,
-    VISITOR_ONLINE_WINDOW_MINUTES,
-    sendEmailVerificationChallenge,
-    sendPhoneVerificationChallenge,
-    updateNotificationEventStatus,
-    createAppNotification,
-    notifyAdmins,
-    purgeOldAppNotificationsAsync,
-    APP_NOTIFICATION_RETENTION_DAYS,
-    APP_NOTIFICATION_PURGE_BATCH_LIMIT,
-    runPurchaseOperationNotificationsAsync,
-    PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
-    resolveClientRequestId,
-    parseJsonText,
-    safeSerializeJson,
-    isUniqueViolationError,
-    crypto,
-  } = deps;
+  const { app } = deps;
 
   app.get('/api/media/proxy', async (req, res) => {
     try {
@@ -103,7 +67,6 @@ const registerMediaProxyRoutes = (deps) => {
       return res.status(500).json({ error: error.message || 'Media proxy failed' });
     }
   });
-
 };
 
 module.exports = { registerMediaProxyRoutes };

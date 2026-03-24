@@ -2,52 +2,13 @@ const registerUserVerificationAdminRoutes = (deps) => {
   const {
     app,
     requireAdmin,
-    requireAuth,
     dbGetAsync,
     dbRunAsync,
-    dbAllAsync,
     normalizeEmail,
-    parsePhoneInput,
     normalizePhone,
-    parseBooleanEnv,
-    runCustomerRequestPurge,
-    processPendingPhoneChangeRequests,
-    getPhoneMergeImpactSummary,
-    serializePhoneChangeRequest,
-    PHONE_CHANGE_STATUS_PENDING,
-    PHONE_CHANGE_STATUS_APPROVED,
-    PHONE_CHANGE_STATUS_REJECTED,
-    normalizePhoneChangeRequestStatus,
-    approvePhoneChangeRequest,
-    PHONE_CHANGE_DECISION_ADMIN,
-    notifyPhoneChangeApproved,
-    notifyPhoneChangeSubmitted,
-    logAdminAuditAsync,
-    rejectPhoneChangeRequest,
-    notifyPhoneChangeRejected,
-    normalizeContactVerificationRequestType,
     completeContactVerificationRequests,
-    sendEmailVerificationChallenge,
-    markContactVerificationRequestSent,
-    sendPhoneVerificationChallenge,
-    rejectContactVerificationRequest,
     createNotificationEvent,
     sanitizeUser,
-    generateTemporaryPassword,
-    hashPassword,
-    queuePhoneChangeRequest,
-    getRequestIp,
-    parseDataUrlImage,
-    PROFILE_IMAGE_ALLOWED_MIME,
-    PROFILE_IMAGE_MAX_BYTES,
-    mimeToExt,
-    buildProfileImagePath,
-    deleteManagedProfileImage,
-    PROFILE_UPLOAD_DIR,
-    crypto,
-    path,
-    fs,
-    validateCustomerProfile,
   } = deps;
 
   app.post('/api/admin/users/:id/email/verify', requireAdmin, async (req, res) => {
@@ -132,14 +93,13 @@ const registerUserVerificationAdminRoutes = (deps) => {
       return res.status(500).json({ error: error.message || 'Failed to verify phone' });
     }
   });
-  
+
   app.get('/api/admin/password-reset-requests', requireAdmin, async (_, res) =>
     res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
   );
   app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (_, res) =>
     res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
   );
-  
 };
 
 module.exports = { registerUserVerificationAdminRoutes };

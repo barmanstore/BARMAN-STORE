@@ -44,8 +44,8 @@ const registerUserProfileRoutes = (deps) => {
       if (!user) return res.status(404).json({ error: 'User not found' });
       return res.json(user);
     } catch (error) {
-      if (error?.status === 403) return res.status(403).json({ error: 'Forbidden' });
-      return res.status(500).json({ error: error.message });
+      const status = Number(error?.status || 0) || 500;
+      return res.status(status).json({ error: error?.message || 'Failed to load user profile' });
     }
   });
 

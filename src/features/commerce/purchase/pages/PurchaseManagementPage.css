@@ -1399,61 +1399,40 @@
 }
 
 /* Modal Styles */
-.purchase-management .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-
-.purchase-management .modal-content {
+.purchase-management .purchase-modal-frame {
   background: white;
   border-radius: 16px;
-  width: 100%;
   max-width: 600px;
-  max-height: 90vh;
-  max-height: 90dvh;
-  overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-.purchase-management .modal-content.large {
+.purchase-management .purchase-modal-frame.large {
   max-width: 800px;
 }
 
-.purchase-management .modal-content.po-form-modal {
+.purchase-management .purchase-modal-frame.po-form-modal {
   max-width: 980px;
   position: relative;
 }
 
-.purchase-management .modal-content.quick-po-modal {
+.purchase-management .purchase-modal-frame.quick-po-modal {
   max-width: 680px;
 }
 
-.purchase-management .modal-content.po-detail-modal {
+.purchase-management .purchase-modal-frame.po-detail-modal {
   max-width: 980px;
 }
 
-.purchase-management .modal-header {
+.purchase-management .purchase-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
   border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
   background: var(--color-card);
-  z-index: 10;
 }
 
-.purchase-management .modal-header h2 {
+.purchase-management .purchase-modal-header h2 {
   margin: 0;
   font-size: 20px;
   color: var(--color-primary);
@@ -1487,17 +1466,11 @@
   transform: translateY(-1px);
 }
 
-.purchase-management .close-btn {
-  background: none;
-  border: none;
+.purchase-management .purchase-modal-close-btn {
   color: var(--color-text);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
 }
 
-.purchase-management .close-btn:hover {
+.purchase-management .purchase-modal-close-btn:hover:not(:disabled) {
   background: var(--color-bg);
   color: var(--color-primary);
 }
@@ -1621,11 +1594,11 @@
   font-size: 15px;
 }
 
-.purchase-management .quick-po-modal .modal-header {
+.purchase-management .quick-po-modal .purchase-modal-header {
   padding: 14px 16px;
 }
 
-.purchase-management .quick-po-modal .modal-header h2 {
+.purchase-management .quick-po-modal .purchase-modal-header h2 {
   font-size: 17px;
 }
 
@@ -1672,7 +1645,7 @@
   grid-column: 1 / -1;
 }
 
-.purchase-management .po-entry-view-modal .modal-header {
+.purchase-management .po-entry-view-modal .purchase-modal-header {
   align-items: flex-start;
 }
 
@@ -3398,11 +3371,11 @@ body.po-modal-resizing {
     flex-direction: column;
   }
 
-  .purchase-management .modal-content.po-form-modal {
+  .purchase-management .purchase-modal-frame.po-form-modal {
     max-width: 100%;
   }
 
-  .purchase-management .modal-content.quick-po-modal {
+  .purchase-management .purchase-modal-frame.quick-po-modal {
     max-width: 100%;
   }
 
@@ -3458,7 +3431,7 @@ body.po-modal-resizing {
     padding: 12px;
   }
 
-  .purchase-management .modal-header {
+  .purchase-management .purchase-modal-header {
     align-items: flex-start;
     gap: 10px;
   }
@@ -3703,27 +3676,41 @@ body.po-modal-resizing {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .purchase-management .po-mobile-step-footer {
+    backdrop-filter: none;
+  }
+}
+
 @media print {
-  .purchase-management .modal-overlay {
-    position: static;
-    background: transparent;
-    padding: 0;
-  }
-
-  .purchase-management .modal-content {
-    box-shadow: none;
-    border: none;
-    max-width: 100%;
-    max-height: none;
-    overflow: visible;
-  }
-
-  .purchase-management .modal-header,
+  .window-manager-backdrop,
+  .window-manager-dock,
+  .purchase-management .purchase-modal-header,
   .purchase-management .modal-actions,
-  .purchase-management .close-btn {
+  .purchase-management .window-modal-resize-handle {
     display: none !important;
   }
 
+  .window-modal-root.purchase-management {
+    position: static;
+    inset: auto;
+    pointer-events: auto;
+    isolation: auto;
+  }
+
+  .purchase-management .purchase-modal-frame {
+    position: static;
+    box-shadow: none;
+    border: none;
+    max-width: 100%;
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible;
+    transform: none !important;
+  }
+
+  .purchase-management .window-modal-body,
   .purchase-management .order-detail-body {
     max-height: none;
     overflow: visible;

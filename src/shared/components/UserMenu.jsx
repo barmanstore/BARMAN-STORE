@@ -209,7 +209,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                     aria-label="Close account menu"
                     onClick={closeAccountMenu}
                   />
-                  <div className="user-dropdown fade-in-up open">
+                  <div className="user-dropdown user-dropdown--enter open">
                     <div className="dropdown-header">
                       {renderAvatar('dropdown-avatar')}
                       <div className="dropdown-user-info">

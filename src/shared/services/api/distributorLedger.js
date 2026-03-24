@@ -4,7 +4,10 @@ import { apiFetch } from './core';
 // DISTRIBUTOR LEDGER API (Credit/Payment)
 // ============================================
 
-const isNotFoundError = (err) => String(err?.message || '').toLowerCase().includes('not found');
+const isNotFoundError = (err) => (
+  Number(err?.status || 0) === 404
+  || String(err?.message || '').toLowerCase().includes('not found')
+);
 const DISTRIBUTOR_LEDGER_DISABLED_KEY = 'distributor_ledger_api_disabled';
 const readDistributorLedgerDisabled = () => {
   try {

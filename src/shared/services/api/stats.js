@@ -6,5 +6,4 @@ import { apiFetch } from './core';
 
 export const statsApi = {
   orders: () => apiFetch('/api/stats/orders'),
-  products: () => apiFetch('/api/stats/products'),
 };

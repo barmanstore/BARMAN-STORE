@@ -10,7 +10,6 @@ export { analyticsApi } from './analytics';
 export { productsApi } from './products';
 export { customersApi } from './customers';
 export { ordersApi } from './orders';
-export { cartApi } from './cart';
 export { usersApi } from './users';
 export { creditApi } from './credit';
 export { notificationsApi } from './notifications';

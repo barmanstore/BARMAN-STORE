@@ -140,9 +140,9 @@ const LedgerEntryModal = ({
       onClose={closeLedgerForm}
       dismissible={!ledgerSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="modal-content"
-      headerClassName="modal-header"
-      closeButtonClassName="close-btn"
+      dialogClassName="purchase-modal-frame"
+      headerClassName="purchase-modal-header"
+      closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: 720, height: 560 }}
     >
       <form onSubmit={handleLedgerSubmit}>

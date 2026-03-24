@@ -81,6 +81,7 @@
   flex-direction: column;
   min-width: 320px;
   min-height: 220px;
+  overflow: hidden;
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.26);
   background: var(--color-card, #ffffff);
@@ -113,8 +114,15 @@
   padding: 0.9rem 1rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(255, 255, 255, 0.78);
-  cursor: move;
   user-select: none;
+}
+
+.window-modal-header.is-draggable {
+  cursor: move;
+}
+
+.window-modal-header.is-static {
+  cursor: default;
 }
 
 .window-modal-title-group {
@@ -260,4 +268,16 @@
   left: -4px;
   bottom: -4px;
   cursor: nesw-resize;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .window-manager-backdrop,
+  .window-manager-dock {
+    backdrop-filter: none;
+  }
+
+  .window-modal-frame,
+  .window-modal-control-btn {
+    transition: none;
+  }
 }
