@@ -41,6 +41,7 @@ const BillingBillList = ({
     ) : (
       <div className="billing-bill-list" role="list" aria-label="Live bill items">
         {billItems.map((item, index) => {
+          const displayQty = Number(item?.effectiveQty ?? item?.qty ?? 0);
           return (
             <div
               key={item.id}
@@ -80,6 +81,9 @@ const BillingBillList = ({
                         {item.stockWarning.text}
                       </span>
                     ) : null}
+                    {item.appliedOfferLabel ? (
+                      <span className="billing-line-tag good">{item.appliedOfferLabel}</span>
+                    ) : null}
                     {item.isManualPrice ? (
                       <span className="billing-line-tag manual">Manual Price</span>
                     ) : null}
@@ -100,21 +104,32 @@ const BillingBillList = ({
 
               <div className="billing-bill-item-detail">
                 <span>
-                  {item.qty} {item.unit} x {formatCurrency(item.price)} / {item.priceUnit} =
+                  {displayQty} {item.unit} x {formatCurrency(item.price)} / {item.priceUnit} =
                 </span>
                 <strong>{formatCurrency(item.amount)}</strong>
               </div>
 
-              {(Number(item.disc || 0) > 0 || item.profitValue !== null) ? (
+              {(Number(item.totalDiscount || item.disc || 0) > 0 || item.profitValue !== null) ? (
                 <div className="billing-bill-item-meta">
-                  {Number(item.disc || 0) > 0 ? (
+                  {Number(item.offerDiscount || 0) > 0 ? (
                     <span>
-                      Discount: {formatCurrency(item.disc)}
+                      Offer: {item.appliedOfferLabel ? `${item.appliedOfferLabel} ` : ''}{formatCurrency(item.offerDiscount)}
+                    </span>
+                  ) : null}
+                  {Number(item.manualDiscount || 0) > 0 ? (
+                    <span>
+                      Manual: {formatCurrency(item.manualDiscount)}
                     </span>
                   ) : null}
                   {item.profitValue !== null ? (
                     <span className={item.profitValue >= 0 ? 'profit' : 'loss'}>
                       Profit: {formatCurrency(item.profitValue)}
+                    </span>
+                  ) : null}
+                  {item.isPartialLinkedBilling ? (
+                    <span>
+                      Billing now: {displayQty}/{Number(item.requestedQty || item.qty || 0)} {item.unit}
+                      {Number(item.linkedPendingQty || 0) > 0 ? ` | Pending after bill: ${Number(item.linkedPendingQty || 0)}` : ''}
                     </span>
                   ) : null}
                 </div>

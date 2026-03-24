@@ -1,5 +1,12 @@
 import { getProductImageSrc } from '../../../../shared/utils/productImage';
 import {
+  getProductDisplayPrice,
+  getProductOfferBadges,
+  getProductOfferDisplay,
+  getProductOfferLabel,
+  getProductOriginalPrice,
+} from '../../../../shared/utils/offers.js';
+import {
   getFamilyKey,
   getProductHierarchy,
   normalizeText,
@@ -11,13 +18,21 @@ const buildProductFamilies = (products = []) => {
   products.forEach((product) => {
     const hierarchy = getProductHierarchy(product);
     const key = getFamilyKey(product, hierarchy);
+    const displayPrice = Number(getProductDisplayPrice(product) || 0);
+    const originalPrice = Number(getProductOriginalPrice(product) || 0);
+    const offerDisplay = getProductOfferDisplay(product);
+    const offerLabel = getProductOfferLabel(product);
+    const offerBadges = getProductOfferBadges(product);
     const variationSignature = [
       normalizeText(product?.name),
       normalizeText(hierarchy.brandPath || hierarchy.brand),
-      Number(product?.price || 0).toFixed(2),
-      Number(product?.mrp || product?.price || 0).toFixed(2),
+      displayPrice.toFixed(2),
+      originalPrice.toFixed(2),
+      normalizeText(offerLabel),
+      offerBadges.map((badge) => normalizeText(badge)).join('|'),
       normalizeText(product?.content),
       normalizeText(product?.color),
+      normalizeText(product?.uom),
     ].join('|');
 
     if (!familyMap.has(key)) {
@@ -47,6 +62,9 @@ const buildProductFamilies = (products = []) => {
       if (!existingVariation.description && product.description) {
         existingVariation.description = String(product.description || '').trim();
       }
+      if (!String(existingVariation.image || '').trim()) {
+        existingVariation.image = getProductImageSrc(product);
+      }
     } else {
       family.variations.push({
         id: product.id,
@@ -62,11 +80,15 @@ const buildProductFamilies = (products = []) => {
         color: String(product.color || '').trim(),
         content: String(product.content || '').trim(),
         sku: String(product.sku || '').trim(),
-        price: Number(product.price || 0),
-        mrp: Number(product.mrp || 0),
+        price: displayPrice,
+        basePrice: Number(product.price || 0),
+        mrp: originalPrice,
         stock: Number(product.stock || 0),
         uom: String(product.uom || 'pcs').trim(),
         image: getProductImageSrc(product),
+        offerDisplay,
+        offerLabel,
+        offerBadges,
         raw: product,
       });
     }

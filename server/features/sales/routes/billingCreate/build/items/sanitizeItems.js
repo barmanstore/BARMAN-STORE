@@ -32,7 +32,7 @@ const sanitizeBillItems = async ({
       productCache.set(
         productId,
         (await dbGetAsync(
-          'SELECT id, name, stock, is_active, uom, base_unit, uom_type, conversion_factor FROM products WHERE id = ?',
+          'SELECT id, name, price, category, subcategory, stock, is_active, uom, base_unit, uom_type, conversion_factor FROM products WHERE id = ?',
           [productId]
         )) || null
       );
@@ -47,11 +47,14 @@ const sanitizeBillItems = async ({
       continue;
     }
     const qty = Math.max(0, Number(it.qty || 0));
-    const mrp = Math.max(0, Number(it.mrp || 0));
+    const submittedMrp = Math.max(0, Number(it.mrp || 0));
+    const productPrice = Math.max(0, Number(product?.price || 0));
     const pricingQty = toPricingQty(qty, it.unit, product);
-    const lineSubtotal = mrp * pricingQty;
-    const discount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
-    const amount = Math.max(0, lineSubtotal - discount);
+    const skipOffers = Boolean(it?.skip_offers)
+      || (product && submittedMrp > 0 && Math.abs(submittedMrp - productPrice) > 0.009);
+    const baseMrp = skipOffers ? submittedMrp : (product ? productPrice : submittedMrp);
+    const lineSubtotal = baseMrp * pricingQty;
+    const manualDiscount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
     const productName =
       String(it.product_name || '').trim()
       || String(product?.name || '').trim()
@@ -79,15 +82,18 @@ const sanitizeBillItems = async ({
       }
     }
     const normalized = {
+      client_item_id: it.client_item_id ?? rowNo,
+      linked_order_item_id: Number(it?.linked_order_item_id || 0) || null,
       product_id: product ? Number(product.id) : null,
       product_name: productName,
-      mrp,
+      mrp: baseMrp,
+      submitted_mrp: submittedMrp,
       qty,
       unit: normalizedUnit,
-      discount,
-      amount,
+      manual_discount: manualDiscount,
+      skip_offers: skipOffers,
     };
-    if (normalized.qty > 0 && normalized.amount >= 0) {
+    if (normalized.qty > 0 && normalized.mrp >= 0) {
       sanitizedItems.push(normalized);
     }
   }

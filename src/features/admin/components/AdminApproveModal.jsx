@@ -12,6 +12,9 @@ const AdminApproveModal = ({
   handleProceedToBilling,
 }) => {
   if (!showApproveModal || !modalOrder) return null;
+  const modalOrderId = Number(modalOrder?.id || 0);
+  const billingActionLocked = proceedBillingOrderId === modalOrderId;
+  const controlsDisabled = modalLoading || billingActionLocked;
 
   return (
     <AppModal
@@ -29,17 +32,19 @@ const AdminApproveModal = ({
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>Qty</th>
+                  <th>Requested</th>
+                  <th>Pending</th>
                   <th>Stock</th>
                 </tr>
               </thead>
               <tbody>
-                {modalItems.map(it => (
-                  <tr key={it.id}>
-                    <td style={{ padding: 6 }}>{it.product_name || it.name}</td>
-                    <td style={{ padding: 6 }}>{it.quantity}</td>
+                {modalItems.map((item) => (
+                  <tr key={item.id}>
+                    <td style={{ padding: 6 }}>{item.product_name || item.name}</td>
+                    <td style={{ padding: 6 }}>{item.requested_qty ?? item.quantity}</td>
+                    <td style={{ padding: 6 }}>{item.pending_qty ?? 0}</td>
                     <td style={{ padding: 6 }}>
-                      {it.stock !== undefined ? it.stock : '—'}
+                      {item.stock !== undefined && item.stock !== null ? item.stock : '-'}
                     </td>
                   </tr>
                 ))}
@@ -47,14 +52,14 @@ const AdminApproveModal = ({
             </table>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-            <button className="admin-btn" onClick={onClose} disabled={modalLoading}>Close</button>
+            <button className="admin-btn" onClick={onClose} disabled={controlsDisabled}>Close</button>
             {!(Number(modalOrder?.bill_id || 0) || String(modalOrder?.linked_bill_number || '').trim()) ? (
               <button
                 className="admin-btn"
                 onClick={() => handleProceedToBilling(modalOrder)}
-                disabled={modalLoading || proceedBillingOrderId === Number(modalOrder?.id || 0)}
+                disabled={controlsDisabled}
               >
-                {proceedBillingOrderId === Number(modalOrder?.id || 0)
+                {billingActionLocked
                   ? 'Opening...'
                   : String(modalOrder?.status || '').toLowerCase() === 'ordered'
                     ? 'Confirm + Billing'
@@ -65,7 +70,7 @@ const AdminApproveModal = ({
                 Bill: {modalOrder?.linked_bill_number || `#${modalOrder?.bill_id}`}
               </span>
             )}
-            <button className="admin-btn primary" onClick={confirmApprove} disabled={modalLoading}>Confirm Received</button>
+            <button className="admin-btn primary" onClick={confirmApprove} disabled={controlsDisabled}>Confirm Received</button>
           </div>
         </>
       )}
@@ -74,4 +79,3 @@ const AdminApproveModal = ({
 };
 
 export default AdminApproveModal;
-

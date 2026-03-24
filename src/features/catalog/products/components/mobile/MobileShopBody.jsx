@@ -75,10 +75,12 @@ const MobileShopBody = ({
           normalizeText={normalizeText}
         />
 
-        <MobileOffersSection
-          mobileOffers={mobileOffers}
-          handleMobileOfferAction={handleMobileOfferAction}
-        />
+        {mobileOffers.length > 0 ? (
+          <MobileOffersSection
+            mobileOffers={mobileOffers}
+            handleMobileOfferAction={handleMobileOfferAction}
+          />
+        ) : null}
 
         <MobileRepeatOrderSection
           repeatOrderFamilies={repeatOrderFamilies}

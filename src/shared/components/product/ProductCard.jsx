@@ -59,6 +59,18 @@ const ProductCard = memo(function ProductCard({
   const detailLabel = hasMultipleVariations ? `Options (${optionCount})` : 'Details';
   const Image = ImageComponent;
 
+  const offerLabel = String(
+    selectedVariation?.offerLabel
+    || selectedVariation?.offerBadges?.[0]
+    || selectedVariation?.offerDisplay?.display_offer_label
+    || ''
+  ).trim();
+  const offerNote = offerLabel.replace(/^\s*(save\s+[^|]+|\d+% off)\s*(\|\s*)?/i, '').trim();
+  const urgencyLabel = selectedStock > 0 && selectedStock <= 5 ? `Only ${selectedStock} left` : '';
+  const offerToneLabel = hasDiscount
+    ? (offerLabel ? (discountPercent >= 25 ? 'Best Deal' : 'Live Offer') : 'Price Drop')
+    : (offerLabel ? 'Live Offer' : '');
+
   return (
     <article
       className={`product-card family-card fade-in-up glass-product-card glass-product-card--${variant} ${familyLowStock ? 'low-stock-card' : 'high-stock-card'} ${isAddedState ? 'is-added' : ''}`}
@@ -119,15 +131,35 @@ const ProductCard = memo(function ProductCard({
           {showMetaLine && metaLine ? <p className="product-meta-line">{metaLine}</p> : null}
           {selectedLabel ? <p className="product-weight">{selectedLabel}</p> : null}
 
-          <div className="product-price-row">
-            <strong><SignedCurrency amount={priceValue} /></strong>
-            {hasDiscount ? (
-              <span className="product-price-mrp">{formatCurrency(mrpValue)}</span>
-            ) : null}
-          </div>
-
           {hasDiscount ? (
-            <small className="save-price">Save {formatCurrency(savingsValue)}</small>
+            <div className="card-offer-hero">
+              <div className="card-offer-heading">
+                {offerToneLabel ? <span className="card-offer-chip">{offerToneLabel}</span> : null}
+                {offerNote ? <span className="card-offer-note">{offerNote}</span> : null}
+              </div>
+              <div className="card-offer-pricing">
+                <strong className="card-sale-price">
+                  <SignedCurrency amount={priceValue} />
+                </strong>
+                <span className="card-original-price">{formatCurrency(mrpValue)}</span>
+              </div>
+              <div className="card-offer-summary">
+                <strong>{Math.max(1, discountPercent)}% OFF</strong>
+                <span>Save {formatCurrency(savingsValue)}</span>
+                {urgencyLabel ? <span className="card-urgency-pill">{urgencyLabel}</span> : null}
+              </div>
+            </div>
+          ) : (
+            <div className="product-price-row">
+              <strong><SignedCurrency amount={priceValue} /></strong>
+              {offerToneLabel ? <span className="card-inline-offer-chip">{offerToneLabel}</span> : null}
+            </div>
+          )}
+
+          {!hasDiscount && offerLabel ? (
+            <small className="card-offer-note-line">
+              {offerLabel}
+            </small>
           ) : null}
 
           {showFromPrice ? (
@@ -139,19 +171,11 @@ const ProductCard = memo(function ProductCard({
           <div className="product-stock">
             <span className={stockTone}>{stockText}</span>
             <small className="cart-qty-indicator">
-              {familyCartQty > 0 ? `Cart ${familyCartQty}` : stockHint}
+              {familyCartQty > 0 ? `Cart ${familyCartQty}` : (urgencyLabel || stockHint)}
             </small>
           </div>
 
           <div className="card-action-row">
-            <button
-              type="button"
-              className="card-view-btn"
-              onClick={onOpenDetails}
-            >
-              {detailLabel}
-            </button>
-
             {selectedQty > 0 ? (
               <div className="card-qty-counter">
                 <button
@@ -182,6 +206,14 @@ const ProductCard = memo(function ProductCard({
                 {selectedStock === 0 ? stockActionLabel : 'Add'}
               </button>
             )}
+
+            <button
+              type="button"
+              className="card-view-btn"
+              onClick={onOpenDetails}
+            >
+              {detailLabel}
+            </button>
           </div>
 
           {showSwipeHint ? (

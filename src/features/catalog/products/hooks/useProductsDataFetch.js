@@ -11,6 +11,20 @@ const resolveProductsPayload = (payload) => {
   };
 };
 
+const hasOfferDecorations = (items = []) => items.some((item) => {
+  const offerDisplay = item?.offer_display;
+  const badges = Array.isArray(item?.active_offer_labels)
+    ? item.active_offer_labels
+    : Array.isArray(offerDisplay?.badges)
+      ? offerDisplay.badges
+      : [];
+  return Boolean(
+    String(offerDisplay?.display_offer_label || '').trim()
+    || badges.some((badge) => String(badge || '').trim())
+    || offerDisplay?.has_offer
+  );
+});
+
 const useProductsDataFetch = ({
   serverCategoryFilter,
   appliedSearchQuery,
@@ -55,7 +69,7 @@ const useProductsDataFetch = ({
 
       setProducts((prev) => {
         const merged = append ? [...prev, ...nextItems] : nextItems;
-        if (!append && cacheKey) {
+        if (!append && cacheKey && !hasOfferDecorations(merged)) {
           safeWriteSessionJson(cacheKey, {
             items: merged,
             page: nextPage,
@@ -115,11 +129,15 @@ const useProductsDataFetch = ({
       pageSize: productPageSize,
     });
     const cached = safeReadSessionJson(cacheKey, null);
+    const cachedItems = Array.isArray(cached?.items) ? cached.items : [];
+    const cacheTtlMs = hasOfferDecorations(cachedItems)
+      ? Math.min(PRODUCTS_LIST_CACHE_TTL_MS, 5 * 1000)
+      : PRODUCTS_LIST_CACHE_TTL_MS;
     const isCacheFresh = Number(cached?.at || 0) > 0
-      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_LIST_CACHE_TTL_MS
+      && (Date.now() - Number(cached?.at || 0)) < cacheTtlMs
       && Array.isArray(cached?.items);
     if (isCacheFresh) {
-      setProducts(cached.items);
+      setProducts(cachedItems);
       setProductsPage(Math.max(1, Number(cached?.page || 1)));
       setProductsHasMore(Boolean(cached?.has_more));
       setError('');

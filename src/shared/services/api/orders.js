@@ -37,10 +37,17 @@ export const ordersApi = {
       method: 'POST',
       body: params,
     }),
-  updateStatus: (id, status) =>
-    apiFetch(`/api/orders/${id}/status`, {
+  updateStatus: (id, status, extra = {}) => {
+    const normalizedExtra = typeof extra === 'string'
+      ? { description: extra }
+      : (extra && typeof extra === 'object' ? extra : {});
+    return apiFetch(`/api/orders/${id}/status`, {
       method: 'PUT',
-      body: { status },
-    }),
+      body: {
+        status,
+        ...normalizedExtra,
+      },
+    });
+  },
   getHistory: (id) => apiFetch(`/api/orders/${id}/history`),
 };

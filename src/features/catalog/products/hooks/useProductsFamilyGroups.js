@@ -131,9 +131,27 @@ const useProductsFamilyGroups = ({
       return stockScore + recencyScore + discountScore + frequencyScore;
     };
 
+    const getBestDiscountPercent = (family) => {
+      const variations = Array.isArray(family?.variations) ? family.variations : [];
+      return variations.reduce((maxPercent, variation) => {
+        const price = Number(variation?.price || 0);
+        const mrp = Math.max(price, Number(variation?.mrp || variation?.basePrice || 0));
+        if (!Number.isFinite(price) || !Number.isFinite(mrp) || mrp <= price || mrp <= 0) {
+          return maxPercent;
+        }
+        const nextPercent = Math.round(((mrp - price) / mrp) * 100);
+        return Math.max(maxPercent, nextPercent);
+      }, 0);
+    };
+
     const sorters = {
       'price-asc': (a, b) => Number(a.minPrice || 0) - Number(b.minPrice || 0),
       'price-desc': (a, b) => Number(b.minPrice || 0) - Number(a.minPrice || 0),
+      'discount-desc': (a, b) => {
+        const discountDiff = getBestDiscountPercent(b) - getBestDiscountPercent(a);
+        if (discountDiff !== 0) return discountDiff;
+        return Number(a.minPrice || 0) - Number(b.minPrice || 0);
+      },
       'stock-desc': (a, b) => Number(b.totalStock || 0) - Number(a.totalStock || 0),
       newest: (a, b) => Number(Math.max(...b.variations.map((variation) => Number(variation.id || 0))))
         - Number(Math.max(...a.variations.map((variation) => Number(variation.id || 0)))),

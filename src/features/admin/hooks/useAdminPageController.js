@@ -286,7 +286,6 @@ const useAdminPageController = ({ user }) => {
     orders,
     activeTab,
     ordersPage,
-    setOrdersPage,
     ordersSearchQuery,
     loadOrdersPage,
     usersPage,
@@ -482,7 +481,6 @@ const useAdminPageController = ({ user }) => {
     handleProceedToBilling,
   } = useAdminOrderActions({
     ordersApi,
-    productsApi,
     user,
     setModalLoading,
     setModalOrder,

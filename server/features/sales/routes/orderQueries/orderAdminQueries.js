@@ -12,7 +12,8 @@ const createOrderAdminQueries = (deps) => {
     if (!order) return null;
     const items = await dbAllAsync(
       `SELECT oi.*,
-              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name
+              COALESCE(NULLIF(oi.product_name, ''), p.name, 'Item') AS product_name,
+              p.stock AS stock
        FROM order_items oi
        LEFT JOIN products p ON p.id = oi.product_id
        WHERE oi.order_id = ?

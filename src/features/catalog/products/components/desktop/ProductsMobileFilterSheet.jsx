@@ -82,6 +82,7 @@ const ProductsMobileFilterSheet = ({
           <option value="newest">Newest</option>
           <option value="price-asc">Price: Low to High</option>
           <option value="price-desc">Price: High to Low</option>
+          <option value="discount-desc">Discount: High to Low</option>
           <option value="stock-desc">Stock: High to Low</option>
         </select>
       </div>

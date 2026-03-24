@@ -9,7 +9,6 @@ const useAdminEffects = ({
   orders,
   activeTab,
   ordersPage,
-  setOrdersPage,
   ordersSearchQuery,
   loadOrdersPage,
   usersPage,
@@ -81,16 +80,13 @@ const useAdminEffects = ({
   }, [orders, latestKnownOrderIdRef]);
 
   useEffect(() => {
-    setOrdersPage(1);
-  }, [ordersSearchQuery, setOrdersPage]);
-
-  useEffect(() => {
     setUsersPage(1);
   }, [usersSearchQuery, setUsersPage]);
 
   useEffect(() => {
     if (!userId || !canViewBackoffice || activeTab !== 'orders') return;
     let cancelled = false;
+    let intervalId = null;
     const pollOrders = async (initialLoad = false) => {
       try {
         const result = await loadOrdersPage({
@@ -110,11 +106,19 @@ const useAdminEffects = ({
       }
     };
 
-    pollOrders(true);
-    const timer = window.setInterval(() => pollOrders(false), 10000);
+    const startPolling = () => {
+      void pollOrders(true);
+      intervalId = window.setInterval(() => {
+        void pollOrders(false);
+      }, 10000);
+    };
+
+    const delayMs = ordersSearchQuery ? 180 : 0;
+    const timer = window.setTimeout(startPolling, delayMs);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (intervalId) window.clearInterval(intervalId);
+      window.clearTimeout(timer);
     };
   }, [
     activeTab,

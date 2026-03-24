@@ -1,3 +1,8 @@
+const {
+  loadActiveOffers,
+  decorateProductWithOffers,
+} = require('../../../offers/offerEngine');
+
 const registerProductListRoutes = (deps) => {
   const {
     app,
@@ -76,14 +81,17 @@ const registerProductListRoutes = (deps) => {
 
       const baseSql = `FROM products WHERE ${whereSql}`;
       if (isPaginated) {
-        const totalRow = await dbGetAsync(`SELECT COUNT(*) AS count ${baseSql}`, params);
+        const [totalRow, rows, activeOffers] = await Promise.all([
+          dbGetAsync(`SELECT COUNT(*) AS count ${baseSql}`, params),
+          dbAllAsync(
+            `SELECT * ${baseSql}${orderSql} LIMIT ? OFFSET ?`,
+            [...params, ...orderParams, pageSize, offset]
+          ),
+          loadActiveOffers(dbAllAsync),
+        ]);
         const total = Number(totalRow?.count || 0);
-        const rows = await dbAllAsync(
-          `SELECT * ${baseSql}${orderSql} LIMIT ? OFFSET ?`,
-          [...params, ...orderParams, pageSize, offset]
-        );
         const payload = {
-          items: rows.map(normalizeProductRecord),
+          items: rows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true })),
           pagination: {
             page,
             page_size: pageSize,
@@ -92,13 +100,26 @@ const registerProductListRoutes = (deps) => {
             has_more: offset + rows.length < total,
           },
         };
-        setProductsListCacheHeaders(res, { isPaginated, includeInactive, status });
+        setProductsListCacheHeaders(res, {
+          isPaginated,
+          includeInactive,
+          status,
+          hasActiveOffers: activeOffers.length > 0,
+        });
         return sendJsonWithOptionalCompression(req, res, payload);
       }
 
-      const rows = await dbAllAsync(`SELECT * ${baseSql}${orderSql}`, [...params, ...orderParams]);
-      const payload = rows.map(normalizeProductRecord);
-      setProductsListCacheHeaders(res, { isPaginated, includeInactive, status });
+      const [rows, activeOffers] = await Promise.all([
+        dbAllAsync(`SELECT * ${baseSql}${orderSql}`, [...params, ...orderParams]),
+        loadActiveOffers(dbAllAsync),
+      ]);
+      const payload = rows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true }));
+      setProductsListCacheHeaders(res, {
+        isPaginated,
+        includeInactive,
+        status,
+        hasActiveOffers: activeOffers.length > 0,
+      });
       return sendJsonWithOptionalCompression(req, res, payload);
     } catch (error) {
       return res.status(500).json({ error: error.message });

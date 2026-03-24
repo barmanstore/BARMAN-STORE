@@ -1,6 +1,12 @@
+const {
+  loadActiveOffers,
+  decorateProductWithOffers,
+} = require('../../../offers/offerEngine');
+
 const registerProductDetailRoutes = (deps) => {
   const {
     app,
+    dbAllAsync,
     dbGetAsync,
     normalizeProductRecord,
   } = deps;
@@ -13,7 +19,8 @@ const registerProductDetailRoutes = (deps) => {
         [req.params.id]
       );
       if (!product) return res.status(404).json({ error: 'Product not found' });
-      return res.json(normalizeProductRecord(product));
+      const activeOffers = await loadActiveOffers(dbAllAsync);
+      return res.json(decorateProductWithOffers(normalizeProductRecord(product), activeOffers, { offersArePrepared: true }));
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }

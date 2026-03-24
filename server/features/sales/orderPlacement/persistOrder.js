@@ -54,8 +54,8 @@ const persistOrderPlacement = async ({
       const lineUom = normalizeUomToken(it.uom, 'pcs');
       await dbRunAsync(
         `INSERT INTO order_items
-         (order_id, product_id, product_name, is_manual, quantity, uom, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, price, total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (order_id, product_id, product_name, is_manual, quantity, uom, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, price, line_subtotal, offer_discount, manual_discount, offer_label, total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           productId,
@@ -69,7 +69,15 @@ const persistOrderPlacement = async ({
           pendingQty,
           stockSnapshot,
           it.price,
-          it.price * it.quantity,
+          Number.isFinite(Number(it?.line_subtotal))
+            ? Number(it.line_subtotal)
+            : (it.price * it.quantity),
+          Math.max(0, Number(it?.offer_discount || 0)),
+          Math.max(0, Number(it?.manual_discount || 0)),
+          String(it?.offer_label || '').trim() || null,
+          Number.isFinite(Number(it?.line_total))
+            ? Number(it.line_total)
+            : (it.price * it.quantity),
         ]
       );
     }

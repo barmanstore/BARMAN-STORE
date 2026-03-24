@@ -39,6 +39,12 @@ function ProductDetailView({
   const isMaxed = false;
   const canIncreaseQty = true;
   const added = buttonStatus[selectedVariation.id] === 'added';
+  const offerLabel = String(
+    selectedVariation?.offerLabel
+    || selectedVariation?.offerBadges?.[0]
+    || selectedVariation?.offerDisplay?.display_offer_label
+    || ''
+  ).trim();
 
   return (
     <div className="product-detail-view" onClick={(event) => event.stopPropagation()} role="presentation">
@@ -85,6 +91,7 @@ function ProductDetailView({
         {selectedVariation.mrp && Number(selectedVariation.mrp) > Number(selectedVariation.price) && (
           <small className="mrp-price">MRP: {formatCurrency(selectedVariation.mrp)}</small>
         )}
+        {offerLabel ? <small className="mrp-price">{offerLabel}</small> : null}
         <div className="detail-stock-line">
           <span className={selectedStock > 0 ? (isSpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
             {selectedStock > 0 ? (isSpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}

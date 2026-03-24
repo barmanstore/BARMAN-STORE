@@ -15,7 +15,7 @@ const ABOVE_FOLD_EAGER_IMAGE_COUNT = {
   desktop: 8
 };
 const DEFAULT_SORT_BY = 'popular';
-const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc', 'stock-desc'];
+const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc', 'discount-desc', 'stock-desc'];
 const SORT_API_FALLBACK = {
   popular: 'relevance'
 };
@@ -26,8 +26,8 @@ const MOBILE_TAB_OPTIONS = [
 ];
 const PRODUCTS_TELEMETRY_SESSION_KEY = 'barman_products_session_v1';
 const PRODUCTS_AB_VARIANT_KEY = 'barman_products_ab_variant_v1';
-const PRODUCTS_LIST_CACHE_PREFIX = 'barman_products_page_cache_v1';
-const PRODUCTS_LIST_CACHE_TTL_MS = 90 * 1000;
+const PRODUCTS_LIST_CACHE_PREFIX = 'barman_products_page_cache_v2';
+const PRODUCTS_LIST_CACHE_TTL_MS = 15 * 1000;
 const PRODUCTS_CATEGORIES_CACHE_KEY = 'barman_products_categories_cache_v1';
 const PRODUCTS_CATEGORIES_CACHE_TTL_MS = 10 * 60 * 1000;
 const SEARCH_SUGGESTIONS_CACHE_TTL_MS = 5 * 60 * 1000;

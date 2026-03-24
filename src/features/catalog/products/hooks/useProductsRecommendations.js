@@ -1,5 +1,59 @@
 import { useMemo } from 'react';
 
+const roundMoney = (value = 0) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+
+const getVariationOfferSnapshot = (variation = null) => {
+  const offerDisplay = variation?.offerDisplay;
+  const offerLabel = String(
+    variation?.offerLabel
+    || variation?.offerBadges?.[0]
+    || offerDisplay?.display_offer_label
+    || ''
+  ).trim();
+  const hasOffer = Boolean(
+    offerLabel
+    || offerDisplay?.has_offer
+    || (Array.isArray(variation?.offerBadges) && variation.offerBadges.length > 0)
+  );
+  const displayPrice = Math.max(0, Number(variation?.price || offerDisplay?.display_price || 0));
+  const originalPrice = Math.max(
+    displayPrice,
+    Number(offerDisplay?.original_price ?? variation?.mrp ?? variation?.basePrice ?? displayPrice) || displayPrice
+  );
+  const savings = roundMoney(Math.max(0, originalPrice - displayPrice));
+
+  return {
+    hasOffer,
+    offerLabel,
+    displayPrice,
+    originalPrice,
+    savings,
+    hasPriceDrop: savings > 0.009,
+  };
+};
+
+const getBestFamilyOffer = (family = null) => {
+  const variations = Array.isArray(family?.variations) ? family.variations : [];
+  const candidates = variations
+    .map((variation) => ({ variation, snapshot: getVariationOfferSnapshot(variation) }))
+    .filter(({ snapshot }) => snapshot.hasOffer);
+
+  if (!candidates.length) return null;
+
+  return candidates.sort((left, right) => {
+    if (Number(right.snapshot.hasPriceDrop) !== Number(left.snapshot.hasPriceDrop)) {
+      return Number(right.snapshot.hasPriceDrop) - Number(left.snapshot.hasPriceDrop);
+    }
+    if (right.snapshot.savings !== left.snapshot.savings) {
+      return right.snapshot.savings - left.snapshot.savings;
+    }
+    if (left.snapshot.displayPrice !== right.snapshot.displayPrice) {
+      return left.snapshot.displayPrice - right.snapshot.displayPrice;
+    }
+    return Number(right.variation?.stock || 0) - Number(left.variation?.stock || 0);
+  })[0];
+};
+
 const useProductsRecommendations = ({
   selectedCategory,
   filteredFamilies,
@@ -220,33 +274,43 @@ const useProductsRecommendations = ({
   }, [quickAddFamilies, getSelectedVariation, selectedVariationByFamily, normalizeText]);
 
   const mobileOffers = useMemo(() => {
-    const cards = [
-      {
-        id: 'fresh-picks',
-        title: 'Fresh Picks Today',
-        subtitle: 'Daily essentials delivered fast',
-        action: 'Shop now',
-        tone: 'fresh'
-      },
-      {
-        id: 'value-deals',
-        title: 'Value Deals',
-        subtitle: 'Save more on kitchen staples',
-        action: 'Browse deals',
-        tone: 'value'
-      },
-      {
-        id: 'snack-time',
-        title: 'Snack Time',
-        subtitle: 'Bites, biscuits, and tea-time picks',
-        action: 'Add to basket',
-        tone: 'snack'
-      }
-    ];
+    const liveOfferCards = (selectedCategory !== 'all' ? mobileFilteredFamilies : productFamilies)
+      .map((family) => {
+        const offerEntry = getBestFamilyOffer(family);
+        if (!offerEntry) return null;
+        const { variation, snapshot } = offerEntry;
+        const subtitle = snapshot.hasPriceDrop
+          ? `${family.name} now Rs ${snapshot.displayPrice.toFixed(2)}. Save Rs ${snapshot.savings.toFixed(2)}.`
+          : `${family.name} features ${snapshot.offerLabel}. Offer conditions apply.`;
+        return {
+          id: `live-offer-${family.id}`,
+          title: snapshot.offerLabel,
+          subtitle,
+          action: family.category ? `Shop ${family.category}` : 'View product',
+          tone: snapshot.hasPriceDrop ? 'value' : 'fresh',
+          category: family.category || null,
+          familyId: family.id,
+          productId: Number(variation?.id || 0) || null,
+          savings: snapshot.savings,
+          hasPriceDrop: snapshot.hasPriceDrop,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => {
+        if (Number(right.hasPriceDrop) !== Number(left.hasPriceDrop)) {
+          return Number(right.hasPriceDrop) - Number(left.hasPriceDrop);
+        }
+        if (right.savings !== left.savings) {
+          return right.savings - left.savings;
+        }
+        return String(left.title || '').localeCompare(String(right.title || ''));
+      });
 
-    if (comboSuggestions.length > 0) {
+    const cards = liveOfferCards.slice(0, 4);
+
+    if (comboSuggestions.length > 0 && cards.length < 4) {
       const combo = comboSuggestions[0];
-      cards.unshift({
+      cards.push({
         id: `combo-${combo.id}`,
         title: combo.title,
         subtitle: combo.subtitle,
@@ -256,8 +320,8 @@ const useProductsRecommendations = ({
       });
     }
 
-    return cards;
-  }, [comboSuggestions]);
+    return cards.slice(0, 4);
+  }, [comboSuggestions, mobileFilteredFamilies, productFamilies, selectedCategory]);
 
   return {
     familyById,

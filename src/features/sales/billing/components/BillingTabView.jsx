@@ -52,6 +52,8 @@ const BillingTabView = ({
   subtotalAmount,
   totalDiscount,
   totalBill,
+  pricingPreviewLoading,
+  pricingPreviewError,
   paidClamped,
   creditAmount,
   paidAmountWarning,
@@ -173,6 +175,12 @@ const BillingTabView = ({
         <div className="billing-prefill-note">
           Linked order mode is active. You can still edit line items and complete the bill inline.
         </div>
+      ) : null}
+      {pricingPreviewLoading ? (
+        <div className="billing-prefill-note">Refreshing offer pricing for the current bill...</div>
+      ) : null}
+      {pricingPreviewError ? (
+        <div className="billing-prefill-note">{pricingPreviewError}</div>
       ) : null}
 
       {error ? (

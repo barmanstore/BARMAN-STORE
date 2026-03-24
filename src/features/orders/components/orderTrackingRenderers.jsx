@@ -46,16 +46,30 @@ const getOrderItemDisplay = (item) => {
   const manual = Number(item?.is_manual || 0) === 1 || !Number(item?.product_id || 0);
   const unitPrice = Number(item?.price || 0);
   const quantity = Number(item?.quantity || 0);
+  const lineSubtotal = Number(item?.line_subtotal || computedFallbackLineSubtotal(item));
   const computedTotal = Number(item?.total || (quantity * unitPrice));
+  const offerDiscount = Math.max(0, Number(item?.offer_discount || 0));
+  const manualDiscount = Math.max(0, Number(item?.manual_discount || 0));
   const quantityLabel = String(item?.quantity_label || parsed.qtyLabel || '').trim();
   return {
     name: parsed.name || '-',
     quantityText: quantityLabel || String(quantity > 0 ? quantity : 1),
     unitPrice,
+    lineSubtotal,
     total: computedTotal,
+    offerDiscount,
+    manualDiscount,
+    totalDiscount: Math.max(0, offerDiscount + manualDiscount),
+    offerLabel: String(item?.offer_label || '').trim(),
     unknownPrice: manual && unitPrice <= 0,
   };
 };
+
+function computedFallbackLineSubtotal(item) {
+  const quantity = Number(item?.quantity || 0);
+  const unitPrice = Number(item?.price || 0);
+  return quantity * unitPrice;
+}
 
 export {
   formatDate,

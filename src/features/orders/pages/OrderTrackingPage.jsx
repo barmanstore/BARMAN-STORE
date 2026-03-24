@@ -76,9 +76,16 @@ function OrderTrackingPage() {
     const items = Array.isArray(orderData?.items) ? orderData.items : [];
     const rows = items.map((item) => {
       const display = getOrderItemDisplay(item);
+      const pricingNote = display.totalDiscount > 0
+        ? `<div class="receipt-item-note">${escapeHtml(
+          display.offerLabel
+            ? `${display.offerLabel} | Saved ${formatCurrency(display.totalDiscount)}`
+            : `Saved ${formatCurrency(display.totalDiscount)}`
+        )}</div>`
+        : '';
       return `
         <tr>
-          <td>${escapeHtml(display.name)}</td>
+          <td>${escapeHtml(display.name)}${pricingNote}</td>
           <td>${escapeHtml(display.quantityText)}</td>
           <td>${escapeHtml(display.unknownPrice ? 'Unknown' : formatCurrency(display.unitPrice))}</td>
           <td>${escapeHtml(display.unknownPrice ? 'Unknown' : formatCurrency(display.total))}</td>
@@ -137,6 +144,7 @@ function OrderTrackingPage() {
         .receipt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .receipt-table th, .receipt-table td { border: 1px solid #d1d5db; padding: 7px; text-align: left; }
         .receipt-table thead th { background: #f3f4f6; }
+        .receipt-item-note { margin-top: 4px; font-size: 11px; color: #4b5563; }
         .receipt-summary { width: 320px; margin-top: 14px; margin-left: auto; }
         .receipt-summary div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
         .receipt-summary .total { font-weight: 700; border-bottom: none; font-size: 14px; }
@@ -266,6 +274,11 @@ function OrderTrackingPage() {
                       <p className="item-price">
                         {display.unknownPrice ? 'Price: Unknown' : `${formatCurrency(display.unitPrice)} each`}
                       </p>
+                      {!display.unknownPrice && display.totalDiscount > 0 ? (
+                        <p className="item-price">
+                          {display.offerLabel ? `${display.offerLabel} | ` : ''}{`${formatCurrency(display.lineSubtotal)} -> ${formatCurrency(display.total)}`}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="item-total">
                       {display.unknownPrice ? 'Unknown' : formatCurrency(display.total)}

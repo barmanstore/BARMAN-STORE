@@ -21,6 +21,9 @@ const suiteDefinitions = {
   'order-flow': [
     { label: 'Order+billing workflow smoke test', command: process.execPath, args: [scriptPath('test-order-billing-flow.mjs')] },
   ],
+  'linked-order-billing': [
+    { label: 'Linked order billing regression smoke test', command: process.execPath, args: [scriptPath('test-linked-order-billing-regression.mjs')] },
+  ],
   'po-lifecycle': [
     { label: 'PO lifecycle smoke test', command: process.execPath, args: [scriptPath('test-po-lifecycle-flow.mjs')] },
   ],
@@ -59,6 +62,8 @@ const dbName = String(process.env.LOCAL_SMOKE_DB_NAME || 'barman_store_smoke').t
 const preferredPort = Math.max(1025, Number(process.env.LOCAL_SMOKE_DB_PORT || 55432) || 55432);
 const dbDir = path.join(repoRoot, '.local', 'embedded-postgres', 'smoke-utf8');
 const verbose = String(process.env.LOCAL_SMOKE_DB_VERBOSE || '').trim() === '1';
+const POSTGRES_READY_TIMEOUT_MS = Math.max(1000, Number(process.env.LOCAL_SMOKE_DB_READY_TIMEOUT_MS || 12000) || 12000);
+const POSTGRES_READY_POLL_MS = 250;
 
 const isPortAvailable = (port) => new Promise((resolve) => {
   const server = net.createServer();
@@ -99,6 +104,15 @@ const runCommand = (label, command, args, env) => new Promise((resolve, reject) 
   });
 });
 
+const cleanupSmokeData = async (env, { strict = true, label = 'Cleaning smoke-test data' } = {}) => {
+  try {
+    await runCommand(label, process.execPath, [scriptPath('cleanup-smoke-test-data.js'), '--apply'], env);
+  } catch (error) {
+    if (strict) throw error;
+    console.warn(`[LOCAL_SMOKE_DB] ${label} failed: ${error.message}`);
+  }
+};
+
 const ensureDatabase = async (pg, databaseName) => {
   try {
     await pg.createDatabase(databaseName);
@@ -132,6 +146,47 @@ const ensureLocalSupabaseRoles = async (connectionString) => {
   } finally {
     await client.end().catch(() => {});
   }
+};
+
+const waitForPostgresReady = async ({ connectionString, startupErrors = [] }) => {
+  const deadline = Date.now() + POSTGRES_READY_TIMEOUT_MS;
+  let lastError = null;
+
+  while (Date.now() < deadline) {
+    const client = new Client({
+      connectionString,
+      ssl: false,
+    });
+    try {
+      await client.connect();
+      await client.query('SELECT 1 AS ok');
+      return;
+    } catch (error) {
+      lastError = error;
+      await delay(POSTGRES_READY_POLL_MS);
+    } finally {
+      await client.end().catch(() => {});
+    }
+  }
+
+  const startupOutput = startupErrors
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean)
+    .join('\n');
+  const windowsAdminRefusal = /administrative permissions|unprivileged user id/i.test(startupOutput);
+  if (windowsAdminRefusal) {
+    throw new Error(
+      'Embedded Postgres failed to start because PostgreSQL refuses to run under an administrative user. Run the local smoke suite from a non-admin shell.'
+    );
+  }
+
+  const suffix = [
+    startupOutput ? `Startup output:\n${startupOutput}` : '',
+    lastError ? `Last connection error:\n${formatError(lastError)}` : '',
+  ].filter(Boolean).join('\n');
+  throw new Error(
+    `Embedded Postgres did not become ready within ${POSTGRES_READY_TIMEOUT_MS}ms.${suffix ? `\n${suffix}` : ''}`
+  );
 };
 
 const formatError = (error) => {
@@ -179,6 +234,7 @@ const main = async () => {
   const port = await findAvailablePort(preferredPort);
   const adminDbUrl = buildConnectionString('postgres', port);
   const smokeDbUrl = buildConnectionString(dbName, port);
+  const startupErrors = [];
 
   const pg = new EmbeddedPostgres({
     databaseDir: dbDir,
@@ -188,7 +244,11 @@ const main = async () => {
     persistent: true,
     initdbFlags: ['--encoding=UTF8'],
     onLog: verbose ? console.log : () => {},
-    onError: console.error,
+    onError: (error) => {
+      const message = formatError(error);
+      startupErrors.push(message);
+      console.error(message);
+    },
   });
 
   const smokeTestEnv = {
@@ -221,12 +281,21 @@ const main = async () => {
     }
     console.log('[LOCAL_SMOKE_DB] Starting embedded Postgres...');
     await pg.start();
+    await waitForPostgresReady({ connectionString: adminDbUrl, startupErrors });
     await ensureDatabase(pg, dbName);
     await ensureLocalSupabaseRoles(adminDbUrl);
     await runCommand('Applying Postgres migrations', process.execPath, [scriptPath('apply-supabase-migrations.js')], migrationEnv);
+    await cleanupSmokeData(smokeTestEnv, {
+      strict: true,
+      label: 'Cleaning smoke-test data before suite',
+    });
     for (const step of steps) {
       await runCommand(step.label, step.command, step.args, smokeTestEnv);
     }
+    await cleanupSmokeData(smokeTestEnv, {
+      strict: false,
+      label: 'Cleaning smoke-test data after suite',
+    });
     console.log(`[LOCAL_SMOKE_DB] Suite "${suiteName}" passed.`);
   } finally {
     console.log('[LOCAL_SMOKE_DB] Stopping embedded Postgres...');

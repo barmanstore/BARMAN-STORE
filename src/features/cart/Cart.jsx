@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { productRecommendationsApi, productsApi } from '../../shared/services/api';
 import { getProductImageSrc } from '../../shared/utils/productImage';
+import useOfferPricingPreview from '../../shared/hooks/useOfferPricingPreview';
+import { getPreviewLineMap } from '../../shared/utils/offers';
 import CartView from './components/CartView';
 import { parseQuantityText, rankManualMatches, QUICK_QTY_OPTIONS } from './utils/cartSearchUtils';
 import './Cart.css';
@@ -42,6 +44,43 @@ function Cart({ cartCount, setCartCount }) {
     loadCart();
     loadRecommendationNames();
   }, []);
+
+  const previewCustomerUserId = useMemo(() => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      return Number(storedUser?.id || 0) || null;
+    } catch (_) {
+      return null;
+    }
+  }, []);
+
+  const cartPricingItems = useMemo(() => cart.map((item) => ({
+    client_item_id: getCartItemKey(item),
+    product_id: Number(item?.product_id || item?.id || 0) || null,
+    product_name: String(item?.name || item?.product_name || '').trim(),
+    quantity: Math.max(1, Number(item?.quantity || 1)),
+    unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
+    item_type: isManualItem(item) ? 'manual' : 'catalog',
+    unit_price_override: isManualItem(item) ? Math.max(0, Number(item?.price || 0)) : undefined,
+    skip_offers: isManualItem(item),
+    price_unknown: isUnknownPriceItem(item) ? 1 : 0,
+  })), [cart]);
+  const {
+    preview: cartPricingPreview,
+    loading: cartPricingLoading,
+    error: cartPricingError,
+  } = useOfferPricingPreview({
+    items: cartPricingItems,
+    context: 'cart',
+    offerContext: {
+      customer_user_id: previewCustomerUserId,
+    },
+    enabled: cart.length > 0,
+  });
+  const cartPricingLineMap = useMemo(
+    () => getPreviewLineMap(cartPricingPreview),
+    [cartPricingPreview]
+  );
 
   useEffect(() => {
     const query = String(manualDraft.name || '').trim();
@@ -227,7 +266,11 @@ function Cart({ cartCount, setCartCount }) {
     updateCart([]);
   };
 
-  const getTotal = () => cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+  const getTotal = () => {
+    const previewTotal = Number(cartPricingPreview?.summary?.net_subtotal);
+    if (Number.isFinite(previewTotal)) return previewTotal;
+    return cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+  };
 
   const handleCheckout = () => {
     if (cart.length > 0) navigate('/checkout');
@@ -419,6 +462,10 @@ function Cart({ cartCount, setCartCount }) {
       updateQuantity={updateQuantity}
       removeItem={removeItem}
       getTotal={getTotal}
+      pricingPreview={cartPricingPreview}
+      pricingPreviewLoading={cartPricingLoading}
+      pricingPreviewError={cartPricingError}
+      pricingLineMap={cartPricingLineMap}
       handleCheckout={handleCheckout}
       clearCart={clearCart}
     />

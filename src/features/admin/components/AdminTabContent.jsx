@@ -295,6 +295,7 @@ const AdminTabContent = () => {
       loadingLabel = 'orders';
       activePane = (
         <OrdersSection
+          isMobile={isMobile}
           ordersSearchQuery={ordersSearchQuery}
           setOrdersSearchQuery={setOrdersSearchQuery}
           visibleOrders={visibleOrders}

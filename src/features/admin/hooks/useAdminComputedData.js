@@ -45,10 +45,7 @@ const useAdminComputedData = ({
   const filteredUsersCount = filteredUsers.admins.length + filteredUsers.customers.length;
 
   const visibleOrders = useMemo(() => {
-    const list = Array.isArray(orders) ? [...orders] : [];
-    return list.sort(
-      (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
-    );
+    return Array.isArray(orders) ? orders : [];
   }, [orders]);
 
   const recentOrders = useMemo(

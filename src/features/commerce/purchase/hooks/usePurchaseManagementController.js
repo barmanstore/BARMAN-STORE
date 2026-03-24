@@ -366,20 +366,6 @@ const usePurchaseManagementController = ({
     printHtmlDocument,
   });
 
-  useEffect(() => {
-    if (!shortcutOpenOrderRequest) return;
-    setActiveSubTab('orders');
-    openCreateOrderForm();
-    if (typeof onShortcutOpenOrderHandled === 'function') {
-      onShortcutOpenOrderHandled();
-    }
-  }, [
-    onShortcutOpenOrderHandled,
-    openCreateOrderForm,
-    setActiveSubTab,
-    shortcutOpenOrderRequest,
-  ]);
-
   const defaultOrderFormData = getDefaultOrderFormData();
   const hasMeaningfulOrderItems = Array.isArray(orderFormData?.items)
     && orderFormData.items.some((item) => (
@@ -388,7 +374,46 @@ const usePurchaseManagementController = ({
       || Number(item?.quantity || 0) > 1
       || Number(item?.rate || item?.unit_price || 0) > 0
     ));
-  const orderDraftDirty = Boolean(
+  const hasOpenDirtyOrderDraft = Boolean(
+    showOrderForm
+    && (
+      editingOrderId
+      || String(orderFormData?.distributor_id || '').trim()
+      || String(orderFormData?.distributor_name || '').trim()
+      || String(orderFormData?.strict_due_date || '').trim()
+      || String(orderFormData?.strict_due_note || '').trim()
+      || String(orderFormData?.notes || '').trim()
+      || String(orderFormData?.expected_delivery || '').trim() !== String(defaultOrderFormData.expected_delivery || '').trim()
+      || hasMeaningfulOrderItems
+    )
+  );
+  useEffect(() => {
+    if (!shortcutOpenOrderRequest) return;
+    if (hasOpenDirtyOrderDraft) {
+      const shouldDiscardDraft = window.confirm(
+        'A purchase order draft is already open.\n\nOpen a new PO and discard the current draft?'
+      );
+      if (!shouldDiscardDraft) {
+        if (typeof onShortcutOpenOrderHandled === 'function') {
+          onShortcutOpenOrderHandled();
+        }
+        return;
+      }
+    }
+    setActiveSubTab('orders');
+    openCreateOrderForm();
+    if (typeof onShortcutOpenOrderHandled === 'function') {
+      onShortcutOpenOrderHandled();
+    }
+  }, [
+    hasOpenDirtyOrderDraft,
+    onShortcutOpenOrderHandled,
+    openCreateOrderForm,
+    setActiveSubTab,
+    shortcutOpenOrderRequest,
+  ]);
+
+  const orderDraftPersistable = Boolean(
     popupMode
     && showOrderForm
     && !editingOrderId
@@ -407,7 +432,7 @@ const usePurchaseManagementController = ({
     kind: 'purchase',
     storageKey: draftStorageKey,
     enabled: popupMode,
-    isDirty: orderDraftDirty,
+    isDirty: orderDraftPersistable,
     draft: {
       activeSubTab: 'orders',
       orderFullMode,

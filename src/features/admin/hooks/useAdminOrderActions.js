@@ -1,6 +1,5 @@
 const useAdminOrderActions = ({
   ordersApi,
-  productsApi,
   user,
   setModalLoading,
   setModalOrder,
@@ -14,6 +13,21 @@ const useAdminOrderActions = ({
   setBillingPrefill,
   handleTabChange,
 }) => {
+  const roundMoney = (value = 0) => Math.round((Number(value) || 0) * 100) / 100;
+
+  const buildReceiveResultMessage = (result, successLabel) => {
+    if (result?.applied === false) {
+      return String(result?.message || successLabel).trim() || successLabel;
+    }
+
+    const fulfilledQty = Math.max(0, Number(result?.fulfilled_qty || 0));
+    const pendingQty = Math.max(0, Number(result?.pending_qty || 0));
+    if (pendingQty > 0) {
+      return `${successLabel} ${fulfilledQty} fulfilled, ${pendingQty} still pending.`;
+    }
+    return successLabel;
+  };
+
   const buildAddressTextFromOrder = (order) => {
     const shipping = order?.shipping_address && typeof order.shipping_address === 'object'
       ? order.shipping_address
@@ -44,16 +58,40 @@ const useAdminOrderActions = ({
         phone: String(order?.customer_phone || '').trim(),
         address: buildAddressTextFromOrder(order),
       },
-      items: rows.map((item, index) => ({
-        id: `prefill_${Number(order?.id || 0)}_${index}`,
-        name: String(item?.product_name || item?.name || 'Item').trim() || 'Item',
-        productId: Number(item?.product_id || 0) > 0 ? Number(item.product_id) : null,
-        price: Math.max(0, Number(item?.price || 0)),
-        qty: Math.max(1, Number(item?.quantity || 1)),
-        unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
-        disc: 0,
-        discType: 'fixed',
-      })),
+      items: rows.map((item, index) => {
+        const requestedQty = Math.max(1, Number(item?.requested_qty ?? item?.quantity ?? 1) || 1);
+        const lineSubtotal = Math.max(
+          0,
+          Number(item?.line_subtotal || 0) || (Math.max(0, Number(item?.price || 0)) * requestedQty)
+        );
+        const offerDiscount = Math.max(0, Number(item?.offer_discount || 0));
+        const manualDiscount = Math.max(0, Number(item?.manual_discount || 0));
+        return {
+          id: `prefill_${Number(order?.id || 0)}_${index}`,
+          name: String(item?.product_name || item?.name || 'Item').trim() || 'Item',
+          productId: Number(item?.product_id || 0) > 0 ? Number(item.product_id) : null,
+          linkedOrderItemId: Number(item?.id || 0) || null,
+          price: requestedQty > 0
+            ? roundMoney(lineSubtotal / requestedQty)
+            : Math.max(0, Number(item?.price || 0)),
+          qty: requestedQty,
+          unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
+          disc: manualDiscount,
+          discType: 'fixed',
+          linkedOrderRequestedQty: requestedQty,
+          linkedOrderAvailableNowQty: Math.max(0, Number(item?.available_now_qty || 0)),
+          linkedOrderFulfilledQty: Math.max(0, Number(item?.fulfilled_qty || 0)),
+          linkedOrderPendingQty: Math.max(0, Number(item?.pending_qty || 0)),
+          prefilledLineSubtotal: lineSubtotal,
+          prefilledOfferDiscount: offerDiscount,
+          prefilledManualDiscount: manualDiscount,
+          prefilledTotalDiscount: Math.min(
+            lineSubtotal,
+            Math.max(Math.max(0, Number(item?.discount || 0)), offerDiscount + manualDiscount)
+          ),
+          prefilledOfferLabel: String(item?.offer_label || '').trim(),
+        };
+      }),
       note: `Prepared from order ${String(order?.order_number || `#${order?.id || ''}`)}`,
     };
   };
@@ -61,19 +99,10 @@ const useAdminOrderActions = ({
   const openApproveModal = async (orderId) => {
     try {
       setModalLoading(true);
+      setModalItems([]);
       const order = await ordersApi.getById(orderId);
       setModalOrder(order);
-      // Fetch current stock for each product in order items.
-      const items = order.items || [];
-      const itemsWithStock = await Promise.all(items.map(async (item) => {
-        try {
-          const product = await productsApi.getById(item.product_id);
-          return { ...item, stock: product.stock };
-        } catch (_) {
-          return { ...item, stock: undefined };
-        }
-      }));
-      setModalItems(itemsWithStock);
+      setModalItems(Array.isArray(order?.items) ? order.items : []);
       setShowApproveModal(true);
     } catch (error) {
       showNotification(error.message || 'Failed to load order details', 'error');
@@ -86,11 +115,15 @@ const useAdminOrderActions = ({
     if (!modalOrder) return;
     try {
       setModalLoading(true);
-      await ordersApi.updateStatus(modalOrder.id, 'received', 'Marked received via admin modal', user.id);
+      const result = await ordersApi.updateStatus(modalOrder.id, 'received', {
+        description: 'Marked received via admin modal',
+      });
       setShowApproveModal(false);
-      await refreshOrdersData();
-      await refreshAdminData();
-      showNotification('Order marked received and stock applied', 'success');
+      await Promise.all([refreshOrdersData(), refreshAdminData()]);
+      showNotification(
+        buildReceiveResultMessage(result, 'Order received.'),
+        'success'
+      );
       await fetch(`/api/notify-order/${modalOrder.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,10 +140,14 @@ const useAdminOrderActions = ({
     if (status !== 'received') return;
     if (!window.confirm('Mark this order as received and apply stock?')) return;
     try {
-      await ordersApi.updateStatus(id, status, `Order ${status} via admin panel`, user.id);
-      await refreshOrdersData();
-      await refreshAdminData();
-      showNotification(`Order ${status} successfully`, 'success');
+      const result = await ordersApi.updateStatus(id, status, {
+        description: `Order ${status} via admin panel`,
+      });
+      await Promise.all([refreshOrdersData(), refreshAdminData()]);
+      showNotification(
+        buildReceiveResultMessage(result, `Order ${status} successfully.`),
+        'success'
+      );
     } catch (error) {
       console.error('Failed to update order status', error);
       showNotification(error.message || 'Failed to update order status', 'error');
@@ -120,16 +157,19 @@ const useAdminOrderActions = ({
   const handleApplyPendingFulfillment = async (orderId) => {
     if (!orderId) return;
     try {
-      await ordersApi.updateStatus(
+      const result = await ordersApi.updateStatus(
         orderId,
         'received',
-        'Pending fulfillment re-applied via admin panel',
-        user.id,
-        { reapply_pending: true }
+        {
+          description: 'Pending fulfillment re-applied via admin panel',
+          reapply_pending: true,
+        }
       );
-      await refreshOrdersData();
-      await refreshAdminData();
-      showNotification('Pending quantity re-checked against current stock', 'success');
+      await Promise.all([refreshOrdersData(), refreshAdminData()]);
+      showNotification(
+        buildReceiveResultMessage(result, 'Pending quantity re-checked against current stock.'),
+        'success'
+      );
     } catch (error) {
       showNotification(error.message || 'Failed to apply pending fulfillment', 'error');
     }
@@ -143,23 +183,31 @@ const useAdminOrderActions = ({
       let fullOrder = Array.isArray(orderInput?.items)
         ? orderInput
         : await ordersApi.getById(orderId);
+      let didAutoReceive = false;
       const currentStatus = String(fullOrder?.status || '').trim().toLowerCase();
       if (currentStatus === 'ordered') {
         const confirmReceiveThenBill = window.confirm(
           'This order is still pending receipt.\n\nMark as received and open billing now?'
         );
         if (!confirmReceiveThenBill) return;
-        await ordersApi.updateStatus(orderId, 'received', 'Auto-confirmed before billing', user.id);
-        await refreshOrdersData();
-        await refreshAdminData();
+        const result = await ordersApi.updateStatus(orderId, 'received', {
+          description: 'Auto-confirmed before billing',
+        });
+        await Promise.all([refreshOrdersData(), refreshAdminData()]);
         fullOrder = await ordersApi.getById(orderId);
-        showNotification('Order marked received. Billing is now open.', 'success');
+        didAutoReceive = true;
+        showNotification(
+          buildReceiveResultMessage(result, 'Order marked received. Billing is now open.'),
+          'success'
+        );
       }
       const prefill = buildBillingPrefillFromOrder(fullOrder);
       setBillingPrefill(prefill);
       handleTabChange('billing');
       setShowApproveModal(false);
-      showNotification('Order loaded in billing form', 'success');
+      if (!didAutoReceive) {
+        showNotification('Order loaded in billing form', 'success');
+      }
     } catch (error) {
       showNotification(error.message || 'Failed to open billing with this order', 'error');
     } finally {

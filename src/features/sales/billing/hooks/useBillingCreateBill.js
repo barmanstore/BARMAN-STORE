@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 const PRODUCT_CACHE_LIMIT = 160;
 const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
+const roundMoney = (value = 0) => Math.round((Number(value) || 0) * 100) / 100;
 
 const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_CACHE_LIMIT) => {
   const merged = [];
@@ -116,7 +117,17 @@ const useBillingCreateBill = ({
       order_id: isOrderLinked ? Number(linkedOrderId || 0) : null,
       fulfillment_mode: isOrderLinked ? fulfillmentMode : 'full_now',
       items: items
-        .filter((it) => it.name && Number(it.amount) > 0)
+        .filter((it) => {
+          const lineName = String(it?.name || it?.product_name || '').trim();
+          if (!lineName) return false;
+          if (isOrderLinked) {
+            return Boolean(
+              Number(it?.linkedOrderItemId || it?.linked_order_item_id || 0)
+              || Math.max(0, Number(it?.qty || 0)) > 0
+            );
+          }
+          return Number(it.amount) > 0;
+        })
         .map((it) => {
           const itemType = String(it?.type || '').trim().toLowerCase() === 'custom' || Boolean(it?.isCustom)
             ? 'custom'
@@ -124,7 +135,11 @@ const useBillingCreateBill = ({
           const explicitProductId = Number(it?.productId || it?.product_id || 0) || null;
           const product = explicitProductId ? getProductForLine(it) : null;
           const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
+          const skipOffers = itemType === 'custom'
+            || (product ? roundMoney(it?.price) !== roundMoney(product?.price) : false);
           return {
+            client_item_id: it?.id || null,
+            linked_order_item_id: Number(it?.linkedOrderItemId || it?.linked_order_item_id || 0) || null,
             item_type: itemType,
             is_custom: itemType === 'custom',
             product_id: explicitProductId,
@@ -133,6 +148,7 @@ const useBillingCreateBill = ({
             qty: Number(it.qty) || 0,
             ...(normalizedUnit ? { unit: normalizedUnit } : {}),
             discount: Number(it.disc) || 0,
+            skip_offers: skipOffers,
             amount: Number(it.amount) || 0
           };
         })

@@ -37,6 +37,10 @@ const CheckoutView = ({
   submitting,
   getTotal,
   cart,
+  pricingPreview,
+  pricingPreviewLoading,
+  pricingPreviewError,
+  pricingLineMap,
   getItemQuantityLabel,
   isUnknownPriceItem,
 }) => {
@@ -295,7 +299,9 @@ const CheckoutView = ({
                 className="place-order-btn"
                 disabled={submitting}
               >
-                {submitting ? 'Processing...' : `Place Order - ${formatCurrency(getTotal() * 1.1)}`}
+                {submitting
+                  ? 'Processing...'
+                  : `Place Order - ${formatCurrency(Number(pricingPreview?.summary?.total || (getTotal() * 1.1)))}`}
               </button>
             </form>
           </div>
@@ -303,28 +309,49 @@ const CheckoutView = ({
           <div className="order-summary slide-in-right">
             <h2>Order Summary</h2>
             <div className="order-items">
-              {cart.map((item) => (
-                <div key={item.id} className="summary-item">
-                  <div className="summary-item-image">
-                    {item.image ? <img src={item.image} alt={item.name} /> : <div className="placeholder-image">No Image</div>}
+              {cart.map((item) => {
+                const previewLine = pricingLineMap?.get(String(item?.id ?? item?.product_id ?? '')) || null;
+                const lineTotal = Number(previewLine?.line_total || (item.price * item.quantity) || 0);
+                const lineSubtotal = Number(previewLine?.line_subtotal || (item.price * item.quantity) || 0);
+                const offerDiscount = Number(previewLine?.auto_offer_discount || 0);
+                const offerLabel = String(previewLine?.best_offer_label || '').trim();
+                return (
+                  <div key={item.id} className="summary-item">
+                    <div className="summary-item-image">
+                      {item.image ? <img src={item.image} alt={item.name} /> : <div className="placeholder-image">No Image</div>}
+                    </div>
+                    <div className="summary-item-details">
+                      <h4>{item.name}</h4>
+                      <p>Qty: {getItemQuantityLabel(item)}</p>
+                      {!isUnknownPriceItem(item) && offerDiscount > 0 ? (
+                        <p className="unknown-price-note">{offerLabel || 'Offer applied'}</p>
+                      ) : null}
+                      {!isUnknownPriceItem(item) && offerDiscount > 0 ? (
+                        <p className="unknown-price-note">{`${formatCurrency(lineSubtotal)} -> ${formatCurrency(lineTotal)}`}</p>
+                      ) : null}
+                    </div>
+                    <div className="summary-item-price">
+                      {isUnknownPriceItem(item) ? 'Unknown' : formatCurrency(lineTotal)}
+                    </div>
                   </div>
-                  <div className="summary-item-details">
-                    <h4>{item.name}</h4>
-                    <p>Qty: {getItemQuantityLabel(item)}</p>
-                  </div>
-                  <div className="summary-item-price">
-                    {isUnknownPriceItem(item)
-                      ? 'Unknown'
-                      : formatCurrency(item.price * item.quantity)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="summary-totals">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span>{formatCurrency(getTotal())}</span>
+                <span>{formatCurrency(Number(pricingPreview?.summary?.base_subtotal || getTotal()))}</span>
+              </div>
+              {Number(pricingPreview?.summary?.discount_total || 0) > 0 ? (
+                <div className="summary-row">
+                  <span>Offer Savings</span>
+                  <span>-{formatCurrency(Number(pricingPreview?.summary?.discount_total || 0))}</span>
+                </div>
+              ) : null}
+              <div className="summary-row">
+                <span>Net Subtotal</span>
+                <span>{formatCurrency(Number(pricingPreview?.summary?.net_subtotal || getTotal()))}</span>
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
@@ -332,14 +359,20 @@ const CheckoutView = ({
               </div>
               <div className="summary-row">
                 <span>Tax (10%)</span>
-                <span>{formatCurrency(getTotal() * 0.1)}</span>
+                <span>{formatCurrency(Number(pricingPreview?.summary?.tax_amount || (getTotal() * 0.1)))}</span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-total">
                 <span>Total</span>
-                <span>{formatCurrency(getTotal() * 1.1)}</span>
+                <span>{formatCurrency(Number(pricingPreview?.summary?.total || (getTotal() * 1.1)))}</span>
               </div>
             </div>
+            {pricingPreviewLoading ? (
+              <p className="unknown-price-note">Refreshing offer pricing...</p>
+            ) : null}
+            {pricingPreviewError ? (
+              <p className="unknown-price-note">{pricingPreviewError}</p>
+            ) : null}
             {hasUnknownPriceItems ? (
               <p className="unknown-price-note">Requested/manual items are submitted with price marked as Unknown.</p>
             ) : null}

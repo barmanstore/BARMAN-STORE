@@ -1,3 +1,8 @@
+const {
+  loadActiveOffers,
+  decorateProductWithOffers,
+} = require('../../offers/offerEngine');
+
 const registerBillingSearchRoutes = (deps) => {
   const {
     app,
@@ -319,8 +324,11 @@ app.get('/api/billing/products/search', requireAdmin, async (req, res) => {
       rows = rows.concat(fuzzyRows);
     }
 
-    const finalRows = includeCosts ? await enrichRowsWithPurchaseCost(rows) : rows;
-    return res.json(finalRows.map(normalizeProductRecord));
+    const [finalRows, activeOffers] = await Promise.all([
+      includeCosts ? enrichRowsWithPurchaseCost(rows) : Promise.resolve(rows),
+      loadActiveOffers(dbAllAsync),
+    ]);
+    return res.json(finalRows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true })));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }

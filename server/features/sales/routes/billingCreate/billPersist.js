@@ -59,8 +59,8 @@ const persistBillDraft = async (deps, req, draft) => {
     for (const it of itemFulfillmentRows) {
       await dbRunAsync(
         `INSERT INTO bill_items
-         (bill_id, product_id, product_name, mrp, qty, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, unit, discount, amount)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (bill_id, product_id, product_name, mrp, qty, requested_qty, available_now_qty, fulfilled_qty, pending_qty, stock_snapshot, unit, line_subtotal, offer_discount, manual_discount, offer_label, discount, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           billId,
           it.product_id,
@@ -73,6 +73,10 @@ const persistBillDraft = async (deps, req, draft) => {
           it.pending_qty,
           it.stock_snapshot,
           it.unit,
+          Number(it.line_subtotal || it.amount || 0),
+          Math.max(0, Number(it.offer_discount || 0)),
+          Math.max(0, Number(it.manual_discount || 0)),
+          String(it.offer_label || '').trim() || null,
           it.discount,
           it.amount,
         ]

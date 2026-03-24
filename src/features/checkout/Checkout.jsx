@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ordersApi, customersApi } from '../../shared/services/api';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
 import { LOGO_URL } from '../../shared/info';
+import useOfferPricingPreview from '../../shared/hooks/useOfferPricingPreview';
+import { getPreviewLineMap } from '../../shared/utils/offers';
 import CheckoutView from './components/CheckoutView';
 import './Checkout.css';
 
@@ -267,6 +269,8 @@ function Checkout() {
   };
 
   const getTotal = () => {
+    const previewTotal = Number(checkoutPricingPreview?.summary?.net_subtotal);
+    if (Number.isFinite(previewTotal)) return previewTotal;
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
@@ -282,6 +286,33 @@ function Checkout() {
     return manual && (Number(item?.price_unknown || 0) === 1 || Number(item?.price || 0) <= 0);
   };
   const hasUnknownPriceItems = cart.some((item) => isUnknownPriceItem(item));
+  const checkoutPricingItems = useMemo(() => cart.map((item) => ({
+    client_item_id: String(item?.id ?? item?.product_id ?? ''),
+    product_id: Number(item?.product_id || item?.id || 0) || null,
+    product_name: String(item?.name || item?.product_name || '').trim(),
+    quantity: Math.max(1, Number(item?.quantity || 1)),
+    unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
+    item_type: Number(item?.is_manual || 0) === 1 ? 'manual' : 'catalog',
+    unit_price_override: Number(item?.is_manual || 0) === 1 ? Math.max(0, Number(item?.price || 0)) : undefined,
+    skip_offers: Number(item?.is_manual || 0) === 1,
+    price_unknown: isUnknownPriceItem(item) ? 1 : 0,
+  })), [cart]);
+  const {
+    preview: checkoutPricingPreview,
+    loading: checkoutPricingLoading,
+    error: checkoutPricingError,
+  } = useOfferPricingPreview({
+    items: checkoutPricingItems,
+    context: 'checkout',
+    offerContext: {
+      customer_user_id: Number(selectedCustomer?.id || user?.id || 0) || null,
+    },
+    enabled: cart.length > 0,
+  });
+  const checkoutPricingLineMap = useMemo(
+    () => getPreviewLineMap(checkoutPricingPreview),
+    [checkoutPricingPreview]
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -377,6 +408,10 @@ function Checkout() {
       submitting={submitting}
       getTotal={getTotal}
       cart={cart}
+      pricingPreview={checkoutPricingPreview}
+      pricingPreviewLoading={checkoutPricingLoading}
+      pricingPreviewError={checkoutPricingError}
+      pricingLineMap={checkoutPricingLineMap}
       getItemQuantityLabel={getItemQuantityLabel}
       isUnknownPriceItem={isUnknownPriceItem}
     />

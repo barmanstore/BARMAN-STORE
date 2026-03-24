@@ -6,6 +6,12 @@ import { apiFetch } from './core';
 
 export const offersApi = {
   getAll: () => apiFetch('/api/offers'),
+  previewPricing: (payload, options = {}) =>
+    apiFetch('/api/offers/preview', {
+      method: 'POST',
+      body: payload,
+      ...options,
+    }),
   create: (offer) =>
     apiFetch('/api/offers', {
       method: 'POST',

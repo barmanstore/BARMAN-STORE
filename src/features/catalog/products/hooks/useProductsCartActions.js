@@ -104,6 +104,8 @@ export default function useProductsCartActions({
         if (nextOutOfStock) requestCount += 1;
       } else {
         const outOfStockRequest = (productStock <= 0 || qtyToAdd > productStock) ? 1 : 0;
+        const rawBasePrice = variation?.raw?.price ?? variation?.basePrice ?? variation?.price ?? 0;
+        const basePrice = Number(rawBasePrice);
         nextCart = [
           ...nextCart,
           {
@@ -114,7 +116,7 @@ export default function useProductsCartActions({
             content: variation.content,
             color: variation.color,
             image: variation.image,
-            price: Number(variation.price || 0),
+            price: Number.isFinite(basePrice) ? basePrice : Number(variation.price || 0),
             stock: productStock,
             uom: variation.uom || 'pcs',
             quantity: qtyToAdd,

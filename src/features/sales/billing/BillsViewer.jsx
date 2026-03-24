@@ -327,11 +327,24 @@ const BillsViewer = ({ user }) => {
                     <tbody>
                       {selectedBill.items.map((item, idx) => (
                         <tr key={idx}>
-                          <td>{item.product_name}</td>
+                          <td>
+                            <div>{item.product_name}</div>
+                            {String(item.offer_label || '').trim() ? (
+                              <small>{item.offer_label}</small>
+                            ) : null}
+                          </td>
                           <td>{item.qty}</td>
                           <td>{item.unit}</td>
                           <td>?{item.mrp}</td>
-                          <td>?{item.discount}</td>
+                          <td>
+                            <div>?{item.discount}</div>
+                            {Number(item.offer_discount || 0) > 0 ? (
+                              <small>Offer ?{item.offer_discount}</small>
+                            ) : null}
+                            {Number(item.manual_discount || 0) > 0 ? (
+                              <small>Manual ?{item.manual_discount}</small>
+                            ) : null}
+                          </td>
                           <td>?{item.amount}</td>
                         </tr>
                       ))}

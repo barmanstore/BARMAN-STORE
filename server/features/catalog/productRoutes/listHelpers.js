@@ -55,8 +55,13 @@ const createProductListHelpers = ({ zlib, env = process.env } = {}) => {
       isPaginated = false,
       includeInactive = false,
       status = '',
+      hasActiveOffers = false,
     } = options;
     const normalizedStatus = String(status || '').trim().toLowerCase();
+    if (hasActiveOffers) {
+      res.setHeader('Cache-Control', 'private, no-store');
+      return;
+    }
     const cacheablePublicListing = isPaginated && !includeInactive && normalizedStatus !== 'inactive';
     if (cacheablePublicListing) {
       res.setHeader(

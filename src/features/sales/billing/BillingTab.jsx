@@ -14,7 +14,11 @@ import { safeSessionStorageGet, safeSessionStorageSet } from '../../../shared/ut
 import useIsMobile from '../../../shared/hooks/useIsMobile';
 import useProductSearchCombobox from '../../../shared/hooks/useProductSearchCombobox';
 import usePopupDraftPersistence from '../../../shared/hooks/usePopupDraftPersistence';
+import useOfferPricingPreview from '../../../shared/hooks/useOfferPricingPreview';
 import * as info from '../../../shared/info';
+import {
+  getPreviewLineMap,
+} from '../../../shared/utils/offers';
 import BillingTabView from './components/BillingTabView';
 import {
   createEmptyItem,
@@ -99,6 +103,13 @@ const isEditableElement = (target) => {
   return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
 };
 
+const isInteractiveElement = (target) => {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(
+    'button, a, summary, [role="button"], [role="link"], [role="menuitem"], [tabindex]:not([tabindex="-1"])'
+  ));
+};
+
 const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
 const normalizeCustomItemName = (value = '') => String(value || '')
   .trim()
@@ -112,6 +123,21 @@ const getBillingItemType = (item = {}) => {
     return 'custom';
   }
   return 'inventory';
+};
+
+const getLinkedOrderRequestedQty = (item = {}) =>
+  Math.max(1, Number(item?.linkedOrderRequestedQty ?? item?.requestedQty ?? item?.qty ?? 1) || 1);
+
+const getLinkedOrderFulfilledQty = (item = {}) =>
+  Math.max(
+    0,
+    Number(item?.linkedOrderFulfilledQty ?? item?.linkedOrderAvailableNowQty ?? item?.availableNowQty ?? item?.fulfilledQty ?? 0) || 0
+  );
+
+const getEffectiveBillingQty = ({ item = {}, linkedOrderId = 0, fulfillmentMode = 'full_now' } = {}) => {
+  const enteredQty = Math.max(1, Number(item?.qty || 1) || 1);
+  if (!linkedOrderId || fulfillmentMode !== 'available_now') return enteredQty;
+  return Math.max(0, Math.min(enteredQty, getLinkedOrderFulfilledQty(item)));
 };
 
 const canMergeBillItems = (existingItem = {}, nextItem = {}) => {
@@ -444,6 +470,16 @@ const BillingSystem = ({
         unit: String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
         disc: Math.max(0, Number(item?.disc || item?.discount || 0)),
         discType: 'fixed',
+        linkedOrderItemId: Number(item?.linkedOrderItemId || item?.linked_order_item_id || item?.order_item_id || 0) || null,
+        linkedOrderRequestedQty: Math.max(0, Number(item?.linkedOrderRequestedQty || item?.requested_qty || 0)),
+        linkedOrderAvailableNowQty: Math.max(0, Number(item?.linkedOrderAvailableNowQty || item?.available_now_qty || 0)),
+        linkedOrderFulfilledQty: Math.max(0, Number(item?.linkedOrderFulfilledQty || item?.fulfilled_qty || 0)),
+        linkedOrderPendingQty: Math.max(0, Number(item?.linkedOrderPendingQty || item?.pending_qty || 0)),
+        prefilledLineSubtotal: Math.max(0, Number(item?.prefilledLineSubtotal || item?.line_subtotal || 0)),
+        prefilledOfferDiscount: Math.max(0, Number(item?.prefilledOfferDiscount || item?.offer_discount || 0)),
+        prefilledManualDiscount: Math.max(0, Number(item?.prefilledManualDiscount || item?.manual_discount || 0)),
+        prefilledTotalDiscount: Math.max(0, Number(item?.prefilledTotalDiscount || item?.discount || 0)),
+        prefilledOfferLabel: String(item?.prefilledOfferLabel || item?.offer_label || '').trim(),
       }))
       : [];
 
@@ -994,18 +1030,21 @@ const BillingSystem = ({
 
   useEffect(() => {
     const handleWindowKeyDown = (event) => {
-      if (showCustomerCreateModal) return;
+      if (showCustomerCreateModal || createBillConfirmationOpen || clearBillConfirmationOpen || isSubmitting) {
+        return;
+      }
       const editableTarget = isEditableElement(event.target);
+      const interactiveTarget = isInteractiveElement(event.target);
 
       if (event.key === 'Escape') {
-        if (editableTarget || editIndex !== null) {
+        if (editableTarget || (editIndex !== null && !interactiveTarget)) {
           event.preventDefault();
           handleCancelEdit();
         }
         return;
       }
 
-      if (editableTarget) return;
+      if (editableTarget || interactiveTarget) return;
 
       if (event.key === 'Delete' && selectedBillIndex !== null) {
         event.preventDefault();
@@ -1045,37 +1084,109 @@ const BillingSystem = ({
     billItems.length,
     editIndex,
     handleCancelEdit,
+    clearBillConfirmationOpen,
+    createBillConfirmationOpen,
     handleDeleteBillItem,
     handleSelectBillItem,
+    isSubmitting,
     selectedBillIndex,
     showCustomerCreateModal,
   ]);
 
-  const subtotalAmount = useMemo(() => roundMoney(billItems.reduce((sum, item) => {
+  const billingPreviewItems = useMemo(() => billItems.map((item) => {
+    const product = getProductForLine(item);
+    const itemType = getBillingItemType(item);
+    const defaultPrice = product ? roundMoney(getProductDefaultPrice(product)) : roundMoney(item?.price || 0);
+    const currentPrice = roundMoney(item?.price || 0);
+    const effectiveQty = getEffectiveBillingQty({
+      item,
+      linkedOrderId,
+      fulfillmentMode,
+    });
+    const skipOffers = Boolean(item?.skipOffers) || itemType === 'custom' || (product ? currentPrice !== defaultPrice : false);
+    return {
+      client_item_id: item?.id,
+      product_id: Number(item?.productId || item?.product_id || 0) || null,
+      product_name: String(item?.name || item?.product_name || '').trim(),
+      quantity: effectiveQty,
+      qty: effectiveQty,
+      unit: String(item?.unit || 'pcs').trim() || 'pcs',
+      item_type: itemType === 'custom' ? 'custom' : 'catalog',
+      unit_price_override: skipOffers ? currentPrice : undefined,
+      manual_discount: Math.max(0, Number(item?.disc || item?.discount || 0) || 0),
+      skip_offers: skipOffers,
+    };
+  }), [billItems, fulfillmentMode, getProductForLine, linkedOrderId]);
+  const {
+    preview: billingPricingPreview,
+    loading: billingPricingLoading,
+    error: billingPricingError,
+  } = useOfferPricingPreview({
+    items: billingPreviewItems,
+    context: 'billing',
+    offerContext: {
+      customer_user_id: Number(customer?.id || 0) || null,
+      exclude_order_id: Number(linkedOrderId || 0) || null,
+    },
+    enabled: billItems.length > 0,
+  });
+  const billingPricingLineMap = useMemo(
+    () => getPreviewLineMap(billingPricingPreview),
+    [billingPricingPreview]
+  );
+
+  const localSubtotalAmount = useMemo(() => roundMoney(billItems.reduce((sum, item) => {
     const priceNum = Number(item.price) || 0;
-    const qtyNum = Math.max(1, Number(item.qty) || 1);
+    const qtyNum = getEffectiveBillingQty({
+      item,
+      linkedOrderId,
+      fulfillmentMode,
+    });
+    const requestedQty = getLinkedOrderRequestedQty(item);
+    const qtyRatio = requestedQty > 0 ? (qtyNum / requestedQty) : 0;
     const product = getProductForLine(item);
     const pricingQty = toPricingQtyFromProduct(qtyNum, item.unit, product);
+    if (Number(item?.prefilledLineSubtotal || 0) > 0 && linkedOrderId) {
+      return sum + roundMoney(Number(item.prefilledLineSubtotal || 0) * qtyRatio);
+    }
     return sum + (priceNum * pricingQty);
-  }, 0)), [billItems, getProductForLine]);
+  }, 0)), [billItems, fulfillmentMode, getProductForLine, linkedOrderId, toPricingQtyFromProduct]);
 
-  const totalDiscount = useMemo(() => roundMoney(billItems.reduce((sum, item) => {
+  const localTotalDiscount = useMemo(() => roundMoney(billItems.reduce((sum, item) => {
     const priceNum = Number(item.price) || 0;
-    const qtyNum = Math.max(1, Number(item.qty) || 1);
+    const qtyNum = getEffectiveBillingQty({
+      item,
+      linkedOrderId,
+      fulfillmentMode,
+    });
+    const requestedQty = getLinkedOrderRequestedQty(item);
+    const qtyRatio = requestedQty > 0 ? (qtyNum / requestedQty) : 0;
     const product = getProductForLine(item);
     const pricingQty = toPricingQtyFromProduct(qtyNum, item.unit, product);
     const discNum = Number(item.disc) || 0;
+    if (Number(item?.prefilledTotalDiscount || 0) > 0 && linkedOrderId) {
+      return sum + roundMoney(Number(item.prefilledTotalDiscount || 0) * qtyRatio);
+    }
     if (item.discType === 'percentage') {
       const validDiscPercent = Math.min(100, Math.max(0, discNum));
       return sum + (priceNum * pricingQty * validDiscPercent) / 100;
     }
     return sum + Math.min(priceNum * pricingQty, Math.max(0, discNum));
-  }, 0)), [billItems, getProductForLine]);
+  }, 0)), [billItems, fulfillmentMode, getProductForLine, linkedOrderId, toPricingQtyFromProduct]);
 
-  const totalBill = useMemo(
-    () => roundMoney(billItems.reduce((sum, item) => sum + Number(item.amount || 0), 0)),
-    [billItems]
+  const localTotalBill = useMemo(
+    () => roundMoney(Math.max(0, localSubtotalAmount - localTotalDiscount)),
+    [localSubtotalAmount, localTotalDiscount]
   );
+  const subtotalAmount = Number.isFinite(Number(billingPricingPreview?.summary?.base_subtotal))
+    ? roundMoney(Number(billingPricingPreview.summary.base_subtotal))
+    : localSubtotalAmount;
+  const totalDiscount = Number.isFinite(Number(billingPricingPreview?.summary?.discount_total))
+    ? roundMoney(Number(billingPricingPreview.summary.discount_total))
+    : localTotalDiscount;
+  const totalBill = Number.isFinite(Number(billingPricingPreview?.summary?.net_subtotal))
+    ? roundMoney(Number(billingPricingPreview.summary.net_subtotal))
+    : localTotalBill;
   const paidAmountEvaluation = useMemo(
     () => validateAmountInput(paidAmount, { min: 0, max: totalBill }),
     [paidAmount, totalBill]
@@ -1115,18 +1226,46 @@ const BillingSystem = ({
   }, [currentItem, currentProduct]);
   const billDisplayItems = useMemo(() => billItems.map((item) => {
     const product = getProductForLine(item);
-    const pricingQty = toPricingQtyFromProduct(item.qty, item.unit, product);
+    const effectiveQty = getEffectiveBillingQty({
+      item,
+      linkedOrderId,
+      fulfillmentMode,
+    });
+    const pricingQty = toPricingQtyFromProduct(effectiveQty, item.unit, product);
     const isCustomItem = getBillingItemType(item) === 'custom';
+    const previewLine = billingPricingLineMap.get(String(item?.id)) || null;
+    const fallbackOfferDiscount = Math.max(0, Number(item?.prefilledOfferDiscount || 0));
+    const fallbackManualDiscount = Math.max(0, Number(item?.prefilledManualDiscount || item?.disc || 0));
+    const fallbackTotalDiscount = Math.max(
+      0,
+      Number(item?.prefilledTotalDiscount || (fallbackOfferDiscount + fallbackManualDiscount) || 0)
+    );
+    const fallbackOfferLabel = String(item?.prefilledOfferLabel || '').trim();
+    const resolvedAmount = effectiveQty <= 0 && !previewLine
+      ? 0
+      : Number(previewLine?.line_total ?? item.amount ?? 0);
     const stockWarning = isCustomItem ? null : getStockWarningMeta(product, pricingQty);
     const cost = Number(product?.buy_price ?? product?.cost_price ?? product?.purchase_price ?? 0);
     const profitValue = Number.isFinite(cost) && cost > 0
-      ? Number(item.amount || 0) - (cost * pricingQty)
+      ? resolvedAmount - (cost * pricingQty)
       : null;
     const priceUnit =
       String(product?.base_unit || product?.uom || product?.unit || item.unit || 'pcs').trim() || 'pcs';
+    const requestedQty = getLinkedOrderRequestedQty(item);
+    const linkedPendingQty = Math.max(0, Number(item?.linkedOrderPendingQty || 0));
+    const qtyRatio = requestedQty > 0 ? (effectiveQty / requestedQty) : 0;
 
     return {
       ...item,
+      amount: resolvedAmount,
+      effectiveQty,
+      requestedQty,
+      linkedPendingQty,
+      isPartialLinkedBilling: Boolean(
+        linkedOrderId
+        && fulfillmentMode === 'available_now'
+        && requestedQty > effectiveQty
+      ),
       isCustomItem,
       isManualPrice: !isCustomItem && product
         ? roundMoney(item?.price) !== roundMoney(getProductDefaultPrice(product))
@@ -1134,8 +1273,16 @@ const BillingSystem = ({
       stockWarning,
       profitValue,
       priceUnit,
+      lineSubtotal: Number(
+        previewLine?.line_subtotal
+        ?? (Number(item?.prefilledLineSubtotal || 0) > 0 ? roundMoney(Number(item.prefilledLineSubtotal || 0) * qtyRatio) : 0)
+      ),
+      offerDiscount: Number(previewLine?.auto_offer_discount ?? roundMoney(fallbackOfferDiscount * qtyRatio)),
+      manualDiscount: Number(previewLine?.manual_discount ?? roundMoney(fallbackManualDiscount * qtyRatio)),
+      totalDiscount: Number(previewLine?.line_discount_total ?? roundMoney(fallbackTotalDiscount * qtyRatio)),
+      appliedOfferLabel: String(previewLine?.best_offer_label || fallbackOfferLabel).trim(),
     };
-  }), [billItems, getProductForLine, toPricingQtyFromProduct]);
+  }), [billItems, billingPricingLineMap, fulfillmentMode, getProductForLine, linkedOrderId, toPricingQtyFromProduct]);
 
   const createBillConfirmationSignature = useMemo(() => JSON.stringify({
     customerId: Number(customer?.id || 0) || null,
@@ -1593,6 +1740,8 @@ const BillingSystem = ({
       subtotalAmount={subtotalAmount}
       totalDiscount={totalDiscount}
       totalBill={totalBill}
+      pricingPreviewLoading={billingPricingLoading}
+      pricingPreviewError={billingPricingError}
       paidClamped={paidClamped}
       creditAmount={creditAmount}
       paidAmountWarning={paidAmountWarning}

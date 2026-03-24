@@ -1,4 +1,5 @@
 import { formatCurrency as formatCurrencyDefault } from '../../../../shared/utils/formatters';
+import { getProductOfferLabel } from '../../../../shared/utils/offers';
 import { resolveLineUnitForProduct } from './billingUnitUtils';
 
 const roundMoney = (value = 0) => Math.round((Number(value) || 0) * 100) / 100;
@@ -78,6 +79,10 @@ const getProductOptionLabel = (product = null, formatCurrency) => {
   }
   if (product.brand) {
     parts.push(String(product.brand).trim());
+  }
+  const offerLabel = getProductOfferLabel(product);
+  if (offerLabel) {
+    parts.push(`Offer: ${offerLabel}`);
   }
 
   return parts.join(' | ');

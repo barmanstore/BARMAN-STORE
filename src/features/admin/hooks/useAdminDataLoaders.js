@@ -82,6 +82,10 @@ const useAdminDataLoaders = ({
     users: false,
     dailySalesDateKey: '',
   });
+  const activeListRequestRef = useRef({
+    orders: 0,
+    users: 0,
+  });
 
   const requestWithRetry = useCallback(async (request, { retries = 2, delayMs = 350 } = {}) => {
     let attempt = 0;
@@ -176,6 +180,8 @@ const useAdminDataLoaders = ({
   ]);
 
   const loadOrdersPage = useCallback(async ({ page = 1, query = '', silent = false } = {}) => {
+    const requestId = activeListRequestRef.current.orders + 1;
+    activeListRequestRef.current.orders = requestId;
     try {
       if (!silent) setOrdersLoading(true);
       const payload = await requestWithRetry(() => ordersApi.getAll({
@@ -186,7 +192,13 @@ const useAdminDataLoaders = ({
       }));
       const normalized = normalizePagedResponse(payload);
       if (page > 1 && normalized.items.length === 0 && normalized.total > 0) {
+        if (activeListRequestRef.current.orders !== requestId) {
+          return normalized;
+        }
         return loadOrdersPage({ page: page - 1, query, silent });
+      }
+      if (activeListRequestRef.current.orders !== requestId) {
+        return normalized;
       }
       setOrders(normalized.items);
       setOrdersPage(normalized.page);
@@ -194,7 +206,9 @@ const useAdminDataLoaders = ({
       loadedDomainsRef.current.orders = true;
       return normalized;
     } finally {
-      if (!silent) setOrdersLoading(false);
+      if (!silent && activeListRequestRef.current.orders === requestId) {
+        setOrdersLoading(false);
+      }
     }
   }, [
     ordersApi,
@@ -206,6 +220,8 @@ const useAdminDataLoaders = ({
   ]);
 
   const loadUsersPage = useCallback(async ({ page = 1, query = '', silent = false } = {}) => {
+    const requestId = activeListRequestRef.current.users + 1;
+    activeListRequestRef.current.users = requestId;
     try {
       if (!silent) setUsersLoading(true);
       const payload = await requestWithRetry(() => usersApi.getAll({
@@ -216,7 +232,13 @@ const useAdminDataLoaders = ({
       }));
       const normalized = normalizePagedResponse(payload);
       if (page > 1 && normalized.items.length === 0 && normalized.total > 0) {
+        if (activeListRequestRef.current.users !== requestId) {
+          return normalized;
+        }
         return loadUsersPage({ page: page - 1, query, silent });
+      }
+      if (activeListRequestRef.current.users !== requestId) {
+        return normalized;
       }
       setUsers(normalized.items);
       setUsersPage(normalized.page);
@@ -225,7 +247,9 @@ const useAdminDataLoaders = ({
       loadedDomainsRef.current.users = true;
       return normalized;
     } finally {
-      if (!silent) setUsersLoading(false);
+      if (!silent && activeListRequestRef.current.users === requestId) {
+        setUsersLoading(false);
+      }
     }
   }, [
     requestWithRetry,
