@@ -6,6 +6,7 @@ See also: [../ROUTES.md](../ROUTES.md), [routing.md](routing.md), [services.md](
 
 - The default API contract is JSON in and JSON out.
 - [src/shared/services/api/core.js](../src/shared/services/api/core.js) automatically adds the bearer token from local storage and JSON-encodes object bodies.
+- The same wrapper clears the persisted `user` session and dispatches `user-updated` when a protected request returns `401`, so stale-token polling stops quickly instead of looping on unauthorized calls.
 - The same wrapper rejects non-JSON success responses, so download or proxy endpoints need custom handling.
 
 ## Common Shapes

@@ -21,11 +21,15 @@ Use one dated section per completed change set.
 - Focus restoration no longer bounces back to background content when one desktop window yields top-window status to another.
 - `npm run test:modal-regression` no longer stalls on the shared app loading shell or fail a false-negative desktop drag check during the modal regression pass.
 - `npm run cleanup:code` and `npm run cleanup:worktree` no longer leave `.tmp/` modal-regression output behind as an unmanaged artifact.
+- `npm run server` now loads `.env` and related project env files through `server/loadEnv.js` before app bootstrap, so local backend startup picks up `PORT`, `SUPABASE_DB_URL`, `FRONTEND_ORIGIN`, and auth settings consistently.
+- Frontend routes that use shared message-template helpers no longer crash in Vite dev with `module is not defined`; the browser now imports a real ESM copy from `shared/messageTemplates.js` instead of executing the raw CommonJS `shared/messageTemplates.cjs`.
 
 ### Docs
 
 - `docs/shared-modal-window-review.md` now reflects the implemented 2026-03-25 shared desktop window fixes, the inline Tailwind shell migration, and the current verification status.
 - `TASKS.md` now marks the shared desktop window follow-ups and the modal-regression harness stabilization work as done instead of leaving the browser rerun listed as pending.
+- `.env.example` now mirrors the cleaned local `.env` layout, including the localhost Supabase auth, localhost verification redirect defaults, and grouped local-dev config sections without embedding secrets.
+- `shared/messageTemplates.js` now documents why the frontend keeps a browser-facing ESM copy aligned with the CommonJS server helper.
 
 ### Verification
 
@@ -33,6 +37,9 @@ Use one dated section per completed change set.
 - `npm run cleanup:code`
 - `npm run cleanup:worktree`
 - `npm run test:modal-regression`
+- `npm run db:supabase:check`
+- `node -` requiring `server/index.js` confirmed the runtime now sees `.env` values for `PORT`, `SUPABASE_DB_URL`, and `FRONTEND_ORIGIN`
+- `npm run build`
 
 ## 2026-03-24
 

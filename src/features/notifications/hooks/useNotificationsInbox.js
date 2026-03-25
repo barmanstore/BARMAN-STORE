@@ -17,7 +17,11 @@ const unpackNotificationPayload = (payload) => {
   };
 };
 
+const isUnauthorizedError = (error) => Number(error?.status || 0) === 401;
+
 export const useNotificationsInbox = ({ user, isAdminUser }) => {
+  const userId = Number(user?.id || 0) || 0;
+  const userToken = String(user?.token || '').trim();
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [notificationsNextBeforeId, setNotificationsNextBeforeId] = useState(null);
@@ -84,7 +88,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     let bootstrapTimerId = null;
 
     const loadNotifications = async (silent = false) => {
-      if (!user?.id) {
+      if (!userId || !userToken) {
         if (!isCancelled) {
           resetNotificationState();
           clearNotificationFeedback();
@@ -101,6 +105,11 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
         applyNotificationSnapshot(rows, unreadCount);
       } catch (error) {
         if (isCancelled) return;
+        if (isUnauthorizedError(error)) {
+          resetNotificationState();
+          clearNotificationFeedback();
+          return;
+        }
         if (!silent) {
           resetNotificationState();
         }
@@ -112,7 +121,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       }
     };
 
-    if (user?.id) {
+    if (userId && userToken) {
       bootstrapTimerId = window.setTimeout(() => {
         if (!isCancelled) {
           void loadNotifications(false);
@@ -132,10 +141,14 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       if (timerId) window.clearInterval(timerId);
       if (bootstrapTimerId) window.clearTimeout(bootstrapTimerId);
     };
-  }, [user?.id]);
+  }, [userId, userToken]);
 
   const reloadNotifications = async () => {
-    if (!user?.id) return;
+    if (!userId || !userToken) {
+      resetNotificationState();
+      clearNotificationFeedback();
+      return;
+    }
     try {
       const [rows, unreadCount] = await Promise.all([
         notificationsApi.listMine({ unreadOnly: false, limit: 40 }),
@@ -144,12 +157,17 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       clearNotificationFeedback();
       applyNotificationSnapshot(rows, unreadCount);
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        resetNotificationState();
+        clearNotificationFeedback();
+        return;
+      }
       setNotificationError(error?.message || 'Failed to refresh notifications.');
     }
   };
 
   const loadOlderNotifications = async () => {
-    if (!user?.id || !notificationsHasMore || !notificationsNextBeforeId) return;
+    if (!userId || !userToken || !notificationsHasMore || !notificationsNextBeforeId) return;
     try {
       const rows = await notificationsApi.listMine({
         unreadOnly: false,
@@ -172,12 +190,17 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       setNotificationsHasMore(unpacked.hasMore);
       clearNotificationFeedback();
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        resetNotificationState();
+        clearNotificationFeedback();
+        return;
+      }
       setNotificationError(error?.message || 'Failed to load older notifications.');
     }
   };
 
   useEffect(() => {
-    if (!notificationPanelOpen || !user?.id || !isAdminUser) {
+    if (!notificationPanelOpen || !userId || !userToken || !isAdminUser) {
       setMessageRecipients([]);
       setSelectedRecipientIds([]);
       return;
@@ -192,6 +215,10 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       } catch (error) {
         if (!cancelled) {
           setMessageRecipients([]);
+          if (isUnauthorizedError(error)) {
+            clearNotificationFeedback();
+            return;
+          }
           setNotificationError(error?.message || 'Failed to load message recipients.');
         }
       }
@@ -201,7 +228,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [notificationPanelOpen, user?.id, isAdminUser, recipientSearch]);
+  }, [isAdminUser, notificationPanelOpen, recipientSearch, userId, userToken]);
 
   useEffect(() => {
     if (!notificationPanelOpen) {
@@ -266,6 +293,11 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       setUnreadNotificationCount((prev) => Math.max(0, Number(prev || 0) - 1));
       clearNotificationFeedback();
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        resetNotificationState();
+        clearNotificationFeedback();
+        return;
+      }
       setNotificationError(error?.message || 'Failed to mark notification as read.');
     }
   };
@@ -319,6 +351,12 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       setMessageDraft('');
       await reloadNotifications();
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        resetNotificationState();
+        clearNotificationFeedback();
+        setMessageFeedback({ type: '', text: '' });
+        return;
+      }
       setMessageFeedback({ type: 'error', text: error?.message || 'Failed to send message.' });
     } finally {
       setMessageSending(false);

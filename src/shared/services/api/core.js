@@ -1,3 +1,5 @@
+import { safeLocalStorageGet, safeLocalStorageRemove } from '../../utils/storage';
+
 // Resolve API base URL.
 // - Production behind reverse proxy: use relative '/api' calls (base '')
 // - Optional override with VITE_API_BASE_URL when needed
@@ -5,6 +7,8 @@ const getApiUrl = () => {
   const fromEnv = String(import.meta.env.VITE_API_BASE_URL || '').trim();
   return fromEnv ? fromEnv.replace(/\/+$/, '') : '';
 };
+
+const USER_STORAGE_KEY = 'user';
 
 export const createClientRequestId = (prefix = 'req') => {
   const safePrefix = String(prefix || 'req').replace(/[^a-zA-Z0-9_-]/g, '') || 'req';
@@ -59,14 +63,30 @@ export const resolveMediaSourceForDisplay = async (value) => {
   return { src: directUrl, revoke: false };
 };
 
-// Get auth token from localStorage
-const getAuthToken = () => {
+const readStoredUser = () => {
+  const raw = safeLocalStorageGet(USER_STORAGE_KEY);
+  if (!raw) return null;
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.token || null;
-  } catch (e) {
+    return JSON.parse(raw);
+  } catch (_) {
+    safeLocalStorageRemove(USER_STORAGE_KEY);
     return null;
   }
+};
+
+const clearStoredUserSession = () => {
+  if (typeof window === 'undefined') return;
+  const hadSession = Boolean(safeLocalStorageGet(USER_STORAGE_KEY));
+  if (!hadSession) return;
+  safeLocalStorageRemove(USER_STORAGE_KEY);
+  window.dispatchEvent(new Event('user-updated'));
+};
+
+// Get auth token from localStorage
+const getAuthToken = () => {
+  const user = readStoredUser();
+  const token = String(user?.token || '').trim();
+  return token || null;
 };
 
 // Generic fetch wrapper
@@ -99,6 +119,9 @@ export const apiFetch = async (endpoint, options = {}) => {
     const errorPayload = contentType.includes('application/json')
       ? await response.json().catch(() => ({ error: 'Request failed' }))
       : { error: 'Request failed' };
+    if (response.status === 401) {
+      clearStoredUserSession();
+    }
     const message = errorPayload.error || errorPayload.message || 'Request failed';
     const err = new Error(message);
     err.status = response.status;

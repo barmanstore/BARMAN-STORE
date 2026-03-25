@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { hasCapability } from '../../../shared/auth/capabilities';
 
+const isUnauthorizedError = (error) => Number(error?.status || 0) === 401;
+
 const useAdminEffects = ({
   user,
   navigate,
@@ -30,6 +32,7 @@ const useAdminEffects = ({
   desktopPanelCollapsed,
 }) => {
   const userId = Number(user?.id || 0) || 0;
+  const authToken = String(user?.token || '').trim();
   const canViewBackoffice = hasCapability(user, 'view_backoffice');
   const didResolveInitialRouteRef = useRef(false);
 
@@ -51,6 +54,10 @@ const useAdminEffects = ({
 
   useEffect(() => {
     if (!userId) return;
+    if (!authToken) {
+      setLoading(false);
+      return;
+    }
     if (!canViewBackoffice) {
       navigate('/');
       return;
@@ -67,7 +74,7 @@ const useAdminEffects = ({
       didResolveInitialRouteRef.current = true;
       setLoading(false);
     }
-  }, [activeTab, canViewBackoffice, ensureTabData, navigate, setLoading, userId]);
+  }, [activeTab, authToken, canViewBackoffice, ensureTabData, navigate, setLoading, userId]);
 
   useEffect(() => {
     const maxOrderId = (Array.isArray(orders) ? orders : []).reduce(
@@ -84,7 +91,7 @@ const useAdminEffects = ({
   }, [usersSearchQuery, setUsersPage]);
 
   useEffect(() => {
-    if (!userId || !canViewBackoffice || activeTab !== 'orders') return;
+    if (!userId || !authToken || !canViewBackoffice || activeTab !== 'orders') return;
     let cancelled = false;
     let intervalId = null;
     const pollOrders = async (initialLoad = false) => {
@@ -122,6 +129,7 @@ const useAdminEffects = ({
     };
   }, [
     activeTab,
+    authToken,
     canViewBackoffice,
     loadOrdersPage,
     latestKnownOrderIdRef,
@@ -132,20 +140,21 @@ const useAdminEffects = ({
   ]);
 
   useEffect(() => {
-    if (!userId || !canViewBackoffice || activeTab !== 'users') return;
+    if (!userId || !authToken || !canViewBackoffice || activeTab !== 'users') return;
     const timer = window.setTimeout(() => {
       void loadUsersPage({ page: usersPage, query: usersSearchQuery, silent: false })
         .catch((error) => {
+          if (isUnauthorizedError(error)) return;
           showNotification(error?.message || 'Failed to load users', 'error');
         });
     }, usersSearchQuery ? 180 : 0);
     return () => window.clearTimeout(timer);
-  }, [activeTab, canViewBackoffice, loadUsersPage, showNotification, userId, usersPage, usersSearchQuery]);
+  }, [activeTab, authToken, canViewBackoffice, loadUsersPage, showNotification, userId, usersPage, usersSearchQuery]);
 
   useEffect(() => {
-    if (!userId || !canViewBackoffice || activeTab !== 'daily-sales') return;
+    if (!userId || !authToken || !canViewBackoffice || activeTab !== 'daily-sales') return;
     void loadDailySalesBills({ silent: false, dateKey: dailySalesDate });
-  }, [activeTab, canViewBackoffice, dailySalesDate, loadDailySalesBills, userId]);
+  }, [activeTab, authToken, canViewBackoffice, dailySalesDate, loadDailySalesBills, userId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

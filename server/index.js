@@ -1,3 +1,5 @@
+require('./loadEnv');
+
 const { startRuntime } = require('./core/runtime');
 const { createAppContext } = require('./appFactory');
 

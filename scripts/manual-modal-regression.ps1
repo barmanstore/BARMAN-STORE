@@ -3,6 +3,7 @@ param(
   [string]$BackendUrl = 'http://127.0.0.1:5000',
   [string]$AdminSessionJson = '{"id":1,"role":"admin","name":"Administrator","email":"nbsbsb@ymail.com","token":"eyJ1aWQiOjEsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NDM2MDM0MjM3MiwiZXhwIjoxNzc0OTY1MTQyMzczfQ.D6xC8RRQl2H_vtZbXZ4XEA-xs6mT2EYWgPXDoyOQ730"}',
   [int]$ChromePort = 9223,
+  [string]$CreditUserId = '',
   [bool]$ManageLocalServices = $true
 )
 
@@ -166,6 +167,40 @@ function Sync-AdminSession([System.Net.WebSockets.ClientWebSocket]$ws, [string]$
 "@
 }
 
+function Get-AdminTokenFromSessionJson([string]$sessionJson) {
+  try {
+    return [string]((ConvertFrom-Json $sessionJson).token)
+  } catch {
+    return ''
+  }
+}
+
+function Resolve-CreditRegressionUserId([string]$backendUrl, [string]$sessionJson) {
+  $token = Get-AdminTokenFromSessionJson $sessionJson
+  if (-not $token) {
+    throw 'Could not resolve admin token for credit history regression.'
+  }
+
+  $headers = @{ Authorization = "Bearer $token" }
+  $usersResponse = Invoke-RestMethod -Uri ("{0}/api/users?paginated=1&page=1&limit=10&q=" -f $backendUrl.TrimEnd('/')) -Headers $headers
+  $users = @($usersResponse.items)
+
+  foreach ($user in $users) {
+    if ([string]$user.role -ne 'customer') { continue }
+    $history = Invoke-RestMethod -Uri ("{0}/api/users/{1}/credit-history" -f $backendUrl.TrimEnd('/'), $user.id) -Headers $headers
+    if (@($history).Count -gt 0) {
+      return [string]$user.id
+    }
+  }
+
+  $fallbackUser = $users | Where-Object { [string]$_.role -eq 'customer' } | Select-Object -First 1
+  if ($fallbackUser) {
+    return [string]$fallbackUser.id
+  }
+
+  throw 'Could not find a customer user for credit history regression.'
+}
+
 function Get-PageDiagnostics([System.Net.WebSockets.ClientWebSocket]$ws) {
   if (-not $ws) {
     return [ordered]@{
@@ -269,6 +304,16 @@ $exprOneWindowRestored = @'
   return document.querySelectorAll('.window-modal-frame').length === 1
     && document.querySelectorAll('.window-modal-frame[aria-hidden="true"]').length === 0
     && !!dialog;
+})()
+'@
+$exprZeroWindows = @'
+document.querySelectorAll('.window-modal-frame').length === 0
+'@
+$exprCreditDesktopReady = @'
+(() => {
+  const bodyText = document.body?.innerText || '';
+  if (/Access Denied/i.test(bodyText)) return false;
+  return !!document.querySelector('.credit-history-page .actions-bar button');
 })()
 '@
 $exprMobileReady = @'
@@ -576,6 +621,141 @@ try {
   Add-Check (
     $desktopReduced.transitionProperty -eq 'none' -or $desktopTransitionDurationSeconds -le 0.001
   ) 'Desktop modal transition was not disabled under reduced motion.'
+
+  $creditRegressionUserId = if ([string]::IsNullOrWhiteSpace($CreditUserId)) {
+    Resolve-CreditRegressionUserId $BackendUrl $AdminSessionJson
+  } else {
+    [string]$CreditUserId
+  }
+  Send-Cdp $socket 'Emulation.setEmulatedMedia' @{ features = @() } | Out-Null
+  Send-Cdp $socket 'Emulation.setDeviceMetricsOverride' @{
+    width = 1280
+    height = 900
+    deviceScaleFactor = 1
+    mobile = $false
+  } | Out-Null
+  Send-Cdp $socket 'Page.navigate' @{ url = "$BaseUrl/admin/users/$creditRegressionUserId/credit" } | Out-Null
+  Wait-For $socket $exprDesktopPageLoaded 30000 250 | Out-Null
+  Sync-AdminSession $socket $AdminSessionJson | Out-Null
+  Wait-For $socket $exprCreditDesktopReady 30000 250 | Out-Null
+  Start-Sleep -Milliseconds 300
+
+  Invoke-Evaluate $socket @'
+(() => {
+  document.querySelector('.credit-history-page .actions-bar button')?.click();
+  return true;
+})()
+'@ | Out-Null
+  Wait-For $socket $exprOneWindow 15000 200 | Out-Null
+  Wait-For $socket $exprTopDialogFocused 15000 200 | Out-Null
+
+  $creditPaymentWindow = Invoke-Evaluate $socket @'
+(() => {
+  const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+  return {
+    title: dialog?.querySelector('h2')?.textContent?.trim() || '',
+    amountInput: !!dialog?.querySelector('#credit-tx-amount'),
+    dateInput: !!dialog?.querySelector('#credit-tx-date'),
+    descriptionInput: !!dialog?.querySelector('#credit-tx-description'),
+    activeTag: document.activeElement?.tagName || '',
+    activeClass: document.activeElement?.className || '',
+  };
+})()
+'@
+
+  Invoke-Evaluate $socket @'
+(() => {
+  document.querySelector('[role="dialog"][aria-modal="true"] [data-modal-close="true"]')?.click();
+  return true;
+})()
+'@ | Out-Null
+  Wait-For $socket $exprZeroWindows 15000 200 | Out-Null
+
+  Invoke-Evaluate $socket @'
+(() => {
+  const buttons = document.querySelectorAll('.credit-history-page .actions-bar button');
+  if (buttons.length > 1) buttons[1].click();
+  return true;
+})()
+'@ | Out-Null
+  Wait-For $socket $exprOneWindow 15000 200 | Out-Null
+  Wait-For $socket $exprTopDialogFocused 15000 200 | Out-Null
+
+  $creditManualWindow = Invoke-Evaluate $socket @'
+(() => {
+  const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+  return {
+    title: dialog?.querySelector('h2')?.textContent?.trim() || '',
+    amountInput: !!dialog?.querySelector('#credit-tx-amount'),
+    dateInput: !!dialog?.querySelector('#credit-tx-date'),
+    descriptionInput: !!dialog?.querySelector('#credit-tx-description'),
+    activeTag: document.activeElement?.tagName || '',
+    activeClass: document.activeElement?.className || '',
+  };
+})()
+'@
+
+  Invoke-Evaluate $socket @'
+(() => {
+  document.querySelector('[role="dialog"][aria-modal="true"] [data-modal-close="true"]')?.click();
+  return true;
+})()
+'@ | Out-Null
+  Wait-For $socket $exprZeroWindows 15000 200 | Out-Null
+
+  $creditEntryWindow = $null
+  $creditPrintButtonExists = [bool](Invoke-Evaluate $socket @'
+(() => !!document.querySelector('.credit-history-page .credit-table .action-icon.print:not([disabled])'))()
+'@)
+  if ($creditPrintButtonExists) {
+    Invoke-Evaluate $socket @'
+(() => {
+  document.querySelector('.credit-history-page .credit-table .action-icon.print:not([disabled])')?.click();
+  return true;
+})()
+'@ | Out-Null
+    Wait-For $socket $exprOneWindow 15000 200 | Out-Null
+    Wait-For $socket $exprTopDialogFocused 15000 200 | Out-Null
+
+    $creditEntryWindow = Invoke-Evaluate $socket @'
+(() => {
+  const dialog = document.querySelector('[role="dialog"][aria-modal="true"]');
+  return {
+    title: dialog?.querySelector('h2')?.textContent?.trim() || '',
+    printButton: !!dialog?.querySelector('.invoice-actions .admin-btn'),
+    closeButton: !!dialog?.querySelector('[data-modal-close="true"]'),
+  };
+})()
+'@
+
+    Invoke-Evaluate $socket @'
+(() => {
+  document.querySelector('[role="dialog"][aria-modal="true"] [data-modal-close="true"]')?.click();
+  return true;
+})()
+'@ | Out-Null
+    Wait-For $socket $exprZeroWindows 15000 200 | Out-Null
+  }
+
+  $results.creditDesktop = [ordered]@{
+    userId = $creditRegressionUserId
+    paymentWindow = $creditPaymentWindow
+    manualSaleWindow = $creditManualWindow
+    entryWindow = $creditEntryWindow
+  }
+
+  Add-Check ($creditPaymentWindow.title -eq 'Add Payment') 'Credit history Add Payment window did not open with the expected title.'
+  Add-Check ([bool]$creditPaymentWindow.amountInput) 'Credit history Add Payment window did not render the amount input.'
+  Add-Check ([bool]$creditPaymentWindow.dateInput) 'Credit history Add Payment window did not render the date input.'
+  Add-Check ([bool]$creditPaymentWindow.descriptionInput) 'Credit history Add Payment window did not render the description input.'
+  Add-Check ($creditManualWindow.title -eq 'Add Manual Sale') 'Credit history Add Manual Sale window did not open with the expected title.'
+  Add-Check ([bool]$creditManualWindow.amountInput) 'Credit history Add Manual Sale window did not render the amount input.'
+  Add-Check ([bool]$creditManualWindow.dateInput) 'Credit history Add Manual Sale window did not render the date input.'
+  Add-Check ([bool]$creditManualWindow.descriptionInput) 'Credit history Add Manual Sale window did not render the description input.'
+  if ($creditPrintButtonExists) {
+    Add-Check ([bool]$creditEntryWindow.closeButton) 'Credit history entry window did not expose a close control.'
+    Add-Check ([bool]$creditEntryWindow.printButton) 'Credit history entry window did not render its action buttons.'
+  }
 
   Send-Cdp $socket 'Emulation.setEmulatedMedia' @{ features = @() } | Out-Null
   Send-Cdp $socket 'Emulation.setDeviceMetricsOverride' @{

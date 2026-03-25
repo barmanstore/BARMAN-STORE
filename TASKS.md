@@ -33,6 +33,8 @@ Use this file for cross-session task tracking only.
 - Updated `.gitignore`, `scripts/cleanup-codebase.js`, and `scripts/cleanup-worktree.js` so `.tmp/` is treated as disposable local test output and the cleanup passes no longer leave stale modal-regression artifacts behind.
 - Fixed product offer badge decoration so active badge lists are de-duplicated and no longer truncated before all applicable offers are exposed.
 - Fixed the broken lifecycle status badge class binding in `src/features/marketing/components/OfferLibraryTable.jsx`.
+- Reworked credit-history payment badges so they now sit inside the balance card in a larger highlighted block, and moved the "How it works" explanation into a click-open `?` tooltip with clearer pointwise guidance.
+- Refined credit-history balance-card badges so only the highlighted badge visuals remain, moved them to a simple right-side coin cluster, and styled them as circular 3D tokens while keeping the `?` rules tooltip.
 - Brought `src/shared/components/mobile/MobileBottomSheet.jsx` up to the same shared portal, focus-trap, and background-isolation model as the desktop modal runtime.
 - Consolidated modal-related `.fade-in-up` ownership back to the shared utility and renamed the user-menu-specific dropdown animation so it no longer collides with shared modal motion.
 - Added `scripts/manual-modal-regression.ps1` and `npm run test:modal-regression` so the shared modal regression pass can boot local services, verify stacked desktop windows plus mobile sheets, and clean up automatically.

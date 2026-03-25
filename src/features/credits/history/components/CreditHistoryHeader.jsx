@@ -1,6 +1,47 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
+
+const PAYMENT_BADGE_RULES = [
+  {
+    id: 'gold',
+    title: 'Gold Score',
+    description: 'Earned when the balance is fully cleared and the dues are paid within 7 days.',
+  },
+  {
+    id: 'silver',
+    title: 'Silver Score',
+    description: 'Earned when 2 or more payments are recorded within the last 60 days.',
+  },
+  {
+    id: 'bronze',
+    title: 'Bronze Score',
+    description: 'Earned when at least 1 payment is recorded within the last 90 days.',
+  },
+  {
+    id: 'streak',
+    title: 'Streak Star',
+    description: 'Earned when payments are made in 6 or more consecutive months.',
+  },
+  {
+    id: 'refresh',
+    title: 'Automatic updates',
+    description: 'Badges refresh after new payments and after the credit history is reloaded, so recent behavior matters most.',
+  },
+];
+
+const getBadgeCoinLabel = (badge) => {
+  const tone = String(badge?.tone || '').toLowerCase();
+  if (tone === 'gold') return 'Gold';
+  if (tone === 'silver') return 'Silver';
+  if (tone === 'bronze') return 'Bronze';
+  if (tone === 'streak') return 'Streak';
+
+  const label = String(badge?.label || badge?.title || 'Badge').trim();
+  if (!label) return 'Badge';
+  return label.split(/\s+/).slice(0, 2).join(' ');
+};
 
 function CreditHistoryHeader({
   backHref,
@@ -16,13 +57,41 @@ function CreditHistoryHeader({
   showPaymentBadges,
   paymentBadgesLoading,
   paymentBadges,
-  paymentBadgeSummary,
   inactivityHint,
   error,
   success,
   isMobile,
   openAddModalWithType,
 }) {
+  const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
+  const badgeTooltipRef = useRef(null);
+
+  useEffect(() => {
+    if (!showBadgeTooltip || typeof document === 'undefined') return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!badgeTooltipRef.current?.contains(event.target)) {
+        setShowBadgeTooltip(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowBadgeTooltip(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showBadgeTooltip]);
+
   return (
     <>
       <div className="page-header">
@@ -36,13 +105,79 @@ function CreditHistoryHeader({
       </div>
 
       <section className="balance-card summary-hero-card">
-        <span className="balance-label">{balanceSummary.headline}</span>
-        <span className={`balance-amount ${balanceSummary.toneClass}`}>
-          {formatCurrency(Math.abs(Number(balance || 0)))}
-        </span>
-        <span className="summary-direction">{balanceSummary.directionLine}</span>
-        <span className="summary-last-line">{lastTransactionLine}</span>
-        <span className="summary-trust-line">{trustLine}</span>
+        <div className="balance-card-main">
+          <div className="balance-card-copy">
+            <span className="balance-label">{balanceSummary.headline}</span>
+            <span className={`balance-amount ${balanceSummary.toneClass}`}>
+              {formatCurrency(Math.abs(Number(balance || 0)))}
+            </span>
+            <span className="summary-direction">{balanceSummary.directionLine}</span>
+            <span className="summary-last-line">{lastTransactionLine}</span>
+            <span className="summary-trust-line">{trustLine}</span>
+          </div>
+          {showPaymentBadges && (
+            <div className="balance-card-badge-side">
+              <div className="payment-badge-help" ref={badgeTooltipRef}>
+                <button
+                  type="button"
+                  className="payment-badge-help-btn"
+                  aria-label="Show how payment badges work"
+                  aria-expanded={showBadgeTooltip ? 'true' : 'false'}
+                  aria-controls="payment-badge-tooltip"
+                  onClick={() => setShowBadgeTooltip((current) => !current)}
+                >
+                  ?
+                </button>
+                {showBadgeTooltip ? (
+                  <div
+                    id="payment-badge-tooltip"
+                    className="payment-badge-tooltip"
+                    role="dialog"
+                    aria-label="How payment badges work"
+                  >
+                    <div className="payment-badge-tooltip-title">How payment badges work</div>
+                    <p className="payment-badge-tooltip-intro">
+                      Badges reward recent payment discipline. They update automatically when payment activity changes.
+                    </p>
+                    <ul className="payment-badge-tooltip-list">
+                      {PAYMENT_BADGE_RULES.map((rule) => (
+                        <li key={rule.id}>
+                          <strong>{rule.title}:</strong> {rule.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+              {(paymentBadgesLoading || paymentBadges.length > 0) ? (
+                <div className="payment-badge-coin-list" aria-label="Payment badges">
+                  {paymentBadgesLoading ? (
+                    <>
+                      <span className="payment-badge-coin neutral loading" aria-hidden="true">
+                        <span className="payment-badge-coin-inner" />
+                      </span>
+                      <span className="payment-badge-coin neutral loading" aria-hidden="true">
+                        <span className="payment-badge-coin-inner" />
+                      </span>
+                    </>
+                  ) : (
+                    paymentBadges.map((badge) => (
+                      <span
+                        key={badge.id || badge.label}
+                        className={`payment-badge-coin ${badge.tone || 'neutral'}`}
+                        title={badge.description || badge.label}
+                        role="img"
+                        aria-label={badge.label || 'Payment badge'}
+                      >
+                        <span className="payment-badge-coin-inner">{getBadgeCoinLabel(badge)}</span>
+                      </span>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="ledger-summary-strip">
@@ -59,48 +194,6 @@ function CreditHistoryHeader({
           <strong className="ledger-summary-value">{formatCurrency(Math.abs(Number(balance || 0)))}</strong>
         </div>
       </section>
-
-      {showPaymentBadges && (
-        <section className="payment-badge-panel">
-          <div className="payment-badge-header">
-            <span className="payment-badge-title">Payment Badges</span>
-            {paymentBadgeSummary?.last_payment_label ? (
-              <span className="payment-badge-meta">Last paid {paymentBadgeSummary.last_payment_label}</span>
-            ) : null}
-          </div>
-          {paymentBadgesLoading ? (
-            <div className="payment-badge-loading">Loading badges...</div>
-          ) : (
-            paymentBadges.length === 0 ? (
-              <div className="payment-badge-empty">No badges yet. Pay quickly to start earning your score.</div>
-            ) : (
-              <>
-                <div className="payment-badge-list">
-                  {paymentBadges.map((badge) => (
-                    <span
-                      key={badge.id || badge.label}
-                      className={`payment-badge-chip ${badge.tone || 'neutral'}`}
-                      title={badge.description || badge.label}
-                    >
-                      {badge.label}
-                    </span>
-                  ))}
-                </div>
-                {paymentBadgeSummary?.summary_line ? (
-                  <div className="payment-badge-summary">{paymentBadgeSummary.summary_line}</div>
-                ) : null}
-              </>
-            )
-          )}
-          <div className="payment-badge-rules">
-            <div><strong>How it works:</strong></div>
-            <div>Gold Score: Balance cleared and paid within 7 days.</div>
-            <div>Silver Score: 2+ payments in 60 days.</div>
-            <div>Bronze Score: Any payment in 90 days.</div>
-            <div>Streak Star: Pay every month for 6+ months.</div>
-          </div>
-        </section>
-      )}
 
       {inactivityHint && (
         <div className="inactivity-hint">{inactivityHint}</div>

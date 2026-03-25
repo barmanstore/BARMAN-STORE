@@ -45,6 +45,28 @@ const hasActiveModalDialog = () => {
   return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
 };
 
+const readStoredSessionUser = () => {
+  const savedUser = safeLocalStorageGet('user');
+  if (!savedUser) return null;
+  try {
+    const parsedUser = JSON.parse(savedUser);
+    const userId = Number(parsedUser?.id || 0) || 0;
+    const token = String(parsedUser?.token || '').trim();
+    if (!userId || !token) {
+      safeLocalStorageRemove('user');
+      return null;
+    }
+    return {
+      ...parsedUser,
+      id: userId,
+      token,
+    };
+  } catch (_) {
+    safeLocalStorageRemove('user');
+    return null;
+  }
+};
+
 function GlobalAdminShortcuts({ user }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -148,30 +170,12 @@ function App() {
 
   useEffect(() => {
     // Check for existing user session
-    const savedUser = safeLocalStorageGet('user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (_) {
-        safeLocalStorageRemove('user');
-        setUser(null);
-      }
-    }
+    setUser(readStoredSessionUser());
   }, []);
 
   useEffect(() => {
     const syncUserFromStorage = () => {
-      const savedUser = safeLocalStorageGet('user');
-      if (!savedUser) {
-        setUser(null);
-        return;
-      }
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (_) {
-        safeLocalStorageRemove('user');
-        setUser(null);
-      }
+      setUser(readStoredSessionUser());
     };
     window.addEventListener('storage', syncUserFromStorage);
     window.addEventListener('user-updated', syncUserFromStorage);

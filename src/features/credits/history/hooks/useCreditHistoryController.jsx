@@ -335,7 +335,6 @@ const useCreditHistoryController = ({ user }) => {
       showPaymentBadges: computed.showPaymentBadges,
       paymentBadgesLoading,
       paymentBadges,
-      paymentBadgeSummary,
       inactivityHint: computed.inactivityHint,
       error,
       success,

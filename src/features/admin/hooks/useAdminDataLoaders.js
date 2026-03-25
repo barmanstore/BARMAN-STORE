@@ -22,6 +22,8 @@ const isTransientAdminLoadError = (error) => {
   );
 };
 
+const isUnauthorizedError = (error) => Number(error?.status || 0) === 401;
+
 const normalizePagedResponse = (payload) => {
   if (Array.isArray(payload)) {
     return {
@@ -274,6 +276,11 @@ const useAdminDataLoaders = ({
       setBills(normalized.items);
       loadedDomainsRef.current.dailySalesDateKey = effectiveDateKey;
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        setBills([]);
+        setDailySalesError('');
+        return;
+      }
       if (!silent) setDailySalesError(error.message || 'Failed to load bills for daily summary');
     } finally {
       if (!silent) setDailySalesLoading(false);
@@ -321,6 +328,9 @@ const useAdminDataLoaders = ({
           break;
       }
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        return;
+      }
       console.error('Error fetching admin tab data:', error);
       showNotification(error.message || 'Failed to load admin workspace data', 'error');
     } finally {
@@ -341,6 +351,9 @@ const useAdminDataLoaders = ({
       setLoading(true);
       await ensureTabData(tab, { force: true, showGlobalLoading: false });
     } catch (error) {
+      if (isUnauthorizedError(error)) {
+        return;
+      }
       console.error('Error fetching data:', error);
       showNotification(error.message || 'Failed to load admin dashboard data', 'error');
     } finally {

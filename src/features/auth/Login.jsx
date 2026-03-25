@@ -93,6 +93,7 @@ const parseIdentifier = (rawValue) => {
 function Login({ setUser }) {
   const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState('');
+  const [devOtpCode, setDevOtpCode] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [step, setStep] = useState('request');
   const [pendingIdentifier, setPendingIdentifier] = useState(null);
@@ -225,6 +226,7 @@ function Login({ setUser }) {
     setLoading(true);
     setError('');
     setSuccess('');
+    setDevOtpCode('');
     setShowRegisterPrompt(false);
     try {
       const parsed = parseIdentifier(identifier);
@@ -234,11 +236,17 @@ function Login({ setUser }) {
         phone: null,
         mode: authMode,
       };
-      await authApi.requestLoginOtp(payload);
+      const response = await authApi.requestLoginOtp(payload);
+      const nextDevOtpCode = String(response?.dev_otp_code || '').trim();
       setPendingIdentifier(parsed);
       setStep('verify');
-      setSuccess('OTP sent to email.');
+      setDevOtpCode(nextDevOtpCode);
+      if (nextDevOtpCode) {
+        setOtp(nextDevOtpCode);
+      }
+      setSuccess(nextDevOtpCode ? `OTP sent to email. Local dev code: ${nextDevOtpCode}` : 'OTP sent to email.');
     } catch (err) {
+      setDevOtpCode('');
       if (err?.payload?.register_required) {
         setShowRegisterPrompt(true);
       }
@@ -337,6 +345,7 @@ function Login({ setUser }) {
   const switchToRequestStep = () => {
     setStep('request');
     setOtp('');
+    setDevOtpCode('');
     setPendingIdentifier(null);
     setShowRegisterPrompt(false);
     setError('');
@@ -409,6 +418,11 @@ function Login({ setUser }) {
             <div className="otp-step-pill">
               Code sent to {pendingIdentifier?.email || 'your email'}
             </div>
+            {devOtpCode ? (
+              <div className="success-message">
+                Local dev OTP is prefilled: <strong>{devOtpCode}</strong>
+              </div>
+            ) : null}
             <div className="form-group">
               <label htmlFor="otp">Enter OTP</label>
               <input

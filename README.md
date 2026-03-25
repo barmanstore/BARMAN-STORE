@@ -32,6 +32,11 @@ Full-stack store, billing, purchase, credit, and inventory management app built 
 4. Open app
 - `http://localhost:3000/`
 
+### Local Auth On `localhost:3000`
+- Keep `FRONTEND_ORIGIN` aligned with the dev frontend host, including `http://localhost:3000` when using Vite locally.
+- If `OTP_DELIVERY_MODE=manual`, set `AUTH_LOGIN_OTP_EXPOSE_CODE=true` for local development so `POST /api/auth/otp/request` returns `dev_otp_code`.
+- The login screen will prefill and display that dev OTP when the backend exposes it.
+
 ## LAN Setup
 1. Start backend and frontend on the host machine.
 2. Find host IP (Windows): `ipconfig`
