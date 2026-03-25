@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom';
 import { Square, X } from 'lucide-react';
 import useInertBackground from '../../hooks/useInertBackground';
+import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 
 const WindowManagerContext = createContext(null);
 const WINDOW_BACKDROP_BACKGROUND = 'radial-gradient(circle at top, rgba(15, 23, 42, 0.18), transparent 55%), rgba(15, 23, 42, 0.34)';
@@ -107,6 +108,7 @@ export function WindowManagerProvider({ children }) {
   const hasVisibleWindows = visibleWindows.length > 0;
 
   useInertBackground(hasVisibleWindows);
+  useLockBodyScroll(hasVisibleWindows);
 
   useEffect(() => {
     if (!topVisibleWindow || typeof window === 'undefined') return undefined;

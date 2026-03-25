@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import { useEffect, useId, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minus, X } from 'lucide-react';
 import useIsMobile from '../../hooks/useIsMobile';
@@ -66,14 +66,19 @@ function WindowModal({
   );
   const titleId = `${windowId}-title`;
   const subtitleId = `${windowId}-subtitle`;
+  const onCloseRef = useRef(onClose);
+  const handleManagedClose = useCallback(() => {
+    if (typeof onCloseRef.current === 'function') {
+      onCloseRef.current();
+    }
+  }, []);
   const registrationPayload = useMemo(() => ({
     title,
-    onClose,
+    onClose: handleManagedClose,
     dismissible,
     closeOnBackdrop,
     closeOnEscape,
-    minimized: false,
-  }), [closeOnBackdrop, closeOnEscape, dismissible, onClose, title]);
+  }), [closeOnBackdrop, closeOnEscape, dismissible, handleManagedClose, title]);
   const registrationPayloadRef = useRef(registrationPayload);
 
   const entry = windows.find((candidate) => candidate.id === windowId) || null;
@@ -119,6 +124,10 @@ function WindowModal({
   });
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     registrationPayloadRef.current = registrationPayload;
   }, [registrationPayload]);
 
@@ -143,8 +152,8 @@ function WindowModal({
   }, [open, registrationPayload, upsertWindow, windowId]);
 
   const handleClose = () => {
-    if (!dismissible || typeof onClose !== 'function') return;
-    onClose();
+    if (!dismissible) return;
+    handleManagedClose();
   };
 
   const handleMinimize = () => {

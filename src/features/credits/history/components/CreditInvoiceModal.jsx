@@ -31,10 +31,7 @@ const CreditInvoiceModal = ({
       open
       title={`${entryTypeLabel} ${sourceLabel !== '-' ? sourceLabel : `#${selectedTransaction.id}`}`.trim()}
       onClose={() => setShowInvoiceModal(false)}
-      dialogClassName="credit-history-invoice-frame fade-in-up"
-      headerClassName="credit-history-modal-header"
-      contentClassName="credit-history-invoice-body"
-      closeButtonClassName="credit-history-modal-close-btn"
+      dialogClassName="invoice-template fade-in-up"
       themeClassName="credit-history-page"
       initialSize={{ width: 920, height: 820 }}
     >
