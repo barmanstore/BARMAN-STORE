@@ -2,6 +2,38 @@
 
 Use one dated section per completed change set.
 
+## 2026-03-25
+
+### Changed
+
+- `src/shared/components/window/WindowModal.jsx` now registers open desktop windows through stable manager callbacks instead of depending on the mutable window-manager context object in its lifecycle effects.
+- `src/shared/components/window/WindowModal.jsx` now derives dialog semantics from the registered top window only, keeping inactive or not-yet-registered desktop windows out of the accessible dialog path.
+- `src/shared/hooks/useFocusTrap.js` now supports preserving focus inside a stacked window system during active-window handoffs while still restoring prior focus on close or unmount.
+- `src/shared/components/window/WindowManagerProvider.jsx` and `src/shared/components/window/WindowModal.jsx` now express the shared desktop window shell through inline Tailwind utility classes instead of the deleted `src/shared/components/window/WindowModal.css`.
+- `src/features/credits/khata/CreditKhata.jsx` now passes direct utility padding classes to `WindowModal` instead of relying on the removed shared `window-modal-body-padded` helper class.
+- `scripts/manual-modal-regression.ps1` now re-syncs the admin session after page navigation, waits on page readiness instead of a brittle icon-button count, uses an isolated Chrome profile per run, and drives the desktop drag assertion through in-page pointer events so reruns stay deterministic.
+- `.gitignore`, `scripts/cleanup-codebase.js`, and `scripts/cleanup-worktree.js` now treat `.tmp/` as disposable local artifact output so modal-regression leftovers are ignored and can be cleaned by the standard worktree/code cleanup passes.
+
+### Fixed
+
+- Shared desktop window registration no longer tears down and re-registers open windows on ordinary provider updates.
+- Shared desktop ARIA exposure and focus ownership now stay aligned to the registered top window instead of temporarily treating unregistered windows as active dialogs.
+- Focus restoration no longer bounces back to background content when one desktop window yields top-window status to another.
+- `npm run test:modal-regression` no longer stalls on the shared app loading shell or fail a false-negative desktop drag check during the modal regression pass.
+- `npm run cleanup:code` and `npm run cleanup:worktree` no longer leave `.tmp/` modal-regression output behind as an unmanaged artifact.
+
+### Docs
+
+- `docs/shared-modal-window-review.md` now reflects the implemented 2026-03-25 shared desktop window fixes, the inline Tailwind shell migration, and the current verification status.
+- `TASKS.md` now marks the shared desktop window follow-ups and the modal-regression harness stabilization work as done instead of leaving the browser rerun listed as pending.
+
+### Verification
+
+- `npm run build`
+- `npm run cleanup:code`
+- `npm run cleanup:worktree`
+- `npm run test:modal-regression`
+
 ## 2026-03-24
 
 ### Added

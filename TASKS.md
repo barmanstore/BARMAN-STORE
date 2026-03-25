@@ -4,7 +4,7 @@ Use this file for cross-session task tracking only.
 
 ## Active
 
-- None currently. Route inventory and architecture docs are aligned with the backend as of 2026-03-24.
+- None currently.
 
 ## Next
 
@@ -25,6 +25,12 @@ Use this file for cross-session task tracking only.
 - Applied safe structural cleanup to selected backend route files without changing business logic.
 - Added `docs/workflows/finalization.md` so the required pre-completion and pre-deploy checklist now exists in the repo.
 - Re-ran the modal review, removed the stale app-shell close-selector dependency, and removed the last no-op shared modal class from `CreditKhata`.
+- Stabilized `WindowModal` registration so shared desktop windows now register through stable manager callbacks instead of re-running lifecycle effects on every provider state change.
+- Tightened the shared desktop active-dialog model so only the registered top window exposes modal ARIA semantics and owns the focus trap.
+- Updated `src/shared/hooks/useFocusTrap.js` so stacked desktop windows no longer restore focus back to the background on active-window handoffs.
+- Replaced `src/shared/components/window/WindowModal.css` with inline Tailwind utility classes across the shared desktop backdrop, dock, frame, header, controls, body, and resize handles while preserving feature override hooks.
+- Hardened `scripts/manual-modal-regression.ps1` so the modal browser regression re-syncs admin session state, waits on real app-shell readiness, uses an isolated Chrome profile per run, and verifies desktop drag through in-page pointer events.
+- Updated `.gitignore`, `scripts/cleanup-codebase.js`, and `scripts/cleanup-worktree.js` so `.tmp/` is treated as disposable local test output and the cleanup passes no longer leave stale modal-regression artifacts behind.
 - Fixed product offer badge decoration so active badge lists are de-duplicated and no longer truncated before all applicable offers are exposed.
 - Fixed the broken lifecycle status badge class binding in `src/features/marketing/components/OfferLibraryTable.jsx`.
 - Brought `src/shared/components/mobile/MobileBottomSheet.jsx` up to the same shared portal, focus-trap, and background-isolation model as the desktop modal runtime.

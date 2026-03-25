@@ -1,6 +1,6 @@
 # Shared Modal Window Review
 
-Date: 2026-03-24
+Date: 2026-03-25
 
 ## Scope
 
@@ -39,7 +39,7 @@ This review covers the shared modal stack used by the React app:
 - [x] 3. Move drag and resize updates off the full React render path.
   Implemented in `src/shared/hooks/useWindowDragResize.js` by moving pointer-driven geometry updates onto a ref plus `requestAnimationFrame` path and only committing React state at stable points such as open, resize clamp, maximize/restore, and interaction end.
 - [x] 4. Clean up the CSS contract so feature styles stop redefining core frame behavior.
-  Implemented by moving frame overflow ownership fully into `src/shared/components/window/WindowModal.css`, stripping stale frame scroll rules from feature modal themes, and splitting inline category layout styling from the desktop dialog class in `src/features/catalog/categories/CategoryManagement.css`.
+  Implemented by consolidating shared frame overflow ownership into the shared window shell, stripping stale frame scroll rules from feature modal themes, and splitting inline category layout styling from the desktop dialog class in `src/features/catalog/categories/CategoryManagement.css`.
 - [x] 5. Scope remaining generic `.close-btn` styles.
   Implemented by replacing the remaining generic close-button selectors with feature-scoped classes across purchase, distributor, category, credit, product, and user modal themes.
 - [x] 6. Make accessibility reflect the topmost-window model.
@@ -52,21 +52,24 @@ This review covers the shared modal stack used by the React app:
   Implemented in `src/shared/components/mobile/MobileBottomSheet.jsx` and `src/shared/hooks/useInertBackground.js` by portaling the sheet to `document.body`, trapping focus inside the dialog, and making background inertness safe for stacked shared surfaces.
 - [x] 10. Consolidate the duplicated `.fade-in-up` animation contract.
   Implemented by keeping the shared utility in `src/App.css`, removing modal-specific redefinitions from category, credit-history, and user-edit styles, and renaming the user-menu-specific dropdown animation so it no longer competes on the same selector.
+- [x] 11. Convert the shared desktop window shell from `WindowModal.css` to inline Tailwind utilities.
+  Implemented in `src/shared/components/window/WindowManagerProvider.jsx`, `src/shared/components/window/WindowModal.jsx`, and `src/features/credits/khata/CreditKhata.jsx` by moving the shared backdrop, dock, frame, header, control, body, and resize-handle styling into inline utility classes while keeping the existing structural class hooks for feature overrides and print rules.
 
 ## Post-Fix Review
 
-- I re-reviewed the modal stack after the original eight fixes and the final two follow-up fixes were applied.
-- The initial high-severity runtime problems are still resolved in the inspected code.
-- I did not find another geometry-reset, drag-loop, manager-churn, or CSS-contract regression in the reviewed desktop paths.
-- The stale app-shell Escape selector dependency, the last no-op `dialogClassName="modal-content"` caller, the mobile sheet isolation gap, and the shared motion-selector drift were removed during final cleanup.
-- A local browser regression pass was rerun on 2026-03-24 against `http://127.0.0.1:3000` with the Vite dev proxy and backend on `http://127.0.0.1:5000`.
-- That pass is now codified in `scripts/manual-modal-regression.ps1` and exposed through `npm run test:modal-regression` so it can be rerun as part of the sign-off workflow.
-- That pass verified stacked desktop modals, desktop drag behavior, top-window ARIA exposure, desktop and mobile focus trapping, shared background inertness, and reduced-motion behavior.
+- I re-reviewed the shared window stack on 2026-03-25 after the earlier cleanup pass.
+- The current code still retains the intended drag and resize optimization path in `useWindowDragResize`, and the open-time `initialSize` snapshot protection is still present.
+- This follow-up pass fixed the remaining desktop registration and focus-management issues that were still open at the start of the day, and it moved the shared window shell styling out of `src/shared/components/window/WindowModal.css`.
+- The stale app-shell Escape selector dependency, the last no-op `dialogClassName="modal-content"` caller, the mobile sheet isolation gap, and the shared motion-selector drift remain removed.
+- A fresh local browser regression pass completed on 2026-03-25 against `http://127.0.0.1:3000` with the Vite dev proxy and backend on `http://127.0.0.1:5000`.
+- That pass still runs through `scripts/manual-modal-regression.ps1` and `npm run test:modal-regression`, but the harness now re-syncs the admin session after navigation, waits on real app-shell readiness instead of a brittle icon-button count, uses an isolated Chrome profile per run, and exercises desktop drag through in-page pointer events.
 
 ## Current Findings
 
-- No open issues were found in the shared modal stack paths reviewed for this pass.
-- Desktop windows and mobile sheets now both use the shared portal-plus-isolation model, and the remaining motion utility ownership is explicit instead of duplicated.
+- The 2026-03-25 follow-up fixes are implemented in the inspected code: `WindowModal` now registers through stable manager callbacks, accessible dialog state is derived from the registered top window, and `useFocusTrap` no longer restores background focus during active-window handoffs.
+- The shared desktop window shell no longer depends on `src/shared/components/window/WindowModal.css`; the base backdrop, dock, frame, header, control, body, and resize-handle styling now lives in inline Tailwind utility classes while the existing semantic class hooks remain available for feature-specific overrides.
+- The previously reported inline-`initialSize` reset and per-mousemove React drag-loop issues still were not reproduced in this pass. The current hook continues to protect against rerender recentering and continues to use a ref plus `requestAnimationFrame` path for pointer-driven geometry updates.
+- `npm run build` and `npm run test:modal-regression` both passed on 2026-03-25 after these changes. The browser pass covered stacked desktop windows, top-window ARIA exposure, focus containment, drag movement, inert background behavior, and reduced-motion output on both desktop and mobile paths.
 
 ## Design Summary
 
@@ -80,4 +83,4 @@ This review covers the shared modal stack used by the React app:
 
 ## Bottom Line
 
-The shared modal system is now in good shape as a real shared platform layer. The original blocking issues are closed, the mobile sheet path now matches the desktop isolation model, and the remaining work is ordinary regression testing rather than another architectural cleanup pass.
+The shared modal system is back to a solid platform layer in code. The registration churn, top-window accessibility drift, focus-restoration handoff issue, and shared shell stylesheet dependency are addressed, and the refreshed browser regression harness now completes successfully against the current desktop and mobile modal flows.

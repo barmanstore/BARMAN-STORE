@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -19,7 +19,11 @@ const isVisible = (element) => {
   return rect.width > 0 && rect.height > 0;
 };
 
-function useFocusTrap(containerRef, active) {
+function useFocusTrap(containerRef, active, options = {}) {
+  const { open = active, restoreOnDeactivate = true } = options;
+  const latestStateRef = useRef({ active, open, restoreOnDeactivate });
+  latestStateRef.current = { active, open, restoreOnDeactivate };
+
   useEffect(() => {
     if (!active || typeof document === 'undefined') return undefined;
 
@@ -85,11 +89,19 @@ function useFocusTrap(containerRef, active) {
     return () => {
       window.cancelAnimationFrame(focusFrame);
       container.removeEventListener('keydown', handleKeyDown);
-      if (previouslyFocused instanceof HTMLElement && typeof previouslyFocused.focus === 'function') {
+      const latestState = latestStateRef.current;
+      const deactivatedButStillOpen = latestState.restoreOnDeactivate === false
+        && latestState.active === false
+        && latestState.open !== false;
+      if (
+        !deactivatedButStillOpen
+        && previouslyFocused instanceof HTMLElement
+        && typeof previouslyFocused.focus === 'function'
+      ) {
         previouslyFocused.focus({ preventScroll: true });
       }
     };
-  }, [active, containerRef]);
+  }, [active, containerRef, open, restoreOnDeactivate]);
 }
 
 export default useFocusTrap;

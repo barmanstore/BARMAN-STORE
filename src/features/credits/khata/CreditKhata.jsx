@@ -354,7 +354,7 @@ function CreditKhata({ user }) {
           onClose={closeLedgerForm}
           dismissible={!ledgerSubmitting && !ledgerUploading}
           themeClassName="credit-khata"
-          contentClassName="window-modal-body-padded"
+          contentClassName="px-5 pt-4 pb-5"
           initialSize={{ width: 640, height: 560 }}
         >
             <form onSubmit={handleLedgerSubmit}>

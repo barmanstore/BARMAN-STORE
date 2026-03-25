@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import { useEffect, useId, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minus, X } from 'lucide-react';
@@ -7,6 +8,23 @@ import useWindowDragResize from '../../hooks/useWindowDragResize';
 import { useWindowManager } from './WindowManagerProvider';
 
 const RESIZE_DIRECTIONS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+const WINDOW_ROOT_Z_INDEX = 3600;
+const WINDOW_FRAME_BASE_CLASS = 'window-modal-frame fixed z-[1] flex min-h-[220px] min-w-[320px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-[18px] border border-[rgba(148,163,184,0.26)] bg-[var(--color-card)] pointer-events-auto transition-[box-shadow,opacity,transform] duration-[180ms] ease-out motion-reduce:transition-none';
+const WINDOW_FRAME_ACTIVE_CLASS = 'is-active opacity-100 shadow-[0_30px_70px_rgba(15,23,42,0.22),0_0_0_1px_rgba(255,255,255,0.4)_inset]';
+const WINDOW_FRAME_INACTIVE_CLASS = 'is-inactive opacity-[0.94] shadow-[0_18px_38px_rgba(15,23,42,0.14),0_0_0_1px_rgba(255,255,255,0.28)_inset]';
+const WINDOW_HEADER_BASE_CLASS = 'window-modal-header flex select-none items-start justify-between gap-[0.9rem] border-b border-[rgba(148,163,184,0.22)] bg-white/[0.78] px-4 py-[0.9rem]';
+const WINDOW_CONTROL_BUTTON_CLASS = 'window-modal-control-btn inline-flex h-[34px] w-[34px] items-center justify-center rounded-[10px] border border-[rgba(148,163,184,0.36)] bg-slate-50/[0.9] text-[var(--color-primary)] transition-[transform,background,border-color] duration-150 ease-out hover:-translate-y-px hover:bg-slate-100/[0.98] hover:border-[rgba(15,118,110,0.4)] disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none';
+const WINDOW_CLOSE_BUTTON_CLASS = 'window-modal-close-btn hover:bg-red-100/[0.98] hover:border-[rgba(239,68,68,0.38)] hover:text-red-800';
+const RESIZE_HANDLE_CLASS_BY_DIRECTION = {
+  n: 'left-3 right-3 top-[-4px] h-2 cursor-ns-resize',
+  s: 'bottom-[-4px] left-3 right-3 h-2 cursor-ns-resize',
+  e: 'right-[-4px] top-3 bottom-3 w-2 cursor-ew-resize',
+  w: 'left-[-4px] top-3 bottom-3 w-2 cursor-ew-resize',
+  ne: 'top-[-4px] right-[-4px] h-[14px] w-[14px] cursor-nesw-resize',
+  nw: 'top-[-4px] left-[-4px] h-[14px] w-[14px] cursor-nwse-resize',
+  se: 'right-[-4px] bottom-[-4px] h-[14px] w-[14px] cursor-nwse-resize',
+  sw: 'left-[-4px] bottom-[-4px] h-[14px] w-[14px] cursor-nesw-resize',
+};
 
 function WindowModal({
   open,
@@ -33,6 +51,12 @@ function WindowModal({
   minHeight = 280,
 }) {
   const manager = useWindowManager();
+  const windows = manager?.windows || [];
+  const activeWindowId = manager?.activeWindowId || null;
+  const upsertWindow = manager?.upsertWindow;
+  const unregisterWindow = manager?.unregisterWindow;
+  const activateWindow = manager?.activateWindow;
+  const setWindowMinimized = manager?.setWindowMinimized;
   const isMobileViewport = useIsMobile();
   const desktopLike = !isMobileViewport;
   const reactId = useId();
@@ -52,21 +76,22 @@ function WindowModal({
   }), [closeOnBackdrop, closeOnEscape, dismissible, onClose, title]);
   const registrationPayloadRef = useRef(registrationPayload);
 
-  const entry = manager?.windows?.find((candidate) => candidate.id === windowId) || null;
-  const sortedVisibleWindows = manager?.windows
-    ?.filter((candidate) => !candidate.minimized)
-    .sort((left, right) => Number(left.order || 0) - Number(right.order || 0)) || [];
+  const entry = windows.find((candidate) => candidate.id === windowId) || null;
+  const sortedVisibleWindows = windows
+    .filter((candidate) => !candidate.minimized)
+    .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+  const isRegistered = Boolean(entry);
   const isMinimized = Boolean(entry?.minimized);
   const activeVisibleWindowId = sortedVisibleWindows.some(
-    (candidate) => candidate.id === manager?.activeWindowId
+    (candidate) => candidate.id === activeWindowId
   )
-    ? manager?.activeWindowId
+    ? activeWindowId
     : null;
   const topVisibleWindowId = activeVisibleWindowId
     || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id
     || null;
-  const isActive = !entry || !topVisibleWindowId ? true : topVisibleWindowId === windowId;
-  const isAccessibleDialog = isActive;
+  const isActive = isRegistered && topVisibleWindowId === windowId;
+  const isAccessibleDialog = open && !isMinimized && isActive;
   const headerIsDraggable = desktopLike && draggable && dismissible;
 
   const {
@@ -88,25 +113,34 @@ function WindowModal({
     minHeight,
   });
 
-  useFocusTrap(frameRef, open && !isMinimized && isAccessibleDialog);
+  useFocusTrap(frameRef, isAccessibleDialog, {
+    open,
+    restoreOnDeactivate: false,
+  });
 
   useEffect(() => {
     registrationPayloadRef.current = registrationPayload;
   }, [registrationPayload]);
 
   useEffect(() => {
-    if (!open || !manager) return undefined;
+    if (!open || typeof upsertWindow !== 'function') return undefined;
 
-    manager.upsertWindow(windowId, registrationPayloadRef.current);
-    manager.activateWindow(windowId);
+    upsertWindow(windowId, registrationPayloadRef.current);
+    if (typeof activateWindow === 'function') {
+      activateWindow(windowId);
+    }
 
-    return () => manager.unregisterWindow(windowId);
-  }, [manager, open, windowId]);
+    return () => {
+      if (typeof unregisterWindow === 'function') {
+        unregisterWindow(windowId);
+      }
+    };
+  }, [activateWindow, open, unregisterWindow, upsertWindow, windowId]);
 
   useEffect(() => {
-    if (!open || !manager) return;
-    manager.upsertWindow(windowId, registrationPayload);
-  }, [manager, open, registrationPayload, windowId]);
+    if (!open || typeof upsertWindow !== 'function') return;
+    upsertWindow(windowId, registrationPayload);
+  }, [open, registrationPayload, upsertWindow, windowId]);
 
   const handleClose = () => {
     if (!dismissible || typeof onClose !== 'function') return;
@@ -114,13 +148,13 @@ function WindowModal({
   };
 
   const handleMinimize = () => {
-    if (!dismissible || !manager) return;
-    manager.setWindowMinimized(windowId, true);
+    if (!dismissible || typeof setWindowMinimized !== 'function') return;
+    setWindowMinimized(windowId, true);
   };
 
   const handleFrameMouseDown = () => {
-    if (!isActive) {
-      manager?.activateWindow(windowId);
+    if (isRegistered && !isActive) {
+      activateWindow?.(windowId);
     }
   };
 
@@ -128,53 +162,66 @@ function WindowModal({
 
   const frame = (
     <div
-      className={`window-modal-root ${themeClassName}`.trim()}
+      className={classNames(
+        'window-modal-root pointer-events-none fixed inset-0 isolate',
+        themeClassName
+      )}
       data-window-modal-root="true"
-      style={{ zIndex: 3600 + Number(entry?.order || 0) }}
+      style={{ zIndex: WINDOW_ROOT_Z_INDEX + Number(entry?.order || 0) }}
     >
       <div
         ref={frameRef}
-        className={[
-          'window-modal-frame',
-          dialogClassName,
-          isActive ? 'is-active' : 'is-inactive',
-          isMaximized ? 'is-maximized' : '',
-        ].filter(Boolean).join(' ')}
-        style={{
-          ...windowStyle,
-          zIndex: 1,
-          maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-        }}
+        className={classNames(
+          WINDOW_FRAME_BASE_CLASS,
+          isActive ? WINDOW_FRAME_ACTIVE_CLASS : WINDOW_FRAME_INACTIVE_CLASS,
+          isMaximized && 'is-maximized',
+          dialogClassName
+        )}
+        style={windowStyle}
         onMouseDown={handleFrameMouseDown}
         role={isAccessibleDialog ? 'dialog' : undefined}
         aria-modal={isAccessibleDialog ? 'true' : undefined}
         aria-hidden={isAccessibleDialog ? undefined : 'true'}
         aria-labelledby={isAccessibleDialog && title ? titleId : undefined}
         aria-describedby={isAccessibleDialog && subtitle ? subtitleId : undefined}
+        aria-label={isAccessibleDialog && !title ? 'Dialog' : undefined}
         tabIndex={isAccessibleDialog ? -1 : undefined}
       >
         <div
-          className={[
-            'window-modal-header',
-            headerIsDraggable ? 'is-draggable' : 'is-static',
-            headerClassName,
-          ].filter(Boolean).join(' ')}
-          onMouseDown={handleDragStart}
+          className={classNames(
+            WINDOW_HEADER_BASE_CLASS,
+            headerIsDraggable ? 'is-draggable cursor-move' : 'is-static cursor-default',
+            headerClassName
+          )}
+          onMouseDown={headerIsDraggable ? handleDragStart : undefined}
           data-window-drag-handle="true"
         >
-          <div className="window-modal-title-group">
-            {title ? <h2 id={titleId}>{title}</h2> : null}
-            {subtitle ? <p id={subtitleId}>{subtitle}</p> : null}
+          <div className="window-modal-title-group min-w-0 flex-1">
+            {title ? (
+              <h2 id={titleId} className="m-0 text-[1rem] leading-[1.25]">
+                {title}
+              </h2>
+            ) : null}
+            {subtitle ? (
+              <p
+                id={subtitleId}
+                className="mt-1 text-[0.85rem] leading-[1.4] text-[var(--color-text-muted)]"
+              >
+                {subtitle}
+              </p>
+            ) : null}
           </div>
 
-          <div className="window-modal-toolbar" data-window-ignore-drag="true">
+          <div
+            className="window-modal-toolbar inline-flex shrink-0 items-center gap-[0.65rem]"
+            data-window-ignore-drag="true"
+          >
             {headerActions}
-            <div className="window-modal-controls">
+            <div className="window-modal-controls inline-flex items-center gap-[0.45rem]">
               {desktopLike && minimizable ? (
                 <button
                   type="button"
-                  className="window-modal-control-btn"
+                  className={WINDOW_CONTROL_BUTTON_CLASS}
                   onClick={handleMinimize}
                   disabled={!dismissible}
                   aria-label="Minimize window"
@@ -186,7 +233,7 @@ function WindowModal({
               {desktopLike && maximizable ? (
                 <button
                   type="button"
-                  className="window-modal-control-btn"
+                  className={WINDOW_CONTROL_BUTTON_CLASS}
                   onClick={toggleMaximize}
                   disabled={!dismissible}
                   aria-label={isMaximized ? 'Restore window size' : 'Maximize window'}
@@ -197,7 +244,11 @@ function WindowModal({
               ) : null}
               <button
                 type="button"
-                className={['window-modal-control-btn', 'window-modal-close-btn', closeButtonClassName].filter(Boolean).join(' ')}
+                className={classNames(
+                  WINDOW_CONTROL_BUTTON_CLASS,
+                  WINDOW_CLOSE_BUTTON_CLASS,
+                  closeButtonClassName
+                )}
                 onClick={handleClose}
                 disabled={!dismissible}
                 aria-label="Close window"
@@ -210,7 +261,12 @@ function WindowModal({
           </div>
         </div>
 
-        <div className={['window-modal-body', contentClassName].filter(Boolean).join(' ')}>
+        <div
+          className={classNames(
+            'window-modal-body min-h-0 flex-1 overflow-auto overscroll-contain',
+            contentClassName
+          )}
+        >
           {children}
         </div>
 
@@ -219,7 +275,11 @@ function WindowModal({
             {RESIZE_DIRECTIONS.map((direction) => (
               <div
                 key={direction}
-                className={`window-modal-resize-handle window-modal-resize-${direction}`}
+                className={classNames(
+                  'window-modal-resize-handle absolute z-[2]',
+                  `window-modal-resize-${direction}`,
+                  RESIZE_HANDLE_CLASS_BY_DIRECTION[direction]
+                )}
                 onMouseDown={(event) => handleResizeStart(event, direction)}
                 aria-hidden="true"
               />

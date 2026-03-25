@@ -2,9 +2,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from 'react-dom';
 import { Square, X } from 'lucide-react';
 import useInertBackground from '../../hooks/useInertBackground';
-import './WindowModal.css';
 
 const WindowManagerContext = createContext(null);
+const WINDOW_BACKDROP_BACKGROUND = 'radial-gradient(circle at top, rgba(15, 23, 42, 0.18), transparent 55%), rgba(15, 23, 42, 0.34)';
 
 const sortByOrder = (left, right) => Number(left.order || 0) - Number(right.order || 0);
 const getTopVisibleWindowId = (list = []) =>
@@ -145,27 +145,35 @@ export function WindowManagerProvider({ children }) {
       <>
         {hasVisibleWindows ? (
           <div
-            className="window-manager-backdrop"
+            className="window-manager-backdrop fixed inset-0 z-[3500] backdrop-blur-[3px] motion-reduce:backdrop-blur-none"
             onClick={handleBackdropClick}
             aria-hidden="true"
+            style={{ background: WINDOW_BACKDROP_BACKGROUND }}
           />
         ) : null}
         {minimizedWindows.length ? (
-          <div className="window-manager-dock" aria-label="Minimized windows">
+          <div
+            className="window-manager-dock fixed left-1/2 z-[3595] flex max-w-[min(92vw,960px)] -translate-x-1/2 flex-wrap gap-[0.6rem] rounded-[18px] border border-[rgba(148,163,184,0.34)] bg-white/[0.88] px-3 py-[0.55rem] shadow-[0_18px_40px_rgba(15,23,42,0.18)] backdrop-blur-[14px] motion-reduce:backdrop-blur-none"
+            aria-label="Minimized windows"
+            style={{ bottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}
+          >
             {minimizedWindows.map((entry) => (
-              <div key={entry.id} className="window-manager-dock-item">
+              <div
+                key={entry.id}
+                className="window-manager-dock-item inline-flex min-w-0 items-center gap-[0.4rem]"
+              >
                 <button
                   type="button"
-                  className="window-manager-dock-button"
+                  className="window-manager-dock-button inline-flex min-w-0 max-w-[240px] items-center gap-[0.45rem] rounded-xl border border-[var(--color-border)] bg-slate-50/[0.96] px-[0.7rem] py-[0.45rem] text-[0.85rem] font-semibold text-[var(--color-primary)]"
                   onClick={() => setWindowMinimized(entry.id, false)}
                 >
                   <Square size={14} />
-                  <span>{entry.title || 'Window'}</span>
+                  <span className="truncate whitespace-nowrap">{entry.title || 'Window'}</span>
                 </button>
                 {typeof entry.onClose === 'function' ? (
                   <button
                     type="button"
-                    className="window-manager-dock-close"
+                    className="window-manager-dock-close inline-flex h-7 w-7 items-center justify-center rounded-[10px] border border-[var(--color-border)] bg-slate-50/[0.96] text-[var(--color-primary)]"
                     onClick={() => entry.onClose()}
                     aria-label={`Close ${entry.title || 'window'}`}
                   >

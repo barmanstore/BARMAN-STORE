@@ -12,7 +12,8 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $chromeExe = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 $viteCli = Join-Path $repoRoot 'node_modules\vite\bin\vite.js'
 $tmpDir = Join-Path $repoRoot '.tmp'
-$chromeProfile = Join-Path $tmpDir 'chrome-manual-regression-profile'
+$runId = (Get-Date).ToString('yyyyMMdd_HHmmss_fff')
+$chromeProfile = Join-Path $tmpDir ("chrome-manual-regression-profile-{0}" -f $runId)
 $chromeStdout = Join-Path $tmpDir 'chrome-manual-regression-stdout.log'
 $chromeStderr = Join-Path $tmpDir 'chrome-manual-regression-stderr.log'
 $frontendStdout = Join-Path $tmpDir 'modal-regression-vite-stdout.log'
@@ -31,9 +32,6 @@ $frontendPort = if ($baseUri.IsDefaultPort) {
 $apiProbeUrl = '{0}/api/products?limit=1' -f $BaseUrl.TrimEnd('/')
 
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
-if (Test-Path $chromeProfile) {
-  Remove-Item -Force -Recurse $chromeProfile
-}
 foreach ($log in @($chromeStdout, $chromeStderr, $frontendStdout, $frontendStderr, $backendStdout, $backendStderr)) {
   if (Test-Path $log) {
     Remove-Item -Force $log
@@ -152,6 +150,63 @@ function Wait-For([System.Net.WebSockets.ClientWebSocket]$ws, [string]$expressio
   throw "Timed out waiting for: $expression"
 }
 
+function Sync-AdminSession([System.Net.WebSockets.ClientWebSocket]$ws, [string]$sessionJson) {
+  $escapedSessionJson = $sessionJson.Replace('\', '\\').Replace("'", "\'")
+  Invoke-Evaluate $ws @"
+(() => {
+  try {
+    const session = JSON.parse('$escapedSessionJson');
+    localStorage.setItem('user', JSON.stringify(session));
+    window.dispatchEvent(new Event('user-updated'));
+    return true;
+  } catch (error) {
+    return String(error?.message || error);
+  }
+})()
+"@
+}
+
+function Get-PageDiagnostics([System.Net.WebSockets.ClientWebSocket]$ws) {
+  if (-not $ws) {
+    return [ordered]@{
+      path = ''
+      title = ''
+      readyState = ''
+      bodySnippet = ''
+      addButtonCount = 0
+      iconButtonCount = 0
+      windowCount = 0
+      dialogCount = 0
+    }
+  }
+
+  try {
+    return Invoke-Evaluate $ws @'
+(() => ({
+  path: window.location?.pathname || '',
+  title: document.title || '',
+  readyState: document.readyState || '',
+  bodySnippet: (document.body?.innerText || '').slice(0, 500),
+  addButtonCount: document.querySelectorAll('.products-icon-btn-add').length,
+  iconButtonCount: document.querySelectorAll('.products-icon-btn').length,
+  windowCount: document.querySelectorAll('.window-modal-frame').length,
+  dialogCount: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length,
+}))()
+'@
+  } catch {
+    return [ordered]@{
+      path = ''
+      title = ''
+      readyState = ''
+      bodySnippet = ''
+      addButtonCount = 0
+      iconButtonCount = 0
+      windowCount = 0
+      dialogCount = 0
+    }
+  }
+}
+
 function Press-Tab([System.Net.WebSockets.ClientWebSocket]$ws, [bool]$shift = $false) {
   $modifiers = if ($shift) { 8 } else { 0 }
   Send-Cdp $ws 'Input.dispatchKeyEvent' @{
@@ -181,6 +236,17 @@ function Add-Check([bool]$condition, [string]$message) {
 
 $exprDesktopReady = @'
 document.querySelector('.products-icon-btn-add') && document.querySelectorAll('.products-icon-btn').length >= 4
+'@
+$exprDesktopPageLoaded = @'
+(() => document.readyState === 'complete' && !!document.body)()
+'@
+$exprDesktopProductsPane = @'
+(() => {
+  const bodyText = document.body?.innerText || '';
+  if (/Access Denied/i.test(bodyText)) return true;
+  if (document.querySelector('.products-management')) return true;
+  return false;
+})()
 '@
 $exprOneWindow = @'
 document.querySelectorAll('.window-modal-frame').length >= 1
@@ -302,7 +368,10 @@ try {
     mobile = $false
   } | Out-Null
   Send-Cdp $socket 'Page.navigate' @{ url = "$BaseUrl/admin/products" } | Out-Null
-  Wait-For $socket $exprDesktopReady 30000 250 | Out-Null
+  Wait-For $socket $exprDesktopPageLoaded 30000 250 | Out-Null
+  Sync-AdminSession $socket $AdminSessionJson | Out-Null
+  Wait-For $socket $exprDesktopProductsPane 30000 250 | Out-Null
+  Wait-For $socket $exprDesktopReady 60000 250 | Out-Null
   Start-Sleep -Milliseconds 400
 
   Invoke-Evaluate $socket @'
@@ -327,62 +396,57 @@ try {
 })()
 '@
 
-  $dragStart = Invoke-Evaluate $socket @'
-(() => {
+  $desktopDragResult = Invoke-Evaluate $socket @'
+(async () => {
   const header = document.querySelector('.window-modal-frame.is-active .window-modal-header.is-draggable');
   const frame = header?.closest('.window-modal-frame');
-  if (!header || !frame) return null;
+  if (!header || !frame) {
+    return {
+      moved: false,
+      beforeLeft: '',
+      beforeTop: '',
+      afterLeft: frame?.style.left || '',
+      afterTop: frame?.style.top || '',
+    };
+  }
+
   const rect = header.getBoundingClientRect();
+  const startX = Math.round(rect.left + 80);
+  const startY = Math.round(rect.top + 20);
+  const endX = startX + 160;
+  const endY = startY + 110;
+  const beforeLeft = frame.style.left || '';
+  const beforeTop = frame.style.top || '';
+
+  const dispatch = (target, type, x, y, buttons) => {
+    target.dispatchEvent(new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons,
+      view: window,
+    }));
+  };
+
+  dispatch(header, 'mousedown', startX, startY, 1);
+  dispatch(window, 'mousemove', endX, endY, 1);
+  dispatch(window, 'mouseup', endX, endY, 0);
+
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const afterLeft = frame.style.left || '';
+  const afterTop = frame.style.top || '';
   return {
-    x: Math.round(rect.left + 80),
-    y: Math.round(rect.top + 20),
-    beforeLeft: frame.style.left,
-    beforeTop: frame.style.top,
+    moved: beforeLeft !== afterLeft || beforeTop !== afterTop,
+    beforeLeft,
+    beforeTop,
+    afterLeft,
+    afterTop,
   };
 })()
 '@
-  if ($dragStart) {
-    Send-Cdp $socket 'Input.dispatchMouseEvent' @{
-      type = 'mousePressed'
-      x = [int]$dragStart.x
-      y = [int]$dragStart.y
-      button = 'left'
-      buttons = 1
-      clickCount = 1
-    } | Out-Null
-    Send-Cdp $socket 'Input.dispatchMouseEvent' @{
-      type = 'mouseMoved'
-      x = [int]($dragStart.x + 160)
-      y = [int]($dragStart.y + 110)
-      button = 'left'
-      buttons = 1
-    } | Out-Null
-    Send-Cdp $socket 'Input.dispatchMouseEvent' @{
-      type = 'mouseReleased'
-      x = [int]($dragStart.x + 160)
-      y = [int]($dragStart.y + 110)
-      button = 'left'
-      buttons = 0
-      clickCount = 1
-    } | Out-Null
-    Start-Sleep -Milliseconds 250
-  }
-  $desktopDrag = Invoke-Evaluate $socket @'
-(() => {
-  const frame = document.querySelector('.window-modal-frame.is-active');
-  return {
-    afterLeft: frame?.style.left || '',
-    afterTop: frame?.style.top || '',
-  };
-})()
-'@
-  $desktopDragResult = [ordered]@{
-    moved = ($dragStart -and (($dragStart.beforeLeft -ne $desktopDrag.afterLeft) -or ($dragStart.beforeTop -ne $desktopDrag.afterTop)))
-    beforeLeft = if ($dragStart) { $dragStart.beforeLeft } else { '' }
-    beforeTop = if ($dragStart) { $dragStart.beforeTop } else { '' }
-    afterLeft = $desktopDrag.afterLeft
-    afterTop = $desktopDrag.afterTop
-  }
 
   Invoke-Evaluate $socket @'
 (() => {
@@ -458,7 +522,10 @@ try {
     mobile = $false
   } | Out-Null
   Send-Cdp $socket 'Page.navigate' @{ url = "$BaseUrl/admin/products" } | Out-Null
-  Wait-For $socket $exprDesktopReady 30000 250 | Out-Null
+  Wait-For $socket $exprDesktopPageLoaded 30000 250 | Out-Null
+  Sync-AdminSession $socket $AdminSessionJson | Out-Null
+  Wait-For $socket $exprDesktopProductsPane 30000 250 | Out-Null
+  Wait-For $socket $exprDesktopReady 60000 250 | Out-Null
   Start-Sleep -Milliseconds 300
   Invoke-Evaluate $socket @'
 (() => {
@@ -618,6 +685,10 @@ try {
   if ($failures.Count -gt 0) {
     exit 1
   }
+} catch {
+  $diagnostics = Get-PageDiagnostics $socket
+  Write-Error ("Modal regression failed: {0}`nPage diagnostics: {1}" -f $_.Exception.Message, ($diagnostics | ConvertTo-Json -Depth 10 -Compress))
+  exit 1
 }
 finally {
   if ($socket) {
@@ -626,4 +697,7 @@ finally {
   Stop-ManagedProcess $chrome
   Stop-ManagedProcess $startedFrontend
   Stop-ManagedProcess $startedBackend
+  if (Test-Path $chromeProfile) {
+    try { Remove-Item -Force -Recurse $chromeProfile } catch {}
+  }
 }

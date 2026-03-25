@@ -8,6 +8,7 @@ const args = new Set(process.argv.slice(2));
 const apply = args.has('--apply');
 
 const ROOT_EXACT_TARGETS = [
+  '.tmp',
   'dist',
   'coverage',
   '.nyc_output',
