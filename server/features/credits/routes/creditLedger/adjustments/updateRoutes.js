@@ -1,16 +1,53 @@
 const { createCreditEntryImageStorage } = require('./creditEntryImageStorage');
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const addDaysToDateKey = (dateKey, days) => {
+  if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
+  const [year, month, day] = dateKey.split('-').map((v) => Number(v));
+  const baseMs = Date.UTC(year, month - 1, day);
+  const safeDays = Math.max(0, Math.floor(Number(days || 0)));
+  const next = new Date(baseMs + (safeDays * DAY_MS));
+  return next.toISOString().slice(0, 10);
+};
+
+const resolveDueDateKey = ({
+  dueDate,
+  existingDueDate,
+  transactionDate,
+  transactionDateKey,
+  entryType,
+  creditTermsDays,
+  normalizeTransactionDate,
+}) => {
+  const explicitDue = normalizeTransactionDate(dueDate);
+  if (explicitDue) return explicitDue;
+  const existingKey = normalizeTransactionDate(existingDueDate);
+  if (existingKey) return existingKey;
+  if (entryType === 'payment') {
+    const normalizedTx = normalizeTransactionDate(transactionDate);
+    return normalizedTx || transactionDateKey || '';
+  }
+  const normalizedTx = normalizeTransactionDate(transactionDate);
+  if (normalizedTx) return addDaysToDateKey(normalizedTx, creditTermsDays);
+  return transactionDateKey || '';
+};
+
 const registerCreditLedgerUpdateRoutes = (deps) => {
   const {
     app,
     requireAdmin,
     dbGetAsync,
     dbRunAsync,
+    dbTxAsync,
     logAdminAuditAsync,
     normalizeTransactionDate,
     buildCreditTransactionTimestamp,
     recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence,
     getLatestCreditEntryAsync,
+    getCustomerCreditProfileAsync,
     parseDataUrlImage,
     PROFILE_IMAGE_ALLOWED_MIME,
     PROFILE_IMAGE_MAX_BYTES,
@@ -56,7 +93,16 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
         return res.status(400).json({ error: 'This entry is linked to system history and cannot be edited directly. Add a new manual entry instead.' });
       }
 
-      const { type, amount, description, reference, transactionDate, image_base64: imageBase64 } = req.body || {};
+      const {
+        type,
+        amount,
+        description,
+        reference,
+        transactionDate,
+        dueDate,
+        due_date: dueDateAlt,
+        image_base64: imageBase64,
+      } = req.body || {};
       if (!type || !['given', 'payment'].includes(type)) {
         return res.status(400).json({ error: 'Invalid transaction type' });
       }
@@ -68,65 +114,72 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
         return res.status(400).json({ error: 'Amount must be positive' });
       }
 
-      const existingAmount = Math.abs(Number(existing.amount || 0));
-      const existingDelta = String(existing.type || '').trim().toLowerCase() === 'payment'
-        ? -existingAmount
-        : existingAmount;
-      const balanceBeforeEntry = Number(existing.balance || 0) - existingDelta;
-      if (type === 'payment') {
-        if (balanceBeforeEntry <= 0) {
-          return res.status(400).json({ error: 'Customer has no due balance for a payment entry' });
-        }
-        if (parsedAmount > balanceBeforeEntry) {
-          return res.status(400).json({ error: `Payment exceeds current due of Rs ${balanceBeforeEntry.toFixed(2)}` });
-        }
-      }
-
       const normalizedDate = normalizeTransactionDate(transactionDate);
       const referenceTs = existing?.transaction_ts || existing?.created_at || null;
       const referenceDate = referenceTs ? new Date(referenceTs) : new Date();
       const transactionTs = buildCreditTransactionTimestamp(transactionDate, referenceDate);
+      const transactionDateKey = String(transactionTs || '').slice(0, 10);
+      const creditProfile = await getCustomerCreditProfileAsync(userId);
+      const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+      const normalizedDueDate = resolveDueDateKey({
+        dueDate: dueDate || dueDateAlt,
+        existingDueDate: existing?.due_date || null,
+        transactionDate,
+        transactionDateKey,
+        entryType: type,
+        creditTermsDays,
+        normalizeTransactionDate,
+      }) || transactionDateKey;
 
-      await dbRunAsync(
-        `UPDATE credit_history
-         SET type = ?,
-             amount = ?,
-             description = ?,
-             reference = ?,
-             transaction_date = ?,
-             transaction_ts = ?,
-             source_type = COALESCE(NULLIF(source_type, ''), 'adjustment'),
-             source_label = ?,
-             edited = 1,
-             edited_at = CURRENT_TIMESTAMP,
-             edited_by = ?
-         WHERE id = ? AND user_id = ?`,
-        [
-          type,
-          parsedAmount,
-          normalizedDescription || null,
-          normalizedReference || null,
-          normalizedDate,
-          transactionTs,
-          normalizedReference || null,
-          req.authUser?.id || null,
-          entryId,
-          userId
-         ]
-      );
+      const { nextBalance, updated } = await dbTxAsync(async () => {
+        await dbRunAsync(
+          `UPDATE credit_history
+           SET type = ?,
+               amount = ?,
+               description = ?,
+               reference = ?,
+               transaction_date = ?,
+               due_date = ?,
+               transaction_ts = ?,
+               source_type = COALESCE(NULLIF(source_type, ''), 'adjustment'),
+               source_label = ?,
+               edited = 1,
+               edited_at = CURRENT_TIMESTAMP,
+               edited_by = ?
+           WHERE id = ? AND user_id = ?`,
+          [
+            type,
+            parsedAmount,
+            normalizedDescription || null,
+            normalizedReference || null,
+            normalizedDate,
+            normalizedDueDate,
+            transactionTs,
+            normalizedReference || null,
+            req.authUser?.id || null,
+            entryId,
+            userId
+          ]
+        );
 
-      if (String(imageBase64 || '').trim()) {
-        const nextImagePath = await storeCreditEntryImage({
-          imageBase64,
-          existingImagePath: existing.image_path,
-          userId,
-          entryId,
-        });
-        await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ? AND user_id = ?', [nextImagePath, entryId, userId]);
-      }
+        if (String(imageBase64 || '').trim()) {
+          const nextImagePath = await storeCreditEntryImage({
+            imageBase64,
+            existingImagePath: existing.image_path,
+            userId,
+            entryId,
+          });
+          await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ? AND user_id = ?', [nextImagePath, entryId, userId]);
+        }
 
-      const nextBalance = await recalculateCreditBalancesForUser(userId);
-      const updated = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [entryId]);
+        const recalculatedBalance = await recalculateCreditBalancesForUser(userId);
+        await rebuildCustomerPaymentIntelligence(userId);
+        const nextTransaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [entryId]);
+        return {
+          nextBalance: recalculatedBalance,
+          updated: nextTransaction,
+        };
+      });
       await logAdminAuditAsync(req, {
         action: 'credit.update',
         entityType: 'credit_history',

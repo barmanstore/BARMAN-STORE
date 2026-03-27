@@ -39,6 +39,13 @@ const ROOT_PREFIX_PATTERNS = [
 
 const targets = [];
 const seenTargets = new Set();
+const TRANSIENT_REMOVE_ERROR_CODES = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM']);
+const REMOVE_RETRY_ATTEMPTS = 6;
+const REMOVE_RETRY_DELAY_MS = 150;
+
+const sleep = (milliseconds) => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+};
 
 const addTarget = (label, targetPath) => {
   const resolvedPath = path.resolve(targetPath);
@@ -78,7 +85,27 @@ const formatTargetType = (targetPath) => {
 };
 
 const removeTarget = (targetPath) => {
-  fs.rmSync(targetPath, { recursive: true, force: true });
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= REMOVE_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      fs.rmSync(targetPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 4,
+        retryDelay: 80,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      const shouldRetry = TRANSIENT_REMOVE_ERROR_CODES.has(error?.code);
+      const hasAttemptsLeft = attempt < REMOVE_RETRY_ATTEMPTS;
+      if (!shouldRetry || !hasAttemptsLeft) break;
+      sleep(REMOVE_RETRY_DELAY_MS * attempt);
+    }
+  }
+
+  throw lastError;
 };
 
 collectTargets();

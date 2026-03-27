@@ -30,25 +30,7 @@ const createCreditTimestampUtils = ({ normalizeTransactionDate, toTimestampMs } 
 
   const resolveCreditEntryTimestampMs = (entry) => {
     const tsMs = toTimestampMs(entry?.transaction_ts || entry?.transactionTs);
-    if (tsMs) return tsMs;
-    const normalizedDate = normalizeTransactionDate(entry?.transaction_date || entry?.transactionDate || '');
-    if (normalizedDate) {
-      const [year, month, day] = normalizedDate.split('-').map((v) => Number(v));
-      const createdMs = toTimestampMs(entry?.created_at);
-      const created = Number.isFinite(createdMs) ? new Date(createdMs) : new Date();
-      const ts = new Date(Date.UTC(
-        year,
-        month - 1,
-        day,
-        created.getUTCHours(),
-        created.getUTCMinutes(),
-        created.getUTCSeconds(),
-        created.getUTCMilliseconds()
-      ));
-      if (!Number.isNaN(ts.getTime())) return ts.getTime();
-    }
-    const fallback = toTimestampMs(entry?.created_at);
-    return fallback || null;
+    return tsMs || null;
   };
 
   return {

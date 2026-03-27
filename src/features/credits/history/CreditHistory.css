@@ -189,6 +189,20 @@
   color: #475569;
 }
 
+.credit-history-page .payment-badge-tooltip-subtitle {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.credit-history-page .payment-badge-tooltip-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #475569;
+}
+
 .credit-history-page .payment-badge-tooltip-list {
   margin: 10px 0 0;
   padding-left: 18px;
@@ -203,127 +217,58 @@
   color: #0f172a;
 }
 
-.credit-history-page .payment-badge-coin-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(74px, 82px));
-  gap: 10px;
-  justify-content: flex-end;
-  width: min(100%, 280px);
-}
-
-.credit-history-page .payment-badge-coin {
-  position: relative;
+.credit-history-page .payment-badge-single {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  box-shadow:
-    inset 0 2px 3px rgba(255, 255, 255, 0.28),
-    inset 0 -10px 14px rgba(0, 0, 0, 0.16),
-    0 12px 24px rgba(8, 47, 107, 0.22);
-  text-align: center;
-  isolation: isolate;
+  font-weight: 700;
+  font-size: 12px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
 }
 
-.credit-history-page .payment-badge-coin::before {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.36),
-    inset 0 -8px 12px rgba(0, 0, 0, 0.14);
-  z-index: -1;
-}
-
-.credit-history-page .payment-badge-coin::after {
-  content: '';
-  position: absolute;
-  top: 10px;
-  left: 14px;
-  right: 14px;
-  height: 22px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0));
-  opacity: 0.85;
-  z-index: -1;
-}
-
-.credit-history-page .payment-badge-coin-inner {
-  position: relative;
-  z-index: 1;
-  max-width: 56px;
+.credit-history-page .payment-badge-single strong {
   font-size: 12px;
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: 0.35px;
-  text-transform: uppercase;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
-.credit-history-page .payment-badge-coin.gold {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 253, 234, 0.98), transparent 34%),
-    linear-gradient(145deg, #fff4b8 0%, #f4cb54 44%, #ba7f17 100%);
-  color: #7a5200;
+.credit-history-page .payment-badge-single.excellent {
+  background: #dcfce7;
+  color: #166534;
 }
 
-.credit-history-page .payment-badge-coin.silver {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), transparent 32%),
-    linear-gradient(145deg, #f8fbff 0%, #d7dee8 46%, #8793a3 100%);
+.credit-history-page .payment-badge-single.very-good {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.credit-history-page .payment-badge-single.good {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.credit-history-page .payment-badge-single.attention {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.credit-history-page .payment-badge-single.problem {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-history-page .payment-badge-single.new {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.credit-history-page .payment-badge-single.neutral {
+  background: #f8fafc;
   color: #334155;
-}
-
-.credit-history-page .payment-badge-coin.bronze {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 244, 235, 0.92), transparent 32%),
-    linear-gradient(145deg, #f3ceb0 0%, #cd8753 46%, #7a431d 100%);
-  color: #6b3a18;
-}
-
-.credit-history-page .payment-badge-coin.streak {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 243, 213, 0.95), transparent 32%),
-    linear-gradient(145deg, #ffe29a 0%, #fb9a4b 48%, #b54a12 100%);
-  color: #7c2d12;
-}
-
-.credit-history-page .payment-badge-coin.neutral {
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.94), transparent 32%),
-    linear-gradient(145deg, #f8fafc 0%, #d9e1ea 48%, #94a3b8 100%);
-  color: #334155;
-}
-
-.credit-history-page .payment-badge-coin.loading {
-  animation: credit-badge-coin-pulse 1.4s ease-in-out infinite;
-}
-
-.credit-history-page .payment-badge-coin.loading .payment-badge-coin-inner {
-  width: 28px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.52);
-}
-
-@keyframes credit-badge-coin-pulse {
-  0%,
-  100% {
-    opacity: 0.72;
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
 }
 
 .credit-history-page .ledger-summary-strip {
@@ -1746,21 +1691,9 @@
     margin-left: 0;
   }
 
-  .credit-history-page .payment-badge-coin-list {
-    grid-template-columns: repeat(auto-fit, minmax(56px, 68px));
-    width: auto;
-    max-width: 152px;
-    gap: 8px;
-  }
-
-  .credit-history-page .payment-badge-coin {
-    padding: 8px;
-  }
-
-  .credit-history-page .payment-badge-coin-inner {
-    max-width: 48px;
-    font-size: 10px;
-    letter-spacing: 0.28px;
+  .credit-history-page .payment-badge-single {
+    padding: 7px 10px;
+    font-size: 11px;
   }
 
   .credit-history-page .payment-badge-tooltip {
@@ -1905,39 +1838,17 @@
     max-width: 126px;
   }
 
+  .credit-history-page .payment-badge-single {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
   .credit-history-page .payment-badge-help-btn {
     width: 30px;
     height: 30px;
     font-size: 15px;
   }
 
-  .credit-history-page .payment-badge-coin-list {
-    grid-template-columns: repeat(auto-fit, minmax(52px, 60px));
-    max-width: 126px;
-    width: auto;
-    gap: 6px;
-  }
-
-  .credit-history-page .payment-badge-coin {
-    padding: 7px;
-  }
-
-  .credit-history-page .payment-badge-coin::before {
-    inset: 4px;
-  }
-
-  .credit-history-page .payment-badge-coin::after {
-    top: 8px;
-    left: 10px;
-    right: 10px;
-    height: 18px;
-  }
-
-  .credit-history-page .payment-badge-coin-inner {
-    max-width: 40px;
-    font-size: 9px;
-    letter-spacing: 0.2px;
-  }
 
   .credit-history-page .payment-badge-tooltip {
     right: 0;

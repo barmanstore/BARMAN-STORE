@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { CreditCard, Edit, Plus, Trash2 } from 'lucide-react';
 import AdminPageHeader from '../components/AdminPageHeader';
 import { formatJoinedDate, getInitials } from '../utils/adminHelpers';
+import { formatCurrency } from '../../../shared/utils/formatters';
 
 function UsersSection({
   handleAddUser,
@@ -169,12 +170,12 @@ function UsersSection({
                           <p><strong>Email:</strong> {u.email || '-'}</p>
                           <p><strong>Phone:</strong> {u.phone || '-'}</p>
                           <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
+                          <p><strong>Credit Limit:</strong> {Number(u.credit_limit || 0) > 0 ? formatCurrency(u.credit_limit) : 'Not set'}</p>
                           <div className="user-compact-actions">
                             <button
                               className="action-btn edit"
                               onClick={() => handleEditUser(u)}
-                              title={u.email_verified && u.phone_verified ? 'Change user type' : 'Requires verified email and phone'}
-                              disabled={!u.email_verified || !u.phone_verified}
+                              title="Edit customer"
                             >
                               <Edit size={16} />
                             </button>

@@ -1,7 +1,7 @@
 const sales = require('../../features/sales');
 
 const buildSalesDeps = ({ domain }) => {
-  const { contactUtils, notificationUtils } = domain;
+  const { contactUtils, notificationUtils, creditUtils } = domain;
 
   return {
     normalizeOrderStatus: sales.normalizeOrderStatus,
@@ -14,6 +14,9 @@ const buildSalesDeps = ({ domain }) => {
     generateOrderNumber: sales.generateOrderNumber,
     notifyAdmins: notificationUtils.notifyAdmins,
     generateBillNumber: sales.generateBillNumber,
+    recalculateCreditBalancesForUser: creditUtils.recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence: creditUtils.rebuildCustomerPaymentIntelligence,
+    getCustomerCreditProfileAsync: creditUtils.getCustomerCreditProfileAsync,
   };
 };
 

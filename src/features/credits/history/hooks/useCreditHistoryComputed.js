@@ -7,7 +7,6 @@ const useCreditHistoryComputed = ({
   isAdminView,
   paymentBadges,
   paymentBadgesLoading,
-  paymentBadgeSummary,
   quickTypeFilter,
   quickRangeFilter,
   creditIssues,
@@ -83,9 +82,7 @@ const useCreditHistoryComputed = ({
     { idleDays: 30 }
   );
 
-  const showPaymentBadges = paymentBadgesLoading
-    || paymentBadges.length > 0
-    || Number(paymentBadgeSummary?.total_payments || 0) > 0;
+  const showPaymentBadges = paymentBadgesLoading || paymentBadges.length > 0;
 
   const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
 

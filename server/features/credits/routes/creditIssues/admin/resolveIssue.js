@@ -1,3 +1,15 @@
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const addDaysToDateKey = (dateKey, days) => {
+  if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
+  const [year, month, day] = dateKey.split('-').map((v) => Number(v));
+  const baseMs = Date.UTC(year, month - 1, day);
+  const safeDays = Math.max(0, Math.floor(Number(days || 0)));
+  const next = new Date(baseMs + (safeDays * DAY_MS));
+  return next.toISOString().slice(0, 10);
+};
+
 const resolveCreditIssue = async ({
   req,
   issueId,
@@ -8,7 +20,9 @@ const resolveCreditIssue = async ({
   logAdminAuditAsync,
   normalizeCreditIssueStatus,
   getLatestCreditEntryAsync,
+  getCustomerCreditProfileAsync,
   recalculateCreditBalancesForUser,
+  rebuildCustomerPaymentIntelligence,
   normalizeTransactionDate,
   buildCreditTransactionTimestamp,
 } = {}) => {
@@ -78,6 +92,12 @@ const resolveCreditIssue = async ({
       const derivedDescription = correctionDescription
         || `Correction for issue #${issueId}${adminReason ? `: ${adminReason}` : ''}`;
       const transactionTs = buildCreditTransactionTimestamp(correctionDateRaw, new Date());
+      const transactionDateKey = normalizedCorrectionDate || String(transactionTs || '').slice(0, 10);
+      const creditProfile = await getCustomerCreditProfileAsync(userId);
+      const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+      const dueDate = correctionType === 'payment'
+        ? transactionDateKey
+        : (addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey);
       const insert = await dbRunAsync(
         `INSERT INTO credit_history
          (
@@ -88,6 +108,7 @@ const resolveCreditIssue = async ({
            description,
            reference,
            transaction_date,
+           due_date,
            transaction_ts,
            created_by,
            client_request_id,
@@ -95,7 +116,7 @@ const resolveCreditIssue = async ({
            source_id,
            source_label
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)`,
         [
           userId,
           correctionType,
@@ -103,7 +124,8 @@ const resolveCreditIssue = async ({
           nextBalance,
           derivedDescription,
           correctionReference || `ISSUE-${issueId}`,
-          normalizedCorrectionDate,
+          transactionDateKey,
+          dueDate,
           transactionTs,
           Number(req.authUser?.id || 0) || null,
           'issue_correction',
@@ -113,6 +135,7 @@ const resolveCreditIssue = async ({
       );
       correctionEntryId = Number(insert.lastInsertRowid || 0) || null;
       await recalculateCreditBalancesForUser(userId);
+      await rebuildCustomerPaymentIntelligence(userId);
     }
 
     const isFinal = status === 'corrected' || status === 'rejected';

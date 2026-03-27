@@ -9,6 +9,7 @@ const useCreditHistoryReports = ({
   creditHistory,
   customer,
   balance,
+  paymentBadgeSummary,
   fromDate,
   toDate,
   setError,
@@ -37,6 +38,18 @@ const useCreditHistoryReports = ({
   formatPdfCurrency,
   getPdfColumnStyles,
 }) => {
+  const buildPaymentProfilePayload = (summaryOverride = null, balanceOverride = null) => {
+    const summary = summaryOverride || paymentBadgeSummary || null;
+    const rawScore = summary?.payment_score;
+    const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
+    if (!hasScore && !summary?.payment_status_label) return null;
+    return {
+      ...summary,
+      payment_score: hasScore ? Number(rawScore) : null,
+      current_balance: balanceOverride ?? summary?.current_balance ?? Number(balance || 0),
+    };
+  };
+
   const buildCreditReport = (transactions, from, to) => {
     const allThroughPeriod = creditHistory
       .filter((t) => {
@@ -66,6 +79,7 @@ const useCreditHistoryReports = ({
       transactions: normalizedTransactions,
       periodEndingBalance,
       currentDayBalance: parseFloat(balance || 0),
+      paymentProfile: buildPaymentProfilePayload(),
       onlineStoreUrl: info.ONLINE_STORE_URL,
       thankYouLine: 'Thank you.',
     });
@@ -166,6 +180,7 @@ const useCreditHistoryReports = ({
     entryDate,
     previousBalance,
     updatedBalance,
+    paymentProfile,
     thankYouLine,
   }) => buildCreditEntryText({
     companyTitle: companyTitle || info.TITLE || 'BARMAN STORE',
@@ -176,6 +191,7 @@ const useCreditHistoryReports = ({
     entryDate,
     previousBalance,
     updatedBalance,
+    paymentProfile: buildPaymentProfilePayload(paymentProfile, updatedBalance),
     onlineStoreUrl: info.ONLINE_STORE_URL,
     thankYouLine: thankYouLine || 'Thank you.',
   });
@@ -217,6 +233,7 @@ const useCreditHistoryReports = ({
       reference: getCreditEntrySourceLabel(transaction),
       previousBalance,
       updatedBalance,
+      paymentProfile: buildPaymentProfilePayload(null, updatedBalance),
       onlineStoreUrl: info.ONLINE_STORE_URL,
       thankYouLine: 'Thank you.',
     });

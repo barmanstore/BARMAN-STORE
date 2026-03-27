@@ -14,6 +14,12 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [backend.md](backend.md), [v
 - The foundational schema starts in [supabase/migrations/20260224190000_init_barman_store.sql](../supabase/migrations/20260224190000_init_barman_store.sql).
 - Recent migrations show current focus areas: auth OTP, order flow, credit issues, category tree, purchase operations, product insights, and offer scheduling.
 
+## Credit Tables
+
+- `credit_history` stores a required `due_date` per entry; historical rows are backfilled from `transaction_date` or `transaction_ts`.
+- `customer_credit_profiles` includes `credit_terms_days` to compute default due dates for manual credits.
+- `customer_payment_score_snapshots` tracks `unapplied_credit` so overpayments are stored without affecting scoring.
+
 ## Query Compatibility
 
 - Legacy SQLite-style `?` SQL placeholders are adapted to Postgres by [server/db/queryAdapter.js](../server/db/queryAdapter.js).

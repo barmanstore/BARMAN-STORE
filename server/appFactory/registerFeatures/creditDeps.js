@@ -5,8 +5,12 @@ const buildCreditDeps = ({ core, domain }) => {
   return {
     normalizeCreditIssueStatus: creditUtils.normalizeCreditIssueStatus,
     getLatestCreditEntryAsync: creditUtils.getLatestCreditEntryAsync,
+    buildCreditDisciplineProfile: creditUtils.buildCreditDisciplineProfile,
     buildPaymentActivityBadges: creditUtils.buildPaymentActivityBadges,
     recalculateCreditBalancesForUser: creditUtils.recalculateCreditBalancesForUser,
+    getCustomerCreditProfileAsync: creditUtils.getCustomerCreditProfileAsync,
+    rebuildCustomerPaymentIntelligence: creditUtils.rebuildCustomerPaymentIntelligence,
+    rebuildAllCustomerPaymentIntelligence: creditUtils.rebuildAllCustomerPaymentIntelligence,
     buildCreditTransactionTimestamp: creditUtils.buildCreditTransactionTimestamp,
     CREDIT_ENTRY_DEDUP_WINDOW_MS: configValues.CREDIT_ENTRY_DEDUP_WINDOW_MS,
     toTimestampMs: requestUtils.toTimestampMs,

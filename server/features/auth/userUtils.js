@@ -11,6 +11,9 @@ const sanitizeUser = (row) => {
     address: row.address,
     profile_image: row.profile_image || null,
     must_change_password: Number(row.must_change_password || 0) === 1,
+    credit_limit: row.credit_limit === null || row.credit_limit === undefined
+      ? null
+      : Number(row.credit_limit || 0),
     created_at: row.created_at,
   };
 };

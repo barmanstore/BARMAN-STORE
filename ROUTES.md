@@ -305,6 +305,9 @@ These helper trees act as the practical controller layer for complex routes:
 - `server/features/credits/routes/creditLedger/creditLedgerReports.js`
   - `POST /api/credit/check-limit`
   - `GET /api/credit/aging`
+- `server/features/credits/routes/creditLedger/creditPaymentIntelligenceJob.js`
+  - `GET /api/internal/credits/payment-intelligence/run`
+  - `POST /api/internal/credits/payment-intelligence/run`
 - `server/features/credits/routes/creditLedger/creditLedgerList.js`
   - `GET /api/users/:userId/credit-balance`
   - `GET /api/credit/ledger`

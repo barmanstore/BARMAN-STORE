@@ -63,7 +63,9 @@
         "prepare": "node scripts/install-hooks.mjs",
         "db:supabase:check": "node scripts/check-supabase-connection.js",
         "db:supabase:migrate": "node scripts/apply-supabase-migrations.js",
-        "security:supabase:enable-leaked-password-protection": "node scripts/enable-supabase-leaked-password-protection.js"
+        "security:supabase:enable-leaked-password-protection": "node scripts/enable-supabase-leaked-password-protection.js",
+        "check:routes": "node scripts/check-routes.js",
+        "check:api-wrappers": "node scripts/check-api-wrappers.js"
     },
     "browserslist": {
         "production": [

@@ -37,11 +37,12 @@ const useAdminUserActions = ({
       showNotification('You do not have permission to edit users.', 'error');
       return;
     }
-    if (!user || !user.email_verified || !user.phone_verified) {
-      showNotification('User type can be changed only when both email and phone are verified.', 'error');
+    if (!user) {
       return;
     }
     setEditingUser(user);
+    setIsCreatingUser(false);
+    setShowUserForm(true);
   };
 
   const handleUserSave = async () => {

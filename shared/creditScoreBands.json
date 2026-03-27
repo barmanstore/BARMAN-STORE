@@ -1,0 +1,42 @@
+[
+  {
+    "key": "excellent",
+    "label": "Excellent",
+    "tone": "excellent",
+    "min": 80,
+    "max": 100,
+    "description": "Always pays on time at the time of sale."
+  },
+  {
+    "key": "very_good",
+    "label": "Very Good",
+    "tone": "very-good",
+    "min": 60,
+    "max": 79,
+    "description": "Mostly pays on time within 7 days."
+  },
+  {
+    "key": "good",
+    "label": "Good",
+    "tone": "good",
+    "min": 40,
+    "max": 59,
+    "description": "Sometimes pays late, but usually within 1 month."
+  },
+  {
+    "key": "needs_attention",
+    "label": "Needs Attention",
+    "tone": "attention",
+    "min": 20,
+    "max": 39,
+    "description": "Often pays late and can stretch to 2 months."
+  },
+  {
+    "key": "problem",
+    "label": "Problem",
+    "tone": "problem",
+    "min": 0,
+    "max": 19,
+    "description": "Misses payments and carries overdue credit for too long."
+  }
+]

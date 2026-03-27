@@ -3,6 +3,9 @@ import { usersApi } from '../services/api';
 import useIsMobile from '../hooks/useIsMobile';
 import MobileBottomSheet from './mobile/MobileBottomSheet';
 import WindowModal from './window/WindowModal';
+import CalculatedAmountInput from './CalculatedAmountInput';
+import { validateAmountInput } from '../utils/amountExpression';
+import { formatCurrency } from '../utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
 
@@ -12,6 +15,9 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
     email: isCreate ? String(createPrefill?.email || '') : '',
     phone: isCreate ? String(createPrefill?.phone || '') : '',
     address: isCreate ? String(createPrefill?.address || '') : '',
+    credit_limit: isCreate && createPrefill?.credit_limit !== undefined && createPrefill?.credit_limit !== null
+      ? String(createPrefill.credit_limit)
+      : '',
     role: 'customer',
   }));
   const [loading, setLoading] = useState(false);
@@ -27,6 +33,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
         email: user.email || '',
         phone: user.phone || '',
         address: user.address || '',
+        credit_limit: Number(user.credit_limit || 0) > 0 ? String(user.credit_limit) : '',
         role: user.role || 'customer',
       });
     }
@@ -54,6 +61,13 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
       nextErrors.role = 'Choose a valid user type';
     }
 
+    if (String(formData.credit_limit || '').trim() !== '') {
+      const creditLimitResult = validateAmountInput(formData.credit_limit, { min: 0 });
+      if (!creditLimitResult.valid) {
+        nextErrors.credit_limit = creditLimitResult.message || 'Enter a valid credit limit';
+      }
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -70,7 +84,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
     e.preventDefault();
     if (!validateForm()) return;
 
-    if (!isCreate && !isRoleEditAllowed) {
+    if (!isCreate && isAdminTarget) {
       setError(roleEditBlockedMessage);
       return;
     }
@@ -80,6 +94,20 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
     setSuccess('');
 
     try {
+      const hasCreditLimit = String(formData.credit_limit || '').trim() !== '';
+      const creditLimitResult = hasCreditLimit
+        ? validateAmountInput(formData.credit_limit, { min: 0 })
+        : { valid: true, value: 0 };
+      if (!creditLimitResult.valid) {
+        setErrors((prev) => ({
+          ...prev,
+          credit_limit: creditLimitResult.message || 'Enter a valid credit limit',
+        }));
+        setLoading(false);
+        return;
+      }
+      const creditLimitValue = hasCreditLimit ? Number(creditLimitResult.value) : 0;
+
       let createdUser = null;
       if (isCreate) {
         const normalizedPhone = formData.phone ? normalizeIndianPhone(formData.phone) : '';
@@ -88,13 +116,20 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
           email: formData.email.trim() || null,
           phone: normalizedPhone || null,
           address: formData.address.trim() || null,
+          credit_limit: creditLimitValue,
           role: 'customer',
         });
         createdUser = created?.user || created || null;
         setSuccess('Customer created successfully');
       } else {
-        await usersApi.update(user.id, { role: formData.role === 'admin' ? 'admin' : 'customer' });
-        setSuccess('User type updated successfully');
+        const updatePayload = {
+          credit_limit: creditLimitValue,
+        };
+        if (isRoleEditAllowed && !isAdminTarget) {
+          updatePayload.role = formData.role === 'admin' ? 'admin' : 'customer';
+        }
+        await usersApi.update(user.id, updatePayload);
+        setSuccess('Customer updated successfully');
       }
       setTimeout(() => {
         onSave(createdUser);
@@ -170,6 +205,19 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
                 autoComplete="street-address"
               />
             </div>
+
+            <div className="form-group">
+              <label htmlFor="credit-limit">Credit Limit</label>
+              <CalculatedAmountInput
+                id="credit-limit"
+                name="credit_limit"
+                min={0}
+                value={formData.credit_limit}
+                onValueChange={(nextValue) => handleChange({ target: { name: 'credit_limit', value: nextValue } })}
+                placeholder="Optional manual limit"
+              />
+              {errors.credit_limit && <span className="field-error">{errors.credit_limit}</span>}
+            </div>
           </>
         ) : (
           <>
@@ -179,8 +227,9 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
               <p><strong>Phone:</strong> {formData.phone || '-'}</p>
               <p><strong>Email status:</strong> {user?.email_verified ? 'Verified' : 'Unverified'}</p>
               <p><strong>Phone status:</strong> {user?.phone_verified ? 'Verified' : 'Unverified'}</p>
+              <p><strong>Current credit limit:</strong> {Number(user?.credit_limit || 0) > 0 ? formatCurrency(user.credit_limit) : 'Not set'}</p>
             </div>
-            {!isRoleEditAllowed && (
+            {(!isRoleEditAllowed || isAdminTarget) && (
               <span className="field-error">{roleEditBlockedMessage}</span>
             )}
 
@@ -199,8 +248,25 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
               </select>
               {errors.role && <span className="field-error">{errors.role}</span>}
               {isRoleEditAllowed && !isAdminTarget && (
-                <span className="info-text">Only user type is editable in admin user edit mode.</span>
+                <span className="info-text">Role changes are allowed only after both email and phone are verified.</span>
               )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="credit-limit">Credit Limit</label>
+              <CalculatedAmountInput
+                id="credit-limit"
+                name="credit_limit"
+                min={0}
+                value={formData.credit_limit}
+                onValueChange={(nextValue) => handleChange({ target: { name: 'credit_limit', value: nextValue } })}
+                placeholder="Optional manual limit"
+                disabled={isAdminTarget}
+              />
+              {errors.credit_limit && <span className="field-error">{errors.credit_limit}</span>}
+              {!isAdminTarget ? (
+                <span className="info-text">Leave blank to remove the manual credit limit.</span>
+              ) : null}
             </div>
           </>
         )}
@@ -212,9 +278,9 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
           <button
             type="submit"
             className="submit-btn"
-            disabled={loading || (!isCreate && (!isRoleEditAllowed || isAdminTarget))}
+            disabled={loading || isAdminTarget}
           >
-            {loading ? 'Saving...' : (isCreate ? 'Add Customer' : 'Update User Type')}
+            {loading ? 'Saving...' : (isCreate ? 'Add Customer' : 'Save Customer')}
           </button>
         </div>
       </form>
@@ -225,7 +291,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
     return (
       <MobileBottomSheet
         open
-        title={isCreate ? 'Add New Customer' : 'Update User Type'}
+        title={isCreate ? 'Add New Customer' : 'Edit Customer'}
         onClose={onClose}
         dismissible={!loading}
         className="user-edit-sheet"
@@ -238,13 +304,13 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
   return (
     <WindowModal
       open
-      title={isCreate ? 'Add New Customer' : 'Update User Type'}
+      title={isCreate ? 'Add New Customer' : 'Edit Customer'}
       onClose={onClose}
       dismissible={!loading}
       dialogClassName="user-edit-modal fade-in-up"
       headerClassName="user-edit-header"
       closeButtonClassName="user-edit-modal-close-btn"
-      initialSize={{ width: 520, height: isCreate ? 620 : 520 }}
+      initialSize={{ width: 520, height: isCreate ? 680 : 600 }}
     >
       {formContent}
     </WindowModal>

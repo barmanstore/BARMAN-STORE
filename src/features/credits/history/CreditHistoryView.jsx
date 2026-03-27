@@ -25,6 +25,7 @@ const CreditHistoryView = ({
   showPaymentBadges,
   paymentBadgesLoading,
   paymentBadges,
+  paymentBadgeSummary,
   inactivityHint,
   error,
   success,
@@ -118,6 +119,7 @@ const CreditHistoryView = ({
         showPaymentBadges={showPaymentBadges}
         paymentBadgesLoading={paymentBadgesLoading}
         paymentBadges={paymentBadges}
+        paymentBadgeSummary={paymentBadgeSummary}
         inactivityHint={inactivityHint}
         error={error}
         success={success}
@@ -187,6 +189,7 @@ const CreditHistoryView = ({
           reportSummary={reportSummary}
           reportText={reportText}
           customer={customer}
+          paymentBadgeSummary={paymentBadgeSummary}
           handleCopyReport={handleCopyReport}
           handleSendWhatsApp={handleSendWhatsApp}
           generatePDFReport={generatePDFReport}

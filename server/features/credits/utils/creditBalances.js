@@ -2,24 +2,23 @@ const createCreditBalanceUtils = ({
   dbGetAsync,
   dbAllAsync,
   dbRunAsync,
-  dbTxAsync,
   normalizeCreditType,
 } = {}) => {
   const getLatestCreditEntryAsync = (userId) => dbGetAsync(
     `SELECT *
      FROM credit_history
      WHERE user_id = ?
-     ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
+     ORDER BY transaction_ts DESC, created_at DESC, id DESC
      LIMIT 1`,
     [userId]
   );
 
-  const recalculateCreditBalancesForUser = async (userId) => dbTxAsync(async () => {
+  const recalculateCreditBalancesForUser = async (userId) => {
     const rows = await dbAllAsync(
       `SELECT id, type, amount
        FROM credit_history
        WHERE user_id = ?
-       ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) ASC, created_at ASC, id ASC`,
+       ORDER BY transaction_ts ASC, created_at ASC, id ASC`,
       [userId]
     );
 
@@ -34,7 +33,7 @@ const createCreditBalanceUtils = ({
     }
 
     return runningBalance;
-  });
+  };
 
   return {
     getLatestCreditEntryAsync,

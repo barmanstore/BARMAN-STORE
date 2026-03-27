@@ -7,6 +7,7 @@ const registerCreditIssuesListRoutes = (deps) => {
     runCustomerRequestPurge,
     normalizeCreditIssueStatus,
     getLatestCreditEntryAsync,
+    getCustomerCreditProfileAsync,
     buildPaymentActivityBadges,
   } = deps;
 
@@ -52,7 +53,7 @@ const registerCreditIssuesListRoutes = (deps) => {
       const rows = await dbAllAsync(
         `${creditHistorySelect}
          WHERE ch.user_id = ?
-         ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) DESC, ch.created_at DESC, ch.id DESC`,
+         ORDER BY ch.transaction_ts DESC, ch.created_at DESC, ch.id DESC`,
         [req.params.userId]
       );
       return res.json(rows);
@@ -69,21 +70,25 @@ const registerCreditIssuesListRoutes = (deps) => {
         return res.status(403).json({ error: 'Forbidden' });
       }
 
-      const [paymentRows, latest] = await Promise.all([
+      const [historyRows, latest, userRow, creditProfile] = await Promise.all([
         dbAllAsync(
-          `SELECT amount, transaction_ts, transaction_date, created_at
+          `SELECT id, type, amount, transaction_ts, transaction_date, due_date, created_at, source_type, source_label, reference
            FROM credit_history
            WHERE user_id = ?
-             AND LOWER(type) = 'payment'
-           ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC`,
+           ORDER BY transaction_ts ASC, created_at ASC, id ASC`,
           [req.params.userId]
         ),
         getLatestCreditEntryAsync(requestUserId),
+        dbGetAsync(`SELECT credit_limit FROM users WHERE id = ?`, [requestUserId]),
+        getCustomerCreditProfileAsync(requestUserId),
       ]);
 
-      const badgePayload = buildPaymentActivityBadges(paymentRows, {
+      const badgePayload = buildPaymentActivityBadges(historyRows, {
         balance: Number(latest?.balance || 0),
+        creditLimit: Number(userRow?.credit_limit || 0),
         nowMs: Date.now(),
+        isActive: creditProfile?.is_active,
+        graceDays: creditProfile?.grace_days,
       });
       return res.json(badgePayload);
     } catch (error) {

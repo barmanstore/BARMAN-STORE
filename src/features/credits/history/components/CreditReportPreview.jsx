@@ -6,6 +6,7 @@ function CreditReportPreview({
   reportSummary,
   reportText,
   customer,
+  paymentBadgeSummary,
   handleCopyReport,
   handleSendWhatsApp,
   generatePDFReport,
@@ -15,6 +16,13 @@ function CreditReportPreview({
   if (!showReport) return null;
   const endingBalance = Number(reportSummary?.endingBalance || 0);
   const endingBalanceLabel = endingBalance < 0 ? 'Advance' : endingBalance > 0 ? 'Due' : 'Settled';
+  const hasPaymentScore = paymentBadgeSummary?.payment_score !== null
+    && paymentBadgeSummary?.payment_score !== undefined
+    && Number.isFinite(Number(paymentBadgeSummary?.payment_score));
+  const isNewCustomer = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
+    || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new';
+  const statusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
+  const statusTag = String(paymentBadgeSummary?.payment_status_tag || '').trim();
 
   return (
     <div className="report-box">
@@ -28,6 +36,14 @@ function CreditReportPreview({
           <span>Total debits: {formatCurrency(reportSummary.totalDebit || 0)}</span>
           <span>Total credits: {formatCurrency(reportSummary.totalCredit || 0)}</span>
           <span>Ending balance: {endingBalanceLabel} {formatCurrency(Math.abs(endingBalance))}</span>
+          {isNewCustomer ? (
+            <span>Payment status: New</span>
+          ) : (hasPaymentScore ? (
+            <span>
+              Payment score: {Math.round(Number(paymentBadgeSummary.payment_score))}/100
+              {statusLabel ? ` (${statusLabel}${statusTag ? ` · ${statusTag}` : ''})` : ''}
+            </span>
+          ) : null)}
         </div>
       )}
       <textarea id="credit-report-preview" name="credit_report_preview" className="report-text" readOnly value={reportText} />

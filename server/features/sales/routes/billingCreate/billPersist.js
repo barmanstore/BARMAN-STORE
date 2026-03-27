@@ -1,10 +1,25 @@
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const addDaysToDateKey = (dateKey, days) => {
+  if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
+  const [year, month, day] = dateKey.split('-').map((v) => Number(v));
+  const baseMs = Date.UTC(year, month - 1, day);
+  const safeDays = Math.max(0, Math.floor(Number(days || 0)));
+  const next = new Date(baseMs + (safeDays * DAY_MS));
+  return next.toISOString().slice(0, 10);
+};
+
 const persistBillDraft = async (deps, req, draft) => {
   const {
     dbGetAsync,
     dbRunAsync,
     dbTxAsync,
     normalizePaymentMethod,
+    getCustomerCreditProfileAsync,
     logStockLedgerAsync,
+    recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence,
   } = deps;
 
   const {
@@ -108,13 +123,17 @@ const persistBillDraft = async (deps, req, draft) => {
         `SELECT balance
          FROM credit_history
          WHERE user_id = ?
-         ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
+         ORDER BY transaction_ts DESC, created_at DESC, id DESC
          LIMIT 1`,
         [Number(customer.id)]
       );
       const currentBalance = Number(last?.balance || 0);
       const nextBalance = currentBalance + Number(creditAmount || 0);
       const creditTransactionTs = new Date().toISOString();
+      const transactionDateKey = creditTransactionTs.slice(0, 10);
+      const creditProfile = await getCustomerCreditProfileAsync(Number(customer.id));
+      const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+      const dueDate = addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey;
       await dbRunAsync(
         `INSERT INTO credit_history (
            user_id,
@@ -124,6 +143,7 @@ const persistBillDraft = async (deps, req, draft) => {
            description,
            reference,
            transaction_date,
+           due_date,
            transaction_ts,
            created_by,
            client_request_id,
@@ -131,7 +151,7 @@ const persistBillDraft = async (deps, req, draft) => {
            source_id,
            source_label
          )
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           Number(customer.id),
           'given',
@@ -139,7 +159,8 @@ const persistBillDraft = async (deps, req, draft) => {
           nextBalance,
           `Bill credit | Paid: Rs ${Number(paidAmount || 0).toFixed(2)} | Credit: Rs ${Number(creditAmount || 0).toFixed(2)}`,
           billNumber,
-          null,
+          transactionDateKey,
+          dueDate,
           creditTransactionTs,
           createdBy,
           clientRequestId ? `${clientRequestId}:credit` : null,
@@ -148,6 +169,8 @@ const persistBillDraft = async (deps, req, draft) => {
           billNumber,
         ]
       );
+      await recalculateCreditBalancesForUser(Number(customer.id));
+      await rebuildCustomerPaymentIntelligence(Number(customer.id));
     }
     if (normalizedOrderId) {
       await dbRunAsync(

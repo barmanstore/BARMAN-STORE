@@ -2,13 +2,13 @@ const { normalizeCreditType, normalizeCreditIssueStatus } = require('./utils/cre
 const { createCreditTimestampUtils } = require('./utils/creditTimestamps');
 const { createCreditBalanceUtils } = require('./utils/creditBalances');
 const { createCreditBadgeUtils } = require('./utils/creditBadges');
+const { createPaymentIntelligenceUtils } = require('./utils/paymentIntelligence');
 
 const createCreditUtils = (deps = {}) => {
   const {
     dbGetAsync,
     dbAllAsync,
     dbRunAsync,
-    dbTxAsync,
     normalizeTransactionDate,
     toTimestampMs,
   } = deps;
@@ -21,10 +21,23 @@ const createCreditUtils = (deps = {}) => {
     dbGetAsync,
     dbAllAsync,
     dbRunAsync,
-    dbTxAsync,
     normalizeCreditType,
   });
-  const { buildPaymentActivityBadges } = createCreditBadgeUtils({ resolveCreditEntryTimestampMs });
+  const {
+    buildCreditDisciplineProfile,
+    buildPaymentActivityBadges,
+  } = createCreditBadgeUtils({ resolveCreditEntryTimestampMs });
+  const {
+    ensureCustomerCreditProfileAsync,
+    getCustomerCreditProfileAsync,
+    rebuildCustomerPaymentIntelligence,
+    rebuildAllCustomerPaymentIntelligence,
+  } = createPaymentIntelligenceUtils({
+    dbGetAsync,
+    dbAllAsync,
+    dbRunAsync,
+    buildCreditDisciplineProfile,
+  });
 
   return {
     normalizeCreditType,
@@ -33,7 +46,12 @@ const createCreditUtils = (deps = {}) => {
     getLatestCreditEntryAsync,
     recalculateCreditBalancesForUser,
     resolveCreditEntryTimestampMs,
+    buildCreditDisciplineProfile,
     buildPaymentActivityBadges,
+    ensureCustomerCreditProfileAsync,
+    getCustomerCreditProfileAsync,
+    rebuildCustomerPaymentIntelligence,
+    rebuildAllCustomerPaymentIntelligence,
   };
 };
 

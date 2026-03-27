@@ -20,11 +20,15 @@ const useCreditHistoryLoaders = ({
     try {
       setPaymentBadgesLoading(true);
       const data = await creditApi.getPaymentBadges(targetUserId);
-      setPaymentBadges(Array.isArray(data?.badges) ? data.badges : []);
-      setPaymentBadgeSummary(data?.summary || null);
+      const badges = Array.isArray(data?.badges) ? data.badges : [];
+      const summary = data?.summary || null;
+      setPaymentBadges(badges);
+      setPaymentBadgeSummary(summary);
+      return { badges, summary };
     } catch (_) {
       setPaymentBadges([]);
       setPaymentBadgeSummary(null);
+      return { badges: [], summary: null };
     } finally {
       setPaymentBadgesLoading(false);
     }
@@ -53,11 +57,13 @@ const useCreditHistoryLoaders = ({
       } catch (_) {
         setCreditIssues([]);
       }
-      loadPaymentBadges(targetUserId);
+      const badgeData = await loadPaymentBadges(targetUserId);
       return {
         history: historyData,
         balance: Number(balanceData?.balance || 0),
-        customer: customerData
+        customer: customerData,
+        paymentBadgeSummary: badgeData?.summary || null,
+        paymentBadges: badgeData?.badges || [],
       };
     } catch (err) {
       if (err?.status === 401) {

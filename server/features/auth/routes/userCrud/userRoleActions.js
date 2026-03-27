@@ -19,8 +19,17 @@ const registerUserRoleRoutes = (deps) => {
       const { name, email, phone, address, role } = req.body || {};
       const normalizedEmail = normalizeEmail(email);
       const phoneParsed = parsePhoneInput(phone);
+      const creditLimitRaw = req.body?.credit_limit;
       if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
       const normalizedPhone = phoneParsed.value;
+      let normalizedCreditLimit = 0;
+      if (creditLimitRaw !== undefined && creditLimitRaw !== null && String(creditLimitRaw).trim() !== '') {
+        const parsedCreditLimit = Number(creditLimitRaw);
+        if (!Number.isFinite(parsedCreditLimit) || parsedCreditLimit < 0) {
+          return res.status(400).json({ error: 'Credit limit must be a number greater than or equal to 0' });
+        }
+        normalizedCreditLimit = parsedCreditLimit;
+      }
       if (!name || String(name).trim().length < 2) {
         return res.status(400).json({ error: 'Name must be at least 2 characters' });
       }
@@ -40,8 +49,8 @@ const registerUserRoleRoutes = (deps) => {
       const emailVerifiedValue = normalizedEmail ? (requestedEmailVerified ? 1 : 0) : 0;
       const phoneVerifiedValue = normalizedPhone ? (requestedPhoneVerified ? 1 : 0) : 0;
       const result = await dbRunAsync(
-        `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userRole, String(name).trim(), normalizedEmail, emailVerifiedValue, normalizedPhone, phoneVerifiedValue, address || null, hashPassword(nextPassword), 0]
+        `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password, credit_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userRole, String(name).trim(), normalizedEmail, emailVerifiedValue, normalizedPhone, phoneVerifiedValue, address || null, hashPassword(nextPassword), 0, normalizedCreditLimit]
       );
       const user = sanitizeUser(await dbGetAsync('SELECT * FROM users WHERE id = ?', [result.lastInsertRowid]));
       if (normalizedEmail && emailVerifiedValue === 0) {

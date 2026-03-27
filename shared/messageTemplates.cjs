@@ -80,6 +80,35 @@ const toPaymentStatusLabel = (value) => {
   return normalizeLabel(value, '');
 };
 
+const buildPaymentProfileLines = (paymentProfile) => {
+  if (!paymentProfile || typeof paymentProfile !== 'object') return [];
+  const rawScore = paymentProfile.payment_score;
+  const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
+  const score = hasScore ? Number(rawScore) : null;
+  const statusLabel = String(paymentProfile.payment_status_label || '').trim();
+  const statusTag = String(paymentProfile.payment_status_tag || '').trim();
+  const isNewCustomer = String(paymentProfile.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
+    || String(paymentProfile.payment_status || '').trim().toLowerCase() === 'new';
+  const creditLimit = Number(paymentProfile.credit_limit || 0);
+  const utilization = Number(paymentProfile.credit_limit_utilization);
+  const lines = [];
+
+  if (isNewCustomer) {
+    lines.push(`পেমেন্ট স্থিতি: New${statusTag ? ` | ${statusTag}` : ''}`);
+  } else if (hasScore || statusLabel) {
+    const scoreText = hasScore ? `${Math.round(score)}/100` : '-';
+    lines.push(`পেমেন্ট স্কোৰ: ${scoreText}${statusLabel ? ` | ${statusLabel}` : ''}${statusTag ? ` | ${statusTag}` : ''}`);
+  }
+
+  if (creditLimit > 0) {
+    lines.push(
+      `ক্রেডিট লিমিট: ${formatCurrency(creditLimit)}${Number.isFinite(utilization) ? ` | ব্যৱহাৰ: ${utilization.toFixed(1)}%` : ''}`
+    );
+  }
+
+  return lines;
+};
+
 const compactJoin = (lines) => lines.filter(Boolean).join('\n');
 
 const formatCount = (value) => {
@@ -184,6 +213,7 @@ const buildCreditReportText = ({
   transactions = [],
   periodEndingBalance = 0,
   currentDayBalance = 0,
+  paymentProfile,
   onlineStoreUrl,
   thankYouLine,
   maxTransactionLines = 8,
@@ -218,12 +248,15 @@ const buildCreditReportText = ({
       `গ্ৰাহক: ${normalizeLabel(customerName, DEFAULT_CUSTOMER_LABEL)}`,
       `সময়সীমা: ${normalizeLabel(fromDate, '-')} পৰা ${normalizeLabel(toDate, '-')} লৈ`,
       `তৈয়াৰ: ${formatDateTime(generatedAt)}`,
+      ...buildPaymentProfileLines(paymentProfile),
       safeTransactions.length ? `লেনদেন (${safeTransactions.length}):` : 'লেনদেন: নাই',
       ...transactionLines,
       safeTransactions.length > transactionLines.length
         ? `+${safeTransactions.length - transactionLines.length} টা অধিক লেনদেন`
         : '',
       `মুঠ ধাৰ: ${formatCurrency(totalGiven)} | মুঠ পৰিশোধ: ${formatCurrency(totalPayment)} | নেট: ${formatCurrency(totalGiven - totalPayment)}`,
+      `পিৰিয়ড শেষৰ বেলেঞ্চ: ${formatCurrency(periodEndingBalance)}`,
+      `বৰ্তমান বেলেঞ্চ: ${formatCurrency(currentDayBalance)}`,
     ],
     onlineStoreUrl,
     thankYouLine,
@@ -240,6 +273,7 @@ const buildCreditEntryText = ({
   entryDate,
   previousBalance,
   updatedBalance,
+  paymentProfile,
   onlineStoreUrl,
   thankYouLine,
 } = {}) => buildStructuredMessage({
@@ -251,6 +285,7 @@ const buildCreditEntryText = ({
     `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
     reference ? `ৰেফ: ${reference}` : '',
     `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
+    ...buildPaymentProfileLines(paymentProfile),
   ],
   onlineStoreUrl,
   thankYouLine,
@@ -265,6 +300,7 @@ const buildCreditTransactionText = ({
   reference,
   previousBalance,
   updatedBalance,
+  paymentProfile,
   onlineStoreUrl,
   thankYouLine,
 } = {}) => buildStructuredMessage({
@@ -276,6 +312,7 @@ const buildCreditTransactionText = ({
     `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
     reference ? `ৰেফ: ${reference}` : '',
     `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
+    ...buildPaymentProfileLines(paymentProfile),
   ],
   onlineStoreUrl,
   thankYouLine,

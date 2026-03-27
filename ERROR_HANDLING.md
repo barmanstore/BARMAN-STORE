@@ -23,6 +23,7 @@ See also: [AGENTS.md](AGENTS.md), [ROUTES.md](ROUTES.md), [docs/api-contract.md]
 ## Current Examples
 
 - Runtime readiness failures return JSON `500` from [server/core/httpSetup.js](server/core/httpSetup.js).
+- Shared route error handling utilities live in [server/core/routeErrors.js](server/core/routeErrors.js) and preserve `error.status` when emitting JSON.
 - Validated order creation returns structured `400` issues for incomplete profiles in [server/features/sales/routes/orderCreateRoutes.js](server/features/sales/routes/orderCreateRoutes.js).
 - Credit issue resolution uses thrown errors with `status` in [server/features/credits/routes/creditIssues/admin/resolveIssue.js](server/features/credits/routes/creditIssues/admin/resolveIssue.js).
 - Password-auth compatibility endpoints intentionally return `410` and stay documented in [ROUTES.md](ROUTES.md).

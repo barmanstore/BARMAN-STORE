@@ -2,36 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
+import scoreBands from '../../../../../shared/creditScoreBands.json';
 
-const PAYMENT_BADGE_RULES = [
-  {
-    id: 'gold',
-    title: 'Gold Score',
-    description: 'Earned when the balance is fully cleared and the dues are paid within 7 days.',
-  },
-  {
-    id: 'silver',
-    title: 'Silver Score',
-    description: 'Earned when 2 or more payments are recorded within the last 60 days.',
-  },
-  {
-    id: 'bronze',
-    title: 'Bronze Score',
-    description: 'Earned when at least 1 payment is recorded within the last 90 days.',
-  },
-  {
-    id: 'streak',
-    title: 'Streak Star',
-    description: 'Earned when payments are made in 6 or more consecutive months.',
-  },
-  {
-    id: 'refresh',
-    title: 'Automatic updates',
-    description: 'Badges refresh after new payments and after the credit history is reloaded, so recent behavior matters most.',
-  },
-];
+const PAYMENT_BADGE_RULES = (Array.isArray(scoreBands) ? scoreBands : []).map((band) => ({
+  id: String(band.key || band.label || '').trim() || 'status',
+  title: `${band.label} (${band.min}-${band.max})`,
+  description: band.description || '',
+}));
 
 const getBadgeCoinLabel = (badge) => {
+  const shortLabel = String(badge?.shortLabel || '').trim();
+  if (shortLabel) return shortLabel;
+
   const tone = String(badge?.tone || '').toLowerCase();
   if (tone === 'gold') return 'Gold';
   if (tone === 'silver') return 'Silver';
@@ -57,6 +39,7 @@ function CreditHistoryHeader({
   showPaymentBadges,
   paymentBadgesLoading,
   paymentBadges,
+  paymentBadgeSummary,
   inactivityHint,
   error,
   success,
@@ -65,6 +48,15 @@ function CreditHistoryHeader({
 }) {
   const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
   const badgeTooltipRef = useRef(null);
+  const hasPaymentScore = paymentBadgeSummary?.payment_score !== null
+    && paymentBadgeSummary?.payment_score !== undefined
+    && Number.isFinite(Number(paymentBadgeSummary?.payment_score));
+  const paymentScore = hasPaymentScore ? Math.round(Number(paymentBadgeSummary.payment_score)) : null;
+  const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
+  const paymentStatusTone = String(paymentBadgeSummary?.payment_status_tone || 'neutral').trim();
+  const isNewCustomer = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
+    || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new';
+  const showScoreValue = hasPaymentScore && !isNewCustomer;
 
   useEffect(() => {
     if (!showBadgeTooltip || typeof document === 'undefined') return undefined;
@@ -137,7 +129,8 @@ function CreditHistoryHeader({
                   >
                     <div className="payment-badge-tooltip-title">How payment badges work</div>
                     <p className="payment-badge-tooltip-intro">
-                      Badges reward recent payment discipline. They update automatically when payment activity changes.
+                      The score is based on recent payment behavior across billing periods. Paying on time improves your score,
+                      while late or missed payments reduce it.
                     </p>
                     <ul className="payment-badge-tooltip-list">
                       {PAYMENT_BADGE_RULES.map((rule) => (
@@ -146,33 +139,22 @@ function CreditHistoryHeader({
                         </li>
                       ))}
                     </ul>
+                    <div className="payment-badge-tooltip-subtitle">How to improve your score:</div>
+                    <ul className="payment-badge-tooltip-list">
+                      <li>Pay before or on the due date</li>
+                      <li>Avoid carrying overdue balances</li>
+                      <li>Clear missed payments as early as possible</li>
+                    </ul>
+                    <p className="payment-badge-tooltip-note">
+                      New customers may show a neutral score until enough payment history is available.
+                    </p>
                   </div>
                 ) : null}
               </div>
-              {(paymentBadgesLoading || paymentBadges.length > 0) ? (
-                <div className="payment-badge-coin-list" aria-label="Payment badges">
-                  {paymentBadgesLoading ? (
-                    <>
-                      <span className="payment-badge-coin neutral loading" aria-hidden="true">
-                        <span className="payment-badge-coin-inner" />
-                      </span>
-                      <span className="payment-badge-coin neutral loading" aria-hidden="true">
-                        <span className="payment-badge-coin-inner" />
-                      </span>
-                    </>
-                  ) : (
-                    paymentBadges.map((badge) => (
-                      <span
-                        key={badge.id || badge.label}
-                        className={`payment-badge-coin ${badge.tone || 'neutral'}`}
-                        title={badge.description || badge.label}
-                        role="img"
-                        aria-label={badge.label || 'Payment badge'}
-                      >
-                        <span className="payment-badge-coin-inner">{getBadgeCoinLabel(badge)}</span>
-                      </span>
-                    ))
-                  )}
+              {paymentStatusLabel ? (
+                <div className={`payment-badge-single ${isNewCustomer ? 'new' : (paymentStatusTone || 'neutral')}`}>
+                  <span>{paymentStatusLabel}</span>
+                  <strong>{showScoreValue ? `${paymentScore}/100` : '—'}</strong>
                 </div>
               ) : null}
             </div>

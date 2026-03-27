@@ -52,7 +52,7 @@ const registerCreditLedgerListRoutes = (deps) => {
         `SELECT balance
          FROM credit_history
          WHERE user_id = ?
-         ORDER BY COALESCE(transaction_ts, transaction_date::timestamp, created_at) DESC, created_at DESC, id DESC
+         ORDER BY transaction_ts DESC, created_at DESC, id DESC
          LIMIT 1`,
         [req.params.userId]
       );
@@ -69,12 +69,12 @@ const registerCreditLedgerListRoutes = (deps) => {
         ? await dbAllAsync(
           `${creditLedgerSelect}
            WHERE ch.user_id = ?
-           ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) ASC, ch.created_at ASC, ch.id ASC`,
+           ORDER BY ch.transaction_ts ASC, ch.created_at ASC, ch.id ASC`,
           [selectedUserId]
         )
         : await dbAllAsync(
           `${creditLedgerSelect}
-           ORDER BY COALESCE(ch.transaction_ts, ch.transaction_date::timestamp, ch.created_at) ASC, ch.created_at ASC, ch.id ASC`
+           ORDER BY ch.transaction_ts ASC, ch.created_at ASC, ch.id ASC`
         );
       return res.json(rows);
     } catch (error) {

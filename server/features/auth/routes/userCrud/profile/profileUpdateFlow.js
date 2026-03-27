@@ -15,8 +15,12 @@ const applyProfileUpdate = async ({
   targetUserId,
   payload,
 } = {}) => {
-  if (payload.mode === 'admin-role-update') {
-    await dbRunAsync('UPDATE users SET role = ? WHERE id = ?', [payload.nextRole, targetUserId]);
+  if (payload.mode === 'admin-managed-update') {
+    await dbRunAsync('UPDATE users SET role = ?, credit_limit = ? WHERE id = ?', [
+      payload.nextRole,
+      Number(payload.nextCreditLimit || 0),
+      targetUserId,
+    ]);
     const updated = sanitizeUser(await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId]));
     return { updated, phoneChangeRequest: null };
   }

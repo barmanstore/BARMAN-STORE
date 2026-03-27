@@ -2,6 +2,53 @@
 
 Use one dated section per completed change set.
 
+## 2026-03-27
+
+### Changed
+
+- `server/features/credits/utils/creditBadges.js` now derives credit-aging and payment badges from FIFO settlement analysis, producing a shared `0-100` payment score, status band, aging buckets, and limit-status metadata instead of the older independent Gold/Silver/Bronze/Streak heuristics.
+- `server/features/credits/routes/creditIssues/creditIssuesList.js` and `server/features/credits/routes/creditLedger/creditLedgerReports.js` now return the shared payment-score output so credit-history badges and the admin aging report stay aligned.
+- `src/features/credits/history/components/CreditHistoryHeader.jsx`, `src/features/credits/reports/CreditAgingReport.jsx`, and `shared/messageTemplates.{js,cjs}` now surface the new payment score, status band, and manual credit-limit context in the badge UI, aging report, and WhatsApp credit messages.
+- `src/shared/components/UserEditModal.jsx`, `server/features/auth/routes/userCrud/userRoleActions.js`, and `server/features/auth/routes/userCrud/profile/*` now let admins set manual customer credit limits while keeping role-change verification rules intact.
+- `supabase/migrations/20260327110000_credit_payment_intelligence.sql`, `server/features/credits/utils/paymentIntelligence.js`, and the credit mutation routes now add the first derived payment-period/snapshot layer, rebuild it after credit-impacting writes, and expose an internal daily rebuild route at `/api/internal/credits/payment-intelligence/run`.
+- `server/features/credits/utils/creditBalances.js` no longer starts a nested transaction for balance rebuilds, so credit balance recalculation and payment-intelligence rebuilds can run inside the same outer write transaction.
+- Payment status rendering now distinguishes `New` customers from scored badges and surfaces a `Defaulter` tag for severe non-payment cases, with consistent score-band ranges sourced from `shared/creditScoreBands.json`.
+- Credit entries now store a required `due_date`, use strict FIFO ordering (`transaction_ts ASC, created_at ASC, id ASC`), and allow overpayments while tracking excess as `unapplied_credit` without scoring impact.
+- Route utilities were extracted from `offersRoutes` and `billingSearchRoutes`, and shared route error handling now lives in `server/core/routeErrors.js`.
+- New route consistency checks validate mounted Express routes and frontend API wrappers against `ROUTES.md` via `npm run check:routes` and `npm run check:api-wrappers`.
+
+### Docs
+
+- `ROUTES.md` now documents the internal payment-intelligence rebuild route.
+- `docs/business-logic.md` now records that credit-history badges, aging output, and WhatsApp credit messaging all depend on the shared payment-intelligence scoring plus the derived payment-period rebuild path.
+- `docs/validation.md` now records the admin-only customer credit-limit validation path, the `credit_limit >= 0` rule, and that payment-period state remains server-derived only.
+- `docs/business-logic.md` now documents the `New`/`Defaulter` semantics for credit badges.
+
+### Verification
+
+- `node --check server/features/credits/utils/creditBadges.js`
+- `node --check server/features/credits/utils/paymentIntelligence.js`
+- `node --check server/features/credits/routes/creditLedger/creditLedgerReports.js`
+- `node --check server/features/credits/routes/creditIssues/creditIssuesList.js`
+- `node --check server/features/credits/routes/creditLedger/creditPaymentIntelligenceJob.js`
+- `node --check server/features/credits/routes/creditLedger/adjustments/createRoutes.js`
+- `node --check server/features/credits/routes/creditLedger/adjustments/updateRoutes.js`
+- `node --check server/features/credits/routes/creditLedger/adjustments/deleteRoutes.js`
+- `node --check server/features/credits/routes/creditIssues/admin/resolveIssue.js`
+- `node --check server/features/auth/routes/userCrud/userRoleActions.js`
+- `node --check server/features/auth/routes/userCrud/profile/profileValidation.js`
+- `node --check server/features/auth/routes/userCrud/profile/profileUpdateFlow.js`
+- `node --check server/core/bootstrap/featureRegistrars/creditFeature.js`
+- `node --check server/appFactory/registerFeatures/creditDeps.js`
+- `node --check server/appFactory/registerFeatures/salesDeps.js`
+- `node --check server/features/sales/routes/billingCreate/billPersist.js`
+- `node --check server/features/credits/creditUtils.js`
+- `node --check shared/messageTemplates.cjs`
+- `npm run build`
+- `npm run test:credit-ui`
+- `npm run check:routes`
+- `npm run check:api-wrappers`
+
 ## 2026-03-25
 
 ### Changed

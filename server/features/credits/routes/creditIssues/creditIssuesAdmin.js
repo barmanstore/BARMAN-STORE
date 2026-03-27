@@ -15,7 +15,9 @@ const registerCreditIssuesAdminRoutes = (deps) => {
     logAdminAuditAsync,
     normalizeCreditIssueStatus,
     getLatestCreditEntryAsync,
+    getCustomerCreditProfileAsync,
     recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence,
     normalizeTransactionDate,
     buildCreditTransactionTimestamp,
   } = deps;
@@ -50,7 +52,9 @@ const registerCreditIssuesAdminRoutes = (deps) => {
         logAdminAuditAsync,
         normalizeCreditIssueStatus,
         getLatestCreditEntryAsync,
+        getCustomerCreditProfileAsync,
         recalculateCreditBalancesForUser,
+        rebuildCustomerPaymentIntelligence,
         normalizeTransactionDate,
         buildCreditTransactionTimestamp,
       });

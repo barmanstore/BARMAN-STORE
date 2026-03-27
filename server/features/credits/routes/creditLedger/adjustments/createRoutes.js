@@ -1,5 +1,36 @@
 const { createCreditEntryImageStorage } = require('./creditEntryImageStorage');
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const addDaysToDateKey = (dateKey, days) => {
+  if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
+  const [year, month, day] = dateKey.split('-').map((v) => Number(v));
+  const baseMs = Date.UTC(year, month - 1, day);
+  const safeDays = Math.max(0, Math.floor(Number(days || 0)));
+  const next = new Date(baseMs + (safeDays * DAY_MS));
+  return next.toISOString().slice(0, 10);
+};
+
+const resolveDueDateKey = ({
+  dueDate,
+  transactionDate,
+  transactionDateKey,
+  entryType,
+  creditTermsDays,
+  normalizeTransactionDate,
+}) => {
+  const explicitDue = normalizeTransactionDate(dueDate);
+  if (explicitDue) return explicitDue;
+  if (entryType === 'payment') {
+    const normalizedTx = normalizeTransactionDate(transactionDate);
+    return normalizedTx || transactionDateKey || '';
+  }
+  const normalizedTx = normalizeTransactionDate(transactionDate);
+  if (normalizedTx) return addDaysToDateKey(normalizedTx, creditTermsDays);
+  return transactionDateKey || '';
+};
+
 const registerCreditLedgerCreateRoutes = (deps) => {
   const {
     app,
@@ -11,7 +42,9 @@ const registerCreditLedgerCreateRoutes = (deps) => {
     normalizeTransactionDate,
     buildCreditTransactionTimestamp,
     recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence,
     getLatestCreditEntryAsync,
+    getCustomerCreditProfileAsync,
     CREDIT_ENTRY_DEDUP_WINDOW_MS,
     toTimestampMs,
     resolveClientRequestId,
@@ -58,7 +91,16 @@ const registerCreditLedgerCreateRoutes = (deps) => {
           }
         }
 
-        const { type, amount, description, reference, transactionDate, image_base64: imageBase64 } = req.body || {};
+        const {
+          type,
+          amount,
+          description,
+          reference,
+          transactionDate,
+          dueDate,
+          due_date: dueDateAlt,
+          image_base64: imageBase64,
+        } = req.body || {};
         if (!type || !['given', 'payment'].includes(type)) {
           const error = new Error('Invalid transaction type');
           error.status = 400;
@@ -75,21 +117,20 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         const createdById = Number(req.authUser?.id || 0);
         const last = await getLatestCreditEntryAsync(req.params.userId);
         const current = Number(last?.balance || 0);
-        if (type === 'payment') {
-          if (current <= 0) {
-            const error = new Error('Customer has no due balance for a payment entry');
-            error.status = 400;
-            throw error;
-          }
-          if (parsedAmount > current) {
-            const error = new Error(`Payment exceeds current due of Rs ${current.toFixed(2)}`);
-            error.status = 400;
-            throw error;
-          }
-        }
         const next = type === 'given' ? current + parsedAmount : current - parsedAmount;
         const normalizedDate = normalizeTransactionDate(transactionDate);
         const transactionTs = buildCreditTransactionTimestamp(transactionDate, new Date());
+        const transactionDateKey = String(transactionTs || '').slice(0, 10);
+        const creditProfile = await getCustomerCreditProfileAsync(req.params.userId);
+        const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+        const normalizedDueDate = resolveDueDateKey({
+          dueDate: dueDate || dueDateAlt,
+          transactionDate,
+          transactionDateKey,
+          entryType: type,
+          creditTermsDays,
+          normalizeTransactionDate,
+        }) || transactionDateKey;
 
         if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
           const transactionDateCompareSql = 'COALESCE(transaction_date::text, \'\')';
@@ -143,6 +184,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
              description,
              reference,
              transaction_date,
+             due_date,
              transaction_ts,
              created_by,
              client_request_id,
@@ -150,7 +192,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
              source_id,
              source_label
            )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             req.params.userId,
             type,
@@ -159,6 +201,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
             normalizedDescription || null,
             normalizedReference || null,
             normalizedDate,
+            normalizedDueDate,
             transactionTs,
             createdById || null,
             clientRequestId,
@@ -179,6 +222,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         }
 
         await recalculateCreditBalancesForUser(req.params.userId);
+        await rebuildCustomerPaymentIntelligence(req.params.userId);
 
         const transaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [insertResult.lastInsertRowid]);
         return {

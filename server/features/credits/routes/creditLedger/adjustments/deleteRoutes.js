@@ -7,6 +7,7 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
     dbTxAsync,
     logAdminAuditAsync,
     recalculateCreditBalancesForUser,
+    rebuildCustomerPaymentIntelligence,
   } = deps;
 
   app.delete('/api/users/:userId/credit/:entryId', requireAdmin, async (req, res) => {
@@ -59,6 +60,7 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
              description,
              reference,
              transaction_date,
+             due_date,
              transaction_ts,
              created_by,
              client_request_id,
@@ -67,7 +69,7 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
              source_label,
              reversed_entry_id
            )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
           [
             userId,
             reversalType,
@@ -75,6 +77,7 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
             Number(existing.balance || 0),
             `Reversal of entry #${entryId}`,
             `REV-${entryId}`,
+            transactionDate,
             transactionDate,
             transactionTs,
             Number(req.authUser?.id || 0) || null,
@@ -85,6 +88,7 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
           ]
         );
         const nextBalance = await recalculateCreditBalancesForUser(userId);
+        await rebuildCustomerPaymentIntelligence(userId);
         return Number(nextBalance || 0);
       });
 

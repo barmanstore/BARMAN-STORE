@@ -180,6 +180,7 @@ const useCreditHistoryTransactions = ({
         entryDate: txSnapshot.transactionDate,
         previousBalance,
         updatedBalance,
+        paymentProfile: refreshed?.paymentBadgeSummary || null,
         thankYouLine: 'Thank you.',
       });
       setEntryShareText(manualShare);
