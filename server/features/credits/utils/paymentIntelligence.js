@@ -29,7 +29,8 @@ const createPaymentIntelligenceUtils = ({
     await dbRunAsync(
       `INSERT INTO customer_credit_profiles (user_id, is_active, grace_days, credit_terms_days)
        VALUES (?, ?, ?, ?)
-       ON CONFLICT (user_id) DO NOTHING`,
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING user_id`,
       [userId, DEFAULT_PROFILE.is_active ? 1 : 0, DEFAULT_PROFILE.grace_days, DEFAULT_PROFILE.credit_terms_days]
     );
   };
@@ -195,7 +196,8 @@ const createPaymentIntelligenceUtils = ({
          is_active = EXCLUDED.is_active,
          is_defaulter = EXCLUDED.is_defaulter,
          customer_tag = EXCLUDED.customer_tag,
-         computed_at = CURRENT_TIMESTAMP`,
+         computed_at = CURRENT_TIMESTAMP
+       RETURNING user_id`,
       [
         normalizedUserId,
         summary.payment_score === null || summary.payment_score === undefined

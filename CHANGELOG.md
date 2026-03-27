@@ -16,6 +16,7 @@ Use one dated section per completed change set.
 - Credit entries now store a required `due_date`, use strict FIFO ordering (`transaction_ts ASC, created_at ASC, id ASC`), and allow overpayments while tracking excess as `unapplied_credit` without scoring impact.
 - Route utilities were extracted from `offersRoutes` and `billingSearchRoutes`, and shared route error handling now lives in `server/core/routeErrors.js`.
 - New route consistency checks validate mounted Express routes and frontend API wrappers against `ROUTES.md` via `npm run check:routes` and `npm run check:api-wrappers`.
+- Sales feature bootstrap now passes credit helpers into billing creation so credit-profile defaults are available during bill-linked credit writes.
 
 ### Docs
 
