@@ -11,7 +11,6 @@ const registerCreditIssuesAdminRoutes = (deps) => {
     dbTxAsync,
     createAppNotification,
     notifyAdmins,
-    runCustomerRequestPurge,
     logAdminAuditAsync,
     normalizeCreditIssueStatus,
     getLatestCreditEntryAsync,
@@ -27,7 +26,6 @@ const registerCreditIssuesAdminRoutes = (deps) => {
       const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
       const rows = await listCreditIssues({
         dbAllAsync,
-        runCustomerRequestPurge,
         normalizeCreditIssueStatus,
         requestedStatus,
       });

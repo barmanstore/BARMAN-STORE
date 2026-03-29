@@ -8,7 +8,9 @@ Use this file for cross-session task tracking only.
 
 ## Next
 
-- None currently.
+- Add a short-TTL user-id-keyed cache for payment-badge summaries so credit-history loads stop recomputing badge state from the full ledger on every read.
+- Paginate credit-history reads so the initial customer/admin ledger view loads recent entries first instead of scanning and returning the full history.
+- Precompute the admin credit aging report into a summary read model so `/api/credit/aging` stops rebuilding customer scoring from the full ledger on every request.
 
 ## Blocked
 
@@ -16,6 +18,51 @@ Use this file for cross-session task tracking only.
 
 ## Done
 
+- Reduced credit-history read-path latency:
+  - `src/features/credits/history/hooks/useCreditHistoryLoaders.js` now fetches issues and payment badges in parallel after the initial history/balance/customer fan-out instead of serializing that tail.
+  - `server/features/credits/routes/creditIssues/creditIssuesList.js` and `server/features/credits/routes/creditIssues/admin/listIssues.js` no longer block issue-list reads on customer-request retention purge; the existing retention worker remains the purge owner.
+  - See `CHANGELOG.md` `2026-03-28`.
+- Tightened credit-history WhatsApp share fitting:
+  - Credit-history WhatsApp sends now trim against the shared full `wa.me` launcher URL limit instead of raw character count, so Assamese report and transaction shares reach prefilled WhatsApp more often before falling back to clipboard paste.
+  - See `CHANGELOG.md` `2026-03-28`.
+- Tightened customer-facing credit reminder rules:
+  - The shared WhatsApp credit reminder now keeps using the canonical `maintain_score_by_date`, never fabricates fallback deadlines, reuses the shared English status label in established-customer reminder copy, and switches to softer score-building copy for `New` / insufficient-history customers instead of implying a mature status band.
+  - See `CHANGELOG.md` `2026-03-28`.
+- Completed the remaining credit WhatsApp and monthly-statement follow-ups:
+  - The shared payment-intelligence summary now exposes the canonical score-preserving date as the earliest unpaid period `due_date`, and customer-facing reminders reuse that field instead of deriving their own deadline.
+  - Customer-facing WhatsApp credit messages no longer repeat the score line, only show a repayment nudge when a real due date plus outstanding balance exist, and no longer rely on the trailing footer emoji.
+  - The customer credit-history page now includes a derived monthly statement view for clarity while keeping `credit_history`, FIFO settlement, aging, and payment-intelligence badges as the source of truth.
+  - See `CHANGELOG.md` `2026-03-28`.
+- Fixed WhatsApp credit-message preview/log handling and customer-facing wording:
+  - Added grapheme-safe WhatsApp preview truncation on both the frontend launch-log payload and backend audit-log storage path so Assamese text and emoji are not split into replacement characters.
+  - Updated shared credit transaction messages to use text-first header/link lines and deliberate Assamese presentation labels instead of raw internal values like `Manual Sale`.
+  - See `CHANGELOG.md` `2026-03-28`.
+- Added the user-management state contract:
+  - Created `docs/user-management-state-contract.md` for role mutation rules, identity edit boundaries, verification pending-state handling, deletion limits, search scalability, and the identity-integrity checklist.
+  - Linked that contract from `AGENTS.md`, `docs/frontend.md`, `docs/ui-ux.md`, `docs/business-logic.md`, and `docs/validation.md`.
+- Tightened admin user-management UX:
+  - `src/shared/components/UserEditModal.jsx` now makes identity fields explicitly read-only in edit mode, clarifies verification/role requirements, uses unrestricted-credit wording for blank `credit_limit`, and waits for list refresh before closing.
+  - `src/features/admin/hooks/useAdminUserActions.js` now rethrows refresh failures so edit/create modals do not close on stale user-list state, and create clears the active users search query before reloading page 1.
+  - `src/features/admin/sections/UsersSection.jsx` now shows verification state and renders `credit_limit = 0` as unrestricted credit instead of "Not set".
+- Implemented the route-policy shell/runtime refactor:
+  - `src/App.jsx` now mounts the shared provider tree and `src/RootShell.jsx`.
+  - `src/app/routeDefinitions.jsx` now declares route policy together with route components.
+  - `src/providers/RoutePolicyProvider.jsx` now resolves the active shell/runtime policy for consumers.
+  - `src/shells/DefaultShell.jsx`, `src/shells/AccountShell.jsx`, `src/shells/ImmersiveShell.jsx`, and `src/shells/NoShell.jsx` now own the route-selected chrome variants.
+- Implemented the shared overlay/runtime contract:
+  - `src/providers/OverlayProvider.jsx` is now the single portal and Escape router.
+  - `src/shared/components/window/WindowModal.jsx`, `src/shared/components/window/WindowManagerProvider.jsx`, `src/shared/components/mobile/MobileBottomSheet.jsx`, `src/shared/components/backoffice/BackofficePopupGuard.jsx`, `src/shells/DefaultShell.jsx`, and `src/shared/components/UserMenu.jsx` now register stack entries instead of owning separate global Escape/portal logic.
+  - `src/shared/hooks/useInertBackground.js` now uses a ref-counted snapshot/restore model.
+- Added the shell/runtime contract gate:
+  - `scripts/check-shell-runtime-contract.mjs` now flags portal creation outside `OverlayProvider`, pathname predicate heuristics in blocklisted runtime-owner files, and non-allowlisted shell/runtime DOM writes.
+  - `npm run check:shell-runtime` now runs that contract gate as a repo command.
+- Added the shell/runtime verification gate:
+  - `scripts/test-shell-runtime-contract.mjs` now verifies the pathname false-positive matrix, overlay Escape ordering, and the ref-counted inert lock overlap and restore sequences.
+  - `npm run test:shell-runtime` now runs that verification matrix before shell/runtime sign-off.
+- Moved shell-owned state out of route prop injection:
+  - Added `src/providers/SessionProvider.jsx`, `src/providers/CartProvider.jsx`, and `src/providers/NotificationsProvider.jsx`.
+  - Routed consumers now use provider hooks instead of App/route props for session, cart, and notifications.
+  - Checkout, reorder, cart, and product add-to-cart flows no longer write `barman_cart` directly outside `CartProvider`.
 - Added route-drift and API-wrapper checks to align mounted Express routes and frontend wrappers with `ROUTES.md`.
 - Extracted helper modules from `offersRoutes` and `billingSearchRoutes` without changing feature boundaries.
 - Standardized shared route error handling with a reusable helper that preserves `error.status`.
@@ -93,6 +140,15 @@ Use this file for cross-session task tracking only.
 - Shifted the credit aging dashboard to a customer-quality-first layout with customer health breakdowns, defaulter/follow-up cards, badge-first presentation, action flags, risk-labeled aging buckets, and click-to-filter controls.
 - Added compact filter summary chips, a Reset Filters header action, and per-row View/Follow Up actions in the credit aging dashboard.
 - Simplified the credit history balance-card badge to a single label + score, removed helper text and multi-badge coins, updated badge colors, and replaced the tooltip copy with the detailed guidance text.
+- Implemented circular 3D payment badge styling with score-first hierarchy on mobile, contrast-safe palettes, and responsive sizing for the credit history header.
+- Hardened the WhatsApp launcher flow:
+  - Added a WhatsApp launch audit endpoint and client logging payloads with status naming, context fields, and trigger source.
+  - Updated WhatsApp status naming across billing and credit flows.
+  - Added report trimming to respect WhatsApp line/length limits before fallback.
+  - Formalized launcher branding rules in `docs/whatsapp-branding.md` and aligned templates to the header/footer contract.
+  - Added payment-profile contract fields (`score`, `label`, `tag`, `status`) and null-score handling for launcher templates.
+- Locked the balance/badge consistency contract across UI and WhatsApp, and added a full balance + badge state matrix for admin/customer verification.
+- Added balance card guardrails: clamp near-zero balances, hide scores for `New`, and suppress last-transaction lines older than 30 days.
 
 ## Notes
 

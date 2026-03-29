@@ -7,6 +7,7 @@ const useAdminUserActions = ({
   loadUsersPage,
   usersPage,
   usersSearchQuery,
+  setUsersSearchQuery,
   showNotification,
   setEditingUser,
   setIsCreatingUser,
@@ -56,6 +57,7 @@ const useAdminUserActions = ({
       showNotification('User updated successfully', 'success');
     } catch (error) {
       showNotification('Failed to refresh users', 'error');
+      throw error;
     }
   };
 
@@ -71,6 +73,9 @@ const useAdminUserActions = ({
 
   const handleCreateUser = async () => {
     try {
+      if (typeof setUsersSearchQuery === 'function') {
+        setUsersSearchQuery('');
+      }
       if (typeof loadUsersPage === 'function') {
         await loadUsersPage({ page: 1, query: '', silent: false });
       } else {
@@ -80,6 +85,7 @@ const useAdminUserActions = ({
       showNotification('User created successfully', 'success');
     } catch (error) {
       showNotification('Failed to refresh users', 'error');
+      throw error;
     }
   };
 

@@ -6,7 +6,7 @@ const useProductsBootstrap = ({
   setCategories,
   setRecentlyBought,
   setCart,
-  setCartCount,
+  storedCart,
   setUsageHistory,
   safeReadJson,
   safeReadSessionJson,
@@ -50,22 +50,6 @@ const useProductsBootstrap = ({
     }
   }, [RECENTLY_BOUGHT_LIMIT, setRecentlyBought]);
 
-  const loadCart = useCallback(() => {
-    try {
-      const savedCart = localStorage.getItem('barman_cart');
-      if (!savedCart) return;
-      const parsed = JSON.parse(savedCart);
-      const cartData = Array.isArray(parsed) ? parsed : [];
-      setCart(cartData);
-      setCartCount(cartData.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-    } catch (cartError) {
-      console.error('Invalid cart data in localStorage, resetting cart', cartError);
-      localStorage.removeItem('barman_cart');
-      setCart([]);
-      setCartCount(0);
-    }
-  }, [setCart, setCartCount]);
-
   useEffect(() => {
     let recentlyBoughtTimer = 0;
     fetchCategories();
@@ -74,7 +58,7 @@ const useProductsBootstrap = ({
         fetchRecentlyBought();
       }, 450);
     }
-    loadCart();
+    setCart(Array.isArray(storedCart) ? storedCart : []);
     setUsageHistory(safeReadJson(USAGE_HISTORY_KEY, {}));
     return () => {
       if (recentlyBoughtTimer) window.clearTimeout(recentlyBoughtTimer);
@@ -82,10 +66,11 @@ const useProductsBootstrap = ({
   }, [
     fetchCategories,
     fetchRecentlyBought,
-    loadCart,
     hasActiveUserSession,
     safeReadJson,
+    setCart,
     setUsageHistory,
+    storedCart,
     USAGE_HISTORY_KEY,
   ]);
 };

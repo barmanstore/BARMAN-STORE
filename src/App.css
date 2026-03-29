@@ -1252,23 +1252,9 @@ body,
   }
 }
 
-@media (max-width: 768px) {
-  body.mobile-shop-active .header,
-  body.mobile-shop-active .footer,
-  body.mobile-shop-active .quick-contact-fab,
-  body.mobile-shop-active .mobile-nav-backdrop,
-  body.mobile-hide-chrome .header,
-  body.mobile-hide-chrome .footer,
-  body.mobile-hide-chrome .quick-contact-fab,
-  body.mobile-hide-chrome .mobile-nav-backdrop {
-    display: none !important;
-  }
-
-  body.mobile-shop-active .main-content,
-  body.mobile-hide-chrome .main-content {
-    padding: 0;
-    max-width: none;
-  }
+.app-immersive-shell .main-content-immersive {
+  padding: 0;
+  max-width: none;
 }
 
 @media (min-width: 769px) {

@@ -1,8 +1,7 @@
 import { useId, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { OverlayEntry } from '../../../providers/OverlayProvider';
 import useFocusTrap from '../../hooks/useFocusTrap';
-import useInertBackground from '../../hooks/useInertBackground';
 import useLockBodyScroll from '../../hooks/useLockBodyScroll';
 import './MobileBottomSheet.css';
 
@@ -24,10 +23,8 @@ function MobileBottomSheet({
 
   useLockBodyScroll(open);
   useFocusTrap(sheetRef, open);
-  useInertBackground(open);
 
   if (!open) return null;
-  if (typeof document === 'undefined') return null;
 
   const sheet = (
     <div
@@ -72,7 +69,17 @@ function MobileBottomSheet({
     </div>
   );
 
-  return createPortal(sheet, document.body);
+  return (
+    <OverlayEntry
+      active={open}
+      id={`mobile-sheet-${String(reactId).replace(/[:]/g, '')}`}
+      type="overlay"
+      zIndex={2100}
+      onEscape={dismissible !== false && closeOnEscape !== false ? onClose : null}
+    >
+      {sheet}
+    </OverlayEntry>
+  );
 }
 
 export default MobileBottomSheet;

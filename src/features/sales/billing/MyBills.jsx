@@ -1,23 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Receipt, RefreshCw } from 'lucide-react';
+import { useSession } from '../../../providers/SessionProvider';
 import { billingApi } from '../../../shared/services/api';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import './MyBills.css';
 
-const getStoredUser = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    return user && typeof user === 'object' ? user : null;
-  } catch (_) {
-    return null;
-  }
-};
-
 function MyBills() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => getStoredUser());
+  const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bills, setBills] = useState([]);
@@ -48,14 +40,12 @@ function MyBills() {
   };
 
   useEffect(() => {
-    const currentUser = getStoredUser();
-    if (!currentUser?.id) {
+    if (!user?.id) {
       navigate('/login');
       return;
     }
-    setUser(currentUser);
-    loadBills(currentUser);
-  }, [navigate]);
+    loadBills(user);
+  }, [navigate, user]);
 
   const openBill = async (bill) => {
     if (!user?.id || !bill?.id) return;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
+import { useCart } from '../../../../providers/CartProvider';
 import { getProductFallbackImage } from '../../../../shared/utils/productImage';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import useIsMobile from '../../../../shared/hooks/useIsMobile';
@@ -27,13 +28,8 @@ import useProductsRecommendations from './useProductsRecommendations';
 import buildProductFamilies from '../utils/productFamilies';
 import buildProductsPageProps from './buildProductsPageProps';
 import * as productHelpers from '../utils/productHelpers.js';
-export default function useProductsController({
-  setCartCount,
-  notifications = [],
-  unreadNotificationCount = 0,
-  onResolveNotificationHref = () => '/profile',
-  onMarkNotificationRead = () => {},
-}) {
+export default function useProductsController() {
+  const { cart: sharedCart, replaceCart } = useCart();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -88,11 +84,15 @@ export default function useProductsController({
     setLoading: productsState.setLoading,
     setIsLoadingMore: productsState.setIsLoadingMore,
   });
+  useEffect(() => {
+    productsState.setCart(Array.isArray(sharedCart) ? sharedCart : []);
+  }, [productsState.setCart, sharedCart]);
+
   useProductsBootstrap({
     setCategories: productsState.setCategories,
     setRecentlyBought: productsState.setRecentlyBought,
     setCart: productsState.setCart,
-    setCartCount,
+    storedCart: sharedCart,
     setUsageHistory: productsState.setUsageHistory,
     safeReadJson: productHelpers.safeReadJson,
     safeReadSessionJson: productHelpers.safeReadSessionJson,
@@ -125,7 +125,6 @@ export default function useProductsController({
     DEFAULT_SORT_BY: productHelpers.DEFAULT_SORT_BY,
   });
   useProductsUiEffects({
-    isMobile,
     notice: productsState.notice,
     setNotice: productsState.setNotice,
     showSearchSuggestions: productsState.showSearchSuggestions,
@@ -273,7 +272,7 @@ export default function useProductsController({
   const cartActions = useProductsCartActions({
     cart: productsState.cart,
     setCart: productsState.setCart,
-    setCartCount,
+    replaceCart,
     setButtonStatus: productsState.setButtonStatus,
     setNotice: productsState.setNotice,
     setUsageHistory: productsState.setUsageHistory,
@@ -283,7 +282,6 @@ export default function useProductsController({
     quickTileDidSwipeRef: productsState.quickTileDidSwipeRef,
     setSwipeAddedFamilyId: productsState.setSwipeAddedFamilyId,
     trackProductsEvent,
-    safeReadJson: productHelpers.safeReadJson,
     safeWriteJson: productHelpers.safeWriteJson,
     USAGE_HISTORY_KEY: productHelpers.USAGE_HISTORY_KEY,
     getFirstAvailableVariation: productHelpers.getFirstAvailableVariation,

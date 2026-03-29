@@ -4,6 +4,9 @@ import AdminPageHeader from '../components/AdminPageHeader';
 import { formatJoinedDate, getInitials } from '../utils/adminHelpers';
 import { formatCurrency } from '../../../shared/utils/formatters';
 
+const formatCreditLimitLabel = (value) => (Number(value || 0) > 0 ? formatCurrency(value) : 'Unrestricted');
+const formatVerificationLabel = (isVerified) => (isVerified ? 'Verified' : 'Pending verification');
+
 function UsersSection({
   handleAddUser,
   usersSearchQuery,
@@ -169,8 +172,10 @@ function UsersSection({
                         <div className="user-compact-details">
                           <p><strong>Email:</strong> {u.email || '-'}</p>
                           <p><strong>Phone:</strong> {u.phone || '-'}</p>
+                          <p><strong>Email status:</strong> {formatVerificationLabel(u.email_verified)}</p>
+                          <p><strong>Phone status:</strong> {formatVerificationLabel(u.phone_verified)}</p>
                           <p><strong>Joined:</strong> {formatJoinedDate(u.created_at)}</p>
-                          <p><strong>Credit Limit:</strong> {Number(u.credit_limit || 0) > 0 ? formatCurrency(u.credit_limit) : 'Not set'}</p>
+                          <p><strong>Credit Limit:</strong> {formatCreditLimitLabel(u.credit_limit)}</p>
                           <div className="user-compact-actions">
                             <button
                               className="action-btn edit"

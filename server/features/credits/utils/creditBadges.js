@@ -249,6 +249,12 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
     });
 
     const openPeriods = derivedPeriods.filter((period) => period.remaining_amount > EPSILON);
+    const earliestOpenPeriod = openPeriods.reduce((earliest, period) => {
+      const dueDateMs = dateKeyToUtcMs(period?.due_date);
+      if (!dueDateMs) return earliest;
+      if (!earliest) return period;
+      return dueDateMs < dateKeyToUtcMs(earliest.due_date) ? period : earliest;
+    }, null);
     const totalPeriods = derivedPeriods.length;
     const onTimePeriods = derivedPeriods.filter((period) => period.is_fully_settled && period.delay_days <= 0).length;
     const within7Days = derivedPeriods.filter((period) => period.is_fully_settled && period.delay_days > 0 && period.delay_days <= 7).length;
@@ -475,6 +481,7 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
         current_balance: normalizedBalance,
         balance: normalizedBalance,
         outstanding_amount: outstandingAmount,
+        maintain_score_by_date: earliestOpenPeriod?.due_date || null,
         oldest_open_days: outstandingAmount > EPSILON ? Math.round(oldestOpenDays) : 0,
         oldest_overdue_days: Math.round(oldestOverdueDays),
         open_entry_count: openPeriods.length,

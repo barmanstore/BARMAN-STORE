@@ -2,6 +2,54 @@
 
 Use one dated section per completed change set.
 
+## 2026-03-28
+
+### Changed
+
+- `src/shared/components/UserEditModal.jsx`, `src/shared/components/UserEditModal.css`, `src/features/admin/hooks/useAdminUserActions.js`, `src/features/admin/hooks/useAdminPageController.js`, and `src/features/admin/sections/UsersSection.jsx` now keep admin user edits aligned to the backend contract: identity fields stay read-only in edit mode, role gating explains pending verification, blank credit limit means unrestricted credit, user-list refresh is awaited before modal close, and customer cards now show verification state plus unrestricted-credit wording.
+- `src/App.jsx`, `src/RootShell.jsx`, `src/app/appRoutes.jsx`, and `src/app/routeDefinitions.jsx` now use a route-policy-driven shell contract instead of App-level prop injection and pathname-owned chrome heuristics.
+- Added provider-owned global state in `src/providers/SessionProvider.jsx`, `src/providers/CartProvider.jsx`, `src/providers/NotificationsProvider.jsx`, `src/providers/RoutePolicyProvider.jsx`, and `src/providers/OverlayProvider.jsx`, and moved routed consumers onto those hooks.
+- Added explicit shell renderers in `src/shells/DefaultShell.jsx`, `src/shells/AccountShell.jsx`, `src/shells/ImmersiveShell.jsx`, and `src/shells/NoShell.jsx`; `src/shared/components/AppShell.jsx` now aliases the default shell instead of owning route decisions.
+- Cart writes in storefront, checkout, and reorder flows now go through `CartProvider` operations instead of direct `barman_cart` writes in route components.
+- Shared overlay ownership now flows through `OverlayProvider`: `WindowModal`, `WindowManagerProvider`, `MobileBottomSheet`, `BackofficePopupGuard`, the mobile menu, and `UserMenu` dropdowns no longer own separate portal/Escape/inert stacks.
+- `src/shared/hooks/useInertBackground.js` now uses a ref-counted first-lock snapshot / last-unlock restore model with a development warning when the shell background-root marker is missing.
+- Added `src/providers/overlayStackUtils.mjs` and `src/shared/hooks/inertBackgroundRuntime.mjs` so overlay ordering and inert-lock restore logic now have shared pure helpers used by both runtime code and verification.
+- Added `scripts/check-shell-runtime-contract.mjs` and `scripts/test-shell-runtime-contract.mjs`, plus `npm run check:shell-runtime` and `npm run test:shell-runtime`, to enforce the shell/runtime ownership contract and verify the pathname, overlay-ordering, and inert-lock matrices.
+- `shared/messageTemplates.{js,cjs}` now keep credit WhatsApp messages text-first in the header and store-link lines and map internal credit entry labels like `Manual Sale` through deliberate customer-facing Assamese wording instead of raw ledger labels.
+- `server/features/credits/utils/creditBadges.js` now exposes `maintain_score_by_date` as the earliest unpaid period `due_date`, and the customer credit-history page now renders a derived monthly statement view from the existing ledger instead of treating monthly summaries as a separate source of truth.
+- `shared/messageTemplates.{js,cjs}` now keep credit reminder copy contract-driven by the canonical `maintain_score_by_date`, never fabricate fallback deadlines, and use softer score-building wording for `New` / insufficient-history customers.
+
+### Fixed
+
+- Mobile products no longer write the legacy `mobile-shop-active` body class; the immersive shell now owns the zero-padding layout directly through shell classes instead of feature-side body toggles.
+- `src/features/credits/history/hooks/useCreditHistoryLoaders.js` now fetches credit issues and payment badges in parallel after the initial credit-history load fan-out, and the credit issue list read routes now rely on the existing retention worker instead of awaiting customer-request purge inside each request.
+- `src/features/credits/history/hooks/useCreditHistoryReports.js`, `server/features/credits/routes/creditLedger/creditLedgerWhatsAppLogs.js`, `shared/textPreview.{js,cjs}`, and `src/shared/utils/textPreview.js` now build grapheme-safe WhatsApp message previews so Assamese text and emoji are not split into replacement characters in launch logs or audit previews.
+- `shared/messageTemplates.{js,cjs}` no longer repeat payment-score text inside customer-facing credit message bodies, only show a repayment nudge when a real due date plus outstanding balance exist, and no longer append the trailing footer emoji that could render as a broken glyph.
+- `src/shared/utils/whatsapp.js` and `src/features/credits/history/hooks/useCreditHistoryReports.js` now measure credit-history WhatsApp share size against the same full `wa.me` URL contract the launcher enforces, and trim optional lines like reference/store-link text before falling back to clipboard-only sharing.
+- `shared/messageTemplates.{js,cjs}` now use the shared English status label directly in established-customer reminder copy, for example `আপোনাৰ Excellent স্কোৰ বজাই ৰাখিবলৈ ...`, instead of generic `ভাল স্কোৰ` wording.
+
+### Docs
+
+- Added `docs/user-management-state-contract.md` and linked it from `AGENTS.md`, `docs/frontend.md`, `docs/ui-ux.md`, `docs/business-logic.md`, and `docs/validation.md` so the user-management UI, validation, and business rules now share one documented contract.
+- Updated `ARCHITECTURE.md`, `docs/frontend.md`, and `docs/ui-ux.md` to describe the route-policy provider, shell variants, provider-owned state, and shared overlay runtime.
+- Updated `docs/business-logic.md` to clarify the permanent password-auth `410` stubs, the intentional frontend-local cart boundary, the purchase-order lifecycle verification guardrail, offer cache and checkout recomputation behavior, and the credit `due_date` / rebuild invariants.
+- Updated `docs/workflows/finalization.md` so shell/runtime changes now require the contract check and verification matrix before sign-off.
+- Updated `TASKS.md` to move the completed shell/runtime refactor items out of the active queue and close the remaining user-management follow-ups.
+- Updated `docs/whatsapp-branding.md` to require text-first preview lines, decorative-only emoji, grapheme-safe preview truncation, and presentation mapping for customer-facing ledger labels.
+- Updated `docs/business-logic.md`, `docs/frontend.md`, `docs/whatsapp-branding.md`, and `TASKS.md` to record the canonical score-preserving due date, the presentation-only monthly statement view, and the new credit-message reminder/body rules.
+- Updated `docs/whatsapp-branding.md` and `TASKS.md` again to make the “no fabricated deadline” rule explicit and record the state-aware reminder copy for `New` customers.
+- Updated `docs/whatsapp-branding.md` and `TASKS.md` to document that credit-history WhatsApp trimming must follow the shared full-URL launcher limit instead of raw character counts.
+
+### Verification
+
+- `node --check server/features/credits/utils/creditBadges.js`
+- `node --check shared/messageTemplates.cjs`
+- `npm run build`
+- `npm run check:shell-runtime`
+- `npm run test:shell-runtime`
+- `npm run test:credit-ui`
+- `npm run test:order-flow` reached the smoke harness and reported a guarded skip because `SMOKE_TEST_DB_URL` is not set and the harness refused to use the primary app database.
+
 ## 2026-03-27
 
 ### Changed
@@ -17,6 +65,10 @@ Use one dated section per completed change set.
 - Route utilities were extracted from `offersRoutes` and `billingSearchRoutes`, and shared route error handling now lives in `server/core/routeErrors.js`.
 - New route consistency checks validate mounted Express routes and frontend API wrappers against `ROUTES.md` via `npm run check:routes` and `npm run check:api-wrappers`.
 - Sales feature bootstrap now passes credit helpers into billing creation so credit-profile defaults are available during bill-linked credit writes.
+
+### Fixed
+
+- Customer payment snapshot insert placeholders no longer fail during order-linked billing in Postgres.
 
 ### Docs
 
@@ -144,12 +196,12 @@ Use one dated section per completed change set.
 
 ### Verification
 
-- Live route audit: 170 mounted backend routes, 0 duplicate `METHOD + path`, and no drift between runtime routes and `ROUTES.md`.
+- Early live route audit before the final same-day route/doc alignment pass: 170 mounted backend routes, 0 duplicate `METHOD + path`, and no drift between runtime routes and `ROUTES.md` in that snapshot.
 - Static reachability audit: no orphaned backend route modules under `server/features/**/routes/**`.
 - `node --check` passed for the touched backend route files and the touched frontend API wrapper files.
 - Backend governance audit confirmed routes are still mounted through the official `appFactory -> registerFeatures -> bootstrap -> feature` chain and not through ad hoc registration.
 - Compatibility checks confirmed the intentional `410` endpoints, distributor ledger aliases, and dual `GET`/`POST` internal automation routes remain preserved.
 - Post-fix runtime route check still boots the app cleanly and reports 0 duplicate top-level registrations; the quick count is 171 when including the global `OPTIONS *` route that sits outside the documented business API inventory.
 - `node --check` also passed for `server/utils/distributorLedgerUtils.js`, `server/features/credits/routes/creditIssues/creditIssuesAdmin.js`, `server/features/auth/routes/userCrud/userProfileUpdates.js`, `server/features/sales/routes/orderStatusRoutes.js`, `src/shared/services/api/distributorLedger.js`, and `src/shared/services/api/core.js`.
-- A fresh route audit matched 174 documented routes to 174 mounted routes, with 0 undocumented routes, 0 missing documented routes, and 0 duplicate `METHOD + path` registrations.
+- Final same-day route audit after completing the remaining route/doc alignment work matched 174 documented routes to 174 mounted routes, with 0 undocumented routes, 0 missing documented routes, and 0 duplicate `METHOD + path` registrations.
 - `scripts/manual-modal-regression.ps1` passed locally on 2026-03-24 against `http://127.0.0.1:3000` and `http://127.0.0.1:5000`, including automated startup and teardown of the required local services.

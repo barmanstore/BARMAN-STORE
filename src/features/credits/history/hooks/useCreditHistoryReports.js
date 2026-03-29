@@ -1,9 +1,111 @@
+import { useRef } from 'react';
 import {
   getCreditEntryDelta,
   getCreditEntryDescription,
   getCreditEntrySourceLabel,
   getCreditPreviousBalance,
-} from '../utils/creditLedgerPresentation';
+} from '../utils/creditLedgerPresentation.js';
+import { buildMessagePreview } from '../../../../shared/utils/textPreview.js';
+import { MAX_URL_LENGTH, buildWhatsAppUrl } from '../../../../shared/utils/whatsapp.js';
+
+const WHATSAPP_LINE_LIMIT = 22;
+const REPORT_TRANSACTION_LINE_STEPS = [8, 6, 5, 4, 3, 2, 1, 0];
+const LAUNCH_COOLDOWN_MS = 2000;
+
+const CREDIT_SHARE_TRIM_STEPS = [
+  (line) => /^ৰেফ:/.test(line),
+  (line) => /^অনলাইন দোকান:/.test(line),
+  (line) => /ধন্যবাদ/.test(line),
+  (line) => /^— /.test(line),
+];
+
+const CREDIT_REPORT_TRIM_STEPS = [
+  (line) => /^অনলাইন দোকান:/.test(line),
+  (line) => /ধন্যবাদ/.test(line),
+  (line) => /^— /.test(line),
+  (line) => /^\+\d+ টা অধিক লেনদেন$/.test(line),
+  (line) => /^তৈয়াৰ:/.test(line),
+];
+
+const normalizeWhatsAppShareText = (text) => (
+  String(text || '')
+    .split(/\r?\n/)
+    .map((line) => String(line || '').trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+);
+
+const countMessageLines = (message) => (
+  normalizeWhatsAppShareText(message)
+    .split(/\r?\n/)
+    .filter((line) => String(line || '').trim())
+    .length
+);
+
+const dropLastMatchingLine = (text, matcher) => {
+  const lines = normalizeWhatsAppShareText(text).split(/\r?\n/);
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (matcher(lines[index])) {
+      lines.splice(index, 1);
+      break;
+    }
+  }
+  return normalizeWhatsAppShareText(lines.join('\n'));
+};
+
+const getTrimStepsForShareType = (shareType) => (
+  shareType === 'report' ? CREDIT_REPORT_TRIM_STEPS : CREDIT_SHARE_TRIM_STEPS
+);
+
+export const isCreditShareTextWithinWhatsAppLimit = ({
+  phone,
+  text,
+  maxUrlLength = MAX_URL_LENGTH,
+  lineLimit = WHATSAPP_LINE_LIMIT,
+} = {}) => {
+  const normalizedText = normalizeWhatsAppShareText(text);
+  if (!normalizedText) return false;
+  if (countMessageLines(normalizedText) > lineLimit) return false;
+  return buildWhatsAppUrl({ phone, text: normalizedText }).length <= maxUrlLength;
+};
+
+export const trimCreditShareTextForWhatsApp = ({
+  phone,
+  text,
+  shareType = 'transaction',
+  maxUrlLength = MAX_URL_LENGTH,
+  lineLimit = WHATSAPP_LINE_LIMIT,
+} = {}) => {
+  const normalizedText = normalizeWhatsAppShareText(text);
+  if (!normalizedText) return '';
+
+  let current = normalizedText;
+  if (isCreditShareTextWithinWhatsAppLimit({
+    phone,
+    text: current,
+    maxUrlLength,
+    lineLimit,
+  })) {
+    return current;
+  }
+
+  for (const trimStep of getTrimStepsForShareType(shareType)) {
+    const next = dropLastMatchingLine(current, trimStep);
+    if (!next || next === current) continue;
+    current = next;
+    if (isCreditShareTextWithinWhatsAppLimit({
+      phone,
+      text: current,
+      maxUrlLength,
+      lineLimit,
+    })) {
+      return current;
+    }
+  }
+
+  return current;
+};
 
 const useCreditHistoryReports = ({
   creditHistory,
@@ -12,6 +114,7 @@ const useCreditHistoryReports = ({
   paymentBadgeSummary,
   fromDate,
   toDate,
+  logWhatsAppLaunch,
   setError,
   setSuccess,
   setReportText,
@@ -38,19 +141,32 @@ const useCreditHistoryReports = ({
   formatPdfCurrency,
   getPdfColumnStyles,
 }) => {
+  const launchCooldownRef = useRef(0);
+
   const buildPaymentProfilePayload = (summaryOverride = null, balanceOverride = null) => {
     const summary = summaryOverride || paymentBadgeSummary || null;
     const rawScore = summary?.payment_score;
     const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
-    if (!hasScore && !summary?.payment_status_label) return null;
+    const statusLabel = String(summary?.payment_status_label || '').trim();
+    const statusValue = String(summary?.payment_status || '').trim().toLowerCase();
+    const isNewCustomer = String(summary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
+      || statusValue === 'new';
+    const resolvedLabel = statusLabel || (isNewCustomer ? 'New' : '');
+    const hasDueDateReminder = Boolean(String(summary?.maintain_score_by_date || '').trim());
+    const hasCreditLimit = Number(summary?.credit_limit || 0) > 0;
+    if (!hasScore && !resolvedLabel && !statusValue && !hasDueDateReminder && !hasCreditLimit) return null;
     return {
       ...summary,
+      score: hasScore ? Number(rawScore) : null,
+      label: resolvedLabel || null,
+      tag: summary?.payment_status_tag || null,
+      status: statusValue || null,
       payment_score: hasScore ? Number(rawScore) : null,
       current_balance: balanceOverride ?? summary?.current_balance ?? Number(balance || 0),
     };
   };
 
-  const buildCreditReport = (transactions, from, to) => {
+  const buildCreditReport = (transactions, from, to, options = {}) => {
     const allThroughPeriod = creditHistory
       .filter((t) => {
         const dateKey = getEffectiveTransactionDateKey(t);
@@ -81,8 +197,28 @@ const useCreditHistoryReports = ({
       currentDayBalance: parseFloat(balance || 0),
       paymentProfile: buildPaymentProfilePayload(),
       onlineStoreUrl: info.ONLINE_STORE_URL,
-      thankYouLine: 'Thank you.',
+      maxTransactionLines: options.maxTransactionLines,
     });
+  };
+
+  const buildWhatsAppReportText = (transactions, from, to) => {
+    let finalText = '';
+    for (const maxLines of REPORT_TRANSACTION_LINE_STEPS) {
+      const candidate = buildCreditReport(transactions, from, to, { maxTransactionLines: maxLines });
+      const preparedCandidate = trimCreditShareTextForWhatsApp({
+        phone: customer?.phone,
+        text: candidate,
+        shareType: 'report',
+      });
+      finalText = preparedCandidate;
+      if (isCreditShareTextWithinWhatsAppLimit({
+        phone: customer?.phone,
+        text: preparedCandidate,
+      })) {
+        return preparedCandidate;
+      }
+    }
+    return finalText;
   };
 
   const handleGenerateReport = () => {
@@ -125,7 +261,7 @@ const useCreditHistoryReports = ({
       ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
       : 0;
 
-    const report = buildCreditReport(filtered, fromDate, toDate);
+    const report = buildWhatsAppReportText(filtered, fromDate, toDate);
     setReportText(report);
     setReportSummary({
       entryCount: filtered.length,
@@ -148,27 +284,58 @@ const useCreditHistoryReports = ({
     }
   };
 
-  const sendOnWhatsApp = async (text) => {
+  const sendOnWhatsApp = async (text, meta = {}) => {
     if (!text) return;
-    const result = await sendWhatsAppSmart({
+    const now = Date.now();
+    if (now - launchCooldownRef.current < LAUNCH_COOLDOWN_MS) return;
+    launchCooldownRef.current = now;
+    const preparedText = trimCreditShareTextForWhatsApp({
       phone: customer?.phone,
       text,
+      shareType: meta.type || 'transaction',
     });
-    if (result.status === 'missing_phone') {
+    const result = await sendWhatsAppSmart({
+      phone: customer?.phone,
+      text: preparedText,
+    });
+    const status = result.status;
+    const preview = buildMessagePreview(preparedText, 280);
+    if (typeof logWhatsAppLaunch === 'function') {
+      try {
+        await logWhatsAppLaunch({
+          customer_id: customer?.id,
+          phone: customer?.phone,
+          type: meta.type || 'report',
+          status,
+          message_preview: preview,
+          context_type: meta.contextType || null,
+          context_id: meta.contextId || null,
+          trigger_source: meta.triggerSource || 'button_click',
+        });
+      } catch (_) {
+        // Keep WhatsApp launch flow resilient; logging is best-effort.
+      }
+    }
+    if (status === 'blocked_no_phone') {
       setError('Customer phone is missing or invalid. Please update phone and try again.');
       return;
     }
-    if (result.status === 'fallback_copy') {
-      setSuccess('Message was long. Copied to clipboard; paste it in WhatsApp.');
+    if (status === 'opened_with_copy') {
+      setSuccess('Copied message. WhatsApp opened; paste and send to share.');
       return;
     }
-    if (result.status === 'fallback_no_copy') {
-      setError('Message was long. Opened WhatsApp chat, please paste the message manually.');
+    if (status === 'opened_without_copy') {
+      setError('WhatsApp opened. Please paste the message manually.');
     }
   };
 
   const handleSendWhatsApp = async () => {
-    await sendOnWhatsApp(reportText);
+    await sendOnWhatsApp(reportText, {
+      type: 'report',
+      contextType: 'report_period',
+      contextId: fromDate && toDate ? `${fromDate}|${toDate}` : null,
+      triggerSource: 'button_click',
+    });
   };
 
   const buildManualEntryText = ({
@@ -193,7 +360,7 @@ const useCreditHistoryReports = ({
     updatedBalance,
     paymentProfile: buildPaymentProfilePayload(paymentProfile, updatedBalance),
     onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine: thankYouLine || 'Thank you.',
+    thankYouLine,
   });
 
   const handleCopyEntryShare = async () => {
@@ -207,7 +374,12 @@ const useCreditHistoryReports = ({
   };
 
   const handleSendEntryWhatsApp = async () => {
-    await sendOnWhatsApp(entryShareText);
+    await sendOnWhatsApp(entryShareText, {
+      type: 'entry',
+      contextType: 'entry',
+      contextId: null,
+      triggerSource: 'button_click',
+    });
   };
 
   const isTransactionWithinFiveDays = (transactionOrDate) => {
@@ -235,13 +407,17 @@ const useCreditHistoryReports = ({
       updatedBalance,
       paymentProfile: buildPaymentProfilePayload(null, updatedBalance),
       onlineStoreUrl: info.ONLINE_STORE_URL,
-      thankYouLine: 'Thank you.',
     });
   };
 
   const handleSendTransactionWhatsApp = async (transaction) => {
     if (!isTransactionWithinFiveDays(transaction)) return;
-    await sendOnWhatsApp(buildTransactionShareText(transaction));
+    await sendOnWhatsApp(buildTransactionShareText(transaction), {
+      type: 'transaction',
+      contextType: 'transaction',
+      contextId: transaction?.id ?? null,
+      triggerSource: 'button_click',
+    });
   };
 
   const generatePDFReport = () => {

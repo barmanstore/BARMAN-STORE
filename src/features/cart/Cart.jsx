@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCart } from '../../providers/CartProvider';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { productRecommendationsApi, productsApi } from '../../shared/services/api';
 import { getProductImageSrc } from '../../shared/utils/productImage';
@@ -9,8 +10,47 @@ import CartView from './components/CartView';
 import { parseQuantityText, rankManualMatches, QUICK_QTY_OPTIONS } from './utils/cartSearchUtils';
 import './Cart.css';
 
+const normalizeCartRows = (rows) => {
+  const parsed = Array.isArray(rows) ? rows : [];
+  return parsed.map((item, index) => {
+    const rawId = String(item?.id || '').toLowerCase();
+    const manual = Number(item?.is_manual || 0) === 1
+      || String(item?.item_type || '').toLowerCase() === 'manual'
+      || rawId.startsWith('manual:')
+      || !Number(item?.id || item?.product_id || 0);
+    const fallbackId = manual
+      ? `manual:${index}:${String(item?.name || 'item').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'item'}`
+      : Number(item?.id || item?.product_id || 0);
+    const quantity = Math.max(1, Number(item?.quantity || 1));
+    const quantityLabelRaw = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim();
+    const quantityLabel = quantityLabelRaw || String(quantity);
+    const price = Math.max(0, Number(item?.price || 0));
+    const stock = manual ? null : Math.max(0, Number(item?.stock || 0));
+    const outOfStockRequest = !manual && (
+      Number(item?.out_of_stock_request || 0) === 1
+      || Number(stock || 0) <= 0
+      || Number(quantity || 0) > Number(stock || 0)
+    );
+    return {
+      ...item,
+      id: item?.id ?? fallbackId,
+      product_id: manual ? null : Number(item?.product_id || item?.id || 0),
+      name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
+      item_type: manual ? 'manual' : 'catalog',
+      is_manual: manual ? 1 : 0,
+      quantity,
+      quantity_label: quantityLabel,
+      price,
+      price_unknown: manual ? Number(item?.price_unknown || (price <= 0 ? 1 : 0)) : 0,
+      stock,
+      out_of_stock_request: outOfStockRequest ? 1 : 0,
+      image: String(item?.image || item?.product_image || '').trim(),
+    };
+  });
+};
 
-function Cart({ cartCount, setCartCount }) {
+function Cart() {
+  const { cart: storedCart, cartCount, replaceCart } = useCart();
   const [cart, setCart] = useState([]);
   const [recommendationNames, setRecommendationNames] = useState([]);
   const [manualDraft, setManualDraft] = useState({ name: '', qtyText: '1' });
@@ -41,9 +81,12 @@ function Cart({ cartCount, setCartCount }) {
   );
 
   useEffect(() => {
-    loadCart();
     loadRecommendationNames();
   }, []);
+
+  useEffect(() => {
+    setCart(normalizeCartRows(storedCart));
+  }, [storedCart]);
 
   const previewCustomerUserId = useMemo(() => {
     try {
@@ -150,63 +193,9 @@ function Cart({ cartCount, setCartCount }) {
     }
   };
 
-  const loadCart = () => {
-    const savedCart = localStorage.getItem('barman_cart');
-    if (!savedCart) {
-      setCart([]);
-      setCartCount(0);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(savedCart);
-      const normalized = Array.isArray(parsed)
-        ? parsed.map((item, index) => {
-          const manual = Number(item?.is_manual || 0) === 1
-            || String(item?.item_type || '').toLowerCase() === 'manual'
-            || String(item?.id || '').toLowerCase().startsWith('manual:')
-            || !Number(item?.id || item?.product_id || 0);
-          const fallbackId = manual
-            ? `manual:${index}:${String(item?.name || 'item').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'item'}`
-            : Number(item?.id || item?.product_id || 0);
-          const quantity = Math.max(1, Number(item?.quantity || 1));
-          const quantityLabelRaw = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim();
-          const quantityLabel = quantityLabelRaw || String(quantity);
-          const price = Math.max(0, Number(item?.price || 0));
-          const stock = manual ? null : Math.max(0, Number(item?.stock || 0));
-          const outOfStockRequest = !manual && (
-            Number(item?.out_of_stock_request || 0) === 1
-            || Number(stock || 0) <= 0
-            || Number(quantity || 0) > Number(stock || 0)
-          );
-          return {
-            ...item,
-            id: item?.id ?? fallbackId,
-            product_id: manual ? null : Number(item?.product_id || item?.id || 0),
-            name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
-            item_type: manual ? 'manual' : 'catalog',
-            is_manual: manual ? 1 : 0,
-            quantity,
-            quantity_label: quantityLabel,
-            price,
-            price_unknown: manual ? Number(item?.price_unknown || (price <= 0 ? 1 : 0)) : 0,
-            stock,
-            out_of_stock_request: outOfStockRequest ? 1 : 0,
-            image: String(item?.image || item?.product_image || '').trim(),
-          };
-        })
-        : [];
-      setCart(normalized);
-      setCartCount(normalized.reduce((sum, item) => sum + Math.max(1, Math.ceil(Number(item.quantity || 1))), 0));
-    } catch (_) {
-      setCart([]);
-      setCartCount(0);
-    }
-  };
-
   const updateCart = (newCart) => {
     setCart(newCart);
-    localStorage.setItem('barman_cart', JSON.stringify(newCart));
-    setCartCount(newCart.reduce((sum, item) => sum + Math.max(1, Math.ceil(Number(item.quantity || 1))), 0));
+    replaceCart(newCart);
   };
 
   const getMergeKey = (item) => {

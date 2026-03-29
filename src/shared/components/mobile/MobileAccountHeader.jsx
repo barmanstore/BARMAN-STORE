@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, LogOut, User } from 'lucide-react';
+import { useSession } from '../../../providers/SessionProvider';
 import { resolveMediaSourceForDisplay } from '../../services/api';
 import './MobileAccountHeader.css';
-
-const readStoredUser = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    return user && typeof user === 'object' ? user : null;
-  } catch (_) {
-    return null;
-  }
-};
 
 const getInitials = (name) => {
   const trimmed = String(name || '').trim();
@@ -25,21 +17,11 @@ const getInitials = (name) => {
     .toUpperCase();
 };
 
-function MobileAccountHeader() {
+function MobileAccountHeader({ headerRef = null }) {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => readStoredUser());
+  const { user, clearUser } = useSession();
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState('');
-
-  useEffect(() => {
-    const syncUser = () => setUser(readStoredUser());
-    window.addEventListener('storage', syncUser);
-    window.addEventListener('user-updated', syncUser);
-    return () => {
-      window.removeEventListener('storage', syncUser);
-      window.removeEventListener('user-updated', syncUser);
-    };
-  }, []);
 
   useEffect(() => {
     setAvatarLoadFailed(false);
@@ -70,9 +52,7 @@ function MobileAccountHeader() {
 
   const handleLogin = () => navigate('/login');
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    window.dispatchEvent(new Event('user-updated'));
-    setUser(null);
+    clearUser();
     navigate('/products');
   };
 
@@ -80,7 +60,7 @@ function MobileAccountHeader() {
   const displaySub = String(user?.email || user?.phone || '').trim();
 
   return (
-    <header className="mobile-account-header">
+    <header className="mobile-account-header" ref={headerRef}>
       <div className="mobile-account-card">
         <div className="mobile-account-avatar" aria-hidden="true">
           {avatarSrc ? (

@@ -181,7 +181,6 @@ const useCreditHistoryTransactions = ({
         previousBalance,
         updatedBalance,
         paymentProfile: refreshed?.paymentBadgeSummary || null,
-        thankYouLine: 'Thank you.',
       });
       setEntryShareText(manualShare);
     } catch (err) {

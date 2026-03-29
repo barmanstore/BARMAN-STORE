@@ -55,7 +55,8 @@ function CreditHistoryHeader({
   const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
   const paymentStatusTone = String(paymentBadgeSummary?.payment_status_tone || 'neutral').trim();
   const isNewCustomer = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-    || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new';
+    || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new'
+    || paymentStatusLabel.toLowerCase() === 'new';
   const showScoreValue = hasPaymentScore && !isNewCustomer;
 
   useEffect(() => {
@@ -135,6 +136,7 @@ function CreditHistoryHeader({
                     <ul className="payment-badge-tooltip-list">
                       {PAYMENT_BADGE_RULES.map((rule) => (
                         <li key={rule.id}>
+                          <span className={`payment-badge-dot ${rule.id}`} aria-hidden="true" />
                           <strong>{rule.title}:</strong> {rule.description}
                         </li>
                       ))}
@@ -153,8 +155,8 @@ function CreditHistoryHeader({
               </div>
               {paymentStatusLabel ? (
                 <div className={`payment-badge-single ${isNewCustomer ? 'new' : (paymentStatusTone || 'neutral')}`}>
-                  <span>{paymentStatusLabel}</span>
-                  <strong>{showScoreValue ? `${paymentScore}/100` : '—'}</strong>
+                  <span className="payment-badge-label">{paymentStatusLabel}</span>
+                  <strong className="payment-badge-score">{showScoreValue ? `${paymentScore}/100` : '—'}</strong>
                 </div>
               ) : null}
             </div>

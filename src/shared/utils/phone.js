@@ -7,6 +7,10 @@ export const normalizeIndianPhone = (phone) => {
   let digits = raw.replace(/\D/g, '');
   if (!digits) return '';
 
+  if (digits.length > 13) {
+    return '';
+  }
+
   if (digits.startsWith('00')) {
     digits = digits.slice(2);
   }

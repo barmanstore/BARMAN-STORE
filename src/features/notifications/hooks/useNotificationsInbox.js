@@ -19,7 +19,7 @@ const unpackNotificationPayload = (payload) => {
 
 const isUnauthorizedError = (error) => Number(error?.status || 0) === 401;
 
-export const useNotificationsInbox = ({ user, isAdminUser }) => {
+export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => {
   const userId = Number(user?.id || 0) || 0;
   const userToken = String(user?.token || '').trim();
   const [notifications, setNotifications] = useState([]);
@@ -88,7 +88,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
     let bootstrapTimerId = null;
 
     const loadNotifications = async (silent = false) => {
-      if (!userId || !userToken) {
+      if (!enabled || !userId || !userToken) {
         if (!isCancelled) {
           resetNotificationState();
           clearNotificationFeedback();
@@ -121,7 +121,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       }
     };
 
-    if (userId && userToken) {
+    if (enabled && userId && userToken) {
       bootstrapTimerId = window.setTimeout(() => {
         if (!isCancelled) {
           void loadNotifications(false);
@@ -142,9 +142,23 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
       if (bootstrapTimerId) window.clearTimeout(bootstrapTimerId);
     };
   }, [userId, userToken]);
+  
+  useEffect(() => {
+    if (enabled) return;
+    setNotificationPanelOpen(false);
+    setExpandedNotificationId(null);
+    setMessageDraft('');
+    setMessageRecipients([]);
+    setSelectedRecipientIds([]);
+    setRecipientSearch('');
+    setMessageSending(false);
+    setMessageFeedback({ type: '', text: '' });
+    resetNotificationState();
+    clearNotificationFeedback();
+  }, [enabled]);
 
   const reloadNotifications = async () => {
-    if (!userId || !userToken) {
+    if (!enabled || !userId || !userToken) {
       resetNotificationState();
       clearNotificationFeedback();
       return;
@@ -167,7 +181,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   };
 
   const loadOlderNotifications = async () => {
-    if (!userId || !userToken || !notificationsHasMore || !notificationsNextBeforeId) return;
+    if (!enabled || !userId || !userToken || !notificationsHasMore || !notificationsNextBeforeId) return;
     try {
       const rows = await notificationsApi.listMine({
         unreadOnly: false,
@@ -200,7 +214,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   };
 
   useEffect(() => {
-    if (!notificationPanelOpen || !userId || !userToken || !isAdminUser) {
+    if (!enabled || !notificationPanelOpen || !userId || !userToken || !isAdminUser) {
       setMessageRecipients([]);
       setSelectedRecipientIds([]);
       return;
@@ -364,7 +378,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   };
 
   useEffect(() => {
-    if (!notificationPanelOpen) return undefined;
+    if (!enabled || !notificationPanelOpen) return undefined;
     const handleClickOutside = (event) => {
       if (!notificationInboxRef.current) return;
       if (notificationInboxRef.current.contains(event.target)) return;
@@ -379,7 +393,7 @@ export const useNotificationsInbox = ({ user, isAdminUser }) => {
   }, [notificationPanelOpen]);
 
   return {
-    notificationPanelOpen,
+    notificationPanelOpen: enabled ? notificationPanelOpen : false,
     onToggleNotificationPanel: toggleNotificationPanel,
     notifications,
     unreadNotificationCount,

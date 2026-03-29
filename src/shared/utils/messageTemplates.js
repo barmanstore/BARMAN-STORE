@@ -4,4 +4,4 @@ export {
   buildCreditEntryText,
   buildCreditTransactionText,
   buildPurchaseOrderDistributorNoticeText,
-} from '../../../shared/messageTemplates';
+} from '../../../shared/messageTemplates.js';

@@ -1,39 +1,38 @@
 import { useEffect } from 'react';
+import {
+  acquireInertBackgroundLock,
+  createInertBackgroundState,
+} from './inertBackgroundRuntime.mjs';
+
+const inertBackgroundState = createInertBackgroundState();
+
+const resolveBackgroundRoot = () => {
+  if (typeof document === 'undefined') return null;
+  const explicitRoot = document.querySelector('[data-window-background-root="true"]');
+  if (explicitRoot instanceof HTMLElement) {
+    return explicitRoot;
+  }
+
+  const fallbackRoot = document.querySelector('.app') || document.getElementById('root');
+  if (
+    import.meta.env.DEV
+    && fallbackRoot instanceof HTMLElement
+    && typeof console !== 'undefined'
+    && typeof console.error === 'function'
+  ) {
+    console.error('Missing [data-window-background-root=\"true\"] shell marker. Falling back to legacy app root.');
+  }
+
+  return fallbackRoot instanceof HTMLElement ? fallbackRoot : null;
+};
 
 function useInertBackground(active) {
   useEffect(() => {
-    if (!active || typeof document === 'undefined') return undefined;
+    if (!active) return undefined;
 
-    const appRoot = document.querySelector('[data-window-background-root="true"]')
-      || document.querySelector('.app')
-      || document.getElementById('root');
-    if (!(appRoot instanceof HTMLElement)) return undefined;
-
-    const previousAriaHidden = appRoot.getAttribute('aria-hidden');
-    const previousPointerEvents = appRoot.style.pointerEvents;
-    const supportsInert = 'inert' in appRoot;
-    const previousInert = supportsInert ? Boolean(appRoot.inert) : false;
-
-    if (supportsInert) {
-      appRoot.inert = true;
-    } else {
-      appRoot.style.pointerEvents = 'none';
-    }
-    appRoot.setAttribute('aria-hidden', 'true');
-
-    return () => {
-      if (supportsInert) {
-        appRoot.inert = previousInert;
-      } else {
-        appRoot.style.pointerEvents = previousPointerEvents;
-      }
-
-      if (previousAriaHidden == null) {
-        appRoot.removeAttribute('aria-hidden');
-      } else {
-        appRoot.setAttribute('aria-hidden', previousAriaHidden);
-      }
-    };
+    const backgroundRoot = resolveBackgroundRoot();
+    if (!(backgroundRoot instanceof HTMLElement)) return undefined;
+    return acquireInertBackgroundLock(inertBackgroundState, backgroundRoot);
   }, [active]);
 }
 

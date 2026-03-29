@@ -5,7 +5,7 @@
     "tone": "excellent",
     "min": 80,
     "max": 100,
-    "description": "Always pays on time at the time of sale."
+    "description": "Pays on time consistently."
   },
   {
     "key": "very_good",
@@ -13,7 +13,7 @@
     "tone": "very-good",
     "min": 60,
     "max": 79,
-    "description": "Mostly pays on time within 7 days."
+    "description": "Usually pays on time, with small delays (within 7 days)."
   },
   {
     "key": "good",
@@ -21,7 +21,7 @@
     "tone": "good",
     "min": 40,
     "max": 59,
-    "description": "Sometimes pays late, but usually within 1 month."
+    "description": "Sometimes pays late, but usually within 30 days."
   },
   {
     "key": "needs_attention",
@@ -29,7 +29,7 @@
     "tone": "attention",
     "min": 20,
     "max": 39,
-    "description": "Often pays late and can stretch to 2 months."
+    "description": "Often pays late, with delays up to 60 days."
   },
   {
     "key": "problem",
@@ -37,6 +37,6 @@
     "tone": "problem",
     "min": 0,
     "max": 19,
-    "description": "Misses payments and carries overdue credit for too long."
+    "description": "Misses payments or keeps credit overdue for long periods."
   }
 ]

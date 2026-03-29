@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useSession } from '../../../../providers/SessionProvider';
 import BillingTab from '../BillingTab';
 import { hasCapability } from '../../../../shared/auth/capabilities';
 import BackofficePopupShell from '../../../../shared/components/backoffice/BackofficePopupShell';
@@ -28,7 +29,8 @@ function BillingPopupWorkspace() {
   );
 }
 
-function BillingPopupPage({ user }) {
+function BillingPopupPage() {
+  const { user } = useSession();
   if (!user || !hasCapability(user, 'view_backoffice')) {
     return (
       <BackofficePopupShell

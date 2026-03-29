@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useSession } from '../../../../providers/SessionProvider';
 import { hasCapability } from '../../../../shared/auth/capabilities';
 import BackofficePopupShell from '../../../../shared/components/backoffice/BackofficePopupShell';
 import PopupWorkspaceNotice from '../../../../shared/components/backoffice/PopupWorkspaceNotice';
@@ -32,7 +33,8 @@ function PurchasePopupWorkspace({ user }) {
   );
 }
 
-function PurchasePopupPage({ user }) {
+function PurchasePopupPage() {
+  const { user } = useSession();
   if (!user || !hasCapability(user, 'view_backoffice')) {
     return (
       <BackofficePopupShell

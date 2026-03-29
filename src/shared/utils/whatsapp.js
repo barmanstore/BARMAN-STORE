@@ -1,6 +1,7 @@
-import { normalizeIndianPhone } from './phone';
+import { normalizeIndianPhone } from './phone.js';
 
 const INDIA_COUNTRY_CODE = '91';
+export const MAX_URL_LENGTH = 1800;
 
 const normalizeMessageText = (text) => String(text || '').trim();
 
@@ -29,12 +30,12 @@ export const openWhatsApp = (params = {}) => {
   return href;
 };
 
-export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = 1800 } = {}) => {
+export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = MAX_URL_LENGTH } = {}) => {
   const message = normalizeMessageText(text);
   const normalized = normalizePhoneForWhatsApp(phone);
   const hasValidPhone = isValidWhatsAppPhone(normalized);
   if (!hasValidPhone) {
-    return { status: 'missing_phone', href: '', copied: false };
+    return { status: 'blocked_no_phone', href: '', copied: false };
   }
 
   const encoded = encodeURIComponent(message);
@@ -43,7 +44,7 @@ export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = 1800 } = {
     if (typeof window !== 'undefined') {
       window.open(href, '_blank', 'noopener,noreferrer');
     }
-    return { status: 'sent_url', href, copied: false };
+    return { status: 'opened_whatsapp', href, copied: false };
   }
 
   let copied = false;
@@ -60,5 +61,5 @@ export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = 1800 } = {
   if (typeof window !== 'undefined') {
     window.open(fallbackHref, '_blank', 'noopener,noreferrer');
   }
-  return { status: copied ? 'fallback_copy' : 'fallback_no_copy', href: fallbackHref, copied };
+  return { status: copied ? 'opened_with_copy' : 'opened_without_copy', href: fallbackHref, copied };
 };

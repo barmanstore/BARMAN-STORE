@@ -25,6 +25,7 @@ Focused docs:
 - [docs/backend.md](docs/backend.md)
 - [docs/frontend.md](docs/frontend.md)
 - [docs/business-logic.md](docs/business-logic.md)
+- [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
 - [docs/routing.md](docs/routing.md)
 - [docs/controllers.md](docs/controllers.md)
 - [docs/services.md](docs/services.md)
@@ -49,9 +50,11 @@ Read only the docs needed for the task, then inspect code:
 - Frontend work:
   - [docs/frontend.md](docs/frontend.md)
   - [docs/ui-ux.md](docs/ui-ux.md)
+  - [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
   - [docs/services.md](docs/services.md)
 - Domain changes:
   - [docs/business-logic.md](docs/business-logic.md)
+  - [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
   - [docs/validation.md](docs/validation.md)
   - [ERROR_HANDLING.md](ERROR_HANDLING.md)
 - Data changes:

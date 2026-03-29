@@ -9,6 +9,9 @@ import { formatCurrency } from '../utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../utils/phone';
 import './UserEditModal.css';
 
+const formatCreditLimitLabel = (value) => (Number(value || 0) > 0 ? formatCurrency(value) : 'Unrestricted');
+const formatVerificationLabel = (isVerified) => (isVerified ? 'Verified' : 'Pending verification');
+
 function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill = null }) {
   const [formData, setFormData] = useState(() => ({
     name: isCreate ? String(createPrefill?.name || '') : '',
@@ -42,8 +45,8 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
   const isRoleEditAllowed = isCreate || (Boolean(user?.email_verified) && Boolean(user?.phone_verified));
   const isAdminTarget = !isCreate && user?.role === 'admin';
   const roleEditBlockedMessage = isAdminTarget
-    ? 'Admin users cannot be modified here.'
-    : 'User type can be changed only when both email and phone are verified.';
+    ? 'Existing admin users are read-only here.'
+    : 'User type stays locked until both email and phone are verified.';
 
   const validateForm = () => {
     const nextErrors = {};
@@ -131,11 +134,10 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
         await usersApi.update(user.id, updatePayload);
         setSuccess('Customer updated successfully');
       }
-      setTimeout(() => {
-        onSave(createdUser);
-        onClose();
-      }, 700);
+      await Promise.resolve(onSave?.(createdUser));
+      onClose();
     } catch (err) {
+      setSuccess('');
       setError(err.message || `Failed to ${isCreate ? 'create' : 'update'} user`);
     } finally {
       setLoading(false);
@@ -214,20 +216,29 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
                 min={0}
                 value={formData.credit_limit}
                 onValueChange={(nextValue) => handleChange({ target: { name: 'credit_limit', value: nextValue } })}
-                placeholder="Optional manual limit"
+                placeholder="Leave blank for unrestricted credit"
               />
               {errors.credit_limit && <span className="field-error">{errors.credit_limit}</span>}
+              <span className="info-text">Blank means unrestricted credit. Provided email or phone stays pending until verification finishes.</span>
             </div>
           </>
         ) : (
           <>
             <div className="user-static-summary">
+              <div className="user-static-summary-head">
+                <strong>Identity Details</strong>
+                <span className="user-static-summary-badge">Read only here</span>
+              </div>
               <p><strong>Name:</strong> {formData.name || '-'}</p>
               <p><strong>Email:</strong> {formData.email || '-'}</p>
               <p><strong>Phone:</strong> {formData.phone || '-'}</p>
-              <p><strong>Email status:</strong> {user?.email_verified ? 'Verified' : 'Unverified'}</p>
-              <p><strong>Phone status:</strong> {user?.phone_verified ? 'Verified' : 'Unverified'}</p>
-              <p><strong>Current credit limit:</strong> {Number(user?.credit_limit || 0) > 0 ? formatCurrency(user.credit_limit) : 'Not set'}</p>
+              <p><strong>Address:</strong> {formData.address || '-'}</p>
+              <p><strong>Email status:</strong> {formatVerificationLabel(user?.email_verified)}</p>
+              <p><strong>Phone status:</strong> {formatVerificationLabel(user?.phone_verified)}</p>
+              <p><strong>Current credit limit:</strong> {formatCreditLimitLabel(user?.credit_limit)}</p>
+            </div>
+            <div className="user-edit-hint">
+              Identity fields stay read-only in this admin edit flow. Email, phone, and verification changes must go through the contact verification flows so uniqueness checks and pending requests stay intact.
             </div>
             {(!isRoleEditAllowed || isAdminTarget) && (
               <span className="field-error">{roleEditBlockedMessage}</span>
@@ -248,7 +259,7 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
               </select>
               {errors.role && <span className="field-error">{errors.role}</span>}
               {isRoleEditAllowed && !isAdminTarget && (
-                <span className="info-text">Role changes are allowed only after both email and phone are verified.</span>
+                <span className="info-text">Role changes stay available only while both email and phone remain verified.</span>
               )}
             </div>
 
@@ -260,12 +271,12 @@ function UserEditModal({ user, onClose, onSave, isCreate = false, createPrefill 
                 min={0}
                 value={formData.credit_limit}
                 onValueChange={(nextValue) => handleChange({ target: { name: 'credit_limit', value: nextValue } })}
-                placeholder="Optional manual limit"
+                placeholder="Leave blank for unrestricted credit"
                 disabled={isAdminTarget}
               />
               {errors.credit_limit && <span className="field-error">{errors.credit_limit}</span>}
               {!isAdminTarget ? (
-                <span className="info-text">Leave blank to remove the manual credit limit.</span>
+                <span className="info-text">Leave blank for unrestricted credit. Stored value `0` means no enforced limit.</span>
               ) : null}
             </div>
           </>

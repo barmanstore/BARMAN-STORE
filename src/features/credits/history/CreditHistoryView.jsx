@@ -6,6 +6,7 @@ import CreditEntrySharePanel from './components/CreditEntrySharePanel';
 import CreditHistoryHeader from './components/CreditHistoryHeader';
 import CreditInvoiceModal from './components/CreditInvoiceModal';
 import CreditIssuesAdminInbox from './components/CreditIssuesAdminInbox';
+import CreditMonthlyStatementSection from './components/CreditMonthlyStatementSection';
 import CreditQuickFilters from './components/CreditQuickFilters';
 import CreditReportPreview from './components/CreditReportPreview';
 import CreditTransactionsSection from './components/CreditTransactionsSection';
@@ -23,6 +24,7 @@ const CreditHistoryView = ({
   trustLine,
   billsHref,
   showPaymentBadges,
+  monthlyStatements,
   paymentBadgesLoading,
   paymentBadges,
   paymentBadgeSummary,
@@ -133,6 +135,13 @@ const CreditHistoryView = ({
         quickRangeFilter={quickRangeFilter}
         setQuickRangeFilter={setQuickRangeFilter}
       />
+
+      {!isAdminView && (
+        <CreditMonthlyStatementSection
+          monthlyStatements={monthlyStatements}
+          paymentBadgeSummary={paymentBadgeSummary}
+        />
+      )}
 
       {isAdminView && (
         <CreditIssuesAdminInbox

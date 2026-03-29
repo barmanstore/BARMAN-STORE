@@ -46,18 +46,20 @@ const useCreditHistoryLoaders = ({
       const [historyData, balanceData, customerData] = await Promise.all([
         creditApi.getHistory(targetUserId),
         creditApi.getBalance(targetUserId),
-        usersApi.getById(targetUserId)
+        usersApi.getById(targetUserId),
       ]);
       setCreditHistory(historyData);
       setBalance(balanceData.balance);
       setCustomer(customerData);
-      try {
-        const issueRows = await creditApi.getIssues(targetUserId);
-        setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
-      } catch (_) {
-        setCreditIssues([]);
-      }
-      const badgeData = await loadPaymentBadges(targetUserId);
+
+      const [issueRows, badgeData] = await Promise.all([
+        creditApi.getIssues(targetUserId)
+          .then((rows) => (Array.isArray(rows) ? rows : []))
+          .catch(() => []),
+        loadPaymentBadges(targetUserId),
+      ]);
+      setCreditIssues(issueRows);
+
       return {
         history: historyData,
         balance: Number(balanceData?.balance || 0),

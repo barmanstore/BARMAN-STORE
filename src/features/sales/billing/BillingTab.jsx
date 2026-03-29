@@ -1541,16 +1541,16 @@ const BillingSystem = ({
       phone: lastSharePhone || customer?.phone,
       text: lastShareText,
     });
-    if (result.status === 'missing_phone') {
+    if (result.status === 'blocked_no_phone') {
       alert('Customer phone is missing or invalid. Please update phone and try again.');
       return;
     }
-    if (result.status === 'fallback_copy') {
-      alert('Message was long, copied to clipboard. Paste it in WhatsApp.');
+    if (result.status === 'opened_with_copy') {
+      alert('Copied message. WhatsApp opened; paste and send to share.');
       return;
     }
-    if (result.status === 'fallback_no_copy') {
-      alert('Message was long. Opened WhatsApp chat, please paste the message manually.');
+    if (result.status === 'opened_without_copy') {
+      alert('WhatsApp opened. Please paste the message manually.');
     }
   }, [customer?.phone, lastSharePhone, lastShareText]);
 

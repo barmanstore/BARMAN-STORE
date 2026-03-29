@@ -1,10 +1,8 @@
 const listCreditIssues = async ({
   dbAllAsync,
-  runCustomerRequestPurge,
   normalizeCreditIssueStatus,
   requestedStatus,
 } = {}) => {
-  await runCustomerRequestPurge();
   const normalizedStatus = requestedStatus
     ? normalizeCreditIssueStatus(requestedStatus, { fallback: '' })
     : '';

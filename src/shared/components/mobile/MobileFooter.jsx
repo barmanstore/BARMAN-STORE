@@ -1,11 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Sparkles, ShoppingCart, Store } from 'lucide-react';
+import { useCart } from '../../../providers/CartProvider';
 import './MobileFooter.css';
 
 function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null }) {
   const location = useLocation();
+  const { cartCount: sharedCartCount } = useCart();
   const isStorePage = location.pathname === '/store';
   const isProductsPage = location.pathname === '/products' || location.pathname === '/';
+  const resolvedCartCount = Number(cartCount || sharedCartCount || 0);
 
   const homeButton = onHome ? (
     <button type="button" className="mobile-footer-btn" onClick={onHome} aria-current={isProductsPage ? 'page' : undefined}>
@@ -38,7 +41,7 @@ function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null }) {
       <Link to="/cart" className="mobile-footer-btn basket">
         <ShoppingCart size={18} />
         <span>Basket</span>
-        {cartCount > 0 ? <em className="mobile-footer-badge">{cartCount}</em> : null}
+        {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
       </Link>
       <Link to="/store" className="mobile-footer-btn" aria-current={isStorePage ? 'page' : undefined}>
         <Store size={18} />

@@ -4,7 +4,6 @@ const registerCreditIssuesListRoutes = (deps) => {
     requireAuth,
     dbAllAsync,
     dbGetAsync,
-    runCustomerRequestPurge,
     normalizeCreditIssueStatus,
     getLatestCreditEntryAsync,
     getCustomerCreditProfileAsync,
@@ -98,7 +97,6 @@ const registerCreditIssuesListRoutes = (deps) => {
 
   app.get('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
     try {
-      await runCustomerRequestPurge();
       const requestUserId = Number(req.params.userId);
       if (!requestUserId) return res.status(400).json({ error: 'Invalid user id' });
       const isAdmin = req.authUser?.role === 'admin';

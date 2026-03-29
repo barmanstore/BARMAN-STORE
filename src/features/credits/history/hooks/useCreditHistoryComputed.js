@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { getCreditEntryDelta } from '../utils/creditLedgerPresentation';
+import { buildMonthlyCreditStatements } from '../../../../shared/utils/creditHistoryUi.mjs';
 
 const useCreditHistoryComputed = ({
   creditHistory,
@@ -57,9 +58,12 @@ const useCreditHistoryComputed = ({
   }, [filteredTransactions, getEffectiveTransactionDateKey, formatTransactionDate, compareTransactionsByDateDesc]);
 
   const lastTransaction = getLastTransactionFromHistory(creditHistory, getEffectiveTransactionTimestamp);
-  const lastTransactionLine = lastTransaction
+  const lastTransactionTimestamp = lastTransaction ? Number(getEffectiveTransactionTimestamp(lastTransaction)) : 0;
+  const isRecentTransaction = Number.isFinite(lastTransactionTimestamp)
+    && (Date.now() - lastTransactionTimestamp) <= (30 * 24 * 60 * 60 * 1000);
+  const lastTransactionLine = lastTransaction && isRecentTransaction
     ? `Last: ${getTypeLabel(lastTransaction)} · ${formatTransactionDate(lastTransaction, { long: true })}`
-    : 'Last: No transactions yet';
+    : 'Last: No recent transactions';
 
   const ledgerSummary = useMemo(() => {
     return creditHistory.reduce((acc, transaction) => {
@@ -83,6 +87,11 @@ const useCreditHistoryComputed = ({
   );
 
   const showPaymentBadges = paymentBadgesLoading || paymentBadges.length > 0;
+  const monthlyStatements = useMemo(() => buildMonthlyCreditStatements(creditHistory, {
+    getTimestamp: getEffectiveTransactionTimestamp,
+    getDelta: getCreditEntryDelta,
+    maxStatements: 6,
+  }), [creditHistory, getEffectiveTransactionTimestamp]);
 
   const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
 
@@ -147,6 +156,7 @@ const useCreditHistoryComputed = ({
     balanceSummary,
     inactivityHint,
     showPaymentBadges,
+    monthlyStatements,
     hasFiltersApplied,
     issueFlagByEntryId,
     adminVisibleIssues,

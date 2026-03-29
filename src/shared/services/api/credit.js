@@ -38,6 +38,11 @@ export const creditApi = {
       body: payload,
     }),
   getAgingReport: () => apiFetch('/api/credit/aging'),
+  logWhatsAppLaunch: (payload = {}) =>
+    apiFetch('/api/credit/whatsapp/launch-log', {
+      method: 'POST',
+      body: payload,
+    }),
   getIssues: (userId, params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/users/${userId}/credit-issues${query ? `?${query}` : ''}`);

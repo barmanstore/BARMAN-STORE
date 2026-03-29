@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCart } from '../../providers/CartProvider';
+import { useSession } from '../../providers/SessionProvider';
 import { ordersApi, customersApi } from '../../shared/services/api';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
@@ -24,6 +26,8 @@ const getStoreLogoPath = () => {
 function Checkout() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { cart: storedCart, replaceCart, clearCart } = useCart();
+  const { user, isLoggedIn, isAdminUser } = useSession();
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -32,8 +36,6 @@ function Checkout() {
   const [orderResult, setOrderResult] = useState(null);
   
   // User state
-  const [user, setUser] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   
   // Admin order state
@@ -106,7 +108,7 @@ function Checkout() {
             .filter((item) => item.id && item.price >= 0 && item.quantity > 0);
 
           if (cartItems.length > 0) {
-            localStorage.setItem('barman_cart', JSON.stringify(cartItems));
+            replaceCart(cartItems);
           }
         } catch (retryError) {
           console.error('Retry order load failed:', retryError);
@@ -115,13 +117,11 @@ function Checkout() {
 
       if (cartItems.length === 0) {
         // Get cart
-        const savedCart = localStorage.getItem('barman_cart');
-        if (!savedCart) {
+        if (!Array.isArray(storedCart) || storedCart.length === 0) {
           navigate('/cart');
           return;
         }
-
-        cartItems = JSON.parse(savedCart);
+        cartItems = storedCart;
       }
 
       const normalizedCartItems = (Array.isArray(cartItems) ? cartItems : [])
@@ -157,22 +157,18 @@ function Checkout() {
       setCart(normalizedCartItems);
       
       // Check for logged in user
-      const savedUser = localStorage.getItem('user');
-      if (!savedUser) {
+      if (!user?.id) {
         navigate('/login');
         return;
       }
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      setIsLoggedIn(true);
-      setIsAdmin(userData.role === 'admin');
+      setIsAdmin(isAdminUser);
       
       // Check if admin wants to place order for customer
-      if (userData.role === 'admin' && searchParams.get('admin') === 'true') {
+      if (isAdminUser && searchParams.get('admin') === 'true') {
         setAdminMode(true);
       } else {
         // Validate customer profile
-        await validateCustomerProfile(userData.id);
+        await validateCustomerProfile(user.id);
       }
       
       // Save session ID
@@ -362,7 +358,7 @@ function Checkout() {
       
       setOrderResult(result);
       setSuccess(true);
-      localStorage.removeItem('barman_cart');
+      clearCart();
       localStorage.removeItem('checkout_session');
       
     } catch (err) {

@@ -1,4 +1,6 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
+const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
+const pad2 = (value) => String(value).padStart(2, '0');
 
 const getStartOfMonthTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -13,8 +15,34 @@ const getRangeStartTimestamp = (rangeFilter, nowTimestamp) => {
   return null;
 };
 
+const getMonthKey = (timestamp) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+};
+
+const formatMonthLabel = (monthKey) => {
+  const raw = String(monthKey || '').trim();
+  if (!/^\d{4}-\d{2}$/.test(raw)) return '';
+  const [year, month] = raw.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+const formatStatementDateLabel = (timestamp) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  });
+};
+
 export const getBalanceSummary = (rawBalance, { viewerRole = 'customer' } = {}) => {
-  const balance = Number(rawBalance || 0);
+  const raw = Number(rawBalance || 0);
+  const balance = Math.abs(raw) < 0.01 ? 0 : raw;
   const isAdminViewer = String(viewerRole || '').toLowerCase() === 'admin';
   if (balance > 0) {
     return {
@@ -85,6 +113,83 @@ export const getRecentActivityHint = (lastTimestamp, {
   const elapsed = Number(nowTimestamp) - lastTxTimestamp;
   if (elapsed < days * DAY_MS) return '';
   return `No activity in last ${Math.floor(days)} days. Consider sending a reminder.`;
+};
+
+export const buildMonthlyCreditStatements = (transactions, {
+  getTimestamp,
+  getDelta,
+  maxStatements = 6,
+} = {}) => {
+  if (!Array.isArray(transactions) || transactions.length === 0) return [];
+  const timestampGetter = typeof getTimestamp === 'function'
+    ? getTimestamp
+    : (transaction) => new Date(transaction?.created_at || '').getTime();
+  const deltaGetter = typeof getDelta === 'function'
+    ? getDelta
+    : (transaction) => Number(transaction?.amount || 0);
+
+  const normalized = transactions
+    .map((transaction, index) => {
+      const timestamp = Number(timestampGetter(transaction));
+      const delta = Number(deltaGetter(transaction));
+      const balance = Number(transaction?.balance || 0);
+      if (!Number.isFinite(timestamp) || !Number.isFinite(delta) || !Number.isFinite(balance)) return null;
+      return {
+        index,
+        timestamp,
+        delta,
+        balance,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.timestamp - b.timestamp) || (a.index - b.index));
+
+  const grouped = new Map();
+
+  normalized.forEach((transaction) => {
+    const monthKey = getMonthKey(transaction.timestamp);
+    if (!monthKey) return;
+
+    if (!grouped.has(monthKey)) {
+      grouped.set(monthKey, {
+        monthKey,
+        monthLabel: formatMonthLabel(monthKey),
+        startTimestamp: transaction.timestamp,
+        endTimestamp: transaction.timestamp,
+        transactionCount: 0,
+        openingBalance: roundMoney(transaction.balance - transaction.delta),
+        totalDebit: 0,
+        totalCredit: 0,
+        netChange: 0,
+        closingBalance: roundMoney(transaction.balance),
+      });
+    }
+
+    const group = grouped.get(monthKey);
+    group.transactionCount += 1;
+    group.endTimestamp = transaction.timestamp;
+    group.closingBalance = roundMoney(transaction.balance);
+    if (transaction.delta >= 0) {
+      group.totalDebit = roundMoney(group.totalDebit + transaction.delta);
+    } else {
+      group.totalCredit = roundMoney(group.totalCredit + Math.abs(transaction.delta));
+    }
+    group.netChange = roundMoney(group.netChange + transaction.delta);
+  });
+
+  const limit = Number.isFinite(Number(maxStatements))
+    ? Math.max(1, Number(maxStatements))
+    : 6;
+
+  return Array.from(grouped.values())
+    .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
+    .slice(0, limit)
+    .map((group) => ({
+      ...group,
+      startDateLabel: formatStatementDateLabel(group.startTimestamp),
+      endDateLabel: formatStatementDateLabel(group.endTimestamp),
+      netTone: group.netChange > 0 ? 'debit' : (group.netChange < 0 ? 'credit' : 'neutral'),
+    }));
 };
 
 export const truncateCreditDescription = (value, maxLength = 56) => {

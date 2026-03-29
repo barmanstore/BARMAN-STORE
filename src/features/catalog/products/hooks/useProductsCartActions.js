@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 export default function useProductsCartActions({
   cart,
   setCart,
-  setCartCount,
+  replaceCart,
   setButtonStatus,
   setNotice,
   setUsageHistory,
@@ -13,7 +13,6 @@ export default function useProductsCartActions({
   quickTileDidSwipeRef,
   setSwipeAddedFamilyId,
   trackProductsEvent,
-  safeReadJson,
   safeWriteJson,
   USAGE_HISTORY_KEY,
   getFirstAvailableVariation,
@@ -32,9 +31,8 @@ export default function useProductsCartActions({
 
   const persistCart = useCallback((nextCart) => {
     setCart(nextCart);
-    safeWriteJson('barman_cart', nextCart);
-    setCartCount(nextCart.reduce((sum, item) => sum + Number(item.quantity || 0), 0));
-  }, [setCart, setCartCount, safeWriteJson]);
+    replaceCart(nextCart);
+  }, [replaceCart, setCart]);
 
   const markVariationIdsAsAdded = useCallback((variationIds = []) => {
     const uniqueIds = [...new Set(variationIds.map((value) => Number(value || 0)).filter((value) => value > 0))];
@@ -136,8 +134,7 @@ export default function useProductsCartActions({
     const validEntries = entries.filter((entry) => entry?.family && entry?.variation);
     if (!validEntries.length) return;
 
-    const persistedCart = safeReadJson('barman_cart', cart);
-    const baseCart = Array.isArray(persistedCart) ? persistedCart : cart;
+    const baseCart = Array.isArray(cart) ? cart : [];
     const { nextCart, requestCount, appliedEntries } = buildCartWithAdditions(baseCart, validEntries);
     if (!appliedEntries.length) return;
     persistCart(nextCart);
@@ -162,7 +159,7 @@ export default function useProductsCartActions({
           : 'Added as a requested item. Billing team will confirm availability.',
       });
     }
-  }, [cart, persistCart, recordUsageEntries, markVariationIdsAsAdded, trackProductsEvent, safeReadJson, setSwipeAddedFamilyId, setNotice]);
+  }, [cart, persistCart, recordUsageEntries, markVariationIdsAsAdded, trackProductsEvent, setSwipeAddedFamilyId, setNotice]);
 
   const addToCart = useCallback((family, variation, quantity = 1) => {
     addEntriesToCart([{ family, variation, quantity }], { source: 'catalog_add' });

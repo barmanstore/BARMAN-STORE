@@ -1,46 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CreditCard, MapPin, HelpCircle, ShieldCheck, Receipt, BellRing } from 'lucide-react';
+import { useNotifications } from '../../providers/NotificationsProvider';
+import { useSession } from '../../providers/SessionProvider';
 import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './StorePage.css';
 
-const readLocalUser = () => {
-  if (typeof window === 'undefined') return null;
-  try {
-    return JSON.parse(window.localStorage.getItem('user') || 'null');
-  } catch (_) {
-    return null;
-  }
-};
-
-function StorePage({
-  notifications = [],
-  unreadNotificationCount = 0,
-  onResolveNotificationHref = () => '/profile',
-  onMarkNotificationRead = () => {},
-}) {
-  const [user, setUser] = useState(() => readLocalUser());
+function StorePage() {
+  const { user, isAdminUser, isLoggedIn } = useSession();
+  const {
+    notifications = [],
+    unreadNotificationCount = 0,
+    onResolveNotificationHref = () => '/profile',
+    onMarkNotificationRead = () => {},
+  } = useNotifications();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const navigate = useNavigate();
-  const isAdminUser = String(user?.role || '').trim().toLowerCase() === 'admin';
-  const isLoggedIn = Boolean(
-    user?.id
-    || String(user?.token || '').trim()
-    || String(user?.supabase_session?.access_token || '').trim()
-    || String(user?.email || '').trim()
-    || String(user?.phone || '').trim()
-  );
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const syncUser = () => setUser(readLocalUser());
-    window.addEventListener('storage', syncUser);
-    window.addEventListener('user-updated', syncUser);
-    return () => {
-      window.removeEventListener('storage', syncUser);
-      window.removeEventListener('user-updated', syncUser);
-    };
-  }, []);
 
   return (
     <MobileAccountLayout>

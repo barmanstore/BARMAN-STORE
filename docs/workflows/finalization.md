@@ -9,6 +9,12 @@ Execute this checklist before marking work done or preparing a deployment.
   - or `node scripts/run-local-smoke-suite.mjs all`
 - If the shared modal shell, `WindowModal`, `MobileBottomSheet`, focus-trap, or inert-background code changed, also run:
   - `npm run test:modal-regression`
+- If route policy, shell ownership, overlay ownership, or shell/runtime DOM contracts changed, also run:
+  - `npm run check:shell-runtime`
+  - `npm run test:shell-runtime`
+- If shared credit scoring/payment-intelligence, credit badge UI, the aging report, or WhatsApp credit templates changed, also run:
+  - `npm run test:credit-ui`
+  - manually verify credit badges, aging output, and WhatsApp credit messaging stay aligned to the shared payment-intelligence output
 - Verify the core flows covered by the current suite:
   - OTP auth endpoints
   - product listing
@@ -34,6 +40,7 @@ Execute this checklist before marking work done or preparing a deployment.
 - Confirm:
   - no undocumented live routes
   - no missing documented routes
+  - intentionally dual-method internal automation routes remain documented where applicable, including `/api/internal/credits/payment-intelligence/run`
   - compatibility routes marked deprecated still return `410` where documented
 
 ## Code Cleanup
@@ -53,7 +60,9 @@ Execute this checklist before marking work done or preparing a deployment.
 
 ## Documentation Sync
 
-- Update the docs touched by the change:
+- Update the docs touched by the change, including:
+  - `AGENTS.md`
+  - `ARCHITECTURE.md`
   - `CHANGELOG.md`
   - `TASKS.md`
   - `ROUTES.md`
@@ -85,6 +94,7 @@ Execute this checklist before marking work done or preparing a deployment.
   - login and OTP
   - order creation
   - admin flows
+  - credit history, payment badges, and the aging report
   - shared modal behavior
 - For modal-shell releases, specifically re-check:
   - stacked desktop modal focus order
@@ -94,4 +104,4 @@ Execute this checklist before marking work done or preparing a deployment.
 ## Reporting
 
 - Summarize system status, issues found, fixes applied, docs updated, readiness, risks, and manual checks required.
-- Update `TASKS.md` so completed work is moved to `Done` and genuine follow-ups are captured under `Next`.
+- Update `TASKS.md` so completed work is moved to `Done` with concise completion-state summaries and changelog traceability, not implementation-spec detail, and genuine follow-ups are captured under `Next`.

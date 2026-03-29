@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSession } from '../../providers/SessionProvider';
 import { authApi } from '../../shared/services/api';
 import { validateEmail } from '../../shared/utils/validation';
 import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
@@ -90,7 +91,8 @@ const parseIdentifier = (rawValue) => {
   return { type: 'email', email, phone: null };
 };
 
-function Login({ setUser }) {
+function Login() {
+  const { setUser } = useSession();
   const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState('');
   const [devOtpCode, setDevOtpCode] = useState('');

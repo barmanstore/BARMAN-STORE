@@ -369,6 +369,7 @@ const useAdminPageController = ({ user }) => {
     loadUsersPage,
     usersPage,
     usersSearchQuery,
+    setUsersSearchQuery,
     showNotification,
     setEditingUser,
     setIsCreatingUser,

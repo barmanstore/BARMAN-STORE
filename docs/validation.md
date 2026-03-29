@@ -1,6 +1,6 @@
 # Validation
 
-See also: [business-logic.md](business-logic.md), [api-contract.md](api-contract.md), [../ERROR_HANDLING.md](../ERROR_HANDLING.md)
+See also: [business-logic.md](business-logic.md), [api-contract.md](api-contract.md), [user-management-state-contract.md](user-management-state-contract.md), [../ERROR_HANDLING.md](../ERROR_HANDLING.md)
 
 ## Backend Validation Anchors
 
@@ -9,6 +9,7 @@ See also: [business-logic.md](business-logic.md), [api-contract.md](api-contract
 - Purchase-order creation input: `server/features/commerce/routes/purchaseOrders/listCreate/validateInput.js`
 - Credit issue admin correction dates and actions: [server/features/credits/routes/creditIssues/admin/resolveIssue.js](../server/features/credits/routes/creditIssues/admin/resolveIssue.js)
 - Admin customer credit-limit updates: [server/features/auth/routes/userCrud/userRoleActions.js](../server/features/auth/routes/userCrud/userRoleActions.js) and [server/features/auth/routes/userCrud/profile/profileValidation.js](../server/features/auth/routes/userCrud/profile/profileValidation.js)
+- User-management identity rules: [server/features/auth/routes/userCrud/userRoleActions.js](../server/features/auth/routes/userCrud/userRoleActions.js), [server/features/auth/routes/userCrud/profile/profileValidation.js](../server/features/auth/routes/userCrud/profile/profileValidation.js), and [user-management-state-contract.md](user-management-state-contract.md)
 
 ## Frontend Validation Anchors
 
@@ -23,4 +24,7 @@ See also: [business-logic.md](business-logic.md), [api-contract.md](api-contract
 - Reuse existing validators and normalizers before creating new ones.
 - If validation rules change, keep the message shape and status codes aligned with [../ERROR_HANDLING.md](../ERROR_HANDLING.md).
 - Customer `credit_limit` values must be numeric and greater than or equal to `0`. Only admin-managed user flows may set them; self-service profile updates must not accept them.
+- Email uniqueness checks must run on normalized email (`lowercase + trim`) instead of raw form input.
+- Phone comparisons and uniqueness checks must use the normalized Indian stored form, not display-format phone strings.
+- Admin-managed user edits must not bypass the verified-contact gate for role changes.
 - Payment-period state is server-derived from `credit_history`. Do not add client-managed create/update flows for `customer_payment_periods` or score snapshots.

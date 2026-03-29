@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { Maximize2, Minus, X } from 'lucide-react';
+import { OverlayEntry } from '../../../providers/OverlayProvider';
 import useIsMobile from '../../hooks/useIsMobile';
 import useFocusTrap from '../../hooks/useFocusTrap';
 import useWindowDragResize from '../../hooks/useWindowDragResize';
@@ -128,7 +128,7 @@ function WindowModal({
     manager?.activateWindow(windowId);
   };
 
-  if (!open || isMinimized || typeof document === 'undefined') return null;
+  if (!open || isMinimized) return null;
 
   const frame = (
     <div
@@ -230,7 +230,17 @@ function WindowModal({
     </div>
   );
 
-  return createPortal(frame, document.body);
+  return (
+    <OverlayEntry
+      active={open && !isMinimized}
+      id={`window-modal-${windowId}`}
+      type="overlay"
+      getZIndex={() => 3600 + Number(entry?.order || 0)}
+      onEscape={dismissible !== false && closeOnEscape !== false ? handleClose : null}
+    >
+      {frame}
+    </OverlayEntry>
+  );
 }
 
 export default WindowModal;

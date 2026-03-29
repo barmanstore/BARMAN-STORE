@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Eye, RotateCcw, Download } from 'lucide-react';
+import { useCart } from '../../../providers/CartProvider';
+import { useSession } from '../../../providers/SessionProvider';
 import { ordersApi } from '../api/index.js';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
@@ -187,6 +189,8 @@ function ExportSection({ onExport }) {
 }
 
 function OrderHistoryPage() {
+  const { user } = useSession();
+  const { restoreFromOrder } = useCart();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -203,16 +207,6 @@ function OrderHistoryPage() {
     return [...orders].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
   }, [orders]);
 
-  const getCurrentUser = () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      return user && typeof user === 'object' ? user : {};
-    } catch (_) {
-      localStorage.removeItem('user');
-      return {};
-    }
-  };
-
   useEffect(() => {
     loadOrders();
   }, []);
@@ -225,7 +219,6 @@ function OrderHistoryPage() {
     setLoading(true);
     setError(null);
     try {
-      const user = getCurrentUser();
       if (!user.id) {
         navigate('/login');
         return;
@@ -301,7 +294,7 @@ function OrderHistoryPage() {
     }
     try {
       setRepeatLoading(true);
-      localStorage.setItem('barman_cart', JSON.stringify(repeatCart));
+      restoreFromOrder(repeatCart);
       setRepeatMessage(`Added ${repeatCart.length} items from ${latestOrder.order_number || `#${latestOrder.id}`}.`);
       navigate('/cart');
     } catch (_) {
@@ -320,7 +313,7 @@ function OrderHistoryPage() {
     }
     try {
       setRepeatLoading(true);
-      localStorage.setItem('barman_cart', JSON.stringify(repeatCart));
+      restoreFromOrder(repeatCart);
       setRepeatMessage(`Added ${repeatCart.length} items from ${order.order_number || `#${order.id}`}.`);
       navigate('/cart');
     } catch (_) {

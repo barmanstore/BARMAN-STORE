@@ -1,12 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, Shield, LogOut, ChevronDown, X, CreditCard, FileText, Lightbulb } from 'lucide-react';
+import { useOverlayStackEntry } from '../../providers/OverlayProvider';
+import { useSession } from '../../providers/SessionProvider';
 import { resolveMediaSourceForDisplay } from '../services/api';
 import { truncateUserName } from '../utils/formatters';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './UserMenu.css';
 
 function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} }) {
+  const overlayId = useId();
+  const { clearUser } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState('');
@@ -20,6 +24,13 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
   const isMobileContext = inMobileNav && isMobileViewport;
 
   useLockBodyScroll(menuOpen && isMobileViewport && !isMobileContext);
+  useOverlayStackEntry({
+    active: menuOpen,
+    id: `user-menu-${String(overlayId).replace(/[:]/g, '')}`,
+    type: 'chrome',
+    zIndex: isMobileContext ? 1700 : 1800,
+    onEscape: () => setMenuOpen(false),
+  });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -37,19 +48,6 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!menuOpen) return;
-
-    const handleEsc = (event) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-
-    document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [menuOpen, isMobileContext]);
-
-  useEffect(() => {
     const handleResize = () => {
       setIsMobileViewport(window.innerWidth <= 768);
       if (window.innerWidth > 768) {
@@ -62,8 +60,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
-    setUser(null);
+    clearUser();
     setMenuOpen(false);
     onNavigate();
     navigate('/');

@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 
 const useProductsUiEffects = ({
-  isMobile,
   notice,
   setNotice,
   showSearchSuggestions,
@@ -12,18 +11,6 @@ const useProductsUiEffects = ({
   swipeAddedFamilyId,
   setSwipeAddedFamilyId,
 }) => {
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-    if (isMobile) {
-      document.body.classList.add('mobile-shop-active');
-    } else {
-      document.body.classList.remove('mobile-shop-active');
-    }
-    return () => {
-      document.body.classList.remove('mobile-shop-active');
-    };
-  }, [isMobile]);
-
   useEffect(() => {
     if (!notice) return undefined;
     const timer = setTimeout(() => setNotice(null), 2200);

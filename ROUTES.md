@@ -1,6 +1,6 @@
 # Backend Route Inventory
 
-Audit snapshot: March 24, 2026.
+Audit snapshot: March 28, 2026.
 
 This file is the backend route source of truth for the current architecture.
 
@@ -8,6 +8,7 @@ See also:
 
 - [AGENTS.md](AGENTS.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md)
+- [ERROR_HANDLING.md](ERROR_HANDLING.md)
 - [docs/routing.md](docs/routing.md)
 - [docs/api-contract.md](docs/api-contract.md)
 
@@ -17,7 +18,8 @@ See also:
 - In this repo, route ownership is split between:
   - leaf route modules under `server/features/**/routes/**`
   - named helper/service functions called from those route modules
-- The live Express app mounted `170` routes in the audited runtime.
+- The live Express app mounted `173` non-static business/API routes in the audited runtime.
+- That count excludes the global `OPTIONS *` handler and the four conditional profile-upload redirect routes documented below when `profileImagePublicBaseUrl` is configured.
 - Exact duplicate `METHOD + path` registrations were not found.
 
 ## Registration Graph
@@ -105,6 +107,7 @@ These helper trees act as the practical controller layer for complex routes:
   - `PUT /api/admin/password-reset-requests/:id`
 - These internal automation endpoints currently expose both `GET` and `POST`:
   - `/api/internal/phone-change/process`
+  - `/api/internal/credits/payment-intelligence/run`
   - `/api/internal/purchase-operations/analytics/run`
   - `/api/internal/purchase-operations/notifications/run`
 - Distributor ledger endpoints expose intentional aliases:
@@ -305,6 +308,8 @@ These helper trees act as the practical controller layer for complex routes:
 - `server/features/credits/routes/creditLedger/creditLedgerReports.js`
   - `POST /api/credit/check-limit`
   - `GET /api/credit/aging`
+- `server/features/credits/routes/creditLedger/creditLedgerWhatsAppLogs.js`
+  - `POST /api/credit/whatsapp/launch-log`
 - `server/features/credits/routes/creditLedger/creditPaymentIntelligenceJob.js`
   - `GET /api/internal/credits/payment-intelligence/run`
   - `POST /api/internal/credits/payment-intelligence/run`

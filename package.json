@@ -65,7 +65,9 @@
         "db:supabase:migrate": "node scripts/apply-supabase-migrations.js",
         "security:supabase:enable-leaked-password-protection": "node scripts/enable-supabase-leaked-password-protection.js",
         "check:routes": "node scripts/check-routes.js",
-        "check:api-wrappers": "node scripts/check-api-wrappers.js"
+        "check:api-wrappers": "node scripts/check-api-wrappers.js",
+        "check:shell-runtime": "node scripts/check-shell-runtime-contract.mjs",
+        "test:shell-runtime": "node scripts/test-shell-runtime-contract.mjs"
     },
     "browserslist": {
         "production": [
