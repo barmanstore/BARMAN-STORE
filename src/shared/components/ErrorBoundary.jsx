@@ -15,7 +15,9 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('React Error caught by ErrorBoundary:', error, errorInfo);
+    if (typeof this.props.onError === 'function') {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   render() {
@@ -35,7 +37,7 @@ class ErrorBoundary extends React.Component {
             ⚠️ Something went wrong
           </h1>
           <p style={{ color: '#666', fontSize: '1em', marginBottom: '20px' }}>
-            {this.state.error?.message || 'An unexpected error occurred'}
+            Something went wrong. Please refresh the page or try again later.
           </p>
           <button
             onClick={() => window.location.href = '/'}

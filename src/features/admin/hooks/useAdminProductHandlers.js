@@ -3,21 +3,43 @@ import { useCallback } from 'react';
 const useAdminProductHandlers = ({
   productsApi,
   statsApi,
-  setProducts,
   setStats,
   showNotification,
   setEditingProduct,
   setShowProductForm,
   setProductEditLoadingId,
   editingProduct,
+  loadProductsPage,
+  productsPage,
+  productTableSearch,
+  productTableCategoryFilter,
+  productTableStatusFilter,
+  productTableLowStockOnly,
 }) => {
+  const refreshProductsPage = useCallback(async () => {
+    if (typeof loadProductsPage !== 'function') return;
+    await loadProductsPage({
+      page: productsPage,
+      query: productTableSearch,
+      category: productTableCategoryFilter,
+      status: productTableStatusFilter,
+      lowStockOnly: productTableLowStockOnly,
+    });
+  }, [
+    loadProductsPage,
+    productsPage,
+    productTableSearch,
+    productTableCategoryFilter,
+    productTableStatusFilter,
+    productTableLowStockOnly,
+  ]);
+
   const handleDeleteProduct = useCallback(async (id) => {
     if (!window.confirm('Mark this product as inactive?')) return;
 
     try {
       await productsApi.delete(id);
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
+      await refreshProductsPage();
       showNotification('Product marked inactive', 'success');
 
       const statsData = await statsApi.orders();
@@ -25,7 +47,7 @@ const useAdminProductHandlers = ({
     } catch (error) {
       showNotification('Failed to delete product', 'error');
     }
-  }, [productsApi, statsApi, setProducts, setStats, showNotification]);
+  }, [productsApi, statsApi, setStats, showNotification, refreshProductsPage]);
 
   const handlePermanentDeleteProduct = useCallback(async (product) => {
     if (Number(product?.is_active ?? 1) === 1) {
@@ -41,13 +63,12 @@ const useAdminProductHandlers = ({
 
     try {
       await productsApi.deletePermanent(product.id);
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
+      await refreshProductsPage();
       showNotification('Product permanently deleted', 'success');
     } catch (error) {
       showNotification(error.message || 'Failed to permanently delete product', 'error');
     }
-  }, [productsApi, setProducts, showNotification]);
+  }, [productsApi, showNotification, refreshProductsPage]);
 
   const handleEditProduct = useCallback(async (product) => {
     const productId = Number(product?.id || 0);
@@ -73,8 +94,7 @@ const useAdminProductHandlers = ({
 
   const handleProductSave = useCallback(async (meta = {}) => {
     try {
-      const updatedProducts = await productsApi.getAll({ include_inactive: true });
-      setProducts(updatedProducts);
+      await refreshProductsPage();
 
       const statsData = await statsApi.orders();
       setStats(statsData);
@@ -94,7 +114,7 @@ const useAdminProductHandlers = ({
     } catch (error) {
       showNotification('Failed to refresh products', 'error');
     }
-  }, [productsApi, statsApi, setProducts, setStats, showNotification, editingProduct]);
+  }, [statsApi, setStats, showNotification, editingProduct, refreshProductsPage]);
 
   return {
     handleDeleteProduct,

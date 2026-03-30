@@ -130,6 +130,7 @@ const useCreditHistoryReports = ({
   getEffectiveTransactionDateKey,
   getEffectiveTransactionTimestamp,
   getTypeLabel,
+  getHistoryForReport,
   sendWhatsAppSmart,
   FIVE_DAYS_MS,
   createPdfDoc,
@@ -167,7 +168,8 @@ const useCreditHistoryReports = ({
   };
 
   const buildCreditReport = (transactions, from, to, options = {}) => {
-    const allThroughPeriod = creditHistory
+    const sourceHistory = options.sourceHistory || creditHistory;
+    const allThroughPeriod = sourceHistory
       .filter((t) => {
         const dateKey = getEffectiveTransactionDateKey(t);
         return Boolean(dateKey) && dateKey <= to;
@@ -201,10 +203,13 @@ const useCreditHistoryReports = ({
     });
   };
 
-  const buildWhatsAppReportText = (transactions, from, to) => {
+  const buildWhatsAppReportText = (transactions, from, to, sourceHistory) => {
     let finalText = '';
     for (const maxLines of REPORT_TRANSACTION_LINE_STEPS) {
-      const candidate = buildCreditReport(transactions, from, to, { maxTransactionLines: maxLines });
+      const candidate = buildCreditReport(transactions, from, to, {
+        maxTransactionLines: maxLines,
+        sourceHistory,
+      });
       const preparedCandidate = trimCreditShareTextForWhatsApp({
         phone: customer?.phone,
         text: candidate,
@@ -221,7 +226,7 @@ const useCreditHistoryReports = ({
     return finalText;
   };
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     if (!fromDate || !toDate) {
       setError('Please select both From and To dates for the report.');
       return;
@@ -234,7 +239,10 @@ const useCreditHistoryReports = ({
     setSuccess('');
     setReportSummary(null);
 
-    const filtered = creditHistory
+    const sourceHistory = typeof getHistoryForReport === 'function'
+      ? await getHistoryForReport({ fromDate, toDate })
+      : creditHistory;
+    const filtered = sourceHistory
       .filter((transaction) => {
         const dateKey = getEffectiveTransactionDateKey(transaction);
         return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
@@ -251,7 +259,7 @@ const useCreditHistoryReports = ({
       return acc;
     }, { totalDebit: 0, totalCredit: 0 });
 
-    const allThroughPeriod = creditHistory
+    const allThroughPeriod = sourceHistory
       .filter((transaction) => {
         const dateKey = getEffectiveTransactionDateKey(transaction);
         return Boolean(dateKey) && dateKey <= toDate;
@@ -261,7 +269,7 @@ const useCreditHistoryReports = ({
       ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
       : 0;
 
-    const report = buildWhatsAppReportText(filtered, fromDate, toDate);
+    const report = buildWhatsAppReportText(filtered, fromDate, toDate, sourceHistory);
     setReportText(report);
     setReportSummary({
       entryCount: filtered.length,
@@ -420,7 +428,7 @@ const useCreditHistoryReports = ({
     });
   };
 
-  const generatePDFReport = () => {
+  const generatePDFReport = async () => {
     if (!fromDate || !toDate) {
       setError('Please select both From and To dates for the report.');
       return;
@@ -433,14 +441,17 @@ const useCreditHistoryReports = ({
     setSuccess('');
 
     try {
-      const filtered = creditHistory
+      const sourceHistory = typeof getHistoryForReport === 'function'
+        ? await getHistoryForReport({ fromDate, toDate })
+        : creditHistory;
+      const filtered = sourceHistory
         .filter((transaction) => {
           const dateKey = getEffectiveTransactionDateKey(transaction);
           return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
         })
         .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
-      const allThroughPeriod = creditHistory
+      const allThroughPeriod = sourceHistory
         .filter((transaction) => {
           const dateKey = getEffectiveTransactionDateKey(transaction);
           return Boolean(dateKey) && dateKey <= toDate;

@@ -9,6 +9,15 @@ const createAuthSupport = ({
 
   const isSha256Hex = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
 
+  const timingSafeEqualHex = (left, right) => {
+    const leftHex = String(left || '').toLowerCase();
+    const rightHex = String(right || '').toLowerCase();
+    if (!isSha256Hex(leftHex) || !isSha256Hex(rightHex)) return false;
+    const leftBuffer = Buffer.from(leftHex, 'hex');
+    const rightBuffer = Buffer.from(rightHex, 'hex');
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+  };
+
   const hashPassword = (password) => bcrypt.hashSync(String(password || ''), saltRounds);
 
   const verifyPassword = (plain, user) => {
@@ -18,7 +27,7 @@ const createAuthSupport = ({
 
     if (storedHash) {
       if (isSha256Hex(storedHash)) {
-        return sha256(plain) === String(storedHash).toLowerCase();
+        return timingSafeEqualHex(sha256(plain), storedHash);
       }
       try {
         return bcrypt.compareSync(String(plain || ''), storedHash);
@@ -29,7 +38,7 @@ const createAuthSupport = ({
 
     if (legacy) {
       if (isSha256Hex(legacy)) {
-        return sha256(plain) === String(legacy).toLowerCase();
+        return timingSafeEqualHex(sha256(plain), legacy);
       }
       return String(plain || '') === String(legacy);
     }
@@ -96,7 +105,7 @@ const createAuthSupport = ({
     const digits = '0123456789';
     let code = '';
     for (let i = 0; i < length; i += 1) {
-      code += digits[Math.floor(Math.random() * digits.length)];
+      code += digits[crypto.randomInt(0, digits.length)];
     }
     return code;
   };
@@ -104,7 +113,7 @@ const createAuthSupport = ({
     const digits = '0123456789';
     let code = '';
     for (let i = 0; i < length; i += 1) {
-      code += digits[Math.floor(Math.random() * digits.length)];
+      code += digits[crypto.randomInt(0, digits.length)];
     }
     return code;
   };

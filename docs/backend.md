@@ -15,6 +15,7 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [../ROUTES.md](../ROUTES.md)
 - [server/index.js](../server/index.js) is a runtime entrypoint, not a place for ad hoc route imports.
 - There is no backend `server/controllers/` tree. Keep orchestration in route modules or same-feature helpers.
 - Shared helpers belong in `server/utils`, `server/services`, or `server/appFactory/domainServices` only when they are truly cross-feature.
+- The in-memory limiter in [server/core/rateLimiter.js](../server/core/rateLimiter.js) is process-local. It is suitable for single-instance runtime and local development only. Use a shared backing store if multi-instance enforcement is required.
 
 ## Change Rules
 

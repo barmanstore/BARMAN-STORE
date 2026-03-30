@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Trash2, Search } from 'lucide-react';
 import { billingApi } from '../../../shared/services/api';
 import { hasCapability } from '../../../shared/auth/capabilities';
@@ -24,6 +24,10 @@ const BillsViewer = ({ user }) => {
   const [selectedBill, setSelectedBill] = useState(null);
   const [selectedBillLoading, setSelectedBillLoading] = useState(false);
   const [selectedBillError, setSelectedBillError] = useState('');
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const [deleteCandidate, setDeleteCandidate] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const feedbackTimerRef = useRef(null);
   const canDeleteBills = hasCapability(user, 'delete_bills');
 
   useEffect(() => {
@@ -32,6 +36,24 @@ const BillsViewer = ({ user }) => {
     }, searchTerm ? 180 : 0);
     return () => window.clearTimeout(timer);
   }, [page, searchTerm]);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) {
+        window.clearTimeout(feedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  const pushFeedback = (text, type = 'success') => {
+    setActionFeedback({ text, type });
+    if (feedbackTimerRef.current) {
+      window.clearTimeout(feedbackTimerRef.current);
+    }
+    feedbackTimerRef.current = window.setTimeout(() => {
+      setActionFeedback(null);
+    }, 5000);
+  };
 
   const fetchBills = async ({ nextPage = page, nextQuery = searchTerm } = {}) => {
     try {
@@ -62,6 +84,7 @@ const BillsViewer = ({ user }) => {
     if (!bill?.id) return;
     setSelectedBill(bill);
     setSelectedBillError('');
+    setDeleteCandidate(null);
     setSelectedBillLoading(true);
     try {
       const detailed = await billingApi.getById(bill.id);
@@ -74,38 +97,52 @@ const BillsViewer = ({ user }) => {
     }
   };
 
-  const deleteBill = async (billId) => {
+  const requestDeleteBill = (billId) => {
     if (!canDeleteBills) {
-      alert('You do not have permission to delete bills.');
+      pushFeedback('You do not have permission to delete bills.', 'error');
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this bill?')) return;
+    const candidate = bills.find((bill) => bill.id === billId) || selectedBill || null;
+    setDeleteCandidate(candidate);
+  };
 
+  const confirmDeleteBill = async () => {
+    if (!deleteCandidate?.id || deleteSubmitting) return;
     try {
-      await billingApi.delete(billId);
+      setDeleteSubmitting(true);
+      await billingApi.delete(deleteCandidate.id);
       setSelectedBill(null);
+      setDeleteCandidate(null);
       const shouldMoveBack = bills.length === 1 && page > 1;
       if (shouldMoveBack) {
         setPage(page - 1);
       } else {
         void fetchBills({ nextPage: page, nextQuery: searchTerm });
       }
-      alert('Bill deleted successfully');
+      pushFeedback('Bill deleted successfully.', 'success');
     } catch (err) {
       console.error('Error deleting bill:', err);
-      alert('Error deleting bill: ' + err.message);
+      pushFeedback('Failed to delete bill. Please try again.', 'error');
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
-  const handlePrint = (bill) => printBillInvoice(bill);
+  const cancelDeleteBill = () => {
+    setDeleteCandidate(null);
+  };
+
+  const handlePrint = (bill) => printBillInvoice(bill, {
+    onError: (message) => pushFeedback(message || 'Unable to open the print view.', 'error'),
+  });
 
   const handleCopyShare = async (bill) => {
     const text = buildBillShareTextForBill(bill);
     try {
       await navigator.clipboard.writeText(text);
-      alert('Bill text copied.');
+      pushFeedback('Bill text copied.', 'success');
     } catch (err) {
-      alert('Failed to copy bill text.');
+      pushFeedback('Failed to copy bill text.', 'error');
     }
   };
 
@@ -113,9 +150,9 @@ const BillsViewer = ({ user }) => {
     const text = buildBillSmsText(bill);
     try {
       await navigator.clipboard.writeText(text);
-      alert('SMS text copied.');
+      pushFeedback('SMS text copied.', 'success');
     } catch (err) {
-      alert('Failed to copy SMS text.');
+      pushFeedback('Failed to copy SMS text.', 'error');
     }
   };
 
@@ -125,15 +162,15 @@ const BillsViewer = ({ user }) => {
       text: buildBillShareTextForBill(bill),
     });
     if (result.status === 'blocked_no_phone') {
-      alert('Customer phone is missing or invalid. Please update phone and try again.');
+      pushFeedback('Customer phone is missing or invalid. Please update phone and try again.', 'error');
       return;
     }
     if (result.status === 'opened_with_copy') {
-      alert('Copied message. WhatsApp opened; paste and send to share.');
+      pushFeedback('Copied message. WhatsApp opened; paste and send to share.', 'success');
       return;
     }
     if (result.status === 'opened_without_copy') {
-      alert('WhatsApp opened. Please paste the message manually.');
+      pushFeedback('WhatsApp opened. Please paste the message manually.', 'success');
     }
   };
 
@@ -149,6 +186,13 @@ const BillsViewer = ({ user }) => {
         title="Bills History"
         subtitle="View and manage all created bills"
       />
+
+      {actionFeedback?.text ? (
+        <div className={`bills-viewer-feedback ${actionFeedback.type || ''}`} role="status">
+          <span>{actionFeedback.text}</span>
+          <button type="button" onClick={() => setActionFeedback(null)}>Dismiss</button>
+        </div>
+      ) : null}
 
       {error && (
         <div className="bills-viewer-error">
@@ -276,7 +320,7 @@ const BillsViewer = ({ user }) => {
                   {canDeleteBills ? (
                     <button
                       className="action-btn delete-btn"
-                      onClick={() => deleteBill(selectedBill.id)}
+                      onClick={() => requestDeleteBill(selectedBill.id)}
                       title="Delete bill"
                     >
                       <Trash2 size={18} /> Delete
@@ -285,26 +329,50 @@ const BillsViewer = ({ user }) => {
                 </div>
               </div>
 
+              {deleteCandidate?.id === selectedBill?.id ? (
+                <div className="bill-delete-confirm" role="alert">
+                  <p>Delete bill {deleteCandidate.bill_number}? This action cannot be undone.</p>
+                  <div className="bill-delete-actions">
+                    <button
+                      type="button"
+                      className="action-btn delete-btn"
+                      onClick={confirmDeleteBill}
+                      disabled={deleteSubmitting}
+                    >
+                      {deleteSubmitting ? 'Deleting...' : 'Delete Bill'}
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn cancel-btn"
+                      onClick={cancelDeleteBill}
+                      disabled={deleteSubmitting}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {selectedBillLoading ? <div className="loading-indicator">Loading bill details...</div> : null}
               {selectedBillError ? <div className="bills-viewer-error">{selectedBillError}</div> : null}
 
               <div className="bill-details-section">
                 <h3>Customer Information</h3>
                 <div className="detail-row">
-                  <label>Name:</label>
+                  <span className="detail-label">Name:</span>
                   <span>{selectedBill.customer_name}</span>
                 </div>
                 <div className="detail-row">
-                  <label>Email:</label>
+                  <span className="detail-label">Email:</span>
                   <span>{selectedBill.customer_email}</span>
                 </div>
                 <div className="detail-row">
-                  <label>Phone:</label>
+                  <span className="detail-label">Phone:</span>
                   <span>{selectedBill.customer_phone}</span>
                 </div>
                 {selectedBill.customer_address && (
                   <div className="detail-row">
-                    <label>Address:</label>
+                    <span className="detail-label">Address:</span>
                     <span>{selectedBill.customer_address}</span>
                   </div>
                 )}

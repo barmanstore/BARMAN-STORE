@@ -63,7 +63,7 @@ app.get('/api/bills', requireCapability('view_backoffice', 'Backoffice access re
       params.push(billType);
     }
     if (dateKey) {
-      clauses.push(`date(created_at, 'localtime') = date(?)`);
+      clauses.push(`DATE(created_at) = DATE(?)`);
       params.push(dateKey);
     }
 

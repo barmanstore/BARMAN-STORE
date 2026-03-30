@@ -2,6 +2,9 @@ import { useMemo } from 'react';
 
 const useAdminComputedData = ({
   products,
+  productCategories,
+  productSummary,
+  productInsights,
   users,
   orders,
   recentOrdersPreview,
@@ -12,18 +15,28 @@ const useAdminComputedData = ({
   asNumber,
   getCategoryPath,
 }) => {
-  const productCategories = useMemo(() => {
+  const resolvedProductCategories = useMemo(() => {
+    if (Array.isArray(productCategories) && productCategories.length > 0) {
+      return productCategories.slice().sort((a, b) => a.localeCompare(b));
+    }
     return Array.from(
       new Set(products.map((product) => getCategoryPath(product)).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b));
-  }, [products, getCategoryPath]);
+  }, [productCategories, products, getCategoryPath]);
 
-  const activeProductsCount = useMemo(
-    () => products.filter((product) => Number(product?.is_active ?? 1) === 1).length,
-    [products]
-  );
+  const activeProductsCount = useMemo(() => {
+    if (Number.isFinite(Number(productSummary?.activeCount))) {
+      return Number(productSummary.activeCount || 0);
+    }
+    return products.filter((product) => Number(product?.is_active ?? 1) === 1).length;
+  }, [productSummary, products]);
 
-  const inactiveProductsCount = Math.max(0, products.length - activeProductsCount);
+  const inactiveProductsCount = useMemo(() => {
+    if (Number.isFinite(Number(productSummary?.inactiveCount))) {
+      return Math.max(0, Number(productSummary.inactiveCount || 0));
+    }
+    return Math.max(0, products.length - activeProductsCount);
+  }, [productSummary, products.length, activeProductsCount]);
 
   const customerUsers = useMemo(
     () => users.filter((user) => String(user?.role || '').toLowerCase() !== 'admin'),
@@ -55,13 +68,15 @@ const useAdminComputedData = ({
     [recentOrdersPreview]
   );
 
-  const lowStockProducts = useMemo(
-    () => products
+  const lowStockProducts = useMemo(() => {
+    if (Array.isArray(productSummary?.lowStockProducts) && productSummary.lowStockProducts.length > 0) {
+      return productSummary.lowStockProducts.slice(0, 3);
+    }
+    return products
       .filter((product) => Number(product?.is_active ?? 1) === 1 && asNumber(product?.stock, 0) <= 10)
       .sort((a, b) => asNumber(a?.stock, 0) - asNumber(b?.stock, 0))
-      .slice(0, 3),
-    [products, asNumber]
-  );
+      .slice(0, 3);
+  }, [productSummary, products, asNumber]);
 
   const recentCustomers = useMemo(
     () => [...(Array.isArray(recentCustomersPreview) ? recentCustomersPreview : [])]
@@ -107,8 +122,26 @@ const useAdminComputedData = ({
     };
   }, [selectedSalesBills, asNumber]);
 
+  const topSellingProducts = useMemo(() => {
+    const rows = Array.isArray(productInsights) ? productInsights : [];
+    return rows
+      .filter((row) => Number(row?.purchase_count || 0) > 0)
+      .slice()
+      .sort((a, b) => Number(b?.purchase_count || 0) - Number(a?.purchase_count || 0))
+      .slice(0, 5);
+  }, [productInsights]);
+
+  const slowMovingProducts = useMemo(() => {
+    const rows = Array.isArray(productInsights) ? productInsights : [];
+    return rows
+      .filter((row) => Number(row?.purchase_count || 0) > 0)
+      .slice()
+      .sort((a, b) => Number(b?.avg_days_between || 0) - Number(a?.avg_days_between || 0))
+      .slice(0, 5);
+  }, [productInsights]);
+
   return {
-    productCategories,
+    productCategories: resolvedProductCategories,
     activeProductsCount,
     inactiveProductsCount,
     customerUsers,
@@ -122,6 +155,8 @@ const useAdminComputedData = ({
     selectedDateKey,
     selectedSalesBills,
     dailySalesSummary,
+    topSellingProducts,
+    slowMovingProducts,
   };
 };
 

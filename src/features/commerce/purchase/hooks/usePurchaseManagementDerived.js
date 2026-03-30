@@ -106,6 +106,17 @@ const usePurchaseManagementDerived = ({
     [orderFormData.distributor_id, purchaseOrders, products, getDistributorProductOptions]
   );
 
+  const lowStockProducts = useMemo(() => {
+    const threshold = 10;
+    return (Array.isArray(products) ? products : [])
+      .filter((product) => {
+        if (product?.is_active === false || Number(product?.is_active || 0) === 0) return false;
+        return toNumber(product?.stock) <= threshold;
+      })
+      .sort((a, b) => toNumber(a?.stock) - toNumber(b?.stock))
+      .slice(0, 8);
+  }, [products, toNumber]);
+
   const getStatusBadgeForOrder = (order) => getStatusBadge(order, getPoLifecycleStatus);
   const getPoPaymentBadgeForOrder = (order) => getPoPaymentBadge(order, getPoPaymentStatus);
   const getLedgerRowStatusClassForEntry = (entry) => getLedgerRowStatusClass(entry, normalizePoPaymentStatus);
@@ -130,6 +141,7 @@ const usePurchaseManagementDerived = ({
     orderDetailSupplier,
     orderDetailIsEditable,
     orderProductOptions,
+    lowStockProducts,
     getStatusBadgeForOrder,
     getPoPaymentBadgeForOrder,
     getLedgerRowStatusClassForEntry,

@@ -13,6 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const scriptPath = (name) => path.join(repoRoot, 'scripts', name);
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const suiteDefinitions = {
   phone: [

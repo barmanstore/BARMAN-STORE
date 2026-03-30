@@ -1,21 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lightbulb, RefreshCw } from 'lucide-react';
+import { useSession } from '../../providers/SessionProvider';
 import { productRecommendationsApi } from '../../shared/services/api';
 import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './ProductRecommendations.css';
 
-const getStoredUser = () => {
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    return user && typeof user === 'object' ? user : null;
-  } catch (_) {
-    return null;
-  }
-};
-
 function ProductRecommendations() {
   const navigate = useNavigate();
+  const { user } = useSession();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -40,13 +33,12 @@ function ProductRecommendations() {
   };
 
   useEffect(() => {
-    const user = getStoredUser();
     if (!user?.id) {
       navigate('/login');
       return;
     }
     load();
-  }, [navigate]);
+  }, [navigate, user]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

@@ -1,3 +1,15 @@
+const crypto = require('crypto');
+
+const timingSafeEqualString = (left, right) => {
+  const leftValue = String(left || '');
+  const rightValue = String(right || '');
+  if (!leftValue || !rightValue) return false;
+  const leftBuffer = Buffer.from(leftValue);
+  const rightBuffer = Buffer.from(rightValue);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
 const registerEmailVerificationConfirmRoutes = (deps) => {
   const {
     app,
@@ -89,7 +101,7 @@ const registerEmailVerificationConfirmRoutes = (deps) => {
       }
 
       const providedHash = hashVerificationToken(token);
-      if (providedHash !== String(tokenRow.token_hash || '')) {
+      if (!timingSafeEqualString(providedHash, tokenRow.token_hash)) {
         const nextAttempts = Number(tokenRow.attempts || 0) + 1;
         const exhausted = nextAttempts >= Number(tokenRow.max_attempts || EMAIL_VERIFY_MAX_ATTEMPTS);
         await dbRunAsync(

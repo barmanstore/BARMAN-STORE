@@ -4,7 +4,9 @@ import { sortPurchaseAnalyticsEntries } from '../../../utils/purchaseAnalyticsSo
 
 const PurchasePlanningPanel = ({
   operationsSummary,
+  lowStockProducts,
   onDraftDistributor,
+  onNewOrder,
   formatCurrency,
   toNumber,
 }) => {
@@ -35,6 +37,14 @@ const PurchasePlanningPanel = ({
     </select>
   );
 
+  const getSuggestedItems = (entry) => {
+    const list = Array.isArray(entry?.suggested_items) ? entry.suggested_items : [];
+    const names = list
+      .map((item) => String(item?.product_name || item?.name || '').trim())
+      .filter(Boolean);
+    return names.slice(0, 3);
+  };
+
   return (
     <div className="purchase-sector-grid">
       <section className="purchase-ops-panel">
@@ -49,6 +59,9 @@ const PurchasePlanningPanel = ({
               <div>
                 <strong>{entry.distributor_name}</strong>
                 <p>{entry.products_supplied_all?.slice(0, 3).join(', ') || 'No items learned yet'}</p>
+                {getSuggestedItems(entry).length ? (
+                  <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
+                ) : null}
                 <small>
                   Due today: {formatCurrency(toNumber(entry.due_today_amount))} | Overdue: {formatCurrency(toNumber(entry.overdue_amount))}
                 </small>
@@ -85,6 +98,9 @@ const PurchasePlanningPanel = ({
               <div>
                 <strong>{entry.distributor_name}</strong>
                 <p>{entry.products_supplied_all?.slice(0, 3).join(', ') || 'No items learned yet'}</p>
+                {getSuggestedItems(entry).length ? (
+                  <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
+                ) : null}
                 <small>{entry.schedule_day} | {entry.schedule_date}</small>
                 <small>Configured: {entry.configured_payment_due_days ?? '-'}d | Inferred: {entry.inferred_payment_due_days ?? '-'}d</small>
               </div>
@@ -118,6 +134,9 @@ const PurchasePlanningPanel = ({
                 <strong>{entry.distributor_name}</strong>
                 <p>{entry.schedule_day} | {entry.schedule_date}</p>
                 <small>{entry.products_supplied_all?.slice(0, 3).join(', ') || 'No items learned yet'}</small>
+                {getSuggestedItems(entry).length ? (
+                  <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -133,6 +152,33 @@ const PurchasePlanningPanel = ({
           ))
         ) : (
           <div className="purchase-ops-empty">No weekly schedule is available.</div>
+        )}
+      </section>
+
+      <section className="purchase-ops-panel">
+        <div className="purchase-ops-panel-title">
+          <Package size={16} />
+          <span>Short Items (Low Stock)</span>
+        </div>
+        {Array.isArray(lowStockProducts) && lowStockProducts.length ? (
+          lowStockProducts.slice(0, 8).map((product) => (
+            <div key={`short-${product.id}`} className="purchase-ops-item">
+              <div>
+                <strong>{product.name || 'Item'}</strong>
+                <p>Stock: {toNumber(product.stock)}</p>
+                <small>{product.category || product.brand || ''}</small>
+              </div>
+              <button
+                type="button"
+                className="admin-btn secondary small"
+                onClick={() => onNewOrder?.()}
+              >
+                Draft PO
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="purchase-ops-empty">No low stock items detected.</div>
         )}
       </section>
     </div>

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import formatApiError from '../../../../shared/utils/formatApiError';
 
 const usePurchaseProcessHandlers = ({
   getDefaultProcessFormData,
@@ -86,7 +87,7 @@ const usePurchaseProcessHandlers = ({
       });
       closeProcessModal();
     } catch (err) {
-      setError(err?.message || 'Failed to process purchase order');
+      setError(formatApiError(err));
       setProcessSubmitting(false);
     } finally {
       processSubmitLockRef.current = false;

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../shared/utils/storage';
+import { registerSessionAccess } from '../shared/services/api/sessionAccess';
 
 const SessionContext = createContext(null);
 const USER_STORAGE_KEY = 'user';
@@ -45,15 +46,6 @@ export function SessionProvider({ children }) {
     setUserState(readStoredSessionUser());
   }, []);
 
-  useEffect(() => {
-    window.addEventListener('storage', refreshUser);
-    window.addEventListener('user-updated', refreshUser);
-    return () => {
-      window.removeEventListener('storage', refreshUser);
-      window.removeEventListener('user-updated', refreshUser);
-    };
-  }, [refreshUser]);
-
   const setUser = useCallback((nextUser) => {
     const normalized = normalizeSessionUser(nextUser);
     if (!normalized) {
@@ -73,6 +65,22 @@ export function SessionProvider({ children }) {
     setUserState(null);
     dispatchUserUpdated();
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('storage', refreshUser);
+    window.addEventListener('user-updated', refreshUser);
+    return () => {
+      window.removeEventListener('storage', refreshUser);
+      window.removeEventListener('user-updated', refreshUser);
+    };
+  }, [refreshUser]);
+
+  useEffect(() => {
+    registerSessionAccess({
+      getUser: () => user,
+      clearUser,
+    });
+  }, [clearUser, user]);
 
   const value = useMemo(() => {
     const isLoggedIn = Boolean(

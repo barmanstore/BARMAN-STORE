@@ -165,8 +165,9 @@ const DistributorManagementView = ({
                 <h3 className="section-title">Basic Information</h3>
 
                 <div className="form-group">
-                  <label>Distributor Name *</label>
+                  <label htmlFor="distributor-name">Distributor Name *</label>
                   <input
+                    id="distributor-name"
                     type="text"
                     name="name"
                     value={formData.name}
@@ -177,8 +178,9 @@ const DistributorManagementView = ({
                 </div>
 
                 <div className="form-group">
-                  <label>Salesman Name</label>
+                  <label htmlFor="distributor-salesman-name">Salesman Name</label>
                   <input
+                    id="distributor-salesman-name"
                     type="text"
                     name="salesman_name"
                     value={formData.salesman_name}
@@ -193,8 +195,9 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Phone</label>
+                    <label htmlFor="distributor-phone">Phone</label>
                     <input
+                      id="distributor-phone"
                       type="tel"
                       name="phone"
                       value={formData.phone}
@@ -204,8 +207,9 @@ const DistributorManagementView = ({
                   </div>
 
                   <div className="form-group">
-                    <label>Email</label>
+                    <label htmlFor="distributor-email">Email</label>
                     <input
+                      id="distributor-email"
                       type="email"
                       name="email"
                       value={formData.email}
@@ -216,8 +220,9 @@ const DistributorManagementView = ({
                 </div>
 
                 <div className="form-group">
-                  <label>Address</label>
+                  <label htmlFor="distributor-address">Address</label>
                   <textarea
+                    id="distributor-address"
                     name="address"
                     value={formData.address}
                     onChange={onFormChange}
@@ -231,8 +236,9 @@ const DistributorManagementView = ({
                 <h3 className="section-title">Business Details</h3>
 
                 <div className="form-group">
-                  <label>Products Supplied</label>
+                  <label htmlFor="distributor-products-supplied">Products Supplied</label>
                   <input
+                    id="distributor-products-supplied"
                     type="text"
                     name="products_supplied"
                     value={formData.products_supplied}
@@ -243,8 +249,8 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Order Day</label>
-                    <select name="order_day" value={formData.order_day} onChange={onFormChange}>
+                    <label htmlFor="distributor-order-day">Order Day</label>
+                    <select id="distributor-order-day" name="order_day" value={formData.order_day} onChange={onFormChange}>
                       <option value="">Select day</option>
                       <option value="Monday">Monday</option>
                       <option value="Tuesday">Tuesday</option>
@@ -257,8 +263,8 @@ const DistributorManagementView = ({
                   </div>
 
                   <div className="form-group">
-                    <label>Delivery Day</label>
-                    <select name="delivery_day" value={formData.delivery_day} onChange={onFormChange}>
+                    <label htmlFor="distributor-delivery-day">Delivery Day</label>
+                    <select id="distributor-delivery-day" name="delivery_day" value={formData.delivery_day} onChange={onFormChange}>
                       <option value="">Select day</option>
                       <option value="Monday">Monday</option>
                       <option value="Tuesday">Tuesday</option>
@@ -273,8 +279,8 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Visit Day</label>
-                    <select name="visit_day" value={formData.visit_day} onChange={onFormChange}>
+                    <label htmlFor="distributor-visit-day">Visit Day</label>
+                    <select id="distributor-visit-day" name="visit_day" value={formData.visit_day} onChange={onFormChange}>
                       <option value="">Select day</option>
                       <option value="Monday">Monday</option>
                       <option value="Tuesday">Tuesday</option>
@@ -286,8 +292,9 @@ const DistributorManagementView = ({
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Order Cutoff Time</label>
+                    <label htmlFor="distributor-order-cutoff-time">Order Cutoff Time</label>
                     <input
+                      id="distributor-order-cutoff-time"
                       type="time"
                       name="order_cutoff_time"
                       value={formData.order_cutoff_time}
@@ -298,8 +305,9 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Preferred WhatsApp Time</label>
+                    <label htmlFor="distributor-preferred-whatsapp-time">Preferred WhatsApp Time</label>
                     <input
+                      id="distributor-preferred-whatsapp-time"
                       type="time"
                       name="preferred_whatsapp_time"
                       value={formData.preferred_whatsapp_time}
@@ -307,8 +315,8 @@ const DistributorManagementView = ({
                     />
                   </div>
                   <div className="form-group">
-                    <label>Payment Terms</label>
-                    <select name="payment_terms" value={formData.payment_terms} onChange={onFormChange}>
+                    <label htmlFor="distributor-payment-terms">Payment Terms</label>
+                    <select id="distributor-payment-terms" name="payment_terms" value={formData.payment_terms} onChange={onFormChange}>
                       <option value="Cash on Delivery">Cash on Delivery</option>
                       <option value="Net 15">Net 15</option>
                       <option value="Net 30">Net 30</option>
@@ -320,15 +328,16 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Payment Cycle</label>
-                    <select name="payment_cycle_type" value={formData.payment_cycle_type} onChange={onFormChange}>
+                    <label htmlFor="distributor-payment-cycle-type">Payment Cycle</label>
+                    <select id="distributor-payment-cycle-type" name="payment_cycle_type" value={formData.payment_cycle_type} onChange={onFormChange}>
                       <option value="net">Net Terms</option>
                       <option value="cod">Cash / COD</option>
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Payment Due Days</label>
+                    <label htmlFor="distributor-payment-due-days">Payment Due Days</label>
                     <input
+                      id="distributor-payment-due-days"
                       type="number"
                       min="0"
                       name="payment_due_days"
@@ -340,7 +349,7 @@ const DistributorManagementView = ({
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Credit Limit</label>
+                    <label htmlFor="distributor-credit-limit">Credit Limit</label>
                     <CalculatedAmountInput
                       id="distributor-credit-limit"
                       name="credit_limit"
@@ -352,8 +361,8 @@ const DistributorManagementView = ({
                   </div>
 
                   <div className="form-group">
-                    <label>Status</label>
-                    <select name="status" value={formData.status} onChange={onFormChange}>
+                    <label htmlFor="distributor-status">Status</label>
+                    <select id="distributor-status" name="status" value={formData.status} onChange={onFormChange}>
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
@@ -361,8 +370,9 @@ const DistributorManagementView = ({
                 </div>
 
                 <div className="form-group">
-                  <label>Inactive Reason</label>
+                  <label htmlFor="distributor-inactive-reason">Inactive Reason</label>
                   <input
+                    id="distributor-inactive-reason"
                     type="text"
                     name="inactive_reason"
                     value={formData.inactive_reason}

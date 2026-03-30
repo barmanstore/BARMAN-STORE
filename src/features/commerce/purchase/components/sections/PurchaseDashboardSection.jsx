@@ -10,6 +10,7 @@ const PurchaseDashboardSection = ({
   operationsLoading,
   operationsCardItems,
   operationsSummary,
+  lowStockProducts,
   onDraftDistributor,
   onOpenOrder,
   onOpenPayable,
@@ -48,7 +49,9 @@ const PurchaseDashboardSection = ({
         {activeSector === 'planning' ? (
           <PurchasePlanningPanel
             operationsSummary={operationsSummary}
+            lowStockProducts={lowStockProducts}
             onDraftDistributor={onDraftDistributor}
+            onNewOrder={onNewOrder}
             formatCurrency={formatCurrency}
             toNumber={toNumber}
           />

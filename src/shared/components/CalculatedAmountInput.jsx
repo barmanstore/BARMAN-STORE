@@ -20,6 +20,7 @@ function CalculatedAmountInput({
   inputClassName = '',
   previewClassName = '',
   showPreview = true,
+  autoFocus = false,
 }) {
   const evaluation = useMemo(
     () => validateAmountInput(value, { min, max, precision }),
@@ -50,6 +51,7 @@ function CalculatedAmountInput({
         disabled={disabled}
         readOnly={readOnly}
         autoComplete={autoComplete}
+        autoFocus={autoFocus}
         className={inputClassName}
         aria-invalid={showFeedback && !evaluation.valid ? true : undefined}
         aria-describedby={describedBy}

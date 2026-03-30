@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import useInertBackground from '../shared/hooks/useInertBackground';
 import {
@@ -73,17 +73,45 @@ export const useOverlayStackEntry = ({
   onEscape = null,
 }) => {
   const context = useContext(OverlayContext);
+  const getZIndexRef = useRef(getZIndex);
+  const onEscapeRef = useRef(onEscape);
+  const hasDynamicZIndex = typeof getZIndex === 'function';
+  const hasEscapeHandler = typeof onEscape === 'function';
+
+  useEffect(() => {
+    getZIndexRef.current = getZIndex;
+  }, [getZIndex]);
+
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
 
   useEffect(() => {
     if (!context || !active || !id) return undefined;
+
+    const entryGetZIndex = hasDynamicZIndex
+      ? () => {
+        const resolver = getZIndexRef.current;
+        return typeof resolver === 'function' ? resolver() : zIndex;
+      }
+      : null;
+    const entryOnEscape = hasEscapeHandler
+      ? () => {
+        const escapeHandler = onEscapeRef.current;
+        if (typeof escapeHandler === 'function') {
+          escapeHandler();
+        }
+      }
+      : null;
+
     return context.registerEntry({
       id,
       type,
       zIndex,
-      getZIndex,
-      onEscape,
+      getZIndex: entryGetZIndex,
+      onEscape: entryOnEscape,
     });
-  }, [active, context, getZIndex, id, onEscape, type, zIndex]);
+  }, [active, context, hasDynamicZIndex, hasEscapeHandler, id, type, zIndex]);
 };
 
 export function OverlayEntry({

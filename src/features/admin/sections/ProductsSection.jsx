@@ -23,6 +23,10 @@ function ProductsSection({
   productTableSearch,
   setProductTableSearch,
   visibleProducts,
+  productsPage,
+  setProductsPage,
+  productsTotal,
+  productsLoading,
   productTableCategoryFilter,
   setProductTableCategoryFilter,
   productCategories,
@@ -73,6 +77,11 @@ function ProductsSection({
   getCategoryPath,
   getBrandPath,
 }) {
+  const pageSize = 100;
+  const totalPages = Math.max(1, Math.ceil(Math.max(0, Number(productsTotal || 0)) / pageSize));
+  const canPrev = Number(productsPage || 1) > 1;
+  const canNext = Number(productsPage || 1) < totalPages;
+
   return (
     <div className="products-management">
       <AdminPageHeader
@@ -175,7 +184,30 @@ function ProductsSection({
           value={productTableSearch}
           onChange={(e) => setProductTableSearch(e.target.value)}
         />
-        <span className="products-table-count">Rows: {visibleProducts.length}</span>
+        <span className="products-table-count">
+          Rows: {visibleProducts.length}{productsTotal ? ` / ${productsTotal}` : ''}
+        </span>
+        <div className="products-pagination">
+          <button
+            type="button"
+            className="products-page-btn"
+            onClick={() => setProductsPage((prev) => Math.max(1, Number(prev || 1) - 1))}
+            disabled={!canPrev || productsLoading}
+          >
+            Prev
+          </button>
+          <span className="products-page-status">
+            Page {productsPage} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="products-page-btn"
+            onClick={() => setProductsPage((prev) => Math.min(totalPages, Number(prev || 1) + 1))}
+            disabled={!canNext || productsLoading}
+          >
+            Next
+          </button>
+        </div>
       </div>
       {effectiveProductViewMode === 'table' ? (
         <ProductsTablePanel

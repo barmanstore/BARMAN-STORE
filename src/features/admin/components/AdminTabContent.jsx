@@ -37,10 +37,16 @@ const AdminTabContent = () => {
     setDashboardDensity,
     isMobile,
     stats,
+    creditAgingSummary,
+    purchaseOpsSummary,
     activeProductsCount,
     inactiveProductsCount,
     lowStockProducts,
     products,
+    productsPage,
+    setProductsPage,
+    productsTotal,
+    productsLoading,
     visitorStats,
     userDirectorySummary,
     recentOrders,
@@ -52,6 +58,8 @@ const AdminTabContent = () => {
     dailySalesLoading,
     dailySalesError,
     dailySalesSummary,
+    topSellingProducts,
+    slowMovingProducts,
     selectedSalesBills,
     handleAddProduct,
     setShowExportDialog,
@@ -190,6 +198,11 @@ const AdminTabContent = () => {
           setDashboardDensity={setDashboardDensity}
           isMobile={isMobile}
           stats={stats}
+          creditAgingSummary={creditAgingSummary}
+          purchaseOpsSummary={purchaseOpsSummary}
+          dailySalesSummary={dailySalesSummary}
+          topSellingProducts={topSellingProducts}
+          slowMovingProducts={slowMovingProducts}
           pendingOrdersCount={Number(stats?.pendingOrders || 0)}
           activeProductsCount={activeProductsCount}
           inactiveProductsCount={inactiveProductsCount}
@@ -239,6 +252,10 @@ const AdminTabContent = () => {
           productTableSearch={productTableSearch}
           setProductTableSearch={setProductTableSearch}
           visibleProducts={visibleProducts}
+          productsPage={productsPage}
+          setProductsPage={setProductsPage}
+          productsTotal={productsTotal}
+          productsLoading={productsLoading}
           productTableCategoryFilter={productTableCategoryFilter}
           setProductTableCategoryFilter={setProductTableCategoryFilter}
           productCategories={productCategories}
@@ -422,6 +439,11 @@ const AdminTabContent = () => {
           setDashboardDensity={setDashboardDensity}
           isMobile={isMobile}
           stats={stats}
+          creditAgingSummary={creditAgingSummary}
+          purchaseOpsSummary={purchaseOpsSummary}
+          dailySalesSummary={dailySalesSummary}
+          topSellingProducts={topSellingProducts}
+          slowMovingProducts={slowMovingProducts}
           pendingOrdersCount={Number(stats?.pendingOrders || 0)}
           activeProductsCount={activeProductsCount}
           inactiveProductsCount={inactiveProductsCount}

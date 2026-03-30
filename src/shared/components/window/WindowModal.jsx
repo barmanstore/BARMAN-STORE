@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import { Maximize2, Minus, X } from 'lucide-react';
 import { OverlayEntry } from '../../../providers/OverlayProvider';
 import useIsMobile from '../../hooks/useIsMobile';
@@ -33,6 +33,12 @@ function WindowModal({
   minHeight = 280,
 }) {
   const manager = useWindowManager();
+  const windows = manager?.windows || [];
+  const activeWindowId = manager?.activeWindowId || null;
+  const upsertWindow = manager?.upsertWindow || null;
+  const unregisterWindow = manager?.unregisterWindow || null;
+  const activateWindow = manager?.activateWindow || null;
+  const setWindowMinimized = manager?.setWindowMinimized || null;
   const isMobileViewport = useIsMobile();
   const desktopLike = !isMobileViewport;
   const reactId = useId();
@@ -42,21 +48,28 @@ function WindowModal({
   );
   const titleId = `${windowId}-title`;
   const subtitleId = `${windowId}-subtitle`;
+  const onCloseRef = useRef(onClose);
 
-  const entry = manager?.windows?.find((candidate) => candidate.id === windowId) || null;
-  const sortedVisibleWindows = manager?.windows
-    ?.filter((candidate) => !candidate.minimized)
-    .sort((left, right) => Number(left.order || 0) - Number(right.order || 0)) || [];
+  const entry = windows.find((candidate) => candidate.id === windowId) || null;
+  const sortedVisibleWindows = windows
+    .filter((candidate) => !candidate.minimized)
+    .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
   const isMinimized = Boolean(entry?.minimized);
   const activeVisibleWindowId = sortedVisibleWindows.some(
-    (candidate) => candidate.id === manager?.activeWindowId
+    (candidate) => candidate.id === activeWindowId
   )
-    ? manager?.activeWindowId
+    ? activeWindowId
     : null;
   const topVisibleWindowId = activeVisibleWindowId
     || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id
     || null;
   const isActive = !entry || !topVisibleWindowId ? true : topVisibleWindowId === windowId;
+  const overlayZIndex = 3600 + Number(entry?.order || 0);
+  const canHandleEscape = dismissible !== false && closeOnEscape !== false;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const {
     frameRef,
@@ -78,55 +91,62 @@ function WindowModal({
 
   useFocusTrap(frameRef, open && !isMinimized);
 
-  useEffect(() => {
-    if (!open || !manager) return undefined;
+  const handleClose = useCallback(() => {
+    if (!dismissible) return;
+    const closeHandler = onCloseRef.current;
+    if (typeof closeHandler !== 'function') return;
+    closeHandler();
+  }, [dismissible]);
 
-    manager.upsertWindow(windowId, {
+  useEffect(() => {
+    if (!open || !upsertWindow || !unregisterWindow) return undefined;
+
+    upsertWindow(windowId, {
       title,
-      onClose,
+      onClose: handleClose,
       dismissible,
       closeOnBackdrop,
       closeOnEscape,
       minimized: false,
     });
-    manager.activateWindow(windowId);
 
-    return () => manager.unregisterWindow(windowId);
+    return () => unregisterWindow(windowId);
   }, [
     closeOnBackdrop,
     closeOnEscape,
     dismissible,
-    manager,
-    onClose,
+    handleClose,
     open,
     title,
+    unregisterWindow,
+    upsertWindow,
     windowId,
   ]);
 
   useEffect(() => {
-    if (!open || !manager) return;
-    manager.upsertWindow(windowId, {
+    if (!open || !upsertWindow) return;
+    upsertWindow(windowId, {
       title,
-      onClose,
+      onClose: handleClose,
       dismissible,
       closeOnBackdrop,
       closeOnEscape,
     });
-  }, [closeOnBackdrop, closeOnEscape, dismissible, manager, onClose, open, title, windowId]);
+  }, [closeOnBackdrop, closeOnEscape, dismissible, handleClose, open, title, upsertWindow, windowId]);
 
-  const handleClose = () => {
-    if (!dismissible || typeof onClose !== 'function') return;
-    onClose();
-  };
+  useEffect(() => {
+    if (!open || !activateWindow) return;
+    activateWindow(windowId);
+  }, [activateWindow, open, windowId]);
 
-  const handleMinimize = () => {
-    if (!dismissible || !manager) return;
-    manager.setWindowMinimized(windowId, true);
-  };
+  const handleMinimize = useCallback(() => {
+    if (!dismissible || !setWindowMinimized) return;
+    setWindowMinimized(windowId, true);
+  }, [dismissible, setWindowMinimized, windowId]);
 
-  const handleFrameMouseDown = () => {
-    manager?.activateWindow(windowId);
-  };
+  const handleFrameMouseDown = useCallback(() => {
+    activateWindow?.(windowId);
+  }, [activateWindow, windowId]);
 
   if (!open || isMinimized) return null;
 
@@ -134,7 +154,7 @@ function WindowModal({
     <div
       className={`window-modal-root ${themeClassName}`.trim()}
       data-window-modal-root="true"
-      style={{ zIndex: 3600 + Number(entry?.order || 0) }}
+      style={{ zIndex: overlayZIndex }}
     >
       <div
         ref={frameRef}
@@ -235,8 +255,8 @@ function WindowModal({
       active={open && !isMinimized}
       id={`window-modal-${windowId}`}
       type="overlay"
-      getZIndex={() => 3600 + Number(entry?.order || 0)}
-      onEscape={dismissible !== false && closeOnEscape !== false ? handleClose : null}
+      zIndex={overlayZIndex}
+      onEscape={canHandleEscape ? handleClose : null}
     >
       {frame}
     </OverlayEntry>

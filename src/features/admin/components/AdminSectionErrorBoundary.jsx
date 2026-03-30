@@ -11,7 +11,9 @@ class AdminSectionErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Admin section error:', error, errorInfo);
+    if (typeof this.props.onError === 'function') {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -33,7 +35,7 @@ class AdminSectionErrorBoundary extends React.Component {
       return (
         <div className="admin-loading-state admin-section-error" role="alert">
           <h2>Could not open {sectionLabel}</h2>
-          <p>{this.state.error?.message || 'This admin section failed to render.'}</p>
+          <p>This admin section failed to render. Please retry.</p>
           <button type="button" className="admin-btn" onClick={this.handleRetry}>
             Retry Section
           </button>

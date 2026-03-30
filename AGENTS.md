@@ -25,6 +25,7 @@ Focused docs:
 - [docs/backend.md](docs/backend.md)
 - [docs/frontend.md](docs/frontend.md)
 - [docs/business-logic.md](docs/business-logic.md)
+- [docs/review-log.md](docs/review-log.md)
 - [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
 - [docs/routing.md](docs/routing.md)
 - [docs/controllers.md](docs/controllers.md)

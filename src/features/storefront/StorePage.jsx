@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FileText, CreditCard, MapPin, HelpCircle, ShieldCheck, Receipt, BellRing } from 'lucide-react';
 import { useNotifications } from '../../providers/NotificationsProvider';
 import { useSession } from '../../providers/SessionProvider';
+import { creditApi } from '../../shared/services/api';
+import { formatCurrency } from '../../shared/utils/formatters';
 import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './StorePage.css';
 
@@ -15,7 +17,31 @@ function StorePage() {
     onMarkNotificationRead = () => {},
   } = useNotifications();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceDue, setBalanceDue] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoggedIn || isAdminUser || !user?.id) return undefined;
+    let cancelled = false;
+    const loadBalance = async () => {
+      try {
+        setBalanceLoading(true);
+        const payload = await creditApi.getBalance(user.id);
+        if (!cancelled) {
+          setBalanceDue(Number(payload?.balance || 0));
+        }
+      } catch (_) {
+        if (!cancelled) setBalanceDue(null);
+      } finally {
+        if (!cancelled) setBalanceLoading(false);
+      }
+    };
+    loadBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, isAdminUser, user]);
 
   return (
     <MobileAccountLayout>
@@ -37,6 +63,17 @@ function StorePage() {
 
       <section className="store-section">
         <h2>My Account</h2>
+        {isLoggedIn && !isAdminUser ? (
+          <div className="store-balance-card">
+            <div>
+              <p className="store-balance-label">Current due balance</p>
+              <strong className="store-balance-value">
+                {balanceLoading ? 'Checking...' : formatCurrency(Number(balanceDue || 0))}
+              </strong>
+            </div>
+            <Link to="/my-credit" className="store-balance-link">View details</Link>
+          </div>
+        ) : null}
         <div className="store-links">
           <button
             type="button"

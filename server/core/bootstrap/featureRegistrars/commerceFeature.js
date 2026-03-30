@@ -66,7 +66,12 @@ const registerCommerceFeatureBootstrap = (deps) => {
     normalizeBooleanFlag,
     getDistributorLedgerRows,
     handleDistributorLedgerCreate,
+    getAuthUserFromRequest,
   } = deps;
+
+  if (app?.locals && typeof getAuthUserFromRequest === 'function') {
+    app.locals.getAuthUserFromRequest = getAuthUserFromRequest;
+  }
 
   registerCommerceFeature({
     app,
@@ -134,6 +139,7 @@ const registerCommerceFeatureBootstrap = (deps) => {
     normalizeBooleanFlag,
     getDistributorLedgerRows,
     handleDistributorLedgerCreate,
+    getAuthUserFromRequest,
   });
 };
 

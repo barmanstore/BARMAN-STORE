@@ -620,6 +620,21 @@
   overflow: visible;
   border: 1px solid #e5e7eb;
 }
+.credit-history-page .credit-history-pagination {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e1e1e6;
+  border-radius: 12px;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.credit-history-page .credit-history-pagination p {
+  margin: 0;
+  color: #555;
+  font-size: 0.95rem;
+}
 
 .credit-history-page .credit-table {
   width: 100%;
@@ -899,6 +914,34 @@
   color: #333;
 }
 
+.credit-history-page .credit-entry-window-header.payment {
+  background: linear-gradient(135deg, #166534, #15803d);
+  border-bottom-color: rgba(21, 128, 61, 0.45);
+}
+
+.credit-history-page .credit-entry-window-header.given {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+  border-bottom-color: rgba(234, 88, 12, 0.45);
+}
+
+.credit-history-page .credit-entry-window-header.payment h2,
+.credit-history-page .credit-entry-window-header.given h2 {
+  color: #f8fafc;
+}
+
+.credit-history-page .credit-entry-window-header.payment .window-modal-control-btn,
+.credit-history-page .credit-entry-window-header.given .window-modal-control-btn {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+}
+
+.credit-history-page .credit-entry-window-header.payment .window-modal-control-btn:hover:not(:disabled),
+.credit-history-page .credit-entry-window-header.given .window-modal-control-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
 .credit-history-page .close-btn {
   background: none;
   border: none;
@@ -939,6 +982,150 @@
 .credit-history-page .form-group select:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.credit-history-page .credit-entry-modal {
+  border: 1px solid #dbe3f3;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.98));
+}
+
+.credit-history-page .credit-entry-modal.payment {
+  box-shadow: 0 18px 42px rgba(22, 101, 52, 0.16);
+}
+
+.credit-history-page .credit-entry-modal.given {
+  box-shadow: 0 18px 42px rgba(194, 65, 12, 0.16);
+}
+
+.credit-history-page .credit-entry-tone {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.credit-history-page .credit-entry-tone-customer {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.credit-history-page .credit-entry-tone.balance-positive {
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.98), rgba(255, 247, 237, 0.98));
+  border-color: rgba(249, 115, 22, 0.24);
+}
+
+.credit-history-page .credit-entry-tone.balance-negative {
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.98), rgba(240, 253, 244, 0.98));
+  border-color: rgba(34, 197, 94, 0.24);
+}
+
+.credit-history-page .credit-entry-tone.balance-neutral {
+  background: linear-gradient(135deg, rgba(224, 231, 255, 0.98), rgba(239, 246, 255, 0.98));
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.credit-history-page .credit-entry-tone-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.credit-history-page .credit-entry-tone-balance {
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.credit-history-page .credit-entry-tone.balance-positive .credit-entry-tone-label,
+.credit-history-page .credit-entry-tone.balance-positive .credit-entry-tone-balance {
+  color: #c2410c;
+}
+
+.credit-history-page .credit-entry-tone.balance-negative .credit-entry-tone-label,
+.credit-history-page .credit-entry-tone.balance-negative .credit-entry-tone-balance {
+  color: #166534;
+}
+
+.credit-history-page .credit-entry-tone.balance-neutral .credit-entry-tone-label,
+.credit-history-page .credit-entry-tone.balance-neutral .credit-entry-tone-balance {
+  color: #4338ca;
+}
+
+.credit-history-page .credit-entry-primary {
+  margin-bottom: 18px;
+}
+
+.credit-history-page .credit-entry-amount {
+  margin-bottom: 16px;
+}
+
+.credit-history-page .credit-entry-amount-input {
+  min-height: 58px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.credit-history-page .credit-entry-amount .calculated-amount-input-preview {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.credit-history-page .credit-entry-details-summary {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.credit-history-page .credit-entry-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.credit-history-page .credit-entry-details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.credit-history-page .credit-entry-details-toggle:hover {
+  color: #0f172a;
+}
+
+.credit-history-page .credit-entry-details-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.credit-history-page .credit-entry-details-panel {
+  margin-bottom: 8px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .credit-history-page .file-upload-area {
@@ -1008,13 +1195,56 @@
   color: white;
 }
 
-.credit-history-page .submit-btn:hover {
+.credit-history-page .submit-btn.payment {
+  background: linear-gradient(135deg, #166534, #15803d);
+}
+
+.credit-history-page .submit-btn.payment:hover {
+  background: linear-gradient(135deg, #14532d, #166534);
+}
+
+.credit-history-page .submit-btn.given {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+}
+
+.credit-history-page .submit-btn.given:hover {
+  background: linear-gradient(135deg, #9a3412, #c2410c);
+}
+
+.credit-history-page .submit-btn:not(.payment):not(.given):hover {
   background: #5568d3;
 }
 
 .credit-history-page .submit-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .credit-history-page .credit-entry-tone {
+    padding: 12px 14px;
+  }
+
+  .credit-history-page .credit-entry-amount-input {
+    min-height: 52px;
+    font-size: 20px;
+  }
+
+  .credit-history-page .credit-entry-tone-balance {
+    font-size: 24px;
+  }
+
+  .credit-history-page .credit-entry-details-summary {
+    gap: 10px;
+  }
+
+  .credit-history-page .credit-entry-summary-item {
+    align-items: flex-start;
+  }
+
+  .credit-history-page .credit-entry-details-panel {
+    padding: 12px;
+  }
 }
 
 .credit-history-page .actions-cell {

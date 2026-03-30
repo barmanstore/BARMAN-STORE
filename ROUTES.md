@@ -299,6 +299,7 @@ These helper trees act as the practical controller layer for complex routes:
   - `POST /api/users/:userId/credit-issues/:id/respond`
 - `server/features/credits/routes/creditIssues/creditIssuesList.js`
   - `GET /api/users/:userId/credit-history`
+    - Query params: `limit` (page size, max 500), `cursor` (pagination cursor), `all=true` (return full history)
   - `GET /api/users/:userId/payment-badges`
   - `GET /api/users/:userId/credit-issues`
 - `server/features/credits/routes/creditIssues/creditIssuesAdmin.js`

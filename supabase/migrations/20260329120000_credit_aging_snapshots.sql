@@ -1,0 +1,37 @@
+CREATE TABLE IF NOT EXISTS customer_credit_aging_snapshots (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  current_balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+  payment_score INTEGER,
+  payment_status TEXT,
+  payment_status_label TEXT,
+  payment_status_tone TEXT,
+  payment_status_description TEXT,
+  payment_status_tag TEXT,
+  customer_tag TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  is_defaulter INTEGER NOT NULL DEFAULT 0,
+  limit_status TEXT,
+  limit_status_label TEXT,
+  credit_limit_utilization NUMERIC(10,4) NOT NULL DEFAULT 0,
+  oldest_open_days INTEGER NOT NULL DEFAULT 0,
+  oldest_overdue_days INTEGER NOT NULL DEFAULT 0,
+  average_settlement_days NUMERIC(10,2),
+  average_delay_days NUMERIC(10,2),
+  total_periods INTEGER NOT NULL DEFAULT 0,
+  on_time_periods INTEGER NOT NULL DEFAULT 0,
+  within_7d_periods INTEGER NOT NULL DEFAULT 0,
+  within_30d_periods INTEGER NOT NULL DEFAULT 0,
+  within_60d_periods INTEGER NOT NULL DEFAULT 0,
+  late_periods INTEGER NOT NULL DEFAULT 0,
+  missed_periods INTEGER NOT NULL DEFAULT 0,
+  days_0_30 NUMERIC(12,2) NOT NULL DEFAULT 0,
+  days_31_60 NUMERIC(12,2) NOT NULL DEFAULT 0,
+  days_61_90 NUMERIC(12,2) NOT NULL DEFAULT 0,
+  days_over_90 NUMERIC(12,2) NOT NULL DEFAULT 0,
+  badges JSONB,
+  summary_line TEXT,
+  computed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_credit_aging_snapshots_status
+  ON customer_credit_aging_snapshots (payment_status, payment_score);

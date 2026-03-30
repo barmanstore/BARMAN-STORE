@@ -4,13 +4,35 @@ Use this file for cross-session task tracking only.
 
 ## Active
 
-- None currently.
+### UX & Accessibility
+
+None.
+
+### Ops & Scripts
+
+None.
+
+### Backend & Security
+
+None.
+
+### Frontend Platform
+
+None.
 
 ## Next
 
-- Add a short-TTL user-id-keyed cache for payment-badge summaries so credit-history loads stop recomputing badge state from the full ledger on every read.
-- Paginate credit-history reads so the initial customer/admin ledger view loads recent entries first instead of scanning and returning the full history.
-- Precompute the admin credit aging report into a summary read model so `/api/credit/aging` stops rebuilding customer scoring from the full ledger on every request.
+### Phase 1 (Core Daily Use)
+
+None.
+
+### Phase 2 (Supplier Planning)
+
+None.
+
+### Phase 3 (Analytics Polish)
+
+None.
 
 ## Blocked
 
@@ -18,6 +40,69 @@ Use this file for cross-session task tracking only.
 
 ## Done
 
+- Documented the deployment boundary for `server/core/rateLimiter.js`:
+  - Noted that the in-memory limiter is process-local and requires a shared store for multi-instance enforcement.
+- Precomputed the admin credit aging report into a summary read model:
+  - Added `customer_credit_aging_snapshots` and populate it during payment-intelligence rebuilds.
+  - `/api/credit/aging` now reads from snapshots instead of rebuilding from the full ledger.
+- Paginated credit-history reads so initial credit-history loads fetch recent entries first, with a "load older entries" control and full-history fetch for report generation:
+  - `GET /api/users/:userId/credit-history` now supports cursor pagination and `all=true`.
+  - Credit history UI now uses paged loading and only fetches the full ledger when required for reports.
+- Added a short-TTL user-id-keyed cache for payment-badge summaries:
+  - `/api/users/:userId/payment-badges` now returns a cached payload briefly to avoid recomputing against the full ledger on every read.
+- Added the admin "Today Focus" dashboard panel:
+  - Dashboard snapshot now pulls credit aging and purchase operations summaries.
+  - New panel surfaces customers needing follow-up, outstanding credit, low stock, pending orders, and today’s distributors with quick links.
+- Added a simplified customer flow surface:
+  - Homepage now shows the "Order → Pick up → Pay" steps.
+  - Order confirmation and account page show the customer’s current due balance.
+- Expanded supplier planning essentials:
+  - Purchase dashboard now shows distributor schedules, payables, and suggested items to order next.
+- Added restock guidance in purchase planning:
+  - Low-stock items now surface in the purchase dashboard with a quick path to draft a PO.
+- Added simple store analytics to the admin dashboard:
+  - Cash collected vs udhar given today, vendor dues, and top/slow items now show in the dashboard.
+- Added an aging snapshot guard for `/api/credit/aging`:
+  - Detects empty/uninitialized snapshot data before filtering and returns `{ status: "initializing" }` with a warning.
+- Routed direct network calls through `apiFetch`:
+  - `useAdminImportExport` and `useAdminOrderActions` now use centralized fetch helpers to preserve 401 handling.
+- Removed native dialogs from purchase hooks:
+  - `usePurchaseStatusHandlers` now surfaces confirmations in the UI layer and uses success/error state instead of `alert/confirm`.
+- Applied UI-safe error formatting in purchase flows and profile:
+  - Purchase handlers and Profile page now use `formatApiError(err)` instead of raw `err.message`.
+- Extracted a shared cleanup engine for codebase/worktree cleanup:
+  - `scripts/cleanup-engine.js` now owns shared target collection and removal logic while the scripts keep distinct target lists.
+- Added a UI-safe API error formatter and migrated the checkout slice:
+  - `formatApiError(err)` now lives in shared utilities and the checkout flow uses it instead of raw `err.message`.
+- Enforced single-owner session persistence through `SessionProvider`:
+  - Session reads/writes/clears now flow through provider methods and the API layer clears via provider hooks instead of mutating storage directly.
+- Hardened fallback error rendering:
+  - Error boundaries now render fixed generic copy and expose a reporting hook instead of console-only logging.
+- Replaced native dialogs in the billing viewer flow:
+  - `BillsViewer` now uses inline confirmations/feedback, and helpers no longer rely on `alert`.
+- Audited remaining native dialogs:
+  - Added `docs/native-dialog-audit.md` with remaining `alert`/`confirm`/`prompt` locations and priorities.
+- Hardened public offer preview eligibility handling:
+  - `/api/offers/preview` now ignores client-supplied user identifiers and only injects `req.authUser` when present.
+- Replaced security-sensitive code generation in `server/features/auth/authSupport.js`:
+  - `generateOtpCode()` and `generatePhoneVerificationCode()` now use `crypto.randomInt`.
+- Moved live verification hash comparisons onto constant-time helpers:
+  - Email/phone verification token checks and legacy SHA-256 comparisons now use timing-safe comparison helpers.
+- Fixed env parsing edge cases in `server/loadEnv.js`:
+  - Quoted values now preserve ` #` without being truncated.
+- Removed the hardcoded repo auth token from `scripts/manual-modal-regression.ps1`:
+  - `AdminSessionJson` now loads from args or `ADMIN_SESSION_JSON` and fails fast when missing.
+  - Operational follow-up: rotate the auth signing secret if the exposed token is still valid.
+- Fixed cold-start readiness polling in `scripts/run-local-smoke-suite.mjs`:
+  - Added the missing `delay(ms)` helper so the embedded Postgres retry loop does not throw on first poll failure.
+- Extended `scripts/secret-scan.mjs` to catch repo auth tokens:
+  - Added a structural pattern for the repo’s two-part base64url token shape.
+- Fixed ARIA tablist usage in mobile scrollers:
+  - `MobileProductsHeader`, `MobileCategoryHero`, and `MobileTabsSection` now use `role="tab"` with roving `tabIndex` and arrow-key navigation.
+- Fixed notification list semantics and interaction patterns:
+  - `Header.jsx` now renders a semantic `ul/li` list with non-nested interactions and live feedback roles for status/error text.
+- Removed duplicate mobile footer CSS:
+  - `.mobile-shop-footer` styles now live only in `src/shared/components/mobile/MobileFooter.css`.
 - Reduced credit-history read-path latency:
   - `src/features/credits/history/hooks/useCreditHistoryLoaders.js` now fetches issues and payment badges in parallel after the initial history/balance/customer fan-out instead of serializing that tail.
   - `server/features/credits/routes/creditIssues/creditIssuesList.js` and `server/features/credits/routes/creditIssues/admin/listIssues.js` no longer block issue-list reads on customer-request retention purge; the existing retention worker remains the purge owner.

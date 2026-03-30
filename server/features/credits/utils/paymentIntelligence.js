@@ -230,6 +230,119 @@ const createPaymentIntelligenceUtils = ({
       ]
     );
 
+    const normalizedPaymentScore = summary.payment_score === null || summary.payment_score === undefined
+      ? null
+      : Math.round(Number(summary.payment_score));
+    const badgePayload = JSON.stringify(Array.isArray(profile?.badges) ? profile.badges : []);
+
+    await dbRunAsync(
+      `INSERT INTO customer_credit_aging_snapshots (
+         user_id,
+         current_balance,
+         payment_score,
+         payment_status,
+         payment_status_label,
+         payment_status_tone,
+         payment_status_description,
+         payment_status_tag,
+         customer_tag,
+         is_active,
+         is_defaulter,
+         limit_status,
+         limit_status_label,
+         credit_limit_utilization,
+         oldest_open_days,
+         oldest_overdue_days,
+         average_settlement_days,
+         average_delay_days,
+         total_periods,
+         on_time_periods,
+         within_7d_periods,
+         within_30d_periods,
+         within_60d_periods,
+         late_periods,
+         missed_periods,
+         days_0_30,
+         days_31_60,
+         days_61_90,
+         days_over_90,
+         badges,
+         summary_line,
+         computed_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id) DO UPDATE SET
+         current_balance = EXCLUDED.current_balance,
+         payment_score = EXCLUDED.payment_score,
+         payment_status = EXCLUDED.payment_status,
+         payment_status_label = EXCLUDED.payment_status_label,
+         payment_status_tone = EXCLUDED.payment_status_tone,
+         payment_status_description = EXCLUDED.payment_status_description,
+         payment_status_tag = EXCLUDED.payment_status_tag,
+         customer_tag = EXCLUDED.customer_tag,
+         is_active = EXCLUDED.is_active,
+         is_defaulter = EXCLUDED.is_defaulter,
+         limit_status = EXCLUDED.limit_status,
+         limit_status_label = EXCLUDED.limit_status_label,
+         credit_limit_utilization = EXCLUDED.credit_limit_utilization,
+         oldest_open_days = EXCLUDED.oldest_open_days,
+         oldest_overdue_days = EXCLUDED.oldest_overdue_days,
+         average_settlement_days = EXCLUDED.average_settlement_days,
+         average_delay_days = EXCLUDED.average_delay_days,
+         total_periods = EXCLUDED.total_periods,
+         on_time_periods = EXCLUDED.on_time_periods,
+         within_7d_periods = EXCLUDED.within_7d_periods,
+         within_30d_periods = EXCLUDED.within_30d_periods,
+         within_60d_periods = EXCLUDED.within_60d_periods,
+         late_periods = EXCLUDED.late_periods,
+         missed_periods = EXCLUDED.missed_periods,
+         days_0_30 = EXCLUDED.days_0_30,
+         days_31_60 = EXCLUDED.days_31_60,
+         days_61_90 = EXCLUDED.days_61_90,
+         days_over_90 = EXCLUDED.days_over_90,
+         badges = EXCLUDED.badges,
+         summary_line = EXCLUDED.summary_line,
+         computed_at = CURRENT_TIMESTAMP
+       RETURNING user_id`,
+      [
+        normalizedUserId,
+        toFiniteNumber(summary.current_balance, latestBalance),
+        normalizedPaymentScore,
+        summary.payment_status || null,
+        summary.payment_status_label || null,
+        summary.payment_status_tone || null,
+        summary.payment_status_description || null,
+        summary.payment_status_tag || null,
+        summary.customer_tag || null,
+        summary.is_active ? 1 : 0,
+        summary.is_defaulter ? 1 : 0,
+        summary.limit_status || null,
+        summary.limit_status_label || null,
+        toFiniteNumber(summary.credit_limit_utilization, 0),
+        Number(summary.oldest_open_days || 0),
+        Number(summary.oldest_overdue_days || 0),
+        Number.isFinite(Number(summary.average_settlement_days))
+          ? Number(summary.average_settlement_days)
+          : null,
+        Number.isFinite(Number(summary.average_delay_days))
+          ? Number(summary.average_delay_days)
+          : null,
+        Number(summary.total_periods || 0),
+        Number(summary.on_time_periods || 0),
+        Number(summary.within_7d_periods || 0),
+        Number(summary.within_30d_periods || 0),
+        Number(summary.within_60d_periods || 0),
+        Number(summary.late_periods || 0),
+        Number(summary.missed_periods || 0),
+        toFiniteNumber(summary.days_0_30, 0),
+        toFiniteNumber(summary.days_31_60, 0),
+        toFiniteNumber(summary.days_61_90, 0),
+        toFiniteNumber(summary.days_over_90, 0),
+        badgePayload,
+        summary.summary_line || null,
+      ]
+    );
+
     return {
       ...profile,
       profile: profileRow,

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../providers/CartProvider';
+import { useSession } from '../../providers/SessionProvider';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { productRecommendationsApi, productsApi } from '../../shared/services/api';
 import { getProductImageSrc } from '../../shared/utils/productImage';
@@ -51,6 +52,7 @@ const normalizeCartRows = (rows) => {
 
 function Cart() {
   const { cart: storedCart, cartCount, replaceCart } = useCart();
+  const { user } = useSession();
   const [cart, setCart] = useState([]);
   const [recommendationNames, setRecommendationNames] = useState([]);
   const [manualDraft, setManualDraft] = useState({ name: '', qtyText: '1' });
@@ -82,20 +84,15 @@ function Cart() {
 
   useEffect(() => {
     loadRecommendationNames();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     setCart(normalizeCartRows(storedCart));
   }, [storedCart]);
 
   const previewCustomerUserId = useMemo(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
-      return Number(storedUser?.id || 0) || null;
-    } catch (_) {
-      return null;
-    }
-  }, []);
+    return Number(user?.id || 0) || null;
+  }, [user]);
 
   const cartPricingItems = useMemo(() => cart.map((item) => ({
     client_item_id: getCartItemKey(item),
@@ -176,8 +173,7 @@ function Cart() {
 
   const loadRecommendationNames = async () => {
     try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
-      if (!storedUser?.id) {
+      if (!user?.id) {
         setRecommendationNames([]);
         return;
       }

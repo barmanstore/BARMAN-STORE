@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../providers/CartProvider';
 import { useSession } from '../../providers/SessionProvider';
-import { ordersApi, customersApi } from '../../shared/services/api';
+import { ordersApi, customersApi, creditApi } from '../../shared/services/api';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
 import { LOGO_URL } from '../../shared/info';
 import useOfferPricingPreview from '../../shared/hooks/useOfferPricingPreview';
 import { getPreviewLineMap } from '../../shared/utils/offers';
+import formatApiError from '../../shared/utils/formatApiError';
 import CheckoutView from './components/CheckoutView';
 import './Checkout.css';
 
@@ -34,6 +35,8 @@ function Checkout() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [orderResult, setOrderResult] = useState(null);
+  const [creditBalance, setCreditBalance] = useState(null);
+  const [creditBalanceLoading, setCreditBalanceLoading] = useState(false);
   
   // User state
   const [isAdmin, setIsAdmin] = useState(false);
@@ -72,6 +75,30 @@ function Checkout() {
       searchCustomers();
     }
   }, [customerSearch]);
+
+  useEffect(() => {
+    if (!success || !orderResult) return;
+    const targetUserId = Number((adminMode ? selectedCustomer?.id : user?.id) || 0);
+    if (!targetUserId) return;
+    let cancelled = false;
+    const loadBalance = async () => {
+      try {
+        setCreditBalanceLoading(true);
+        const payload = await creditApi.getBalance(targetUserId);
+        if (cancelled) return;
+        setCreditBalance(Number(payload?.balance || 0));
+      } catch (_) {
+        if (cancelled) return;
+        setCreditBalance(null);
+      } finally {
+        if (!cancelled) setCreditBalanceLoading(false);
+      }
+    };
+    loadBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [success, orderResult, adminMode, selectedCustomer, user]);
 
   const initializeCheckout = async () => {
     try {
@@ -174,7 +201,7 @@ function Checkout() {
       // Save session ID
       localStorage.setItem('checkout_session', sessionId);
     } catch (err) {
-      setError(err.message);
+      setError(formatApiError(err));
     } finally {
       setLoading(false);
     }
@@ -362,10 +389,11 @@ function Checkout() {
       localStorage.removeItem('checkout_session');
       
     } catch (err) {
-      setError(err.message);
+      setError(formatApiError(err));
       
       // Check if profile is incomplete
-      if (err.message.includes('PROFILE_INCOMPLETE') || err.message.includes('INCOMPLETE_PROFILE')) {
+      const rawMessage = String(err?.message || err?.payload?.error || '');
+      if (rawMessage.includes('PROFILE_INCOMPLETE') || rawMessage.includes('INCOMPLETE_PROFILE')) {
         setProfileIncomplete(true);
         setError('Please complete your profile information before placing an order.');
       }
@@ -383,6 +411,8 @@ function Checkout() {
       loading={loading}
       success={success}
       orderResult={orderResult}
+      creditBalance={creditBalance}
+      creditBalanceLoading={creditBalanceLoading}
       onContinueShopping={() => navigate('/products')}
       isLoggedIn={isLoggedIn}
       user={user}

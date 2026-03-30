@@ -16,6 +16,8 @@ const CheckoutView = ({
   loading,
   success,
   orderResult,
+  creditBalance,
+  creditBalanceLoading,
   onContinueShopping,
   isLoggedIn,
   user,
@@ -72,6 +74,14 @@ const CheckoutView = ({
             </p>
             <div className="order-details">
               <p>Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong></p>
+            </div>
+            <div className="order-balance">
+              <p className="order-balance-label">Your current due balance</p>
+              {creditBalanceLoading ? (
+                <p className="order-balance-value">Checking balance...</p>
+              ) : (
+                <p className="order-balance-value">{formatCurrency(Number(creditBalance || 0))}</p>
+              )}
             </div>
             <button className="back-home-btn" onClick={onContinueShopping}>
               Continue Shopping

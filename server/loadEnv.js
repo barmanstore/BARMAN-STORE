@@ -11,19 +11,19 @@ const parseEnvText = (content) => {
     const match = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
     if (!match) continue;
     const key = match[1];
-    let value = match[2] ?? '';
+    let value = String(match[2] ?? '').trim();
 
-    const hashIndex = value.indexOf(' #');
-    if (hashIndex >= 0) {
-      value = value.slice(0, hashIndex);
-    }
-    value = value.trim();
-
-    if (
+    const isQuoted =
       (value.startsWith('"') && value.endsWith('"'))
-      || (value.startsWith('\'') && value.endsWith('\''))
-    ) {
+      || (value.startsWith('\'') && value.endsWith('\''));
+
+    if (isQuoted) {
       value = value.slice(1, -1);
+    } else {
+      const hashIndex = value.indexOf(' #');
+      if (hashIndex >= 0) {
+        value = value.slice(0, hashIndex).trim();
+      }
     }
 
     out[key] = value;

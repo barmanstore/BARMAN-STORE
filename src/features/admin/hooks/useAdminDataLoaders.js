@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 
 const ADMIN_PREVIEW_LIMIT = 3;
 const ADMIN_LIST_PAGE_LIMIT = 25;
+const ADMIN_PRODUCTS_PAGE_LIMIT = 100;
 
 const delay = (ms) => new Promise((resolve) => {
   if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
@@ -43,6 +44,42 @@ const normalizePagedResponse = (payload) => {
   };
 };
 
+const normalizeProductsResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    return {
+      items: payload,
+      page: 1,
+      limit: payload.length,
+      total: payload.length,
+      hasMore: false,
+    };
+  }
+  const pagination = payload?.pagination || {};
+  const page = Math.max(1, Number(pagination?.page || 1));
+  const limit = Math.max(1, Number(pagination?.page_size || ADMIN_PRODUCTS_PAGE_LIMIT));
+  const total = Math.max(0, Number(pagination?.total || 0));
+  return {
+    items: Array.isArray(payload?.items) ? payload.items : [],
+    page,
+    limit,
+    total,
+    hasMore: Boolean(pagination?.has_more),
+  };
+};
+
+const flattenCategoryTreePaths = (tree = []) => {
+  const paths = [];
+  const walk = (node) => {
+    if (!node) return;
+    const path = String(node.path || '').trim();
+    if (path) paths.push(path);
+    const children = Array.isArray(node.children) ? node.children : [];
+    children.forEach((child) => walk(child));
+  };
+  (Array.isArray(tree) ? tree : []).forEach((node) => walk(node));
+  return Array.from(new Set(paths)).filter(Boolean);
+};
+
 const buildUserDirectorySummary = (payload) => ({
   total: Math.max(0, Number(payload?.total || 0)),
   adminCount: Math.max(0, Number(payload?.adminCount || 0)),
@@ -52,12 +89,22 @@ const buildUserDirectorySummary = (payload) => ({
 const useAdminDataLoaders = ({
   statsApi,
   productsApi,
+  categoriesApi,
   ordersApi,
   usersApi,
   adminApi,
   billingApi,
+  creditApi,
+  purchaseOrdersApi,
+  insightsApi,
   setStats,
   setProducts,
+  setProductCategories,
+  setProductsPage,
+  setProductsTotal,
+  setProductsLoading,
+  setProductSummary,
+  setProductInsights,
   setOrders,
   setUsers,
   setRecentOrdersPreview,
@@ -70,6 +117,8 @@ const useAdminDataLoaders = ({
   setUsersTotal,
   setUsersLoading,
   setVisitorStats,
+  setCreditAgingSummary,
+  setPurchaseOpsSummary,
   setBills,
   setDailySalesLoading,
   setDailySalesError,
@@ -87,6 +136,7 @@ const useAdminDataLoaders = ({
   const activeListRequestRef = useRef({
     orders: 0,
     users: 0,
+    products: 0,
   });
 
   const requestWithRetry = useCallback(async (request, { retries = 2, delayMs = 350 } = {}) => {
@@ -109,25 +159,44 @@ const useAdminDataLoaders = ({
     if (loadedDomainsRef.current.dashboard && !force) return;
     // Dashboard needs a broad summary view, but keep it isolated to dashboard
     // bootstrap instead of making every admin tab pay this cost up front.
-    const statsData = await requestWithRetry(() => statsApi.orders());
-    const productsData = await requestWithRetry(() => productsApi.getAll({ include_inactive: true }));
-    const ordersPreviewPayload = await requestWithRetry(() => ordersApi.getAll({
-      paginated: 1,
-      page: 1,
-      limit: ADMIN_PREVIEW_LIMIT,
-    }));
-    const usersPreviewPayload = await requestWithRetry(() => usersApi.getAll({
-      paginated: 1,
-      page: 1,
-      limit: ADMIN_PREVIEW_LIMIT,
-    }));
-    const analyticsData = await requestWithRetry(() => adminApi.getAnalyticsSummary())
-      .catch(() => null);
+    const [
+      statsData,
+      ordersPreviewPayload,
+      usersPreviewPayload,
+      analyticsData,
+      activeProductsPayload,
+      inactiveProductsPayload,
+      lowStockPayload,
+      creditAgingPayload,
+      purchaseOpsPayload,
+      productInsightsPayload,
+    ] = await Promise.all([
+      requestWithRetry(() => statsApi.orders()),
+      requestWithRetry(() => ordersApi.getAll({
+        paginated: 1,
+        page: 1,
+        limit: ADMIN_PREVIEW_LIMIT,
+      })),
+      requestWithRetry(() => usersApi.getAll({
+        paginated: 1,
+        page: 1,
+        limit: ADMIN_PREVIEW_LIMIT,
+      })),
+      requestWithRetry(() => adminApi.getAnalyticsSummary()).catch(() => null),
+      requestWithRetry(() => productsApi.getAll({ status: 'active', page_size: 1 })),
+      requestWithRetry(() => productsApi.getAll({ status: 'inactive', page_size: 1 })),
+      requestWithRetry(() => productsApi.getAll({ status: 'active', low_stock: 'true', page_size: 3 })),
+      requestWithRetry(() => creditApi.getAgingReport()).catch(() => null),
+      requestWithRetry(() => purchaseOrdersApi.getOperationsSummary()).catch(() => null),
+      requestWithRetry(() => insightsApi.getProducts()).catch(() => []),
+    ]);
     const ordersPreview = normalizePagedResponse(ordersPreviewPayload);
     const usersPreview = normalizePagedResponse(usersPreviewPayload);
+    const activeProducts = normalizeProductsResponse(activeProductsPayload);
+    const inactiveProducts = normalizeProductsResponse(inactiveProductsPayload);
+    const lowStockProducts = normalizeProductsResponse(lowStockPayload);
 
     setStats(statsData);
-    setProducts(productsData);
     setRecentOrdersPreview(ordersPreview.items.slice(0, ADMIN_PREVIEW_LIMIT));
     setRecentCustomersPreview(
       usersPreview.items
@@ -139,6 +208,15 @@ const useAdminDataLoaders = ({
     setOrdersTotal(ordersPreview.total);
     setUsersPage(1);
     setUsersTotal(usersPreview.total);
+    setProductSummary({
+      activeCount: activeProducts.total,
+      inactiveCount: inactiveProducts.total,
+      lowStockProducts: (Array.isArray(lowStockProducts.items) ? lowStockProducts.items : [])
+        .slice()
+        .sort((a, b) => Number(a?.stock || 0) - Number(b?.stock || 0))
+        .slice(0, 3),
+    });
+    setProductInsights(Array.isArray(productInsightsPayload) ? productInsightsPayload : []);
     setVisitorStats({
       onlineVisitors: asNumber(analyticsData?.online_visitors, 0),
       onlineLoggedInUsers: asNumber(analyticsData?.online_logged_in_users, 0),
@@ -146,40 +224,130 @@ const useAdminDataLoaders = ({
       uniqueSessionsMonth: asNumber(analyticsData?.unique_sessions_month, 0),
       uniqueSessionsYear: asNumber(analyticsData?.unique_sessions_year, 0),
     });
+    const creditSummary = creditAgingPayload?.summary || {};
+    setCreditAgingSummary({
+      totalOutstanding: asNumber(creditSummary?.total_outstanding, 0),
+      customersOverdue: asNumber(creditSummary?.customers_overdue, 0),
+      customersNeedFollowUp: asNumber(creditSummary?.customers_need_follow_up, 0),
+      customersDefaulters: asNumber(creditSummary?.customers_defaulters, 0),
+      customersOverLimit: asNumber(creditSummary?.customers_over_limit, 0),
+    });
+    setPurchaseOpsSummary({
+      todayDistributors: Array.isArray(purchaseOpsPayload?.today_distributors)
+        ? purchaseOpsPayload.today_distributors
+        : [],
+      predictedDeliveriesNext: Array.isArray(purchaseOpsPayload?.predicted_deliveries_next)
+        ? purchaseOpsPayload.predicted_deliveries_next
+        : [],
+      predictedPaymentsToday: Array.isArray(purchaseOpsPayload?.predicted_payments_today)
+        ? purchaseOpsPayload.predicted_payments_today
+        : [],
+    });
     loadedDomainsRef.current.dashboard = true;
-    loadedDomainsRef.current.products = true;
   }, [
     adminApi,
     asNumber,
+    creditApi,
+    insightsApi,
     ordersApi,
     productsApi,
+    purchaseOrdersApi,
     requestWithRetry,
     setOrdersPage,
-    setOrders,
-    setProducts,
     setOrdersTotal,
     setRecentCustomersPreview,
     setRecentOrdersPreview,
     setStats,
+    setCreditAgingSummary,
+    setPurchaseOpsSummary,
+    setProductSummary,
+    setProductInsights,
     setUserDirectorySummary,
     setUsersPage,
-    setUsers,
     setUsersTotal,
     setVisitorStats,
     statsApi,
     usersApi,
   ]);
 
-  const loadProductCatalog = useCallback(async ({ force = false } = {}) => {
-    if (loadedDomainsRef.current.products && !force) return;
-    const productsData = await requestWithRetry(() => productsApi.getAll({ include_inactive: true }));
-    setProducts(productsData);
-    loadedDomainsRef.current.products = true;
+  const loadProductCategories = useCallback(async () => {
+    try {
+      const tree = await requestWithRetry(() => categoriesApi.getTree());
+      setProductCategories(flattenCategoryTreePaths(tree));
+    } catch (_) {
+      setProductCategories([]);
+    }
+  }, [categoriesApi, requestWithRetry, setProductCategories]);
+
+  const loadProductsPage = useCallback(async ({
+    page = 1,
+    query = '',
+    category = '',
+    status = '',
+    lowStockOnly = false,
+  } = {}) => {
+    const requestId = activeListRequestRef.current.products + 1;
+    activeListRequestRef.current.products = requestId;
+    try {
+      setProductsLoading(true);
+      const params = {
+        include_inactive: 'true',
+        page: String(page),
+        page_size: String(ADMIN_PRODUCTS_PAGE_LIMIT),
+      };
+      const normalizedStatus = String(status || '').trim().toLowerCase();
+      if (normalizedStatus === 'active' || normalizedStatus === 'inactive') {
+        params.status = normalizedStatus;
+      } else if (normalizedStatus === 'available') {
+        params.status = 'active';
+        params.in_stock = 'true';
+      } else if (normalizedStatus === 'out_of_stock') {
+        params.status = 'active';
+      }
+      const trimmedQuery = String(query || '').trim();
+      if (trimmedQuery) params.name = trimmedQuery;
+      const trimmedCategory = String(category || '').trim();
+      if (trimmedCategory) params.category = trimmedCategory;
+      if (lowStockOnly) params.low_stock = 'true';
+
+      const payload = await requestWithRetry(() => productsApi.getAll(params));
+      const normalized = normalizeProductsResponse(payload);
+      if (activeListRequestRef.current.products !== requestId) {
+        return normalized;
+      }
+      setProducts(normalized.items);
+      setProductsPage(normalized.page);
+      setProductsTotal(normalized.total);
+      loadedDomainsRef.current.products = true;
+      return normalized;
+    } finally {
+      if (activeListRequestRef.current.products === requestId) {
+        setProductsLoading(false);
+      }
+    }
   }, [
     productsApi,
     requestWithRetry,
     setProducts,
+    setProductsLoading,
+    setProductsPage,
+    setProductsTotal,
   ]);
+
+  const loadProductCatalog = useCallback(async ({
+    force = false,
+    page = 1,
+    query = '',
+    category = '',
+    status = '',
+    lowStockOnly = false,
+  } = {}) => {
+    if (loadedDomainsRef.current.products && !force) return;
+    await Promise.all([
+      loadProductCategories(),
+      loadProductsPage({ page, query, category, status, lowStockOnly }),
+    ]);
+  }, [loadProductCategories, loadProductsPage]);
 
   const loadOrdersPage = useCallback(async ({ page = 1, query = '', silent = false } = {}) => {
     const requestId = activeListRequestRef.current.orders + 1;
@@ -373,6 +541,8 @@ const useAdminDataLoaders = ({
     refreshAdminData,
     loadDashboardSnapshot,
     loadProductCatalog,
+    loadProductCategories,
+    loadProductsPage,
     loadOrdersPage,
     loadUsersPage,
     loadDailySalesBills,

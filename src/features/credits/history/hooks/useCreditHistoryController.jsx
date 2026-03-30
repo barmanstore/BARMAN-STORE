@@ -62,6 +62,14 @@ const useCreditHistoryController = ({ user }) => {
     effectiveUserId,
     creditHistory,
     setCreditHistory,
+    historyCursor,
+    setHistoryCursor,
+    historyHasMore,
+    setHistoryHasMore,
+    historyLoadingMore,
+    setHistoryLoadingMore,
+    historyLoadingFull,
+    setHistoryLoadingFull,
     balance,
     setBalance,
     customer,
@@ -136,12 +144,20 @@ const useCreditHistoryController = ({ user }) => {
     addTransactionRequestIdRef,
   } = state;
 
-  const { fetchCreditData } = useCreditHistoryLoaders({
+  const { fetchCreditData, loadMoreHistory, loadFullHistory } = useCreditHistoryLoaders({
     creditApi,
     usersApi,
     navigate,
     setLoading,
     setCreditHistory,
+    historyCursor,
+    setHistoryCursor,
+    historyHasMore,
+    setHistoryHasMore,
+    historyLoadingMore,
+    setHistoryLoadingMore,
+    historyLoadingFull,
+    setHistoryLoadingFull,
     setBalance,
     setCustomer,
     setPaymentBadges,
@@ -170,6 +186,25 @@ const useCreditHistoryController = ({ user }) => {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
 
+  const getHistoryForReport = useCallback(async ({ fromDate } = {}) => {
+    if (!historyHasMore || !fromDate) return creditHistory;
+    const earliestLoaded = creditHistory.reduce((earliest, entry) => {
+      const dateKey = getEffectiveTransactionDateKey(entry);
+      if (!dateKey) return earliest;
+      if (!earliest || dateKey < earliest) return dateKey;
+      return earliest;
+    }, '');
+    if (!earliestLoaded || fromDate >= earliestLoaded) return creditHistory;
+    const fullHistory = await loadFullHistory(effectiveUserId);
+    return Array.isArray(fullHistory) && fullHistory.length > 0 ? fullHistory : creditHistory;
+  }, [
+    creditHistory,
+    historyHasMore,
+    loadFullHistory,
+    effectiveUserId,
+    getEffectiveTransactionDateKey,
+  ]);
+
   const reports = useCreditHistoryReports({
     creditHistory,
     customer,
@@ -193,6 +228,7 @@ const useCreditHistoryController = ({ user }) => {
     getEffectiveTransactionDateKey,
     getEffectiveTransactionTimestamp,
     getTypeLabel,
+    getHistoryForReport,
     sendWhatsAppSmart,
     FIVE_DAYS_MS,
     createPdfDoc,
@@ -361,6 +397,10 @@ const useCreditHistoryController = ({ user }) => {
       hasFiltersApplied: computed.hasFiltersApplied,
       issueFlagByEntryId: computed.issueFlagByEntryId,
       groupedTransactions: computed.groupedTransactions,
+      historyHasMore,
+      historyLoadingMore,
+      historyLoadingFull,
+      loadMoreHistory,
       expandedTransactionId,
       setExpandedTransactionId,
       getTypeIcon,

@@ -85,6 +85,11 @@ const patterns = [
     message: 'Private key material detected',
   },
   {
+    id: 'repo-auth-token',
+    regex: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/,
+    message: 'Possible repo auth token detected (base64url payload.signature)',
+  },
+  {
     id: 'google-api-key',
     regex: /\bAIza[0-9A-Za-z\-_]{35}\b/,
     message: 'Google API key format detected',

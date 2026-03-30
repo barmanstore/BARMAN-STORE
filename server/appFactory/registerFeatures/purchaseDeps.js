@@ -2,7 +2,15 @@ const purchase = require('../../features/purchase');
 
 const buildPurchaseDeps = ({ core, domain }) => {
   const { configValues } = core;
-  const { purchaseHelpers, purchaseTransactionUtils, distributorLedger, distributorUtils, purchaseOperations, commerceNotifications } = domain;
+  const {
+    purchaseHelpers,
+    purchaseTransactionUtils,
+    distributorLedger,
+    distributorUtils,
+    purchaseOperations,
+    commerceNotifications,
+    authMiddleware,
+  } = domain;
 
   return {
     normalizeTransactionDate: purchaseHelpers.normalizeTransactionDate,
@@ -61,6 +69,7 @@ const buildPurchaseDeps = ({ core, domain }) => {
     normalizeBooleanFlag: purchaseHelpers.normalizeBooleanFlag,
     getDistributorLedgerRows: distributorLedger.getDistributorLedgerRows,
     handleDistributorLedgerCreate: distributorLedger.handleDistributorLedgerCreate,
+    getAuthUserFromRequest: authMiddleware?.getAuthUserFromRequest,
   };
 };
 

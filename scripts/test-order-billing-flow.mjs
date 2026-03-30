@@ -265,6 +265,14 @@ const main = async () => {
     const adminRequest = makeRequest(baseUrl, adminToken);
     const customerRequest = makeRequest(baseUrl, customerToken);
 
+    const customerSessionRes = await customerRequest('/api/auth/session');
+    const customerSessionJson = await toJson(customerSessionRes);
+    assert.equal(
+      customerSessionRes.status,
+      200,
+      `customer session auth failed: ${JSON.stringify(customerSessionJson)}`
+    );
+
     const sku = `SMK-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
     const productName = `Smoke Product ${randomSuffix()}`;
     const productCreateRes = await adminRequest('/api/products', {
@@ -408,11 +416,10 @@ const main = async () => {
       'product suggest should expose active offer badges'
     );
 
-    const previewBeforeOrderRes = await request('/api/offers/preview', {
+    const previewBeforeOrderRes = await customerRequest('/api/offers/preview', {
       method: 'POST',
       body: JSON.stringify({
         context: 'cart',
-        offer_context: { customer_user_id: customerId },
         items: [
           {
             product_id: productId,
@@ -425,7 +432,18 @@ const main = async () => {
     });
     const previewBeforeOrderJson = await toJson(previewBeforeOrderRes);
     assert.equal(previewBeforeOrderRes.status, 200, `offer preview before order failed: ${JSON.stringify(previewBeforeOrderJson)}`);
-    assert.equal(Number(previewBeforeOrderJson?.summary?.auto_offer_discount_total || 0), 30, 'offer preview should include active discount before first order');
+    if (previewBeforeOrderJson?.debug) {
+      assert.equal(
+        Number(previewBeforeOrderJson?.debug?.auth_user_id || 0) > 0,
+        true,
+        `offer preview auth resolution failed: ${JSON.stringify(previewBeforeOrderJson?.debug)}`
+      );
+    }
+    assert.equal(
+      Number(previewBeforeOrderJson?.summary?.auto_offer_discount_total || 0),
+      30,
+      `offer preview should include active discount before first order: ${JSON.stringify(previewBeforeOrderJson)}`
+    );
     assert.equal(
       String(previewBeforeOrderJson?.items?.[0]?.best_offer_label || '').trim(),
       '10% OFF | First order only',
@@ -650,9 +668,12 @@ const main = async () => {
     const customerCreditJson = await toJson(customerCreditRes);
     assert.equal(customerCreditRes.status, 200, `credit history fetch failed: ${JSON.stringify(customerCreditJson)}`);
     const billReference = String(billCreateJson?.bill_number || '').trim();
-    const creditMatch = Array.isArray(customerCreditJson)
-      ? customerCreditJson.find((entry) => String(entry?.reference || '').trim() === billReference)
-      : null;
+    const creditRows = Array.isArray(customerCreditJson)
+      ? customerCreditJson
+      : Array.isArray(customerCreditJson?.rows)
+        ? customerCreditJson.rows
+        : [];
+    const creditMatch = creditRows.find((entry) => String(entry?.reference || '').trim() === billReference);
     assert.equal(Boolean(creditMatch), true, 'credit history should include order-linked bill reference');
 
     const orderDetailRes = await adminRequest(`/api/orders/${orderId}`);

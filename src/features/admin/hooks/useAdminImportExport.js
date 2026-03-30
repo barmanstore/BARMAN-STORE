@@ -1,3 +1,5 @@
+import { apiFetchRaw } from '../../../shared/services/api';
+
 const useAdminImportExport = ({
   productsApi,
   user,
@@ -28,25 +30,10 @@ const useAdminImportExport = ({
     });
 
   const downloadProtectedFile = async (url, fallbackName) => {
-    let token = user?.token || null;
-    if (!token) {
-      try {
-        const raw = localStorage.getItem('user') || '{}';
-        token = JSON.parse(raw)?.token || null;
-      } catch (_) {
-        token = null;
-      }
-    }
-    if (!token) {
+    if (!user?.token) {
       throw new Error('Please login again. Missing auth token.');
     }
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => ({}));
-      throw new Error(payload.error || 'Download failed');
-    }
+    const response = await apiFetchRaw(url, { method: 'GET' });
     const blob = await response.blob();
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement('a');

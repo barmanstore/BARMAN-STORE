@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import formatApiError from '../../../../shared/utils/formatApiError';
 
 const usePurchaseStatusHandlers = ({
   purchaseOrdersApi,
@@ -24,17 +25,17 @@ const usePurchaseStatusHandlers = ({
           });
         const moreCount = Math.max(0, Number(statusResult.cap_applied_count || 0) - lines.length);
         const moreText = moreCount > 0 ? `\n...and ${moreCount} more item(s)` : '';
-        window.alert(
+        setSuccess(
           `Stock cap (${Number(statusResult?.stock_cap || 50)}) was applied to ${statusResult.cap_applied_count} item(s).\n\n${lines.join('\n')}${moreText}`
         );
       }
       await fetchOrders();
       await fetchDistributorLedger();
     } catch (err) {
-      setError(err?.message || 'Failed to update status');
+      setError(formatApiError(err));
       throw err;
     }
-  }, [purchaseOrdersApi, fetchOrders, fetchDistributorLedger, setError]);
+  }, [purchaseOrdersApi, fetchOrders, fetchDistributorLedger, setError, setSuccess]);
 
   const handleSendDistributorWhatsApp = useCallback(async (order) => {
     if (!order?.id) return;
@@ -53,20 +54,18 @@ const usePurchaseStatusHandlers = ({
       setSuccess('Distributor WhatsApp message is ready.');
     } catch (err) {
       setSuccess('');
-      setError(err.message || 'Failed to prepare distributor WhatsApp message');
+      setError(formatApiError(err));
     } finally {
       setSendingWhatsAppOrderId(null);
     }
   }, [purchaseOrdersApi, setError, setSuccess, setSendingWhatsAppOrderId]);
 
   const handleDeleteOrder = useCallback(async (orderId) => {
-    if (!window.confirm('Are you sure you want to delete this purchase order?')) return;
-
     try {
       await purchaseOrdersApi.delete(orderId);
       fetchOrders();
     } catch (err) {
-      setError('Failed to delete order');
+      setError(formatApiError(err));
     }
   }, [purchaseOrdersApi, fetchOrders, setError]);
 

@@ -6,7 +6,6 @@ const registerCreditLedgerReportsRoutes = (deps) => {
     dbGetAsync,
     dbAllAsync,
     getLatestCreditEntryAsync,
-    buildCreditDisciplineProfile,
   } = deps;
 
   app.post('/api/credit/check-limit', requireAuth, async (req, res) => {
@@ -37,7 +36,6 @@ const registerCreditLedgerReportsRoutes = (deps) => {
 
   app.get('/api/credit/aging', requireAdmin, async (_, res) => {
     try {
-      const nowMs = Date.now();
       const customers = await dbAllAsync(
         `SELECT
            u.id as customer_id,
@@ -46,9 +44,40 @@ const registerCreditLedgerReportsRoutes = (deps) => {
            u.phone,
            COALESCE(u.credit_limit, 0) as credit_limit,
            COALESCE(cp.is_active, 1) as is_active,
-           COALESCE(cp.grace_days, 60) as grace_days
+           COALESCE(cp.grace_days, 60) as grace_days,
+           cas.current_balance,
+           cas.payment_score,
+           cas.payment_status,
+           cas.payment_status_label,
+           cas.payment_status_tone,
+           cas.payment_status_description,
+           cas.payment_status_tag,
+           cas.customer_tag,
+           cas.is_active as snapshot_active,
+           cas.is_defaulter,
+           cas.limit_status,
+           cas.limit_status_label,
+           cas.credit_limit_utilization,
+           cas.oldest_open_days,
+           cas.oldest_overdue_days,
+           cas.average_settlement_days,
+           cas.average_delay_days,
+           cas.total_periods,
+           cas.on_time_periods,
+           cas.within_7d_periods,
+           cas.within_30d_periods,
+           cas.within_60d_periods,
+           cas.late_periods,
+           cas.missed_periods,
+           cas.days_0_30,
+           cas.days_31_60,
+           cas.days_61_90,
+           cas.days_over_90,
+           cas.badges,
+           cas.summary_line
          FROM users u
          LEFT JOIN customer_credit_profiles cp ON cp.user_id = u.id
+         LEFT JOIN customer_credit_aging_snapshots cas ON cas.user_id = u.id
          WHERE u.role = 'customer'
          ORDER BY u.name ASC`
       );
@@ -79,83 +108,67 @@ const registerCreditLedgerReportsRoutes = (deps) => {
         });
       }
 
-      const ledgerRows = await dbAllAsync(
-        `SELECT
-           ch.id,
-           ch.user_id,
-           ch.type,
-           ch.amount,
-           ch.balance,
-           ch.transaction_ts,
-           ch.transaction_date,
-           ch.due_date,
-           ch.created_at,
-           ch.source_type,
-           ch.source_label,
-           ch.reference
-         FROM credit_history ch
-         INNER JOIN users u ON u.id = ch.user_id
-         WHERE u.role = 'customer'
-         ORDER BY ch.user_id ASC, ch.transaction_ts ASC, ch.created_at ASC, ch.id ASC`
-      );
-
-      const rowsByUserId = new Map();
-      for (const row of ledgerRows) {
-        const userId = Number(row?.user_id || 0);
-        if (!userId) continue;
-        if (!rowsByUserId.has(userId)) rowsByUserId.set(userId, []);
-        rowsByUserId.get(userId).push(row);
+      const hasSnapshotData = customers.some((row) => (
+        row?.current_balance !== null
+        || row?.total_periods !== null
+      ));
+      if (!hasSnapshotData) {
+        console.warn('[AGING] Snapshot table not initialized');
+        return res.status(503).json({ status: 'initializing' });
       }
+
+      const normalizeBadges = (value) => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (_) {
+            return [];
+          }
+        }
+        return [];
+      };
 
       const evaluatedCustomers = customers
         .map((customer) => {
-          const userId = Number(customer?.customer_id || 0);
-          const customerRows = rowsByUserId.get(userId) || [];
-          const latestBalance = customerRows.length > 0
-            ? Number(customerRows[customerRows.length - 1]?.balance || 0)
-            : 0;
-          const profile = buildCreditDisciplineProfile(customerRows, {
-            balance: latestBalance,
-            creditLimit: Number(customer?.credit_limit || 0),
-            nowMs,
-            isActive: Boolean(Number(customer?.is_active ?? 1)),
-            graceDays: Number(customer?.grace_days || 60),
-          });
-          const summary = profile?.summary || {};
-          const currentBalance = Number(summary.current_balance || latestBalance || 0);
+          const currentBalance = Number(customer?.current_balance || 0);
           return {
             ...customer,
             credit_limit: Number(customer?.credit_limit || 0),
             current_balance: currentBalance,
-            payment_score: summary.payment_score,
-            payment_status: summary.payment_status,
-            payment_status_label: summary.payment_status_label,
-            payment_status_tone: summary.payment_status_tone,
-            payment_status_description: summary.payment_status_description,
-            payment_status_tag: summary.payment_status_tag || null,
-            is_defaulter: Boolean(summary.is_defaulter),
-            is_active: Boolean(summary.is_active),
-            customer_tag: summary.customer_tag || null,
-            limit_status: summary.limit_status,
-            limit_status_label: summary.limit_status_label,
-            credit_limit_utilization: summary.credit_limit_utilization,
-            oldest_open_days: Number(summary.oldest_open_days || 0),
-            oldest_overdue_days: Number(summary.oldest_overdue_days || 0),
-            average_settlement_days: summary.average_settlement_days,
-            average_delay_days: summary.average_delay_days,
-            total_periods: Number(summary.total_periods || 0),
-            on_time_periods: Number(summary.on_time_periods || 0),
-            within_7d_periods: Number(summary.within_7d_periods || 0),
-            within_30d_periods: Number(summary.within_30d_periods || 0),
-            within_60d_periods: Number(summary.within_60d_periods || 0),
-            late_periods: Number(summary.late_periods || 0),
-            missed_periods: Number(summary.missed_periods || 0),
-            days_0_30: Number(summary.days_0_30 || 0),
-            days_31_60: Number(summary.days_31_60 || 0),
-            days_61_90: Number(summary.days_61_90 || 0),
-            days_over_90: Number(summary.days_over_90 || 0),
-            badges: Array.isArray(profile?.badges) ? profile.badges : [],
-            summary_line: summary.summary_line || '',
+            payment_score: customer?.payment_score ?? null,
+            payment_status: customer?.payment_status || null,
+            payment_status_label: customer?.payment_status_label || null,
+            payment_status_tone: customer?.payment_status_tone || null,
+            payment_status_description: customer?.payment_status_description || null,
+            payment_status_tag: customer?.payment_status_tag || null,
+            is_defaulter: Boolean(Number(customer?.is_defaulter || 0)),
+            is_active: customer?.snapshot_active === null || customer?.snapshot_active === undefined
+              ? Boolean(Number(customer?.is_active ?? 1))
+              : Boolean(Number(customer?.snapshot_active)),
+            customer_tag: customer?.customer_tag || null,
+            limit_status: customer?.limit_status || null,
+            limit_status_label: customer?.limit_status_label || null,
+            credit_limit_utilization: Number(customer?.credit_limit_utilization || 0),
+            oldest_open_days: Number(customer?.oldest_open_days || 0),
+            oldest_overdue_days: Number(customer?.oldest_overdue_days || 0),
+            average_settlement_days: customer?.average_settlement_days ?? null,
+            average_delay_days: customer?.average_delay_days ?? null,
+            total_periods: Number(customer?.total_periods || 0),
+            on_time_periods: Number(customer?.on_time_periods || 0),
+            within_7d_periods: Number(customer?.within_7d_periods || 0),
+            within_30d_periods: Number(customer?.within_30d_periods || 0),
+            within_60d_periods: Number(customer?.within_60d_periods || 0),
+            late_periods: Number(customer?.late_periods || 0),
+            missed_periods: Number(customer?.missed_periods || 0),
+            days_0_30: Number(customer?.days_0_30 || 0),
+            days_31_60: Number(customer?.days_31_60 || 0),
+            days_61_90: Number(customer?.days_61_90 || 0),
+            days_over_90: Number(customer?.days_over_90 || 0),
+            badges: normalizeBadges(customer?.badges),
+            summary_line: customer?.summary_line || '',
           };
         })
         .filter((row) => (

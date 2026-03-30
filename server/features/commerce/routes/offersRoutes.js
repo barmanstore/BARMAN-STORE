@@ -21,6 +21,7 @@ const registerOffersRoutes = (deps) => {
     dbGetAsync,
     dbRunAsync,
     logAdminAuditAsync,
+    getAuthUserFromRequest,
   } = deps;
 
   app.get('/api/offers', requireAdmin, async (_, res) => {
@@ -36,10 +37,32 @@ const registerOffersRoutes = (deps) => {
       const body = req.body || {};
       const includeTax = String(body.context || '').trim().toLowerCase() !== 'billing';
       const items = Array.isArray(body.items) ? body.items : [];
-      const eligibilityContext = await resolveOfferEligibilityContext(
-        dbGetAsync,
-        body.offer_context || body.offerContext || {}
-      );
+      const rawOfferContext = body.offer_context || body.offerContext || {};
+      const offerContext = rawOfferContext && typeof rawOfferContext === 'object' ? { ...rawOfferContext } : {};
+      const resolveAuthUser = async () => {
+        if (typeof getAuthUserFromRequest === 'function') {
+          return getAuthUserFromRequest(req);
+        }
+        const appResolver = req.app?.locals?.getAuthUserFromRequest;
+        if (typeof appResolver === 'function') {
+          return appResolver(req);
+        }
+        return req.authUser || null;
+      };
+      const resolvedAuthUser = await resolveAuthUser();
+      const authUserId = Number(resolvedAuthUser?.id || 0) || 0;
+      if (authUserId > 0) {
+        offerContext.customer_user_id = authUserId;
+        offerContext.customerUserId = authUserId;
+        offerContext.user_id = authUserId;
+        offerContext.userId = authUserId;
+      } else {
+        delete offerContext.customer_user_id;
+        delete offerContext.customerUserId;
+        delete offerContext.user_id;
+        delete offerContext.userId;
+      }
+      const eligibilityContext = await resolveOfferEligibilityContext(dbGetAsync, offerContext);
       const productIds = items
         .map((item) => Number(item?.product_id || item?.productId || 0))
         .filter((productId) => productId > 0);
@@ -47,14 +70,29 @@ const registerOffersRoutes = (deps) => {
         loadProductsByIds(dbAllAsync, productIds),
         loadActiveOffers(dbAllAsync),
       ]);
-      return res.json(previewOfferPricing({
+      const previewResult = previewOfferPricing({
         items,
         productsById,
         offers: activeOffers,
         offersArePrepared: true,
         eligibilityContext,
         includeTax,
-      }));
+      });
+      if (process.env.NODE_ENV === 'test') {
+        const authHeader = String(req.headers.authorization || '');
+        const appResolver = req.app?.locals?.getAuthUserFromRequest;
+        return res.json({
+          ...previewResult,
+          debug: {
+            auth_user_id: authUserId || null,
+            has_auth_resolver: typeof getAuthUserFromRequest === 'function' || typeof appResolver === 'function',
+            has_auth_header: Boolean(authHeader.trim()),
+            auth_header_prefix: authHeader.slice(0, 12),
+            eligibility_context: eligibilityContext || null,
+          },
+        });
+      }
+      return res.json(previewResult);
     } catch (error) {
       return sendRouteError(res, error, { fallbackMessage: 'Failed to preview offers' });
     }

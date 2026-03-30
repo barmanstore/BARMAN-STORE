@@ -1,4 +1,7 @@
 const registerCreditIssuesListRoutes = (deps) => {
+  const PAYMENT_BADGE_CACHE_TTL_MS = 15000;
+  const paymentBadgeCache = new Map();
+
   const {
     app,
     requireAuth,
@@ -10,6 +13,22 @@ const registerCreditIssuesListRoutes = (deps) => {
     buildPaymentActivityBadges,
   } = deps;
 
+  const getCachedBadgePayload = (userId) => {
+    const entry = paymentBadgeCache.get(userId);
+    if (!entry) return null;
+    if (Date.now() - entry.at > PAYMENT_BADGE_CACHE_TTL_MS) {
+      paymentBadgeCache.delete(userId);
+      return null;
+    }
+    return entry.payload || null;
+  };
+
+  const setCachedBadgePayload = (userId, payload) => {
+    paymentBadgeCache.set(userId, { at: Date.now(), payload });
+  };
+
+  const CREDIT_HISTORY_DEFAULT_LIMIT = 150;
+  const CREDIT_HISTORY_MAX_LIMIT = 500;
   const creditHistorySelect = `
     SELECT ch.*,
            COALESCE(primary_bill.id, legacy_bill.id) AS linked_bill_id,
@@ -42,6 +61,38 @@ const registerCreditIssuesListRoutes = (deps) => {
      AND legacy_bill.bill_number = ch.reference
   `;
 
+  const encodeHistoryCursor = (cursorPayload) => {
+    if (!cursorPayload) return '';
+    try {
+      return Buffer.from(JSON.stringify(cursorPayload), 'utf8')
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+    } catch (_) {
+      return '';
+    }
+  };
+
+  const decodeHistoryCursor = (cursor) => {
+    if (!cursor) return null;
+    try {
+      const normalized = String(cursor)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+      const padded = normalized + '==='.slice((normalized.length + 3) % 4);
+      const parsed = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+      if (!Array.isArray(parsed) || parsed.length < 3) return null;
+      return {
+        sortTs: parsed[0],
+        createdAt: parsed[1],
+        id: Number(parsed[2] || 0),
+      };
+    } catch (_) {
+      return null;
+    }
+  };
+
   app.get('/api/users/:userId/credit-history', requireAuth, async (req, res) => {
     try {
       const requestUserId = Number(req.params.userId);
@@ -49,13 +100,60 @@ const registerCreditIssuesListRoutes = (deps) => {
       if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
+      const allowAll = ['1', 'true', 'yes'].includes(String(req.query?.all || '').trim().toLowerCase());
+      const rawLimit = Number(req.query?.limit || 0);
+      const resolvedLimit = allowAll
+        ? null
+        : Math.min(
+          Math.max(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : CREDIT_HISTORY_DEFAULT_LIMIT, 1),
+          CREDIT_HISTORY_MAX_LIMIT
+        );
+      const cursor = allowAll ? null : decodeHistoryCursor(String(req.query?.cursor || '').trim());
+      const sortExpr = 'COALESCE(ch.transaction_ts, ch.created_at)';
+      const whereClauses = ['ch.user_id = ?'];
+      const params = [req.params.userId];
+      if (cursor && cursor.sortTs !== undefined && cursor.sortTs !== null && cursor.id) {
+        whereClauses.push(`(
+          ${sortExpr} < ?
+          OR (${sortExpr} = ? AND ch.created_at < ?)
+          OR (${sortExpr} = ? AND ch.created_at = ? AND ch.id < ?)
+        )`);
+        params.push(
+          cursor.sortTs,
+          cursor.sortTs,
+          cursor.createdAt,
+          cursor.sortTs,
+          cursor.createdAt,
+          cursor.id
+        );
+      }
+      if (resolvedLimit) {
+        params.push(resolvedLimit + 1);
+      }
+
       const rows = await dbAllAsync(
         `${creditHistorySelect}
-         WHERE ch.user_id = ?
-         ORDER BY ch.transaction_ts DESC, ch.created_at DESC, ch.id DESC`,
-        [req.params.userId]
+         WHERE ${whereClauses.join(' AND ')}
+         ORDER BY ${sortExpr} DESC, ch.created_at DESC, ch.id DESC
+         ${resolvedLimit ? 'LIMIT ?' : ''}`,
+        params
       );
-      return res.json(rows);
+
+      if (!resolvedLimit) {
+        return res.json({ rows, nextCursor: null, hasMore: false });
+      }
+
+      const hasMore = rows.length > resolvedLimit;
+      const slicedRows = hasMore ? rows.slice(0, resolvedLimit) : rows;
+      const lastRow = slicedRows[slicedRows.length - 1];
+      const nextCursor = hasMore && lastRow
+        ? encodeHistoryCursor([
+          lastRow.transaction_ts ?? lastRow.created_at,
+          lastRow.created_at,
+          lastRow.id,
+        ])
+        : null;
+      return res.json({ rows: slicedRows, nextCursor, hasMore });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -67,6 +165,11 @@ const registerCreditIssuesListRoutes = (deps) => {
       const isAdmin = req.authUser?.role === 'admin';
       if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
         return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const cachedPayload = getCachedBadgePayload(requestUserId);
+      if (cachedPayload) {
+        return res.json(cachedPayload);
       }
 
       const [historyRows, latest, userRow, creditProfile] = await Promise.all([
@@ -89,6 +192,7 @@ const registerCreditIssuesListRoutes = (deps) => {
         isActive: creditProfile?.is_active,
         graceDays: creditProfile?.grace_days,
       });
+      setCachedBadgePayload(requestUserId, badgePayload);
       return res.json(badgePayload);
     } catch (error) {
       return res.status(500).json({ error: error.message });

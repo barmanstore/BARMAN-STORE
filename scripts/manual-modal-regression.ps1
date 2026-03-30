@@ -1,13 +1,20 @@
 param(
   [string]$BaseUrl = 'http://127.0.0.1:3000',
   [string]$BackendUrl = 'http://127.0.0.1:5000',
-  [string]$AdminSessionJson = '{"id":1,"role":"admin","name":"Administrator","email":"nbsbsb@ymail.com","token":"eyJ1aWQiOjEsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NDM2MDM0MjM3MiwiZXhwIjoxNzc0OTY1MTQyMzczfQ.D6xC8RRQl2H_vtZbXZ4XEA-xs6mT2EYWgPXDoyOQ730"}',
+  [string]$AdminSessionJson = '',
   [int]$ChromePort = 9223,
   [string]$CreditUserId = '',
   [bool]$ManageLocalServices = $true
 )
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $AdminSessionJson) {
+  $AdminSessionJson = $env:ADMIN_SESSION_JSON
+}
+if (-not $AdminSessionJson) {
+  throw 'AdminSessionJson is required. Pass it as -AdminSessionJson or set ADMIN_SESSION_JSON env var.'
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $chromeExe = 'C:\Program Files\Google\Chrome\Application\chrome.exe'

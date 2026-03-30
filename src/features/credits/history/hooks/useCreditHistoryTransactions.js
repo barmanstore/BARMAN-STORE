@@ -1,5 +1,6 @@
 import { validateAmountInput } from '../../../../shared/utils/amountExpression';
 import { readFileAsDataUrl } from '../../../../shared/utils/readFileAsDataUrl';
+import { useSession } from '../../../../providers/SessionProvider';
 import {
   getCreditBalanceMeta,
   getCreditEntryDescription,
@@ -7,6 +8,7 @@ import {
   getCreditEntryTypeLabel,
   getCreditPreviousBalance,
 } from '../utils/creditLedgerPresentation';
+import { getCreditTransactionDefaultDescription } from './useCreditHistoryState';
 
 const useCreditHistoryTransactions = ({
   creditApi,
@@ -44,6 +46,7 @@ const useCreditHistoryTransactions = ({
   isMobile,
   selectedTransaction,
 }) => {
+  const { clearUser } = useSession();
   const resetAttachmentInput = () => {
     if (fileInputRef?.current) {
       fileInputRef.current.value = '';
@@ -132,19 +135,14 @@ const useCreditHistoryTransactions = ({
       return;
     }
 
-    if (!newTransaction.description.trim()) {
-      addTransactionLockRef.current = false;
-      setError('Please enter a description');
-      return;
-    }
-
     try {
       setAddingTransaction(true);
       const previousBalance = Number(balance || 0);
       const txSnapshot = {
         type: newTransaction.type,
         amount,
-        description: String(newTransaction.description || '').trim(),
+        description: String(newTransaction.description || '').trim()
+          || getCreditTransactionDefaultDescription(newTransaction.type),
         reference: String(newTransaction.reference || '').trim(),
         transactionDate: newTransaction.transactionDate || getTodayDateInputValue(),
       };
@@ -185,7 +183,7 @@ const useCreditHistoryTransactions = ({
       setEntryShareText(manualShare);
     } catch (err) {
       if (err?.status === 401) {
-        localStorage.removeItem('user');
+        clearUser();
         return;
       }
       setError(err.message || 'Failed to add ledger entry');

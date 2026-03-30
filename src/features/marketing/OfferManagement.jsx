@@ -378,6 +378,7 @@ function OfferManagement() {
                   className="form-input"
                   id="offer-name"
                   name="name"
+                  autoComplete="off"
                   value={form.name}
                   onChange={handleTextInputChange}
                   placeholder="Rangali Bihu Savings"

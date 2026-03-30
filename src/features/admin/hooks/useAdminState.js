@@ -22,7 +22,29 @@ const useAdminState = ({
     uniqueSessionsMonth: 0,
     uniqueSessionsYear: 0,
   });
+  const [creditAgingSummary, setCreditAgingSummary] = useState({
+    totalOutstanding: 0,
+    customersOverdue: 0,
+    customersNeedFollowUp: 0,
+    customersDefaulters: 0,
+    customersOverLimit: 0,
+  });
+  const [purchaseOpsSummary, setPurchaseOpsSummary] = useState({
+    todayDistributors: [],
+    predictedDeliveriesNext: [],
+    predictedPaymentsToday: [],
+  });
   const [products, setProducts] = useState([]);
+  const [productCategories, setProductCategories] = useState([]);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsTotal, setProductsTotal] = useState(0);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productSummary, setProductSummary] = useState({
+    activeCount: 0,
+    inactiveCount: 0,
+    lowStockProducts: [],
+  });
+  const [productInsights, setProductInsights] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [recentOrdersPreview, setRecentOrdersPreview] = useState([]);
@@ -171,8 +193,24 @@ const useAdminState = ({
     setStats,
     visitorStats,
     setVisitorStats,
+    creditAgingSummary,
+    setCreditAgingSummary,
+    purchaseOpsSummary,
+    setPurchaseOpsSummary,
     products,
     setProducts,
+    productCategories,
+    setProductCategories,
+    productsPage,
+    setProductsPage,
+    productsTotal,
+    setProductsTotal,
+    productsLoading,
+    setProductsLoading,
+    productSummary,
+    setProductSummary,
+    productInsights,
+    setProductInsights,
     orders,
     setOrders,
     users,

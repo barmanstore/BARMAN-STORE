@@ -1,3 +1,5 @@
+import { apiFetch } from '../../../shared/services/api';
+
 const useAdminOrderActions = ({
   ordersApi,
   user,
@@ -124,10 +126,9 @@ const useAdminOrderActions = ({
         buildReceiveResultMessage(result, 'Order received.'),
         'success'
       );
-      await fetch(`/api/notify-order/${modalOrder.id}`, {
+      await apiFetch(`/api/notify-order/${modalOrder.id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'received' })
+        body: { action: 'received' },
       }).catch(() => {});
     } catch (error) {
       showNotification(error.message || 'Failed to mark order received', 'error');

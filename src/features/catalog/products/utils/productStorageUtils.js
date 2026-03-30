@@ -1,5 +1,6 @@
 import { PRODUCTS_LIST_CACHE_PREFIX } from './productConstants';
 import { normalizeText, normalizeSortBy } from './productTextUtils';
+import { getSessionUser } from '../../../../shared/services/api/sessionAccess';
 
 const safeReadJson = (key, fallback) => {
   try {
@@ -68,8 +69,7 @@ const writeSessionStorageValue = (key, value) => {
 };
 
 const readLocalUser = () => {
-  if (typeof window === 'undefined') return null;
-  return safeReadJson('user', null);
+  return getSessionUser();
 };
 
 const createTelemetrySessionId = () => {
@@ -80,12 +80,7 @@ const createTelemetrySessionId = () => {
 };
 
 const hasActiveUserSession = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem('user') || '{}');
-    return Boolean(String(parsed?.token || '').trim());
-  } catch (_) {
-    return false;
-  }
+  return Boolean(String(getSessionUser()?.token || '').trim());
 };
 
 const buildProductsListSessionCacheKey = ({

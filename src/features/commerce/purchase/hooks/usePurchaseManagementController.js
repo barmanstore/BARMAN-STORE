@@ -496,6 +496,7 @@ const usePurchaseManagementController = ({
     getLedgerRowStatusClassForEntry,
     getDistributorName,
     getLedgerBillNumber,
+    lowStockProducts,
   } = usePurchaseManagementDerived({
     showOrderForm,
     orderFormData,
@@ -558,6 +559,7 @@ const usePurchaseManagementController = ({
       loading, error, success, activeSubTab, handlePurchaseSectionChange, operationsSummary, purchaseReturns,
       operationsLoading, operationsCardItems, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
       handleViewOrder, handleOpenPoPaymentById, openCreateOrderForm, handleOpenLedgerForm, handleReturnFormOpen,
+      lowStockProducts,
       formatCurrency, toNumber, filters, distributors, handleFilterChange, purchaseOrders, isPoEditable,
       canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
       handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,

@@ -121,8 +121,8 @@ function StockLedgerHistory({ user }) {
       <div className="filters-section">
         <div className="filters-row">
           <div className="filter-group">
-            <label>Product:</label>
-            <select name="product_id" value={filters.product_id} onChange={handleFilterChange}>
+            <label htmlFor="stock-ledger-filter-product">Product:</label>
+            <select id="stock-ledger-filter-product" name="product_id" value={filters.product_id} onChange={handleFilterChange}>
               <option value="">All Products</option>
               {products.map(p => (
                 <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
@@ -131,8 +131,8 @@ function StockLedgerHistory({ user }) {
           </div>
 
           <div className="filter-group">
-            <label>Transaction Type:</label>
-            <select name="transaction_type" value={filters.transaction_type} onChange={handleFilterChange}>
+            <label htmlFor="stock-ledger-filter-type">Transaction Type:</label>
+            <select id="stock-ledger-filter-type" name="transaction_type" value={filters.transaction_type} onChange={handleFilterChange}>
               {transactionTypes.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
@@ -140,8 +140,9 @@ function StockLedgerHistory({ user }) {
           </div>
 
           <div className="filter-group">
-            <label>From:</label>
+            <label htmlFor="stock-ledger-filter-from">From:</label>
             <input
+              id="stock-ledger-filter-from"
               type="date"
               name="start_date"
               value={filters.start_date}
@@ -150,8 +151,9 @@ function StockLedgerHistory({ user }) {
           </div>
 
           <div className="filter-group">
-            <label>To:</label>
+            <label htmlFor="stock-ledger-filter-to">To:</label>
             <input
+              id="stock-ledger-filter-to"
               type="date"
               name="end_date"
               value={filters.end_date}

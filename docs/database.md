@@ -19,6 +19,7 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [backend.md](backend.md), [v
 - `credit_history` stores a required `due_date` per entry; historical rows are backfilled from `transaction_date` or `transaction_ts`.
 - `customer_credit_profiles` includes `credit_terms_days` to compute default due dates for manual credits.
 - `customer_payment_score_snapshots` tracks `unapplied_credit` so overpayments are stored without affecting scoring.
+- `customer_credit_aging_snapshots` stores precomputed aging-report summaries for admin reads.
 
 ## Query Compatibility
 

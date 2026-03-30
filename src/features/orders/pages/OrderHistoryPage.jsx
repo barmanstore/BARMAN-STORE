@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Eye, RotateCcw, Download } from 'lucide-react';
+import { Search, Filter, Eye, RotateCcw, Download, Package } from 'lucide-react';
 import { useCart } from '../../../providers/CartProvider';
 import { useSession } from '../../../providers/SessionProvider';
 import { ordersApi } from '../api/index.js';

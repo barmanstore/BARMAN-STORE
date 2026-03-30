@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSession } from '../../providers/SessionProvider';
 import { authApi, usersApi, resolveMediaSourceForDisplay } from '../../shared/services/api';
 import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
 import { validateEmail } from '../../shared/utils/validation';
+import formatApiError from '../../shared/utils/formatApiError';
 import ProfileView from './components/ProfileView';
 import { getEmailRequestStatusClassName, getEmailRequestStatusMessage, getPhoneChangeStatusClassName, getPhoneChangeStatusMessage } from './utils/profileVerificationUtils';
 import useProfileVerificationActions from './hooks/useProfileVerificationActions';
@@ -10,7 +12,7 @@ import './Profile.css';
 
 function Profile() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const { user, setUser } = useSession();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -59,7 +61,7 @@ function Profile() {
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [user]);
 
   const applyVerificationRequestStatus = (payload = {}) => {
     setVerificationRequestStatus({
@@ -92,21 +94,11 @@ function Profile() {
 
   const loadProfile = async () => {
     try {
-      const savedUser = localStorage.getItem('user');
-      if (!savedUser) {
+      if (!user?.id) {
         navigate('/login');
         return;
       }
-
-      let userData = null;
-      try {
-        userData = JSON.parse(savedUser);
-      } catch (_) {
-        localStorage.removeItem('user');
-        navigate('/login');
-        return;
-      }
-      setUser(userData);
+      const userData = user;
       
       // Load full profile from server
       const [profile, requestStatusPayload, phoneChangeStatusPayload, resetModePayload, emailStatusPayload] = await Promise.all([
@@ -148,7 +140,7 @@ function Profile() {
       validateProfile(profile, addressData);
       
     } catch (err) {
-      setError(err.message);
+      setError(formatApiError(err));
     } finally {
       setLoading(false);
     }
@@ -232,8 +224,6 @@ function Profile() {
         ...updatedProfile,
         token: user?.token
       };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event('user-updated'));
       setUser(updatedUser);
       setFormData((prev) => ({
         ...prev,
@@ -263,7 +253,7 @@ function Profile() {
       );
       
     } catch (err) {
-      setError(err.message);
+      setError(formatApiError(err));
     } finally {
       setSaving(false);
     }
@@ -354,11 +344,9 @@ function Profile() {
       setFormData((prev) => ({ ...prev, profile_image: nextImage }));
       const updatedUser = { ...user, profile_image: nextImage };
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event('user-updated'));
       setSuccess('Profile image updated.');
     } catch (err) {
-      setError(err.message || 'Failed to upload profile image');
+      setError(formatApiError(err));
     } finally {
       setImageUploading(false);
       e.target.value = '';
@@ -410,11 +398,9 @@ function Profile() {
       setFormData((prev) => ({ ...prev, profile_image: '' }));
       const updatedUser = { ...user, profile_image: null };
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event('user-updated'));
       setSuccess('Profile image removed.');
     } catch (err) {
-      setError(err.message || 'Failed to remove profile image');
+      setError(formatApiError(err));
     } finally {
       setImageUploading(false);
     }

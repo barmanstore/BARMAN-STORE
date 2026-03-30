@@ -205,3 +205,18 @@ Use one dated section per completed change set.
 - `node --check` also passed for `server/utils/distributorLedgerUtils.js`, `server/features/credits/routes/creditIssues/creditIssuesAdmin.js`, `server/features/auth/routes/userCrud/userProfileUpdates.js`, `server/features/sales/routes/orderStatusRoutes.js`, `src/shared/services/api/distributorLedger.js`, and `src/shared/services/api/core.js`.
 - Final same-day route audit after completing the remaining route/doc alignment work matched 174 documented routes to 174 mounted routes, with 0 undocumented routes, 0 missing documented routes, and 0 duplicate `METHOD + path` registrations.
 - `scripts/manual-modal-regression.ps1` passed locally on 2026-03-24 against `http://127.0.0.1:3000` and `http://127.0.0.1:5000`, including automated startup and teardown of the required local services.
+
+## 2026-03-29
+
+### Changed
+
+- `GET /api/users/:userId/credit-history` now supports cursor pagination with `limit`/`cursor`, plus `all=true` for full history reads, so initial ledger views load recent entries first.
+- `/api/credit/aging` now reads from precomputed `customer_credit_aging_snapshots` instead of rebuilding payment intelligence on every request.
+
+### Added
+
+- `customer_credit_aging_snapshots` stores precomputed credit aging summaries for admin reads.
+
+### Ops Note
+
+- After applying `20260329120000_credit_aging_snapshots.sql`, run the payment-intelligence rebuild to populate snapshots. Aging results remain incomplete until the rebuild completes.

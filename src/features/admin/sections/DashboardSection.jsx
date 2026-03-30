@@ -9,6 +9,11 @@ function DashboardSection({
   setDashboardDensity,
   isMobile,
   stats,
+  creditAgingSummary,
+  purchaseOpsSummary,
+  dailySalesSummary,
+  topSellingProducts,
+  slowMovingProducts,
   pendingOrdersCount,
   activeProductsCount,
   inactiveProductsCount,
@@ -20,6 +25,20 @@ function DashboardSection({
   recentCustomers,
   onTabChange,
 }) {
+  const todayDistributors = Array.isArray(purchaseOpsSummary?.todayDistributors)
+    ? purchaseOpsSummary.todayDistributors
+    : [];
+  const predictedDeliveries = Array.isArray(purchaseOpsSummary?.predictedDeliveriesNext)
+    ? purchaseOpsSummary.predictedDeliveriesNext
+    : [];
+  const vendorOutstanding = Number(purchaseOpsSummary?.cards?.outstanding_amount || 0);
+  const nextDeliveryDate = predictedDeliveries[0]?.next_delivery_date || '';
+  const totalOutstanding = Number(creditAgingSummary?.totalOutstanding || 0);
+  const customersNeedFollowUp = Number(creditAgingSummary?.customersNeedFollowUp || 0);
+  const customersOverdue = Number(creditAgingSummary?.customersOverdue || 0);
+  const cashCollected = Number(dailySalesSummary?.cashCollected || 0);
+  const creditIssued = Number(dailySalesSummary?.creditIssued || 0);
+
   return (
     <div className={`dashboard dashboard-${dashboardDensity}`}>
       <div className="dashboard-header">
@@ -126,6 +145,109 @@ function DashboardSection({
       </div>
 
       <div className="dashboard-panels">
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-head">
+            <h3>Today Focus</h3>
+          </div>
+          <div className="dashboard-list">
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Customers needing follow‑up</span>
+              <strong className="dashboard-row-value">{customersNeedFollowUp}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Customers overdue</span>
+              <strong className="dashboard-row-value">{customersOverdue}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Outstanding credit</span>
+              <strong className="dashboard-row-value">{formatCurrency(totalOutstanding)}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Low stock items</span>
+              <strong className="dashboard-row-value">{lowStockProducts.length}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Pending orders</span>
+              <strong className="dashboard-row-value">{pendingOrdersCount}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Distributors today</span>
+              <strong className="dashboard-row-value">{todayDistributors.length}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Next delivery</span>
+              <strong className="dashboard-row-value">
+                {nextDeliveryDate ? new Date(nextDeliveryDate).toLocaleDateString() : '-'}
+              </strong>
+            </div>
+          </div>
+          <div className="dashboard-actions">
+            <button className="admin-btn" onClick={() => onTabChange('credit-aging')}>View Credit Aging</button>
+            <button className="admin-btn" onClick={() => onTabChange('orders')}>View Orders</button>
+            <button className="admin-btn" onClick={() => onTabChange('products')}>View Low Stock</button>
+            <button className="admin-btn" onClick={() => onTabChange('purchases')}>View Purchases</button>
+          </div>
+        </div>
+
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-head">
+            <h3>Store Analytics (Today)</h3>
+          </div>
+          <div className="dashboard-list">
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Cash collected</span>
+              <strong className="dashboard-row-value">{formatCurrency(cashCollected)}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Udhar given</span>
+              <strong className="dashboard-row-value">{formatCurrency(creditIssued)}</strong>
+            </div>
+            <div className="dashboard-list-row">
+              <span className="dashboard-row-primary">Vendor dues</span>
+              <strong className="dashboard-row-value">{formatCurrency(vendorOutstanding)}</strong>
+            </div>
+          </div>
+          <div className="dashboard-actions">
+            <button className="admin-btn" onClick={() => onTabChange('daily-sales')}>View Daily Sales</button>
+            <button className="admin-btn" onClick={() => onTabChange('purchases')}>View Vendor Dues</button>
+          </div>
+          <div className="dashboard-panel-sublist">
+            <div>
+              <p className="dashboard-subhead">Top items</p>
+              {Array.isArray(topSellingProducts) && topSellingProducts.length ? (
+                topSellingProducts.map((item) => (
+                  <div key={`top-${item.product_id}`} className="dashboard-list-row">
+                    <span className="dashboard-row-primary">{item.product_name}</span>
+                    <span className="dashboard-row-value">{Math.max(0, Number(item.purchase_count || 0))} buys</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty">No top items yet.</p>
+              )}
+            </div>
+            <div>
+              <p className="dashboard-subhead">Slow moving</p>
+              {Array.isArray(slowMovingProducts) && slowMovingProducts.length ? (
+                slowMovingProducts.map((item) => (
+                  <div key={`slow-${item.product_id}`} className="dashboard-list-row">
+                    <span className="dashboard-row-primary">{item.product_name}</span>
+                    <span className="dashboard-row-value">
+                      {Number(item.avg_days_between || 0) > 0 ? `${Number(item.avg_days_between).toFixed(1)}d` : '-'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty">No slow items yet.</p>
+              )}
+            </div>
+          </div>
+          <div className="dashboard-actions">
+            <button className="admin-btn secondary" onClick={() => onTabChange('product-insights')}>
+              View Product Insights
+            </button>
+          </div>
+        </div>
+
         <div className="dashboard-panel">
           <div className="dashboard-panel-head">
             <h3>Quick Actions</h3>

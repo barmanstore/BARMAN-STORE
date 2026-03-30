@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import formatApiError from '../../../../shared/utils/formatApiError';
 
 const usePurchaseReceiveHandlers = ({
   receiveData,
@@ -71,7 +72,7 @@ const usePurchaseReceiveHandlers = ({
       setReceiveData({ invoice_number: '', items: [] });
       fetchOrders();
     } catch (err) {
-      setError(err.message || 'Failed to receive inventory');
+      setError(formatApiError(err));
     } finally {
       receiveSubmitLockRef.current = false;
       setReceiveSubmitting(false);

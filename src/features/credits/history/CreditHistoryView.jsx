@@ -51,6 +51,10 @@ const CreditHistoryView = ({
   hasFiltersApplied,
   issueFlagByEntryId,
   groupedTransactions,
+  historyHasMore,
+  historyLoadingMore,
+  historyLoadingFull,
+  loadMoreHistory,
   expandedTransactionId,
   setExpandedTransactionId,
   getTypeIcon,
@@ -165,6 +169,10 @@ const CreditHistoryView = ({
         isMobile={isMobile}
         issueFlagByEntryId={issueFlagByEntryId}
         groupedTransactions={groupedTransactions}
+        historyHasMore={historyHasMore}
+        historyLoadingMore={historyLoadingMore}
+        historyLoadingFull={historyLoadingFull}
+        loadMoreHistory={loadMoreHistory}
         expandedTransactionId={expandedTransactionId}
         setExpandedTransactionId={setExpandedTransactionId}
         getTypeIcon={getTypeIcon}
@@ -250,7 +258,9 @@ const CreditHistoryView = ({
         handleFileUpload={handleFileUpload}
         uploading={uploading}
         addModalTitle={addModalTitle}
-        addModalActionLabel={addModalActionLabel}
+        customer={customer}
+        balance={balance}
+        balanceSummary={balanceSummary}
       />
 
       <CreditInvoiceModal

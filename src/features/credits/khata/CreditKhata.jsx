@@ -6,6 +6,7 @@ import { getTodayDate } from '../../../shared/utils/dateTime';
 import { getLedgerEntryTimestamp, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import WindowModal from '../../../shared/components/window/WindowModal';
+import { useSession } from '../../../providers/SessionProvider';
 import useCreditKhataLedgerForm from './hooks/useCreditKhataLedgerForm';
 import { getCreditEntryTypeLabel } from '../history/utils/creditLedgerPresentation';
 import './CreditKhata.css';
@@ -13,6 +14,9 @@ import './CreditKhata.css';
 const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']);
 const getRecordDateLabel = (entry) => new Date(getRecordDate(entry)).toLocaleDateString();
 const isLedgerEntryEdited = (entry) => Number(entry?.edited || 0) === 1 || !!entry?.edited_at;
+const normalizeHistoryRows = (payload) => (
+  Array.isArray(payload) ? payload : (Array.isArray(payload?.rows) ? payload.rows : [])
+);
 
 const getDefaultFormData = (selectedUserId = '', type = 'payment') => ({
   user_id: selectedUserId ? String(selectedUserId) : '',
@@ -28,6 +32,7 @@ const getDefaultFormData = (selectedUserId = '', type = 'payment') => ({
 
 
 function CreditKhata({ user }) {
+  const { clearUser } = useSession();
   const [loading, setLoading] = useState(true);
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [error, setError] = useState('');
@@ -80,8 +85,8 @@ function CreditKhata({ user }) {
 
         const responses = await Promise.all(
           sourceUsers.map(async (customer) => {
-            const rows = await creditApi.getHistory(customer.id);
-            return (rows || []).map((entry) => ({
+            const payload = await creditApi.getHistory(customer.id, { all: 'true' });
+            return normalizeHistoryRows(payload).map((entry) => ({
               ...entry,
               user_id: entry.user_id ?? customer.id,
               customer_name: entry.customer_name || customer.name
@@ -115,7 +120,7 @@ function CreditKhata({ user }) {
       }));
     } catch (err) {
       if (err?.status === 401) {
-        localStorage.removeItem('user');
+        clearUser();
         window.location.href = '/login';
         return;
       }
@@ -134,7 +139,7 @@ function CreditKhata({ user }) {
         await fetchUsers();
       } catch (err) {
         if (err?.status === 401) {
-          localStorage.removeItem('user');
+          clearUser();
           window.location.href = '/login';
           return;
         }
@@ -184,6 +189,7 @@ function CreditKhata({ user }) {
     filters,
     users,
     ledgerFileInputRef,
+    clearUser,
   });
 
   const ledgerEntryLabel = ledgerFormData.type === 'payment' ? 'Payment' : 'Manual Sale';

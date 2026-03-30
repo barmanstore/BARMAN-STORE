@@ -201,6 +201,9 @@ const ProductCard = memo(function ProductCard({
                 type="button"
                 className="add-to-cart-btn"
                 onClick={() => onAdd(family, selectedVariation)}
+                aria-label={selectedStock === 0
+                  ? `${stockActionLabel} ${family.name}`
+                  : `Add ${family.name} to cart`}
               >
                 <Plus size={14} />
                 {selectedStock === 0 ? stockActionLabel : 'Add'}

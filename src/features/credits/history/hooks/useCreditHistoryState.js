@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
 
+export const getCreditTransactionDefaultDescription = (type = 'payment') =>
+  (type === 'given' ? 'Manual sale' : 'Payment received');
+
 const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => ({
   type: type === 'given' ? 'given' : 'payment',
   amount: '',
-  description: '',
+  description: getCreditTransactionDefaultDescription(type),
   reference: '',
   transactionDate: getTodayDateInputValue(),
   imageBase64: '',
@@ -12,18 +15,15 @@ const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => 
 });
 
 const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputValue }) => {
-  const authUser = (() => {
-    if (user) return user;
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch (_) {
-      return null;
-    }
-  })();
+  const authUser = user || null;
   const isAdminView = authUser?.role === 'admin';
   const effectiveUserId = isAdminView ? userId : (authUser?.id || userId);
 
   const [creditHistory, setCreditHistory] = useState([]);
+  const [historyCursor, setHistoryCursor] = useState('');
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false);
+  const [historyLoadingFull, setHistoryLoadingFull] = useState(false);
   const [balance, setBalance] = useState(0);
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +79,14 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
     effectiveUserId,
     creditHistory,
     setCreditHistory,
+    historyCursor,
+    setHistoryCursor,
+    historyHasMore,
+    setHistoryHasMore,
+    historyLoadingMore,
+    setHistoryLoadingMore,
+    historyLoadingFull,
+    setHistoryLoadingFull,
     balance,
     setBalance,
     customer,

@@ -20,6 +20,7 @@ const PurchaseManagementPageLayout = ({
   operationsCardItems,
   rollupParams,
   setRollupParams,
+  lowStockProducts,
   openCreateOrderFormForDistributor,
   handleViewOrder,
   handleOpenPoPaymentById,
@@ -230,6 +231,7 @@ const PurchaseManagementPageLayout = ({
           operationsSummary={operationsSummary}
           rollupParams={rollupParams}
           setRollupParams={setRollupParams}
+          lowStockProducts={lowStockProducts}
           onDraftDistributor={openCreateOrderFormForDistributor}
           onOpenOrder={handleViewOrder}
           onOpenPayable={handleOpenPoPaymentById}

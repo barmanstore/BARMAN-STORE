@@ -18,6 +18,10 @@ function CreditTransactionsSection({
   isMobile,
   issueFlagByEntryId,
   groupedTransactions,
+  historyHasMore,
+  historyLoadingMore,
+  historyLoadingFull,
+  loadMoreHistory,
   expandedTransactionId,
   setExpandedTransactionId,
   formatTransactionDate,
@@ -290,6 +294,20 @@ function CreditTransactionsSection({
             ))}
           </div>
         </>
+      )}
+
+      {historyHasMore && (
+        <div className="credit-history-pagination">
+          <p>Showing recent entries. Load older entries for a full ledger view.</p>
+          <button
+            type="button"
+            className="report-btn secondary-action"
+            onClick={loadMoreHistory}
+            disabled={historyLoadingMore || historyLoadingFull}
+          >
+            {historyLoadingMore ? 'Loading...' : 'Load older entries'}
+          </button>
+        </div>
       )}
 
       {!isAdminView && (

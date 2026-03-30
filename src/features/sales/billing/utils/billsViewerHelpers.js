@@ -197,7 +197,7 @@ export const buildBillInvoiceHtml = (bill) => {
   `;
 };
 
-export const printBillInvoice = (bill) => {
+export const printBillInvoice = (bill, { onError } = {}) => {
   const html = buildBillInvoiceHtml(bill);
   printHtmlDocument({
     title: `Bill ${bill.bill_number || ''}`,
@@ -217,7 +217,11 @@ export const printBillInvoice = (bill) => {
       .invoice-summary div { display: flex; justify-content: space-between; }
       .invoice-footer { margin-top: 16px; font-size: 12px; text-align: center; color: #444; }
     `,
-    onError: (message) => alert(message)
+    onError: (message) => {
+      if (typeof onError === 'function') {
+        onError(message);
+      }
+    }
   });
 };
 

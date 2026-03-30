@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Menu,
@@ -57,6 +57,7 @@ const Header = memo(function Header({
 }) {
   const isMobile = useIsMobile();
   const isSimpleInbox = isMobile;
+  const [ordersMenuOpen, setOrdersMenuOpen] = useState(false);
 
   return (
     <header className="header" ref={headerRef}>
@@ -83,11 +84,39 @@ const Header = memo(function Header({
           <Link to="/products" onClick={onCloseMobileMenu}>
             <Store size={20} /> Products
           </Link>
-          <div className="orders-menu" role="group" aria-label="Orders">
-            <button type="button" className="orders-trigger" aria-haspopup="menu" aria-label="Orders menu">
+          <div
+            className="orders-menu"
+            role="group"
+            aria-label="Orders"
+            onMouseLeave={() => setOrdersMenuOpen(false)}
+          >
+            <button
+              type="button"
+              className="orders-trigger"
+              aria-haspopup="menu"
+              aria-expanded={ordersMenuOpen}
+              aria-controls="orders-submenu"
+              aria-label="Orders menu"
+              onClick={() => setOrdersMenuOpen((prev) => !prev)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setOrdersMenuOpen(true);
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setOrdersMenuOpen(false);
+                }
+              }}
+            >
               <ClipboardList size={20} /> Orders <ChevronDown size={16} />
             </button>
-            <div className="orders-submenu" role="menu" aria-label="Orders submenu">
+            <div
+              id="orders-submenu"
+              className={`orders-submenu ${ordersMenuOpen ? 'open' : ''}`}
+              role="menu"
+              aria-label="Orders submenu"
+            >
               <Link to="/order-history" className="orders-submenu-item" role="menuitem" onClick={onCloseMobileMenu}>
                 <ClipboardList size={18} /> Order History
               </Link>
@@ -152,7 +181,10 @@ const Header = memo(function Header({
                     <strong>Notification Inbox</strong>
                   </div>
                   {notificationFeedback?.text ? (
-                    <p className={`notification-compose-feedback ${notificationFeedback.type === 'error' ? 'error' : 'success'}`}>
+                    <p
+                      className={`notification-compose-feedback ${notificationFeedback.type === 'error' ? 'error' : 'success'}`}
+                      role={notificationFeedback.type === 'error' ? 'alert' : 'status'}
+                    >
                       {notificationFeedback.text}
                     </p>
                   ) : null}
@@ -237,7 +269,10 @@ const Header = memo(function Header({
                         {messageSending ? 'Sending...' : 'Send Message'}
                       </button>
                       {messageFeedback.text ? (
-                        <p className={`notification-compose-feedback ${messageFeedback.type === 'error' ? 'error' : 'success'}`}>
+                        <p
+                          className={`notification-compose-feedback ${messageFeedback.type === 'error' ? 'error' : 'success'}`}
+                          role={messageFeedback.type === 'error' ? 'alert' : 'status'}
+                        >
                           {messageFeedback.text}
                         </p>
                       ) : null}
@@ -246,76 +281,88 @@ const Header = memo(function Header({
                   {notifications.length === 0 ? (
                     <p className="notification-inbox-empty">No notifications yet.</p>
                   ) : (
-                    <div className={`notification-inbox-list ${isSimpleInbox ? 'simple' : ''}`}>
+                    <ul className={`notification-inbox-list ${isSimpleInbox ? 'simple' : ''}`}>
                       {notifications.slice(0, isSimpleInbox ? 6 : notifications.length).map((notice) => {
                         const href = onResolveNotificationHref(notice);
                         const isExpanded = Number(expandedNotificationId || 0) === Number(notice?.id || 0);
                         return (
-                          <article
-                            key={notice.id}
-                            className={`notification-inbox-item ${isSimpleInbox ? 'simple' : ''} ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => { void onToggleNotificationExpanded(notice); }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                void onToggleNotificationExpanded(notice);
-                              }
-                            }}
-                          >
-                            <div className="notification-item-head">
-                              <strong>{notice.title}</strong>
-                              <div className="notification-item-head-right">
-                                <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
-                                {!isSimpleInbox ? (
-                                  <ChevronDown size={14} className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`} />
-                                ) : null}
-                              </div>
-                            </div>
-                            <p className={`notification-item-message ${isSimpleInbox ? 'collapsed' : (isExpanded ? 'expanded' : 'collapsed')}`}>{notice.message}</p>
+                          <li key={notice.id}>
                             {isSimpleInbox ? (
                               <Link
                                 to={href}
-                                className="notification-item-link"
-                                onClick={(e) => {
-                                  e.stopPropagation();
+                                className={`notification-inbox-item ${isSimpleInbox ? 'simple' : ''} ${notice?.is_read ? 'is-read' : 'is-unread'}`}
+                                onClick={() => {
                                   onToggleNotificationPanel();
                                   if (!notice?.is_read) onMarkNotificationRead(notice.id);
                                 }}
                               >
-                                Open
+                                <div className="notification-item-head">
+                                  <strong>{notice.title}</strong>
+                                  <div className="notification-item-head-right">
+                                    <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
+                                  </div>
+                                </div>
+                                <p className="notification-item-message collapsed">{notice.message}</p>
+                                <span className="notification-item-link">Open</span>
                               </Link>
                             ) : (
-                              <div className="notification-item-actions">
-                                <Link
-                                  to={href}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onToggleNotificationPanel();
-                                    if (!notice?.is_read) onMarkNotificationRead(notice.id);
-                                  }}
+                              <div
+                                className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
+                              >
+                                <button
+                                  type="button"
+                                  className="notification-item-trigger"
+                                  aria-expanded={isExpanded}
+                                  aria-controls={`notification-message-${notice.id}`}
+                                  onClick={() => { void onToggleNotificationExpanded(notice); }}
                                 >
-                                  Open
-                                </Link>
+                                  <div className="notification-item-head">
+                                    <strong>{notice.title}</strong>
+                                    <div className="notification-item-head-right">
+                                      <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
+                                      <ChevronDown size={14} className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`} />
+                                    </div>
+                                  </div>
+                                </button>
+                                <p
+                                  id={`notification-message-${notice.id}`}
+                                  className={`notification-item-message ${isExpanded ? 'expanded' : 'collapsed'}`}
+                                >
+                                  {notice.message}
+                                </p>
+                                <div className="notification-item-actions">
+                                  <Link
+                                    to={href}
+                                    onClick={() => {
+                                      onToggleNotificationPanel();
+                                      if (!notice?.is_read) onMarkNotificationRead(notice.id);
+                                    }}
+                                  >
+                                    Open
+                                  </Link>
+                                </div>
                               </div>
                             )}
-                          </article>
+                          </li>
                         );
                       })}
                       {isSimpleInbox ? null : (notificationsHasMore ? (
-                        <button
-                          type="button"
-                          className="notification-load-more"
-                          onClick={() => { void onLoadOlderNotifications(); }}
-                        >
-                          Load older
-                        </button>
+                        <li>
+                          <button
+                            type="button"
+                            className="notification-load-more"
+                            onClick={() => { void onLoadOlderNotifications(); }}
+                          >
+                            Load older
+                          </button>
+                        </li>
                       ) : null)}
                       {isSimpleInbox && notifications.length > 6 ? (
-                        <p className="notification-simple-hint">Showing latest 6 notifications.</p>
+                        <li>
+                          <p className="notification-simple-hint">Showing latest 6 notifications.</p>
+                        </li>
                       ) : null}
-                    </div>
+                    </ul>
                   )}
                 </div>
               ) : null}

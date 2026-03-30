@@ -353,6 +353,29 @@
   line-height: 1.8;
 }
 
+.order-balance {
+  margin: 0 0 2rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #f0f9ff;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  text-align: center;
+}
+
+.order-balance-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: #0c4a6e;
+  font-weight: 600;
+}
+
+.order-balance-value {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0c4a6e;
+}
+
 .success-details {
   background: var(--color-card);
   border: 2px solid var(--color-border);

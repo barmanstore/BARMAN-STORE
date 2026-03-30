@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { statsApi, productsApi, ordersApi, usersApi, adminApi, billingApi, resolveMediaUrl } from '../api/index.js';
+import {
+  statsApi,
+  productsApi,
+  categoriesApi,
+  ordersApi,
+  usersApi,
+  adminApi,
+  billingApi,
+  creditApi,
+  purchaseOrdersApi,
+  insightsApi,
+  resolveMediaUrl,
+} from '../api/index.js';
 import { getProductImageSrc, getProductFallbackImage } from '../../../shared/utils/productImage';
 import { truncateUserName } from '../../../shared/utils/formatters';
 import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
@@ -33,11 +45,27 @@ const useAdminPageController = ({ user }) => {
     activeTab,
     setActiveTab,
     stats,
+    creditAgingSummary,
+    purchaseOpsSummary,
     setStats,
     visitorStats,
     setVisitorStats,
+    setCreditAgingSummary,
+    setPurchaseOpsSummary,
     products,
     setProducts,
+    productCategories: rawProductCategories,
+    setProductCategories,
+    productsPage,
+    setProductsPage,
+    productsTotal,
+    setProductsTotal,
+    productsLoading,
+    setProductsLoading,
+    productSummary,
+    setProductSummary,
+    productInsights,
+    setProductInsights,
     orders,
     setOrders,
     users,
@@ -187,18 +215,30 @@ const useAdminPageController = ({ user }) => {
   const {
     refreshAdminData,
     ensureTabData,
+    loadProductsPage,
+    loadProductCategories,
     loadOrdersPage,
     loadUsersPage,
     loadDailySalesBills,
   } = useAdminDataLoaders({
     statsApi,
     productsApi,
+    categoriesApi,
     ordersApi,
     usersApi,
     adminApi,
     billingApi,
+    creditApi,
+    purchaseOrdersApi,
+    insightsApi,
     setStats,
     setProducts,
+    setProductCategories,
+    setProductsPage,
+    setProductsTotal,
+    setProductsLoading,
+    setProductSummary,
+    setProductInsights,
     setOrders,
     setUsers,
     setRecentOrdersPreview,
@@ -211,6 +251,8 @@ const useAdminPageController = ({ user }) => {
     setUsersTotal,
     setUsersLoading,
     setVisitorStats,
+    setCreditAgingSummary,
+    setPurchaseOpsSummary,
     setBills,
     setDailySalesLoading,
     setDailySalesError,
@@ -228,6 +270,41 @@ const useAdminPageController = ({ user }) => {
     loadOrdersPage,
     ordersPage,
     ordersSearchQuery,
+  ]);
+
+  useEffect(() => {
+    setProductsPage(1);
+  }, [
+    productTableSearch,
+    productTableCategoryFilter,
+    productTableStatusFilter,
+    productTableLowStockOnly,
+    setProductsPage,
+  ]);
+
+  useEffect(() => {
+    if (activeTab !== 'products') return undefined;
+    if (typeof window === 'undefined') return undefined;
+    const timer = window.setTimeout(() => {
+      void loadProductCategories();
+      void loadProductsPage({
+        page: productsPage,
+        query: productTableSearch,
+        category: productTableCategoryFilter,
+        status: productTableStatusFilter,
+        lowStockOnly: productTableLowStockOnly,
+      });
+    }, productTableSearch ? 180 : 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    activeTab,
+    loadProductCategories,
+    loadProductsPage,
+    productTableCategoryFilter,
+    productTableLowStockOnly,
+    productTableSearch,
+    productTableStatusFilter,
+    productsPage,
   ]);
   const {
     desktopCurrentSection,
@@ -327,13 +404,18 @@ const useAdminPageController = ({ user }) => {
   } = useAdminProductHandlers({
     productsApi,
     statsApi,
-    setProducts,
     setStats,
     showNotification,
     setEditingProduct,
     setShowProductForm,
     setProductEditLoadingId,
     editingProduct,
+    loadProductsPage,
+    productsPage,
+    productTableSearch,
+    productTableCategoryFilter,
+    productTableStatusFilter,
+    productTableLowStockOnly,
   });
   const {
     resetQuickAdd,
@@ -391,8 +473,13 @@ const useAdminPageController = ({ user }) => {
     selectedDateKey,
     selectedSalesBills,
     dailySalesSummary,
+    topSellingProducts,
+    slowMovingProducts,
   } = useAdminComputedData({
     products,
+    productInsights,
+    productCategories: rawProductCategories,
+    productSummary,
     users,
     orders,
     recentOrdersPreview,
@@ -534,6 +621,10 @@ const useAdminPageController = ({ user }) => {
     inactiveProductsCount,
     lowStockProducts,
     products,
+    productsPage,
+    setProductsPage,
+    productsTotal,
+    productsLoading,
     visitorStats,
     userDirectorySummary,
     recentOrders,
@@ -544,6 +635,8 @@ const useAdminPageController = ({ user }) => {
     dailySalesLoading,
     dailySalesError,
     dailySalesSummary,
+    topSellingProducts,
+    slowMovingProducts,
     selectedSalesBills,
     handleAddProduct,
     setShowExportDialog,

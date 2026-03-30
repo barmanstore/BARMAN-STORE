@@ -5,12 +5,14 @@ import { ordersApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../shared/utils/printService';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
+import { useSession } from '../../../providers/SessionProvider';
 import { formatDate, getStatusIcon, getStatusStep, extractQtyLabelFromName, getOrderItemDisplay } from '../components/orderTrackingRenderers.jsx';
 import './OrderTrackingPage.css';
 
 function OrderTrackingPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { user } = useSession();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,14 +22,13 @@ function OrderTrackingPage() {
     if (orderId) {
       loadOrder();
     }
-  }, [orderId]);
+  }, [orderId, user]);
 
   const loadOrder = async () => {
     setLoading(true);
     setError(null);
     try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      if (!storedUser?.id) {
+      if (!user?.id) {
         navigate('/login');
         return;
       }

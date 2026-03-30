@@ -42,8 +42,8 @@ const PurchaseReturnsSection = ({
 
     <div className="filters-bar compact">
       <div className="filter-group">
-        <label>Distributor:</label>
-        <select name="distributor_id" value={filters.distributor_id} onChange={onFilterChange}>
+        <label htmlFor="purchase-returns-filter-distributor">Distributor:</label>
+        <select id="purchase-returns-filter-distributor" name="distributor_id" value={filters.distributor_id} onChange={onFilterChange}>
           <option value="">All Distributors</option>
           {distributors.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>

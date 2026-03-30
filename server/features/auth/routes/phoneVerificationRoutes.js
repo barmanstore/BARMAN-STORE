@@ -1,3 +1,15 @@
+const crypto = require('crypto');
+
+const timingSafeEqualString = (left, right) => {
+  const leftValue = String(left || '');
+  const rightValue = String(right || '');
+  if (!leftValue || !rightValue) return false;
+  const leftBuffer = Buffer.from(leftValue);
+  const rightBuffer = Buffer.from(rightValue);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
 const registerPhoneVerificationRoutes = (deps) => {
   const {
     app,
@@ -128,7 +140,7 @@ app.post('/api/auth/phone/verification/confirm', authIpLimiter, async (req, res)
     }
 
     const providedHash = hashOpaqueToken(code);
-    if (providedHash !== String(tokenRow.token_hash || '')) {
+    if (!timingSafeEqualString(providedHash, tokenRow.token_hash)) {
       const nextAttempts = Number(tokenRow.attempts || 0) + 1;
       const exhausted = nextAttempts >= Number(tokenRow.max_attempts || PHONE_VERIFY_MAX_ATTEMPTS);
       await dbRunAsync(

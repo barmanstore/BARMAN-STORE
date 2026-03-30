@@ -28,6 +28,7 @@ const useCreditKhataLedgerForm = ({
   filters,
   users,
   ledgerFileInputRef,
+  clearUser,
 }) => {
   const resetLedgerAttachmentInput = () => {
     if (ledgerFileInputRef?.current) {
@@ -168,7 +169,9 @@ const useCreditKhataLedgerForm = ({
       await fetchLedger(filters.user_id, users);
     } catch (err) {
       if (err?.status === 401) {
-        localStorage.removeItem('user');
+        if (typeof clearUser === 'function') {
+          clearUser();
+        }
         window.location.href = '/login';
         return;
       }

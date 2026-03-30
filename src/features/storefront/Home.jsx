@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ShoppingBag, Truck, Shield } from 'lucide-react';
+import { Package, ShoppingBag, Truck, Shield, CreditCard } from 'lucide-react';
 import { resolveMediaUrl } from '../../shared/services/api';
 import { productService } from '../../shared/services/productService';
 import { categoryService } from '../../shared/services/categoryService';
@@ -219,6 +219,30 @@ function Home() {
           {recommended.map((product) => (
             <ProductPreviewCard key={product.id} product={product} />
           ))}
+        </div>
+      </section>
+
+      <section className="home-section order-flow">
+        <div className="section-header">
+          <h2>Order in 3 simple steps</h2>
+          <p>Order → Pick up → Pay. No complicated checkout.</p>
+        </div>
+        <div className="order-flow-steps">
+          <div className="order-flow-step">
+            <span className="order-flow-icon"><ShoppingBag /></span>
+            <strong>Order</strong>
+            <p>Pick items from the catalog and place your order.</p>
+          </div>
+          <div className="order-flow-step">
+            <span className="order-flow-icon"><Package /></span>
+            <strong>Pick up</strong>
+            <p>Collect from the shop when your order is ready.</p>
+          </div>
+          <div className="order-flow-step">
+            <span className="order-flow-icon"><CreditCard /></span>
+            <strong>Pay</strong>
+            <p>Pay at pickup or use credit if allowed.</p>
+          </div>
         </div>
       </section>
 

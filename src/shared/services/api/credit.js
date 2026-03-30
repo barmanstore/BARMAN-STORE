@@ -5,7 +5,10 @@ import { apiFetch, withClientRequestId } from './core';
 // ============================================
 
 export const creditApi = {
-  getHistory: (userId) => apiFetch(`/api/users/${userId}/credit-history`),
+  getHistory: (userId, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/users/${userId}/credit-history${query ? `?${query}` : ''}`);
+  },
   getBalance: (userId) => apiFetch(`/api/users/${userId}/credit-balance`),
   getPaymentBadges: (userId) => apiFetch(`/api/users/${userId}/payment-badges`),
   getLedger: (params = {}) => {

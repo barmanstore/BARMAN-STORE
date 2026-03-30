@@ -52,8 +52,8 @@ const PurchasePaymentsSection = ({
 
     <div className="filters-bar compact">
       <div className="filter-group">
-        <label>Distributor:</label>
-        <select name="distributor_id" value={filters.distributor_id} onChange={onFilterChange}>
+        <label htmlFor="purchase-payments-filter-distributor">Distributor:</label>
+        <select id="purchase-payments-filter-distributor" name="distributor_id" value={filters.distributor_id} onChange={onFilterChange}>
           <option value="">All Distributors</option>
           {distributors.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>

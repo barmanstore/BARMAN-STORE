@@ -68,8 +68,6 @@ const useProfileVerificationActions = ({
       setEmailVerificationToken('');
       const updatedUser = { ...user, email_verified: true };
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      window.dispatchEvent(new Event('user-updated'));
       await refreshVerificationRequestStatus();
       setSuccess(response?.message || 'Email verified successfully');
       validateProfile(

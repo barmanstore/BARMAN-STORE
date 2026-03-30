@@ -206,7 +206,6 @@ function Login() {
           auth_provider: sessionPayload?.auth_provider || 'supabase',
           supabase_session: mergedSession,
         };
-        localStorage.setItem('user', JSON.stringify(nextUser));
         setUser(nextUser);
         if (nextUser.role === 'admin') {
           navigate('/admin', { replace: true });
@@ -283,7 +282,6 @@ function Login() {
         auth_provider: response?.auth_provider || 'otp',
         supabase_session: response?.supabase_session || null,
       };
-      localStorage.setItem('user', JSON.stringify(persisted));
       setUser(persisted);
       if (persisted.role === 'admin') {
         navigate('/admin', { replace: true });

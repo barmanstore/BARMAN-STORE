@@ -3,7 +3,7 @@ import { resolveMediaUrl, resolveMediaSourceForDisplay } from '../api/index.js';
 import { getProductFallbackImage } from '../../../../shared/utils/productImage';
 import { buildResponsiveImageSources, cacheResolvedMediaSource, getCachedResolvedMediaSource } from '../utils/productHelpers.js';
 
-function SafeProductImage({ src, alt, className, fallbackProduct, width, height, ...rest }) {
+function SafeProductImage({ src, alt, className, fallbackProduct, width, height, fetchPriority, ...rest }) {
   const [resolvedSrc, setResolvedSrc] = useState(() => {
     const cached = getCachedResolvedMediaSource(src);
     return cached || resolveMediaUrl(src) || src || getProductFallbackImage(fallbackProduct);
@@ -64,6 +64,7 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
       className={className}
       width={explicitWidth}
       height={explicitHeight}
+      fetchpriority={fetchPriority}
       {...rest}
       decoding={decodeMode}
       onError={(event) => {
