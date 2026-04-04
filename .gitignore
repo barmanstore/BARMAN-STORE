@@ -45,3 +45,5 @@ Thumbs.db
 .codex-*/
 /.local/
 .tmp/
+Downloads/
+*.docx
