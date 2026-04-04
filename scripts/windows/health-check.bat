@@ -22,6 +22,7 @@ if exist "%LOADENV_JS%" (
 
 set "MODE=%~1"
 if /i "%MODE%"=="" set "MODE=quick"
+if not defined SMOKE_PGDATA set "SMOKE_PGDATA=%USERPROFILE%\pgdata\smoke"
 
 if /i "%MODE%"=="help" goto help
 if /i "%MODE%"=="fast" goto fast
@@ -47,6 +48,12 @@ if exist node_modules echo [OK] node_modules exists
 echo [2/5] Syntax check server/index.js...
 node --check server/index.js || goto fail_step
 call :ensure_db_env
+call :maybe_skip_smoke_tests
+if /i "%SKIP_SMOKE_TESTS%"=="1" (
+  echo [WARN] Smoke DB not running. Skipping smoke workflows.
+  echo [SUCCESS] Quick health check passed.
+  goto success
+)
 if /i "%USE_LOCAL_SMOKE_DB%"=="1" (
   echo [3/5] Running local embedded smoke suite for core checks - steps 3-5...
   call npm run smoke:local:core || goto fail_step
@@ -78,6 +85,11 @@ node --check server/index.js || goto fail_step
 echo [3/8] Syntax check server/supabaseAuthProvider.js...
 node --check server/supabaseAuthProvider.js || goto fail_step
 call :ensure_db_env
+call :maybe_skip_smoke_tests
+if /i "%SKIP_SMOKE_TESTS%"=="1" (
+  echo [WARN] Smoke DB not running. Skipping smoke workflows.
+  goto full_after_smoke
+)
 if /i "%USE_LOCAL_SMOKE_DB%"=="1" (
   echo [4/8] Running local embedded smoke suite for core checks - steps 4-6...
   call npm run smoke:local:core || goto fail_step
@@ -209,6 +221,15 @@ if not exist "%REPO_ROOT%\.env" goto :eof
 findstr /R /I "^SMOKE_TEST_DB_URL=." "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
 findstr /R /I "^PHONE_TEST_DB_URL=." "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
 findstr /I "^SMOKE_TEST_ALLOW_PRIMARY_DB=1" "%REPO_ROOT%\.env" >nul 2>&1 && set "HAS_DB_ENV=1"
+goto :eof
+
+:maybe_skip_smoke_tests
+set "SKIP_SMOKE_TESTS="
+if not defined SMOKE_TEST_DB_URL goto :eof
+echo %SMOKE_TEST_DB_URL% | findstr /I "127.0.0.1:55433 localhost:55433" >nul 2>&1
+if errorlevel 1 goto :eof
+if exist "%SMOKE_PGDATA%\postmaster.pid" goto :eof
+set "SKIP_SMOKE_TESTS=1"
 goto :eof
 
 :start_supabase
