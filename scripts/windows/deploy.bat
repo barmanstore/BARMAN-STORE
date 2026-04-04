@@ -45,10 +45,10 @@ if /i "%OPS_DRY_RUN%"=="1" (
     echo [ERROR] Health check failed. Review "%LAST_LOG%"
     goto :end_error
   )
-  echo [INFO] Creating production build...
-  call npm run build >> "%LAST_LOG%" 2>&1
+  echo [INFO] Scanning staged files for secret leaks...
+  call npm run secrets:scan:staged >> "%LAST_LOG%" 2>&1
   if errorlevel 1 (
-    echo [ERROR] Build failed. Review "%LAST_LOG%"
+    echo [ERROR] Secret scan failed. Review "%LAST_LOG%"
     goto :end_error
   )
 )
