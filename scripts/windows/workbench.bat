@@ -32,60 +32,66 @@ echo ========================================
 echo BARMAN STORE - Workbench
 echo ========================================
 echo 1. Git quick commit + push
-echo 2. Deploy prepare
-echo 3. Deploy Vercel (prod)
-echo 4. Deploy Vercel (preview)
-echo 5. Deploy by git push (origin main)
-echo 6. Smoke suite (all)
-echo 7. Smoke cleanup (dry-run)
-echo 8. Smoke cleanup (delete all + verify)
-echo 9. Smoke suite + cleanup
-echo 10. Code cleanup (preview)
-echo 11. Code cleanup (apply)
-echo 12. Git status
-echo 13. Credit history UI smoke test
-echo 14. Health check (quick)
-echo 15. Health check (full)
-echo 16. Migrate DB (Supabase)
-echo 17. Exit
-echo 18. Worktree cleanup (preview)
-echo 19. Worktree cleanup (apply)
-echo 20. Phone workflow smoke test
-echo 21. Order+billing workflow smoke test
-echo 22. PO lifecycle smoke test
-echo 23. Category tree smoke test
-echo 24. Secrets scan (staged)
-echo 25. Production build
+echo 2. Git status
+echo 3. Health check (fast)
+echo 4. Health check (quick)
+echo 5. Health check (full)
+echo 6. Secrets scan (staged)
+echo 7. Production build
+echo 8. Deploy prepare
+echo 9. Deploy Vercel (prod)
+echo 10. Deploy Vercel (preview)
+echo 11. Deploy by git push (origin main)
+echo 12. Start smoke Postgres
+echo 13. Stop smoke Postgres
+echo 14. Smoke suite (all)
+echo 15. Smoke cleanup (dry-run)
+echo 16. Smoke cleanup (delete all + verify)
+echo 17. Smoke suite + cleanup
+echo 18. Phone workflow smoke test
+echo 19. Order+billing workflow smoke test
+echo 20. PO lifecycle smoke test
+echo 21. Category tree smoke test
+echo 22. Credit history UI smoke test
+echo 23. Migrate DB (Supabase)
+echo 24. Code cleanup (preview)
+echo 25. Code cleanup (apply)
+echo 26. Worktree cleanup (preview)
+echo 27. Worktree cleanup (apply)
+echo 28. Exit
 echo.
 set "CHOICE="
-set /p CHOICE=Select option [1-25]: 
+set /p CHOICE=Select option [1-28]: 
 
 :dispatch
 if "%CHOICE%"=="1" goto :git_quick
-if "%CHOICE%"=="2" goto :deploy_prepare
-if "%CHOICE%"=="3" goto :deploy_vercel_prod
-if "%CHOICE%"=="4" goto :deploy_vercel_preview
-if "%CHOICE%"=="5" goto :deploy_git
-if "%CHOICE%"=="6" goto :smoke_suite_all
-if "%CHOICE%"=="7" goto :smoke_cleanup_dry
-if "%CHOICE%"=="8" goto :smoke_cleanup_all_apply_verify
-if "%CHOICE%"=="9" goto :smoke_suite_and_cleanup
-if "%CHOICE%"=="10" goto :code_cleanup_preview
-if "%CHOICE%"=="11" goto :code_cleanup_apply
-if "%CHOICE%"=="12" goto :git_status
-if "%CHOICE%"=="13" goto :credit_history_smoke
-if "%CHOICE%"=="14" goto :health_quick
-if "%CHOICE%"=="15" goto :health_full
-if "%CHOICE%"=="16" goto :db_migrate
-if "%CHOICE%"=="17" goto :done
-if "%CHOICE%"=="18" goto :wt_cleanup_preview
-if "%CHOICE%"=="19" goto :wt_cleanup_apply
-if "%CHOICE%"=="20" goto :phone_smoke
-if "%CHOICE%"=="21" goto :order_flow_smoke
-if "%CHOICE%"=="22" goto :po_lifecycle_smoke
-if "%CHOICE%"=="23" goto :category_tree_smoke
-if "%CHOICE%"=="24" goto :secrets_scan_staged
-if "%CHOICE%"=="25" goto :build_production
+if "%CHOICE%"=="2" goto :git_status
+if "%CHOICE%"=="3" goto :health_fast
+if "%CHOICE%"=="4" goto :health_quick
+if "%CHOICE%"=="5" goto :health_full
+if "%CHOICE%"=="6" goto :secrets_scan_staged
+if "%CHOICE%"=="7" goto :build_production
+if "%CHOICE%"=="8" goto :deploy_prepare
+if "%CHOICE%"=="9" goto :deploy_vercel_prod
+if "%CHOICE%"=="10" goto :deploy_vercel_preview
+if "%CHOICE%"=="11" goto :deploy_git
+if "%CHOICE%"=="12" goto :smoke_postgres_start
+if "%CHOICE%"=="13" goto :smoke_postgres_stop
+if "%CHOICE%"=="14" goto :smoke_suite_all
+if "%CHOICE%"=="15" goto :smoke_cleanup_dry
+if "%CHOICE%"=="16" goto :smoke_cleanup_all_apply_verify
+if "%CHOICE%"=="17" goto :smoke_suite_and_cleanup
+if "%CHOICE%"=="18" goto :phone_smoke
+if "%CHOICE%"=="19" goto :order_flow_smoke
+if "%CHOICE%"=="20" goto :po_lifecycle_smoke
+if "%CHOICE%"=="21" goto :category_tree_smoke
+if "%CHOICE%"=="22" goto :credit_history_smoke
+if "%CHOICE%"=="23" goto :db_migrate
+if "%CHOICE%"=="24" goto :code_cleanup_preview
+if "%CHOICE%"=="25" goto :code_cleanup_apply
+if "%CHOICE%"=="26" goto :wt_cleanup_preview
+if "%CHOICE%"=="27" goto :wt_cleanup_apply
+if "%CHOICE%"=="28" goto :done
 if "%CHOICE%"=="" goto :menu
 goto :menu
 
@@ -108,6 +114,10 @@ if "%MSG%"=="" (
   goto :menu
 )
 call "%~dp0git-maintain.bat" quick "%MSG%" origin main
+goto :pause_and_menu
+
+:health_fast
+call "%~dp0health-check.bat" fast
 goto :pause_and_menu
 
 :health_quick
@@ -136,6 +146,14 @@ goto :pause_and_menu
 
 :deploy_git
 call "%~dp0deploy.bat" git origin main
+goto :pause_and_menu
+
+:smoke_postgres_start
+call "%~dp0postgres-smoke-start.bat"
+goto :pause_and_menu
+
+:smoke_postgres_stop
+call "%~dp0postgres-smoke-stop.bat"
 goto :pause_and_menu
 
 :smoke_suite_all
