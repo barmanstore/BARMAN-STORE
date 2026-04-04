@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { buildCashSummary } from '../utils/dailyCashSummary';
 
 const useAdminComputedData = ({
   products,
@@ -11,6 +12,7 @@ const useAdminComputedData = ({
   recentCustomersPreview,
   bills,
   dailySalesDate,
+  dailyCashTally,
   toLocalDateKey,
   asNumber,
   getCategoryPath,
@@ -95,6 +97,11 @@ const useAdminComputedData = ({
     [bills, selectedDateKey, toLocalDateKey]
   );
 
+  const selectedDailyCashTally = useMemo(() => {
+    if (!dailyCashTally || typeof dailyCashTally !== 'object') return null;
+    return String(dailyCashTally?.date || '').trim() === selectedDateKey ? dailyCashTally : null;
+  }, [dailyCashTally, selectedDateKey]);
+
   const dailySalesSummary = useMemo(() => {
     const totals = selectedSalesBills.reduce((acc, bill) => {
       acc.totalBilled += asNumber(bill?.total_amount, 0);
@@ -115,12 +122,21 @@ const useAdminComputedData = ({
     });
     const txCount = selectedSalesBills.length;
     return {
-      ...totals,
-      txCount,
-      expectedDrawerCash: totals.cashCollected,
-      avgTicket: txCount > 0 ? totals.totalBilled / txCount : 0,
+      ...buildCashSummary({
+        totalBilled: totals.totalBilled,
+        cashCollected: totals.cashCollected,
+        creditIssued: totals.creditIssued,
+        paidBills: totals.paidBills,
+        pendingBills: totals.pendingBills,
+        txCount,
+        hasManualCashTally: Boolean(selectedDailyCashTally),
+        manualCashTally: selectedDailyCashTally?.countedCashTotal ?? 0,
+        cashTallyUpdatedAt: selectedDailyCashTally?.updatedAt || selectedDailyCashTally?.createdAt || '',
+        cashTallyUpdatedByName: selectedDailyCashTally?.updatedByName || '',
+      }),
+      cashTallyNote: String(selectedDailyCashTally?.note || '').trim(),
     };
-  }, [selectedSalesBills, asNumber]);
+  }, [selectedSalesBills, asNumber, selectedDailyCashTally]);
 
   const topSellingProducts = useMemo(() => {
     const rows = Array.isArray(productInsights) ? productInsights : [];
@@ -153,6 +169,7 @@ const useAdminComputedData = ({
     lowStockProducts,
     recentCustomers,
     selectedDateKey,
+    dailyCashTally: selectedDailyCashTally,
     selectedSalesBills,
     dailySalesSummary,
     topSellingProducts,

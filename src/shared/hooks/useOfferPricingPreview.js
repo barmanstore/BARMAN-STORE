@@ -22,33 +22,32 @@ export default function useOfferPricingPreview({
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const offerContextCustomerUserId = Number(
+    offerContext?.customer_user_id
+    || offerContext?.customerUserId
+    || offerContext?.user_id
+    || offerContext?.userId
+    || 0
+  ) || 0;
+  const offerContextExcludeOrderId = Number(
+    offerContext?.exclude_order_id
+    || offerContext?.excludeOrderId
+    || offerContext?.order_id
+    || offerContext?.orderId
+    || 0
+  ) || 0;
 
   const normalizedItems = useMemo(
     () => (Array.isArray(items) ? items.filter(isMeaningfulItem) : []),
     [items]
   );
   const normalizedOfferContext = useMemo(() => {
-    if (!offerContext || typeof offerContext !== 'object') return null;
-    const customerUserId = Number(
-      offerContext.customer_user_id
-      || offerContext.customerUserId
-      || offerContext.user_id
-      || offerContext.userId
-      || 0
-    ) || 0;
-    const excludeOrderId = Number(
-      offerContext.exclude_order_id
-      || offerContext.excludeOrderId
-      || offerContext.order_id
-      || offerContext.orderId
-      || 0
-    ) || 0;
-    if (!(customerUserId > 0) && !(excludeOrderId > 0)) return null;
+    if (!(offerContextCustomerUserId > 0) && !(offerContextExcludeOrderId > 0)) return null;
     return {
-      ...(customerUserId > 0 ? { customer_user_id: customerUserId } : {}),
-      ...(excludeOrderId > 0 ? { exclude_order_id: excludeOrderId } : {}),
+      ...(offerContextCustomerUserId > 0 ? { customer_user_id: offerContextCustomerUserId } : {}),
+      ...(offerContextExcludeOrderId > 0 ? { exclude_order_id: offerContextExcludeOrderId } : {}),
     };
-  }, [offerContext]);
+  }, [offerContextCustomerUserId, offerContextExcludeOrderId]);
   const signature = useMemo(
     () => JSON.stringify({ context, items: normalizedItems, offerContext: normalizedOfferContext }),
     [context, normalizedItems, normalizedOfferContext]

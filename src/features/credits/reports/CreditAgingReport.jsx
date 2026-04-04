@@ -12,6 +12,7 @@ function CreditAgingReport({ user }) {
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [syncState, setSyncState] = useState('');
   const navigate = useNavigate();
   const [filters, setFilters] = useState({
     badge: null,
@@ -30,10 +31,18 @@ function CreditAgingReport({ user }) {
     try {
       setLoading(true);
       setError('');
+      setSyncState('');
       const data = await creditApi.getAgingReport();
       setReport(data.report || []);
       setSummary(data.summary || {});
     } catch (err) {
+      if (Number(err?.status || 0) === 503 && String(err?.payload?.status || '').trim().toLowerCase() === 'initializing') {
+        setReport([]);
+        setSummary({});
+        setSyncState('initializing');
+        setError('');
+        return;
+      }
       setError('Failed to load credit aging report');
     } finally {
       setLoading(false);
@@ -54,8 +63,14 @@ function CreditAgingReport({ user }) {
     if (status === 'good') {
       return { label: 'Good', icon: Clock, className: 'good' };
     }
+    if (status === 'average') {
+      return { label: 'Average', icon: Clock, className: 'good' };
+    }
     if (status === 'needs_attention') {
       return { label: 'Needs Attention', icon: AlertCircle, className: 'attention' };
+    }
+    if (status === 'defaulter') {
+      return { label: 'Defaulter', icon: AlertTriangle, className: 'problem' };
     }
     return { label: 'Problem', icon: AlertTriangle, className: 'problem' };
   };
@@ -125,7 +140,8 @@ function CreditAgingReport({ user }) {
       || Number(row.days_61_90 || 0) > 0
       || Number(row.days_over_90 || 0) > 0
       || status === 'needs_attention'
-      || status === 'problem';
+      || status === 'problem'
+      || status === 'defaulter';
   };
 
   const matchesRisk = (row, risk) => {
@@ -220,8 +236,10 @@ function CreditAgingReport({ user }) {
     { key: 'excellent', label: 'Excellent', tone: 'excellent', count: Number(summary?.badge_counts?.excellent || 0) },
     { key: 'very_good', label: 'Very Good', tone: 'very-good', count: Number(summary?.badge_counts?.very_good || 0) },
     { key: 'good', label: 'Good', tone: 'good', count: Number(summary?.badge_counts?.good || 0) },
+    { key: 'average', label: 'Average', tone: 'good', count: Number(summary?.badge_counts?.average || 0) },
     { key: 'needs_attention', label: 'Needs Attention', tone: 'attention', count: Number(summary?.badge_counts?.needs_attention || 0) },
     { key: 'problem', label: 'Problem', tone: 'problem', count: Number(summary?.badge_counts?.problem || 0) },
+    { key: 'defaulter', label: 'Defaulter', tone: 'problem', count: Number(summary?.badge_counts?.defaulter || 0) },
     { key: 'new', label: 'New', tone: 'new', count: Number(summary?.customers_new || 0) },
   ];
   const activeFilters = [
@@ -262,6 +280,9 @@ function CreditAgingReport({ user }) {
       />
 
       {error && <div className="error-message">{error}</div>}
+      {!error && syncState === 'initializing' ? (
+        <div className="success-message">Credit aging is updating. Refresh after the snapshot rebuild completes.</div>
+      ) : null}
 
       {/* Summary Cards */}
       <div className="summary-cards">
@@ -374,7 +395,11 @@ function CreditAgingReport({ user }) {
         <h3>Customer Credit Details</h3>
         {filteredReport.length === 0 ? (
           <div className="empty-state">
-            <p>{hasFilters ? 'No customers match the current filters.' : 'No customers with outstanding credit balance.'}</p>
+            <p>
+              {syncState === 'initializing'
+                ? 'Credit aging is updating from the latest ledger activity.'
+                : (hasFilters ? 'No customers match the current filters.' : 'No customers with outstanding credit balance.')}
+            </p>
           </div>
         ) : (
           <table className="report-table">

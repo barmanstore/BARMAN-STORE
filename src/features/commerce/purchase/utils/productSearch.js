@@ -195,6 +195,39 @@ const getDistributorProductHistoryEntry = ({
   return bestEntry;
 };
 
+const getLatestProductHistoryEntry = ({
+  productId,
+  products = [],
+  purchaseOrders = [],
+}) => {
+  const selectedProductId = String(productId || '').trim();
+  if (!selectedProductId) return null;
+
+  const product = products.find((entry) => String(entry?.id || '').trim() === selectedProductId) || null;
+  let bestEntry = null;
+
+  (purchaseOrders || []).forEach((order) => {
+    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
+    const items = Array.isArray(order?.items) ? order.items : [];
+
+    items.forEach((item) => {
+      if (String(item?.product_id || '').trim() !== selectedProductId) return;
+
+      if (!bestEntry || normalizedOrderTime >= bestEntry.latest) {
+        bestEntry = {
+          product,
+          item,
+          order,
+          latest: normalizedOrderTime,
+        };
+      }
+    });
+  });
+
+  return bestEntry;
+};
+
 const getDistributorHistoryProducts = ({
   distributorId,
   products = [],
@@ -248,11 +281,11 @@ const getDistributorHistoryProducts = ({
       rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
       unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
       reference_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
-      reference_rate_source: entry.order?.po_number ? `distributor history ${entry.order.po_number}` : 'distributor history',
+      reference_rate_source: entry.order?.po_number ? `supplier history ${entry.order.po_number}` : 'supplier history',
       gst_rate: entry.item?.gst_rate ?? 5,
       discount_type: 'percent',
       discount_value: 0,
-      last_purchase_hint: 'Loaded from distributor history',
+      last_purchase_hint: 'Loaded from supplier history',
       last_purchase_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
       last_purchase_distributor_name: String(entry.order?.distributor_name || '').trim(),
       last_purchase_created_at: String(
@@ -271,5 +304,6 @@ export {
   resolveProductByInput,
   getDistributorProductOptions,
   getDistributorProductHistoryEntry,
+  getLatestProductHistoryEntry,
   getDistributorHistoryProducts,
 };

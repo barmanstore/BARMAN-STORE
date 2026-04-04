@@ -1,5 +1,6 @@
-import { Plus, Printer, X } from 'lucide-react';
+import { MessageCircle, Plus, Printer, X } from 'lucide-react';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
+import PurchaseOrderReviewSheet from '../PurchaseOrderReviewSheet';
 
 const OrderDetailModal = ({
   showOrderDetail,
@@ -39,6 +40,8 @@ const OrderDetailModal = ({
   handleOrderDetailSave,
   openOrderDetailEditMode,
   handlePrintOrderDetail,
+  handleSendDistributorWhatsApp,
+  sendingWhatsAppOrderId,
   GST_RATE_OPTIONS,
   toNumber,
   formatCurrency,
@@ -60,12 +63,38 @@ const OrderDetailModal = ({
       - Number(orderDetailDraftDiagnostics?.rateAcknowledgedCount || 0)
   );
 
+  const reviewRows = orderDetailItems.map((item, idx) => {
+    const line = getItemFinancials(item);
+    return {
+      key: String(item?.id || `detail-row-${idx}`),
+      name: String(item?.product_name || item?.name || item?.product_query || `Row ${idx + 1}`).trim(),
+      quantity: Math.max(0, Number(line.quantity || item?.quantity || 0) || 0),
+      uom: String(line.uom || item?.uom || 'pcs').trim() || 'pcs',
+      rate: Number(line.rate ?? item?.rate ?? item?.unit_price ?? 0) || 0,
+      gstRate: Number(line.gstRate ?? item?.gst_rate ?? 0) || 0,
+      discountType: item?.discount_type || line.discountType || 'percent',
+      discountValue: Number(item?.discount_value ?? line.discountValue ?? 0) || 0,
+      total: Number(line.lineTotal ?? line.totalAmount ?? 0) || 0,
+    };
+  });
+  const reviewNotes = [
+    {
+      label: 'Note',
+      value: String(orderDetail?.notes || '').trim(),
+    },
+    {
+      label: 'Strict Due Note',
+      value: String(orderDetail?.strict_due_note || '').trim(),
+    },
+  ].filter((note) => note.value);
+
   return (
     <WindowModal
       open
       title={`Purchase Order: ${orderDetail?.po_number || '-'}`}
       onClose={closeOrderDetail}
       dismissible={!orderDetailSaving}
+      closeOnBackdrop={false}
       themeClassName="purchase-management"
       dialogClassName="purchase-modal-frame large po-detail-modal"
       headerClassName="purchase-modal-header"
@@ -78,7 +107,7 @@ const OrderDetailModal = ({
           <div className="order-detail-body">
             <div className="loading">Loading purchase order details...</div>
           </div>
-        ) : (
+        ) : orderDetailEditMode ? (
           <div className="order-detail-body">
             <div className="po-invoice-preview">
               <div className="po-invoice-header">
@@ -196,6 +225,9 @@ const OrderDetailModal = ({
                     const gstChanged = orderDetailEditMode && getOrderDetailItemFieldChanged(item, idx, 'gst_rate');
                     const selectedProduct = products.find((product) => String(product?.id || '') === String(item.product_id || '')) || null;
                     const uomOptions = getAllowedPurchaseUnitsForProduct(selectedProduct);
+                    const rowLocked = item?.po_item_locked === true
+                      || item?.po_item_source === 'supplier_default'
+                      || String(item?.row_source || '').trim().toLowerCase() === 'supplier';
                     return (
                       <tr key={item.id || idx} className={rowChanged ? 'po-detail-row-edited' : ''}>
                         <td>{idx + 1}</td>
@@ -412,14 +444,16 @@ const OrderDetailModal = ({
                         </td>
                         {orderDetailEditMode ? (
                           <td>
-                            <button
-                              type="button"
-                              className="remove-item-btn"
-                              onClick={() => handleOrderDetailItemRemove(idx)}
-                              aria-label={`Remove item ${idx + 1}`}
-                            >
-                              <X size={14} />
-                            </button>
+                            {!rowLocked ? (
+                              <button
+                                type="button"
+                                className="remove-item-btn"
+                                onClick={() => handleOrderDetailItemRemove(idx)}
+                                aria-label={`Remove item ${idx + 1}`}
+                              >
+                                <X size={14} />
+                              </button>
+                            ) : null}
                           </td>
                         ) : null}
                       </tr>
@@ -518,6 +552,23 @@ const OrderDetailModal = ({
               </div>
             </div>
           </div>
+        ) : (
+          <div className="order-detail-body">
+            <PurchaseOrderReviewSheet
+              kicker="Purchase Order"
+              title={`PO #${orderDetail?.po_number || '-'}`}
+              description="Printed-bill style review for this purchase order."
+              badgeLabel={`${orderDetailItems.length} item${orderDetailItems.length === 1 ? '' : 's'}`}
+              metaItems={[
+                { label: 'Supplier:', value: String(orderDetailSupplier?.name || '').trim() || 'Not selected' },
+                { label: 'Date:', value: formatDate(orderDetail?.order_date || orderDetail?.created_at) },
+                { label: 'Delivery:', value: orderDetail?.expected_delivery ? formatDate(orderDetail.expected_delivery) : 'Skipped' },
+              ]}
+              rows={reviewRows}
+              totals={orderDetailComputedTotals}
+              notes={reviewNotes}
+            />
+          </div>
         )}
         <div className="modal-actions">
           {orderDetailIsEditable ? (
@@ -528,6 +579,17 @@ const OrderDetailModal = ({
               disabled={orderDetailSaving || hasBlockingDraftIssues}
             >
               {orderDetailEditMode ? (orderDetailSaving ? 'Saving...' : 'Save') : 'Edit'}
+            </button>
+          ) : null}
+          {orderDetailIsEditable ? (
+            <button
+              type="button"
+              className="submit-btn"
+              onClick={() => handleSendDistributorWhatsApp(orderDetail)}
+              disabled={!orderDetail || orderDetailEditMode || orderDetailSaving || sendingWhatsAppOrderId === orderDetail?.id}
+            >
+              <MessageCircle size={16} />
+              {sendingWhatsAppOrderId === orderDetail?.id ? 'Preparing...' : 'Prepare WhatsApp (Manual)'}
             </button>
           ) : null}
           <button

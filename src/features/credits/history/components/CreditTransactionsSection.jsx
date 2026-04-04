@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { FileText, Eye, Printer, MessageCircle, RotateCcw } from 'lucide-react';
 import { resolveMediaUrl } from '../../../../shared/services/api/core';
 import { formatCurrency } from '../../../../shared/utils/formatters';
@@ -67,7 +68,6 @@ function CreditTransactionsSection({
           <table className="credit-table">
             <thead>
               <tr>
-                <th className="credit-col-date">Date</th>
                 <th>Ref</th>
                 <th>Type</th>
                 <th>Debit</th>
@@ -78,93 +78,103 @@ function CreditTransactionsSection({
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.map((transaction) => {
-                const sourceLabel = getCreditEntrySourceLabel(transaction);
-                const entryTypeLabel = getCreditEntryTypeLabel(transaction);
-                const description = getCreditEntryDescription(transaction);
-                const delta = getCreditEntryDelta(transaction);
-                const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
-                const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
-                const balanceMeta = getCreditBalanceMeta(transaction.balance);
-                const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
-                const canReverse = isAdminView && canReverseCreditEntry(transaction);
-                const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
-
-                return (
-                  <tr
-                    key={transaction.id}
-                    data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                    className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
-                  >
-                    <td>{formatTransactionDate(transaction, { long: true })}</td>
-                    <td className="invoice-number">{sourceLabel}</td>
-                    <td>
-                      <span>{entryTypeLabel}</span>
-                    </td>
-                    <td className="debit-amount">{debitAmount}</td>
-                    <td className="credit-amount">{creditAmount}</td>
-                    <td>
-                      <span className={`balance-pill ${balanceMeta.tone}`}>
-                        {balanceMeta.label} {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
-                      </span>
-                    </td>
-                    <td>
-                      {description}
-                      {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
-                    </td>
-                    <td className="actions-cell">
-                      {!isAdminView && (
-                        <button
-                          className="action-icon"
-                          onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
-                          title="Report issue on this entry"
-                        >
-                          <FileText size={16} />
-                        </button>
-                      )}
-                      {transaction.image_path && (
-                        <a
-                          href={resolveMediaUrl(transaction.image_path)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="action-icon view"
-                          title="View attachment"
-                        >
-                          <Eye size={16} />
-                        </a>
-                      )}
-                      <button
-                        className="action-icon print mobile-hide-print"
-                        onClick={() => handlePrintInvoice(transaction)}
-                        title="Print entry"
-                        disabled={isMobile}
-                        aria-disabled={isMobile}
-                      >
-                        <Printer size={16} />
-                      </button>
-                      {canShareTransaction && (
-                        <button
-                          className="action-icon whatsapp"
-                          onClick={() => handleSendTransactionWhatsApp(transaction)}
-                          title="Share on WhatsApp"
-                        >
-                          <MessageCircle size={16} />
-                        </button>
-                      )}
-                      {isAdminView && (
-                        <button
-                          className="action-icon reverse"
-                          onClick={() => handleDeleteTransaction(transaction)}
-                          title={canReverse ? 'Reverse entry' : 'Already reversed'}
-                          disabled={!canReverse || deletingEntryId === Number(transaction.id || 0)}
-                        >
-                          <RotateCcw size={16} />
-                        </button>
-                      )}
+              {groupedTransactions.map((group) => (
+                <Fragment key={group.dateKey}>
+                  <tr className="credit-day-divider-row">
+                    <td colSpan="7">
+                      <div className="credit-day-divider">
+                        <span className="credit-day-title" title={group.dateLabelLong}>{group.dateLabel}</span>
+                      </div>
                     </td>
                   </tr>
-                );
-              })}
+                  {group.transactions.map((transaction) => {
+                    const sourceLabel = getCreditEntrySourceLabel(transaction);
+                    const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+                    const description = getCreditEntryDescription(transaction);
+                    const delta = getCreditEntryDelta(transaction);
+                    const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
+                    const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
+                    const balanceMeta = getCreditBalanceMeta(transaction.balance);
+                    const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+                    const canReverse = isAdminView && canReverseCreditEntry(transaction);
+                    const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
+
+                    return (
+                      <tr
+                        key={transaction.id}
+                        data-credit-entry-id={Number(transaction.id || 0) || undefined}
+                        className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
+                      >
+                        <td className="invoice-number">{sourceLabel}</td>
+                        <td>
+                          <span>{entryTypeLabel}</span>
+                        </td>
+                        <td className="debit-amount">{debitAmount}</td>
+                        <td className="credit-amount">{creditAmount}</td>
+                        <td>
+                          <span className={`balance-pill ${balanceMeta.tone}`}>
+                            {balanceMeta.label} {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
+                          </span>
+                        </td>
+                        <td>
+                          {description}
+                          {issueFlag ? <span className={`entry-issue-pill ${issueFlag.tone}`}>{issueFlag.label}</span> : null}
+                        </td>
+                        <td className="actions-cell">
+                          {!isAdminView && (
+                            <button
+                              className="action-icon"
+                              onClick={() => setIssueForm((prev) => ({ ...prev, credit_entry_id: String(transaction.id || '') }))}
+                              title="Report issue on this entry"
+                            >
+                              <FileText size={16} />
+                            </button>
+                          )}
+                          {transaction.image_path && (
+                            <a
+                              href={resolveMediaUrl(transaction.image_path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="action-icon view"
+                              title="View attachment"
+                            >
+                              <Eye size={16} />
+                            </a>
+                          )}
+                          <button
+                            className="action-icon print mobile-hide-print"
+                            onClick={() => handlePrintInvoice(transaction)}
+                            title="Print entry"
+                            disabled={isMobile}
+                            aria-disabled={isMobile}
+                          >
+                            <Printer size={16} />
+                          </button>
+                          {canShareTransaction && (
+                            <button
+                              className="action-icon whatsapp"
+                              onClick={() => handleSendTransactionWhatsApp(transaction)}
+                              title="Share on WhatsApp"
+                            >
+                              <MessageCircle size={16} />
+                            </button>
+                          )}
+                          {isAdminView && (
+                            <button
+                              className="action-icon reverse"
+                              onClick={() => handleDeleteTransaction(transaction)}
+                              title={canReverse ? 'Reverse entry' : 'Already reversed'}
+                              disabled={!canReverse || deletingEntryId === Number(transaction.id || 0)}
+                            >
+                              <RotateCcw size={16} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
 
@@ -205,7 +215,6 @@ function CreditTransactionsSection({
                         </header>
 
                         <div className="tile-meta-row">
-                          <span>{formatTransactionDate(transaction, { long: false })}</span>
                           <span>Ref: {sourceLabel}</span>
                         </div>
 

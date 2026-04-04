@@ -5,38 +5,61 @@
     "tone": "excellent",
     "min": 80,
     "max": 100,
-    "description": "Pays on time consistently."
+    "target_days": 7,
+    "description": "Clears credit quickly and usually pays on or before the 7-day target."
   },
   {
     "key": "very_good",
     "label": "Very Good",
     "tone": "very-good",
-    "min": 60,
+    "min": 65,
     "max": 79,
-    "description": "Usually pays on time, with small delays (within 7 days)."
+    "target_days": 15,
+    "description": "Usually pays within the 15-day target, with only small delays."
   },
   {
     "key": "good",
     "label": "Good",
     "tone": "good",
-    "min": 40,
-    "max": 59,
-    "description": "Sometimes pays late, but usually within 30 days."
+    "min": 50,
+    "max": 64,
+    "target_days": 30,
+    "description": "Normally clears dues within the 30-day target."
+  },
+  {
+    "key": "average",
+    "label": "Average",
+    "tone": "good",
+    "min": 35,
+    "max": 49,
+    "target_days": 45,
+    "description": "Pays eventually, but often needs more time before clearing dues."
   },
   {
     "key": "needs_attention",
     "label": "Needs Attention",
     "tone": "attention",
     "min": 20,
-    "max": 39,
-    "description": "Often pays late, with delays up to 60 days."
+    "max": 34,
+    "target_days": 60,
+    "description": "Regularly slips beyond the expected date and needs follow-up."
   },
   {
     "key": "problem",
     "label": "Problem",
     "tone": "problem",
-    "min": 0,
+    "min": 10,
     "max": 19,
-    "description": "Misses payments or keeps credit overdue for long periods."
+    "target_days": 90,
+    "description": "Frequently stays overdue and is at real risk of further downgrade."
+  },
+  {
+    "key": "defaulter",
+    "label": "Defaulter",
+    "tone": "problem",
+    "min": 0,
+    "max": 9,
+    "target_days": 180,
+    "description": "Repeatedly misses payment cycles and needs urgent recovery."
   }
 ]

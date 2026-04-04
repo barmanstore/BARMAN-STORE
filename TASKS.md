@@ -4,10 +4,6 @@ Use this file for cross-session task tracking only.
 
 ## Active
 
-### UX & Accessibility
-
-None.
-
 ### Ops & Scripts
 
 None.
@@ -18,7 +14,10 @@ None.
 
 ### Frontend Platform
 
-None.
+- Stabilize PO review modal behavior and unify PO review screens across the purchase flow:
+  - Prevent the PO review workspace from dismissing on backdrop clicks.
+  - Replace the legacy PO detail review surface with the shared printed-bill review sheet.
+  - Keep review styling consistent across draft review and saved PO review.
 
 ## Next
 
@@ -40,6 +39,92 @@ None.
 
 ## Done
 
+- Stabilized PO review behavior and unified review layout:
+  - Disabled backdrop-close on the PO create review workspace so it no longer auto-closes on stray clicks.
+  - Introduced a shared `PurchaseOrderReviewSheet` and used it for both draft review and saved PO detail review.
+  - Replaced the legacy order-detail preview (read-only mode) with the printed-bill review sheet so PO reviews are consistent everywhere.
+
+- Persisted purchase-order item source and highlighted skipped supplier defaults:
+  - Purchase-order save and edit flows now keep `purchase_order_items.row_source` as `supplier` or `manual` instead of dropping row origin at submit time.
+  - Reopened PO edit flows preserve supplier-default locking by reading that saved row origin back into draft state.
+  - The supplier-board create UI now calls out supplier-default rows that are still at qty `0` so operators can spot skipped defaults before review, while those rows remain excluded from backend submit.
+- Implemented supplier-registry-driven PO board loading:
+  - Added `GET /api/distributors/:id/products` so purchase create can load the selected supplier's active registered product board directly from `supplier_products`.
+  - Supplier selection in PO create now seeds the board with those registered supplier products, keeps them editable but non-removable, and preserves qty `0` rows on the board while still excluding them from review and backend submit.
+  - The `Add Product` picker now shows only extra catalog items that are not registered to the selected supplier and are not already on the current PO board.
+  - Manual extra products are appended onto the same board as removable rows, while reopened drafts and suggested-item handoffs stay compatible with the supplier-default board merge.
+- Simplified purchase-order entry into a supplier-first guided flow:
+  - Replaced the heavier PO entry path with a popup-first flow: `Supplier -> Items -> Review -> Final Submit`.
+  - The PO popup now opens in a compact supplier-only state first, then expands into the item screen after supplier selection.
+  - The supplier-only step was tightened into one focused prompt with a flatter footer and single-column supplier card so the first action is clear and the popup no longer feels cramped.
+  - The supplier step now keeps only supplier plus delivery date visible before continuing, so the opening state is focused and low-distraction.
+  - The item step now uses one full-width product-entry sheet instead of a split pending-PO side panel, so operators can stay in one reading direction while entering qty.
+  - Search/add product is now inline at the top of the item screen, with one picker handling only extra non-supplier catalog products before rows are added into the draft.
+  - The PO screen now keeps only one add entry point: `Add Product` opens the picker, `Done` commits selected product cards into the PO board, and `Cancel` closes the picker without adding rows.
+  - Supplier-history products now live only inside the picker, load in full for the selected supplier, hide products already on the board, and the PO board itself stays limited to the current working rows.
+  - Removed the separate purchase-modal product-creation shortcut so PO entry stays focused on selecting catalog items instead of branching into product management.
+  - Changing the supplier now resets the current PO rows so the board and picker stay aligned to one supplier at a time.
+  - New product picks enter the draft as qty-first rows with inline amount display, edited-price highlighting, and keyboard movement that favors fast row-to-row quantity entry.
+  - Rows with qty `0` stay available in the draft but are ignored by review and final submit until the operator enters a meaningful quantity.
+  - Delivery date and note editing now stay inside the main item screen instead of forcing a separate extra-fields step.
+  - The review step now uses a bill-style layout with supplier/date metadata, short item lines, subtotal, GST, total, and a direct modify path before final submit.
+  - Kept current amount, rate, GST, and discount calculation behavior while keeping secondary edits available only when needed.
+  - The popup shell was tightened into a more stable working surface with a calmer header/body treatment instead of the older heavier shared-window feel.
+  - Added easy draft save/reopen behavior for purchase entry and aligned the restock-to-PO handoff to the same supplier-first process.
+  - Replaced visible operator-facing `Distributor` wording with `Supplier` across the updated purchase and restock surfaces where it matches the business meaning.
+- Aligned WhatsApp delivery scope with the live implementation:
+  - `server/whatsappProvider.js` and the shared WhatsApp send helpers now report manual prepared-message scope honestly instead of implying a send-capable provider from config alone.
+  - Purchase WhatsApp handoff stays on the existing `/api/purchase-orders/:id/distributor-whatsapp` route, but the backend/frontend contract now treats it explicitly as manual preparation plus launcher opening rather than automatic delivery.
+  - Auth status endpoints now expose WhatsApp delivery scope and send-capability flags separately so diagnostics do not treat config presence as real provider readiness.
+- Added supplier novelty alerts in purchase planning:
+  - Purchase operations distributor insights now compare supplier product knowledge against the real catalog and the recent store purchase habit window, then expose compact novelty alerts for items missing from catalog or outside recent buying flow.
+  - Purchase planning and purchase reminders now flag those novelty items inline without creating a separate supplier-planning endpoint or client-side heuristic model.
+- Added a mobile owner quick-actions/tasks view:
+  - The admin dashboard now reuses the same purchase summary on small screens for one owner quick-view covering supplier visits, due payments, draft POs, and pending deliveries.
+  - Mobile task cards and shortcut buttons stay handoff-only and still open the shared purchase workspace or the existing admin tabs instead of creating a second mobile purchase flow.
+- Added a daily cash tally entry independent of billing:
+  - Added persisted `daily_cash_tallies` plus admin analytics read/write endpoints for one counted-cash record per day.
+  - Daily Sales now keeps billed totals bill-derived while letting admins save counted cash, note the day, and see the delta against billed cash.
+  - Dashboard store analytics now uses the current-day cash picture from admin analytics instead of relying on whichever date was last selected in the daily-sales tab.
+- Added a tighter final review plus send handoff for purchase orders:
+  - Saved purchase orders now stay in the same purchase workspace instead of forcing a jump into the purchase-orders table after save.
+  - Inline and popup purchase workspaces both show a shared latest-saved PO handoff with `View PO`, `New PO`, and manual `Prepare WhatsApp` actions.
+  - The shared PO detail modal still owns final review and now sits behind the same saved-PO handoff path instead of requiring the orders table as the send entry point.
+- Unified the supplier-visit prep flow into one operator-first dashboard surface:
+  - Admin dashboard now reuses the full purchase-operations summary so one supplier card can show scheduled supplier context, due amounts, suggested short items, PO draft action, direct payment action, and review/send handoff.
+  - Purchase shortcuts now open the shared purchase feature for draft creation, PO payment, or PO review instead of assuming every handoff is a new draft.
+  - PO detail now exposes the existing manual WhatsApp preparation action so review/send can happen from the same detail surface opened by the dashboard handoff.
+- Aligned credit aging snapshots with the live cycle-based credit logic:
+  - Added `model_version` tracking to stored payment-intelligence and aging snapshots.
+  - Auto-rebuild stale `/api/credit/aging` reads instead of silently serving old badge/status data.
+  - Added an explicit aging-report updating state while stale snapshots rebuild.
+  - Added parity coverage between live credit summary output and the stored aging snapshot path.
+- Reworked the Products-side restock dashboard into a simpler counted-stock workspace:
+  - Shows active products only and removes the extra stock/sync-status filter pair in favor of sortable table headers.
+  - Collapses category and product-specific distributor details into the product cell with smaller secondary text instead of separate table columns.
+  - Treats the draft value as the dashboard count to sync into `products.stock`, using the existing stock-adjustment API as a one-way dashboard-to-system sync.
+  - Keeps stock state simple (`Low Stock` or `Available`) and uses row styling plus mismatch-aware sync actions instead of separate status/last-synced columns.
+  - Adds a distributor-scoped handoff into the purchase workspace so selected restock rows can open a draft PO for one distributor.
+  - Reuses supplier learning already owned by purchase-order create/receive flows instead of introducing a second supplier-link model.
+- Reworked purchase-order creation into a clearer supplier-first workspace:
+  - Desktop PO entry now shows the workflow order `Choose Supplier -> Add Items -> Review & Save` instead of leaving the next action implicit.
+  - Item entry and row creation stay locked until a valid supplier is selected, and keyboard focus moves into product entry as soon as Step 1 is complete.
+  - The review/save area now stays reachable in the PO form instead of forcing repeated up/down scrolling to find the final action.
+  - The PO workflow chrome was then simplified to compact step pills, shorter status chips, and icon-led helper actions instead of large descriptive cards and heavier text-button rows.
+- Made the purchase browser workspace discoverable and completion-aware:
+  - Admin purchase views now expose a visible browser-workspace action instead of relying only on `Alt+P`.
+  - Popup/browser purchase mode now keeps a recent-PO panel and latest saved PO context visible when the inline draft closes, so save no longer drops the user into a blank state.
+- Added a lightweight restock-to-PO review step inside one combined workspace bar:
+  - Search, filters, selection state, sync actions, and the PO review entry now live in one top workspace instead of separate filter and bulk-action surfaces.
+  - Selected items open a review surface with editable PO quantities, product units, supplier readiness, optional delivery/note fields, and simple warnings before the purchase handoff.
+  - The review stays non-blocking and still opens the shared purchase workspace for final PO creation instead of bypassing that flow.
+  - The workspace bar and PO review card were then simplified to minimum helper copy with compact icon-led actions instead of large text-heavy control rows.
+- Reworked customer credit due-date and score rules around FIFO-cleared unpaid entries:
+  - Kept a stored `due_date` on every credit entry while showing one active due date based on the oldest unpaid FIFO period.
+  - Kept customers in `New` until the first judged cycle, then moved them onto the shared status ladder `Excellent -> Very Good -> Good -> Average -> Needs Attention -> Problem -> Defaulter`.
+  - Applied status-based due windows for new credit entries: `7 / 15 / 30 / 45 / 60 / 90 / 180` days, with a short `3` day grace rule.
+  - Switched the live badge summary to cycle-based downgrade logic, so one failed oldest-unpaid cycle only drops one status step at a time instead of collapsing many unpaid entries straight to `Defaulter`.
+  - Added badge-side helper text plus customer-facing reminder copy that explains whether the customer is maintaining or improving status against the current active due date.
 - Documented the deployment boundary for `server/core/rateLimiter.js`:
   - Noted that the in-memory limiter is process-local and requires a shared store for multi-instance enforcement.
 - Precomputed the admin credit aging report into a summary read model:

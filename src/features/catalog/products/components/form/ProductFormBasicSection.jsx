@@ -7,46 +7,42 @@ const ProductFormBasicSection = ({
   categories,
   onChange,
   onSuggestDescription,
-}) => (
-  <div className="form-section">
-    <h3 className="section-title">{isQuickMode ? 'Quick Product Details' : 'Basic Information'}</h3>
+}) => {
+  const uomValue = String(formData.uom || '').trim() || 'pcs';
 
-    <div className="form-group">
-      <label htmlFor="name">Product Name *</label>
-      <input
-        type="text"
-        id="name"
-        name="name"
-        value={formData.name}
-        onChange={onChange}
-        placeholder="Enter product name"
-        className={`input-field ${errors.name ? 'error' : ''}`}
-      />
-      {errors.name && <span className="field-error">{errors.name}</span>}
-    </div>
+  return (
+    <div className="form-section">
+      {!isQuickMode ? <h3 className="section-title">Basic Information</h3> : null}
 
     {!isQuickMode ? (
       <div className="form-group">
-        <div className="description-header">
-          <label htmlFor="description">Description *</label>
-          <button type="button" className="suggest-description-btn" onClick={onSuggestDescription}>
-            Suggest
-          </button>
-        </div>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
+        <label htmlFor="name">Product Name *</label>
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
           onChange={onChange}
-          placeholder="Enter product description"
-          rows="3"
-          className={`input-field ${errors.description ? 'error' : ''}`}
+          placeholder="Enter product name"
+          className={`input-field ${errors.name ? 'error' : ''}`}
         />
-        <small className="field-help">Description is auto-suggested from product name. You can edit it anytime.</small>
-        {errors.description && <span className="field-error">{errors.description}</span>}
+        {errors.name && <span className="field-error">{errors.name}</span>}
       </div>
     ) : (
       <div className="compact-product-grid">
+        <div className="form-group compact-span-2">
+          <label htmlFor="name">Product Name *</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={onChange}
+            placeholder="Enter product name"
+            className={`input-field ${errors.name ? 'error' : ''}`}
+          />
+          {errors.name && <span className="field-error">{errors.name}</span>}
+        </div>
         <div className="form-group compact-span-2">
           <label htmlFor="category">Category *</label>
           <input
@@ -97,17 +93,20 @@ const ProductFormBasicSection = ({
 
         <div className="form-group compact-span-2">
           <label htmlFor="uom">UOM *</label>
-          <select
+          <input
             id="uom"
             name="uom"
-            value={formData.uom}
+            type="text"
+            list="product-form-uom-list"
+            value={uomValue || 'pcs'}
             onChange={onChange}
             className="input-field"
-          >
+          />
+          <datalist id="product-form-uom-list">
             {UOM_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
-          </select>
+          </datalist>
         </div>
 
         <div className="form-group compact-span-2">
@@ -125,6 +124,28 @@ const ProductFormBasicSection = ({
           />
           {errors.purchase_pack_size && <span className="field-error">{errors.purchase_pack_size}</span>}
         </div>
+      </div>
+    )}
+
+    {!isQuickMode && (
+      <div className="form-group">
+        <div className="description-header">
+          <label htmlFor="description">Description *</label>
+          <button type="button" className="suggest-description-btn" onClick={onSuggestDescription}>
+            Suggest
+          </button>
+        </div>
+        <textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={onChange}
+          placeholder="Enter product description"
+          rows="3"
+          className={`input-field ${errors.description ? 'error' : ''}`}
+        />
+        <small className="field-help">Description is auto-suggested from product name. You can edit it anytime.</small>
+        {errors.description && <span className="field-error">{errors.description}</span>}
       </div>
     )}
 
@@ -219,7 +240,8 @@ const ProductFormBasicSection = ({
         </div>
       </div>
     )}
-  </div>
-);
+    </div>
+  );
+};
 
 export default ProductFormBasicSection;

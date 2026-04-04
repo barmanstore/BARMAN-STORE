@@ -15,11 +15,9 @@ const BillingBillList = ({
   <section className="billing-pos-panel billing-bill-panel">
     <div className="billing-panel-header">
       <div>
-        <p className="billing-panel-kicker">Live Bill</p>
-        <h2>Latest Item On Top</h2>
-        <p className="billing-panel-copy">
-          Click a row to edit inline. Delete removes only that line.
-        </p>
+        <p className="billing-panel-kicker">Bill</p>
+        <h2>Items</h2>
+        <p className="billing-panel-copy">Tap a row to edit.</p>
       </div>
       {lastRemovedItem ? (
         <button
@@ -28,15 +26,15 @@ const BillingBillList = ({
           onClick={onUndoLastRemoval}
         >
           <RotateCcw size={16} />
-          Undo Last
+          Undo
         </button>
       ) : null}
     </div>
 
     {billItems.length === 0 ? (
       <div className="billing-empty-state">
-        <strong>No items added yet.</strong>
-        <p>Use the left panel to scan or search products and add them one by one.</p>
+        <strong>No items yet.</strong>
+        <p>Add an item to start.</p>
       </div>
     ) : (
       <div className="billing-bill-list" role="list" aria-label="Live bill items">
@@ -67,11 +65,8 @@ const BillingBillList = ({
                     {index === editIndex ? (
                       <span className="billing-line-tag editing">
                         <PencilLine size={12} />
-                        Editing
+                        Edit
                       </span>
-                    ) : null}
-                    {item.id === latestAddedItemId ? (
-                      <span className="billing-line-tag latest">Latest</span>
                     ) : null}
                     {item.isCustomItem ? (
                       <span className="billing-line-tag custom">Custom</span>
@@ -82,10 +77,10 @@ const BillingBillList = ({
                       </span>
                     ) : null}
                     {item.appliedOfferLabel ? (
-                      <span className="billing-line-tag good">{item.appliedOfferLabel}</span>
+                      <span className="billing-line-tag good">Offer</span>
                     ) : null}
                     {item.isManualPrice ? (
-                      <span className="billing-line-tag manual">Manual Price</span>
+                      <span className="billing-line-tag manual">Manual</span>
                     ) : null}
                   </div>
                 </div>
@@ -109,27 +104,22 @@ const BillingBillList = ({
                 <strong>{formatCurrency(item.amount)}</strong>
               </div>
 
-              {(Number(item.totalDiscount || item.disc || 0) > 0 || item.profitValue !== null) ? (
+              {(Number(item.totalDiscount || item.disc || 0) > 0 || item.isPartialLinkedBilling) ? (
                 <div className="billing-bill-item-meta">
                   {Number(item.offerDiscount || 0) > 0 ? (
                     <span>
-                      Offer: {item.appliedOfferLabel ? `${item.appliedOfferLabel} ` : ''}{formatCurrency(item.offerDiscount)}
+                      Offer {formatCurrency(item.offerDiscount)}
                     </span>
                   ) : null}
                   {Number(item.manualDiscount || 0) > 0 ? (
                     <span>
-                      Manual: {formatCurrency(item.manualDiscount)}
-                    </span>
-                  ) : null}
-                  {item.profitValue !== null ? (
-                    <span className={item.profitValue >= 0 ? 'profit' : 'loss'}>
-                      Profit: {formatCurrency(item.profitValue)}
+                      Disc {formatCurrency(item.manualDiscount)}
                     </span>
                   ) : null}
                   {item.isPartialLinkedBilling ? (
                     <span>
-                      Billing now: {displayQty}/{Number(item.requestedQty || item.qty || 0)} {item.unit}
-                      {Number(item.linkedPendingQty || 0) > 0 ? ` | Pending after bill: ${Number(item.linkedPendingQty || 0)}` : ''}
+                      Now {displayQty}/{Number(item.requestedQty || item.qty || 0)} {item.unit}
+                      {Number(item.linkedPendingQty || 0) > 0 ? ` | Left ${Number(item.linkedPendingQty || 0)}` : ''}
                     </span>
                   ) : null}
                 </div>

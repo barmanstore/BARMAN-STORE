@@ -5,6 +5,8 @@ const hasSelectedProduct = (item = {}) => String(item?.product_id || '').trim().
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_DISCOUNT_TYPE = 'percent';
 const DEFAULT_DISCOUNT_VALUE = 0;
+const PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER = 'supplier';
+const PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL = 'manual';
 const DISCOUNT_ACK_RESET_FIELDS = new Set([
   'quantity',
   'uom',
@@ -36,6 +38,42 @@ const getRelativeAgeLabel = (value) => {
 };
 
 const formatDraftCurrency = (value) => Number(value || 0).toFixed(2);
+
+const normalizePurchaseOrderItemRowSource = (
+  value,
+  fallback = PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL,
+) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (
+    normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER
+    || normalized === 'supplier_default'
+  ) {
+    return PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER;
+  }
+  if (
+    normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL
+    || normalized === 'manual_added'
+  ) {
+    return PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL;
+  }
+  return fallback;
+};
+
+const getPurchaseDraftItemSourceFlags = (item = {}) => {
+  const fallbackSource = item?.po_item_locked === true
+    ? PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER
+    : PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL;
+  const rowSource = normalizePurchaseOrderItemRowSource(
+    item?.row_source || item?.po_item_source,
+    fallbackSource,
+  );
+  const supplierDefault = rowSource === PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER;
+  return {
+    rowSource,
+    poItemSource: supplierDefault ? 'supplier_default' : 'manual_added',
+    poItemLocked: supplierDefault,
+  };
+};
 
 const getLastPurchaseMeta = (item = {}) => {
   const rate = Number(item?.last_purchase_rate || 0) || 0;
@@ -124,7 +162,7 @@ const applyPurchaseDraftFieldChange = ({
   const nextItem = { ...item, [field]: nextValue };
 
   if (field === 'quantity') {
-    nextItem.quantity = Math.max(1, toNumber(nextValue));
+    nextItem.quantity = Math.max(0, toNumber(nextValue));
   }
 
   if (field === 'uom') {
@@ -312,6 +350,7 @@ const toCalculatedPurchaseOrderItem = ({
   calculateOrderItem,
 }) => {
   const line = calculateOrderItem(item);
+  const sourceFlags = getPurchaseDraftItemSourceFlags(item);
   return {
     ...(item?.id ? { id: item.id } : {}),
     product_id: item?.product_id ? String(item.product_id).trim() : '',
@@ -327,6 +366,7 @@ const toCalculatedPurchaseOrderItem = ({
     discount_warning_acknowledged: Boolean(item?.discount_warning_acknowledged),
     reference_rate: Number(item?.reference_rate || 0) || 0,
     reference_rate_source: String(item?.reference_rate_source || '').trim(),
+    row_source: sourceFlags.rowSource,
     taxable_value: line.taxableValue,
     tax_amount: line.taxAmount,
     line_total: line.totalAmount,
@@ -488,6 +528,8 @@ export {
   clearPurchaseDraftProductSelection,
   getLastPurchaseMeta,
   getLastPurchaseSuggestionPreserveFlags,
+  getPurchaseDraftItemSourceFlags,
+  normalizePurchaseOrderItemRowSource,
   preparePurchaseOrderSubmission,
   projectPurchaseOrderDraft,
   toCalculatedPurchaseOrderItem,

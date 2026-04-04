@@ -17,9 +17,17 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [backend.md](backend.md), [v
 ## Credit Tables
 
 - `credit_history` stores a required `due_date` per entry; historical rows are backfilled from `transaction_date` or `transaction_ts`.
-- `customer_credit_profiles` includes `credit_terms_days` to compute default due dates for manual credits.
-- `customer_payment_score_snapshots` tracks `unapplied_credit` so overpayments are stored without affecting scoring.
-- `customer_credit_aging_snapshots` stores precomputed aging-report summaries for admin reads.
+- `customer_credit_profiles` stores the shared short-grace setting plus an optional `credit_terms_days` override. When that override is `0`, new credit entries default to the current payment-status window instead of a fixed manual term.
+- `customer_payment_score_snapshots` tracks `unapplied_credit` so overpayments are stored without affecting scoring, and `model_version` so stale scoring models can be detected.
+- `customer_credit_aging_snapshots` stores precomputed aging-report summaries for admin reads, and `model_version` so the admin report can reject stale snapshot rows after scoring changes.
+
+## Admin Operations Tables
+
+- `daily_cash_tallies` stores one admin-entered counted-cash record per date for the backoffice daily cash picture. It is intentionally separate from `bills` so unrecorded walk-in cash or short cash can be tracked without mutating bill history.
+
+## Purchase Tables
+
+- `purchase_order_items.row_source` persists whether a saved PO line came from the supplier-registry board (`supplier`) or from a manually added extra product (`manual`).
 
 ## Query Compatibility
 

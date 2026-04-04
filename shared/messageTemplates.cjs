@@ -5,6 +5,7 @@ const DEFAULT_STORE_TITLE = "বৰ্মন ষ্ট'ৰ";
 const DEFAULT_THANK_YOU = 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।';
 const DEFAULT_DESCRIPTION = 'টোকা নাই';
 const DEFAULT_CUSTOMER_LABEL = 'গ্ৰাহক';
+const PAYMENT_DAY_MS = 24 * 60 * 60 * 1000;
 const CUSTOMER_ENTRY_TYPE_LABELS = {
   bill: 'বিলৰ ধাৰ',
   correction: 'সংশোধন',
@@ -55,6 +56,24 @@ const resolveThanksLine = (value) => normalizeLabel(value, DEFAULT_THANK_YOU);
 
 const isDateKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
 
+const dateKeyToUtcMs = (value) => {
+  const raw = String(value || '').trim();
+  if (!isDateKey(raw)) return Number.NaN;
+  return Date.parse(`${raw}T00:00:00.000Z`);
+};
+
+const addDaysToDateKey = (value, days) => {
+  const baseMs = dateKeyToUtcMs(value);
+  if (!Number.isFinite(baseMs)) return '';
+  return new Date(baseMs + (Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)).toISOString().slice(0, 10);
+};
+
+const getTodayDateKey = (nowValue = Date.now()) => {
+  const nowMs = typeof nowValue === 'number' ? nowValue : Date.parse(nowValue);
+  const safeMs = Number.isFinite(nowMs) ? nowMs : Date.now();
+  return new Date(safeMs).toISOString().slice(0, 10);
+};
+
 const formatDueDateLabel = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -84,7 +103,8 @@ const toPaymentStatusLabel = (value) => {
 
 const buildMaintainScoreLine = (paymentProfile) => {
   if (!paymentProfile || typeof paymentProfile !== 'object') return '';
-  const dueDateLabel = formatDueDateLabel(paymentProfile.maintain_score_by_date);
+  const dueDateKey = String(paymentProfile.maintain_score_by_date || '').trim();
+  const dueDateLabel = formatDueDateLabel(dueDateKey);
   const outstandingAmount = Number(
     paymentProfile.outstanding_amount
     ?? paymentProfile.current_balance
@@ -97,17 +117,36 @@ const buildMaintainScoreLine = (paymentProfile) => {
   const statusValue = String(paymentProfile.status ?? paymentProfile.payment_status ?? '').trim().toLowerCase();
   const customerTag = String(paymentProfile.customer_tag || '').trim().toLowerCase();
   const normalizedStatus = statusLabel.toLowerCase();
+  const nextStatusLabel = String(paymentProfile.next_status_label || '').trim();
+  const graceDays = Math.max(0, Math.floor(Number(paymentProfile.grace_days) || 0));
+  const graceEndDateKey = addDaysToDateKey(dueDateKey, graceDays);
+  const graceEndDateLabel = formatDueDateLabel(graceEndDateKey);
+  const todayDateKey = getTodayDateKey(paymentProfile.now_ms ?? paymentProfile.nowMs);
   const isNewCustomer = customerTag === 'insufficient_history'
     || statusValue === 'new'
     || normalizedStatus === 'new';
+  const dueDatePassed = isDateKey(dueDateKey) && todayDateKey > dueDateKey;
+  const gracePeriodEnded = isDateKey(graceEndDateKey) && todayDateKey > graceEndDateKey;
 
-  if (isNewCustomer) {
-    return `আপোনাৰ পেমেন্ট স্কোৰ গঢ়ি তুলিবলৈ অনুগ্ৰহ কৰি ${dueDateLabel} ৰ আগতে পৰিশোধ কৰক।`;
+  if (gracePeriodEnded) {
+    return 'আপোনাৰ পৰিশোধৰ গ্ৰেচ পিৰিয়ড শেষ হৈছে। অনুগ্ৰহ কৰি তৎক্ষণাত পৰিশোধ কৰক, নহ’লে পেমেন্ট স্কোৰ বেয়া হ’ব পাৰে।';
   }
-  if (normalizedStatus === 'excellent' || normalizedStatus === 'very good' || normalizedStatus === 'good') {
+
+  if (dueDatePassed) {
+    const targetDateLabel = graceEndDateLabel || dueDateLabel;
+    return `আপোনাৰ পৰিশোধ বাকি আছে। অনুগ্ৰহ কৰি ${targetDateLabel} ৰ ভিতৰত পৰিশোধ কৰক, নহ’লে পেমেন্ট স্কোৰ বেয়া হ’ব পাৰে।`;
+  }
+
+  if (normalizedStatus === 'excellent') {
     return `আপোনাৰ ${statusLabel} স্কোৰ বজাই ৰাখিবলৈ অনুগ্ৰহ কৰি ${dueDateLabel} ৰ আগতে পৰিশোধ কৰক।`;
   }
-  return `পেমেন্ট স্কোৰ ভাল ৰাখিবলৈ অনুগ্ৰহ কৰি ${dueDateLabel} ৰ আগতে পৰিশোধ কৰক।`;
+
+  if (isNewCustomer) {
+    return `অনুগ্ৰহ কৰি ${dueDateLabel} ৰ আগতে পৰিশোধ কৰক। সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ গঢ়ি উঠিব পাৰে।`;
+  }
+
+  const targetStatusText = nextStatusLabel ? `${nextStatusLabel} status` : 'অধিক ভাল status';
+  return `অনুগ্ৰহ কৰি ${dueDateLabel} ৰ আগতে পৰিশোধ কৰক। সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ উন্নত হৈ ${targetStatusText} পাব পাৰে।`;
 };
 
 const buildPaymentProfileLines = (paymentProfile) => {

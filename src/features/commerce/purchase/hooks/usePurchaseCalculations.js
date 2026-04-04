@@ -23,7 +23,7 @@ function usePurchaseCalculations({
       product_id: resolvedProduct?.id ? String(resolvedProduct.id) : String(overrides.product_id || ''),
       product_query: resolvedProduct ? getProductSearchLabel(resolvedProduct) : String(overrides.product_query || overrides.product_name || '').trim(),
       product_name: String(overrides.product_name || resolvedProduct?.name || '').trim(),
-      quantity: Math.max(1, toNumber(overrides.quantity ?? 1)),
+      quantity: Math.max(0, toNumber(overrides.quantity ?? 1)),
       uom: resolvedUom,
       unit_price: resolvedRate,
       rate: resolvedRate,

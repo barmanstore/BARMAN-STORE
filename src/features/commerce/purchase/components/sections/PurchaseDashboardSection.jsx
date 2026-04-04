@@ -15,6 +15,7 @@ const PurchaseDashboardSection = ({
   onOpenOrder,
   onOpenPayable,
   onNewOrder,
+  onOpenBrowserWorkspace,
   onOpenLedgerForm,
   onOpenReturn,
   rollupParams,
@@ -35,6 +36,7 @@ const PurchaseDashboardSection = ({
         operationsLoading={operationsLoading}
         operationsCardItems={operationsCardItems}
         onNewOrder={onNewOrder}
+        onOpenBrowserWorkspace={onOpenBrowserWorkspace}
         onOpenLedgerForm={onOpenLedgerForm}
         onOpenReturn={onOpenReturn}
         activeSector={activeSector}

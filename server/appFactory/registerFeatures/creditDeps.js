@@ -9,6 +9,7 @@ const buildCreditDeps = ({ core, domain }) => {
     buildPaymentActivityBadges: creditUtils.buildPaymentActivityBadges,
     recalculateCreditBalancesForUser: creditUtils.recalculateCreditBalancesForUser,
     getCustomerCreditProfileAsync: creditUtils.getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync: creditUtils.getCustomerPaymentSummaryAsync,
     rebuildCustomerPaymentIntelligence: creditUtils.rebuildCustomerPaymentIntelligence,
     rebuildAllCustomerPaymentIntelligence: creditUtils.rebuildAllCustomerPaymentIntelligence,
     buildCreditTransactionTimestamp: creditUtils.buildCreditTransactionTimestamp,

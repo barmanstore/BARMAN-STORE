@@ -18,6 +18,7 @@ const createPurchaseOperationsSummaryDataFetch = (deps) => {
       addDaysToDateKey,
       resolveRollupRange,
     });
+    const products = await queries.fetchProducts();
     const distributors = await queries.fetchDistributors(filters.distributorIdFilter);
     const orders = await queries.fetchOrders(filters.distributorIdFilter);
     const payments = await queries.fetchPayments(filters.distributorIdFilter);
@@ -26,6 +27,7 @@ const createPurchaseOperationsSummaryDataFetch = (deps) => {
 
     return {
       ...filters,
+      products,
       distributors,
       orders,
       payments,

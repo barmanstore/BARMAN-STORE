@@ -16,6 +16,7 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [../ROUTES.md](../ROUTES.md)
 - There is no backend `server/controllers/` tree. Keep orchestration in route modules or same-feature helpers.
 - Shared helpers belong in `server/utils`, `server/services`, or `server/appFactory/domainServices` only when they are truly cross-feature.
 - The in-memory limiter in [server/core/rateLimiter.js](../server/core/rateLimiter.js) is process-local. It is suitable for single-instance runtime and local development only. Use a shared backing store if multi-instance enforcement is required.
+- [server/whatsappProvider.js](../server/whatsappProvider.js) is currently a manual-prepared-message capability boundary, not a live send integration. Keep status endpoints, purchase flows, and verification helpers honest about manual scope until a real provider-backed sender is implemented.
 
 ## Change Rules
 

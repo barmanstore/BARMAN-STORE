@@ -102,12 +102,13 @@ const updatePurchaseOrderWithItems = async (deps, {
     const transactionTs = buildPurchaseTransactionTimestamp(plannedOrderDate, new Date());
     for (const it of normalizedItems) {
       const insert = await dbRunAsync(
-        `INSERT INTO purchase_order_items (order_id, product_id, product_name, quantity, received_quantity, uom, unit_price, rate, unit_price_before_discount, unit_discount_amount, tax_rate, unit_tax_amount, unit_cost_incl_tax, line_total_incl_tax, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO purchase_order_items (order_id, product_id, product_name, row_source, quantity, received_quantity, uom, unit_price, rate, unit_price_before_discount, unit_discount_amount, tax_rate, unit_tax_amount, unit_cost_incl_tax, line_total_incl_tax, gst_rate, discount_type, discount_value, taxable_value, tax_amount, line_total, total)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.params.id,
           it.product_id || null,
           it.product_name || 'Unknown',
+          it.row_source || 'manual',
           Number(it.quantity || 0),
           Number(it.received_quantity || 0),
           it.uom || 'pcs',

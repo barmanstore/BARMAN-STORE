@@ -104,14 +104,14 @@ const BillingTabView = ({
   }, [productSearchResults, recentProducts, showRecentProducts]);
   const productResultSummary = useMemo(() => {
     if (showRecentProducts) {
-      if (!recentProducts.length) return 'No recent products yet.';
-      return `Showing ${Math.min(visibleEntryResults.length, recentProducts.length)} of ${recentProducts.length} recent products.`;
+      if (!recentProducts.length) return 'No recent items.';
+      return `${Math.min(visibleEntryResults.length, recentProducts.length)} of ${recentProducts.length} recent`;
     }
     if (productSearchLoading) return '';
     const trimmedName = String(currentItem?.name || '').trim();
     if (!trimmedName) return '';
-    if (!productSearchResults.length) return 'No matching products yet.';
-    return `Showing ${Math.min(visibleEntryResults.length, productSearchResults.length)} of ${productSearchResults.length} matching products.`;
+    if (!productSearchResults.length) return 'No matches.';
+    return `${Math.min(visibleEntryResults.length, productSearchResults.length)} of ${productSearchResults.length} matches`;
   }, [
     currentItem?.name,
     productSearchLoading,
@@ -149,9 +149,9 @@ const BillingTabView = ({
     <div className={`billing-content${isMobile ? ' billing-content-mobile' : ''}`}>
       <div className="billing-header">
         <div>
-          <h1>Retail POS Billing</h1>
+          <h1>Billing</h1>
           <p className="billing-header-copy">
-            Keyboard-first billing with one-item entry, live bill updates, and inline correction.
+            Add items and checkout.
           </p>
         </div>
         <div className="billing-header-actions">
@@ -173,11 +173,11 @@ const BillingTabView = ({
       {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
       {isOrderLinked ? (
         <div className="billing-prefill-note">
-          Linked order mode is active. You can still edit line items and complete the bill inline.
+          Linked order. Edit and bill here.
         </div>
       ) : null}
       {pricingPreviewLoading ? (
-        <div className="billing-prefill-note">Refreshing offer pricing for the current bill...</div>
+        <div className="billing-prefill-note">Refreshing prices...</div>
       ) : null}
       {pricingPreviewError ? (
         <div className="billing-prefill-note">{pricingPreviewError}</div>
@@ -192,8 +192,8 @@ const BillingTabView = ({
       {loading ? (
         <div className="billing-loading-shell" role="status" aria-live="polite">
           <div className="billing-loading-shell__copy">
-            <strong>Loading billing data...</strong>
-            <span>Preparing products, customers, and billing shortcuts.</span>
+            <strong>Loading billing...</strong>
+            <span>Products and customers.</span>
           </div>
           <div className="billing-loading-shell__grid" aria-hidden="true">
             <span className="billing-loading-shell__card billing-loading-shell__card--wide" />
@@ -211,7 +211,7 @@ const BillingTabView = ({
             onClick={() => setMobileView('search')}
           >
             <Search size={16} />
-            Entry
+            Items
           </button>
           <button
             type="button"
@@ -344,7 +344,7 @@ const BillingTabView = ({
               className={`billing-mobile-nav-btn${mobileView === 'search' ? ' active' : ''}`}
               onClick={() => setMobileView('search')}
             >
-              Entry
+              Items
             </button>
             <button
               type="button"
@@ -381,7 +381,7 @@ const BillingTabView = ({
       {lastShareText ? (
         <div className="share-box">
           <div className="share-header">
-            <strong>Share Bill {lastShareNumber ? `#${lastShareNumber}` : ''}</strong>
+            <strong>Share {lastShareNumber ? `#${lastShareNumber}` : 'Bill'}</strong>
           </div>
           <textarea
             className="share-text"

@@ -61,7 +61,7 @@ const parseNumericToken = (rawToken) => {
 };
 
 const tokenizeAmountExpression = (raw) => {
-  const value = String(raw || '').trim();
+  const value = String(raw ?? '').trim();
   if (!value) return [];
   if (!/^[\d+\-*/().,\s]+$/.test(value)) {
     throw new Error('Only numbers and + - * / ( ) are allowed');
@@ -179,7 +179,7 @@ export const evaluateAmountExpression = (raw) => {
   } catch (error) {
     return {
       valid: false,
-      empty: !String(raw || '').trim(),
+      empty: !String(raw ?? '').trim(),
       value: 0,
       message: error?.message || 'Invalid expression',
     };

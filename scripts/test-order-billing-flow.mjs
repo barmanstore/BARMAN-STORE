@@ -746,6 +746,46 @@ const main = async () => {
     assert.equal(String(previewAfterFirstOrderJson?.items?.[0]?.best_offer_label || '').trim(), '', 'offer preview should clear first-order label after first order');
     assert.equal(Number(previewAfterFirstOrderJson?.summary?.total || 0), 110, 'offer preview total should fall back to undiscounted price plus tax after first order');
 
+    const adminBillingPreviewRes = await adminRequest('/api/offers/preview', {
+      method: 'POST',
+      body: JSON.stringify({
+        context: 'billing',
+        offer_context: { customer_user_id: customerId },
+        items: [
+          {
+            product_id: productId,
+            product_name: productName,
+            quantity: 1,
+            unit: 'pcs',
+          },
+        ],
+      }),
+    });
+    const adminBillingPreviewJson = await toJson(adminBillingPreviewRes);
+    assert.equal(adminBillingPreviewRes.status, 200, `admin billing offer preview failed: ${JSON.stringify(adminBillingPreviewJson)}`);
+    if (adminBillingPreviewJson?.debug) {
+      assert.equal(
+        Number(adminBillingPreviewJson?.debug?.eligibility_context?.customer_user_id || 0),
+        customerId,
+        `admin billing preview should use the selected billing customer: ${JSON.stringify(adminBillingPreviewJson?.debug)}`
+      );
+    }
+    assert.equal(
+      Number(adminBillingPreviewJson?.summary?.auto_offer_discount_total || 0),
+      0,
+      'admin billing preview should not apply first-order-only offer to a customer who already ordered'
+    );
+    assert.equal(
+      String(adminBillingPreviewJson?.items?.[0]?.best_offer_label || '').trim(),
+      '',
+      'admin billing preview should clear first-order label for an existing customer'
+    );
+    assert.equal(
+      Number(adminBillingPreviewJson?.summary?.total || 0),
+      100,
+      'admin billing preview should keep billing totals untaxed and undiscounted for an existing customer'
+    );
+
     const partialRestockRes = await adminRequest(`/api/products/${productId}`, {
       method: 'PUT',
       body: JSON.stringify({

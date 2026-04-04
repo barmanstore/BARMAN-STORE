@@ -50,8 +50,10 @@ export const AdminPageProvider = ({ value, children }) => {
 
   const modalValue = useMemo(() => ({
     showProductForm: value.showProductForm,
+    productFormMode: value.productFormMode,
     editingProduct: value.editingProduct,
     setShowProductForm: value.setShowProductForm,
+    setProductFormMode: value.setProductFormMode,
     setEditingProduct: value.setEditingProduct,
     handleProductSave: value.handleProductSave,
     showApproveModal: value.showApproveModal,
@@ -91,6 +93,7 @@ export const AdminPageProvider = ({ value, children }) => {
     value.modalItems,
     value.modalLoading,
     value.modalOrder,
+    value.productFormMode,
     value.proceedBillingOrderId,
     value.setEditingProduct,
     value.setEditingUser,
@@ -99,6 +102,7 @@ export const AdminPageProvider = ({ value, children }) => {
     value.setShowApproveModal,
     value.setShowExportDialog,
     value.setShowProductForm,
+    value.setProductFormMode,
     value.setShowUserForm,
     value.showApproveModal,
     value.showExportDialog,

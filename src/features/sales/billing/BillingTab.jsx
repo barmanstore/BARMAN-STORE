@@ -680,7 +680,7 @@ const BillingSystem = ({
       && getBillingItemType(nextItem) === 'inventory'
       && Number(nextItem?.productId || 0) > 0
     ) {
-      setError('Selected product is ready. Press Enter in Qty or review the line before adding.');
+      setError('Product ready. Press Enter in Qty to add.');
       focusEntryField('qty', { select: true });
       return false;
     }
@@ -849,7 +849,7 @@ const BillingSystem = ({
           handleSelectSearchProduct(highlightedProduct, 'qty');
           return;
         }
-        setProductSearchMessage('Multiple products found. Use Arrow keys or click to select the correct item.');
+        setProductSearchMessage('Multiple matches. Use arrows or click.');
         return;
       }
 
@@ -859,7 +859,7 @@ const BillingSystem = ({
       }
 
       if (productSearchLoading) {
-        setProductSearchMessage('Searching products. Press Enter again when results appear.');
+        setProductSearchMessage('Searching. Press Enter again.');
         return;
       }
 
@@ -919,15 +919,15 @@ const BillingSystem = ({
     ) {
       if (productSearchResults.length > 1 && !hasExplicitSuggestionChoice) {
         event.preventDefault();
-        setProductSearchMessage('Multiple products found. Use Arrow keys or click to select the correct item.');
+        setProductSearchMessage('Multiple matches. Use arrows or click.');
         return;
       }
       if (!highlightedProduct) {
         event.preventDefault();
         setProductSearchMessage(
           productSearchLoading
-            ? 'Searching products. Wait for results or press Enter to add a custom item.'
-            : 'No exact product match yet. Press Enter to add a custom item or keep typing.'
+            ? 'Searching. Wait or press Enter for custom.'
+            : 'No exact match. Press Enter for custom or keep typing.'
         );
         return;
       }
@@ -1211,8 +1211,8 @@ const BillingSystem = ({
   const isOrderLinked = Number(linkedOrderId || 0) > 0;
   const activeLineItemsCount = billItems.length;
   const paymentStatusLabel = creditAmount > 0
-    ? (paidClamped > 0 ? 'Partially Paid' : 'Credit Due')
-    : 'Fully Paid';
+    ? (paidClamped > 0 ? 'Partial' : 'Due')
+    : 'Paid';
 
   const lowStockWarning = useMemo(() => {
     if (!currentProduct) return null;
@@ -1493,7 +1493,7 @@ const BillingSystem = ({
 
   const handleCreateBillClick = useCallback(() => {
     if (billItems.length === 0) {
-      setError('Add at least one item before creating the bill.');
+      setError('Add an item before saving.');
       focusEntryField('search');
       return;
     }

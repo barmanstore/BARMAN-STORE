@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { BellRing, Package, Truck } from 'lucide-react';
+import { AlertTriangle, BellRing, Package, Truck } from 'lucide-react';
 import { sortPurchaseAnalyticsEntries } from '../../../utils/purchaseAnalyticsSort';
 
 const PurchasePlanningPanel = ({
@@ -45,6 +45,25 @@ const PurchasePlanningPanel = ({
     return names.slice(0, 3);
   };
 
+  const renderNoveltyAlert = (entry) => {
+    const alerts = Array.isArray(entry?.novelty_alerts) ? entry.novelty_alerts : [];
+    const totalCount = Math.max(0, Number(entry?.novelty_summary?.total_count || alerts.length || 0));
+    if (!totalCount) return null;
+    const preview = alerts
+      .slice(0, 2)
+      .map((item) => String(item?.item_name || '').trim())
+      .filter(Boolean)
+      .join(', ');
+    const label = alerts[0]?.label || 'Check supplier novelty';
+    const remainder = totalCount > 2 ? ` +${totalCount - 2} more` : '';
+    return (
+      <small className="purchase-ops-novelty">
+        <AlertTriangle size={12} />
+        <span>{label}: {preview || `${totalCount} item${totalCount === 1 ? '' : 's'}`}{remainder}</span>
+      </small>
+    );
+  };
+
   return (
     <div className="purchase-sector-grid">
       <section className="purchase-ops-panel">
@@ -62,6 +81,7 @@ const PurchasePlanningPanel = ({
                 {getSuggestedItems(entry).length ? (
                   <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
                 ) : null}
+                {renderNoveltyAlert(entry)}
                 <small>
                   Due today: {formatCurrency(toNumber(entry.due_today_amount))} | Overdue: {formatCurrency(toNumber(entry.overdue_amount))}
                 </small>
@@ -101,6 +121,7 @@ const PurchasePlanningPanel = ({
                 {getSuggestedItems(entry).length ? (
                   <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
                 ) : null}
+                {renderNoveltyAlert(entry)}
                 <small>{entry.schedule_day} | {entry.schedule_date}</small>
                 <small>Configured: {entry.configured_payment_due_days ?? '-'}d | Inferred: {entry.inferred_payment_due_days ?? '-'}d</small>
               </div>
@@ -137,6 +158,7 @@ const PurchasePlanningPanel = ({
                 {getSuggestedItems(entry).length ? (
                   <small>Suggested: {getSuggestedItems(entry).join(', ')}</small>
                 ) : null}
+                {renderNoveltyAlert(entry)}
               </div>
               <button
                 type="button"

@@ -7,6 +7,7 @@ import { apiFetch } from './core';
 export const distributorsApi = {
   getAll: () => apiFetch('/api/distributors'),
   getById: (id) => apiFetch(`/api/distributors/${id}`),
+  getProducts: (id) => apiFetch(`/api/distributors/${id}/products`),
   create: (distributor) =>
     apiFetch('/api/distributors', {
       method: 'POST',

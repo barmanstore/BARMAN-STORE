@@ -20,6 +20,12 @@ const toBooleanFlag = (value) => {
   return normalized === 'true' || normalized === '1' || normalized === 'yes';
 };
 
+const normalizeRowSource = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'supplier' || normalized === 'supplier_default') return 'supplier';
+  return 'manual';
+};
+
 const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationError } = {}) => {
   const normalizePurchaseOrderItems = async (rawItems = []) => {
     const items = Array.isArray(rawItems) ? rawItems : [];
@@ -128,6 +134,7 @@ const createPurchaseItemNormalizer = ({ dbGetAsync, createPurchaseValidationErro
         ...it,
         product_id: productId || null,
         product_name: String(it.product_name || '').trim() || String(product?.name || '').trim() || 'Unknown',
+        row_source: normalizeRowSource(it.row_source),
         quantity,
         quantity_base: quantityBase,
         uom: normalizedUom,

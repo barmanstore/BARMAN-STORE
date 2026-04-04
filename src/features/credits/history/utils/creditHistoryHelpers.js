@@ -35,6 +35,13 @@ export const formatPdfCurrency = (amount) => {
   return `${numeric < 0 ? '-' : ''}Rs ${value}`;
 };
 
+const formatCompactDateKey = (dateKey) => {
+  const raw = String(dateKey || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const [year, month, day] = raw.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 export const getEffectiveTransactionDateKey = (transaction) => {
   const txDateRaw = transaction?.transaction_date ?? transaction?.transactionDate;
   if (txDateRaw) {
@@ -82,6 +89,32 @@ export const compareTransactionsByDateDesc = (a, b) => {
   const timeDiff = getEffectiveTransactionTimestamp(b) - getEffectiveTransactionTimestamp(a);
   if (timeDiff !== 0) return timeDiff;
   return Number(b?.id || 0) - Number(a?.id || 0);
+};
+
+export const buildCreditHistoryDayGroups = (transactions, {
+  getDateKey = getEffectiveTransactionDateKey,
+  compareTransactions = compareTransactionsByDateDesc,
+  formatDate = formatTransactionDate,
+} = {}) => {
+  const groups = new Map();
+  (Array.isArray(transactions) ? transactions : []).forEach((transaction) => {
+    const dateKey = getDateKey(transaction) || 'Unknown';
+    if (!groups.has(dateKey)) groups.set(dateKey, []);
+    groups.get(dateKey).push(transaction);
+  });
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([dateKey, dayTransactions]) => ({
+      dateKey,
+      dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? formatCompactDateKey(dateKey)
+        : dateKey,
+      dateLabelLong: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+        ? formatDate({ transaction_date: dateKey }, { long: true })
+        : dateKey,
+      transactions: [...dayTransactions].sort(compareTransactions),
+    }));
 };
 
 export const formatTransactionDate = (transaction, { long = false } = {}) => {

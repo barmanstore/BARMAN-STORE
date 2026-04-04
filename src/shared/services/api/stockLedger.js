@@ -12,4 +12,8 @@ export const stockLedgerApi = {
     return apiFetch(`/api/stock-ledger${query ? `?${query}` : ''}`);
   },
   getSummary: () => apiFetch('/api/stock-ledger/summary'),
+  applyAdjustments: (payload) => apiFetch('/api/stock-ledger/adjustments', {
+    method: 'POST',
+    body: payload,
+  }),
 };

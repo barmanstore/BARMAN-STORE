@@ -137,7 +137,7 @@ const ProductFormView = ({
       dialogClassName={`product-form-container fade-in-up${isQuickMode ? ' compact' : ''}`}
       headerClassName="product-form-header"
       closeButtonClassName="product-form-close-btn"
-      initialSize={{ width: isQuickMode ? 560 : 860, height: 760 }}
+      initialSize={{ width: isQuickMode ? 360 : 860, height: isQuickMode ? 520 : 760 }}
     >
       {formContent}
     </WindowModal>

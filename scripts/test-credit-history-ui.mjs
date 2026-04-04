@@ -8,6 +8,7 @@ import {
   getRecentActivityHint,
   truncateCreditDescription,
 } from '../src/shared/utils/creditHistoryUi.mjs';
+import { buildCreditHistoryDayGroups } from '../src/features/credits/history/utils/creditHistoryHelpers.js';
 import { buildCreditTransactionText } from '../shared/messageTemplates.js';
 import { buildMessagePreview } from '../shared/textPreview.js';
 import { MAX_URL_LENGTH, buildWhatsAppUrl } from '../src/shared/utils/whatsapp.js';
@@ -137,7 +138,121 @@ const run = () => {
     balance: 110,
     nowMs: new Date('2026-02-15T00:00:00Z').getTime(),
   });
-  assert.equal(profile.summary.maintain_score_by_date, '2026-02-08');
+  assert.equal(profile.summary.maintain_score_by_date, '2026-02-16');
+  assert.equal(profile.summary.grace_days, 3);
+  assert.equal(profile.summary.payment_status_label, 'Very Good');
+  assert.equal(profile.summary.helper_mode, 'improve');
+
+  const fifoShiftProfile = buildCreditDisciplineProfile([
+    {
+      id: 10,
+      type: 'given',
+      amount: 10,
+      due_date: '2026-03-08',
+      transaction_date: '2026-03-01',
+      transaction_ts: '2026-03-01T10:00:00Z',
+      created_at: '2026-03-01T10:00:00Z',
+    },
+    {
+      id: 11,
+      type: 'given',
+      amount: 12,
+      due_date: '2026-03-09',
+      transaction_date: '2026-03-02',
+      transaction_ts: '2026-03-02T10:00:00Z',
+      created_at: '2026-03-02T10:00:00Z',
+    },
+    {
+      id: 12,
+      type: 'given',
+      amount: 22,
+      due_date: '2026-03-10',
+      transaction_date: '2026-03-03',
+      transaction_ts: '2026-03-03T10:00:00Z',
+      created_at: '2026-03-03T10:00:00Z',
+    },
+    {
+      id: 13,
+      type: 'given',
+      amount: 32,
+      due_date: '2026-03-14',
+      transaction_date: '2026-03-07',
+      transaction_ts: '2026-03-07T09:00:00Z',
+      created_at: '2026-03-07T09:00:00Z',
+    },
+    {
+      id: 14,
+      type: 'payment',
+      amount: 30,
+      transaction_date: '2026-03-07',
+      transaction_ts: '2026-03-07T18:00:00Z',
+      created_at: '2026-03-07T18:00:00Z',
+    },
+  ], {
+    balance: 46,
+    nowMs: new Date('2026-03-07T20:00:00Z').getTime(),
+  });
+  assert.equal(fifoShiftProfile.summary.payment_status_label, 'Excellent');
+  assert.equal(fifoShiftProfile.summary.maintain_score_by_date, '2026-03-10');
+  assert.equal(fifoShiftProfile.summary.helper_mode, 'maintain');
+
+  const stagedDowngradeProfile = buildCreditDisciplineProfile([
+    {
+      id: 21,
+      type: 'given',
+      amount: 10,
+      due_date: '2026-03-08',
+      transaction_date: '2026-03-01',
+      transaction_ts: '2026-03-01T10:00:00Z',
+      created_at: '2026-03-01T10:00:00Z',
+    },
+    {
+      id: 22,
+      type: 'given',
+      amount: 12,
+      due_date: '2026-03-09',
+      transaction_date: '2026-03-02',
+      transaction_ts: '2026-03-02T10:00:00Z',
+      created_at: '2026-03-02T10:00:00Z',
+    },
+  ], {
+    balance: 22,
+    nowMs: new Date('2026-03-30T00:00:00Z').getTime(),
+  });
+  assert.equal(stagedDowngradeProfile.summary.payment_status_label, 'Good');
+  assert.equal(stagedDowngradeProfile.summary.maintain_score_by_date, '2026-03-31');
+  assert.equal(stagedDowngradeProfile.summary.is_defaulter, false);
+  assert.equal(stagedDowngradeProfile.summary.helper_mode, 'improve');
+
+  const dayGroups = buildCreditHistoryDayGroups([
+    {
+      id: 10,
+      type: 'given',
+      amount: 100,
+      transaction_date: '2026-03-28',
+      transaction_ts: '2026-03-28T10:00:00Z',
+      created_at: '2026-03-28T10:00:00Z',
+    },
+    {
+      id: 11,
+      type: 'payment',
+      amount: 25,
+      transaction_date: '2026-03-28',
+      transaction_ts: '2026-03-28T08:00:00Z',
+      created_at: '2026-03-28T08:00:00Z',
+    },
+    {
+      id: 12,
+      type: 'given',
+      amount: 40,
+      transaction_date: '2026-03-27',
+      transaction_ts: '2026-03-27T09:00:00Z',
+      created_at: '2026-03-27T09:00:00Z',
+    },
+  ]);
+  assert.equal(dayGroups.length, 2);
+  assert.equal(dayGroups[0].dateLabel, '28/03/2026');
+  assert.deepEqual(dayGroups[0].transactions.map((item) => item.id), [10, 11]);
 
   const transactionText = buildCreditTransactionText({
     companyTitle: "বৰ্মন ষ্ট'ৰ",
@@ -153,6 +268,7 @@ const run = () => {
       label: 'Excellent',
       outstanding_amount: 1299,
       maintain_score_by_date: '2026-04-05',
+      now_ms: Date.parse('2026-03-30T00:00:00Z'),
     },
     onlineStoreUrl: 'https://barman-store.vercel.app',
   });
@@ -171,7 +287,7 @@ const run = () => {
   );
   assert.ok(
     /আপোনাৰ Excellent স্কোৰ বজাই ৰাখিবলৈ অনুগ্ৰহ কৰি .*2026 ৰ আগতে পৰিশোধ কৰক।/.test(transactionText),
-    'customer-facing transaction text should include the English shared status label for established scored customers'
+    'customer-facing transaction text should keep maintenance wording only for Excellent customers before the due date'
   );
   assert.ok(
     transactionText.includes('অনলাইন দোকান: https://barman-store.vercel.app'),
@@ -248,12 +364,93 @@ const run = () => {
       customer_tag: 'insufficient_history',
       outstanding_amount: 180,
       maintain_score_by_date: '2026-04-05',
+      now_ms: Date.parse('2026-03-30T00:00:00Z'),
     },
     onlineStoreUrl: 'https://barman-store.vercel.app',
   });
   assert.ok(
-    newCustomerText.includes('আপোনাৰ পেমেন্ট স্কোৰ গঢ়ি তুলিবলৈ অনুগ্ৰহ কৰি'),
-    'new customers should get softer score-building reminder copy instead of mature-status maintenance wording'
+    newCustomerText.includes('সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ গঢ়ি উঠিব পাৰে।'),
+    'new customers should get softer motivational score-building copy before the due date'
+  );
+
+  const improvingStatusText = buildCreditTransactionText({
+    companyTitle: "বৰ্মন ষ্ট'ৰ",
+    dateLabel: '27/3/2026',
+    typeLabel: 'Payment',
+    amount: 20,
+    description: 'part payment',
+    reference: '-',
+    previousBalance: 200,
+    updatedBalance: 180,
+    paymentProfile: {
+      score: 58,
+      label: 'Good',
+      next_status_label: 'Very Good',
+      outstanding_amount: 180,
+      maintain_score_by_date: '2026-04-05',
+      now_ms: Date.parse('2026-03-30T00:00:00Z'),
+    },
+    onlineStoreUrl: 'https://barman-store.vercel.app',
+  });
+  assert.ok(
+    improvingStatusText.includes('সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ উন্নত হৈ Very Good status পাব পাৰে।'),
+    'customers below Excellent should get motivational upgrade copy that points to the next status'
+  );
+  assert.ok(
+    !improvingStatusText.includes('স্কোৰ বজাই ৰাখিবলৈ'),
+    'customers below Excellent should not get maintenance wording before the due date'
+  );
+
+  const overdueWithinGraceText = buildCreditTransactionText({
+    companyTitle: "বৰ্মন ষ্ট'ৰ",
+    dateLabel: '30/3/2026',
+    typeLabel: 'Manual Sale',
+    amount: 107,
+    description: '2 milks,taza1, marie1, chocolate1',
+    reference: '-',
+    previousBalance: 985,
+    updatedBalance: 1092,
+    paymentProfile: {
+      score: 86,
+      label: 'Excellent',
+      outstanding_amount: 1092,
+      maintain_score_by_date: '2026-03-28',
+      grace_days: 3,
+      now_ms: Date.parse('2026-03-30T00:00:00Z'),
+    },
+    onlineStoreUrl: 'https://barman-store.vercel.app',
+  });
+  assert.ok(
+    overdueWithinGraceText.includes('31/3/2026 ৰ ভিতৰত পৰিশোধ কৰক'),
+    'overdue reminders within grace should mention the grace-ending date instead of the missed due date'
+  );
+  assert.ok(
+    !overdueWithinGraceText.includes('28/3/2026 ৰ আগতে পৰিশোধ কৰক'),
+    'overdue reminders within grace must not present an already-missed due date as an upcoming deadline'
+  );
+
+  const overdueAfterGraceText = buildCreditTransactionText({
+    companyTitle: "বৰ্মন ষ্ট'ৰ",
+    dateLabel: '20/5/2026',
+    typeLabel: 'Manual Sale',
+    amount: 107,
+    description: '2 milks,taza1, marie1, chocolate1',
+    reference: '-',
+    previousBalance: 985,
+    updatedBalance: 1092,
+    paymentProfile: {
+      score: 39,
+      label: 'Average',
+      outstanding_amount: 1092,
+      maintain_score_by_date: '2026-03-19',
+      grace_days: 3,
+      now_ms: Date.parse('2026-03-30T00:00:00Z'),
+    },
+    onlineStoreUrl: 'https://barman-store.vercel.app',
+  });
+  assert.ok(
+    overdueAfterGraceText.includes('আপোনাৰ পৰিশোধৰ গ্ৰেচ পিৰিয়ড শেষ হৈছে। অনুগ্ৰহ কৰি তৎক্ষণাত পৰিশোধ কৰক, নহ’লে পেমেন্ট স্কোৰ বেয়া হ’ব পাৰে।'),
+    'overdue reminders after grace should use the urgent post-grace wording'
   );
 
   const noDueDateReminderText = buildCreditTransactionText({

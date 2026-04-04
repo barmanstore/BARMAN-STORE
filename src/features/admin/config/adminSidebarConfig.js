@@ -1,4 +1,4 @@
-import { TrendingUp, ShoppingCart, Gift, BarChart2, Package, FolderOpen, FileText, Eye, ShoppingBag, Truck, History, Users, CreditCard } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Gift, BarChart2, Package, PackagePlus, FolderOpen, FileText, Eye, ShoppingBag, Truck, History, Users, CreditCard } from 'lucide-react';
 
 const filterSections = (sections, predicate) => (
   sections
@@ -37,6 +37,7 @@ export const SIDEBAR_SECTIONS = [
     icon: Package,
     items: [
       { tab: 'products', label: 'Products', icon: Package, mobile: true },
+      { tab: 'restock-dashboard', label: 'Restock Dashboard', icon: PackagePlus, sub: true, mobile: false },
       { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true, mobile: false },
     ],
   },

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { searchProductImages } from '../services/imageSearch';
-import { getProductImageSrc } from '../utils/productImage';
+import SafeProductImage from './product/SafeProductImage';
 import './ImageUrlPicker.css';
 
 const normalizeHttpUrl = (value) => {
@@ -120,10 +120,11 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
                 onClick={() => handleSelectChoice(image)}
                 title={image.title || 'Image option'}
               >
-                <img
-                  src={getProductImageSrc(image.thumbUrl || image.fullUrl)}
+                <SafeProductImage
+                  src={image.thumbUrl || image.fullUrl}
                   alt={image.title || 'Image option'}
                   loading="lazy"
+                  fallbackProduct={productMeta}
                 />
                 <span>{image.title || 'Image option'}</span>
               </button>

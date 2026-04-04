@@ -1,8 +1,13 @@
 const { CREDIT_BADGE_SETTINGS } = require('./creditBadges');
+const {
+  DEFAULT_GRACE_DAYS,
+  NEW_CUSTOMER_STATUS,
+  PAYMENT_INTELLIGENCE_MODEL_VERSION,
+} = require('./creditStatusPolicy');
 
 const DEFAULT_PROFILE = Object.freeze({
   is_active: true,
-  grace_days: CREDIT_BADGE_SETTINGS.defaultGraceDays,
+  grace_days: DEFAULT_GRACE_DAYS,
   credit_terms_days: 0,
 });
 
@@ -15,7 +20,11 @@ const normalizeProfileRow = (row) => ({
   is_active: row?.is_active === undefined || row?.is_active === null
     ? DEFAULT_PROFILE.is_active
     : Boolean(Number(row.is_active)),
-  grace_days: Math.max(0, Math.floor(toFiniteNumber(row?.grace_days, DEFAULT_PROFILE.grace_days))),
+  grace_days: (() => {
+    const parsed = Math.max(0, Math.floor(toFiniteNumber(row?.grace_days, DEFAULT_PROFILE.grace_days)));
+    if (parsed === 60) return DEFAULT_PROFILE.grace_days;
+    return parsed || DEFAULT_PROFILE.grace_days;
+  })(),
   credit_terms_days: Math.max(0, Math.floor(toFiniteNumber(row?.credit_terms_days, DEFAULT_PROFILE.credit_terms_days))),
 });
 
@@ -29,7 +38,12 @@ const createPaymentIntelligenceUtils = ({
     await dbRunAsync(
       `INSERT INTO customer_credit_profiles (user_id, is_active, grace_days, credit_terms_days)
        VALUES (?, ?, ?, ?)
-       ON CONFLICT (user_id) DO NOTHING
+       ON CONFLICT (user_id) DO UPDATE SET
+         grace_days = CASE
+           WHEN customer_credit_profiles.grace_days IS NULL OR customer_credit_profiles.grace_days = 60
+             THEN EXCLUDED.grace_days
+           ELSE customer_credit_profiles.grace_days
+         END
        RETURNING user_id`,
       [userId, DEFAULT_PROFILE.is_active ? 1 : 0, DEFAULT_PROFILE.grace_days, DEFAULT_PROFILE.credit_terms_days]
     );
@@ -44,6 +58,62 @@ const createPaymentIntelligenceUtils = ({
       [userId]
     );
     return normalizeProfileRow(row);
+  };
+
+  const getCustomerPaymentSummaryAsync = async (userId) => {
+    const normalizedUserId = Number(userId || 0);
+    if (!normalizedUserId) {
+      return {
+        payment_score: null,
+        payment_status: NEW_CUSTOMER_STATUS.key,
+        payment_status_label: NEW_CUSTOMER_STATUS.label,
+        payment_status_tone: NEW_CUSTOMER_STATUS.tone,
+        customer_tag: 'insufficient_history',
+        is_defaulter: false,
+      };
+    }
+
+    const loadSnapshotRow = async () => dbGetAsync(
+      `SELECT
+         score_100,
+         badge_key,
+         badge_label,
+         badge_tone,
+         customer_tag,
+         is_defaulter,
+         model_version
+       FROM customer_payment_score_snapshots
+       WHERE user_id = ?`,
+      [normalizedUserId]
+    );
+
+    let row = await loadSnapshotRow();
+    if (!row || Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION) {
+      await rebuildCustomerPaymentIntelligence(normalizedUserId);
+      row = await loadSnapshotRow();
+    }
+
+    if (!row) {
+      return {
+        payment_score: null,
+        payment_status: NEW_CUSTOMER_STATUS.key,
+        payment_status_label: NEW_CUSTOMER_STATUS.label,
+        payment_status_tone: NEW_CUSTOMER_STATUS.tone,
+        customer_tag: 'insufficient_history',
+        is_defaulter: false,
+      };
+    }
+
+    return {
+      payment_score: row?.score_100 === null || row?.score_100 === undefined
+        ? null
+        : Number(row.score_100),
+      payment_status: row?.badge_key || NEW_CUSTOMER_STATUS.key,
+      payment_status_label: row?.badge_label || NEW_CUSTOMER_STATUS.label,
+      payment_status_tone: row?.badge_tone || NEW_CUSTOMER_STATUS.tone,
+      customer_tag: row?.customer_tag || null,
+      is_defaulter: Boolean(Number(row?.is_defaulter || 0)),
+    };
   };
 
   const rebuildCustomerPaymentIntelligence = async (userId, {
@@ -167,9 +237,10 @@ const createPaymentIntelligenceUtils = ({
          is_active,
          is_defaulter,
          customer_tag,
+         model_version,
          computed_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
        ON CONFLICT (user_id) DO UPDATE SET
          score_100 = EXCLUDED.score_100,
          raw_score_70 = EXCLUDED.raw_score_70,
@@ -196,6 +267,7 @@ const createPaymentIntelligenceUtils = ({
          is_active = EXCLUDED.is_active,
          is_defaulter = EXCLUDED.is_defaulter,
          customer_tag = EXCLUDED.customer_tag,
+         model_version = EXCLUDED.model_version,
          computed_at = CURRENT_TIMESTAMP
        RETURNING user_id`,
       [
@@ -227,6 +299,7 @@ const createPaymentIntelligenceUtils = ({
         summary.is_active ? 1 : 0,
         summary.is_defaulter ? 1 : 0,
         summary.customer_tag || null,
+        PAYMENT_INTELLIGENCE_MODEL_VERSION,
       ]
     );
 
@@ -268,9 +341,10 @@ const createPaymentIntelligenceUtils = ({
          days_over_90,
          badges,
          summary_line,
+         model_version,
          computed_at
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT (user_id) DO UPDATE SET
          current_balance = EXCLUDED.current_balance,
          payment_score = EXCLUDED.payment_score,
@@ -302,6 +376,7 @@ const createPaymentIntelligenceUtils = ({
          days_over_90 = EXCLUDED.days_over_90,
          badges = EXCLUDED.badges,
          summary_line = EXCLUDED.summary_line,
+         model_version = EXCLUDED.model_version,
          computed_at = CURRENT_TIMESTAMP
        RETURNING user_id`,
       [
@@ -340,6 +415,7 @@ const createPaymentIntelligenceUtils = ({
         toFiniteNumber(summary.days_over_90, 0),
         badgePayload,
         summary.summary_line || null,
+        PAYMENT_INTELLIGENCE_MODEL_VERSION,
       ]
     );
 
@@ -374,6 +450,7 @@ const createPaymentIntelligenceUtils = ({
   return {
     ensureCustomerCreditProfileAsync,
     getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync,
     rebuildCustomerPaymentIntelligence,
     rebuildAllCustomerPaymentIntelligence,
   };

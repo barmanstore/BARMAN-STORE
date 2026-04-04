@@ -1,3 +1,7 @@
+.window-modal-body-locked {
+  overflow: hidden;
+}
+
 .window-manager-backdrop {
   position: fixed;
   inset: 0;
@@ -75,6 +79,10 @@
   isolation: isolate;
 }
 
+.window-modal-root.is-fullscreen {
+  pointer-events: auto;
+}
+
 .window-modal-frame {
   position: fixed;
   display: flex;
@@ -92,6 +100,20 @@
     box-shadow 0.18s ease,
     opacity 0.18s ease,
     transform 0.18s ease;
+}
+
+.window-modal-frame.is-fullscreen {
+  min-width: 100vw;
+  min-height: 100vh;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.window-modal-frame.is-maximized {
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .window-modal-frame.is-inactive {
@@ -115,6 +137,10 @@
   background: rgba(255, 255, 255, 0.78);
   cursor: move;
   user-select: none;
+}
+
+.window-modal-frame.is-fullscreen .window-modal-header {
+  cursor: default;
 }
 
 .window-modal-title-group {
@@ -189,6 +215,10 @@
   overscroll-behavior: contain;
 }
 
+.window-modal-frame.is-fullscreen .window-modal-body {
+  overflow: hidden;
+}
+
 .window-modal-body-padded {
   padding: 1rem 1.25rem 1.25rem;
 }
@@ -207,11 +237,11 @@
 }
 
 .window-modal-resize-n {
-  top: -4px;
+  top: 0;
 }
 
 .window-modal-resize-s {
-  bottom: -4px;
+  bottom: 0;
 }
 
 .window-modal-resize-e,
@@ -223,11 +253,11 @@
 }
 
 .window-modal-resize-e {
-  right: -4px;
+  right: 0;
 }
 
 .window-modal-resize-w {
-  left: -4px;
+  left: 0;
 }
 
 .window-modal-resize-ne,
@@ -239,25 +269,25 @@
 }
 
 .window-modal-resize-ne {
-  top: -4px;
-  right: -4px;
+  top: 0;
+  right: 0;
   cursor: nesw-resize;
 }
 
 .window-modal-resize-nw {
-  top: -4px;
-  left: -4px;
+  top: 0;
+  left: 0;
   cursor: nwse-resize;
 }
 
 .window-modal-resize-se {
-  right: -4px;
-  bottom: -4px;
+  right: 0;
+  bottom: 0;
   cursor: nwse-resize;
 }
 
 .window-modal-resize-sw {
-  left: -4px;
-  bottom: -4px;
+  left: 0;
+  bottom: 0;
   cursor: nesw-resize;
 }

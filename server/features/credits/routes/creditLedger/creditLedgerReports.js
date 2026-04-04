@@ -1,3 +1,8 @@
+const {
+  DEFAULT_GRACE_DAYS,
+  PAYMENT_INTELLIGENCE_MODEL_VERSION,
+} = require('../../utils/creditStatusPolicy');
+
 const registerCreditLedgerReportsRoutes = (deps) => {
   const {
     app,
@@ -6,6 +11,7 @@ const registerCreditLedgerReportsRoutes = (deps) => {
     dbGetAsync,
     dbAllAsync,
     getLatestCreditEntryAsync,
+    rebuildAllCustomerPaymentIntelligence,
   } = deps;
 
   app.post('/api/credit/check-limit', requireAuth, async (req, res) => {
@@ -36,7 +42,7 @@ const registerCreditLedgerReportsRoutes = (deps) => {
 
   app.get('/api/credit/aging', requireAdmin, async (_, res) => {
     try {
-      const customers = await dbAllAsync(
+      const loadCustomers = async () => dbAllAsync(
         `SELECT
            u.id as customer_id,
            u.name as customer_name,
@@ -44,7 +50,7 @@ const registerCreditLedgerReportsRoutes = (deps) => {
            u.phone,
            COALESCE(u.credit_limit, 0) as credit_limit,
            COALESCE(cp.is_active, 1) as is_active,
-           COALESCE(cp.grace_days, 60) as grace_days,
+           COALESCE(NULLIF(cp.grace_days, 60), ${DEFAULT_GRACE_DAYS}) as grace_days,
            cas.current_balance,
            cas.payment_score,
            cas.payment_status,
@@ -74,13 +80,16 @@ const registerCreditLedgerReportsRoutes = (deps) => {
            cas.days_61_90,
            cas.days_over_90,
            cas.badges,
-           cas.summary_line
+           cas.summary_line,
+           cas.model_version
          FROM users u
          LEFT JOIN customer_credit_profiles cp ON cp.user_id = u.id
          LEFT JOIN customer_credit_aging_snapshots cas ON cas.user_id = u.id
          WHERE u.role = 'customer'
          ORDER BY u.name ASC`
       );
+
+      let customers = await loadCustomers();
 
       if (!Array.isArray(customers) || customers.length === 0) {
         return res.json({
@@ -97,8 +106,10 @@ const registerCreditLedgerReportsRoutes = (deps) => {
               excellent: 0,
               very_good: 0,
               good: 0,
+              average: 0,
               needs_attention: 0,
               problem: 0,
+              defaulter: 0,
             },
             aging_0_30: 0,
             aging_31_60: 0,
@@ -108,12 +119,30 @@ const registerCreditLedgerReportsRoutes = (deps) => {
         });
       }
 
-      const hasSnapshotData = customers.some((row) => (
+      let hasSnapshotData = customers.some((row) => (
         row?.current_balance !== null
         || row?.total_periods !== null
       ));
-      if (!hasSnapshotData) {
-        console.warn('[AGING] Snapshot table not initialized');
+      let hasStaleSnapshotData = customers.some((row) => (
+        (row?.current_balance !== null || row?.total_periods !== null)
+        && Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
+      ));
+
+      if ((hasStaleSnapshotData || !hasSnapshotData) && typeof rebuildAllCustomerPaymentIntelligence === 'function') {
+        await rebuildAllCustomerPaymentIntelligence({ nowMs: Date.now() });
+        customers = await loadCustomers();
+        hasSnapshotData = customers.some((row) => (
+          row?.current_balance !== null
+          || row?.total_periods !== null
+        ));
+        hasStaleSnapshotData = customers.some((row) => (
+          (row?.current_balance !== null || row?.total_periods !== null)
+          && Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
+        ));
+      }
+
+      if (!hasSnapshotData || hasStaleSnapshotData) {
+        console.warn(`[AGING] Snapshot table not ready (hasData=${hasSnapshotData}, stale=${hasStaleSnapshotData})`);
         return res.status(503).json({ status: 'initializing' });
       }
 
@@ -242,6 +271,7 @@ const registerCreditLedgerReportsRoutes = (deps) => {
             || Number(row.days_over_90 || 0) > 0
             || normalizedStatus === 'needs_attention'
             || normalizedStatus === 'problem'
+            || normalizedStatus === 'defaulter'
           ) {
             acc.customers_need_follow_up += 1;
           }
@@ -257,8 +287,10 @@ const registerCreditLedgerReportsRoutes = (deps) => {
             excellent: 0,
             very_good: 0,
             good: 0,
+            average: 0,
             needs_attention: 0,
             problem: 0,
+            defaulter: 0,
           },
         }
       );

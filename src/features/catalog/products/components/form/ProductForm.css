@@ -7,7 +7,10 @@
 }
 
 .product-form-container.compact {
-  max-width: 540px;
+  max-width: 360px;
+  --quick-label-font: 11.5px;
+  --quick-text-font: 12px;
+  --quick-input-font: 13px;
 }
 
 .product-form-header {
@@ -19,11 +22,22 @@
   background: var(--color-card);
 }
 
+.product-form-container.compact .product-form-header {
+  padding: 0.45rem 0.75rem;
+  min-height: 34px;
+}
+
 .product-form-header h2 {
   font-family: var(--font-display);
   font-size: 1.5rem;
   color: var(--color-primary);
   margin: 0;
+}
+
+.product-form-container.compact .product-form-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .product-form-close-btn {
@@ -41,18 +55,18 @@
 }
 
 .compact-product-form {
-  padding: 1.1rem 1.1rem 1.35rem;
+  padding: 12px;
 }
 
 .compact-product-form .form-section {
-  padding: 1rem;
-  margin-bottom: 1rem;
+  padding: 2px;
+  margin-bottom: 2px;
 }
 
 .compact-product-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.9rem;
+  gap: 2px;
 }
 
 .compact-product-grid .compact-span-2 {
@@ -60,22 +74,73 @@
 }
 
 .compact-product-form .section-title {
-  margin-bottom: 0.9rem;
-  padding-bottom: 0.5rem;
-  font-size: 1rem;
+  margin-bottom: 2px;
+  padding-bottom: 0;
+  font-size: var(--quick-text-font);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .compact-product-form .field-help {
-  font-size: 0.72rem;
+  font-size: var(--quick-text-font);
+  line-height: 1.2;
 }
 
 .compact-product-form .form-actions {
-  margin-top: 1.2rem;
-  padding-top: 1rem;
+  margin-top: 2px;
+  padding-top: 2px;
 }
 
 .product-form-sheet-compact .product-form {
   padding-top: 0;
+}
+
+.compact-product-form .form-group {
+  margin-bottom: 2px;
+}
+
+.compact-product-form .form-group label {
+  font-size: var(--quick-label-font);
+  font-weight: 500;
+  color: #6b7280;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.compact-product-form .form-group input,
+.compact-product-form .form-group select,
+.compact-product-form .form-group textarea {
+  height: 32px;
+  padding: 0 10px;
+  font-size: var(--quick-input-font);
+  line-height: 32px;
+}
+
+.compact-product-form .form-group select {
+  color: #0f172a;
+  background-color: #ffffff;
+  -webkit-text-fill-color: #0f172a;
+  text-shadow: 0 0 0 #0f172a;
+  opacity: 1;
+  appearance: auto;
+  background-image: none;
+  padding-right: 26px;
+}
+
+.compact-product-form .form-group select option {
+  color: #0f172a;
+}
+
+.product-form-container.compact .form-actions {
+  gap: 0.6rem;
+}
+
+.product-form-container.compact .cancel-btn,
+.product-form-container.compact .submit-btn {
+  height: 32px;
+  min-height: 32px;
+  font-size: 12.5px;
+  padding: 0 12px;
 }
 
 /* Form Sections */

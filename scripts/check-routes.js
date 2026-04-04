@@ -96,10 +96,10 @@ const main = () => {
   const mountedRoutes = loadMountedRoutes();
 
   const optionalDocRoutes = new Set([
-    'GET /uploads/profiles/:file',
-    'HEAD /uploads/profiles/:file',
-    'GET /api/uploads/profiles/:file',
-    'HEAD /api/uploads/profiles/:file',
+    normalizeRouteKey('GET', '/uploads/profiles/:file'),
+    normalizeRouteKey('HEAD', '/uploads/profiles/:file'),
+    normalizeRouteKey('GET', '/api/uploads/profiles/:file'),
+    normalizeRouteKey('HEAD', '/api/uploads/profiles/:file'),
   ]);
 
   const missingInDocs = [...mountedRoutes].filter((route) => !documentedRoutes.has(route));

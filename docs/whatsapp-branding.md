@@ -80,10 +80,15 @@ Templates MUST NOT:
 All scoring logic lives outside templates.
 
 For credit reminders:
-- Any “pay by” nudge must use the canonical `paymentProfile.maintain_score_by_date`.
+- Any “pay by” nudge must use the canonical `paymentProfile.maintain_score_by_date`, which represents the active oldest-unpaid FIFO cycle deadline.
 - Only render that nudge when both a real due date and an outstanding balance exist.
 - Never fabricate, estimate, or approximate a deadline; if the canonical date is absent, show no reminder line.
-- Copy should match customer state: established scored customers should reuse the shared English status label in the reminder line (for example `Excellent` or `Good`), while `New` / insufficient-history customers should use softer “build your score” language.
+- Copy should match customer state: established scored customers should reuse the shared English status label in the reminder line (for example `Excellent`, `Good`, or `Average`), while `New` / insufficient-history customers should use softer “build your score” language until the first judged cycle is complete.
+- Reminder copy must branch by date state:
+  - before due date: future-looking reminder copy is allowed
+  - after due date but before grace expiry: mention the grace-period ending date, not the already-missed due date, and use stronger overdue wording; the current shared grace window is `3` days
+  - after grace expiry: use urgent overdue-after-grace wording instead of future-looking “pay before” copy
+- When the due date is still in the future and the customer is not currently `Excellent`, prefer motivational improvement wording over “maintain your score” wording, and use `paymentProfile.next_status_label` when available so the upgrade target is explicit.
 - Omit the nudge entirely when that data is absent.
 
 ## 7. Message Size Constraints

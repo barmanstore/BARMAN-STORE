@@ -31,6 +31,7 @@ function WindowModal({
   initialSize = { width: 720, height: 560 },
   minWidth = 420,
   minHeight = 280,
+  fullscreen = false,
 }) {
   const manager = useWindowManager();
   const windows = manager?.windows || [];
@@ -81,15 +82,38 @@ function WindowModal({
   } = useWindowDragResize({
     open,
     active: open && !isMinimized,
-    interactive: dismissible,
-    draggable: desktopLike && draggable,
-    resizable: desktopLike && resizable,
+    interactive: dismissible && !fullscreen,
+    draggable: desktopLike && draggable && !fullscreen,
+    resizable: desktopLike && resizable && !fullscreen,
     initialSize,
     minWidth,
     minHeight,
   });
 
   useFocusTrap(frameRef, open && !isMinimized);
+
+  useEffect(() => {
+    if (!open || !fullscreen) return undefined;
+
+    const { body, documentElement } = document;
+    const currentCount = Number(body.dataset.windowModalFullscreenLockCount || 0);
+    const nextCount = currentCount + 1;
+    body.dataset.windowModalFullscreenLockCount = String(nextCount);
+    documentElement.classList.add('window-modal-body-locked');
+    body.classList.add('window-modal-body-locked');
+
+    return () => {
+      const activeCount = Number(body.dataset.windowModalFullscreenLockCount || 0);
+      const remainingCount = Math.max(0, activeCount - 1);
+      if (remainingCount === 0) {
+        delete body.dataset.windowModalFullscreenLockCount;
+        documentElement.classList.remove('window-modal-body-locked');
+        body.classList.remove('window-modal-body-locked');
+        return;
+      }
+      body.dataset.windowModalFullscreenLockCount = String(remainingCount);
+    };
+  }, [fullscreen, open]);
 
   const handleClose = useCallback(() => {
     if (!dismissible) return;
@@ -148,11 +172,33 @@ function WindowModal({
     activateWindow?.(windowId);
   }, [activateWindow, windowId]);
 
+  const frameStyle = fullscreen
+    ? {
+        zIndex: 1,
+        inset: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        maxWidth: '100vw',
+        maxHeight: '100vh',
+        overflow: 'hidden',
+      }
+    : {
+        ...windowStyle,
+        zIndex: 1,
+        maxWidth: isMaximized ? '100vw' : 'calc(100vw - 32px)',
+        maxHeight: isMaximized ? '100vh' : 'calc(100vh - 32px)',
+        overflow: 'hidden',
+      };
+
   if (!open || isMinimized) return null;
 
   const frame = (
     <div
-      className={`window-modal-root ${themeClassName}`.trim()}
+      className={`window-modal-root ${themeClassName}${fullscreen ? ' is-fullscreen' : ''}`.trim()}
       data-window-modal-root="true"
       style={{ zIndex: overlayZIndex }}
     >
@@ -162,15 +208,10 @@ function WindowModal({
           'window-modal-frame',
           dialogClassName,
           isActive ? 'is-active' : 'is-inactive',
-          isMaximized ? 'is-maximized' : '',
+          !fullscreen && isMaximized ? 'is-maximized' : '',
+          fullscreen ? 'is-fullscreen' : '',
         ].filter(Boolean).join(' ')}
-        style={{
-          ...windowStyle,
-          zIndex: 1,
-          maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
-          overflow: 'hidden',
-        }}
+        style={frameStyle}
         onMouseDown={handleFrameMouseDown}
         role="dialog"
         aria-modal="true"
@@ -180,15 +221,15 @@ function WindowModal({
       >
         <div
           className={['window-modal-header', headerClassName].filter(Boolean).join(' ')}
-          onMouseDown={handleDragStart}
-          data-window-drag-handle="true"
+          onMouseDown={fullscreen ? undefined : handleDragStart}
+          data-window-drag-handle={fullscreen ? undefined : 'true'}
         >
           <div className="window-modal-title-group">
             {title ? <h2 id={titleId}>{title}</h2> : null}
             {subtitle ? <p id={subtitleId}>{subtitle}</p> : null}
           </div>
 
-          <div className="window-modal-toolbar" data-window-ignore-drag="true">
+          <div className="window-modal-toolbar" data-window-ignore-drag={fullscreen ? undefined : 'true'}>
             {headerActions}
             <div className="window-modal-controls">
               {desktopLike && minimizable ? (

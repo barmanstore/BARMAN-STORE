@@ -21,6 +21,18 @@ const createCommerceNotificationUtils = (deps = {}) => {
     return digits;
   };
 
+  const getRequestedDeliveryMode = () => (
+    String(WHATSAPP_DELIVERY_MODE || 'manual').trim().toLowerCase() === 'auto'
+      ? 'auto'
+      : 'manual'
+  );
+
+  const canAutoDeliverWhatsApp = () => (
+    getRequestedDeliveryMode() === 'auto'
+    && Boolean(whatsappProvider?.supportsSend)
+    && Boolean(whatsappProvider?.isReady)
+  );
+
   const notifyDistributorPurchaseOrderAsync = async ({
     purchaseOrderId = null,
     distributorId,
@@ -100,6 +112,8 @@ const createCommerceNotificationUtils = (deps = {}) => {
     const text = preparedWhatsApp.text;
     const normalizedRecipientPhone = preparedWhatsApp.to;
     const whatsappUrl = preparedWhatsApp.whatsapp_url;
+    const requestedDeliveryMode = getRequestedDeliveryMode();
+    const effectiveDeliveryMode = canAutoDeliverWhatsApp() ? 'auto' : 'manual';
 
     const eventId = await createNotificationEvent({
       type: 'purchase_order_distributor_notice',
@@ -109,7 +123,9 @@ const createCommerceNotificationUtils = (deps = {}) => {
       subject: `PO ${isUpdate ? 'update' : 'register'} ${poNumber || ''}`.trim(),
       body: text,
       metadata: {
-        mode: WHATSAPP_DELIVERY_MODE,
+        mode: effectiveDeliveryMode,
+        requested_mode: requestedDeliveryMode,
+        provider_supports_send: Boolean(whatsappProvider?.supportsSend),
         po_number: poNumber || null,
         distributor_id: normalizedDistributorId,
         items_count: noticeItems.length,
@@ -124,11 +140,11 @@ const createCommerceNotificationUtils = (deps = {}) => {
       preparedBy,
     });
 
-    if (WHATSAPP_DELIVERY_MODE !== 'auto') {
+    if (effectiveDeliveryMode !== 'auto') {
       return {
         queued: false,
         reason: 'manual_send_required',
-        mode: 'manual',
+        mode: effectiveDeliveryMode,
         event_id: eventId,
         whatsapp: {
           to: normalizedRecipientPhone,
@@ -136,14 +152,6 @@ const createCommerceNotificationUtils = (deps = {}) => {
           whatsapp_url: whatsappUrl,
         },
       };
-    }
-
-    if (!whatsappProvider?.isReady) {
-      await updateNotificationEventStatus(eventId, {
-        status: 'failed',
-        errorMessage: 'WhatsApp provider is not configured',
-      });
-      return { queued: false, reason: 'provider_not_ready', event_id: eventId, whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl } };
     }
 
     try {

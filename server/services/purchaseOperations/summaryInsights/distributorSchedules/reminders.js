@@ -31,6 +31,9 @@ const buildScheduleReminders = ({
       suggested_next_order_date: insight?.next_order_date || tomorrowKey,
       likely_items: insight?.likely_items || [],
       suggested_items: insight?.suggested_items || [],
+      novelty_alerts: insight?.novelty_alerts || [],
+      novelty_summary: insight?.novelty_summary || { total_count: 0 },
+      has_novelty_alerts: Boolean(insight?.has_novelty_alerts),
       outstanding_amount: insight?.outstanding_amount || 0,
       message: hasEditableOrder
         ? 'Order reminder due tomorrow, but there is already an open draft/sent PO'

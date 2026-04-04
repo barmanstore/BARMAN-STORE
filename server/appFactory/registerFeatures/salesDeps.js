@@ -17,6 +17,7 @@ const buildSalesDeps = ({ domain }) => {
     recalculateCreditBalancesForUser: creditUtils.recalculateCreditBalancesForUser,
     rebuildCustomerPaymentIntelligence: creditUtils.rebuildCustomerPaymentIntelligence,
     getCustomerCreditProfileAsync: creditUtils.getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync: creditUtils.getCustomerPaymentSummaryAsync,
   };
 };
 

@@ -7,6 +7,7 @@ const useAdminProductHandlers = ({
   showNotification,
   setEditingProduct,
   setShowProductForm,
+  setProductFormMode,
   setProductEditLoadingId,
   editingProduct,
   loadProductsPage,
@@ -77,10 +78,12 @@ const useAdminProductHandlers = ({
       setProductEditLoadingId(productId);
       const fullProduct = await productsApi.getById(productId, { include_inactive: 'true' });
       setEditingProduct(fullProduct || product);
+      setProductFormMode('full');
       setShowProductForm(true);
     } catch (error) {
       showNotification(error.message || 'Failed to load product details', 'error');
       setEditingProduct(product);
+      setProductFormMode('full');
       setShowProductForm(true);
     } finally {
       setProductEditLoadingId(null);
@@ -89,8 +92,9 @@ const useAdminProductHandlers = ({
 
   const handleAddProduct = useCallback(() => {
     setEditingProduct(null);
+    setProductFormMode('full');
     setShowProductForm(true);
-  }, [setEditingProduct, setShowProductForm]);
+  }, [setEditingProduct, setProductFormMode, setShowProductForm]);
 
   const handleProductSave = useCallback(async (meta = {}) => {
     try {

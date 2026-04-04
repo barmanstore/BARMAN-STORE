@@ -1,4 +1,3 @@
-import ProductForm from '../../../catalog/products/components/form/ProductForm';
 import { PurchaseOrderFormModal } from './PurchaseEntryModals';
 import LedgerEntryModal from './modals/LedgerEntryModal';
 import OrderDetailModal from './modals/OrderDetailModal';
@@ -16,8 +15,11 @@ const PurchaseModals = ({
   poModalSize,
   editingOrderId,
   handleOrderSubmit,
+  handleOpenOrderReview,
   orderFullMode,
   setOrderFullMode,
+  orderReviewMode,
+  closeOrderReview,
   loadingDistributorItems,
   handleLoadDistributorItems,
   orderFormData,
@@ -37,13 +39,17 @@ const PurchaseModals = ({
   toNumber,
   handleOrderItemRemove,
   handleOrderItemAdd,
-  handleInlinePoProductCreate,
+  handleApplySupplierHistoryItem,
+  handleApplyCatalogProducts,
+  supplierHistoryItems,
+  supplierRegisteredProducts,
   orderTotals,
   orderSubmitting,
-  showPoProductForm,
-  poProductFormTarget,
-  closePoProductForm,
-  handlePoProductSave,
+  savedOrderDrafts,
+  saveCurrentOrderDraft,
+  openSavedOrderDraft,
+  deleteSavedOrderDraft,
+  activeSavedOrderDraftId,
   showReceiveModal,
   selectedOrder,
   setShowReceiveModal,
@@ -91,6 +97,8 @@ const PurchaseModals = ({
   handleOrderDetailSave,
   openOrderDetailEditMode,
   handlePrintOrderDetail,
+  handleSendDistributorWhatsApp,
+  sendingWhatsAppOrderId,
   showProcessModal,
   processingOrder,
   closeProcessModal,
@@ -141,8 +149,11 @@ const PurchaseModals = ({
       poModalSize={poModalSize}
       editingOrderId={editingOrderId}
       handleOrderSubmit={handleOrderSubmit}
+      handleOpenOrderReview={handleOpenOrderReview}
       orderFullMode={orderFullMode}
       setOrderFullMode={setOrderFullMode}
+      orderReviewMode={orderReviewMode}
+      closeOrderReview={closeOrderReview}
       loadingDistributorItems={loadingDistributorItems}
       handleLoadDistributorItems={handleLoadDistributorItems}
       orderFormData={orderFormData}
@@ -160,22 +171,18 @@ const PurchaseModals = ({
       toNumber={toNumber}
       handleOrderItemRemove={handleOrderItemRemove}
       handleOrderItemAdd={handleOrderItemAdd}
-      handleInlineProductCreate={handleInlinePoProductCreate}
+      handleApplySupplierHistoryItem={handleApplySupplierHistoryItem}
+      handleApplyCatalogProducts={handleApplyCatalogProducts}
+      supplierRegisteredProducts={supplierRegisteredProducts}
       orderTotals={orderTotals}
       orderSubmitting={orderSubmitting}
-      showPoProductForm={showPoProductForm}
+      savedOrderDrafts={savedOrderDrafts}
+      saveCurrentOrderDraft={saveCurrentOrderDraft}
+      openSavedOrderDraft={openSavedOrderDraft}
+      deleteSavedOrderDraft={deleteSavedOrderDraft}
+      activeSavedOrderDraftId={activeSavedOrderDraftId}
       inline={renderOrderFormInline}
     />
-
-    {showPoProductForm && (
-      <ProductForm
-        product={null}
-        mode="quick"
-        initialFormPatch={poProductFormTarget?.draftName ? { name: poProductFormTarget.draftName } : null}
-        onClose={closePoProductForm}
-        onSave={handlePoProductSave}
-      />
-    )}
 
     <ReceiveInventoryModal
       isMobile={isMobile}
@@ -230,6 +237,8 @@ const PurchaseModals = ({
       handleOrderDetailSave={handleOrderDetailSave}
       openOrderDetailEditMode={openOrderDetailEditMode}
       handlePrintOrderDetail={handlePrintOrderDetail}
+      handleSendDistributorWhatsApp={handleSendDistributorWhatsApp}
+      sendingWhatsAppOrderId={sendingWhatsAppOrderId}
       GST_RATE_OPTIONS={GST_RATE_OPTIONS}
       toNumber={toNumber}
       formatCurrency={formatCurrency}

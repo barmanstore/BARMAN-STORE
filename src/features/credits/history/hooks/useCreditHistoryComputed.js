@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { getCreditEntryDelta } from '../utils/creditLedgerPresentation';
 import { buildMonthlyCreditStatements } from '../../../../shared/utils/creditHistoryUi.mjs';
+import { buildCreditHistoryDayGroups } from '../utils/creditHistoryHelpers';
 
 const useCreditHistoryComputed = ({
   creditHistory,
@@ -39,22 +40,11 @@ const useCreditHistoryComputed = ({
   ]);
 
   const groupedTransactions = useMemo(() => {
-    const groups = new Map();
-    filteredTransactions.forEach((transaction) => {
-      const dateKey = getEffectiveTransactionDateKey(transaction) || 'Unknown';
-      if (!groups.has(dateKey)) groups.set(dateKey, []);
-      groups.get(dateKey).push(transaction);
+    return buildCreditHistoryDayGroups(filteredTransactions, {
+      getDateKey: getEffectiveTransactionDateKey,
+      compareTransactions: compareTransactionsByDateDesc,
+      formatDate: formatTransactionDate,
     });
-
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([dateKey, transactions]) => ({
-        dateKey,
-        dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
-          ? formatTransactionDate({ transaction_date: dateKey }, { long: true })
-          : dateKey,
-        transactions: [...transactions].sort(compareTransactionsByDateDesc),
-      }));
   }, [filteredTransactions, getEffectiveTransactionDateKey, formatTransactionDate, compareTransactionsByDateDesc]);
 
   const lastTransaction = getLastTransactionFromHistory(creditHistory, getEffectiveTransactionTimestamp);

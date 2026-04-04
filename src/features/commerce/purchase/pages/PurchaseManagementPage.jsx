@@ -5,6 +5,8 @@ import './PurchaseManagementPage.css';
 function PurchaseManagementPage({
   user,
   shortcutOpenOrderRequest = 0,
+  shortcutOpenOrderPayload = null,
+  onShortcutDraftClosed = null,
   onShortcutOpenOrderHandled = null,
   popupMode = false,
   showSectionTabs = true,
@@ -15,6 +17,8 @@ function PurchaseManagementPage({
   const pageProps = usePurchaseManagementController({
     user,
     shortcutOpenOrderRequest,
+    shortcutOpenOrderPayload,
+    onShortcutDraftClosed,
     onShortcutOpenOrderHandled,
     popupMode,
     showSectionTabs,

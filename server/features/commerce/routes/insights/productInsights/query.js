@@ -114,16 +114,31 @@ const buildProductInsightsQuery = ({
        FROM filtered
        GROUP BY product_id, distributor_id
      ),
-     best_supplier_ranked AS (
-       SELECT *,
-              ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY avg_cost ASC) as rn
-       FROM best_supplier
-     ),
-     series AS (
-       SELECT product_id, ARRAY_AGG(unit_cost_incl_tax ORDER BY transaction_ts DESC, id DESC) as cost_series
-       FROM filtered
-       GROUP BY product_id
-     )
+      best_supplier_ranked AS (
+        SELECT *,
+               ROW_NUMBER() OVER (PARTITION BY product_id ORDER BY avg_cost ASC) as rn
+        FROM best_supplier
+      ),
+      supplier_catalog AS (
+        SELECT
+          sp.product_id,
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', sp.distributor_id,
+              'name', COALESCE(d.name, '')
+            )
+            ORDER BY COALESCE(d.name, '') ASC, sp.distributor_id ASC
+          ) as available_distributors
+        FROM supplier_products sp
+        LEFT JOIN distributors d ON d.id = sp.distributor_id
+        WHERE COALESCE(sp.is_available, TRUE) = TRUE
+        GROUP BY sp.product_id
+      ),
+      series AS (
+        SELECT product_id, ARRAY_AGG(unit_cost_incl_tax ORDER BY transaction_ts DESC, id DESC) as cost_series
+        FROM filtered
+        GROUP BY product_id
+      )
      SELECT
        p.id as product_id,
        p.name as product_name,
@@ -145,21 +160,23 @@ const buildProductInsightsQuery = ({
        lead.avg_lead_time,
        lead.on_time_rate,
        best_supplier_ranked.distributor_id as best_distributor_id,
-       best_supplier_ranked.avg_cost as best_distributor_avg_cost,
-       ld.name as latest_distributor_name,
-       bd.name as best_distributor_name,
-       series.cost_series
-     FROM stats
-     INNER JOIN products p ON p.id = stats.product_id
-     LEFT JOIN latest ON latest.product_id = stats.product_id
-     LEFT JOIN prev ON prev.product_id = stats.product_id
-     LEFT JOIN freq ON freq.product_id = stats.product_id
-     LEFT JOIN lead ON lead.product_id = stats.product_id
-     LEFT JOIN best_supplier_ranked ON best_supplier_ranked.product_id = stats.product_id AND best_supplier_ranked.rn = 1
-     LEFT JOIN distributors ld ON ld.id = latest.latest_distributor_id
-     LEFT JOIN distributors bd ON bd.id = best_supplier_ranked.distributor_id
-     LEFT JOIN series ON series.product_id = stats.product_id
-     ORDER BY stats.last_purchase_at DESC NULLS LAST, p.name ASC`;
+        best_supplier_ranked.avg_cost as best_distributor_avg_cost,
+        ld.name as latest_distributor_name,
+        bd.name as best_distributor_name,
+        supplier_catalog.available_distributors,
+        series.cost_series
+      FROM stats
+      INNER JOIN products p ON p.id = stats.product_id
+      LEFT JOIN latest ON latest.product_id = stats.product_id
+      LEFT JOIN prev ON prev.product_id = stats.product_id
+      LEFT JOIN freq ON freq.product_id = stats.product_id
+      LEFT JOIN lead ON lead.product_id = stats.product_id
+      LEFT JOIN best_supplier_ranked ON best_supplier_ranked.product_id = stats.product_id AND best_supplier_ranked.rn = 1
+      LEFT JOIN distributors ld ON ld.id = latest.latest_distributor_id
+      LEFT JOIN distributors bd ON bd.id = best_supplier_ranked.distributor_id
+      LEFT JOIN supplier_catalog ON supplier_catalog.product_id = stats.product_id
+      LEFT JOIN series ON series.product_id = stats.product_id
+      ORDER BY stats.last_purchase_at DESC NULLS LAST, p.name ASC`;
 
   return { sql, params };
 };

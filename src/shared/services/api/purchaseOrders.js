@@ -4,6 +4,12 @@ import { apiFetch, withClientRequestId } from './core';
 // PURCHASE ORDERS API
 // ============================================
 
+const prepareDistributorWhatsApp = (id, payload = {}) =>
+  apiFetch(`/api/purchase-orders/${id}/distributor-whatsapp`, {
+    method: 'POST',
+    body: payload,
+  });
+
 export const purchaseOrdersApi = {
   getAll: (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -34,11 +40,8 @@ export const purchaseOrdersApi = {
       method: 'PUT',
       body: { status: 'processed', ...processData },
     }),
-  sendDistributorWhatsApp: (id, payload = {}) =>
-    apiFetch(`/api/purchase-orders/${id}/distributor-whatsapp`, {
-      method: 'POST',
-      body: payload,
-    }),
+  prepareDistributorWhatsApp,
+  sendDistributorWhatsApp: prepareDistributorWhatsApp,
   addPayment: (id, paymentData = {}) =>
     apiFetch(`/api/purchase-orders/${id}/payments`, {
       method: 'POST',

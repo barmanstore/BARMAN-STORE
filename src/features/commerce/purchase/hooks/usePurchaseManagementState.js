@@ -19,6 +19,8 @@ const usePurchaseManagementState = ({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderReviewMode, setOrderReviewMode] = useState(false);
+  const [lastSavedOrderSummary, setLastSavedOrderSummary] = useState(null);
   const [orderFormClientRequestId, setOrderFormClientRequestId] = useState(() => createClientRequestId('po'));
   const orderSubmitLockRef = useRef(false);
   const [filters, setFilters] = useState({
@@ -29,7 +31,6 @@ const usePurchaseManagementState = ({
     end_date: '',
   });
   const [showOrderForm, setShowOrderForm] = useState(false);
-  const [showPoProductForm, setShowPoProductForm] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveSubmitting, setReceiveSubmitting] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
@@ -84,7 +85,6 @@ const usePurchaseManagementState = ({
   const [orderFullMode, setOrderFullMode] = useState(false);
   const [loadingDistributorItems, setLoadingDistributorItems] = useState(false);
   const [activePoProductField, setActivePoProductField] = useState({ mode: 'entry', index: null });
-  const [poProductFormTarget, setPoProductFormTarget] = useState(null);
   const [orderFormData, setOrderFormData] = useState(getDefaultOrderFormData());
   const [receiveData, setReceiveData] = useState({
     invoice_number: '',
@@ -117,6 +117,10 @@ const usePurchaseManagementState = ({
     setSuccess,
     orderSubmitting,
     setOrderSubmitting,
+    orderReviewMode,
+    setOrderReviewMode,
+    lastSavedOrderSummary,
+    setLastSavedOrderSummary,
     orderFormClientRequestId,
     setOrderFormClientRequestId,
     orderSubmitLockRef,
@@ -124,8 +128,6 @@ const usePurchaseManagementState = ({
     setFilters,
     showOrderForm,
     setShowOrderForm,
-    showPoProductForm,
-    setShowPoProductForm,
     showReceiveModal,
     setShowReceiveModal,
     receiveSubmitting,
@@ -207,8 +209,6 @@ const usePurchaseManagementState = ({
     setLoadingDistributorItems,
     activePoProductField,
     setActivePoProductField,
-    poProductFormTarget,
-    setPoProductFormTarget,
     orderFormData,
     setOrderFormData,
     receiveData,

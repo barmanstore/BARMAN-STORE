@@ -35,7 +35,8 @@ const registerOffersRoutes = (deps) => {
   app.post('/api/offers/preview', async (req, res) => {
     try {
       const body = req.body || {};
-      const includeTax = String(body.context || '').trim().toLowerCase() !== 'billing';
+      const previewContext = String(body.context || '').trim().toLowerCase();
+      const includeTax = previewContext !== 'billing';
       const items = Array.isArray(body.items) ? body.items : [];
       const rawOfferContext = body.offer_context || body.offerContext || {};
       const offerContext = rawOfferContext && typeof rawOfferContext === 'object' ? { ...rawOfferContext } : {};
@@ -51,7 +52,28 @@ const registerOffersRoutes = (deps) => {
       };
       const resolvedAuthUser = await resolveAuthUser();
       const authUserId = Number(resolvedAuthUser?.id || 0) || 0;
-      if (authUserId > 0) {
+      const authUserRole = String(resolvedAuthUser?.role || '').trim().toLowerCase();
+      const requestedCustomerUserId = Number(
+        offerContext.customer_user_id
+        || offerContext.customerUserId
+        || offerContext.user_id
+        || offerContext.userId
+        || 0
+      ) || 0;
+      const allowAdminBillingCustomerPreview = previewContext === 'billing' && authUserRole === 'admin';
+      if (allowAdminBillingCustomerPreview) {
+        if (requestedCustomerUserId > 0) {
+          offerContext.customer_user_id = requestedCustomerUserId;
+          offerContext.customerUserId = requestedCustomerUserId;
+          offerContext.user_id = requestedCustomerUserId;
+          offerContext.userId = requestedCustomerUserId;
+        } else {
+          delete offerContext.customer_user_id;
+          delete offerContext.customerUserId;
+          delete offerContext.user_id;
+          delete offerContext.userId;
+        }
+      } else if (authUserId > 0) {
         offerContext.customer_user_id = authUserId;
         offerContext.customerUserId = authUserId;
         offerContext.user_id = authUserId;

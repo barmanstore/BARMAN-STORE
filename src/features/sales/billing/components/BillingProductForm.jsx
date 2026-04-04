@@ -48,8 +48,8 @@ const BillingProductForm = ({
   const searchHint = autocompleteCandidate
     ? (
       requiresExplicitSuggestionChoice
-        ? <>Multiple matches found. Use <strong>Arrow keys</strong> or click a product to confirm the right item.</>
-        : <>Top match: <strong>{autocompleteCandidate.name}</strong>. Press `Tab` or `Enter` to use it.</>
+        ? <>Multiple matches. Use <strong>Arrow keys</strong> or click.</>
+        : <>Top: <strong>{autocompleteCandidate.name}</strong>. Press `Tab` or `Enter`.</>
     )
     : null;
 
@@ -57,14 +57,12 @@ const BillingProductForm = ({
     <section className="billing-pos-panel billing-entry-panel">
     <div className="billing-panel-header">
       <div>
-        <p className="billing-panel-kicker">Product Entry</p>
-        <h2>{isEditing ? 'Update Selected Item' : 'Add One Item Fast'}</h2>
-        <p className="billing-panel-copy">
-          Type product name, code, or barcode. Fast path: product, qty, Enter. Use Shift+Enter when you want to review price or discount before saving.
-        </p>
+        <p className="billing-panel-kicker">Item</p>
+        <h2>{isEditing ? 'Edit Item' : 'Add Item'}</h2>
+        <p className="billing-panel-copy">Search, qty, save.</p>
       </div>
       {isEditing ? (
-        <span className="billing-panel-badge">Editing Item</span>
+        <span className="billing-panel-badge">Editing</span>
       ) : (
         <span className="billing-panel-badge neutral">Ready</span>
       )}
@@ -72,20 +70,20 @@ const BillingProductForm = ({
 
     {isEditing ? (
       <div className="billing-entry-editing-state" role="status" aria-live="polite">
-        Editing item. Updating will replace the selected bill row.
+        Editing selected row.
       </div>
     ) : null}
 
     <div className="billing-entry-grid">
       <label className="billing-entry-field billing-entry-field-search" htmlFor="billing-product-search">
-        <span>Product Search</span>
+        <span>Search</span>
         <ProductSearchCombobox
           inputId="billing-product-search"
           inputRef={productSearchInputRef}
           value={currentItem.name}
           onChange={(value) => onFieldChange('name', value)}
           onKeyDown={onSearchKeyDown}
-          placeholder="Scan barcode or type product name"
+          placeholder="Scan or search product"
           loading={productSearchLoading}
           results={visibleProductResults}
           activeIndex={activeProductSuggestionIndex}
@@ -93,13 +91,13 @@ const BillingProductForm = ({
           selectedItem={currentProduct}
           hintContent={searchHint}
           resultsSummaryText={productResultSummary}
-          noResultsText="No product found. Press Enter or use Add Custom Item."
+          noResultsText="No match. Press Enter for custom item."
           getOptionKey={(product) => String(product?.id || '')}
           getOptionPrimaryText={(product) => product?.name || 'Product'}
           getOptionSecondaryText={(product) => getProductOptionLabel(product)}
           onSelect={onSelectProduct}
           footerAction={showCustomItemAction ? {
-            label: 'Add Custom Item',
+            label: 'Custom Item',
             onClick: () => onStartCustomItem(currentItem?.name),
             disabled: isEntryActionLocked,
           } : null}
@@ -126,7 +124,7 @@ const BillingProductForm = ({
           onKeyDown={onFieldKeyDown('qty')}
           placeholder="1"
         />
-        <small className="billing-entry-field-note">Press Enter to add this line when the price is already correct. Use Shift+Enter to edit price first.</small>
+        <small className="billing-entry-field-note">Enter saves. Shift+Enter goes to price.</small>
       </label>
 
       <label className="billing-entry-field" htmlFor="billing-product-price">
@@ -144,7 +142,7 @@ const BillingProductForm = ({
           placeholder="0.00"
         />
         <small className={`billing-entry-field-note${isManualPrice ? ' manual' : ''}`}>
-          {isManualPrice ? 'Manual price active. Press Enter to save this line, or Shift+Enter to continue to discount.' : 'Auto-filled from the product. Edit only when the selling price needs correction.'}
+          {isManualPrice ? 'Manual price. Enter saves.' : 'Auto price. Change only if needed.'}
         </small>
       </label>
 
@@ -162,7 +160,7 @@ const BillingProductForm = ({
           onKeyDown={onFieldKeyDown('disc')}
           placeholder="0"
         />
-        <small className="billing-entry-field-note">Flat amount discount only. It cannot exceed the line total.</small>
+        <small className="billing-entry-field-note">Flat discount only.</small>
       </label>
 
       <label className="billing-entry-field" htmlFor="billing-product-unit">
@@ -187,26 +185,26 @@ const BillingProductForm = ({
     <div className="billing-entry-help">
       <span>
         <ScanLine size={15} />
-        Search by name, code, or barcode. Exact code matches stay fast. If multiple products match, choose one explicitly before continuing.
+        Search name, code, or barcode.
       </span>
       <span>
-        <strong>Current Line</strong> Rs {Number(currentItem.amount || 0).toFixed(2)}
+        <strong>Line</strong> Rs {Number(currentItem.amount || 0).toFixed(2)}
       </span>
     </div>
 
     {currentProduct ? (
       <div className={`billing-entry-selection${pendingProductSelectionReview ? ' review' : ''}`}>
-        <span>{pendingProductSelectionReview ? 'Selected Product' : 'Matched Product'}</span>
+        <span>{pendingProductSelectionReview ? 'Selected' : 'Matched'}</span>
         <strong>{currentProduct.name}</strong>
         {pendingProductSelectionReview ? (
-          <small>Press Enter in Qty or review the line before Add Item.</small>
+          <small>Press Enter in Qty to add.</small>
         ) : null}
       </div>
     ) : null}
 
     {lowStockWarning ? (
       <div className={`billing-entry-warning${lowStockWarning?.tone === 'danger' ? ' critical' : ''}`}>
-        <strong>{lowStockWarning?.tone === 'danger' ? 'Stock alert:' : 'Low stock warning:'}</strong> {lowStockWarning?.text || ''}
+        <strong>{lowStockWarning?.tone === 'danger' ? 'Stock:' : 'Low stock:'}</strong> {lowStockWarning?.text || ''}
       </div>
     ) : null}
 
@@ -218,7 +216,7 @@ const BillingProductForm = ({
           onClick={onCancelEdit}
         >
           <RotateCcw size={16} />
-          Cancel Edit
+          Cancel
         </button>
       ) : null}
       <button
@@ -229,7 +227,7 @@ const BillingProductForm = ({
         disabled={isSubmitting || isEntryActionLocked}
       >
         <Save size={16} />
-        {isEditing ? 'Update Item' : 'Add Item'}
+        {isEditing ? 'Update' : 'Add'}
       </button>
     </div>
   </section>

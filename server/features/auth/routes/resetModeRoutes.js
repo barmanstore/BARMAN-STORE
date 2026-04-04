@@ -19,6 +19,8 @@ const registerAuthResetModeRoutes = (deps) => {
 
   app.get('/api/auth/reset-mode', (_, res) => {
     try {
+      const whatsappProviderSupportsSend = Boolean(whatsappProvider?.supportsSend);
+      const whatsappProviderReady = whatsappProviderSupportsSend && Boolean(whatsappProvider?.isReady);
       return res.json({
         auth_flow_mode: AUTH_FLOW_MODE,
         mode: 'otp_login_only',
@@ -33,8 +35,10 @@ const registerAuthResetModeRoutes = (deps) => {
         otp_verify_session_ttl_seconds: OTP_VERIFY_SESSION_TTL_SECONDS,
         phone_verification_required: PHONE_VERIFICATION_REQUIRED,
         whatsapp_delivery_mode: WHATSAPP_DELIVERY_MODE,
+        whatsapp_delivery_scope: whatsappProviderSupportsSend ? 'provider_send' : 'manual_prepare',
         whatsapp_provider: WHATSAPP_PROVIDER,
-        whatsapp_provider_ready: Boolean(whatsappProvider?.isReady),
+        whatsapp_provider_supports_send: whatsappProviderSupportsSend,
+        whatsapp_provider_ready: whatsappProviderReady,
         email_verification_mode: EMAIL_VERIFICATION_MODE,
         email_delivery_mode: EMAIL_DELIVERY_MODE,
         email_provider_ready: Boolean(emailVerificationProvider?.isReady),

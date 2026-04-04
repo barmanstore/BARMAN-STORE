@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { ADMIN_DEFAULT_TAB, normalizeAdminTab } from '../config/adminSidebarConfig';
+import { createEmptyCashSummary } from '../utils/dailyCashSummary';
 
 const useAdminState = ({
   toLocalDateKey,
@@ -22,6 +23,7 @@ const useAdminState = ({
     uniqueSessionsMonth: 0,
     uniqueSessionsYear: 0,
   });
+  const [todayCashSummary, setTodayCashSummary] = useState(() => createEmptyCashSummary());
   const [creditAgingSummary, setCreditAgingSummary] = useState({
     totalOutstanding: 0,
     customersOverdue: 0,
@@ -30,9 +32,18 @@ const useAdminState = ({
     customersOverLimit: 0,
   });
   const [purchaseOpsSummary, setPurchaseOpsSummary] = useState({
+    cards: {},
     todayDistributors: [],
+    tomorrowDistributors: [],
+    weeklyDistributors: [],
     predictedDeliveriesNext: [],
     predictedPaymentsToday: [],
+    predictedPaymentsNext: [],
+    reminders: [],
+    payables: [],
+    workflow: [],
+    distributorInsights: [],
+    actionRollups: {},
   });
   const [products, setProducts] = useState([]);
   const [productCategories, setProductCategories] = useState([]);
@@ -62,10 +73,14 @@ const useAdminState = ({
   const [usersLoading, setUsersLoading] = useState(false);
   const [bills, setBills] = useState([]);
   const [dailySalesDate, setDailySalesDate] = useState(() => toLocalDateKey(new Date()) || '');
+  const [dailyCashTally, setDailyCashTally] = useState(null);
+  const [dailyCashTallySaving, setDailyCashTallySaving] = useState(false);
   const [dailySalesLoading, setDailySalesLoading] = useState(false);
   const [dailySalesError, setDailySalesError] = useState('');
+  const [dailyCashTallyError, setDailyCashTallyError] = useState('');
   const [loading, setLoading] = useState(true);
   const [showProductForm, setShowProductForm] = useState(false);
+  const [productFormMode, setProductFormMode] = useState('full');
   const [editingProduct, setEditingProduct] = useState(null);
   const [editingUser, setEditingUser] = useState(null);
   const [showUserForm, setShowUserForm] = useState(false);
@@ -193,6 +208,8 @@ const useAdminState = ({
     setStats,
     visitorStats,
     setVisitorStats,
+    todayCashSummary,
+    setTodayCashSummary,
     creditAgingSummary,
     setCreditAgingSummary,
     purchaseOpsSummary,
@@ -237,14 +254,22 @@ const useAdminState = ({
     setBills,
     dailySalesDate,
     setDailySalesDate,
+    dailyCashTally,
+    setDailyCashTally,
+    dailyCashTallySaving,
+    setDailyCashTallySaving,
     dailySalesLoading,
     setDailySalesLoading,
     dailySalesError,
     setDailySalesError,
+    dailyCashTallyError,
+    setDailyCashTallyError,
     loading,
     setLoading,
     showProductForm,
     setShowProductForm,
+    productFormMode,
+    setProductFormMode,
     editingProduct,
     setEditingProduct,
     editingUser,

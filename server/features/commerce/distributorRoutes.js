@@ -29,6 +29,105 @@
     }
   });
 
+  app.get('/api/distributors/:id/products', requireAdmin, async (req, res) => {
+    try {
+      const distributorId = Number(req.params.id || 0);
+      if (!distributorId) return res.status(400).json({ error: 'Invalid distributor id' });
+
+      const rows = await dbAllAsync(
+        `SELECT
+           p.id,
+           p.name,
+           p.brand,
+           p.content,
+           p.price,
+           p.mrp,
+           p.uom,
+           p.base_unit,
+           p.uom_type,
+           p.conversion_factor,
+           p.purchase_pack_size,
+           p.sku,
+           p.barcode,
+           p.image,
+           p.stock,
+           p.category,
+           p.subcategory,
+           p.default_discount,
+           p.discount_type,
+           p.is_active,
+           sp.distributor_id,
+           sp.product_id,
+           sp.last_known_unit_cost_incl_tax,
+           sp.min_order_qty,
+           sp.lead_time_days,
+           sp.is_available,
+           sp.availability_note,
+           sp.last_updated_at as supplier_last_updated_at,
+           MAX(pch.transaction_ts) as last_purchase_at
+         FROM supplier_products sp
+         INNER JOIN products p ON p.id = sp.product_id
+         LEFT JOIN product_cost_history pch
+           ON pch.product_id = sp.product_id
+          AND pch.distributor_id = sp.distributor_id
+         WHERE sp.distributor_id = ?
+           AND COALESCE(sp.is_available, TRUE) = TRUE
+           AND COALESCE(p.is_active, 1) <> 0
+         GROUP BY
+           p.id,
+           p.name,
+           p.brand,
+           p.content,
+           p.price,
+           p.mrp,
+           p.uom,
+           p.base_unit,
+           p.uom_type,
+           p.conversion_factor,
+           p.purchase_pack_size,
+           p.sku,
+           p.barcode,
+           p.image,
+           p.stock,
+           p.category,
+           p.subcategory,
+           p.default_discount,
+           p.discount_type,
+           p.is_active,
+           sp.distributor_id,
+           sp.product_id,
+           sp.last_known_unit_cost_incl_tax,
+           sp.min_order_qty,
+           sp.lead_time_days,
+           sp.is_available,
+           sp.availability_note,
+           sp.last_updated_at
+         ORDER BY LOWER(COALESCE(p.name, '')) ASC, p.id ASC`,
+        [distributorId]
+      );
+
+      const payload = (rows || []).map((row) => ({
+        ...row,
+        id: Number(row.id || 0),
+        distributor_id: Number(row.distributor_id || distributorId || 0),
+        product_id: Number(row.product_id || row.id || 0),
+        price: row.price === null ? null : Number(row.price || 0),
+        mrp: row.mrp === null ? null : Number(row.mrp || 0),
+        conversion_factor: row.conversion_factor === null ? null : Number(row.conversion_factor || 0),
+        purchase_pack_size: row.purchase_pack_size === null ? null : Number(row.purchase_pack_size || 0),
+        stock: row.stock === null ? null : Number(row.stock || 0),
+        default_discount: row.default_discount === null ? null : Number(row.default_discount || 0),
+        last_known_unit_cost_incl_tax: row.last_known_unit_cost_incl_tax === null ? null : Number(row.last_known_unit_cost_incl_tax || 0),
+        min_order_qty: row.min_order_qty === null ? null : Number(row.min_order_qty || 0),
+        lead_time_days: row.lead_time_days === null ? null : Number(row.lead_time_days || 0),
+      }));
+
+      return res.json(payload);
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/distributors', requireAdmin, async (req, res) => {
     try {
       const b = req.body || {};

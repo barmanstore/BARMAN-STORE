@@ -1,5 +1,6 @@
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const { resolveCreditTermsDays } = require('../../../utils/creditStatusPolicy');
 
 const addDaysToDateKey = (dateKey, days) => {
   if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
@@ -21,6 +22,7 @@ const resolveCreditIssue = async ({
   normalizeCreditIssueStatus,
   getLatestCreditEntryAsync,
   getCustomerCreditProfileAsync,
+  getCustomerPaymentSummaryAsync,
   recalculateCreditBalancesForUser,
   rebuildCustomerPaymentIntelligence,
   normalizeTransactionDate,
@@ -94,7 +96,11 @@ const resolveCreditIssue = async ({
       const transactionTs = buildCreditTransactionTimestamp(correctionDateRaw, new Date());
       const transactionDateKey = normalizedCorrectionDate || String(transactionTs || '').slice(0, 10);
       const creditProfile = await getCustomerCreditProfileAsync(userId);
-      const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+      const paymentSummary = await getCustomerPaymentSummaryAsync(userId);
+      const creditTermsDays = resolveCreditTermsDays({
+        creditTermsDays: creditProfile?.credit_terms_days,
+        paymentSummary,
+      });
       const dueDate = correctionType === 'payment'
         ? transactionDateKey
         : (addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey);

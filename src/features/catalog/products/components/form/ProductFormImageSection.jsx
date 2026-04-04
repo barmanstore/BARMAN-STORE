@@ -1,5 +1,5 @@
-import { getProductImageSrc } from '../../../../../shared/utils/productImage';
 import ImageUrlPicker from '../../../../../shared/components/ImageUrlPicker';
+import SafeProductImage from '../../../../../shared/components/product/SafeProductImage';
 
 const ProductFormImageSection = ({
   formData,
@@ -26,10 +26,14 @@ const ProductFormImageSection = ({
 
     {formData.image && (
       <div className="image-preview">
-        <img
-          src={getProductImageSrc(formData.image)}
+        <SafeProductImage
+          src={formData.image}
           alt="Product preview"
-          onError={(e) => e.target.style.display = 'none'}
+          fallbackProduct={{
+            name: formData.name,
+            brand: formData.brand,
+            category: formData.category,
+          }}
         />
       </div>
     )}

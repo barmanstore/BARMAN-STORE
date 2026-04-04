@@ -1,7 +1,4 @@
 const registerCreditIssuesListRoutes = (deps) => {
-  const PAYMENT_BADGE_CACHE_TTL_MS = 15000;
-  const paymentBadgeCache = new Map();
-
   const {
     app,
     requireAuth,
@@ -12,20 +9,6 @@ const registerCreditIssuesListRoutes = (deps) => {
     getCustomerCreditProfileAsync,
     buildPaymentActivityBadges,
   } = deps;
-
-  const getCachedBadgePayload = (userId) => {
-    const entry = paymentBadgeCache.get(userId);
-    if (!entry) return null;
-    if (Date.now() - entry.at > PAYMENT_BADGE_CACHE_TTL_MS) {
-      paymentBadgeCache.delete(userId);
-      return null;
-    }
-    return entry.payload || null;
-  };
-
-  const setCachedBadgePayload = (userId, payload) => {
-    paymentBadgeCache.set(userId, { at: Date.now(), payload });
-  };
 
   const CREDIT_HISTORY_DEFAULT_LIMIT = 150;
   const CREDIT_HISTORY_MAX_LIMIT = 500;
@@ -109,7 +92,7 @@ const registerCreditIssuesListRoutes = (deps) => {
           CREDIT_HISTORY_MAX_LIMIT
         );
       const cursor = allowAll ? null : decodeHistoryCursor(String(req.query?.cursor || '').trim());
-      const sortExpr = 'COALESCE(ch.transaction_ts, ch.created_at)';
+      const sortExpr = 'ch.transaction_ts';
       const whereClauses = ['ch.user_id = ?'];
       const params = [req.params.userId];
       if (cursor && cursor.sortTs !== undefined && cursor.sortTs !== null && cursor.id) {
@@ -148,7 +131,7 @@ const registerCreditIssuesListRoutes = (deps) => {
       const lastRow = slicedRows[slicedRows.length - 1];
       const nextCursor = hasMore && lastRow
         ? encodeHistoryCursor([
-          lastRow.transaction_ts ?? lastRow.created_at,
+          lastRow.transaction_ts,
           lastRow.created_at,
           lastRow.id,
         ])
@@ -165,11 +148,6 @@ const registerCreditIssuesListRoutes = (deps) => {
       const isAdmin = req.authUser?.role === 'admin';
       if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
         return res.status(403).json({ error: 'Forbidden' });
-      }
-
-      const cachedPayload = getCachedBadgePayload(requestUserId);
-      if (cachedPayload) {
-        return res.json(cachedPayload);
       }
 
       const [historyRows, latest, userRow, creditProfile] = await Promise.all([
@@ -192,7 +170,6 @@ const registerCreditIssuesListRoutes = (deps) => {
         isActive: creditProfile?.is_active,
         graceDays: creditProfile?.grace_days,
       });
-      setCachedBadgePayload(requestUserId, badgePayload);
       return res.json(badgePayload);
     } catch (error) {
       return res.status(500).json({ error: error.message });

@@ -102,9 +102,12 @@ const usePurchaseDataFetch = ({
   const fetchOrders = useCallback(async () => {
     try {
       const orders = await purchaseOrdersApi.getAll(filters);
-      setPurchaseOrders(orders || []);
+      const nextOrders = Array.isArray(orders) ? orders : [];
+      setPurchaseOrders(nextOrders);
+      return nextOrders;
     } catch (err) {
       setError('Failed to load purchase orders');
+      return [];
     }
   }, [purchaseOrdersApi, filters, setPurchaseOrders, setError]);
 

@@ -23,6 +23,7 @@ const useAdminNavigation = ({
     offers: 'general',
     'credit-aging': 'general',
     products: 'products',
+    'restock-dashboard': 'products',
     categories: 'products',
     billing: 'billing',
     'daily-sales': 'billing',

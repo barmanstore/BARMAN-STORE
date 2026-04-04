@@ -163,11 +163,14 @@ app.get('/api/auth/phone/verification/status', requireAuth, async (req, res) => 
   try {
     const user = await dbGetAsync(`SELECT id, phone, phone_verified FROM users WHERE id = ?`, [req.authUser.id]);
     if (!user) return res.status(404).json({ error: 'User not found' });
+    const providerSupportsSend = Boolean(whatsappProvider?.supportsSend);
     return res.json({
       phone: user.phone || null,
       phone_verified: Number(user.phone_verified || 0) === 1,
       mode: WHATSAPP_DELIVERY_MODE,
-      provider_ready: Boolean(whatsappProvider?.isReady),
+      delivery_scope: providerSupportsSend ? 'provider_send' : 'manual_prepare',
+      provider_supports_send: providerSupportsSend,
+      provider_ready: providerSupportsSend && Boolean(whatsappProvider?.isReady),
     });
   } catch (error) {
     return res.status(500).json({ error: error.message });

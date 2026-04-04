@@ -5,23 +5,31 @@ const requiredConfig = (config = {}, keys = []) => {
   return { ok: missing.length === 0, missing };
 };
 
+const createManualOnlyProvider = ({ providerName = 'meta', missing = [], reason = 'provider_send_not_implemented' } = {}) => ({
+  provider: providerName,
+  deliveryScope: 'manual_prepare',
+  supportsSend: false,
+  isReady: false,
+  missing,
+  reason,
+  async sendMessage() {
+    throw new Error('WhatsApp provider delivery is not implemented yet. Use the manual prepared-message flow.');
+  },
+});
+
 const createMetaProvider = (config = {}) => {
   const check = requiredConfig(config, ['WHATSAPP_API_KEY', 'WHATSAPP_PHONE_NUMBER_ID']);
-  return {
-    isReady: check.ok,
+  return createManualOnlyProvider({
+    providerName: 'meta',
     missing: check.missing,
-    async sendMessage() {
-      throw new Error('WhatsApp provider integration is not implemented yet.');
-    },
-  };
+    reason: check.ok ? 'provider_send_not_implemented' : 'missing_required_config',
+  });
 };
 
-const createUnsupportedProvider = (providerName) => ({
-  isReady: false,
+const createUnsupportedProvider = (providerName) => createManualOnlyProvider({
+  providerName: normalizeProvider(providerName || 'unknown'),
   missing: ['WHATSAPP_PROVIDER'],
-  async sendMessage() {
-    throw new Error(`Unsupported WhatsApp provider: ${providerName || 'unknown'}`);
-  },
+  reason: 'unsupported_provider',
 });
 
 const createWhatsappProvider = (config = {}) => {

@@ -30,6 +30,7 @@ const createCreditUtils = (deps = {}) => {
   const {
     ensureCustomerCreditProfileAsync,
     getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync,
     rebuildCustomerPaymentIntelligence,
     rebuildAllCustomerPaymentIntelligence,
   } = createPaymentIntelligenceUtils({
@@ -50,6 +51,7 @@ const createCreditUtils = (deps = {}) => {
     buildPaymentActivityBadges,
     ensureCustomerCreditProfileAsync,
     getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync,
     rebuildCustomerPaymentIntelligence,
     rebuildAllCustomerPaymentIntelligence,
   };

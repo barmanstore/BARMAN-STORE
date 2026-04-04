@@ -1,8 +1,56 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { CheckCircle2, ListPlus, SlidersHorizontal } from 'lucide-react';
 import ProductSearchCombobox from '../../../../shared/components/product-search/ProductSearchCombobox';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { getLastPurchaseMeta } from '../utils/orderDrafts';
+
+const buildPrimaryRowStatus = ({
+  duplicateWarning,
+  productSelectionWarning,
+  discountBlockingWarning,
+  rateConfirmationWarning,
+  discountNeedsConfirmation,
+  discountWarning,
+  rateChangeLabel,
+  rateChangeTone,
+  draftWarning,
+  rateConfirmedLabel,
+  discountConfirmedLabel,
+}) => {
+  if (duplicateWarning) {
+    return { tone: 'danger', text: 'Duplicate row', title: duplicateWarning };
+  }
+  if (productSelectionWarning) {
+    return { tone: 'bad', text: productSelectionWarning, title: productSelectionWarning };
+  }
+  if (discountBlockingWarning) {
+    return { tone: 'danger', text: 'Fix discount', title: discountBlockingWarning };
+  }
+  if (rateConfirmationWarning) {
+    return { tone: 'danger', text: 'Rate check', title: rateConfirmationWarning };
+  }
+  if (discountNeedsConfirmation || discountWarning) {
+    return {
+      tone: 'bad',
+      text: 'Discount check',
+      title: discountWarning || 'Review discount before saving.',
+    };
+  }
+  if (rateChangeLabel) {
+    return {
+      tone: rateChangeTone || 'neutral',
+      text: rateChangeLabel,
+      title: draftWarning || rateChangeLabel,
+    };
+  }
+  if (rateConfirmedLabel) {
+    return { tone: 'good', text: 'Rate confirmed', title: rateConfirmedLabel };
+  }
+  if (discountConfirmedLabel) {
+    return { tone: 'good', text: 'Discount confirmed', title: discountConfirmedLabel };
+  }
+  return null;
+};
 
 const PurchaseOrderPosEntry = ({
   activeItem,
@@ -10,6 +58,7 @@ const PurchaseOrderPosEntry = ({
   activeLine,
   activeProduct,
   activeUomOptions,
+  entryLocked,
   orderFullMode,
   getProductSearchMeta,
   getPurchasePackStep,
@@ -60,18 +109,12 @@ const PurchaseOrderPosEntry = ({
   onConfirmDiscountWarning,
   onFieldKeyDown,
 }) => {
-  const suggestedRate = Number(activeItem?.reference_rate || activeItem?.rate || 0);
   const lastPurchaseMeta = getLastPurchaseMeta(activeItem);
   const discountAppliedAmount = Number(activeLine?.discountAmount || 0);
-  const grossAmount = Number(activeLine?.grossAmount || 0);
   const enteredQuantity = Math.max(0, Number(activeLine?.quantity || activeItem?.quantity || 0));
   const displayUom = String(activeLine?.uom || activeItem?.uom || 'pcs').trim() || 'pcs';
-  const grossPerDisplayUnit = enteredQuantity > 0 ? grossAmount / enteredQuantity : 0;
   const effectivePerDisplayUnit = enteredQuantity > 0
     ? Number(activeLine?.totalAmount || 0) / enteredQuantity
-    : 0;
-  const taxablePerDisplayUnit = enteredQuantity > 0
-    ? Number(activeLine?.taxableValue || 0) / enteredQuantity
     : 0;
   const baseRateUnitLabel = String(activeProduct?.base_unit || activeProduct?.uom || 'pcs').trim() || 'pcs';
   const defaultUom = String(activeUomOptions?.[0] || displayUom).trim().toLowerCase();
@@ -89,19 +132,22 @@ const PurchaseOrderPosEntry = ({
     || discountBlockingWarning
     || discountConfirmedLabel
   );
+  const shouldExposeMoreFields = Boolean(
+    hasAdvancedAdjustments
+    || shouldExposeDiscountControls
+  );
   const [showAdvancedAdjustments, setShowAdvancedAdjustments] = useState(false);
   const lastPurchaseLabel = lastPurchaseMeta.hasValue
     ? [
         lastPurchaseMeta.rate > 0 ? `Last ${formatCurrency(lastPurchaseMeta.rate)}` : 'Last purchase',
-        lastPurchaseMeta.distributorName ? `Distributor: ${lastPurchaseMeta.distributorName}` : '',
         lastPurchaseMeta.ageLabel || lastPurchaseMeta.dateLabel,
-      ].filter(Boolean).join(' | ') || lastPurchaseMeta.fallbackHint
+      ].filter(Boolean).join(' • ') || lastPurchaseMeta.fallbackHint
     : '';
   const rateFieldMeta = lastPurchaseMeta.hasValue
-    ? `Auto-filled from ${lastPurchaseMeta.poNumber || 'last purchase'}. Editable before saving.`
+    ? `Auto-filled from ${lastPurchaseMeta.poNumber || 'last purchase'}.`
     : (activeItem?.reference_rate_source
-        ? `Suggested from ${activeItem.reference_rate_source}. Editable before saving.`
-        : 'Enter to save this row and open the next one.');
+        ? `Suggested from ${activeItem.reference_rate_source}.`
+        : 'Enter saves this row.');
   const rateFieldInlineMeta = lastPurchaseMeta.hasValue || activeItem?.reference_rate_source
     ? 'Auto-filled'
     : 'Enter saves';
@@ -118,23 +164,47 @@ const PurchaseOrderPosEntry = ({
   const searchHint = autocompleteCandidate
     ? (
       requiresExplicitSuggestionChoice
-        ? <>Multiple matches found. Use <strong>Arrow keys</strong> or click a product to confirm the right item.</>
-        : <>Top match: <strong>{autocompleteCandidate.name}</strong>. Press `Tab` or `Enter` to use it.</>
+        ? <>Use <strong>arrows</strong> to choose.</>
+        : <>Use <strong>Tab</strong> or <strong>Enter</strong> for {autocompleteCandidate.name}.</>
     )
     : null;
+  const primaryRowStatus = buildPrimaryRowStatus({
+    duplicateWarning,
+    productSelectionWarning,
+    discountBlockingWarning,
+    rateConfirmationWarning,
+    discountNeedsConfirmation,
+    discountWarning,
+    rateChangeLabel,
+    rateChangeTone,
+    draftWarning,
+    rateConfirmedLabel,
+    discountConfirmedLabel,
+  });
+  const statusAction = rateNeedsConfirmation
+    ? {
+        label: 'Confirm rate',
+        onClick: onConfirmRateWarning,
+      }
+    : (discountNeedsConfirmation
+        ? {
+            label: 'Confirm discount',
+            onClick: onConfirmDiscountWarning,
+          }
+        : null);
+  const passiveStatusNote = !primaryRowStatus && lastPurchaseLabel ? lastPurchaseLabel : '';
 
   useEffect(() => {
-    setShowAdvancedAdjustments(shouldExposeDiscountControls);
-  }, [activeItemIndex, shouldExposeDiscountControls]);
+    setShowAdvancedAdjustments(shouldExposeMoreFields);
+  }, [activeItemIndex, shouldExposeMoreFields]);
 
   if (!activeItem) {
     return (
       <section className="po-pos-panel po-pos-entry-panel">
         <div className="po-pos-empty-state">
           <strong>No active row available.</strong>
-          <p>Add a row to start entering purchase items.</p>
-          <button type="button" className="submit-btn" onClick={onAddRow}>
-            <Plus size={16} /> Add Row
+          <button type="button" className="po-pos-action-btn" onClick={onAddRow}>
+            <ListPlus size={15} /> Row
           </button>
         </div>
       </section>
@@ -144,104 +214,67 @@ const PurchaseOrderPosEntry = ({
   return (
     <section className="po-pos-panel po-pos-entry-panel">
       <div className="po-pos-panel-header">
-        <div>
-          <p className="po-pos-panel-kicker">Active Entry</p>
+        <div className="po-pos-panel-heading">
           <h4>Row {activeItemIndex + 1}</h4>
-          <p>Keep the row moving: product, qty, base rate, enter.</p>
+          <small className={`po-pos-panel-inline-state${entryLocked ? ' locked' : ''}`}>
+            {entryLocked ? 'Supplier first' : 'Active'}
+          </small>
         </div>
         <div className="po-pos-panel-actions">
-          <button type="button" className="po-pos-action-btn" onClick={onAddRow}>
-            <Plus size={15} /> New Row
+          <button
+            type="button"
+            className="po-pos-action-btn"
+            onClick={onAddRow}
+            disabled={entryLocked || orderSubmitting}
+            title={entryLocked ? 'Choose supplier first' : 'Add new row'}
+            aria-label={entryLocked ? 'Choose supplier first' : 'Add new row'}
+          >
+            <ListPlus size={15} /> Row
           </button>
         </div>
       </div>
 
       <div className="po-pos-field-stage">
         <div className="po-pos-field-stage-header">
-          <span>Entry Lane</span>
-          <p>Primary operator flow for everyday entry.</p>
+          <span>Entry</span>
         </div>
-        <div className="po-pos-status-row" aria-live="polite">
-          {lastPurchaseLabel ? (
-            <span className="po-pos-status-chip info">{lastPurchaseLabel}</span>
-          ) : null}
-          {lastPurchaseMeta.poNumber ? (
-            <span className="po-pos-status-chip neutral">PO {lastPurchaseMeta.poNumber}</span>
-          ) : null}
-          {suggestedRate > 0 ? (
-            <span className="po-pos-status-chip neutral">
-              Suggested {formatCurrency(suggestedRate)}
-            </span>
-          ) : null}
-          {rateChangeLabel ? (
-            <span
-              className={`po-pos-status-chip ${rateChangeTone || 'neutral'}`}
-              title={draftWarning || rateConfirmationWarning || undefined}
-            >
-              {rateChangeLabel}
-            </span>
-          ) : null}
-          {rateConfirmationWarning ? (
-            <span className="po-pos-status-chip danger">{rateConfirmationWarning}</span>
-          ) : null}
-          {rateConfirmedLabel ? (
-            <span className="po-pos-status-chip good">{rateConfirmedLabel}</span>
-          ) : null}
-          {rateNeedsConfirmation ? (
-            <button
-              type="button"
-              className="po-pos-status-chip-btn danger"
-              onClick={onConfirmRateWarning}
-              disabled={orderSubmitting}
-            >
-              Intentional rate
-            </button>
-          ) : null}
-          {enteredQuantity > 0 ? (
-            <span className="po-pos-status-chip neutral">
-              Effective {formatCurrency(effectivePerDisplayUnit)} / {displayUom}
-            </span>
-          ) : null}
-          {activeLine?.discountAmount > 0 ? (
-            <span className="po-pos-status-chip bad">
-              Discount {formatCurrency(activeLine.discountAmount)} applied
-            </span>
-          ) : null}
-          {activeLine?.discountAmount > 0 && grossAmount > 0 ? (
-            <span className="po-pos-status-chip neutral">
-              Net {formatCurrency(taxablePerDisplayUnit)} / {displayUom} before GST
-            </span>
-          ) : null}
-          {discountWarning ? (
-            <span className="po-pos-status-chip bad">{discountWarning}</span>
-          ) : null}
-          {discountConfirmedLabel ? (
-            <span className="po-pos-status-chip good">{discountConfirmedLabel}</span>
-          ) : null}
-          {discountNeedsConfirmation ? (
-            <button
-              type="button"
-              className="po-pos-status-chip-btn danger"
-              onClick={onConfirmDiscountWarning}
-              disabled={orderSubmitting}
-            >
-              Intentional discount
-            </button>
-          ) : null}
-          {discountBlockingWarning ? (
-            <span className="po-pos-status-chip danger">{discountBlockingWarning}</span>
-          ) : null}
-          {productSelectionWarning ? (
-            <span className="po-pos-status-chip bad">{productSelectionWarning}</span>
-          ) : null}
-          {duplicateWarning ? (
-            <span className="po-pos-status-chip danger">{duplicateWarning}</span>
-          ) : null}
-        </div>
+        {entryLocked ? (
+          <div className="po-pos-locked-note" aria-live="polite">
+            Choose supplier first.
+          </div>
+        ) : null}
+        {primaryRowStatus || statusAction || passiveStatusNote ? (
+          <div className="po-pos-status-row" aria-live="polite">
+            {primaryRowStatus ? (
+              <span
+                className={`po-pos-status-chip ${primaryRowStatus.tone || 'neutral'}`}
+                title={primaryRowStatus.title || undefined}
+              >
+                {primaryRowStatus.text}
+              </span>
+            ) : null}
+            {statusAction ? (
+              <button
+                type="button"
+                className="po-pos-status-chip-btn danger"
+                onClick={statusAction.onClick}
+                disabled={orderSubmitting}
+              >
+                <CheckCircle2 size={14} />
+                {statusAction.label}
+              </button>
+            ) : null}
+            {!primaryRowStatus && passiveStatusNote ? (
+              <p className="po-pos-status-note" title={passiveStatusNote}>
+                {passiveStatusNote}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="po-pos-entry-lane">
           <label className="po-pos-field po-pos-field-search po-pos-field-primary po-pos-field-search-wide" htmlFor="po-pos-product-search">
-            <span>Product Search</span>
+            <span>Product</span>
             <ProductSearchCombobox
               inputId="po-pos-product-search"
               inputRef={productInputRef}
@@ -249,8 +282,8 @@ const PurchaseOrderPosEntry = ({
               onChange={onProductChange}
               onKeyDown={onProductKeyDown}
               onFocus={onProductFocus}
-              placeholder="Type product name, SKU, or barcode"
-              disabled={orderSubmitting}
+              placeholder="Search product, SKU, barcode"
+              disabled={orderSubmitting || entryLocked}
               loading={productSearchLoading}
               results={visibleProductResults}
               activeIndex={activeProductSuggestionIndex}
@@ -259,15 +292,15 @@ const PurchaseOrderPosEntry = ({
               hintContent={searchHint}
               resultsSummaryText={productResultSummary}
               noResultsText={canInlineCreateProduct
-                ? 'No product found. Add it as a new product if needed.'
-                : 'No product found. Keep typing or check the product code.'}
+                ? 'No match. Add new if needed.'
+                : 'No match.'}
               getOptionKey={(product) => String(product?.id || '')}
               getOptionPrimaryText={(product) => product?.name || 'Product'}
               getOptionSecondaryText={(product) => getProductSearchMeta(product)}
               onSelect={(product) => onProductSuggestionPick(product, { focusQty: true })}
               onOptionHover={onProductSuggestionHover}
-              footerAction={canInlineCreateProduct ? {
-                label: `Add "${trimmedProductQuery}" as new product`,
+              footerAction={!entryLocked && canInlineCreateProduct ? {
+                label: `Add new: ${trimmedProductQuery}`,
                 onClick: () => onCreateProductFromSearch(trimmedProductQuery),
                 disabled: orderSubmitting,
               } : null}
@@ -279,8 +312,7 @@ const PurchaseOrderPosEntry = ({
             <div className="po-pos-inline-create" aria-live="polite">
               <div className="po-pos-inline-create-header">
                 <div>
-                  <strong>Add Product Inline</strong>
-                  <p>Create the missing product here and continue the same PO row.</p>
+                  <strong>New Product</strong>
                 </div>
                 <div className="po-pos-inline-create-actions">
                   <button
@@ -297,7 +329,7 @@ const PurchaseOrderPosEntry = ({
                     onClick={onInlineProductCreateSubmit}
                     disabled={inlineProductCreate.submitting}
                   >
-                    {inlineProductCreate.submitting ? 'Adding...' : 'Add Product'}
+                    {inlineProductCreate.submitting ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>
@@ -355,186 +387,175 @@ const PurchaseOrderPosEntry = ({
                 <p className="po-pos-inline-create-error">{inlineProductCreate.error}</p>
               ) : (
                 <p className="po-pos-inline-create-note">
-                  No modal. No confirm. Save the product inline, then continue with qty.
+                  Add here, then continue with qty.
                 </p>
               )}
             </div>
           ) : null}
 
           <div className={`po-pos-primary-grid${orderFullMode ? ' full' : ''}`}>
-          <label className="po-pos-field po-pos-field-primary po-pos-field-qty" htmlFor="po-pos-qty">
-            <span>Qty</span>
-            <input
-              ref={qtyInputRef}
-              id="po-pos-qty"
-              type="number"
-              min="1"
-              step={getPurchasePackStep(activeProduct, activeItem.uom || activeLine?.uom)}
-              value={activeItem.quantity}
-              onChange={(event) => onItemChange('quantity', event.target.value)}
-              onKeyDown={onFieldKeyDown('qty')}
-              disabled={orderSubmitting}
-            />
-          </label>
-
-          {orderFullMode ? (
-            <label className="po-pos-field po-pos-field-primary po-pos-field-rate" htmlFor="po-pos-rate">
-              <div className="po-pos-field-label-row">
-                <span>Base Rate / {baseRateUnitLabel}</span>
-                <small className="po-pos-field-inline-meta" title={rateFieldMeta}>
-                  {rateFieldInlineMeta}
-                </small>
-              </div>
+            <label className="po-pos-field po-pos-field-primary po-pos-field-qty" htmlFor="po-pos-qty">
+              <span>Qty</span>
               <input
-                ref={rateInputRef}
-                id="po-pos-rate"
+                ref={qtyInputRef}
+                id="po-pos-qty"
                 type="number"
-                min="0"
-                step="0.01"
-                value={activeItem.rate ?? activeItem.unit_price}
-                onChange={(event) => onItemChange('rate', event.target.value)}
-                onKeyDown={onFieldKeyDown('rate')}
-                disabled={orderSubmitting}
+                min="1"
+                step={getPurchasePackStep(activeProduct, activeItem.uom || activeLine?.uom)}
+                value={activeItem.quantity}
+                onChange={(event) => onItemChange('quantity', event.target.value)}
+                onKeyDown={onFieldKeyDown('qty')}
+                disabled={orderSubmitting || entryLocked}
               />
             </label>
-          ) : (
-            <div className="po-pos-stat-card readonly">
-              <span>Base Rate / {baseRateUnitLabel}</span>
-              <strong>{formatCurrency(activeLine?.rate || 0)}</strong>
-            </div>
-          )}
+
+            {orderFullMode ? (
+              <label className="po-pos-field po-pos-field-primary po-pos-field-rate" htmlFor="po-pos-rate">
+                <div className="po-pos-field-label-row">
+                  <span>Rate / {baseRateUnitLabel}</span>
+                  <small className="po-pos-field-inline-meta" title={rateFieldMeta}>
+                    {rateFieldInlineMeta}
+                  </small>
+                </div>
+                <input
+                  ref={rateInputRef}
+                  id="po-pos-rate"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={activeItem.rate ?? activeItem.unit_price}
+                  onChange={(event) => onItemChange('rate', event.target.value)}
+                  onKeyDown={onFieldKeyDown('rate')}
+                  disabled={orderSubmitting || entryLocked}
+                />
+              </label>
+            ) : (
+              <div className="po-pos-stat-card readonly">
+                <span>Rate / {baseRateUnitLabel}</span>
+                <strong>{formatCurrency(activeLine?.rate || 0)}</strong>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {orderFullMode ? (
-        <div className="po-pos-field-stage secondary compact">
-          <div className="po-pos-field-stage-header po-pos-field-stage-header-inline">
-            <div>
-              <span>Price Adjustments</span>
-              <p>{shouldExposeDiscountControls ? 'Discount is affecting the final total. Review it before saving.' : 'Open only when UOM, GST, or discount need correction.'}</p>
-            </div>
-            <button
-              type="button"
-              className="po-pos-action-btn subtle po-pos-stage-toggle-btn"
-              onClick={() => setShowAdvancedAdjustments((prev) => !prev)}
-            >
-              {showAdvancedAdjustments ? 'Hide adjustments' : (hasAdvancedAdjustments ? 'Review adjustments' : 'Adjust pricing')}
-            </button>
+      <div className="po-pos-field-stage secondary compact">
+        <div className="po-pos-field-stage-header po-pos-field-stage-header-inline">
+          <div>
+            <span>More Fields</span>
           </div>
-          {showAdvancedAdjustments ? (
-            <div className="po-pos-entry-grid po-pos-entry-grid-secondary">
-              <label className="po-pos-field po-pos-field-secondary po-pos-field-compact" htmlFor="po-pos-uom">
-                <span>UOM</span>
-                <select
-                  ref={uomInputRef}
-                  id="po-pos-uom"
-                  value={activeLine?.uom || activeItem.uom}
-                  onChange={(event) => onItemChange('uom', event.target.value)}
-                  onKeyDown={onFieldKeyDown('uom')}
-                  disabled={orderSubmitting}
-                >
-                  {activeUomOptions.map((uomOption) => (
-                    <option key={uomOption} value={uomOption}>{uomOption}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-gst">
-                <span>GST %</span>
-                <select
-                  ref={gstInputRef}
-                  id="po-pos-gst"
-                  value={activeItem.gst_rate}
-                  onChange={(event) => onItemChange('gst_rate', event.target.value)}
-                  onKeyDown={onFieldKeyDown('gst')}
-                  disabled={orderSubmitting}
-                >
-                  {GST_RATE_OPTIONS.map((rate) => (
-                    <option key={rate} value={rate}>{rate}%</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-discount-type">
-                <span>Discount Type</span>
-                <select
-                  id="po-pos-discount-type"
-                  value={activeItem.discount_type || 'percent'}
-                  onChange={(event) => onItemChange('discount_type', event.target.value)}
-                  disabled={orderSubmitting}
-                >
-                  <option value="percent">%</option>
-                  <option value="fixed">Fixed</option>
-                </select>
-              </label>
-
-              <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-discount-value">
-                <span>Discount</span>
+          <button
+            type="button"
+            className="po-pos-action-btn po-pos-stage-toggle-btn"
+            onClick={() => setShowAdvancedAdjustments((prev) => !prev)}
+          >
+            <SlidersHorizontal size={15} />
+            {showAdvancedAdjustments ? 'Less' : 'More'}
+          </button>
+        </div>
+        {showAdvancedAdjustments ? (
+          <div className="po-pos-entry-grid po-pos-entry-grid-secondary">
+            {!orderFullMode ? (
+              <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-rate-more">
+                <span>Rate / {baseRateUnitLabel}</span>
                 <input
-                  ref={discountInputRef}
-                  id="po-pos-discount-value"
+                  ref={rateInputRef}
+                  id="po-pos-rate-more"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={activeItem.discount_value ?? 0}
-                  onChange={(event) => onItemChange('discount_value', event.target.value)}
-                  onKeyDown={onFieldKeyDown('discount')}
-                  disabled={orderSubmitting}
+                  value={activeItem.rate ?? activeItem.unit_price}
+                  onChange={(event) => onItemChange('rate', event.target.value)}
+                  onKeyDown={onFieldKeyDown('rate')}
+                  disabled={orderSubmitting || entryLocked}
                 />
               </label>
-            </div>
-          ) : (
+            ) : null}
+
+            <label className="po-pos-field po-pos-field-secondary po-pos-field-compact" htmlFor="po-pos-uom">
+              <span>UOM</span>
+              <select
+                ref={uomInputRef}
+                id="po-pos-uom"
+                value={activeLine?.uom || activeItem.uom}
+                onChange={(event) => onItemChange('uom', event.target.value)}
+                onKeyDown={onFieldKeyDown('uom')}
+                disabled={orderSubmitting || entryLocked}
+              >
+                {activeUomOptions.map((uomOption) => (
+                  <option key={uomOption} value={uomOption}>{uomOption}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-gst">
+              <span>GST %</span>
+              <select
+                ref={gstInputRef}
+                id="po-pos-gst"
+                value={activeItem.gst_rate}
+                onChange={(event) => onItemChange('gst_rate', event.target.value)}
+                onKeyDown={onFieldKeyDown('gst')}
+                disabled={orderSubmitting || entryLocked}
+              >
+                {GST_RATE_OPTIONS.map((rate) => (
+                  <option key={rate} value={rate}>{rate}%</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-discount-type">
+              <span>Discount Type</span>
+              <select
+                id="po-pos-discount-type"
+                value={activeItem.discount_type || 'percent'}
+                onChange={(event) => onItemChange('discount_type', event.target.value)}
+                disabled={orderSubmitting || entryLocked}
+              >
+                <option value="percent">%</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </label>
+
+            <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-discount-value">
+              <span>Discount</span>
+              <input
+                ref={discountInputRef}
+                id="po-pos-discount-value"
+                type="number"
+                min="0"
+                step="0.01"
+                value={activeItem.discount_value ?? 0}
+                onChange={(event) => onItemChange('discount_value', event.target.value)}
+                onKeyDown={onFieldKeyDown('discount')}
+                disabled={orderSubmitting || entryLocked}
+              />
+            </label>
+          </div>
+        ) : (
+          shouldExposeMoreFields ? (
             <div className="po-pos-adjustments-preview" aria-live="polite">
-              <span>UOM: {displayUom}</span>
-              <span>GST: {Number(activeLine?.gstRate || 0).toFixed(0)}%</span>
-              <span>
-                Discount: {discountAppliedAmount > 0
-                  ? `${formatCurrency(discountAppliedAmount)} applied`
-                  : 'none'}
-              </span>
+              {!orderFullMode ? <span>Rate: {formatCurrency(activeLine?.rate || 0)}</span> : null}
+              {currentUom !== defaultUom ? <span>UOM: {displayUom}</span> : null}
+              {currentGstRate !== 5 ? <span>GST: {Number(activeLine?.gstRate || 0).toFixed(0)}%</span> : null}
+              {discountAppliedAmount > 0 ? <span>Discount: {formatCurrency(discountAppliedAmount)}</span> : null}
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="po-pos-field-stage readonly">
-          <div className="po-pos-field-stage-header">
-            <span>Quick View</span>
-            <p>Reference values stay visible while entry remains focused on product and qty.</p>
-          </div>
-          <div className="po-pos-entry-grid po-pos-entry-grid-quick">
-            <div className="po-pos-stat-card readonly">
-              <span>GST</span>
-              <strong>{Number(activeLine?.gstRate || 0).toFixed(0)}%</strong>
-            </div>
-          </div>
-        </div>
-      )}
+          ) : null
+        )}
+      </div>
 
       <div className="po-pos-summary-block" aria-live="polite">
         <div className="po-pos-summary-header">
-          <span>Per Item Totals</span>
-          <p>
-            {discountAppliedAmount > 0
-              ? `${formatCurrency(grossPerDisplayUnit)} gross / ${displayUom} -> ${formatCurrency(taxablePerDisplayUnit)} net / ${displayUom} | Current line total ${formatCurrency(activeLine?.totalAmount || 0)}`
-              : 'Current line pricing is calculated automatically from the editable fields above.'}
-          </p>
+          <span>Totals</span>
+          <p className="po-pos-summary-note">Auto from current row.</p>
         </div>
-        <div className="po-pos-line-summary">
+        <div className="po-pos-line-summary compact">
           <div>
-            <span>Gross / {displayUom}</span>
-            <strong>{formatCurrency(grossPerDisplayUnit)}</strong>
-          </div>
-          <div>
-            <span>Net / {displayUom}</span>
-            <strong>{formatCurrency(taxablePerDisplayUnit)}</strong>
-          </div>
-          <div>
-            <span>Effective / {displayUom}</span>
+            <span>Per unit</span>
             <strong>{formatCurrency(effectivePerDisplayUnit)}</strong>
           </div>
           <div className="total">
-            <span>Line Total</span>
+            <span>Line total</span>
             <strong>{formatCurrency(activeLine?.totalAmount || 0)}</strong>
           </div>
         </div>

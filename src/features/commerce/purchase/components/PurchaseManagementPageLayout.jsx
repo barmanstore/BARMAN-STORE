@@ -1,4 +1,6 @@
 import PurchaseModals from './PurchaseModals';
+import PurchasePopupWorkspacePanel from './sections/PurchasePopupWorkspacePanel';
+import PurchaseSavedOrderPanel from './sections/PurchaseSavedOrderPanel';
 import {
   PurchaseDashboardSection,
   PurchaseOrdersSection,
@@ -26,6 +28,7 @@ const PurchaseManagementPageLayout = ({
   handleOpenPoPaymentById,
   openCreateOrderForm,
   handleOpenLedgerForm,
+  handleOpenBrowserWorkspace,
   handleReturnFormOpen,
   formatCurrency,
   toNumber,
@@ -60,6 +63,8 @@ const PurchaseManagementPageLayout = ({
   getLedgerTypeLabel,
   getEntryDisplayBalance,
   getLedgerBillNumber,
+  lastSavedOrderSummary,
+  clearLastSavedOrderSummary,
   showOrderForm,
   closeOrderForm,
   poModalRef,
@@ -67,8 +72,11 @@ const PurchaseManagementPageLayout = ({
   poModalSize,
   editingOrderId,
   handleOrderSubmit,
+  handleOpenOrderReview,
   orderFullMode,
   setOrderFullMode,
+  orderReviewMode,
+  closeOrderReview,
   loadingDistributorItems,
   handleLoadDistributorItems,
   orderFormData,
@@ -86,15 +94,18 @@ const PurchaseManagementPageLayout = ({
   GST_RATE_OPTIONS,
   handleOrderItemRemove,
   handleOrderItemAdd,
-  handleOpenPoProductForm,
-  handleInlinePoProductCreate,
+  handleApplySupplierHistoryItem,
+  handleApplyCatalogProducts,
+  supplierHistoryItems,
+  supplierRegisteredProducts,
   orderTotals,
   getProductSearchOptionLabel,
   orderSubmitting,
-  showPoProductForm,
-  poProductFormTarget,
-  closePoProductForm,
-  handlePoProductSave,
+  savedOrderDrafts,
+  saveCurrentOrderDraft,
+  openSavedOrderDraft,
+  deleteSavedOrderDraft,
+  activeSavedOrderDraftId,
   showReceiveModal,
   selectedOrder,
   setShowReceiveModal,
@@ -212,6 +223,43 @@ const PurchaseManagementPageLayout = ({
     <div className={`purchase-management${popupMode ? ' purchase-management-popup-entry' : ''}`}>
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
+      {!popupMode && !showOrderForm && lastSavedOrderSummary ? (
+        <PurchaseSavedOrderPanel
+          lastSavedOrderSummary={lastSavedOrderSummary}
+          onOpenOrder={handleViewOrder}
+          onNewOrder={openCreateOrderForm}
+          onPrepareWhatsApp={handleSendDistributorWhatsApp}
+          onDismiss={clearLastSavedOrderSummary}
+          sendingWhatsAppOrderId={sendingWhatsAppOrderId}
+          formatCurrency={formatCurrency}
+          className="purchase-save-handoff-card--inline"
+        />
+      ) : null}
+      {!showOrderForm && savedOrderDrafts.length ? (
+        <section className="po-saved-draft-shelf purchase-saved-draft-inline-shelf">
+          <div className="po-saved-draft-shelf-head">
+            <div>
+              <strong>Saved Drafts</strong>
+              <p>Resume any saved PO draft from here.</p>
+            </div>
+            <span className="po-pos-status-chip neutral">{savedOrderDrafts.length}</span>
+          </div>
+          <div className="po-saved-draft-list" role="list" aria-label="Saved purchase drafts">
+            {savedOrderDrafts.map((draft) => (
+              <article key={draft.id} className="po-saved-draft-card">
+                <button type="button" className="po-saved-draft-main" onClick={() => openSavedOrderDraft(draft.id)}>
+                  <strong>{draft.title}</strong>
+                  <small>{draft.supplierName || 'No supplier selected yet'}</small>
+                  <small>{draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}</small>
+                </button>
+                <button type="button" className="po-saved-draft-remove" onClick={() => deleteSavedOrderDraft(draft.id)}>
+                  Remove
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {showSectionTabs && !popupMode ? (
         <PurchaseSectionTabs
@@ -236,6 +284,7 @@ const PurchaseManagementPageLayout = ({
           onOpenOrder={handleViewOrder}
           onOpenPayable={handleOpenPoPaymentById}
           onNewOrder={openCreateOrderForm}
+          onOpenBrowserWorkspace={handleOpenBrowserWorkspace}
           onOpenLedgerForm={handleOpenLedgerForm}
           onOpenReturn={handleReturnFormOpen}
           formatCurrency={formatCurrency}
@@ -250,6 +299,7 @@ const PurchaseManagementPageLayout = ({
           onFilterChange={handleFilterChange}
           onOpenLedgerForm={handleOpenLedgerForm}
           onOpenReturn={handleReturnFormOpen}
+          onOpenBrowserWorkspace={handleOpenBrowserWorkspace}
           onNewOrder={openCreateOrderForm}
           purchaseOrders={purchaseOrders}
           isPoEditable={isPoEditable}
@@ -319,132 +369,332 @@ const PurchaseManagementPageLayout = ({
         />
       ) : null}
 
-      <PurchaseModals
-        showOrderForm={showOrderForm}
-        closeOrderForm={closeOrderForm}
-        poModalRef={poModalRef}
-        isMobile={isMobile}
-        poModalSize={poModalSize}
-        editingOrderId={editingOrderId}
-        handleOrderSubmit={handleOrderSubmit}
-        orderFullMode={orderFullMode}
-        setOrderFullMode={setOrderFullMode}
-        loadingDistributorItems={loadingDistributorItems}
-        handleLoadDistributorItems={handleLoadDistributorItems}
-        orderFormData={orderFormData}
-        setOrderFormData={setOrderFormData}
-        orderDraftProjection={orderDraftProjection}
-        handleDistributorInputChange={handleDistributorInputChange}
-        distributors={distributors}
-        orderProductOptions={orderProductOptions}
-        products={products}
-        findProductForItem={findProductForItem}
-        getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
-        getPurchasePackStep={getPurchasePackStep}
-        handleOrderProductInputChange={handleOrderProductInputChange}
-        handleOrderProductFieldFocus={handleOrderProductFieldFocus}
-        handleOrderItemChange={handleOrderItemChange}
-        GST_RATE_OPTIONS={GST_RATE_OPTIONS}
-        toNumber={toNumber}
-        handleOrderItemRemove={handleOrderItemRemove}
-        handleOrderItemAdd={handleOrderItemAdd}
-        handleOpenPoProductForm={handleOpenPoProductForm}
-        handleInlinePoProductCreate={handleInlinePoProductCreate}
-        orderTotals={orderTotals}
-        getProductSearchOptionLabel={getProductSearchOptionLabel}
-        orderSubmitting={orderSubmitting}
-        showPoProductForm={showPoProductForm}
-        poProductFormTarget={poProductFormTarget}
-        closePoProductForm={closePoProductForm}
-        handlePoProductSave={handlePoProductSave}
-        showReceiveModal={showReceiveModal}
-        selectedOrder={selectedOrder}
-        setShowReceiveModal={setShowReceiveModal}
-        receiveSubmitting={receiveSubmitting}
-        handleReceiveSubmit={handleReceiveSubmit}
-        receiveData={receiveData}
-        setReceiveData={setReceiveData}
-        handleReceiveQtyStep={handleReceiveQtyStep}
-        handleReceiveItemChange={handleReceiveItemChange}
-        formatCurrency={formatCurrency}
-        getProductUomProfile={getProductUomProfile}
-        resolvePurchaseUnitForProduct={resolvePurchaseUnitForProduct}
-        toBaseQtyForProduct={toBaseQtyForProduct}
-        showOrderDetail={showOrderDetail}
-        closeOrderDetail={closeOrderDetail}
-        orderDetail={orderDetail}
-        orderDetailLoading={orderDetailLoading}
-        orderDetailSupplier={orderDetailSupplier}
-        orderDetailEditMode={orderDetailEditMode}
-        orderDetailDraft={orderDetailDraft}
-        handleOrderDetailFieldChange={handleOrderDetailFieldChange}
-        formatDateTime={formatDateTime}
-        formatDate={formatDate}
-        getPoLifecycleStatus={getPoLifecycleStatus}
-        getPoPaymentStatus={getPoPaymentStatus}
-        getPoPaidAmount={getPoPaidAmount}
-        getPoBalanceDue={getPoBalanceDue}
-        getPoNextAction={getPoNextAction}
-        orderDetailItems={orderDetailItems}
-        getItemFinancials={getItemFinancials}
-        getOrderDetailOriginalItem={getOrderDetailOriginalItem}
-        hasOrderDetailItemChanged={hasOrderDetailItemChanged}
-        getOrderDetailItemFieldChanged={getOrderDetailItemFieldChanged}
-        handleOrderDetailProductInputChange={handleOrderDetailProductInputChange}
-        getProductSearchLabel={getProductSearchLabel}
-        getOrderDetailItemOriginalLabel={getOrderDetailItemOriginalLabel}
-        handleOrderDetailItemChange={handleOrderDetailItemChange}
-        handleOrderDetailItemRemove={handleOrderDetailItemRemove}
-        handleOrderDetailItemAdd={handleOrderDetailItemAdd}
-        orderDetailHasComputedChanges={orderDetailHasComputedChanges}
-        orderDetailComputedTotals={orderDetailComputedTotals}
-        orderDetailDraftDiagnostics={orderDetailDraftDiagnostics}
-        orderDetailIsEditable={orderDetailIsEditable}
-        orderDetailSaving={orderDetailSaving}
-        handleOrderDetailSave={handleOrderDetailSave}
-        openOrderDetailEditMode={openOrderDetailEditMode}
-        handlePrintOrderDetail={handlePrintOrderDetail}
-        showProcessModal={showProcessModal}
-        processingOrder={processingOrder}
-        closeProcessModal={closeProcessModal}
-        handleProcessSubmit={handleProcessSubmit}
-        processSubmitting={processSubmitting}
-        processFormData={processFormData}
-        setProcessFormData={setProcessFormData}
-        getDistributorName={getDistributorName}
-        getOrderDisplayTotal={getOrderDisplayTotal}
-        showPoPaymentModal={showPoPaymentModal}
-        paymentOrder={paymentOrder}
-        closePoPaymentModal={closePoPaymentModal}
-        handlePoPaymentSubmit={handlePoPaymentSubmit}
-        poPaymentSubmitting={poPaymentSubmitting}
-        poPaymentFormData={poPaymentFormData}
-        setPoPaymentFormData={setPoPaymentFormData}
-        showLedgerForm={showLedgerForm}
-        closeLedgerForm={closeLedgerForm}
-        ledgerSubmitting={ledgerSubmitting}
-        handleLedgerSubmit={handleLedgerSubmit}
-        ledgerFormData={ledgerFormData}
-        setLedgerFormData={setLedgerFormData}
-        showPoCorrectionForm={showPoCorrectionForm}
-        selectedCorrectionOrder={selectedCorrectionOrder}
-        closePoCorrectionForm={closePoCorrectionForm}
-        poCorrectionSubmitting={poCorrectionSubmitting}
-        handlePoCorrectionSubmit={handlePoCorrectionSubmit}
-        poCorrectionFormData={poCorrectionFormData}
-        setPoCorrectionFormData={setPoCorrectionFormData}
-        poCorrectionContext={poCorrectionContext}
-        showReturnForm={showReturnForm}
-        closeReturnForm={closeReturnForm}
-        returnSubmitting={returnSubmitting}
-        handleReturnSubmit={handleReturnSubmit}
-        returnFormData={returnFormData}
-        setReturnFormData={setReturnFormData}
-        handleReturnItemAdd={handleReturnItemAdd}
-        handleReturnItemChange={handleReturnItemChange}
-        handleReturnItemRemove={handleReturnItemRemove}
-        renderOrderFormInline={popupMode}
-      />
+      {popupMode ? (
+        <div className="purchase-popup-workspace-shell">
+          <div className="purchase-popup-workspace-main">
+            {!showOrderForm ? (
+              <section className="purchase-popup-empty-draft">
+                <div className="purchase-empty-state-card">
+                  <strong>No draft is open.</strong>
+                  <p>Start a new purchase order or review a recent PO from the workspace panel.</p>
+                  <button type="button" className="admin-btn primary" onClick={openCreateOrderForm}>
+                    Open Purchase Form
+                  </button>
+                </div>
+                {savedOrderDrafts.length ? (
+                  <section className="po-saved-draft-shelf purchase-saved-draft-inline-shelf">
+                    <div className="po-saved-draft-shelf-head">
+                      <div>
+                        <strong>Saved Drafts</strong>
+                        <p>Open any saved draft directly in the popup workspace.</p>
+                      </div>
+                      <span className="po-pos-status-chip neutral">{savedOrderDrafts.length}</span>
+                    </div>
+                    <div className="po-saved-draft-list" role="list" aria-label="Saved purchase drafts">
+                      {savedOrderDrafts.map((draft) => (
+                        <article key={`popup-${draft.id}`} className="po-saved-draft-card">
+                          <button type="button" className="po-saved-draft-main" onClick={() => openSavedOrderDraft(draft.id)}>
+                            <strong>{draft.title}</strong>
+                            <small>{draft.supplierName || 'No supplier selected yet'}</small>
+                            <small>{draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}</small>
+                          </button>
+                          <button type="button" className="po-saved-draft-remove" onClick={() => deleteSavedOrderDraft(draft.id)}>
+                            Remove
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
+              </section>
+            ) : null}
+            <PurchaseModals
+              showOrderForm={showOrderForm}
+              closeOrderForm={closeOrderForm}
+              poModalRef={poModalRef}
+              isMobile={isMobile}
+              poModalSize={poModalSize}
+              editingOrderId={editingOrderId}
+              handleOrderSubmit={handleOrderSubmit}
+              handleOpenOrderReview={handleOpenOrderReview}
+              orderFullMode={orderFullMode}
+              setOrderFullMode={setOrderFullMode}
+              orderReviewMode={orderReviewMode}
+              closeOrderReview={closeOrderReview}
+              loadingDistributorItems={loadingDistributorItems}
+              handleLoadDistributorItems={handleLoadDistributorItems}
+              orderFormData={orderFormData}
+              setOrderFormData={setOrderFormData}
+              orderDraftProjection={orderDraftProjection}
+              handleDistributorInputChange={handleDistributorInputChange}
+              distributors={distributors}
+              orderProductOptions={orderProductOptions}
+              products={products}
+              findProductForItem={findProductForItem}
+              getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
+              getPurchasePackStep={getPurchasePackStep}
+              handleOrderProductInputChange={handleOrderProductInputChange}
+              handleOrderProductFieldFocus={handleOrderProductFieldFocus}
+              handleOrderItemChange={handleOrderItemChange}
+              GST_RATE_OPTIONS={GST_RATE_OPTIONS}
+              toNumber={toNumber}
+              handleOrderItemRemove={handleOrderItemRemove}
+              handleOrderItemAdd={handleOrderItemAdd}
+              handleApplySupplierHistoryItem={handleApplySupplierHistoryItem}
+              handleApplyCatalogProducts={handleApplyCatalogProducts}
+              supplierHistoryItems={supplierHistoryItems}
+              supplierRegisteredProducts={supplierRegisteredProducts}
+              orderTotals={orderTotals}
+              getProductSearchOptionLabel={getProductSearchOptionLabel}
+              orderSubmitting={orderSubmitting}
+              savedOrderDrafts={savedOrderDrafts}
+              saveCurrentOrderDraft={saveCurrentOrderDraft}
+              openSavedOrderDraft={openSavedOrderDraft}
+              deleteSavedOrderDraft={deleteSavedOrderDraft}
+              activeSavedOrderDraftId={activeSavedOrderDraftId}
+              showReceiveModal={showReceiveModal}
+              selectedOrder={selectedOrder}
+              setShowReceiveModal={setShowReceiveModal}
+              receiveSubmitting={receiveSubmitting}
+              handleReceiveSubmit={handleReceiveSubmit}
+              receiveData={receiveData}
+              setReceiveData={setReceiveData}
+              handleReceiveQtyStep={handleReceiveQtyStep}
+              handleReceiveItemChange={handleReceiveItemChange}
+              formatCurrency={formatCurrency}
+              getProductUomProfile={getProductUomProfile}
+              resolvePurchaseUnitForProduct={resolvePurchaseUnitForProduct}
+              toBaseQtyForProduct={toBaseQtyForProduct}
+              showOrderDetail={showOrderDetail}
+              closeOrderDetail={closeOrderDetail}
+              orderDetail={orderDetail}
+              orderDetailLoading={orderDetailLoading}
+              orderDetailSupplier={orderDetailSupplier}
+              orderDetailEditMode={orderDetailEditMode}
+              orderDetailDraft={orderDetailDraft}
+              handleOrderDetailFieldChange={handleOrderDetailFieldChange}
+              formatDateTime={formatDateTime}
+              formatDate={formatDate}
+              getPoLifecycleStatus={getPoLifecycleStatus}
+              getPoPaymentStatus={getPoPaymentStatus}
+              getPoPaidAmount={getPoPaidAmount}
+              getPoBalanceDue={getPoBalanceDue}
+              getPoNextAction={getPoNextAction}
+              orderDetailItems={orderDetailItems}
+              getItemFinancials={getItemFinancials}
+              getOrderDetailOriginalItem={getOrderDetailOriginalItem}
+              hasOrderDetailItemChanged={hasOrderDetailItemChanged}
+              getOrderDetailItemFieldChanged={getOrderDetailItemFieldChanged}
+              handleOrderDetailProductInputChange={handleOrderDetailProductInputChange}
+              getProductSearchLabel={getProductSearchLabel}
+              getOrderDetailItemOriginalLabel={getOrderDetailItemOriginalLabel}
+              handleOrderDetailItemChange={handleOrderDetailItemChange}
+              handleOrderDetailItemRemove={handleOrderDetailItemRemove}
+              handleOrderDetailItemAdd={handleOrderDetailItemAdd}
+              orderDetailHasComputedChanges={orderDetailHasComputedChanges}
+              orderDetailComputedTotals={orderDetailComputedTotals}
+              orderDetailDraftDiagnostics={orderDetailDraftDiagnostics}
+              orderDetailIsEditable={orderDetailIsEditable}
+              orderDetailSaving={orderDetailSaving}
+              handleOrderDetailSave={handleOrderDetailSave}
+              openOrderDetailEditMode={openOrderDetailEditMode}
+              handlePrintOrderDetail={handlePrintOrderDetail}
+              handleSendDistributorWhatsApp={handleSendDistributorWhatsApp}
+              sendingWhatsAppOrderId={sendingWhatsAppOrderId}
+              showProcessModal={showProcessModal}
+              processingOrder={processingOrder}
+              closeProcessModal={closeProcessModal}
+              handleProcessSubmit={handleProcessSubmit}
+              processSubmitting={processSubmitting}
+              processFormData={processFormData}
+              setProcessFormData={setProcessFormData}
+              getDistributorName={getDistributorName}
+              getOrderDisplayTotal={getOrderDisplayTotal}
+              showPoPaymentModal={showPoPaymentModal}
+              paymentOrder={paymentOrder}
+              closePoPaymentModal={closePoPaymentModal}
+              handlePoPaymentSubmit={handlePoPaymentSubmit}
+              poPaymentSubmitting={poPaymentSubmitting}
+              poPaymentFormData={poPaymentFormData}
+              setPoPaymentFormData={setPoPaymentFormData}
+              showLedgerForm={showLedgerForm}
+              closeLedgerForm={closeLedgerForm}
+              ledgerSubmitting={ledgerSubmitting}
+              handleLedgerSubmit={handleLedgerSubmit}
+              ledgerFormData={ledgerFormData}
+              setLedgerFormData={setLedgerFormData}
+              showPoCorrectionForm={showPoCorrectionForm}
+              selectedCorrectionOrder={selectedCorrectionOrder}
+              closePoCorrectionForm={closePoCorrectionForm}
+              poCorrectionSubmitting={poCorrectionSubmitting}
+              handlePoCorrectionSubmit={handlePoCorrectionSubmit}
+              poCorrectionFormData={poCorrectionFormData}
+              setPoCorrectionFormData={setPoCorrectionFormData}
+              poCorrectionContext={poCorrectionContext}
+              showReturnForm={showReturnForm}
+              closeReturnForm={closeReturnForm}
+              returnSubmitting={returnSubmitting}
+              handleReturnSubmit={handleReturnSubmit}
+              returnFormData={returnFormData}
+              setReturnFormData={setReturnFormData}
+              handleReturnItemAdd={handleReturnItemAdd}
+              handleReturnItemChange={handleReturnItemChange}
+              handleReturnItemRemove={handleReturnItemRemove}
+              renderOrderFormInline
+            />
+          </div>
+          <PurchasePopupWorkspacePanel
+            showOrderForm={showOrderForm}
+            onNewOrder={openCreateOrderForm}
+            purchaseOrders={purchaseOrders}
+            handleViewOrder={handleViewOrder}
+            handleSendDistributorWhatsApp={handleSendDistributorWhatsApp}
+            sendingWhatsAppOrderId={sendingWhatsAppOrderId}
+            getStatusBadge={getStatusBadgeForOrder}
+            getPoPaymentBadge={getPoPaymentBadgeForOrder}
+            getPoNextAction={getPoNextAction}
+            getOrderDisplayTotal={getOrderDisplayTotal}
+            formatCurrency={formatCurrency}
+            lastSavedOrderSummary={lastSavedOrderSummary}
+            clearLastSavedOrderSummary={clearLastSavedOrderSummary}
+          />
+        </div>
+      ) : (
+        <PurchaseModals
+          showOrderForm={showOrderForm}
+          closeOrderForm={closeOrderForm}
+          poModalRef={poModalRef}
+          isMobile={isMobile}
+          poModalSize={poModalSize}
+          editingOrderId={editingOrderId}
+          handleOrderSubmit={handleOrderSubmit}
+          handleOpenOrderReview={handleOpenOrderReview}
+          orderFullMode={orderFullMode}
+          setOrderFullMode={setOrderFullMode}
+          orderReviewMode={orderReviewMode}
+          closeOrderReview={closeOrderReview}
+          loadingDistributorItems={loadingDistributorItems}
+          handleLoadDistributorItems={handleLoadDistributorItems}
+          orderFormData={orderFormData}
+          setOrderFormData={setOrderFormData}
+          orderDraftProjection={orderDraftProjection}
+          handleDistributorInputChange={handleDistributorInputChange}
+          distributors={distributors}
+          orderProductOptions={orderProductOptions}
+          products={products}
+          findProductForItem={findProductForItem}
+          getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
+          getPurchasePackStep={getPurchasePackStep}
+          handleOrderProductInputChange={handleOrderProductInputChange}
+          handleOrderProductFieldFocus={handleOrderProductFieldFocus}
+          handleOrderItemChange={handleOrderItemChange}
+          GST_RATE_OPTIONS={GST_RATE_OPTIONS}
+          toNumber={toNumber}
+          handleOrderItemRemove={handleOrderItemRemove}
+          handleOrderItemAdd={handleOrderItemAdd}
+          handleApplySupplierHistoryItem={handleApplySupplierHistoryItem}
+          handleApplyCatalogProducts={handleApplyCatalogProducts}
+          supplierHistoryItems={supplierHistoryItems}
+          supplierRegisteredProducts={supplierRegisteredProducts}
+          orderTotals={orderTotals}
+          getProductSearchOptionLabel={getProductSearchOptionLabel}
+          orderSubmitting={orderSubmitting}
+          savedOrderDrafts={savedOrderDrafts}
+          saveCurrentOrderDraft={saveCurrentOrderDraft}
+          openSavedOrderDraft={openSavedOrderDraft}
+          deleteSavedOrderDraft={deleteSavedOrderDraft}
+          activeSavedOrderDraftId={activeSavedOrderDraftId}
+          showReceiveModal={showReceiveModal}
+          selectedOrder={selectedOrder}
+          setShowReceiveModal={setShowReceiveModal}
+          receiveSubmitting={receiveSubmitting}
+          handleReceiveSubmit={handleReceiveSubmit}
+          receiveData={receiveData}
+          setReceiveData={setReceiveData}
+          handleReceiveQtyStep={handleReceiveQtyStep}
+          handleReceiveItemChange={handleReceiveItemChange}
+          formatCurrency={formatCurrency}
+          getProductUomProfile={getProductUomProfile}
+          resolvePurchaseUnitForProduct={resolvePurchaseUnitForProduct}
+          toBaseQtyForProduct={toBaseQtyForProduct}
+          showOrderDetail={showOrderDetail}
+          closeOrderDetail={closeOrderDetail}
+          orderDetail={orderDetail}
+          orderDetailLoading={orderDetailLoading}
+          orderDetailSupplier={orderDetailSupplier}
+          orderDetailEditMode={orderDetailEditMode}
+          orderDetailDraft={orderDetailDraft}
+          handleOrderDetailFieldChange={handleOrderDetailFieldChange}
+          formatDateTime={formatDateTime}
+          formatDate={formatDate}
+          getPoLifecycleStatus={getPoLifecycleStatus}
+          getPoPaymentStatus={getPoPaymentStatus}
+          getPoPaidAmount={getPoPaidAmount}
+          getPoBalanceDue={getPoBalanceDue}
+          getPoNextAction={getPoNextAction}
+          orderDetailItems={orderDetailItems}
+          getItemFinancials={getItemFinancials}
+          getOrderDetailOriginalItem={getOrderDetailOriginalItem}
+          hasOrderDetailItemChanged={hasOrderDetailItemChanged}
+          getOrderDetailItemFieldChanged={getOrderDetailItemFieldChanged}
+          handleOrderDetailProductInputChange={handleOrderDetailProductInputChange}
+          getProductSearchLabel={getProductSearchLabel}
+          getOrderDetailItemOriginalLabel={getOrderDetailItemOriginalLabel}
+          handleOrderDetailItemChange={handleOrderDetailItemChange}
+          handleOrderDetailItemRemove={handleOrderDetailItemRemove}
+          handleOrderDetailItemAdd={handleOrderDetailItemAdd}
+          orderDetailHasComputedChanges={orderDetailHasComputedChanges}
+          orderDetailComputedTotals={orderDetailComputedTotals}
+          orderDetailDraftDiagnostics={orderDetailDraftDiagnostics}
+          orderDetailIsEditable={orderDetailIsEditable}
+          orderDetailSaving={orderDetailSaving}
+          handleOrderDetailSave={handleOrderDetailSave}
+          openOrderDetailEditMode={openOrderDetailEditMode}
+          handlePrintOrderDetail={handlePrintOrderDetail}
+          handleSendDistributorWhatsApp={handleSendDistributorWhatsApp}
+          sendingWhatsAppOrderId={sendingWhatsAppOrderId}
+          showProcessModal={showProcessModal}
+          processingOrder={processingOrder}
+          closeProcessModal={closeProcessModal}
+          handleProcessSubmit={handleProcessSubmit}
+          processSubmitting={processSubmitting}
+          processFormData={processFormData}
+          setProcessFormData={setProcessFormData}
+          getDistributorName={getDistributorName}
+          getOrderDisplayTotal={getOrderDisplayTotal}
+          showPoPaymentModal={showPoPaymentModal}
+          paymentOrder={paymentOrder}
+          closePoPaymentModal={closePoPaymentModal}
+          handlePoPaymentSubmit={handlePoPaymentSubmit}
+          poPaymentSubmitting={poPaymentSubmitting}
+          poPaymentFormData={poPaymentFormData}
+          setPoPaymentFormData={setPoPaymentFormData}
+          showLedgerForm={showLedgerForm}
+          closeLedgerForm={closeLedgerForm}
+          ledgerSubmitting={ledgerSubmitting}
+          handleLedgerSubmit={handleLedgerSubmit}
+          ledgerFormData={ledgerFormData}
+          setLedgerFormData={setLedgerFormData}
+          showPoCorrectionForm={showPoCorrectionForm}
+          selectedCorrectionOrder={selectedCorrectionOrder}
+          closePoCorrectionForm={closePoCorrectionForm}
+          poCorrectionSubmitting={poCorrectionSubmitting}
+          handlePoCorrectionSubmit={handlePoCorrectionSubmit}
+          poCorrectionFormData={poCorrectionFormData}
+          setPoCorrectionFormData={setPoCorrectionFormData}
+          poCorrectionContext={poCorrectionContext}
+          showReturnForm={showReturnForm}
+          closeReturnForm={closeReturnForm}
+          returnSubmitting={returnSubmitting}
+          handleReturnSubmit={handleReturnSubmit}
+          returnFormData={returnFormData}
+          setReturnFormData={setReturnFormData}
+          handleReturnItemAdd={handleReturnItemAdd}
+          handleReturnItemChange={handleReturnItemChange}
+          handleReturnItemRemove={handleReturnItemRemove}
+          renderOrderFormInline={popupMode}
+        />
+      )}
     </div>
   );
 };

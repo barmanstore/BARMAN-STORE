@@ -1,5 +1,23 @@
 import { formatCurrency } from '../../../../shared/utils/formatters';
 
+const PAYMENT_DAY_MS = 24 * 60 * 60 * 1000;
+
+const isDateKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+
+const dateKeyToUtcMs = (value) => {
+  const raw = String(value || '').trim();
+  if (!isDateKey(raw)) return Number.NaN;
+  return Date.parse(`${raw}T00:00:00.000Z`);
+};
+
+const addDaysToDateKey = (value, days) => {
+  const baseMs = dateKeyToUtcMs(value);
+  if (!Number.isFinite(baseMs)) return '';
+  return new Date(baseMs + (Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)).toISOString().slice(0, 10);
+};
+
+const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
+
 const formatDueDateLabel = (value) => {
   const raw = String(value || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
@@ -13,14 +31,34 @@ function CreditMonthlyStatementSection({
 }) {
   if (!Array.isArray(monthlyStatements) || monthlyStatements.length === 0) return null;
 
-  const maintainScoreByDate = formatDueDateLabel(paymentBadgeSummary?.maintain_score_by_date);
+  const maintainScoreByDateKey = String(paymentBadgeSummary?.maintain_score_by_date || '').trim();
+  const maintainScoreByDate = formatDueDateLabel(maintainScoreByDateKey);
+  const graceDays = Math.max(0, Math.floor(Number(paymentBadgeSummary?.grace_days || 0)));
+  const graceEndDateKey = addDaysToDateKey(maintainScoreByDateKey, graceDays);
+  const graceEndDateLabel = formatDueDateLabel(graceEndDateKey);
+  const todayDateKey = getTodayDateKey();
+  const dueDatePassed = isDateKey(maintainScoreByDateKey) && todayDateKey > maintainScoreByDateKey;
+  const gracePeriodEnded = isDateKey(graceEndDateKey) && todayDateKey > graceEndDateKey;
   const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
+  const nextStatusLabel = String(paymentBadgeSummary?.next_status_label || '').trim();
+  const customerTag = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase();
   const outstandingAmount = Number(paymentBadgeSummary?.outstanding_amount || 0);
-  const showPayByNote = Boolean(maintainScoreByDate) && Number.isFinite(outstandingAmount) && outstandingAmount > 0;
+  const visibleDeadlineLabel = dueDatePassed ? (graceEndDateLabel || maintainScoreByDate) : maintainScoreByDate;
+  const showPayByNote = Boolean(visibleDeadlineLabel) && Number.isFinite(outstandingAmount) && outstandingAmount > 0;
   const normalizedStatus = paymentStatusLabel.toLowerCase();
-  const payByDescription = (normalizedStatus === 'excellent' || normalizedStatus === 'very good' || normalizedStatus === 'good')
-    ? `Pay by this date to help keep your ${paymentStatusLabel} score.`
-    : 'Pay by this date to help protect your payment score.';
+  const isNewCustomer = customerTag === 'insufficient_history' || normalizedStatus === 'new';
+  const payByHeading = gracePeriodEnded
+    ? 'Grace period ended'
+    : (dueDatePassed ? 'Grace period ends' : 'Current pay-by date');
+  const payByDescription = gracePeriodEnded
+    ? 'The due date and grace period have passed. Pay immediately to avoid a worse payment score.'
+    : (dueDatePassed
+      ? 'The due date has passed. Pay within this grace period to avoid hurting your payment score.'
+      : (isNewCustomer
+        ? 'Clear this first due on time to unlock your payment status.'
+        : ((normalizedStatus === 'excellent')
+        ? `Pay by this date to help keep your ${paymentStatusLabel} score.`
+        : `Pay by this date to improve your payment score and move toward ${nextStatusLabel || 'a better status'}.`)));
 
   return (
     <section className="credit-monthly-statements">
@@ -33,9 +71,9 @@ function CreditMonthlyStatementSection({
           </p>
         </div>
         {showPayByNote ? (
-          <div className="credit-monthly-payby-note">
-            <span className="credit-monthly-payby-label">Current pay-by date</span>
-            <strong>{maintainScoreByDate}</strong>
+          <div className={`credit-monthly-payby-note ${dueDatePassed ? 'is-overdue' : ''}`}>
+            <span className="credit-monthly-payby-label">{payByHeading}</span>
+            <strong>{visibleDeadlineLabel}</strong>
             <p>{payByDescription}</p>
           </div>
         ) : null}

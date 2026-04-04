@@ -1,4 +1,10 @@
 const createSummaryDataQueries = ({ dbAllAsync } = {}) => {
+  const fetchProducts = () => dbAllAsync(
+    `SELECT id, name, category, brand, uom, is_active
+     FROM products
+     ORDER BY name ASC`
+  );
+
   const fetchDistributors = (distributorIdFilter) => {
     const distributorWhereSql = distributorIdFilter ? ` WHERE id = ?` : '';
     return dbAllAsync(
@@ -46,6 +52,7 @@ const createSummaryDataQueries = ({ dbAllAsync } = {}) => {
   );
 
   return {
+    fetchProducts,
     fetchDistributors,
     fetchOrders,
     fetchPayments,

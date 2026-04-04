@@ -1,4 +1,5 @@
 const { createCreditEntryImageStorage } = require('./creditEntryImageStorage');
+const { resolveCreditTermsDays } = require('../../../utils/creditStatusPolicy');
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +46,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
     rebuildCustomerPaymentIntelligence,
     getLatestCreditEntryAsync,
     getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync,
     CREDIT_ENTRY_DEDUP_WINDOW_MS,
     toTimestampMs,
     resolveClientRequestId,
@@ -122,7 +124,11 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         const transactionTs = buildCreditTransactionTimestamp(transactionDate, new Date());
         const transactionDateKey = String(transactionTs || '').slice(0, 10);
         const creditProfile = await getCustomerCreditProfileAsync(req.params.userId);
-        const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+        const paymentSummary = await getCustomerPaymentSummaryAsync(req.params.userId);
+        const creditTermsDays = resolveCreditTermsDays({
+          creditTermsDays: creditProfile?.credit_terms_days,
+          paymentSummary,
+        });
         const normalizedDueDate = resolveDueDateKey({
           dueDate: dueDate || dueDateAlt,
           transactionDate,

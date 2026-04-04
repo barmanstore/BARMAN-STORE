@@ -7,8 +7,10 @@ import { useAdminModalContext } from '../context/AdminPageContext';
 const AdminModals = () => {
   const {
     showProductForm,
+    productFormMode,
     editingProduct,
     setShowProductForm,
+    setProductFormMode,
     setEditingProduct,
     handleProductSave,
     showApproveModal,
@@ -40,9 +42,11 @@ const AdminModals = () => {
       {showProductForm ? (
         <ProductForm
           product={editingProduct}
+          mode={productFormMode}
           onClose={() => {
             setShowProductForm(false);
             setEditingProduct(null);
+            setProductFormMode('full');
           }}
           onSave={handleProductSave}
         />

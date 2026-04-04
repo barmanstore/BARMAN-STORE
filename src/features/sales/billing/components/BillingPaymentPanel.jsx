@@ -37,23 +37,23 @@ const BillingPaymentPanel = ({
   <section className="billing-pos-panel billing-payment-panel">
     <div className="billing-panel-header">
       <div>
-        <p className="billing-panel-kicker">Customer & Payment</p>
-        <h2>Finish The Bill</h2>
-        <p className="billing-panel-copy">Customer is optional for paid bills. Select or save one when credit is due.</p>
+        <p className="billing-panel-kicker">Payment</p>
+        <h2>Checkout</h2>
+        <p className="billing-panel-copy">Customer needed only for due.</p>
       </div>
       <span className="billing-panel-badge neutral">{effectivePaymentMethod}</span>
     </div>
 
     <div className="billing-customer-block">
       <label className="billing-entry-field" htmlFor="billing-customer-name">
-        <span>Customer (Optional)</span>
+        <span>Customer</span>
         <input
           id="billing-customer-name"
           list="billing-customer-options"
           className="form-input"
           value={customer.name}
           onChange={handleCustomerChange}
-          placeholder="Walk-in customer or saved name"
+          placeholder="Walk-in or saved name"
           autoComplete="name"
           readOnly={isOrderLinked}
         />
@@ -72,7 +72,7 @@ const BillingPaymentPanel = ({
           disabled={isSubmitting}
         >
           <UserPlus size={16} />
-          Add Customer
+          New Customer
         </button>
       ) : null}
 
@@ -92,15 +92,15 @@ const BillingPaymentPanel = ({
 
     {isOrderLinked ? (
       <label className="billing-entry-field" htmlFor="billing-fulfillment-mode">
-        <span>Billing Mode</span>
+        <span>Mode</span>
         <select
           id="billing-fulfillment-mode"
           className="form-input"
           value={fulfillmentMode}
           onChange={(event) => setFulfillmentMode(String(event.target.value || 'available_now'))}
         >
-          <option value="available_now">Bill available now</option>
-          <option value="full_now">Bill full now</option>
+          <option value="available_now">Available now</option>
+          <option value="full_now">Full order</option>
         </select>
       </label>
     ) : null}
@@ -134,21 +134,21 @@ const BillingPaymentPanel = ({
 
     <div className="billing-payment-totals">
       <div>
-        <span>Total Amount</span>
+        <span>Total</span>
         <strong>{formatCurrency(totalBill)}</strong>
       </div>
       <div>
-        <span>Paid Amount</span>
+        <span>Paid</span>
         <strong>{formatCurrency(paidClamped)}</strong>
       </div>
       <div className={creditAmount > 0 ? 'due' : 'settled'}>
-        <span>Due Amount</span>
+        <span>Due</span>
         <strong>{formatCurrency(creditAmount)}</strong>
       </div>
     </div>
 
     <label className="billing-entry-field" htmlFor="paidAmount">
-      <span>Paid Amount</span>
+      <span>Paid</span>
       <CalculatedAmountInput
         id="paidAmount"
         name="paid_amount"
@@ -163,29 +163,29 @@ const BillingPaymentPanel = ({
 
     {paidAmountWarning ? (
       <div className="billing-entry-warning critical">
-        <strong>Payment warning:</strong> {paidAmountWarning}
+        <strong>Payment:</strong> {paidAmountWarning}
       </div>
     ) : null}
 
     <div className="billing-entry-search-state">
-      Set paid amount to <strong>0</strong> or tap <strong>Credit</strong> to create a full-credit bill. Saved customer required.
+      Set <strong>0</strong> or tap <strong>Credit</strong> for full due. Saved customer required.
     </div>
 
     {createBillConfirmationOpen ? (
       <div className="billing-final-confirmation" role="status" aria-live="polite">
-        <strong>Confirm Bill Save</strong>
+        <strong>Confirm bill</strong>
         <span>
           {activeLineItemsCount} item(s) | {customer.name ? customer.name : 'Walk-in'} | {formatCurrency(totalBill)} total | {formatCurrency(creditAmount)} due
         </span>
-        <small>On checkout: save bill, update stock for inventory items, update customer credit if due, then reset for the next entry.</small>
+        <small>Save bill and update stock and due.</small>
       </div>
     ) : null}
 
     {clearBillConfirmationOpen ? (
       <div className="billing-final-confirmation billing-final-confirmation-clear" role="status" aria-live="polite">
-        <strong>Clear Current Bill?</strong>
-        <span>This removes all current items, payment entry, and customer selection from the screen.</span>
-        <small>Press Clear All again to confirm.</small>
+        <strong>Clear bill?</strong>
+        <span>Removes current items, payment, and customer.</span>
+        <small>Press Clear again.</small>
       </div>
     ) : null}
 
@@ -235,7 +235,7 @@ const BillingPaymentPanel = ({
         className="billing-secondary-btn"
         onClick={onClear}
       >
-        {clearBillConfirmationOpen ? 'Confirm Clear All' : 'Clear Bill'}
+        {clearBillConfirmationOpen ? 'Confirm Clear' : 'Clear'}
       </button>
       {clearBillConfirmationOpen ? (
         <button
@@ -244,7 +244,7 @@ const BillingPaymentPanel = ({
           onClick={onCancelClearBill}
           disabled={isSubmitting}
         >
-          Cancel Clear
+          Cancel
         </button>
       ) : null}
       <button
@@ -253,7 +253,7 @@ const BillingPaymentPanel = ({
         onClick={onCreateBill}
         disabled={isSubmitting || totalBill <= 0}
       >
-        {createBillConfirmationOpen ? 'Confirm Save' : 'Create Bill'}
+        {createBillConfirmationOpen ? 'Confirm Save' : 'Save Bill'}
       </button>
       {createBillConfirmationOpen ? (
         <button
@@ -262,7 +262,7 @@ const BillingPaymentPanel = ({
           onClick={onCancelCreateBill}
           disabled={isSubmitting}
         >
-          Cancel Confirm
+          Cancel
         </button>
       ) : null}
       <button
@@ -272,7 +272,7 @@ const BillingPaymentPanel = ({
         disabled={!lastShareText || isSubmitting}
       >
         <Smartphone size={16} />
-        Send WhatsApp
+        WhatsApp
       </button>
     </div>
   </section>

@@ -1,3 +1,14 @@
+const parseJsonArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
   (rows || []).map((row) => {
     const latestCost = Number(row.latest_cost || 0);
@@ -14,6 +25,12 @@ const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
       .filter((value) => Number.isFinite(value))
       .slice(0, 12)
       .reverse();
+    const availableDistributors = parseJsonArray(row.available_distributors)
+      .map((entry) => ({
+        id: Number(entry?.id || 0),
+        name: String(entry?.name || '').trim(),
+      }))
+      .filter((entry) => entry.id > 0 && entry.name);
     const avgDaysBetween = row.avg_days_between === null ? null : Number(row.avg_days_between || 0);
     const sellingPrice = row.price == null ? null : Number(row.price || 0);
     const mrpPrice = row.mrp == null ? null : Number(row.mrp || 0);
@@ -51,6 +68,7 @@ const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
       best_distributor_id: row.best_distributor_id ? Number(row.best_distributor_id) : null,
       best_distributor_name: row.best_distributor_name || null,
       best_distributor_avg_cost: row.best_distributor_avg_cost === null ? null : Number(row.best_distributor_avg_cost || 0),
+      available_distributors: availableDistributors,
       stockout_risk: deriveStockoutRisk(avgDaysBetween, stockLevel),
       cost_series: costSeries,
     };

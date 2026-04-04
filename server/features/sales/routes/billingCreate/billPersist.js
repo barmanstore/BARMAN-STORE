@@ -1,5 +1,6 @@
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const { resolveCreditTermsDays } = require('../../../credits/utils/creditStatusPolicy');
 
 const addDaysToDateKey = (dateKey, days) => {
   if (!DATE_KEY_PATTERN.test(String(dateKey || '').trim())) return '';
@@ -17,6 +18,7 @@ const persistBillDraft = async (deps, req, draft) => {
     dbTxAsync,
     normalizePaymentMethod,
     getCustomerCreditProfileAsync,
+    getCustomerPaymentSummaryAsync,
     logStockLedgerAsync,
     recalculateCreditBalancesForUser,
     rebuildCustomerPaymentIntelligence,
@@ -132,7 +134,11 @@ const persistBillDraft = async (deps, req, draft) => {
       const creditTransactionTs = new Date().toISOString();
       const transactionDateKey = creditTransactionTs.slice(0, 10);
       const creditProfile = await getCustomerCreditProfileAsync(Number(customer.id));
-      const creditTermsDays = Math.max(0, Math.floor(Number(creditProfile?.credit_terms_days || 0)));
+      const paymentSummary = await getCustomerPaymentSummaryAsync(Number(customer.id));
+      const creditTermsDays = resolveCreditTermsDays({
+        creditTermsDays: creditProfile?.credit_terms_days,
+        paymentSummary,
+      });
       const dueDate = addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey;
       await dbRunAsync(
         `INSERT INTO credit_history (

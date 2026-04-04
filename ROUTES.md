@@ -18,7 +18,7 @@ See also:
 - In this repo, route ownership is split between:
   - leaf route modules under `server/features/**/routes/**`
   - named helper/service functions called from those route modules
-- The live Express app mounted `173` non-static business/API routes in the audited runtime.
+- The live Express app mounted `175` non-static business/API routes in the audited runtime.
 - That count excludes the global `OPTIONS *` handler and the four conditional profile-upload redirect routes documented below when `profileImagePublicBaseUrl` is configured.
 - Exact duplicate `METHOD + path` registrations were not found.
 
@@ -309,6 +309,7 @@ These helper trees act as the practical controller layer for complex routes:
 - `server/features/credits/routes/creditLedger/creditLedgerReports.js`
   - `POST /api/credit/check-limit`
   - `GET /api/credit/aging`
+    - Handler note: returns `503 { status: "initializing" }` while aging snapshots are empty or stale for the current payment-intelligence model.
 - `server/features/credits/routes/creditLedger/creditLedgerWhatsAppLogs.js`
   - `POST /api/credit/whatsapp/launch-log`
 - `server/features/credits/routes/creditLedger/creditPaymentIntelligenceJob.js`
@@ -334,6 +335,9 @@ These helper trees act as the practical controller layer for complex routes:
   - `POST /api/analytics/session/start`
   - `POST /api/analytics/session/heartbeat`
   - `GET /api/admin/analytics/summary`
+    - Handler note: also returns a `today_cash_summary` object with bill-derived current-day totals plus the optional saved daily cash tally.
+  - `GET /api/admin/analytics/daily-cash-tally`
+  - `PUT /api/admin/analytics/daily-cash-tally`
 - `server/features/communication/routes/adminNotificationRoutes.js`
   - `POST /api/admin/notifications/email/prepare`
   - `POST /api/admin/notifications/whatsapp/prepare`
@@ -361,6 +365,7 @@ These helper trees act as the practical controller layer for complex routes:
 - `server/features/commerce/distributorRoutes.js`
   - `GET /api/distributors`
   - `GET /api/distributors/:id`
+  - `GET /api/distributors/:id/products`
   - `POST /api/distributors`
   - `PUT /api/distributors/:id`
   - `DELETE /api/distributors/:id`
@@ -407,6 +412,7 @@ These helper trees act as the practical controller layer for complex routes:
   - `POST /api/purchase-orders/:id/receive`
 - `server/features/commerce/routes/purchaseOrders/purchaseOrdersWhatsApp.js`
   - `POST /api/purchase-orders/:id/distributor-whatsapp`
+    - Prepares the distributor WhatsApp launcher/template and PO reminder metadata. The current live scope is manual prepared-message flow, not provider-backed automatic delivery.
 - `server/features/commerce/routes/purchaseReturns/listRoutes.js`
   - `GET /api/purchase-returns`
 - `server/features/commerce/routes/purchaseReturns/detailRoutes.js`
@@ -422,6 +428,8 @@ These helper trees act as the practical controller layer for complex routes:
   - `GET /api/stock-ledger/product/:productId`
   - `GET /api/stock-ledger/batch/:batchNumber`
   - `GET /api/stock-ledger/summary`
+  - `POST /api/stock-ledger/adjustments`
+    - Handler note: manual stock sync updates `products.stock` and writes matching `stock_ledger` `ADJUSTMENT` rows in one request.
   - `POST /api/stock/verify`
 - `server/features/commerce/routes/offersRoutes.js`
   - `GET /api/offers`

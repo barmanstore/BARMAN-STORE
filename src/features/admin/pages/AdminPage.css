@@ -515,6 +515,163 @@
   margin: 0;
 }
 
+.dashboard-owner-mobile {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(212, 175, 55, 0.18), transparent 34%),
+    linear-gradient(160deg, #fffaf0 0%, #f8fafc 100%);
+}
+
+.dashboard-owner-mobile-head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.dashboard-owner-mobile-kicker {
+  margin: 0;
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dashboard-owner-mobile-head h2 {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.dashboard-owner-mobile-copy {
+  margin: 0;
+  color: var(--color-text);
+  opacity: 0.82;
+  font-size: 0.82rem;
+}
+
+.dashboard-owner-mobile-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.dashboard-owner-pill {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.dashboard-owner-pill-label {
+  color: var(--color-text);
+  opacity: 0.72;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-owner-pill-value {
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+.dashboard-owner-mobile-tasks {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dashboard-owner-task {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.dashboard-owner-task-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(212, 175, 55, 0.16);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-owner-task-body {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dashboard-owner-task-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.dashboard-owner-task-label {
+  margin: 0;
+  color: var(--color-text);
+  opacity: 0.72;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-owner-task-title {
+  margin: 0.08rem 0 0;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.dashboard-owner-task-value {
+  color: var(--color-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dashboard-owner-task-meta {
+  margin: 0;
+  color: var(--color-text);
+  opacity: 0.82;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.dashboard-owner-task .admin-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0.55rem 0.7rem;
+}
+
+.dashboard-owner-mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.dashboard-owner-mobile-actions .admin-btn {
+  justify-content: center;
+  min-height: 38px;
+  padding: 0.55rem 0.45rem;
+}
+
 .dashboard-density-toggle {
   display: inline-flex;
   width: fit-content;
@@ -701,6 +858,10 @@
     align-items: center;
   }
 
+  .dashboard-owner-mobile {
+    display: none;
+  }
+
   .dashboard .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
@@ -795,8 +956,150 @@
   padding: 0.55rem 0.68rem;
 }
 
+.daily-sales-cash-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.daily-sales-cash-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.daily-sales-cash-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.daily-sales-cash-head p {
+  margin: 0.35rem 0 0;
+  max-width: 42rem;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.daily-sales-cash-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
+  flex: 1 1 320px;
+}
+
+.daily-sales-cash-metric {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.daily-sales-cash-metric span {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.daily-sales-cash-metric strong {
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.daily-sales-cash-metric.positive strong {
+  color: #15803d;
+}
+
+.daily-sales-cash-metric.negative strong {
+  color: #b91c1c;
+}
+
+.daily-sales-cash-note-preview {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.84rem;
+}
+
+.daily-sales-cash-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.84rem;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.55rem 0.68rem;
+}
+
+.daily-sales-cash-form {
+  display: grid;
+  grid-template-columns: minmax(200px, 280px) minmax(260px, 1fr);
+  gap: 0.8rem 0.9rem;
+  align-items: start;
+}
+
+.daily-sales-cash-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--color-text);
+  font-size: 0.83rem;
+}
+
+.daily-sales-cash-form input,
+.daily-sales-cash-form textarea {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  color: var(--color-text);
+  background: #fff;
+}
+
+.daily-sales-cash-form textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.daily-sales-cash-form-note {
+  grid-column: span 1;
+}
+
+.daily-sales-cash-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.daily-sales-cash-help {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
 .daily-sales-table {
   display: block;
+}
+
+@media (max-width: 760px) {
+  .daily-sales-cash-form {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-sales-cash-actions {
+    width: 100%;
+  }
+
+  .daily-sales-cash-actions .admin-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .admin-pagination {

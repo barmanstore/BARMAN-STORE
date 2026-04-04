@@ -1,4 +1,9 @@
 import { useCallback, useRef } from 'react';
+import {
+  createEmptyCashSummary,
+  normalizeCashSummary,
+  normalizeDailyCashTallyEntry,
+} from '../utils/dailyCashSummary';
 
 const ADMIN_PREVIEW_LIMIT = 3;
 const ADMIN_LIST_PAGE_LIMIT = 25;
@@ -117,9 +122,12 @@ const useAdminDataLoaders = ({
   setUsersTotal,
   setUsersLoading,
   setVisitorStats,
+  setTodayCashSummary,
   setCreditAgingSummary,
   setPurchaseOpsSummary,
   setBills,
+  setDailyCashTally,
+  setDailyCashTallyError,
   setDailySalesLoading,
   setDailySalesError,
   setLoading,
@@ -224,6 +232,7 @@ const useAdminDataLoaders = ({
       uniqueSessionsMonth: asNumber(analyticsData?.unique_sessions_month, 0),
       uniqueSessionsYear: asNumber(analyticsData?.unique_sessions_year, 0),
     });
+    setTodayCashSummary(normalizeCashSummary(analyticsData?.today_cash_summary) || createEmptyCashSummary());
     const creditSummary = creditAgingPayload?.summary || {};
     setCreditAgingSummary({
       totalOutstanding: asNumber(creditSummary?.total_outstanding, 0),
@@ -233,8 +242,17 @@ const useAdminDataLoaders = ({
       customersOverLimit: asNumber(creditSummary?.customers_over_limit, 0),
     });
     setPurchaseOpsSummary({
+      cards: purchaseOpsPayload?.cards && typeof purchaseOpsPayload.cards === 'object'
+        ? purchaseOpsPayload.cards
+        : {},
       todayDistributors: Array.isArray(purchaseOpsPayload?.today_distributors)
         ? purchaseOpsPayload.today_distributors
+        : [],
+      tomorrowDistributors: Array.isArray(purchaseOpsPayload?.tomorrow_distributors)
+        ? purchaseOpsPayload.tomorrow_distributors
+        : [],
+      weeklyDistributors: Array.isArray(purchaseOpsPayload?.weekly_distributors)
+        ? purchaseOpsPayload.weekly_distributors
         : [],
       predictedDeliveriesNext: Array.isArray(purchaseOpsPayload?.predicted_deliveries_next)
         ? purchaseOpsPayload.predicted_deliveries_next
@@ -242,6 +260,24 @@ const useAdminDataLoaders = ({
       predictedPaymentsToday: Array.isArray(purchaseOpsPayload?.predicted_payments_today)
         ? purchaseOpsPayload.predicted_payments_today
         : [],
+      predictedPaymentsNext: Array.isArray(purchaseOpsPayload?.predicted_payments_next)
+        ? purchaseOpsPayload.predicted_payments_next
+        : [],
+      reminders: Array.isArray(purchaseOpsPayload?.reminders)
+        ? purchaseOpsPayload.reminders
+        : [],
+      payables: Array.isArray(purchaseOpsPayload?.payables)
+        ? purchaseOpsPayload.payables
+        : [],
+      workflow: Array.isArray(purchaseOpsPayload?.workflow)
+        ? purchaseOpsPayload.workflow
+        : [],
+      distributorInsights: Array.isArray(purchaseOpsPayload?.distributor_insights)
+        ? purchaseOpsPayload.distributor_insights
+        : [],
+      actionRollups: purchaseOpsPayload?.action_rollups && typeof purchaseOpsPayload.action_rollups === 'object'
+        ? purchaseOpsPayload.action_rollups
+        : {},
     });
     loadedDomainsRef.current.dashboard = true;
   }, [
@@ -266,6 +302,7 @@ const useAdminDataLoaders = ({
     setUsersPage,
     setUsersTotal,
     setVisitorStats,
+    setTodayCashSummary,
     statsApi,
     usersApi,
   ]);
@@ -435,28 +472,55 @@ const useAdminDataLoaders = ({
     try {
       if (!silent) setDailySalesLoading(true);
       setDailySalesError('');
+      setDailyCashTallyError('');
       const effectiveDateKey = String(dateKey || '').trim();
-      const rows = await requestWithRetry(() => billingApi.getAll({
-        bill_type: 'sales',
-        ...(effectiveDateKey ? { date: effectiveDateKey } : {}),
-      }));
-      const normalized = normalizePagedResponse(rows);
-      setBills(normalized.items);
-      loadedDomainsRef.current.dailySalesDateKey = effectiveDateKey;
-    } catch (error) {
-      if (isUnauthorizedError(error)) {
+      const [rowsResult, tallyResult] = await Promise.allSettled([
+        requestWithRetry(() => billingApi.getAll({
+          bill_type: 'sales',
+          ...(effectiveDateKey ? { date: effectiveDateKey } : {}),
+        })),
+        effectiveDateKey
+          ? requestWithRetry(() => adminApi.getDailyCashTally(effectiveDateKey))
+          : Promise.resolve({ date: effectiveDateKey, entry: null }),
+      ]);
+
+      const rowsError = rowsResult.status === 'rejected' ? rowsResult.reason : null;
+      const tallyError = tallyResult.status === 'rejected' ? tallyResult.reason : null;
+
+      if (isUnauthorizedError(rowsError) || isUnauthorizedError(tallyError)) {
         setBills([]);
+        setDailyCashTally(null);
         setDailySalesError('');
+        setDailyCashTallyError('');
         return;
       }
-      if (!silent) setDailySalesError(error.message || 'Failed to load bills for daily summary');
+
+      if (rowsResult.status === 'fulfilled') {
+        const normalized = normalizePagedResponse(rowsResult.value);
+        setBills(normalized.items);
+      } else {
+        setBills([]);
+        if (!silent) setDailySalesError(rowsError?.message || 'Failed to load bills for daily summary');
+      }
+
+      if (tallyResult.status === 'fulfilled') {
+        setDailyCashTally(normalizeDailyCashTallyEntry(tallyResult.value, effectiveDateKey));
+      } else {
+        setDailyCashTally(null);
+        if (!silent) setDailyCashTallyError(tallyError?.message || 'Failed to load saved daily cash tally');
+      }
+
+      loadedDomainsRef.current.dailySalesDateKey = effectiveDateKey;
     } finally {
       if (!silent) setDailySalesLoading(false);
     }
   }, [
+    adminApi,
     billingApi,
     requestWithRetry,
     setBills,
+    setDailyCashTally,
+    setDailyCashTallyError,
     setDailySalesError,
     setDailySalesLoading,
   ]);

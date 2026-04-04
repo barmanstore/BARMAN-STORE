@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Check,
+  ExternalLink,
   Trash2,
 } from 'lucide-react';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
@@ -26,6 +27,7 @@ const PurchaseOrdersSection = ({
   onFilterChange,
   onOpenLedgerForm,
   onOpenReturn,
+  onOpenBrowserWorkspace,
   onNewOrder,
   purchaseOrders,
   isPoEditable,
@@ -74,6 +76,9 @@ const PurchaseOrdersSection = ({
           <p>Prepare, confirm, receive, pay, and close purchase orders in one section.</p>
         </div>
         <div className="action-buttons">
+          <button className="admin-btn secondary" onClick={onOpenBrowserWorkspace}>
+            <ExternalLink size={18} /> Browser Workspace
+          </button>
           <button className="admin-btn secondary" onClick={onOpenLedgerForm}>
             <Plus size={18} /> Payment / Credit Entry
           </button>
@@ -88,9 +93,9 @@ const PurchaseOrdersSection = ({
 
       <div className="filters-bar">
         <div className="filter-group">
-          <label htmlFor="purchase-orders-filter-distributor">Distributor:</label>
+          <label htmlFor="purchase-orders-filter-distributor">Supplier:</label>
           <select id="purchase-orders-filter-distributor" name="distributor_id" value={filters.distributor_id} onChange={onFilterChange}>
-            <option value="">All Distributors</option>
+            <option value="">All Suppliers</option>
             {distributors.map((d) => (
               <option key={d.id} value={d.id}>{d.name}</option>
             ))}
@@ -134,7 +139,7 @@ const PurchaseOrdersSection = ({
           <thead>
             <tr>
               <th>PO Number</th>
-              <th>Distributor</th>
+              <th>Supplier</th>
               <th>Items</th>
               <th>Total</th>
               <th>PO Status</th>
@@ -168,7 +173,7 @@ const PurchaseOrdersSection = ({
                 return (
                   <tr key={order.id}>
                     <td data-label="PO Number"><strong>{order.po_number}</strong></td>
-                    <td data-label="Distributor">{order.distributor_name}</td>
+                    <td data-label="Supplier">{order.distributor_name}</td>
                     <td data-label="Items">{order.items?.length || 0}</td>
                     <td data-label="Total">{formatCurrency(getOrderDisplayTotal(order))}</td>
                     <td data-label="PO Status">{getStatusBadge(order)}</td>

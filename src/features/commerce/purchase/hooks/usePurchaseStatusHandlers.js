@@ -37,13 +37,13 @@ const usePurchaseStatusHandlers = ({
     }
   }, [purchaseOrdersApi, fetchOrders, fetchDistributorLedger, setError, setSuccess]);
 
-  const handleSendDistributorWhatsApp = useCallback(async (order) => {
+  const handlePrepareDistributorWhatsApp = useCallback(async (order) => {
     if (!order?.id) return;
     try {
       setError('');
       setSuccess('');
       setSendingWhatsAppOrderId(order.id);
-      const response = await purchaseOrdersApi.sendDistributorWhatsApp(order.id);
+      const response = await purchaseOrdersApi.prepareDistributorWhatsApp(order.id);
       const notice = response?.distributor_notice || null;
       const whatsappUrl = String(notice?.whatsapp?.whatsapp_url || '').trim();
       if (!whatsappUrl) {
@@ -51,7 +51,7 @@ const usePurchaseStatusHandlers = ({
         return;
       }
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      setSuccess('Distributor WhatsApp message is ready.');
+      setSuccess('Manual distributor WhatsApp message is ready.');
     } catch (err) {
       setSuccess('');
       setError(formatApiError(err));
@@ -71,7 +71,8 @@ const usePurchaseStatusHandlers = ({
 
   return {
     handleUpdateStatus,
-    handleSendDistributorWhatsApp,
+    handlePrepareDistributorWhatsApp,
+    handleSendDistributorWhatsApp: handlePrepareDistributorWhatsApp,
     handleDeleteOrder,
   };
 };

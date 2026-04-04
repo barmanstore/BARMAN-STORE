@@ -16,6 +16,7 @@ const usePurchaseManagementDerived = ({
   findProductForItem,
   getLedgerBalanceSummary,
   getDistributorProductOptions,
+  getDistributorHistoryProducts,
   getOrderDistributorInfo,
   isPoEditable,
   getStatusBadge,
@@ -105,6 +106,10 @@ const usePurchaseManagementDerived = ({
     () => getDistributorProductOptions(orderFormData.distributor_id),
     [orderFormData.distributor_id, purchaseOrders, products, getDistributorProductOptions]
   );
+  const supplierHistoryItems = useMemo(
+    () => getDistributorHistoryProducts(orderFormData.distributor_id),
+    [getDistributorHistoryProducts, orderFormData.distributor_id, purchaseOrders, products]
+  );
 
   const lowStockProducts = useMemo(() => {
     const threshold = 10;
@@ -141,6 +146,7 @@ const usePurchaseManagementDerived = ({
     orderDetailSupplier,
     orderDetailIsEditable,
     orderProductOptions,
+    supplierHistoryItems,
     lowStockProducts,
     getStatusBadgeForOrder,
     getPoPaymentBadgeForOrder,

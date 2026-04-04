@@ -6,6 +6,7 @@ import {
   buildPurchaseOrderSavePayload,
   clearPurchaseDraftProductSelection,
   getLastPurchaseSuggestionPreserveFlags,
+  getPurchaseDraftItemSourceFlags,
   preparePurchaseOrderSubmission,
 } from '../utils/orderDrafts';
 
@@ -48,6 +49,7 @@ const usePurchaseOrderDetailHandlers = ({
       strict_due_note: order.strict_due_note || '',
       items: (order.items || []).map((item) => {
         const product = products.find((p) => String(p.id) === String(item.product_id)) || null;
+        const sourceFlags = getPurchaseDraftItemSourceFlags(item);
         return {
           id: item.id,
           product_id: item.product_id ? String(item.product_id) : '',
@@ -69,6 +71,9 @@ const usePurchaseOrderDetailHandlers = ({
           last_purchase_distributor_name: '',
           last_purchase_created_at: '',
           last_purchase_po_number: '',
+          row_source: sourceFlags.rowSource,
+          po_item_source: sourceFlags.poItemSource,
+          po_item_locked: sourceFlags.poItemLocked,
           taxable_value: toNumber(item.taxable_value),
           tax_amount: toNumber(item.tax_amount),
           line_total: toNumber(item.line_total ?? item.total),
@@ -131,17 +136,27 @@ const usePurchaseOrderDetailHandlers = ({
       if (!current) return prev;
 
       items[index] = match
-        ? applyPurchaseDraftProductSelection({
-            item: current,
-            product: match,
-            getProductSearchLabel,
-            resolvePurchaseUnitForProduct,
-            toNumber,
-          })
-        : clearPurchaseDraftProductSelection({
-            item: current,
-            query: value,
-          });
+        ? {
+            ...applyPurchaseDraftProductSelection({
+              item: current,
+              product: match,
+              getProductSearchLabel,
+              resolvePurchaseUnitForProduct,
+              toNumber,
+            }),
+            row_source: 'manual',
+            po_item_source: 'manual_added',
+            po_item_locked: false,
+          }
+        : {
+            ...clearPurchaseDraftProductSelection({
+              item: current,
+              query: value,
+            }),
+            row_source: 'manual',
+            po_item_source: 'manual_added',
+            po_item_locked: false,
+          };
       return { ...prev, items };
     });
     if (!match) return;
@@ -250,6 +265,9 @@ const usePurchaseOrderDetailHandlers = ({
             ...createEmptyOrderItem(),
             quantity: 1,
             gst_rate: normalizeGstRateOption(5),
+            row_source: 'manual',
+            po_item_source: 'manual_added',
+            po_item_locked: false,
           },
         ],
       };
@@ -259,6 +277,11 @@ const usePurchaseOrderDetailHandlers = ({
   const handleOrderDetailItemRemove = useCallback((index) => {
     setOrderDetailDraft((prev) => {
       if (!prev) return prev;
+      const targetItem = prev.items?.[index];
+      const locked = targetItem?.po_item_locked === true
+        || targetItem?.po_item_source === 'supplier_default'
+        || String(targetItem?.row_source || '').trim().toLowerCase() === 'supplier';
+      if (locked) return prev;
       return {
         ...prev,
         items: (prev.items || []).filter((_, itemIndex) => itemIndex !== index),

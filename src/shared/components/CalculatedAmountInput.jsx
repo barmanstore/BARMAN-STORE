@@ -43,7 +43,6 @@ function CalculatedAmountInput({
         name={name}
         type="text"
         inputMode="text"
-        pattern="[-+*/()., 0-9]*"
         value={value ?? ''}
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}

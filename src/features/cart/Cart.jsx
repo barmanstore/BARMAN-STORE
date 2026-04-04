@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../providers/CartProvider';
 import { useSession } from '../../providers/SessionProvider';
+import SafeProductImage from '../../shared/components/product/SafeProductImage';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { productRecommendationsApi, productsApi } from '../../shared/services/api';
-import { getProductImageSrc } from '../../shared/utils/productImage';
 import useOfferPricingPreview from '../../shared/hooks/useOfferPricingPreview';
 import { getPreviewLineMap } from '../../shared/utils/offers';
 import CartView from './components/CartView';
@@ -404,14 +404,13 @@ function Cart() {
           {manualMatches.map((product, index) => {
             const productId = Number(product?.id || 0);
             const outOfStock = Number(product?.stock || 0) <= 0;
-            const imageSrc = getProductImageSrc(product);
             return (
               <div
                 key={productId}
                 className={`manual-search-item ${index === manualMatchCursor ? 'active' : ''}`}
               >
                 <div className="manual-search-item-thumb">
-                  <img src={imageSrc} alt={product.name} />
+                  <SafeProductImage product={product} alt={product.name} />
                 </div>
                 <div className="manual-search-item-meta">
                   <strong>{product.name}</strong>

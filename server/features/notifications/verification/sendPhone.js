@@ -27,6 +27,14 @@ const createPhoneVerificationSender = (deps = {}) => {
       to: phone,
       payload: { recipientName, code, link, expiresAt },
     });
+    const requestedMode = String(deliveryModeOverride || WHATSAPP_DELIVERY_MODE).trim().toLowerCase() === 'auto'
+      ? 'auto'
+      : 'manual';
+    const effectiveMode = requestedMode === 'auto'
+      && Boolean(whatsappProvider?.supportsSend)
+      && Boolean(whatsappProvider?.isReady)
+      ? 'auto'
+      : 'manual';
     const eventId = await createNotificationEvent({
       type: 'phone_verification',
       channel: 'whatsapp',
@@ -35,16 +43,15 @@ const createPhoneVerificationSender = (deps = {}) => {
       subject: 'Phone verification',
       body: preparedWhatsApp.text,
       metadata: {
-        mode: deliveryModeOverride || WHATSAPP_DELIVERY_MODE,
+        mode: effectiveMode,
+        requested_mode: requestedMode,
+        provider_supports_send: Boolean(whatsappProvider?.supportsSend),
         link,
         expires_at: expiresAt,
       },
       status: 'prepared',
       preparedBy: requestedBy,
     });
-    const effectiveMode = String(deliveryModeOverride || WHATSAPP_DELIVERY_MODE).trim().toLowerCase() === 'auto'
-      ? 'auto'
-      : 'manual';
 
     if (effectiveMode === 'manual') {
       const response = {
@@ -66,10 +73,10 @@ const createPhoneVerificationSender = (deps = {}) => {
       return response;
     }
 
-    if (!whatsappProvider?.isReady) {
+    if (!whatsappProvider?.isReady || !whatsappProvider?.supportsSend) {
       await updateNotificationEventStatus(eventId, {
         status: 'failed',
-        errorMessage: 'WhatsApp provider is not configured',
+        errorMessage: 'WhatsApp provider cannot deliver messages',
       });
       return {
         queued: false,
@@ -80,27 +87,52 @@ const createPhoneVerificationSender = (deps = {}) => {
       };
     }
 
-    await whatsappProvider.sendMessage({
-      to: preparedWhatsApp.to,
-      text: preparedWhatsApp.text,
-    });
-    await updateNotificationEventStatus(eventId, { status: 'sent' });
-    const response = {
-      queued: true,
-      mode: effectiveMode,
-      event_id: eventId,
-      expiresAt,
-    };
-    if (exposeTemplate) {
-      response.whatsapp = {
+    try {
+      await whatsappProvider.sendMessage({
         to: preparedWhatsApp.to,
         text: preparedWhatsApp.text,
-        whatsapp_url: preparedWhatsApp.whatsapp_url,
-        link,
-        code,
+      });
+      await updateNotificationEventStatus(eventId, { status: 'sent' });
+      const response = {
+        queued: true,
+        mode: effectiveMode,
+        event_id: eventId,
+        expiresAt,
       };
+      if (exposeTemplate) {
+        response.whatsapp = {
+          to: preparedWhatsApp.to,
+          text: preparedWhatsApp.text,
+          whatsapp_url: preparedWhatsApp.whatsapp_url,
+          link,
+          code,
+        };
+      }
+      return response;
+    } catch (error) {
+      await updateNotificationEventStatus(eventId, {
+        status: 'failed',
+        errorMessage: error?.message || String(error || 'WhatsApp send failed'),
+      });
+      const response = {
+        queued: false,
+        reason: 'send_failed',
+        mode: effectiveMode,
+        event_id: eventId,
+        expiresAt,
+        error: error?.message || String(error || 'WhatsApp send failed'),
+      };
+      if (exposeTemplate) {
+        response.whatsapp = {
+          to: preparedWhatsApp.to,
+          text: preparedWhatsApp.text,
+          whatsapp_url: preparedWhatsApp.whatsapp_url,
+          link,
+          code,
+        };
+      }
+      return response;
     }
-    return response;
   };
 
   return { sendPhoneVerificationChallenge };

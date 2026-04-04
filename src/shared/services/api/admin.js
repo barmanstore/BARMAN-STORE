@@ -6,6 +6,13 @@ import { apiFetch } from './core';
 
 export const adminApi = {
   getAnalyticsSummary: () => apiFetch('/api/admin/analytics/summary'),
+  getDailyCashTally: (date) =>
+    apiFetch(`/api/admin/analytics/daily-cash-tally?date=${encodeURIComponent(String(date || '').trim())}`),
+  upsertDailyCashTally: (payload) =>
+    apiFetch('/api/admin/analytics/daily-cash-tally', {
+      method: 'PUT',
+      body: payload,
+    }),
   getPhoneChangeRequests: (status = '') =>
     apiFetch(`/api/admin/phone-change-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`),
   approvePhoneChangeRequest: (id, payload = {}) =>

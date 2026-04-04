@@ -8,6 +8,7 @@ const popupBase = (() => {
 
 const BACKOFFICE_POPUP_CHANNEL_NAME = 'barman_backoffice_popup_channel_v1';
 const BACKOFFICE_POPUP_STATUS_TTL_MS = 45000;
+const BACKOFFICE_POPUP_HANDOFF_TTL_MS = 5 * 60 * 1000;
 
 const BACKOFFICE_POPUP_CONFIG = {
   billing: {
@@ -38,6 +39,8 @@ const getBackofficePopupConfig = (kind) => BACKOFFICE_POPUP_CONFIG[String(kind |
 const getBackofficePopupStatusKey = (kind) => `backoffice_popup_status_${String(kind || '').trim().toLowerCase()}`;
 
 const getBackofficePopupDraftKey = (kind) => `backoffice_popup_draft_${String(kind || '').trim().toLowerCase()}`;
+
+const getBackofficePopupHandoffKey = (kind) => `backoffice_popup_handoff_${String(kind || '').trim().toLowerCase()}`;
 
 const buildBackofficePopupPath = (kind, params = null) => {
   const config = getBackofficePopupConfig(kind);
@@ -108,6 +111,26 @@ const normalizePopupStatus = (kind, value) => {
   };
 };
 
+const normalizePopupHandoff = (kind, value) => {
+  if (!value || typeof value !== 'object') {
+    return {
+      kind,
+      id: '',
+      updatedAt: 0,
+      payload: null,
+    };
+  }
+  const updatedAt = Number(value.updatedAt || 0);
+  const isFresh = updatedAt > 0 && (Date.now() - updatedAt) < BACKOFFICE_POPUP_HANDOFF_TTL_MS;
+  const payload = value?.payload && typeof value.payload === 'object' ? value.payload : null;
+  return {
+    kind,
+    id: isFresh ? String(value.id || '') : '',
+    updatedAt: isFresh ? updatedAt : 0,
+    payload: isFresh ? payload : null,
+  };
+};
+
 const readBackofficePopupStatus = (kind) => {
   try {
     const raw = safeLocalStorageGet(getBackofficePopupStatusKey(kind));
@@ -115,6 +138,16 @@ const readBackofficePopupStatus = (kind) => {
     return normalizePopupStatus(kind, JSON.parse(raw));
   } catch (_) {
     return normalizePopupStatus(kind, null);
+  }
+};
+
+const readBackofficePopupHandoff = (kind) => {
+  try {
+    const raw = safeLocalStorageGet(getBackofficePopupHandoffKey(kind));
+    if (!raw) return normalizePopupHandoff(kind, null);
+    return normalizePopupHandoff(kind, JSON.parse(raw));
+  } catch (_) {
+    return normalizePopupHandoff(kind, null);
   }
 };
 
@@ -147,6 +180,35 @@ const clearBackofficePopupStatus = (kind, sessionId = '') => {
     sessionId,
   });
   return normalizePopupStatus(kind, null);
+};
+
+const writeBackofficePopupHandoff = (kind, payload = null) => {
+  const normalized = normalizePopupHandoff(kind, {
+    id: `handoff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    updatedAt: Date.now(),
+    payload: payload && typeof payload === 'object' ? payload : null,
+  });
+  safeLocalStorageSet(getBackofficePopupHandoffKey(kind), JSON.stringify(normalized));
+  broadcastBackofficePopupMessage({
+    type: 'popup-handoff',
+    kind: normalized.kind,
+    handoffId: normalized.id,
+    updatedAt: normalized.updatedAt,
+  });
+  return normalized;
+};
+
+const clearBackofficePopupHandoff = (kind, handoffId = '') => {
+  const current = readBackofficePopupHandoff(kind);
+  if (handoffId && current.id && current.id !== handoffId) return current;
+  safeLocalStorageRemove(getBackofficePopupHandoffKey(kind));
+  broadcastBackofficePopupMessage({
+    type: 'popup-handoff-cleared',
+    kind,
+    handoffId,
+    updatedAt: Date.now(),
+  });
+  return normalizePopupHandoff(kind, null);
 };
 
 const preloadBackofficePopup = (kind) => {
@@ -197,19 +259,25 @@ const openBackofficePopup = (kind, params = null) => {
 const focusBackofficePopup = (kind, params = null) => openBackofficePopup(kind, params);
 
 export {
+  BACKOFFICE_POPUP_HANDOFF_TTL_MS,
   BACKOFFICE_POPUP_CHANNEL_NAME,
   BACKOFFICE_POPUP_STATUS_TTL_MS,
   buildBackofficePopupPath,
   broadcastBackofficePopupMessage,
+  clearBackofficePopupHandoff,
   clearBackofficePopupStatus,
   createBackofficePopupChannel,
   focusBackofficePopup,
   getBackofficePopupConfig,
   getBackofficePopupDraftKey,
+  getBackofficePopupHandoffKey,
   getBackofficePopupStatusKey,
+  normalizePopupHandoff,
   normalizePopupStatus,
   openBackofficePopup,
   preloadBackofficePopup,
+  readBackofficePopupHandoff,
   readBackofficePopupStatus,
+  writeBackofficePopupHandoff,
   writeBackofficePopupStatus,
 };

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, User } from 'lucide-react';
+import { resolveMediaSourceForDisplay } from '../../../../shared/services/api';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import scoreBands from '../../../../../shared/creditScoreBands.json';
 
@@ -25,6 +26,18 @@ const getBadgeCoinLabel = (badge) => {
   return label.split(/\s+/).slice(0, 2).join(' ');
 };
 
+const getInitials = (name) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return '?';
+  return trimmed
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+};
+
 function CreditHistoryHeader({
   backHref,
   backLabel,
@@ -47,6 +60,8 @@ function CreditHistoryHeader({
   openAddModalWithType,
 }) {
   const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [avatarSrc, setAvatarSrc] = useState('');
   const badgeTooltipRef = useRef(null);
   const hasPaymentScore = paymentBadgeSummary?.payment_score !== null
     && paymentBadgeSummary?.payment_score !== undefined
@@ -54,10 +69,18 @@ function CreditHistoryHeader({
   const paymentScore = hasPaymentScore ? Math.round(Number(paymentBadgeSummary.payment_score)) : null;
   const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
   const paymentStatusTone = String(paymentBadgeSummary?.payment_status_tone || 'neutral').trim();
+  const paymentHelperText = String(paymentBadgeSummary?.helper_text || '').trim();
+  const paymentHelperMode = String(paymentBadgeSummary?.helper_mode || '').trim().toLowerCase();
   const isNewCustomer = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
     || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new'
     || paymentStatusLabel.toLowerCase() === 'new';
   const showScoreValue = hasPaymentScore && !isNewCustomer;
+  const pageTitle = isAdminView ? 'Credit History' : 'My Credit History';
+  const customerName = String(customer?.name || '').trim();
+  const identityName = customerName || (isAdminView ? 'Customer' : 'My Account');
+  const pageSubline = isAdminView ? 'Customer ledger overview' : 'Track every sale and payment';
+  const customerSubline = String(customer?.phone || customer?.email || '').trim()
+    || (isAdminView ? 'Customer account' : 'Your account');
 
   useEffect(() => {
     if (!showBadgeTooltip || typeof document === 'undefined') return undefined;
@@ -85,15 +108,68 @@ function CreditHistoryHeader({
     };
   }, [showBadgeTooltip]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [customer?.profile_image]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let revokeUrl = null;
+
+    const run = async () => {
+      if (avatarLoadFailed || !customer?.profile_image) {
+        setAvatarSrc('');
+        return;
+      }
+
+      const resolved = await resolveMediaSourceForDisplay(customer.profile_image);
+      if (cancelled) {
+        if (resolved.revoke && resolved.src) URL.revokeObjectURL(resolved.src);
+        return;
+      }
+
+      setAvatarSrc(resolved.src || '');
+      revokeUrl = resolved.revoke ? resolved.src : null;
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
+  }, [customer?.profile_image, avatarLoadFailed]);
+
   return (
     <>
       <div className="page-header">
-        <Link to={backHref} className="back-link">
-          <ArrowLeft size={20} /> {backLabel}
-        </Link>
-        <div className="header-content">
-          <h1>{isAdminView ? 'Credit History' : 'My Credit History'}</h1>
-          {customer && <p className="customer-name">{customer.name}</p>}
+        <div className="page-header-main">
+          <Link to={backHref} className="back-link">
+            <ArrowLeft size={20} /> {backLabel}
+          </Link>
+          <div className="page-title-block">
+            <h1>{pageTitle}</h1>
+            <p className="page-subline">{pageSubline}</p>
+          </div>
+        </div>
+        <div className="customer-identity-card">
+          <div className="customer-identity-avatar" aria-hidden="true">
+            {avatarSrc ? (
+              <img
+                src={avatarSrc}
+                alt={identityName}
+                onError={() => setAvatarLoadFailed(true)}
+              />
+            ) : customerName ? (
+              <span className="customer-identity-avatar-fallback">{getInitials(customerName)}</span>
+            ) : (
+              <User size={24} />
+            )}
+          </div>
+          <div className="customer-identity-copy">
+            <strong className="customer-identity-name">{identityName}</strong>
+            <span className="customer-subline">{customerSubline}</span>
+          </div>
         </div>
       </div>
 
@@ -130,8 +206,8 @@ function CreditHistoryHeader({
                   >
                     <div className="payment-badge-tooltip-title">How payment badges work</div>
                     <p className="payment-badge-tooltip-intro">
-                      The score is based on recent payment behavior across billing periods. Paying on time improves your score,
-                      while late or missed payments reduce it.
+                      Every new credit entry gets a due window based on the current payment status.
+                      Clearing the oldest unpaid due on time improves the score, while late or missed cycles reduce it.
                     </p>
                     <ul className="payment-badge-tooltip-list">
                       {PAYMENT_BADGE_RULES.map((rule) => (
@@ -143,12 +219,12 @@ function CreditHistoryHeader({
                     </ul>
                     <div className="payment-badge-tooltip-subtitle">How to improve your score:</div>
                     <ul className="payment-badge-tooltip-list">
-                      <li>Pay before or on the due date</li>
-                      <li>Avoid carrying overdue balances</li>
-                      <li>Clear missed payments as early as possible</li>
+                      <li>Clear the oldest unpaid due before the active due date</li>
+                      <li>Earlier payment gives a bigger score lift than a last-day payment</li>
+                      <li>Missing the extra 3-day grace causes a stronger downgrade</li>
                     </ul>
                     <p className="payment-badge-tooltip-note">
-                      New customers may show a neutral score until enough payment history is available.
+                      New customers stay in the New state until the first payment cycle is fully judged.
                     </p>
                   </div>
                 ) : null}
@@ -158,6 +234,11 @@ function CreditHistoryHeader({
                   <span className="payment-badge-label">{paymentStatusLabel}</span>
                   <strong className="payment-badge-score">{showScoreValue ? `${paymentScore}/100` : '—'}</strong>
                 </div>
+              ) : null}
+              {paymentHelperText ? (
+                <p className={`payment-badge-helper-text ${paymentHelperMode || 'neutral'}`}>
+                  {paymentHelperText}
+                </p>
               ) : null}
             </div>
           )}

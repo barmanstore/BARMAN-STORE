@@ -1,9 +1,10 @@
-import { BarChart3, Clock, Package, Plus, RotateCcw, Truck, Wallet } from 'lucide-react';
+import { BarChart3, Clock, ExternalLink, Package, Plus, RotateCcw, Truck, Wallet } from 'lucide-react';
 
 const PurchaseDashboardHero = ({
   operationsLoading,
   operationsCardItems,
   onNewOrder,
+  onOpenBrowserWorkspace,
   onOpenLedgerForm,
   onOpenReturn,
   activeSector,
@@ -80,6 +81,10 @@ const PurchaseDashboardHero = ({
         <button type="button" className="purchase-action-tile primary" onClick={onNewOrder}>
           <Plus size={18} />
           <span>New Purchase Order</span>
+        </button>
+        <button type="button" className="purchase-action-tile" onClick={onOpenBrowserWorkspace}>
+          <ExternalLink size={18} />
+          <span>Browser Workspace</span>
         </button>
         <button type="button" className="purchase-action-tile" onClick={onOpenLedgerForm}>
           <Wallet size={18} />

@@ -89,6 +89,7 @@ const registerPurchaseOrdersWhatsAppRoutes = (deps) => {
 
       return res.json({
         success: true,
+        delivery_scope: distributorNotice?.mode === 'auto' ? 'provider_send' : 'manual_prepare',
         distributor_notice: distributorNotice || undefined,
         po_status: nextStatus,
       });

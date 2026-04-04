@@ -11,6 +11,10 @@ const THEMES = [
 ];
 
 const DEFAULT_THEME = { label: 'PRODUCT', colorA: '#64748b', colorB: '#334155' };
+const BLOCKED_REMOTE_IMAGE_HOSTS = [
+  'boliya.in',
+  'static.meds.cvpharmacy.in',
+];
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
 
@@ -48,6 +52,14 @@ const buildSvgDataUri = (product) => {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 };
 
+const isBlockedRemoteImageHost = (hostname) => {
+  const normalized = String(hostname || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return BLOCKED_REMOTE_IMAGE_HOSTS.some((entry) => (
+    normalized === entry || normalized.endsWith(`.${entry}`)
+  ));
+};
+
 const sanitizeImageSrc = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -57,6 +69,9 @@ const sanitizeImageSrc = (value) => {
     const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
     const url = new URL(raw, base);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
+      if (isBlockedRemoteImageHost(url.hostname)) {
+        return '';
+      }
       return url.href;
     }
     return '';

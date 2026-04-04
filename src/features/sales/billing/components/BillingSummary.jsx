@@ -13,9 +13,8 @@ const BillingSummary = ({
   <section className="billing-pos-panel billing-summary-panel">
     <div className="billing-panel-header">
       <div>
-        <p className="billing-panel-kicker">Bill Summary</p>
-        <h2>Running Totals</h2>
-        <p className="billing-panel-copy">Totals update instantly as each item is added or edited.</p>
+        <p className="billing-panel-kicker">Summary</p>
+        <h2>Totals</h2>
       </div>
       <span className={`billing-panel-badge${creditAmount > 0 ? ' pending' : ''}`}>
         {paymentStatusLabel}
@@ -32,11 +31,11 @@ const BillingSummary = ({
         <strong>{formatCurrency(subtotalAmount)}</strong>
       </div>
       <div className="billing-summary-row">
-        <span>Total Discount</span>
+        <span>Discount</span>
         <strong>{formatCurrency(totalDiscount)}</strong>
       </div>
       <div className="billing-summary-row emphasis">
-        <span>Final Total</span>
+        <span>Total</span>
         <strong>{formatCurrency(totalBill)}</strong>
       </div>
       <div className="billing-summary-row">

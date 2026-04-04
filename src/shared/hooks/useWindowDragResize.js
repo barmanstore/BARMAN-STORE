@@ -32,13 +32,13 @@ const getCenteredRect = (initialSize, minWidth, minHeight) => {
   };
 };
 
-const getMaximizedRect = () => {
+const getMaximizedRect = (margin = VIEWPORT_MARGIN) => {
   const viewport = getViewport();
   return {
-    x: VIEWPORT_MARGIN,
-    y: VIEWPORT_MARGIN,
-    width: Math.max(320, viewport.width - VIEWPORT_MARGIN * 2),
-    height: Math.max(320, viewport.height - VIEWPORT_MARGIN * 2),
+    x: margin,
+    y: margin,
+    width: Math.max(320, viewport.width - margin * 2),
+    height: Math.max(320, viewport.height - margin * 2),
   };
 };
 
@@ -60,6 +60,7 @@ function useWindowDragResize({
   interactive = true,
   draggable = true,
   resizable = true,
+  initialRect = null,
   initialSize,
   minWidth = 420,
   minHeight = 280,
@@ -67,16 +68,32 @@ function useWindowDragResize({
   const frameRef = useRef(null);
   const interactionRef = useRef(null);
   const previousRectRef = useRef(null);
+  const lastRectRef = useRef(null);
+  const wasOpenRef = useRef(false);
   const [rect, setRect] = useState(() => ({ x: VIEWPORT_MARGIN, y: VIEWPORT_MARGIN, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT }));
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     if (!open || typeof window === 'undefined') return;
-    const nextRect = getCenteredRect(initialSize, minWidth, minHeight);
+    if (wasOpenRef.current) return;
+    wasOpenRef.current = true;
+    const nextRect = initialRect
+      || lastRectRef.current
+      || getCenteredRect(initialSize, minWidth, minHeight);
     previousRectRef.current = nextRect;
     setRect(nextRect);
     setIsMaximized(false);
-  }, [initialSize, minWidth, minHeight, open]);
+  }, [initialRect, initialSize, minWidth, minHeight, open]);
+
+  useEffect(() => {
+    if (open) return;
+    wasOpenRef.current = false;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    lastRectRef.current = rect;
+  }, [open, rect]);
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return undefined;
@@ -84,7 +101,7 @@ function useWindowDragResize({
     const handleResize = () => {
       setRect((current) => {
         if (isMaximized) {
-          return getMaximizedRect();
+          return getMaximizedRect(0);
         }
         return clampRectToViewport(current, minWidth, minHeight);
       });
@@ -187,7 +204,7 @@ function useWindowDragResize({
     }
 
     previousRectRef.current = rect;
-    setRect(getMaximizedRect());
+    setRect(getMaximizedRect(0));
     setIsMaximized(true);
   }, [initialSize, interactive, isMaximized, minHeight, minWidth, rect]);
 

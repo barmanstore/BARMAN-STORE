@@ -58,6 +58,8 @@
         likely_items: entry.likely_items || [],
         suggested_items: entry.suggested_items || [],
         products_supplied_text: entry.products_supplied_text || '',
+        novelty_alerts: entry.novelty_alerts || [],
+        novelty_summary: entry.novelty_summary || { total_count: 0 },
         computed_at: new Date().toISOString(),
       };
       await savePurchaseAnalyticsSnapshotAsync({

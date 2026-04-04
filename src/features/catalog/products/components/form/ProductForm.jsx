@@ -69,6 +69,21 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         ...createInitialFormData(),
         ...(initialFormPatch && typeof initialFormPatch === 'object' ? initialFormPatch : {}),
       };
+      if (!String(nextInitialFormData.uom || '').trim()) {
+        nextInitialFormData.uom = 'pcs';
+      }
+      if (!String(nextInitialFormData.base_unit || '').trim()) {
+        nextInitialFormData.base_unit = nextInitialFormData.uom;
+      }
+      if (!String(nextInitialFormData.purchase_pack_size || '').trim()) {
+        nextInitialFormData.purchase_pack_size = '1';
+      }
+      if (!String(nextInitialFormData.brand || '').trim()) {
+        nextInitialFormData.brand = 'Unknown';
+      }
+      if (!String(nextInitialFormData.category || '').trim()) {
+        nextInitialFormData.category = 'New Item';
+      }
       if (!String(nextInitialFormData.description || '').trim()) {
         const suggestedDescription = generateDescriptionSuggestion(nextInitialFormData);
         if (suggestedDescription) {

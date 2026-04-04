@@ -9,7 +9,6 @@ import usePurchaseOrderDetailHandlers from './usePurchaseOrderDetailHandlers';
 import usePurchaseReturnHandlers from './usePurchaseReturnHandlers';
 import usePurchaseLedgerCorrections from './usePurchaseLedgerCorrections';
 import usePurchasePrintOrder from './usePurchasePrintOrder';
-import usePurchasePoProductForm from './usePurchasePoProductForm';
 import usePurchaseOrderFormHandlers from './usePurchaseOrderFormHandlers';
 import usePurchaseLastPurchaseSuggestions from './usePurchaseLastPurchaseSuggestions';
 
@@ -26,21 +25,19 @@ const usePurchaseManagementHandlers = ({
   resolveProductByInputHelper,
   getDistributorProductOptionsHelper,
   getDistributorProductHistoryEntryHelper,
+  getLatestProductHistoryEntryHelper,
   getDistributorHistoryProductsHelper,
   createEmptyOrderItem,
   activePoProductField,
   setActivePoProductField,
-  setPoProductFormTarget,
-  setShowPoProductForm,
-  poProductFormTarget,
-  setProducts,
-  mergeProductsById,
   setFilters,
   setActiveSubTab,
   getDefaultOrderFormData,
   setEditingOrderId,
   setOrderFullMode,
+  setOrderReviewMode,
   setOrderSubmitting,
+  setLastSavedOrderSummary,
   setShowOrderForm,
   orderSubmitLockRef,
   orderSubmitting,
@@ -139,11 +136,14 @@ const usePurchaseManagementHandlers = ({
   formatDate,
   formatCurrency,
   escapeHtml,
-  printHtmlDocument,}) => {
+  printHtmlDocument,
+  onOrderSaved,
+}) => {
   const {
     resolveProductByInput,
     getDistributorProductOptions,
     getDistributorProductHistoryEntry,
+    getLatestProductHistoryEntry,
     getDistributorHistoryProducts,
     handleDistributorInputChange,
   } = usePurchaseLookups({
@@ -151,20 +151,25 @@ const usePurchaseManagementHandlers = ({
     products,
     purchaseOrders,
     buildOrderDraftItem,
+    createEmptyOrderItem,
     setOrderFormData,
     resolveProductByInputHelper,
     getDistributorProductOptionsHelper,
     getDistributorProductHistoryEntryHelper,
+    getLatestProductHistoryEntryHelper,
     getDistributorHistoryProductsHelper,
+  });
+
+  const { loadLastPurchaseSuggestion } = usePurchaseLastPurchaseSuggestions({
+    productsApi,
   });
 
   const {
     handleOrderItemAdd,
     handleOrderItemRemove,
-    ensureOrderFormItemAtIndex,
-    getTargetPoProductField,
     handleOrderProductFieldFocus,
     handleLoadDistributorItems,
+    handleApplySupplierHistoryItem,
   } = usePurchaseOrderFormItems({
     orderFormData,
     setOrderFormData,
@@ -179,44 +184,25 @@ const usePurchaseManagementHandlers = ({
   });
 
   const {
-    handleOpenPoProductForm,
-    closePoProductForm: closePoProductFormLocal,
-    handleInlinePoProductCreate,
-    handlePoProductSave,
-  } = usePurchasePoProductForm({
-    getTargetPoProductField,
-    ensureOrderFormItemAtIndex,
-    setPoProductFormTarget,
-    setActivePoProductField,
-    setShowPoProductForm,
-    poProductFormTarget,
-    setProducts,
-    mergeProductsById,
-    setOrderFormData,
-    createEmptyOrderItem,
-    buildOrderDraftItem,
-    productsApi,
-    setSuccess,
-  });
-
-  const {
     handleFilterChange,
     openCreateOrderForm, openCreateOrderFormForDistributor,
     closeOrderForm, handlePurchaseSectionChange,
+    handleOpenOrderReview,
     handleOrderSubmit,
     handleEditOrder,
   } = usePurchaseOrderFormHandlers({
     setFilters,
     setActiveSubTab,
-    closePoProductForm: closePoProductFormLocal,
     getDefaultOrderFormData,
     setOrderFormData,
     setEditingOrderId,
     setOrderFullMode,
+    setOrderReviewMode,
     setOrderSubmitting,
+    setSuccess,
+    setLastSavedOrderSummary,
     setLoadingDistributorItems,
     setActivePoProductField,
-    setPoProductFormTarget,
     setShowOrderForm,
     orderSubmitLockRef,
     orderSubmitting,
@@ -240,20 +226,24 @@ const usePurchaseManagementHandlers = ({
     fetchOrders,
     isPoEditable,
     toDateInputValue,
-  });
-
-  const { loadLastPurchaseSuggestion } = usePurchaseLastPurchaseSuggestions({
-    productsApi,
+    getDistributorProductHistoryEntry,
+    getLatestProductHistoryEntry,
+    loadLastPurchaseSuggestion,
+    resolvePurchaseUnitForProduct,
+    normalizeGstRateOption,
+    onOrderSaved,
   });
 
   const {
-    handleOrderItemChange, handleOrderProductInputChange,
+    handleOrderItemChange, handleOrderProductInputChange, handleApplyCatalogProducts,
   } = usePurchaseOrderItemHandlers({
     setOrderFormData,
     products,
+    createEmptyOrderItem,
     loadLastPurchaseSuggestion,
     distributorId: orderFormData?.distributor_id,
     getDistributorProductHistoryEntry,
+    getLatestProductHistoryEntry,
     resolveProductByInput,
     getProductSearchLabel,
     resolvePurchaseUnitForProduct,
@@ -464,22 +454,22 @@ const usePurchaseManagementHandlers = ({
 
   return {
     getDistributorProductOptions,
+    getDistributorHistoryProducts,
     handleDistributorInputChange,
     handleOrderItemAdd, handleOrderItemRemove, handleOrderProductFieldFocus,
     handleLoadDistributorItems,
-    handleOpenPoProductForm,
-    closePoProductForm: closePoProductFormLocal,
-    handleInlinePoProductCreate,
-    handlePoProductSave,
+    handleApplySupplierHistoryItem,
     handleFilterChange,
     openCreateOrderForm,
     openCreateOrderFormForDistributor,
     closeOrderForm,
     handlePurchaseSectionChange,
+    handleOpenOrderReview,
     handleOrderSubmit,
     handleEditOrder,
     handleOrderItemChange,
     handleOrderProductInputChange,
+    handleApplyCatalogProducts,
     handleUpdateStatus: handleUpdateStatusInternal,
     handleSendDistributorWhatsApp,
     handleDeleteOrder,

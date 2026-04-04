@@ -13,13 +13,53 @@ const hasMeaningfulPoItem = (item = {}) => (
   || Number(item?.last_purchase_rate || 0) > 0
 );
 
+const getCompactRowSignals = (rowDiagnostics = {}) => {
+  const signals = [];
+  const appendSignal = (tone, label, title) => {
+    if (!label || signals.length >= 2) return;
+    signals.push({ tone, label, title });
+  };
+
+  if (rowDiagnostics.duplicateMessage) {
+    appendSignal('danger', 'Duplicate', rowDiagnostics.duplicateMessage);
+  }
+  if (rowDiagnostics.discountBlockingMessage) {
+    appendSignal('danger', 'Fix discount', rowDiagnostics.discountBlockingMessage);
+  }
+  if (rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountWarningMessage) {
+    appendSignal(
+      'bad',
+      'Discount check',
+      rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountWarningMessage
+    );
+  }
+  if (rowDiagnostics.rateAcknowledgementMessage) {
+    appendSignal('danger', 'Rate check', rowDiagnostics.rateAcknowledgementMessage);
+  } else if (rowDiagnostics.rateWarningMessage && rowDiagnostics.rateChangeLabel) {
+    appendSignal(
+      rowDiagnostics.rateChangeTone || 'neutral',
+      rowDiagnostics.rateChangeLabel,
+      rowDiagnostics.rateWarningMessage
+    );
+  }
+  if (!signals.length && rowDiagnostics.discountAppliedLabel) {
+    appendSignal('neutral', 'Discount', rowDiagnostics.discountAppliedLabel);
+  }
+  if (!signals.length && rowDiagnostics.rateAcknowledgedLabel) {
+    appendSignal('good', 'Rate ok', rowDiagnostics.rateAcknowledgedLabel);
+  }
+  if (!signals.length && rowDiagnostics.discountAcknowledgedLabel) {
+    appendSignal('good', 'Discount ok', rowDiagnostics.discountAcknowledgedLabel);
+  }
+
+  return signals;
+};
+
 const PurchaseOrderPosListCard = memo(({
   index,
   row,
   rowDiagnostics,
-  normalizedRowsLength,
   activeItemIndex,
-  orderFullMode,
   onSelectItem,
   onRemoveItem,
 }) => {
@@ -29,17 +69,15 @@ const PurchaseOrderPosListCard = memo(({
   const isDraft = !hasMeaningfulPoItem(item);
   const displayUom = String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
   const enteredQuantity = Math.max(0, Number(line.quantity || item?.quantity || 0));
-  const grossPerDisplayUnit = enteredQuantity > 0 ? Number(line.grossAmount || 0) / enteredQuantity : 0;
-  const taxablePerDisplayUnit = enteredQuantity > 0 ? Number(line.taxableValue || 0) / enteredQuantity : 0;
-  const effectivePerDisplayUnit = enteredQuantity > 0 ? Number(line.totalAmount || 0) / enteredQuantity : 0;
   const lastPurchaseMeta = getLastPurchaseMeta(item);
   const lastPurchaseLabel = lastPurchaseMeta.hasValue
     ? [
         lastPurchaseMeta.rate > 0 ? `Last ${formatCurrency(lastPurchaseMeta.rate)}` : 'Last purchase',
-        lastPurchaseMeta.distributorName ? `Distributor: ${lastPurchaseMeta.distributorName}` : '',
         lastPurchaseMeta.ageLabel || lastPurchaseMeta.dateLabel,
-      ].filter(Boolean).join(' | ') || lastPurchaseMeta.fallbackHint
+      ].filter(Boolean).join(' • ') || lastPurchaseMeta.fallbackHint
     : '';
+  const compactSignals = getCompactRowSignals(rowDiagnostics);
+  const showLastPurchaseNote = !compactSignals.length && lastPurchaseLabel;
 
   return (
     <div
@@ -54,85 +92,49 @@ const PurchaseOrderPosListCard = memo(({
         }
       }}
     >
-      <div className="po-pos-item-card-top">
+      <div className="po-pos-item-card-main">
         <div className="po-pos-item-title">
-          <strong>{displayName}</strong>
-          <div className="po-pos-item-tags">
-            {index === activeItemIndex ? <span className="active">Active</span> : null}
-            {index === normalizedRowsLength - 1 ? <span>Latest</span> : null}
-            {isDraft ? <span className="draft">Draft Row</span> : null}
+          <div className="po-pos-item-headline">
+            <span className="po-pos-item-row-label">Row {index + 1}</span>
+            {isDraft ? <span className="po-pos-item-pill draft">Draft</span> : null}
           </div>
-        </div>
-        <button
-          type="button"
-          className="po-pos-remove-btn"
-          aria-label={`Remove row ${index + 1}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRemoveItem(index);
-          }}
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      <div className="po-pos-item-metrics">
-        <span>
-          {enteredQuantity} {displayUom} | Effective {formatCurrency(effectivePerDisplayUnit)} / {displayUom}
-        </span>
-        <strong>{formatCurrency(line.totalAmount || 0)}</strong>
-      </div>
-
-      {orderFullMode ? (
-        <div className="po-pos-item-submetrics">
-          <span>Base {formatCurrency(grossPerDisplayUnit)} / {displayUom}</span>
-          {Number(line.discountAmount || 0) > 0 ? (
-            <span>Discount {formatCurrency(line.discountAmount || 0)}</span>
+          <strong title={displayName}>{displayName}</strong>
+          <div className="po-pos-item-meta">
+            <span>{enteredQuantity} {displayUom}</span>
+          </div>
+          {showLastPurchaseNote ? (
+            <p className="po-pos-item-note" title={lastPurchaseMeta.fallbackHint || lastPurchaseLabel}>
+              {lastPurchaseLabel}
+            </p>
           ) : null}
-          <span>Net {formatCurrency(taxablePerDisplayUnit)} / {displayUom}</span>
-          <span>Tax {formatCurrency(line.taxAmount || 0)}</span>
-          <span>GST {Number(line.gstRate || 0).toFixed(0)}%</span>
         </div>
-      ) : null}
+        <div className="po-pos-item-side">
+          <strong>{formatCurrency(line.totalAmount || 0)}</strong>
+          <button
+            type="button"
+            className="po-pos-remove-btn"
+            aria-label={`Remove row ${index + 1}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRemoveItem(index);
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
 
-      {lastPurchaseLabel || rowDiagnostics.rateChangeLabel || rowDiagnostics.rateAcknowledgementMessage || rowDiagnostics.rateAcknowledgedLabel || rowDiagnostics.discountAppliedLabel || rowDiagnostics.discountWarningMessage || rowDiagnostics.discountAcknowledgedLabel || rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountBlockingMessage || rowDiagnostics.duplicateMessage ? (
+      {compactSignals.length ? (
         <div className="po-pos-item-status" aria-live="polite">
-          {lastPurchaseLabel ? <span className="po-pos-status-chip info">{lastPurchaseLabel}</span> : null}
-          {lastPurchaseMeta.poNumber ? (
-            <span className="po-pos-status-chip neutral">PO {lastPurchaseMeta.poNumber}</span>
-          ) : null}
-          {rowDiagnostics.rateChangeLabel ? (
+          {compactSignals.map((signal) => (
             <span
-              className={`po-pos-status-chip ${rowDiagnostics.rateChangeTone || 'neutral'}`}
-              title={rowDiagnostics.rateWarningMessage || undefined}
+              key={`${index}-${signal.label}-${signal.tone}`}
+              className={`po-pos-status-chip ${signal.tone || 'neutral'}`}
+              title={signal.title || undefined}
             >
-              {rowDiagnostics.rateChangeLabel}
+              {signal.label}
             </span>
-          ) : null}
-          {rowDiagnostics.rateAcknowledgementMessage ? (
-            <span className="po-pos-status-chip danger">{rowDiagnostics.rateAcknowledgementMessage}</span>
-          ) : null}
-          {rowDiagnostics.rateAcknowledgedLabel ? (
-            <span className="po-pos-status-chip good">{rowDiagnostics.rateAcknowledgedLabel}</span>
-          ) : null}
-          {rowDiagnostics.discountAppliedLabel ? (
-            <span className="po-pos-status-chip bad">{rowDiagnostics.discountAppliedLabel}</span>
-          ) : null}
-          {rowDiagnostics.discountWarningMessage ? (
-            <span className="po-pos-status-chip bad">{rowDiagnostics.discountWarningMessage}</span>
-          ) : null}
-          {rowDiagnostics.discountAcknowledgementMessage ? (
-            <span className="po-pos-status-chip danger">{rowDiagnostics.discountAcknowledgementMessage}</span>
-          ) : null}
-          {rowDiagnostics.discountAcknowledgedLabel ? (
-            <span className="po-pos-status-chip good">{rowDiagnostics.discountAcknowledgedLabel}</span>
-          ) : null}
-          {rowDiagnostics.discountBlockingMessage ? (
-            <span className="po-pos-status-chip danger">{rowDiagnostics.discountBlockingMessage}</span>
-          ) : null}
-          {rowDiagnostics.duplicateMessage ? (
-            <span className="po-pos-status-chip danger">{rowDiagnostics.duplicateMessage}</span>
-          ) : null}
+          ))}
         </div>
       ) : null}
     </div>
@@ -141,8 +143,6 @@ const PurchaseOrderPosListCard = memo(({
   prevProps.index === nextProps.index
   && prevProps.row === nextProps.row
   && prevProps.activeItemIndex === nextProps.activeItemIndex
-  && prevProps.orderFullMode === nextProps.orderFullMode
-  && prevProps.normalizedRowsLength === nextProps.normalizedRowsLength
   && prevProps.rowDiagnostics.rateChangeLabel === nextProps.rowDiagnostics.rateChangeLabel
   && prevProps.rowDiagnostics.rateChangeTone === nextProps.rowDiagnostics.rateChangeTone
   && prevProps.rowDiagnostics.rateWarningMessage === nextProps.rowDiagnostics.rateWarningMessage
@@ -159,8 +159,6 @@ const PurchaseOrderPosListCard = memo(({
 const PurchaseOrderPosList = ({
   rows,
   activeItemIndex,
-  orderTotals,
-  orderFullMode,
   draftDiagnostics,
   onSelectItem,
   onRemoveItem,
@@ -178,13 +176,8 @@ const PurchaseOrderPosList = ({
     <section className="po-pos-panel po-pos-items-panel">
       <div className="po-pos-panel-header">
         <div>
-          <p className="po-pos-panel-kicker">Live PO Items</p>
-          <h4>{visibleIndexes.length} visible row{visibleIndexes.length === 1 ? '' : 's'}</h4>
-          <p>Click a row to make it active and continue editing in the entry panel.</p>
-        </div>
-        <div className="po-pos-list-summary">
-          <span>Total</span>
-          <strong>{formatCurrency(orderTotals.totalAmount)}</strong>
+          <h4>{visibleIndexes.length} row{visibleIndexes.length === 1 ? '' : 's'}</h4>
+          <p className="po-pos-panel-note">Select row to edit</p>
         </div>
       </div>
 
@@ -198,9 +191,7 @@ const PurchaseOrderPosList = ({
               index={index}
               row={row}
               rowDiagnostics={rowDiagnostics}
-              normalizedRowsLength={normalizedRows.length}
               activeItemIndex={activeItemIndex}
-              orderFullMode={orderFullMode}
               onSelectItem={onSelectItem}
               onRemoveItem={onRemoveItem}
             />
