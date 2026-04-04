@@ -14,6 +14,12 @@ import {
   resolveMediaUrl,
 } from '../api/index.js';
 import { getProductImageSrc, getProductFallbackImage } from '../../../shared/utils/productImage';
+import {
+  clearBackofficePopupHandoff,
+  focusBackofficePopup,
+  readBackofficePopupStatus,
+  writeBackofficePopupHandoff,
+} from '../../../shared/utils/backofficePopup';
 import { truncateUserName } from '../../../shared/utils/formatters';
 import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
 import useIsMobile from '../../../shared/hooks/useIsMobile';
@@ -35,6 +41,7 @@ import useAdminOrderActions from './useAdminOrderActions';
 import useAdminUserActions from './useAdminUserActions';
 import useAdminNavigation from './useAdminNavigation';
 import useAdminEffects from './useAdminEffects';
+import { normalizeCashSummary, normalizeDailyCashTallyEntry } from '../utils/dailyCashSummary';
 
 const useAdminPageController = ({ user }) => {
   const navigate = useNavigate();
@@ -50,6 +57,8 @@ const useAdminPageController = ({ user }) => {
     setStats,
     visitorStats,
     setVisitorStats,
+    todayCashSummary,
+    setTodayCashSummary,
     setCreditAgingSummary,
     setPurchaseOpsSummary,
     products,
@@ -92,14 +101,22 @@ const useAdminPageController = ({ user }) => {
     setBills,
     dailySalesDate,
     setDailySalesDate,
+    dailyCashTally: rawDailyCashTally,
+    setDailyCashTally,
+    dailyCashTallySaving,
+    setDailyCashTallySaving,
     dailySalesLoading,
     setDailySalesLoading,
     dailySalesError,
     setDailySalesError,
+    dailyCashTallyError,
+    setDailyCashTallyError,
     loading,
     setLoading,
     showProductForm,
     setShowProductForm,
+    productFormMode,
+    setProductFormMode,
     editingProduct,
     setEditingProduct,
     editingUser,
@@ -202,6 +219,7 @@ const useAdminPageController = ({ user }) => {
   });
   const [billingShortcutRequest, setBillingShortcutRequest] = useState(0);
   const [purchaseShortcutRequest, setPurchaseShortcutRequest] = useState(0);
+  const [purchaseShortcutPayload, setPurchaseShortcutPayload] = useState(null);
 
   const showNotification = useCallback((message, type) => {
     setNotification({ message, type });
@@ -251,9 +269,12 @@ const useAdminPageController = ({ user }) => {
     setUsersTotal,
     setUsersLoading,
     setVisitorStats,
+    setTodayCashSummary,
     setCreditAgingSummary,
     setPurchaseOpsSummary,
     setBills,
+    setDailyCashTally,
+    setDailyCashTallyError,
     setDailySalesLoading,
     setDailySalesError,
     setLoading,
@@ -329,6 +350,64 @@ const useAdminPageController = ({ user }) => {
     setIsMobileSidebarOpen,
   });
 
+  const handleOpenPurchaseShortcut = useCallback((payload = null) => {
+    const nextPayload = payload && typeof payload === 'object' ? payload : null;
+    const shortcutAction = String(nextPayload?.action || 'create-draft').trim().toLowerCase();
+    const selectedCount = Array.isArray(nextPayload?.suggestedItems) ? nextPayload.suggestedItems.length : 0;
+    const isRestockShortcut = String(nextPayload?.source || '').trim().toLowerCase() === 'restock';
+    const popupStatus = readBackofficePopupStatus('purchase');
+    const popupMessage = shortcutAction === 'open-payment'
+      ? 'Supplier payment opened in popup.'
+      : shortcutAction === 'open-order'
+        ? 'Purchase review opened in popup.'
+        : (
+          selectedCount > 0
+            ? `PO request sent to popup with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
+            : 'PO request sent to popup.'
+        );
+    const inlineMessage = shortcutAction === 'open-payment'
+      ? 'Supplier payment opened.'
+      : shortcutAction === 'open-order'
+        ? 'Purchase review opened.'
+        : (
+          selectedCount > 0
+            ? `PO draft opened with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
+            : 'PO draft opened.'
+        );
+
+    if (!isRestockShortcut && popupStatus?.isOpen && nextPayload) {
+      const handoff = writeBackofficePopupHandoff('purchase', nextPayload);
+      const popupResult = focusBackofficePopup('purchase');
+      if (popupResult.status !== 'blocked') {
+        showNotification(popupMessage, 'success');
+        return;
+      }
+      clearBackofficePopupHandoff('purchase', handoff.id);
+    }
+
+    setPurchaseShortcutPayload(nextPayload);
+    setPurchaseShortcutRequest((current) => current + 1);
+    if (!isRestockShortcut) {
+      handleTabChange('purchases');
+    }
+    showNotification(inlineMessage, 'success');
+  }, [handleTabChange, showNotification]);
+
+  const handleClosePurchaseShortcutDraft = useCallback((details = {}) => {
+    setPurchaseShortcutPayload(null);
+    setPurchaseShortcutRequest(0);
+    const returnTab = String(details?.returnTab || 'restock-dashboard').trim() || 'restock-dashboard';
+    const reason = String(details?.reason || '').trim().toLowerCase();
+    if (reason === 'deferred') {
+      showNotification('Restock selection kept. Retry when ready.', 'success');
+    } else if (reason === 'empty') {
+      showNotification('PO closed because no restock items remain.', 'success');
+    } else if (reason === 'cancel') {
+      showNotification('PO cancelled and returned to restock.', 'success');
+    }
+    handleTabChange(returnTab);
+  }, [handleTabChange, showNotification]);
+
   useLockBodyScroll(isMobileSidebarOpen);
 
   useEffect(() => {
@@ -349,11 +428,27 @@ const useAdminPageController = ({ user }) => {
       if (activeTab !== 'purchases') {
         setActiveTab('purchases');
       }
+      setPurchaseShortcutPayload(null);
       setPurchaseShortcutRequest((current) => current + 1);
     }
 
     setSearchParams(next, { replace: true });
   }, [activeTab, searchParams, setActiveTab, setSearchParams]);
+
+  useEffect(() => {
+    const formMode = String(searchParams.get('productForm') || '').trim().toLowerCase();
+    if (!formMode) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('productForm');
+    setSearchParams(next, { replace: true });
+
+    if (activeTab !== 'products') {
+      setActiveTab('products');
+    }
+    setEditingProduct(null);
+    setProductFormMode(formMode === 'quick' ? 'quick' : 'full');
+    setShowProductForm(true);
+  }, [activeTab, searchParams, setActiveTab, setEditingProduct, setProductFormMode, setSearchParams, setShowProductForm]);
 
   useAdminEffects({
     user,
@@ -408,6 +503,7 @@ const useAdminPageController = ({ user }) => {
     showNotification,
     setEditingProduct,
     setShowProductForm,
+    setProductFormMode,
     setProductEditLoadingId,
     editingProduct,
     loadProductsPage,
@@ -471,6 +567,7 @@ const useAdminPageController = ({ user }) => {
     lowStockProducts,
     recentCustomers,
     selectedDateKey,
+    dailyCashTally,
     selectedSalesBills,
     dailySalesSummary,
     topSellingProducts,
@@ -486,6 +583,7 @@ const useAdminPageController = ({ user }) => {
     recentCustomersPreview,
     bills,
     dailySalesDate,
+    dailyCashTally: rawDailyCashTally,
     toLocalDateKey,
     asNumber,
     getCategoryPath,
@@ -584,6 +682,58 @@ const useAdminPageController = ({ user }) => {
   });
 
   const effectiveProductViewMode = isMobile ? 'grid' : productViewMode;
+  const canEditDailyCashTally = String(user?.role || '').trim().toLowerCase() === 'admin';
+  const handleSaveDailyCashTally = useCallback(async ({
+    date,
+    countedCashTotal,
+    note = '',
+  } = {}) => {
+    const dateKey = String(date || '').trim();
+    const amount = Number(countedCashTotal);
+    if (!dateKey) {
+      const message = 'Select a valid date before saving the cash tally.';
+      setDailyCashTallyError(message);
+      showNotification(message, 'error');
+      return { success: false };
+    }
+    if (!Number.isFinite(amount) || amount < 0) {
+      const message = 'Enter a valid non-negative counted cash total.';
+      setDailyCashTallyError(message);
+      showNotification(message, 'error');
+      return { success: false };
+    }
+
+    try {
+      setDailyCashTallySaving(true);
+      setDailyCashTallyError('');
+      const response = await adminApi.upsertDailyCashTally({
+        date: dateKey,
+        counted_cash_total: amount,
+        note,
+      });
+      const normalizedEntry = normalizeDailyCashTallyEntry(response, dateKey);
+      setDailyCashTally(normalizedEntry);
+      if (dateKey === toLocalDateKey(new Date())) {
+        setTodayCashSummary(normalizeCashSummary(response?.summary));
+      }
+      showNotification('Daily cash tally saved.', 'success');
+      return { success: true, entry: normalizedEntry };
+    } catch (error) {
+      const message = error?.message || 'Failed to save daily cash tally';
+      setDailyCashTallyError(message);
+      showNotification(message, 'error');
+      return { success: false, error };
+    } finally {
+      setDailyCashTallySaving(false);
+    }
+  }, [
+    setDailyCashTally,
+    setDailyCashTallyError,
+    setDailyCashTallySaving,
+    setTodayCashSummary,
+    showNotification,
+    toLocalDateKey,
+  ]);
 
   const showProductsImportCard = !isMobile && Boolean(
     importPreviewData?.batch_id
@@ -613,10 +763,15 @@ const useAdminPageController = ({ user }) => {
     setDashboardDensity,
     isMobile,
     stats,
+    todayCashSummary,
     billingShortcutRequest,
     setBillingShortcutRequest,
     purchaseShortcutRequest,
     setPurchaseShortcutRequest,
+    purchaseShortcutPayload,
+    setPurchaseShortcutPayload,
+    handleOpenPurchaseShortcut,
+    handleClosePurchaseShortcutDraft,
     activeProductsCount,
     inactiveProductsCount,
     lowStockProducts,
@@ -632,6 +787,11 @@ const useAdminPageController = ({ user }) => {
     selectedDateKey,
     setDailySalesDate,
     loadDailySalesBills,
+    dailyCashTally,
+    dailyCashTallySaving,
+    dailyCashTallyError,
+    canEditDailyCashTally,
+    handleSaveDailyCashTally,
     dailySalesLoading,
     dailySalesError,
     dailySalesSummary,
@@ -741,6 +901,8 @@ const useAdminPageController = ({ user }) => {
     setBillingPrefill,
     showProductForm,
     setShowProductForm,
+    productFormMode,
+    setProductFormMode,
     editingProduct,
     setEditingProduct,
     handleProductSave,

@@ -1,27 +1,35 @@
 import { useCallback } from 'react';
 
-const normalizeSearchValue = (value) => String(value || '').trim().toLowerCase();
+const normalizeSearchValue = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, ' ');
 
 const usePurchaseLookups = ({
   distributors,
   products,
   purchaseOrders,
   buildOrderDraftItem,
+  createEmptyOrderItem,
   setOrderFormData,
   resolveProductByInputHelper,
   getDistributorProductOptionsHelper,
   getDistributorProductHistoryEntryHelper,
+  getLatestProductHistoryEntryHelper,
   getDistributorHistoryProductsHelper,
 }) => {
   const resolveDistributorByInput = useCallback((value) => {
     const query = normalizeSearchValue(value);
     if (!query) return null;
-    return distributors.find((entry) =>
-      entry.status === 'active' && (
+    return distributors.find((entry) => {
+      const status = String(entry?.status || '').trim().toLowerCase();
+      const isActive = !status || status === 'active';
+      if (!isActive) return false;
+      return (
         String(entry.id) === query
         || String(entry.name || '').trim().toLowerCase() === query
-      )
-    ) || null;
+      );
+    }) || null;
   }, [distributors]);
 
   const resolveProductByInput = useCallback((value) => (
@@ -45,6 +53,14 @@ const usePurchaseLookups = ({
     })
   ), [getDistributorProductHistoryEntryHelper, products, purchaseOrders]);
 
+  const getLatestProductHistoryEntry = useCallback((productId) => (
+    getLatestProductHistoryEntryHelper({
+      productId,
+      products,
+      purchaseOrders,
+    })
+  ), [getLatestProductHistoryEntryHelper, products, purchaseOrders]);
+
   const getDistributorHistoryProducts = useCallback((distributorId) => (
     getDistributorHistoryProductsHelper({
       distributorId,
@@ -56,18 +72,27 @@ const usePurchaseLookups = ({
 
   const handleDistributorInputChange = useCallback((value) => {
     const match = resolveDistributorByInput(value);
-    setOrderFormData((prev) => ({
-      ...prev,
-      distributor_name: value,
-      distributor_id: match ? String(match.id) : '',
-    }));
-  }, [resolveDistributorByInput, setOrderFormData]);
+    setOrderFormData((prev) => {
+      const nextDistributorId = match ? String(match.id) : '';
+      const previousDistributorId = String(prev?.distributor_id || '').trim();
+      const distributorChanged = previousDistributorId !== nextDistributorId;
+      return {
+        ...prev,
+        distributor_name: value,
+        distributor_id: nextDistributorId,
+        items: distributorChanged
+          ? [createEmptyOrderItem()]
+          : prev.items,
+      };
+    });
+  }, [createEmptyOrderItem, resolveDistributorByInput, setOrderFormData]);
 
   return {
     resolveDistributorByInput,
     resolveProductByInput,
     getDistributorProductOptions,
     getDistributorProductHistoryEntry,
+    getLatestProductHistoryEntry,
     getDistributorHistoryProducts,
     handleDistributorInputChange,
   };

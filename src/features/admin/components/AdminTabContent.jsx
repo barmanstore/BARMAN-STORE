@@ -18,6 +18,7 @@ const OfferManagement = lazy(() => import('../../marketing/OfferManagement'));
 const OrdersSection = lazy(() => import('../sections/OrdersSection'));
 const ProductInsights = lazy(() => import('../../insights/ProductInsights'));
 const ProductsSection = lazy(() => import('../sections/ProductsSection'));
+const RestockDashboardSection = lazy(() => import('../sections/RestockDashboardSection'));
 const PurchaseManagementPage = lazy(() => import('../../commerce/purchase/pages/PurchaseManagementPage'));
 const StockLedgerHistory = lazy(() => import('../../inventory/StockLedgerHistory'));
 const UsersSection = lazy(() => import('../sections/UsersSection'));
@@ -37,6 +38,7 @@ const AdminTabContent = () => {
     setDashboardDensity,
     isMobile,
     stats,
+    todayCashSummary,
     creditAgingSummary,
     purchaseOpsSummary,
     activeProductsCount,
@@ -55,6 +57,11 @@ const AdminTabContent = () => {
     selectedDateKey,
     setDailySalesDate,
     loadDailySalesBills,
+    dailyCashTally,
+    dailyCashTallySaving,
+    dailyCashTallyError,
+    canEditDailyCashTally,
+    handleSaveDailyCashTally,
     dailySalesLoading,
     dailySalesError,
     dailySalesSummary,
@@ -166,6 +173,10 @@ const AdminTabContent = () => {
     setBillingShortcutRequest,
     purchaseShortcutRequest,
     setPurchaseShortcutRequest,
+    purchaseShortcutPayload,
+    setPurchaseShortcutPayload,
+    handleOpenPurchaseShortcut,
+    handleClosePurchaseShortcutDraft,
     user,
   } = useAdminWorkspaceContext();
 
@@ -186,6 +197,12 @@ const AdminTabContent = () => {
     }
   }, [purchasePopupStatus.isOpen]);
 
+  useEffect(() => {
+    if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+      setAllowInlinePurchase(true);
+    }
+  }, [purchaseShortcutPayload]);
+
   let activePane = null;
   let loadingLabel = 'admin section';
 
@@ -198,9 +215,9 @@ const AdminTabContent = () => {
           setDashboardDensity={setDashboardDensity}
           isMobile={isMobile}
           stats={stats}
+          todayCashSummary={todayCashSummary}
           creditAgingSummary={creditAgingSummary}
           purchaseOpsSummary={purchaseOpsSummary}
-          dailySalesSummary={dailySalesSummary}
           topSellingProducts={topSellingProducts}
           slowMovingProducts={slowMovingProducts}
           pendingOrdersCount={Number(stats?.pendingOrders || 0)}
@@ -213,6 +230,7 @@ const AdminTabContent = () => {
           recentOrders={recentOrders}
           recentCustomers={recentCustomers}
           onTabChange={handleTabChange}
+          onOpenPurchaseOrder={handleOpenPurchaseShortcut}
         />
       );
       break;
@@ -223,6 +241,11 @@ const AdminTabContent = () => {
           selectedDateKey={selectedDateKey}
           onDateChange={setDailySalesDate}
           onRefresh={() => { void loadDailySalesBills({ silent: false, dateKey: selectedDateKey }); }}
+          dailyCashTally={dailyCashTally}
+          dailyCashTallySaving={dailyCashTallySaving}
+          dailyCashTallyError={dailyCashTallyError}
+          canEditDailyCashTally={canEditDailyCashTally}
+          onSaveDailyCashTally={handleSaveDailyCashTally}
           dailySalesLoading={dailySalesLoading}
           dailySalesError={dailySalesError}
           dailySalesSummary={dailySalesSummary}
@@ -305,6 +328,15 @@ const AdminTabContent = () => {
           getProductFallbackImage={getProductFallbackImage}
           getCategoryPath={getCategoryPath}
           getBrandPath={getBrandPath}
+        />
+      );
+      break;
+    case 'restock-dashboard':
+      loadingLabel = 'restock dashboard';
+      activePane = (
+        <RestockDashboardSection
+          onTabChange={handleTabChange}
+          onOpenPurchaseOrder={handleOpenPurchaseShortcut}
         />
       );
       break;
@@ -399,7 +431,12 @@ const AdminTabContent = () => {
         <PurchaseManagementPage
           user={user}
           shortcutOpenOrderRequest={purchaseShortcutRequest}
-          onShortcutOpenOrderHandled={() => setPurchaseShortcutRequest(0)}
+          shortcutOpenOrderPayload={purchaseShortcutPayload}
+          onShortcutDraftClosed={handleClosePurchaseShortcutDraft}
+          onShortcutOpenOrderHandled={() => {
+            setPurchaseShortcutRequest(0);
+            setPurchaseShortcutPayload(null);
+          }}
         />
       );
       break;
@@ -439,9 +476,9 @@ const AdminTabContent = () => {
           setDashboardDensity={setDashboardDensity}
           isMobile={isMobile}
           stats={stats}
+          todayCashSummary={todayCashSummary}
           creditAgingSummary={creditAgingSummary}
           purchaseOpsSummary={purchaseOpsSummary}
-          dailySalesSummary={dailySalesSummary}
           topSellingProducts={topSellingProducts}
           slowMovingProducts={slowMovingProducts}
           pendingOrdersCount={Number(stats?.pendingOrders || 0)}
@@ -454,6 +491,7 @@ const AdminTabContent = () => {
           recentOrders={recentOrders}
           recentCustomers={recentCustomers}
           onTabChange={handleTabChange}
+          onOpenPurchaseOrder={handleOpenPurchaseShortcut}
         />
       );
   }
@@ -462,6 +500,21 @@ const AdminTabContent = () => {
     <AdminSectionErrorBoundary resetKey={activeTab} sectionLabel={loadingLabel}>
       <Suspense fallback={<AdminTabFallback label={loadingLabel} />}>
         {activePane}
+        {activeTab !== 'purchases' && purchaseShortcutRequest ? (
+          <PurchaseManagementPage
+            user={user}
+            shortcutOpenOrderRequest={purchaseShortcutRequest}
+            shortcutOpenOrderPayload={purchaseShortcutPayload}
+            onShortcutDraftClosed={handleClosePurchaseShortcutDraft}
+            onShortcutOpenOrderHandled={() => {
+              if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+                return;
+              }
+              setPurchaseShortcutRequest(0);
+              setPurchaseShortcutPayload(null);
+            }}
+          />
+        ) : null}
       </Suspense>
     </AdminSectionErrorBoundary>
   );
