@@ -3,6 +3,10 @@ dist
 coverage
 .git
 .vercel
+.local
+Downloads
+.codex-deploy-admin-serialization-fix
+*.docx
 
 # Local env/secrets
 .env
