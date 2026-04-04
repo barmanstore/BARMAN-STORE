@@ -24,6 +24,7 @@ set "MODE=%~1"
 if /i "%MODE%"=="" set "MODE=quick"
 
 if /i "%MODE%"=="help" goto help
+if /i "%MODE%"=="fast" goto fast
 if /i "%MODE%"=="quick" goto quick
 if /i "%MODE%"=="full" goto full
 if /i "%MODE%"=="smoke" goto smoke
@@ -96,6 +97,19 @@ call npm run build || goto fail_step
 echo [SUCCESS] Full health check passed.
 goto success
 
+:fast
+echo ========================================
+echo Health Check (Fast)
+echo ========================================
+where node >nul 2>&1 || (echo [ERROR] Node.js is not installed or not in PATH.& goto fail)
+where npm >nul 2>&1 || (echo [ERROR] npm is not available in PATH.& goto fail)
+echo [1/2] Syntax check server/index.js...
+node --check server/index.js || goto fail_step
+echo [2/2] Scanning staged files for secret leaks...
+call npm run secrets:scan:staged || goto fail_step
+echo [SUCCESS] Fast health check passed.
+goto success
+
 :smoke
 echo ========================================
 echo Health Check (Smoke Suite)
@@ -132,10 +146,12 @@ echo ========================================
 echo Health Check Utility
 echo ========================================
 echo Usage:
+echo   health-check.bat fast
 echo   health-check.bat quick
 echo   health-check.bat full
 echo   health-check.bat smoke
 echo.
+echo fast : syntax check + secret scan
 echo smoke: install (if needed) + all smoke tests
 echo quick: install (if needed), syntax check, core smoke tests
 echo full : quick + secret scan + production build
@@ -146,10 +162,12 @@ echo ========================================
 echo Health Check Utility
 echo ========================================
 echo Usage:
+echo   health-check.bat fast
 echo   health-check.bat quick
 echo   health-check.bat full
 echo   health-check.bat smoke
 echo.
+echo fast : syntax check + secret scan
 echo smoke: install (if needed) + all smoke tests
 echo quick: install (if needed), syntax check, core smoke tests
 echo full : quick + secret scan + production build
