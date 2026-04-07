@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, CheckCheck, Clock, DollarSign, Truck, Wallet } from 'lucide-react';
-import { createClientRequestId, purchaseOrdersApi, distributorsApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
+import { createClientRequestId, purchaseOrdersApi, distributorsApi, suppliersApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
 import { formatCurrency, formatDate } from '../../../../shared/utils/formatters';
 import { getTodayDate, formatDateTime, toLocalDateKey } from '../../../../shared/utils/dateTime';
@@ -126,7 +125,7 @@ const usePurchaseManagementController = ({
 
   const {
     activeSubTab, setActiveSubTab, purchaseOrders, setPurchaseOrders, purchaseReturns, setPurchaseReturns,
-    distributors, setDistributors, products, setProducts, loading, setLoading, error, setError, success, setSuccess,
+    distributors, setDistributors, suppliers, setSuppliers, products, setProducts, loading, setLoading, error, setError, success, setSuccess,
     orderSubmitting, setOrderSubmitting, orderReviewMode, setOrderReviewMode, lastSavedOrderSummary, setLastSavedOrderSummary, orderFormClientRequestId, setOrderFormClientRequestId, orderSubmitLockRef,
     filters, setFilters, showOrderForm, setShowOrderForm,
     showReceiveModal, setShowReceiveModal, receiveSubmitting, setReceiveSubmitting, showReturnForm, setShowReturnForm,
@@ -175,10 +174,12 @@ const usePurchaseManagementController = ({
   });
   const {
     fetchOrders,
+    fetchOperationsSummary,
     fetchReturns,
     fetchDistributorLedger,
   } = usePurchaseDataFetch({
     distributorsApi,
+    suppliersApi,
     productsApi,
     purchaseOrdersApi,
     purchaseReturnsApi,
@@ -191,6 +192,7 @@ const usePurchaseManagementController = ({
     setLoading,
     setError,
     setDistributors,
+    setSuppliers,
     setProducts,
     setPurchaseOrders,
     setOperationsLoading,
@@ -229,6 +231,101 @@ const usePurchaseManagementController = ({
     setLastSavedOrderSummary(null);
   }, [setLastSavedOrderSummary]);
 
+  const patchSupplierVisitSummary = useCallback((supplierIdValue, dateValue, updates = {}) => {
+    const supplierId = Number(supplierIdValue || 0) || null;
+    const dateKey = toDateInputValue(dateValue || getTodayDate());
+    if (!supplierId || !dateKey) return;
+    setOperationsSummary((current) => {
+      const baseSummary = current && typeof current === 'object'
+        ? current
+        : createDefaultOperationsSummary();
+      const currentVisits = Array.isArray(baseSummary?.supplier_visits)
+        ? baseSummary.supplier_visits
+        : [];
+      const nextVisits = [...currentVisits];
+      const visitIndex = nextVisits.findIndex((entry) => (
+        Number(entry?.supplier_id || 0) === supplierId
+        && String(entry?.date || '').trim() === dateKey
+      ));
+      const existingVisit = visitIndex >= 0 ? nextVisits[visitIndex] : null;
+      const nextVisit = {
+        supplier_id: supplierId,
+        date: dateKey,
+        poDone: Boolean(existingVisit?.poDone),
+        paymentDone: Boolean(existingVisit?.paymentDone),
+        visitClosed: Boolean(existingVisit?.visitClosed),
+        ...existingVisit,
+        ...updates,
+      };
+      nextVisit.isHandled = Boolean(nextVisit.poDone || nextVisit.visitClosed);
+      if (visitIndex >= 0) {
+        nextVisits[visitIndex] = nextVisit;
+      } else {
+        nextVisits.push(nextVisit);
+      }
+      return {
+        ...baseSummary,
+        supplier_visits: nextVisits,
+      };
+    });
+  }, [getTodayDate, setOperationsSummary]);
+
+  const handleCloseSupplierVisit = useCallback(async ({ supplierId, date } = {}) => {
+    const normalizedSupplierId = Number(supplierId || 0) || null;
+    const visitDate = toDateInputValue(date || getTodayDate());
+    if (!normalizedSupplierId || !visitDate) return false;
+    setError('');
+    patchSupplierVisitSummary(normalizedSupplierId, visitDate, { visitClosed: true });
+    try {
+      await purchaseOrdersApi.closeVisit({
+        supplier_id: normalizedSupplierId,
+        date: visitDate,
+      });
+      await fetchOperationsSummary();
+      setSuccess('Supplier visit closed.');
+      return true;
+    } catch (err) {
+      await fetchOperationsSummary();
+      setError(getPurchaseRequestErrorMessage(err, 'Failed to close supplier visit'));
+      return false;
+    }
+  }, [
+    fetchOperationsSummary,
+    getPurchaseRequestErrorMessage,
+    getTodayDate,
+    patchSupplierVisitSummary,
+    setError,
+    setSuccess,
+  ]);
+
+  const handleReopenSupplierVisit = useCallback(async ({ supplierId, date } = {}) => {
+    const normalizedSupplierId = Number(supplierId || 0) || null;
+    const visitDate = toDateInputValue(date || getTodayDate());
+    if (!normalizedSupplierId || !visitDate) return false;
+    setError('');
+    patchSupplierVisitSummary(normalizedSupplierId, visitDate, { visitClosed: false });
+    try {
+      await purchaseOrdersApi.reopenVisit({
+        supplier_id: normalizedSupplierId,
+        date: visitDate,
+      });
+      await fetchOperationsSummary();
+      setSuccess('Supplier visit reopened.');
+      return true;
+    } catch (err) {
+      await fetchOperationsSummary();
+      setError(getPurchaseRequestErrorMessage(err, 'Failed to reopen supplier visit'));
+      return false;
+    }
+  }, [
+    fetchOperationsSummary,
+    getPurchaseRequestErrorMessage,
+    getTodayDate,
+    patchSupplierVisitSummary,
+    setError,
+    setSuccess,
+  ]);
+
   const clearShortcutDraftContext = useCallback(() => {
     shortcutDraftHadMeaningfulItemsRef.current = false;
     setShortcutDraftContext(null);
@@ -244,14 +341,14 @@ const usePurchaseManagementController = ({
     persistSavedOrderDrafts((current) => current.filter((entry) => entry.id !== activeSavedOrderDraftId));
     setActiveSavedOrderDraftId('');
   }, [activeSavedOrderDraftId, persistSavedOrderDrafts]);
-  const [supplierRegisteredProductsByDistributor, setSupplierRegisteredProductsByDistributor] = useState({});
+  const [supplierRegisteredProductsBySupplier, setSupplierRegisteredProductsBySupplier] = useState({});
   const seededSupplierBoardKeyRef = useRef('');
 
-  const loadDistributorRegisteredProducts = useCallback(async (distributorId, options = {}) => {
-    const normalizedDistributorId = String(distributorId || '').trim();
-    if (!normalizedDistributorId) return [];
-    if (!options.force && Object.prototype.hasOwnProperty.call(supplierRegisteredProductsByDistributor, normalizedDistributorId)) {
-      return supplierRegisteredProductsByDistributor[normalizedDistributorId] || [];
+  const loadSupplierRegisteredProducts = useCallback(async (supplierId, options = {}) => {
+    const normalizedSupplierId = String(supplierId || '').trim();
+    if (!normalizedSupplierId) return [];
+    if (!options.force && Object.prototype.hasOwnProperty.call(supplierRegisteredProductsBySupplier, normalizedSupplierId)) {
+      return supplierRegisteredProductsBySupplier[normalizedSupplierId] || [];
     }
 
     if (!options.silent) {
@@ -259,20 +356,20 @@ const usePurchaseManagementController = ({
     }
 
     try {
-      const response = await distributorsApi.getProducts(normalizedDistributorId);
+      const response = await suppliersApi.getProducts(normalizedSupplierId);
       const nextProducts = Array.isArray(response) ? response : [];
-      setSupplierRegisteredProductsByDistributor((prev) => ({
+      setSupplierRegisteredProductsBySupplier((prev) => ({
         ...prev,
-        [normalizedDistributorId]: nextProducts,
+        [normalizedSupplierId]: nextProducts,
       }));
       return nextProducts;
     } catch (error) {
-      setSupplierRegisteredProductsByDistributor((prev) => (
-        Object.prototype.hasOwnProperty.call(prev, normalizedDistributorId)
+      setSupplierRegisteredProductsBySupplier((prev) => (
+        Object.prototype.hasOwnProperty.call(prev, normalizedSupplierId)
           ? prev
           : {
               ...prev,
-              [normalizedDistributorId]: [],
+              [normalizedSupplierId]: [],
             }
       ));
       if (!options.silent) {
@@ -287,8 +384,16 @@ const usePurchaseManagementController = ({
   }, [
     setError,
     setLoadingDistributorItems,
-    supplierRegisteredProductsByDistributor,
+    supplierRegisteredProductsBySupplier,
   ]);
+  const refreshSupplierRegisteredProducts = useCallback(async (supplierId) => {
+    const normalizedSupplierId = String(supplierId || '').trim();
+    if (!normalizedSupplierId) return [];
+    return loadSupplierRegisteredProducts(normalizedSupplierId, {
+      force: true,
+      silent: true,
+    });
+  }, [loadSupplierRegisteredProducts]);
 
   const buildSupplierDefaultOrderItem = useCallback((registeredProduct = null, distributorId = '') => {
     const productId = String(registeredProduct?.product_id || registeredProduct?.id || '').trim();
@@ -441,11 +546,12 @@ const usePurchaseManagementController = ({
     return nextItems;
   }, [buildSupplierDefaultOrderItem]);
   const selectedOrderDistributorId = String(orderFormData?.distributor_id || '').trim();
-  const selectedSupplierRegisteredProducts = selectedOrderDistributorId
-    ? (supplierRegisteredProductsByDistributor[selectedOrderDistributorId] || [])
+  const selectedOrderSupplierId = String(orderFormData?.supplier_id || '').trim();
+  const selectedSupplierRegisteredProducts = selectedOrderSupplierId
+    ? (supplierRegisteredProductsBySupplier[selectedOrderSupplierId] || [])
     : [];
-  const hasLoadedSelectedSupplierRegisteredProducts = selectedOrderDistributorId
-    ? Object.prototype.hasOwnProperty.call(supplierRegisteredProductsByDistributor, selectedOrderDistributorId)
+  const hasLoadedSelectedSupplierRegisteredProducts = selectedOrderSupplierId
+    ? Object.prototype.hasOwnProperty.call(supplierRegisteredProductsBySupplier, selectedOrderSupplierId)
     : false;
 
   const {
@@ -507,6 +613,7 @@ const usePurchaseManagementController = ({
     getItemFinancials,
   } = usePurchaseManagementHandlers({
     distributors,
+    suppliers,
     products,
     purchaseOrders,
     orderFormData,
@@ -545,6 +652,7 @@ const usePurchaseManagementController = ({
     createClientRequestId,
     getPurchaseRequestErrorMessage,
     fetchOrders,
+    fetchOperationsSummary,
     isPoEditable,
     toDateInputValue,
     productsApi,
@@ -631,6 +739,7 @@ const usePurchaseManagementController = ({
     escapeHtml,
     printHtmlDocument,
     onOrderSaved: handleOrderSaved,
+    refreshSupplierRegisteredProducts,
   });
 
   const handleShortcutDraftClosed = useCallback((reason = 'cancel') => {
@@ -732,6 +841,9 @@ const usePurchaseManagementController = ({
     if (payload?.distributorId) {
       openCreateOrderFormForDistributor(payload.distributorId, {
         distributor_name: payload.distributorName || '',
+        supplier_id: payload.supplierId || '',
+        supplier_name: payload.supplierName || '',
+        planned_order_date: payload.plannedOrderDate || payload.expectedDelivery || '',
         expected_delivery: payload.expectedDelivery || '',
         notes: payload.notes || '',
         suggested_items: suggestedItems,
@@ -748,6 +860,7 @@ const usePurchaseManagementController = ({
     }
 
     openCreateOrderForm({
+      planned_order_date: payload?.plannedOrderDate || payload?.expectedDelivery || '',
       expected_delivery: payload?.expectedDelivery || '',
       notes: payload?.notes || '',
       suggested_items: isRestockShortcut ? [] : suggestedItems,
@@ -764,6 +877,16 @@ const usePurchaseManagementController = ({
   ]);
 
   const defaultOrderFormData = getDefaultOrderFormData();
+  const normalizeRestoredOrderForm = useCallback((value) => {
+    const restoredOrderForm = value && typeof value === 'object' ? value : {};
+    const plannedOrderDate = String(restoredOrderForm?.planned_order_date || '').trim()
+      || toDateInputValue(restoredOrderForm?.expected_delivery)
+      || getTodayDate();
+    return {
+      ...restoredOrderForm,
+      planned_order_date: plannedOrderDate,
+    };
+  }, [getTodayDate, toDateInputValue]);
   const hasMeaningfulOrderItems = Array.isArray(orderFormData?.items)
     && orderFormData.items.some((item) => (
       Number(item?.product_id || item?.productId || 0) > 0
@@ -775,11 +898,14 @@ const usePurchaseManagementController = ({
     showOrderForm
     && (
       editingOrderId
+      || String(orderFormData?.supplier_id || '').trim()
+      || String(orderFormData?.supplier_name || '').trim()
       || String(orderFormData?.distributor_id || '').trim()
       || String(orderFormData?.distributor_name || '').trim()
       || String(orderFormData?.strict_due_date || '').trim()
       || String(orderFormData?.strict_due_note || '').trim()
       || String(orderFormData?.notes || '').trim()
+      || String(orderFormData?.planned_order_date || '').trim() !== String(defaultOrderFormData.planned_order_date || '').trim()
       || String(orderFormData?.expected_delivery || '').trim() !== String(defaultOrderFormData.expected_delivery || '').trim()
       || hasMeaningfulOrderItems
     )
@@ -869,28 +995,71 @@ const usePurchaseManagementController = ({
   ]);
 
   useEffect(() => {
+    if (!showOrderForm) return;
+    const supplierId = String(orderFormData?.supplier_id || '').trim();
+    if (!supplierId) return;
+    const supplier = (Array.isArray(suppliers) ? suppliers : []).find(
+      (entry) => String(entry?.id || '') === supplierId && entry?.is_active !== false
+    );
+    if (!supplier) return;
+    const supplierDistributorId = String(supplier?.distributor_id || '').trim();
+    setOrderFormData((prev) => {
+      if (String(prev?.supplier_id || '').trim() !== supplierId) return prev;
+      const next = { ...prev };
+      let updated = false;
+      if (!String(prev?.supplier_name || '').trim()) {
+        next.supplier_name = supplier?.name || '';
+        updated = true;
+      }
+      if (supplierDistributorId && String(prev?.distributor_id || '').trim() !== supplierDistributorId) {
+        next.distributor_id = supplierDistributorId;
+        updated = true;
+      }
+      if (supplierDistributorId && !String(prev?.distributor_name || '').trim()) {
+        const matchedDistributor = (Array.isArray(distributors) ? distributors : []).find(
+          (entry) => String(entry?.id || '') === supplierDistributorId
+        );
+        if (matchedDistributor?.name) {
+          next.distributor_name = matchedDistributor.name;
+          updated = true;
+        }
+      }
+      return updated ? next : prev;
+    });
+  }, [
+    distributors,
+    orderFormData?.distributor_id,
+    orderFormData?.distributor_name,
+    orderFormData?.supplier_id,
+    orderFormData?.supplier_name,
+    setOrderFormData,
+    showOrderForm,
+    suppliers,
+  ]);
+
+  useEffect(() => {
     if (!showOrderForm || editingOrderId) {
       seededSupplierBoardKeyRef.current = '';
       return;
     }
-    if (!selectedOrderDistributorId) {
+    if (!selectedOrderSupplierId) {
       seededSupplierBoardKeyRef.current = '';
       return;
     }
     if (hasLoadedSelectedSupplierRegisteredProducts) {
       return;
     }
-    void loadDistributorRegisteredProducts(selectedOrderDistributorId);
+    void loadSupplierRegisteredProducts(selectedOrderSupplierId);
   }, [
     editingOrderId,
     hasLoadedSelectedSupplierRegisteredProducts,
-    loadDistributorRegisteredProducts,
-    selectedOrderDistributorId,
+    loadSupplierRegisteredProducts,
+    selectedOrderSupplierId,
     showOrderForm,
   ]);
 
   useEffect(() => {
-    if (!showOrderForm || editingOrderId || !selectedOrderDistributorId) {
+    if (!showOrderForm || editingOrderId || !selectedOrderSupplierId) {
       return;
     }
     if (!hasLoadedSelectedSupplierRegisteredProducts) {
@@ -901,13 +1070,13 @@ const usePurchaseManagementController = ({
       .map((entry) => String(entry?.product_id || entry?.id || '').trim())
       .filter(Boolean)
       .join(',');
-    const nextSeedKey = `${selectedOrderDistributorId}:${registeredIds}`;
+    const nextSeedKey = `${selectedOrderSupplierId}:${registeredIds}`;
     if (seededSupplierBoardKeyRef.current === nextSeedKey) {
       return;
     }
 
     setOrderFormData((prev) => {
-      if (String(prev?.distributor_id || '').trim() !== selectedOrderDistributorId) {
+      if (String(prev?.supplier_id || '').trim() !== selectedOrderSupplierId) {
         return prev;
       }
       return {
@@ -925,6 +1094,7 @@ const usePurchaseManagementController = ({
     editingOrderId,
     hasLoadedSelectedSupplierRegisteredProducts,
     selectedOrderDistributorId,
+    selectedOrderSupplierId,
     selectedSupplierRegisteredProducts,
     setOrderFormData,
     showOrderForm,
@@ -933,13 +1103,13 @@ const usePurchaseManagementController = ({
   useEffect(() => {
     if (!showOrderForm || editingOrderId || orderReviewMode) return;
     if (!restockPendingSelection?.items?.length) return;
-    if (!selectedOrderDistributorId || !hasLoadedSelectedSupplierRegisteredProducts) return;
+    if (!selectedOrderSupplierId || !hasLoadedSelectedSupplierRegisteredProducts) return;
 
     const pendingKey = String(restockPendingSelection.key || '');
     if (pendingKey && restockPendingApplyRef.current === pendingKey) return;
 
     setOrderFormData((prev) => {
-      if (String(prev?.distributor_id || '').trim() !== selectedOrderDistributorId) {
+      if (String(prev?.supplier_id || '').trim() !== selectedOrderSupplierId) {
         return prev;
       }
       const currentItems = Array.isArray(prev?.items) ? prev.items : [];
@@ -1012,6 +1182,7 @@ const usePurchaseManagementController = ({
     products,
     restockPendingSelection,
     selectedOrderDistributorId,
+    selectedOrderSupplierId,
     setOrderFormData,
     showOrderForm,
     toNumber,
@@ -1198,11 +1369,14 @@ const usePurchaseManagementController = ({
     && showOrderForm
     && !editingOrderId
     && (
-      String(orderFormData?.distributor_id || '').trim()
+      String(orderFormData?.supplier_id || '').trim()
+      || String(orderFormData?.supplier_name || '').trim()
+      || String(orderFormData?.distributor_id || '').trim()
       || String(orderFormData?.distributor_name || '').trim()
       || String(orderFormData?.strict_due_date || '').trim()
       || String(orderFormData?.strict_due_note || '').trim()
       || String(orderFormData?.notes || '').trim()
+      || String(orderFormData?.planned_order_date || '').trim() !== String(defaultOrderFormData.planned_order_date || '').trim()
       || String(orderFormData?.expected_delivery || '').trim() !== String(defaultOrderFormData.expected_delivery || '').trim()
       || hasMeaningfulOrderItems
     )
@@ -1222,7 +1396,7 @@ const usePurchaseManagementController = ({
     },
     onRestore: (draft) => {
       const restoredOrderForm = draft?.orderFormData && typeof draft.orderFormData === 'object'
-        ? draft.orderFormData
+        ? normalizeRestoredOrderForm(draft.orderFormData)
         : null;
       if (!restoredOrderForm) return;
       restoredPopupDraftRef.current = true;
@@ -1274,7 +1448,6 @@ const usePurchaseManagementController = ({
     orderDraftProjection,
     orderTotals,
     ledgerBalanceSummary,
-    operationsCardItems,
     orderDetailSupplier,
     orderDetailIsEditable,
     orderProductOptions,
@@ -1309,16 +1482,7 @@ const usePurchaseManagementController = ({
     getPoPaymentStatus,
     getLedgerRowStatusClass,
     normalizePoPaymentStatus,
-    formatCurrency,
     toNumber,
-    icons: {
-      Wallet,
-      DollarSign,
-      AlertTriangle,
-      CheckCheck,
-      Clock,
-      Truck,
-    },
   });
   const {
     orderDetailItems,
@@ -1356,7 +1520,7 @@ const usePurchaseManagementController = ({
     const now = Date.now();
     const shouldCreateNewDraft = Boolean(activeSavedOrderDraftId && draftSaveCountRef.current > 0);
     const nextDraftId = shouldCreateNewDraft ? `purchase-draft-${now}` : (activeSavedOrderDraftId || `purchase-draft-${now}`);
-    const supplierName = String(orderFormData?.distributor_name || '').trim();
+    const supplierName = String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim();
     const meaningfulItemCount = orderDraftProjection.rows.filter((row) => Number(row?.item?.product_id || 0) > 0).length;
     const draftTitle = supplierName
       ? `${supplierName} draft`
@@ -1427,7 +1591,7 @@ const usePurchaseManagementController = ({
     }
 
     const restoredOrderForm = selectedDraft.orderFormData && typeof selectedDraft.orderFormData === 'object'
-      ? selectedDraft.orderFormData
+      ? normalizeRestoredOrderForm(selectedDraft.orderFormData)
       : null;
     if (!restoredOrderForm) {
       setError('Saved draft is missing order details.');
@@ -1477,6 +1641,7 @@ const usePurchaseManagementController = ({
     setShowOrderForm,
     setShortcutDraftContext,
     setSuccess,
+    normalizeRestoredOrderForm,
   ]);
   const deleteSavedOrderDraft = useCallback((draftId) => {
     const deletedDraft = savedOrderDrafts.find((entry) => entry.id === draftId) || null;
@@ -1494,10 +1659,11 @@ const usePurchaseManagementController = ({
   const pageProps = buildPurchaseManagementPageProps(
     {
       loading, error, success, activeSubTab, handlePurchaseSectionChange, operationsSummary, purchaseReturns,
-      operationsLoading, operationsCardItems, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
+      operationsLoading, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
       handleViewOrder, handleOpenPoPaymentById, openCreateOrderForm, handleOpenLedgerForm, handleReturnFormOpen,
+      handleCloseSupplierVisit, handleReopenSupplierVisit,
       lowStockProducts,
-      formatCurrency, toNumber, filters, distributors, handleFilterChange, purchaseOrders, isPoEditable,
+      formatCurrency, toNumber, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
       canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
       handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,
       handleOpenPoCorrectionForm, poCorrectionSubmitting, handleUpdateStatus, handleDeleteOrder,

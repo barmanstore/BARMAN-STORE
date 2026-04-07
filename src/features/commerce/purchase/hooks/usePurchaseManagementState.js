@@ -14,6 +14,7 @@ const usePurchaseManagementState = ({
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [purchaseReturns, setPurchaseReturns] = useState([]);
   const [distributors, setDistributors] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,6 +108,8 @@ const usePurchaseManagementState = ({
     setPurchaseReturns,
     distributors,
     setDistributors,
+    suppliers,
+    setSuppliers,
     products,
     setProducts,
     loading,

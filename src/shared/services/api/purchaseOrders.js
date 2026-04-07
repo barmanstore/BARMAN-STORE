@@ -19,6 +19,16 @@ export const purchaseOrdersApi = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/purchase-operations/summary${query ? `?${query}` : ''}`);
   },
+  closeVisit: (payload = {}) =>
+    apiFetch('/api/purchase-operations/visit/close', {
+      method: 'POST',
+      body: payload,
+    }),
+  reopenVisit: (payload = {}) =>
+    apiFetch('/api/purchase-operations/visit/reopen', {
+      method: 'POST',
+      body: payload,
+    }),
   getById: (id) => apiFetch(`/api/purchase-orders/${id}`),
   create: (orderData) =>
     apiFetch('/api/purchase-orders', {

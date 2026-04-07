@@ -3,6 +3,7 @@ const updatePurchaseOrderWithItems = async (deps, {
   cur,
   items,
   updatedDistributorId,
+  updatedSupplierId,
   updatedNotes,
   updatedExpectedDelivery,
   plannedOrderDate,
@@ -72,10 +73,11 @@ const updatePurchaseOrderWithItems = async (deps, {
     }
     await dbRunAsync(
       `UPDATE purchase_orders
-       SET distributor_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
+       SET distributor_id=?, supplier_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
        WHERE id=?`,
       [
         updatedDistributorId,
+        updatedSupplierId || null,
         updatedNotes || null,
         updatedExpectedDelivery || null,
         plannedOrderDate,
@@ -143,10 +145,14 @@ const updatePurchaseOrderWithItems = async (deps, {
         });
       }
     }
-    await upsertSupplierProductsAsync(updatedDistributorId, normalizedItems);
+    await upsertSupplierProductsAsync(updatedDistributorId, normalizedItems, {
+      supplierId: updatedSupplierId || null,
+    });
   });
 
-  await syncDistributorProductsSuppliedAsync(updatedDistributorId, normalizedItems);
+  await syncDistributorProductsSuppliedAsync(updatedDistributorId, normalizedItems, {
+    supplierId: updatedSupplierId || null,
+  });
   if (nextLifecycleStatus !== currentPoStatus) {
     await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
       fromStatus: currentPoStatus,

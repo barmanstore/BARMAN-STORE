@@ -37,12 +37,15 @@ const usePurchaseOrderDetailHandlers = ({
   findProductForItem,
   getPurchaseRequestErrorMessage,
   fetchOrders,
+  fetchOperationsSummary,
+  refreshSupplierRegisteredProducts,
 }) => {
   const detailDraftHydrationTokenRef = useRef(0);
 
   const buildOrderDetailDraft = useCallback((order) => {
     if (!order) return null;
     return {
+      planned_order_date: toDateInputValue(order.planned_order_date || order.expected_delivery),
       expected_delivery: toDateInputValue(order.expected_delivery),
       strict_due_date: toDateInputValue(order.strict_due_date),
       notes: order.notes || '',
@@ -328,6 +331,7 @@ const usePurchaseOrderDetailHandlers = ({
 
       const payload = buildPurchaseOrderSavePayload({
         distributorId: orderDetail.distributor_id,
+        plannedOrderDate: orderDetailDraft.planned_order_date || orderDetail.planned_order_date || null,
         expectedDelivery: orderDetailDraft.expected_delivery || null,
         strictDueDate: orderDetailDraft.strict_due_date || null,
         strictDueNote: orderDetailDraft.strict_due_note || '',
@@ -336,12 +340,20 @@ const usePurchaseOrderDetailHandlers = ({
         totals: submission.totals,
       });
       await purchaseOrdersApi.update(orderDetail.id, payload);
-      const refreshedOrder = await purchaseOrdersApi.getById(orderDetail.id);
+      const [refreshedOrder] = await Promise.all([
+        purchaseOrdersApi.getById(orderDetail.id),
+        typeof refreshSupplierRegisteredProducts === 'function' && orderDetail?.supplier_id
+          ? refreshSupplierRegisteredProducts(orderDetail.supplier_id)
+          : Promise.resolve([]),
+      ]);
       setOrderDetail(refreshedOrder);
       setOrderDetailDraft(buildOrderDetailDraft(refreshedOrder));
       setOrderDetailEditMode(false);
       setSuccess('Purchase order updated.');
-      await fetchOrders();
+      await Promise.all([
+        fetchOrders(),
+        typeof fetchOperationsSummary === 'function' ? fetchOperationsSummary() : Promise.resolve(),
+      ]);
     } catch (err) {
       setError(getPurchaseRequestErrorMessage(err, 'Failed to update purchase order'));
     } finally {
@@ -359,11 +371,13 @@ const usePurchaseOrderDetailHandlers = ({
     setOrderDetailEditMode,
     setSuccess,
     fetchOrders,
+    fetchOperationsSummary,
     getPurchaseRequestErrorMessage,
     products,
     findProductForItem,
     calculateOrderItem,
     calculateOrderTotals,
+    refreshSupplierRegisteredProducts,
   ]);
 
   const handleViewOrder = useCallback(async (orderId) => {

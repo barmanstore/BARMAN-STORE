@@ -14,6 +14,8 @@ const buildPayables = ({
       po_number: order.po_number,
       distributor_id: Number(order.distributor_id || 0),
       distributor_name: order.distributor_name || '-',
+      supplier_id: Number(order.supplier_id || 0) || null,
+      supplier_name: order.supplier_name || null,
       balance_due: Number(order.balance_due || 0),
       payment_due_date: paymentDueDate,
       overdue_days: overdueDays,

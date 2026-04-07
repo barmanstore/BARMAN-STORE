@@ -1,4 +1,6 @@
-﻿const registerDistributorRoutes = (deps) => {
+const { createSupplierProductBoardUtils } = require('./supplierProductBoardUtils');
+
+const registerDistributorRoutes = (deps) => {
   const {
     app,
     requireAdmin,
@@ -9,7 +11,12 @@
     normalizeBooleanFlag,
     getDistributorLedgerRows,
     handleDistributorLedgerCreate,
+    getPrimarySupplierByDistributorIdAsync,
   } = deps;
+  const supplierProductBoardUtils = createSupplierProductBoardUtils({
+    dbAllAsync,
+    dbGetAsync,
+  });
 
   app.get('/api/distributors', requireAdmin, async (_, res) => {
     try {
@@ -34,95 +41,23 @@
       const distributorId = Number(req.params.id || 0);
       if (!distributorId) return res.status(400).json({ error: 'Invalid distributor id' });
 
-      const rows = await dbAllAsync(
-        `SELECT
-           p.id,
-           p.name,
-           p.brand,
-           p.content,
-           p.price,
-           p.mrp,
-           p.uom,
-           p.base_unit,
-           p.uom_type,
-           p.conversion_factor,
-           p.purchase_pack_size,
-           p.sku,
-           p.barcode,
-           p.image,
-           p.stock,
-           p.category,
-           p.subcategory,
-           p.default_discount,
-           p.discount_type,
-           p.is_active,
-           sp.distributor_id,
-           sp.product_id,
-           sp.last_known_unit_cost_incl_tax,
-           sp.min_order_qty,
-           sp.lead_time_days,
-           sp.is_available,
-           sp.availability_note,
-           sp.last_updated_at as supplier_last_updated_at,
-           MAX(pch.transaction_ts) as last_purchase_at
-         FROM supplier_products sp
-         INNER JOIN products p ON p.id = sp.product_id
-         LEFT JOIN product_cost_history pch
-           ON pch.product_id = sp.product_id
-          AND pch.distributor_id = sp.distributor_id
-         WHERE sp.distributor_id = ?
-           AND COALESCE(sp.is_available, TRUE) = TRUE
-           AND COALESCE(p.is_active, 1) <> 0
-         GROUP BY
-           p.id,
-           p.name,
-           p.brand,
-           p.content,
-           p.price,
-           p.mrp,
-           p.uom,
-           p.base_unit,
-           p.uom_type,
-           p.conversion_factor,
-           p.purchase_pack_size,
-           p.sku,
-           p.barcode,
-           p.image,
-           p.stock,
-           p.category,
-           p.subcategory,
-           p.default_discount,
-           p.discount_type,
-           p.is_active,
-           sp.distributor_id,
-           sp.product_id,
-           sp.last_known_unit_cost_incl_tax,
-           sp.min_order_qty,
-           sp.lead_time_days,
-           sp.is_available,
-           sp.availability_note,
-           sp.last_updated_at
-         ORDER BY LOWER(COALESCE(p.name, '')) ASC, p.id ASC`,
-        [distributorId]
-      );
+      let supplierId = Number(req.query?.supplier_id || 0) || null;
+      if (!supplierId) {
+        const primarySupplier = await getPrimarySupplierByDistributorIdAsync?.(distributorId);
+        supplierId = Number(primarySupplier?.id || 0) || null;
+      }
 
-      const payload = (rows || []).map((row) => ({
-        ...row,
-        id: Number(row.id || 0),
-        distributor_id: Number(row.distributor_id || distributorId || 0),
-        product_id: Number(row.product_id || row.id || 0),
-        price: row.price === null ? null : Number(row.price || 0),
-        mrp: row.mrp === null ? null : Number(row.mrp || 0),
-        conversion_factor: row.conversion_factor === null ? null : Number(row.conversion_factor || 0),
-        purchase_pack_size: row.purchase_pack_size === null ? null : Number(row.purchase_pack_size || 0),
-        stock: row.stock === null ? null : Number(row.stock || 0),
-        default_discount: row.default_discount === null ? null : Number(row.default_discount || 0),
-        last_known_unit_cost_incl_tax: row.last_known_unit_cost_incl_tax === null ? null : Number(row.last_known_unit_cost_incl_tax || 0),
-        min_order_qty: row.min_order_qty === null ? null : Number(row.min_order_qty || 0),
-        lead_time_days: row.lead_time_days === null ? null : Number(row.lead_time_days || 0),
-      }));
+      if (!supplierId) return res.json([]);
 
-      return res.json(payload);
+      const { supplier, rows } = await supplierProductBoardUtils.getSupplierProductBoardAsync({
+        supplierId,
+        distributorId,
+      });
+      if (!supplier) {
+        return res.status(400).json({ error: 'Supplier does not belong to distributor' });
+      }
+
+      return res.json(rows);
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -138,17 +73,14 @@
       });
       const result = await dbRunAsync(
         `INSERT INTO distributors
-         (name, salesman_name, contacts, address, products_supplied, order_day, delivery_day, visit_day, order_cutoff_time, preferred_whatsapp_time, payment_terms, payment_cycle_type, payment_due_days, credit_limit, inactive_reason, auto_suggest_items, auto_reminders_enabled, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (name, salesman_name, contacts, address, products_supplied, order_cutoff_time, preferred_whatsapp_time, payment_terms, payment_cycle_type, payment_due_days, credit_limit, inactive_reason, auto_suggest_items, auto_reminders_enabled, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           String(b.name).trim(),
           b.salesman_name || null,
           b.contacts || null,
           b.address || null,
           b.products_supplied || null,
-          b.order_day || null,
-          b.delivery_day || null,
-          b.visit_day || b.order_day || null,
           b.order_cutoff_time || null,
           b.preferred_whatsapp_time || null,
           b.payment_terms || 'Net 30',
@@ -178,7 +110,7 @@
       });
       await dbRunAsync(
         `UPDATE distributors
-         SET name=?, salesman_name=?, contacts=?, address=?, products_supplied=?, order_day=?, delivery_day=?, visit_day=?, order_cutoff_time=?, preferred_whatsapp_time=?, payment_terms=?, payment_cycle_type=?, payment_due_days=?, credit_limit=?, inactive_reason=?, auto_suggest_items=?, auto_reminders_enabled=?, status=?, updated_at=CURRENT_TIMESTAMP
+         SET name=?, salesman_name=?, contacts=?, address=?, products_supplied=?, order_cutoff_time=?, preferred_whatsapp_time=?, payment_terms=?, payment_cycle_type=?, payment_due_days=?, credit_limit=?, inactive_reason=?, auto_suggest_items=?, auto_reminders_enabled=?, status=?, updated_at=CURRENT_TIMESTAMP
          WHERE id=?`,
         [
           b.name ?? cur.name,
@@ -186,9 +118,6 @@
           b.contacts ?? cur.contacts,
           b.address ?? cur.address,
           b.products_supplied ?? cur.products_supplied,
-          b.order_day ?? cur.order_day,
-          b.delivery_day ?? cur.delivery_day,
-          b.visit_day ?? cur.visit_day ?? cur.order_day,
           b.order_cutoff_time ?? cur.order_cutoff_time,
           b.preferred_whatsapp_time ?? cur.preferred_whatsapp_time,
           b.payment_terms ?? cur.payment_terms,
@@ -210,7 +139,39 @@
 
   app.delete('/api/distributors/:id', requireAdmin, async (req, res) => {
     try {
-      await dbRunAsync(`DELETE FROM distributors WHERE id = ?`, [req.params.id]);
+      const distributorId = Number(req.params.id || 0);
+      if (!distributorId) return res.status(400).json({ error: 'Invalid distributor id' });
+
+      const distributor = await dbGetAsync(`SELECT id, name FROM distributors WHERE id = ?`, [distributorId]);
+      if (!distributor) return res.status(404).json({ error: 'Distributor not found' });
+
+      const supplierCountRow = await dbGetAsync(
+        `SELECT COUNT(*) AS count
+         FROM suppliers
+         WHERE distributor_id = ?`,
+        [distributorId]
+      );
+      const supplierCount = Number(supplierCountRow?.count || 0);
+      if (supplierCount > 0) {
+        return res.status(400).json({
+          error: 'Distributor has supplier records. Mark it inactive instead or move/remove suppliers before delete.',
+        });
+      }
+
+      const poCountRow = await dbGetAsync(
+        `SELECT COUNT(*) AS count
+         FROM purchase_orders
+         WHERE distributor_id = ?`,
+        [distributorId]
+      );
+      const purchaseOrderCount = Number(poCountRow?.count || 0);
+      if (purchaseOrderCount > 0) {
+        return res.status(400).json({
+          error: 'Distributor has purchase-order history. Mark it inactive instead of deleting it.',
+        });
+      }
+
+      await dbRunAsync(`DELETE FROM distributors WHERE id = ?`, [distributorId]);
       return res.json({ success: true });
     } catch (error) {
       return res.status(500).json({ error: error.message });

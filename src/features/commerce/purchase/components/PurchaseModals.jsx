@@ -27,6 +27,7 @@ const PurchaseModals = ({
   orderDraftProjection,
   handleDistributorInputChange,
   distributors,
+  suppliers,
   orderProductOptions,
   products,
   findProductForItem,
@@ -161,6 +162,7 @@ const PurchaseModals = ({
       orderDraftProjection={orderDraftProjection}
       handleDistributorInputChange={handleDistributorInputChange}
       distributors={distributors}
+      suppliers={suppliers}
       orderProductOptions={orderProductOptions}
       getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
       getPurchasePackStep={getPurchasePackStep}

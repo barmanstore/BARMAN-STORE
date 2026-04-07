@@ -7,7 +7,9 @@ const buildPurchaseOrderContext = ({
   calculatePoPaymentSnapshot,
   computePurchasePaymentDueDate,
 }) => {
-  const plannedOrderDate = normalizeTransactionDate(body.planned_order_date || body.expected_delivery || new Date().toISOString())
+  const plannedOrderDate = normalizeTransactionDate(
+    body.planned_order_date || body.expected_delivery || new Date().toISOString()
+  )
     || new Date().toISOString().slice(0, 10);
 
   const duplicateKey = buildPurchaseDuplicateKey({

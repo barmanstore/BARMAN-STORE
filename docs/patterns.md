@@ -20,3 +20,5 @@ See also: [controllers.md](controllers.md), [services.md](services.md), [naming-
 - Add behavior inside an existing feature before creating a new top-level module.
 - Keep data normalization near the domain that needs it.
 - Prefer small helper extraction over broad architectural rewrites.
+- Shared controlled UI primitives that can travel across features should live under `src/shared/components/*`, such as the filter inputs in [src/shared/components/filters/SearchFilter.jsx](../src/shared/components/filters/SearchFilter.jsx), [src/shared/components/filters/DropdownFilter.jsx](../src/shared/components/filters/DropdownFilter.jsx), and [src/shared/components/filters/DateRangeFilter.jsx](../src/shared/components/filters/DateRangeFilter.jsx). When a shared filter needs to support both quick chip rows and longer Amazon-style checklist panels, extend the shared primitive with a bounded variant prop instead of forking a purchase-only filter component.
+- When a shared component family owns its shell and tone system, keep that styling in the shared folder instead of leaving duplicate feature-specific CSS behind.

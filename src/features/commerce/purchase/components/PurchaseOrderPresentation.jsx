@@ -55,8 +55,8 @@ export const getOrderDistributorInfo = (order, distributors = []) => {
   const contacts = order.distributor_contacts || distributor?.contacts || '';
   const phoneFromContacts = getDistributorPhoneFromContacts(contacts);
   return {
-    name: order.distributor_name || distributor?.name || '-',
-    phone: order.distributor_phone || distributor?.phone || phoneFromContacts || '-',
+    name: order.supplier_name || order.distributor_name || distributor?.name || '-',
+    phone: order.supplier_phone || order.supplier_alt_phone || order.distributor_phone || distributor?.phone || phoneFromContacts || '-',
     address: order.distributor_address || distributor?.address || '-',
     contacts,
   };

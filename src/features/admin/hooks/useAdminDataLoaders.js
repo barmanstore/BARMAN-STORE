@@ -254,6 +254,9 @@ const useAdminDataLoaders = ({
       weeklyDistributors: Array.isArray(purchaseOpsPayload?.weekly_distributors)
         ? purchaseOpsPayload.weekly_distributors
         : [],
+      supplierVisits: Array.isArray(purchaseOpsPayload?.supplier_visits)
+        ? purchaseOpsPayload.supplier_visits
+        : [],
       predictedDeliveriesNext: Array.isArray(purchaseOpsPayload?.predicted_deliveries_next)
         ? purchaseOpsPayload.predicted_deliveries_next
         : [],

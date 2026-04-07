@@ -7,6 +7,7 @@ const createPurchaseOperationsDistributorSchedules = (deps) => {
     addDaysToDateKey,
     getWeekdayFromDateKey,
     getDistributorOrderScheduleDay,
+    getSupplierScheduleConfig,
     parseDistributorProductsSupplied,
     normalizeBooleanFlag,
     isPoEditableLifecycle,
@@ -24,18 +25,22 @@ const createPurchaseOperationsDistributorSchedules = (deps) => {
       todayKey,
       tomorrowKey,
       distributors,
+      suppliers,
     } = baseData;
-    const { ordersByDistributor } = metrics;
+    const { ordersByDistributor, ordersBySupplier } = metrics;
 
     const { todayDistributors, tomorrowDistributors, weeklyDistributors } = buildScheduleLists({
       todayKey,
       tomorrowKey,
       distributors,
+      suppliers,
       distributorInsightById,
       ordersByDistributor,
+      ordersBySupplier,
       payablesWithInsights,
       getWeekdayFromDateKey,
       getDistributorOrderScheduleDay,
+      getSupplierScheduleConfig,
       addDaysToDateKey,
       parseDistributorProductsSupplied,
       normalizeTransactionDate,
@@ -45,12 +50,17 @@ const createPurchaseOperationsDistributorSchedules = (deps) => {
     });
 
     const reminders = buildScheduleReminders({
+      todayKey,
       tomorrowKey,
       distributors,
+      suppliers,
       distributorInsightById,
       ordersByDistributor,
+      ordersBySupplier,
       normalizeBooleanFlag,
+      normalizeTransactionDate,
       getDistributorOrderScheduleDay,
+      getSupplierScheduleConfig,
       getWeekdayFromDateKey,
       getPurchaseOrderLifecycleStatus,
       isPoEditableLifecycle,

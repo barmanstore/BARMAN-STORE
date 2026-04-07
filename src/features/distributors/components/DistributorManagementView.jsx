@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Edit, Trash2, Search, Phone, MapPin, Calendar, Package } from 'lucide-react';
+import { Plus, Search, Phone, MapPin, Calendar, Users } from 'lucide-react';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
 import WindowModal from '../../../shared/components/window/WindowModal';
@@ -9,19 +9,56 @@ const DistributorManagementView = ({
   error,
   searchTerm,
   onSearchChange,
-  filteredDistributors,
+  distributorCards,
   parseContacts,
   getStatusBadge,
   onAddDistributor,
-  onEditDistributor,
-  onDeleteDistributor,
+  onManageDistributor,
+  onAddSupplier,
+  onManageSupplier,
   showForm,
   onCloseForm,
+  showSupplierForm,
+  onCloseSupplierForm,
   formData,
   onFormChange,
   onFormSubmit,
+  supplierFormData,
+  onSupplierFormChange,
+  onSupplierFormSubmit,
+  supplierDistributorName,
+  supplierDistributorOptions,
+  canEditSupplierDistributor,
   editingDistributor,
+  editingSupplier,
+  managingDistributorCard,
+  onCloseDistributorManager,
+  onEditDistributorRecord,
+  onToggleDistributorStatus,
+  onRequestDeleteDistributor,
+  managingSupplier,
+  onCloseSupplierManager,
+  onEditManagedSupplier,
+  onToggleSupplierStatus,
+  onRequestDeleteSupplier,
+  deleteConfirmTarget,
+  deleteConfirmText,
+  onDeleteConfirmTextChange,
+  onCloseDeleteConfirm,
+  onConfirmDelete,
+  pendingActionKey,
 }) => {
+  const getSupplierScheduleLabel = (supplier) => {
+    if (supplier?.schedule_type === 'weekly') {
+      return `Weekly${supplier?.schedule_day ? ` • ${supplier.schedule_day}` : ''}`;
+    }
+    if (supplier?.schedule_type === 'daily') return 'Daily';
+    return 'Irregular';
+  };
+
+  const isDeleteConfirmReady = String(deleteConfirmText || '').trim()
+    === String(deleteConfirmTarget?.label || '').trim();
+
   if (loading) {
     return (
       <div className="distributor-management">
@@ -50,97 +87,139 @@ const DistributorManagementView = ({
           type="text"
           id="distributor-search"
           name="distributor-search"
-          placeholder="Search distributors by name, salesman, or products..."
+          placeholder="Search distributors, suppliers, or product groups..."
           value={searchTerm}
           onChange={onSearchChange}
         />
       </div>
 
       <div className="distributors-grid">
-        {filteredDistributors.length === 0 ? (
+        {distributorCards.length === 0 ? (
           <div className="empty-state">
             <p>No distributors found.</p>
             <p>Click "Add Distributor" to create one.</p>
           </div>
         ) : (
-          filteredDistributors.map((distributor) => {
+          distributorCards.map((card) => {
+            const distributor = card.distributor;
             const contacts = parseContacts(distributor.contacts);
 
             return (
-              <div key={distributor.id} className="distributor-card fade-in-up">
+              <div key={card.key} className="distributor-card fade-in-up">
                 <div className="card-header">
                   <div className="distributor-name">
                     <h3>{distributor.name}</h3>
                     {getStatusBadge(distributor.status)}
+                    {card.hasDuplicateRecords ? (
+                      <small className="empty-muted">
+                        {card.distributorCount} distributor records grouped in one card
+                      </small>
+                    ) : null}
                   </div>
                   <div className="card-actions">
-                    <button className="action-btn edit" onClick={() => onEditDistributor(distributor)}>
-                      <Edit size={16} />
-                    </button>
-                    <button className="action-btn delete" onClick={() => onDeleteDistributor(distributor.id)}>
-                      <Trash2 size={16} />
+                    <button
+                      type="button"
+                      className="action-btn manage"
+                      onClick={() => onManageDistributor(card)}
+                    >
+                      {card.hasDuplicateRecords ? 'Manage Records' : 'Manage'}
                     </button>
                   </div>
                 </div>
 
                 <div className="card-body">
-                  {distributor.salesman_name && (
-                    <div className="info-row">
-                      <span className="label">Salesman:</span>
-                      <span className="value">{distributor.salesman_name}</span>
-                    </div>
-                  )}
+                  <div className="card-summary">
+                    <span className="summary-pill">{card.supplierCount} suppliers</span>
+                    <span className="summary-pill">{distributor.payment_terms || 'Net 30'}</span>
+                    {distributor.payment_due_days ? (
+                      <span className="summary-pill">Due {distributor.payment_due_days}d</span>
+                    ) : null}
+                  </div>
 
                   <div className="info-row">
                     <Phone size={14} />
                     <span>{contacts.phone || '-'}</span>
                   </div>
 
-                  <div className="info-row">
-                    <span className="label">Email:</span>
-                    <span>{contacts.email || '-'}</span>
-                  </div>
+                  {contacts.email ? (
+                    <div className="info-row">
+                      <span className="label">Email:</span>
+                      <span className="truncate-text" title={contacts.email}>{contacts.email}</span>
+                    </div>
+                  ) : null}
 
                   {distributor.address && (
                     <div className="info-row address">
                       <MapPin size={14} />
-                      <span>{distributor.address}</span>
-                    </div>
-                  )}
-
-                  {distributor.products_supplied && (
-                    <div className="info-row">
-                      <Package size={14} />
-                      <span>{distributor.products_supplied}</span>
+                      <span className="truncate-text" title={distributor.address}>{distributor.address}</span>
                     </div>
                   )}
 
                   <div className="info-row schedule">
-                    <div className="schedule-item">
-                      <Calendar size={14} />
-                      <span>Order: {distributor.order_day || '-'}</span>
-                    </div>
-                    <div className="schedule-item">
-                      <Calendar size={14} />
-                      <span>Delivery: {distributor.delivery_day || '-'}</span>
-                    </div>
-                    <div className="schedule-item">
-                      <Calendar size={14} />
-                      <span>Visit: {distributor.visit_day || distributor.order_day || '-'}</span>
-                    </div>
+                    <Calendar size={14} />
+                    <span>
+                      Cutoff {distributor.order_cutoff_time || '-'}
+                      {' • '}
+                      WhatsApp {distributor.preferred_whatsapp_time || '-'}
+                    </span>
                   </div>
 
-                  <div className="info-row">
-                    <span className="label">Payment Terms:</span>
-                    <span>{distributor.payment_terms || 'Net 30'}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="label">Due Days:</span>
-                    <span>{distributor.payment_due_days ?? '-'}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="label">Cutoff / WhatsApp:</span>
-                    <span>{distributor.order_cutoff_time || '-'} / {distributor.preferred_whatsapp_time || '-'}</span>
+                  <div className="info-row supplier-block">
+                    <div className="label-row">
+                      <span className="label">Suppliers</span>
+                      <button
+                        type="button"
+                        className="action-btn add"
+                        onClick={() => (
+                          card.hasDuplicateRecords
+                            ? onManageDistributor(card)
+                            : onAddSupplier(distributor)
+                        )}
+                      >
+                        <Users size={14} />
+                        {card.hasDuplicateRecords ? 'Select Record' : 'Add Supplier'}
+                      </button>
+                    </div>
+                    {card.suppliers.length ? (
+                      <div className="supplier-list">
+                        {card.suppliers.map((supplier) => {
+                          const scheduleLabel = getSupplierScheduleLabel(supplier);
+                          const supplierMeta = [supplier.phone || '', scheduleLabel]
+                            .filter(Boolean)
+                            .join(' • ');
+                          const suppliedProducts = supplier.products_supplied || 'No supplied product group set';
+                          return (
+                          <div key={supplier.id} className="supplier-chip">
+                            <div className="supplier-chip-copy">
+                              <div className="supplier-chip-primary">
+                                <strong title={supplier.name}>
+                                  {supplier.name}
+                                  {supplier.is_primary ? ' (Primary)' : ''}
+                                </strong>
+                                <span className="supplier-chip-meta" title={supplierMeta || '-'}>
+                                  {supplierMeta || '-'}
+                                </span>
+                              </div>
+                              <small className="supplier-group-text" title={suppliedProducts}>
+                                {suppliedProducts}
+                              </small>
+                            </div>
+                            <div className="supplier-chip-actions">
+                              <button
+                                type="button"
+                                className="action-btn manage"
+                                onClick={() => onManageSupplier(supplier)}
+                              >
+                                Manage
+                              </button>
+                            </div>
+                          </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="empty-muted">No suppliers yet. Add one to set schedule.</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -174,18 +253,6 @@ const DistributorManagementView = ({
                     onChange={onFormChange}
                     placeholder="Enter distributor name"
                     required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="distributor-salesman-name">Salesman Name</label>
-                  <input
-                    id="distributor-salesman-name"
-                    type="text"
-                    name="salesman_name"
-                    value={formData.salesman_name}
-                    onChange={onFormChange}
-                    placeholder="Enter salesman name"
                   />
                 </div>
               </div>
@@ -235,62 +302,7 @@ const DistributorManagementView = ({
               <div className="form-section">
                 <h3 className="section-title">Business Details</h3>
 
-                <div className="form-group">
-                  <label htmlFor="distributor-products-supplied">Products Supplied</label>
-                  <input
-                    id="distributor-products-supplied"
-                    type="text"
-                    name="products_supplied"
-                    value={formData.products_supplied}
-                    onChange={onFormChange}
-                    placeholder="e.g., Coffee, Tea, Sugar, Biscuits"
-                  />
-                </div>
-
                 <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="distributor-order-day">Order Day</label>
-                    <select id="distributor-order-day" name="order_day" value={formData.order_day} onChange={onFormChange}>
-                      <option value="">Select day</option>
-                      <option value="Monday">Monday</option>
-                      <option value="Tuesday">Tuesday</option>
-                      <option value="Wednesday">Wednesday</option>
-                      <option value="Thursday">Thursday</option>
-                      <option value="Friday">Friday</option>
-                      <option value="Saturday">Saturday</option>
-                      <option value="Sunday">Sunday</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="distributor-delivery-day">Delivery Day</label>
-                    <select id="distributor-delivery-day" name="delivery_day" value={formData.delivery_day} onChange={onFormChange}>
-                      <option value="">Select day</option>
-                      <option value="Monday">Monday</option>
-                      <option value="Tuesday">Tuesday</option>
-                      <option value="Wednesday">Wednesday</option>
-                      <option value="Thursday">Thursday</option>
-                      <option value="Friday">Friday</option>
-                      <option value="Saturday">Saturday</option>
-                      <option value="Sunday">Sunday</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="distributor-visit-day">Visit Day</label>
-                    <select id="distributor-visit-day" name="visit_day" value={formData.visit_day} onChange={onFormChange}>
-                      <option value="">Select day</option>
-                      <option value="Monday">Monday</option>
-                      <option value="Tuesday">Tuesday</option>
-                      <option value="Wednesday">Wednesday</option>
-                      <option value="Thursday">Thursday</option>
-                      <option value="Friday">Friday</option>
-                      <option value="Saturday">Saturday</option>
-                      <option value="Sunday">Sunday</option>
-                    </select>
-                  </div>
                   <div className="form-group">
                     <label htmlFor="distributor-order-cutoff-time">Order Cutoff Time</label>
                     <input
@@ -411,6 +423,380 @@ const DistributorManagementView = ({
                   {editingDistributor ? 'Update Distributor' : 'Add Distributor'}
                 </button>
               </div>
+            </form>
+        </WindowModal>
+      )}
+
+      {managingDistributorCard ? (
+        <WindowModal
+          open
+          title={managingDistributorCard.hasDuplicateRecords ? 'Manage Distributor Records' : 'Manage Distributor'}
+          onClose={onCloseDistributorManager}
+          dialogClassName="distributor-modal-frame fade-in-up"
+          headerClassName="distributor-modal-header"
+          closeButtonClassName="distributor-modal-close-btn"
+          themeClassName="distributor-management"
+          initialSize={{ width: 760, height: 620 }}
+        >
+          <div className="manage-modal-copy">
+            {managingDistributorCard.hasDuplicateRecords ? (
+              <p>
+                This card groups multiple distributor records with the same name. Choose the exact record before editing,
+                adding a supplier, archiving, or deleting.
+              </p>
+            ) : (
+              <p>
+                Use archive for normal cleanup. Permanent delete is intentionally harder and the backend blocks it when
+                suppliers or purchase history still exist.
+              </p>
+            )}
+          </div>
+          <div className="manage-record-list">
+            {(Array.isArray(managingDistributorCard.records) ? managingDistributorCard.records : []).map((record) => {
+              const contacts = parseContacts(record.contacts);
+              const statusText = String(record?.status || 'active').toLowerCase() === 'inactive'
+                ? 'Restore'
+                : 'Archive';
+              return (
+                <div key={record.id} className="manage-record-card">
+                  <div className="manage-record-copy">
+                    <div className="manage-record-title-row">
+                      <strong>{record.name}</strong>
+                      <span className="record-id">ID {record.id}</span>
+                      {getStatusBadge(record.status)}
+                    </div>
+                    <small>
+                      {contacts.phone || '-'}
+                      {contacts.email ? ` • ${contacts.email}` : ''}
+                    </small>
+                    <small>
+                      {record.supplier_count} supplier{record.supplier_count === 1 ? '' : 's'}
+                      {' • '}
+                      {record.payment_terms || 'Net 30'}
+                      {record.payment_due_days ? ` • Due ${record.payment_due_days}d` : ''}
+                    </small>
+                  </div>
+                  <div className="manage-record-actions">
+                    <button
+                      type="button"
+                      className="action-btn manage"
+                      onClick={() => onEditDistributorRecord(record)}
+                      disabled={Boolean(pendingActionKey)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn add"
+                      onClick={() => onAddSupplier(record)}
+                      disabled={Boolean(pendingActionKey)}
+                    >
+                      Add Supplier
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn archive"
+                      onClick={() => onToggleDistributorStatus(record)}
+                      disabled={Boolean(pendingActionKey)}
+                    >
+                      {statusText}
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn delete-text"
+                      onClick={() => onRequestDeleteDistributor(record, record.supplier_count)}
+                      disabled={Boolean(pendingActionKey)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="cancel-btn" onClick={onCloseDistributorManager}>
+              Close
+            </button>
+          </div>
+        </WindowModal>
+      ) : null}
+
+      {managingSupplier ? (
+        <WindowModal
+          open
+          title="Manage Supplier"
+          onClose={onCloseSupplierManager}
+          dialogClassName="distributor-modal-frame fade-in-up"
+          headerClassName="distributor-modal-header"
+          closeButtonClassName="distributor-modal-close-btn"
+          themeClassName="distributor-management"
+          initialSize={{ width: 680, height: 460 }}
+        >
+          <div className="manage-modal-copy">
+            <p>
+              Supplier changes affect learned product groups and supplier routing. Prefer inactive status unless you are
+              removing a brand-new unused supplier.
+            </p>
+          </div>
+          <div className="manage-record-card supplier-manage-card">
+            <div className="manage-record-copy">
+              <div className="manage-record-title-row">
+                <strong>{managingSupplier.name}</strong>
+                {managingSupplier.is_primary ? <span className="record-id">Primary</span> : null}
+                {managingSupplier.is_active === false
+                  ? <span className="status-badge inactive">Inactive</span>
+                  : <span className="status-badge active">Active</span>}
+              </div>
+              <small>
+                {[managingSupplier.phone || '', getSupplierScheduleLabel(managingSupplier)]
+                  .filter(Boolean)
+                  .join(' • ') || '-'}
+              </small>
+              <small
+                className="manage-product-group"
+                title={managingSupplier.products_supplied || 'No supplied product group set'}
+              >
+                {managingSupplier.products_supplied || 'No supplied product group set'}
+              </small>
+            </div>
+            <div className="manage-record-actions">
+              <button
+                type="button"
+                className="action-btn manage"
+                onClick={() => onEditManagedSupplier(managingSupplier)}
+                disabled={Boolean(pendingActionKey)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="action-btn archive"
+                onClick={() => onToggleSupplierStatus(managingSupplier)}
+                disabled={Boolean(pendingActionKey)}
+              >
+                {managingSupplier.is_active === false ? 'Restore' : 'Archive'}
+              </button>
+              <button
+                type="button"
+                className="action-btn delete-text"
+                onClick={() => onRequestDeleteSupplier(managingSupplier)}
+                disabled={Boolean(pendingActionKey)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="cancel-btn" onClick={onCloseSupplierManager}>
+              Close
+            </button>
+          </div>
+        </WindowModal>
+      ) : null}
+
+      {deleteConfirmTarget ? (
+        <WindowModal
+          open
+          title={deleteConfirmTarget.title || 'Confirm Delete'}
+          onClose={onCloseDeleteConfirm}
+          dialogClassName="distributor-modal-frame fade-in-up"
+          headerClassName="distributor-modal-header"
+          closeButtonClassName="distributor-modal-close-btn"
+          themeClassName="distributor-management"
+          initialSize={{ width: 640, height: 360 }}
+        >
+          <div className="danger-confirmation">
+            <p>{deleteConfirmTarget.description}</p>
+            <p>
+              Type <strong>{deleteConfirmTarget.label}</strong> to confirm permanent delete.
+            </p>
+            <div className="form-group">
+              <label htmlFor="delete-confirm-input">Confirm Name</label>
+              <input
+                id="delete-confirm-input"
+                type="text"
+                value={deleteConfirmText}
+                onChange={(event) => onDeleteConfirmTextChange(event.target.value)}
+                placeholder={deleteConfirmTarget.label}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="cancel-btn" onClick={onCloseDeleteConfirm}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="submit-btn danger-submit"
+              onClick={onConfirmDelete}
+              disabled={!isDeleteConfirmReady || Boolean(pendingActionKey)}
+            >
+              Delete Permanently
+            </button>
+          </div>
+        </WindowModal>
+      ) : null}
+
+      {showSupplierForm && (
+        <WindowModal
+          open
+          title={editingSupplier ? 'Edit Supplier' : 'Add Supplier'}
+          onClose={onCloseSupplierForm}
+          dialogClassName="distributor-modal-frame fade-in-up"
+          headerClassName="distributor-modal-header"
+          closeButtonClassName="distributor-modal-close-btn"
+          themeClassName="distributor-management"
+          initialSize={{ width: 720, height: 720 }}
+        >
+          <form onSubmit={onSupplierFormSubmit}>
+            <div className="form-section">
+              <h3 className="section-title">Supplier Details</h3>
+              <div className="form-group">
+                <label htmlFor="supplier-distributor-name">Distributor</label>
+                {canEditSupplierDistributor ? (
+                  <select
+                    id="supplier-distributor-name"
+                    name="distributor_id"
+                    value={supplierFormData.distributor_id}
+                    onChange={onSupplierFormChange}
+                    required
+                  >
+                    <option value="">Select distributor</option>
+                    {(Array.isArray(supplierDistributorOptions) ? supplierDistributorOptions : []).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <input
+                      id="supplier-distributor-name"
+                      type="text"
+                      value={supplierDistributorName || 'Selected distributor'}
+                      readOnly
+                    />
+                    <small className="empty-muted">
+                      Current primary suppliers stay attached to their distributor. Reassign another supplier instead.
+                    </small>
+                  </>
+                )}
+              </div>
+              <div className="form-group">
+                <label htmlFor="supplier-name">Supplier Name *</label>
+                <input
+                  id="supplier-name"
+                  type="text"
+                  name="name"
+                  value={supplierFormData.name}
+                  onChange={onSupplierFormChange}
+                  placeholder="Enter supplier name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="supplier-products-supplied">Supplied Product Groups</label>
+                <textarea
+                  id="supplier-products-supplied"
+                  name="products_supplied"
+                  value={supplierFormData.products_supplied}
+                  onChange={onSupplierFormChange}
+                  placeholder="Optional. Auto-updates from saved PO items for this supplier."
+                  rows="3"
+                />
+                <small className="empty-muted">
+                  Remove a product here if this supplier no longer delivers it. A future saved PO for this supplier can add it back automatically.
+                </small>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="supplier-phone">Phone</label>
+                  <input
+                    id="supplier-phone"
+                    type="tel"
+                    name="phone"
+                    value={supplierFormData.phone}
+                    onChange={onSupplierFormChange}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="supplier-alt-phone">Alt Phone</label>
+                  <input
+                    id="supplier-alt-phone"
+                    type="tel"
+                    name="alt_phone"
+                    value={supplierFormData.alt_phone}
+                    onChange={onSupplierFormChange}
+                    placeholder="Optional alternate phone"
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="supplier-schedule-type">Schedule Type</label>
+                  <select
+                    id="supplier-schedule-type"
+                    name="schedule_type"
+                    value={supplierFormData.schedule_type}
+                    onChange={onSupplierFormChange}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="irregular">Irregular</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="supplier-schedule-day">Schedule Day</label>
+                  <select
+                    id="supplier-schedule-day"
+                    name="schedule_day"
+                    value={supplierFormData.schedule_day}
+                    onChange={onSupplierFormChange}
+                    disabled={supplierFormData.schedule_type !== 'weekly'}
+                  >
+                    <option value="">Select day</option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <label className="checkbox-group">
+                  <input
+                    type="checkbox"
+                    name="is_primary"
+                    checked={supplierFormData.is_primary}
+                    onChange={onSupplierFormChange}
+                  />
+                  <span>Primary supplier for this distributor</span>
+                </label>
+                <label className="checkbox-group">
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={supplierFormData.is_active}
+                    onChange={onSupplierFormChange}
+                  />
+                  <span>Active</span>
+                </label>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="cancel-btn" onClick={onCloseSupplierForm}>
+                Cancel
+              </button>
+              <button type="submit" className="submit-btn">
+                {editingSupplier ? 'Update Supplier' : 'Add Supplier'}
+              </button>
+            </div>
           </form>
         </WindowModal>
       )}

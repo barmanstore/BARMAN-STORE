@@ -18,8 +18,14 @@ const createPurchaseOperationsReminderQueries = (deps) => {
        ORDER BY name ASC`,
       distributorParams
     );
+    const suppliers = await dbAllAsync(
+      `SELECT *
+       FROM suppliers${normalizedDistributorId ? ' WHERE distributor_id = ?' : ''}
+       ORDER BY distributor_id ASC, is_primary DESC, name ASC`,
+      distributorParams
+    );
     const orders = await dbAllAsync(
-      `SELECT po.*, d.name AS distributor_name, d.order_day, d.delivery_day, d.visit_day, d.payment_terms, d.payment_cycle_type, d.payment_due_days, d.auto_reminders_enabled
+      `SELECT po.*, d.name AS distributor_name, d.payment_terms, d.payment_cycle_type, d.payment_due_days, d.auto_reminders_enabled
        FROM purchase_orders po
        LEFT JOIN distributors d ON d.id = po.distributor_id
        ${orderWhereSql}
@@ -39,6 +45,7 @@ const createPurchaseOperationsReminderQueries = (deps) => {
       tomorrowKey,
       distributorId: normalizedDistributorId,
       distributors,
+      suppliers,
       orders,
       items,
     };

@@ -14,6 +14,7 @@ import usePurchaseLastPurchaseSuggestions from './usePurchaseLastPurchaseSuggest
 
 const usePurchaseManagementHandlers = ({
   distributors,
+  suppliers,
   products,
   purchaseOrders,
   orderFormData,
@@ -52,6 +53,7 @@ const usePurchaseManagementHandlers = ({
   createClientRequestId,
   getPurchaseRequestErrorMessage,
   fetchOrders,
+  fetchOperationsSummary,
   isPoEditable,
   toDateInputValue,
   productsApi,
@@ -138,6 +140,7 @@ const usePurchaseManagementHandlers = ({
   escapeHtml,
   printHtmlDocument,
   onOrderSaved,
+  refreshSupplierRegisteredProducts,
 }) => {
   const {
     resolveProductByInput,
@@ -148,6 +151,7 @@ const usePurchaseManagementHandlers = ({
     handleDistributorInputChange,
   } = usePurchaseLookups({
     distributors,
+    suppliers,
     products,
     purchaseOrders,
     buildOrderDraftItem,
@@ -208,6 +212,7 @@ const usePurchaseManagementHandlers = ({
     orderSubmitting,
     orderFormData,
     distributors,
+    suppliers,
     products,
     buildOrderDraftItem,
     createEmptyOrderItem,
@@ -224,6 +229,7 @@ const usePurchaseManagementHandlers = ({
     setError,
     getPurchaseRequestErrorMessage,
     fetchOrders,
+    fetchOperationsSummary,
     isPoEditable,
     toDateInputValue,
     getDistributorProductHistoryEntry,
@@ -232,6 +238,7 @@ const usePurchaseManagementHandlers = ({
     resolvePurchaseUnitForProduct,
     normalizeGstRateOption,
     onOrderSaved,
+    refreshSupplierRegisteredProducts,
   });
 
   const {
@@ -331,6 +338,7 @@ const usePurchaseManagementHandlers = ({
     paymentOrder,
     poPaymentFormData,
     fetchOrders,
+    fetchOperationsSummary,
     fetchDistributorLedger,
     setError,
   });
@@ -369,6 +377,8 @@ const usePurchaseManagementHandlers = ({
     findProductForItem,
     getPurchaseRequestErrorMessage,
     fetchOrders,
+    fetchOperationsSummary,
+    refreshSupplierRegisteredProducts,
   });
 
   const {

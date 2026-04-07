@@ -9,9 +9,17 @@ const registerPurchaseOrdersReadRoutes = (deps) => {
   app.get('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
     try {
       const row = await dbGetAsync(
-        `SELECT po.*, d.name as distributor_name, d.address as distributor_address, d.contacts as distributor_contacts
+        `SELECT
+           po.*,
+           d.name as distributor_name,
+           d.address as distributor_address,
+           d.contacts as distributor_contacts,
+           s.name as supplier_name,
+           s.phone as supplier_phone,
+           s.alt_phone as supplier_alt_phone
          FROM purchase_orders po
          LEFT JOIN distributors d ON d.id = po.distributor_id
+         LEFT JOIN suppliers s ON s.id = po.supplier_id
          WHERE po.id = ?`,
         [req.params.id]
       );

@@ -221,6 +221,7 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
     const {
       todayKey,
       distributors,
+      suppliers,
       products,
     } = baseData;
     const {
@@ -242,6 +243,15 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
       getPurchaseOrderLifecycleStatus,
       PO_LIFECYCLE_CANCELLED,
     });
+    const supplierProductGroupsByDistributor = new Map();
+    for (const supplier of Array.isArray(suppliers) ? suppliers : []) {
+      const distributorId = Number(supplier?.distributor_id || 0);
+      const productsSupplied = String(supplier?.products_supplied || '').trim();
+      if (!distributorId || !productsSupplied) continue;
+      const existing = supplierProductGroupsByDistributor.get(distributorId) || [];
+      existing.push(productsSupplied);
+      supplierProductGroupsByDistributor.set(distributorId, existing);
+    }
 
     const inferDistributorInsight = (distributor) => {
       const distributorId = Number(distributor.id || 0);
@@ -275,8 +285,11 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
 
       const likelyItems = buildLikelyItems(orderStats.productCounts, { limit: 3 });
       const suggestedItems = buildSuggestedItems(orderStats.suggestionMap, { limit: 5 });
+      const manualProductsSupplied = (
+        supplierProductGroupsByDistributor.get(distributorId) || []
+      ).join(', ') || String(distributor?.products_supplied || '').trim();
       const mergedProductKnowledge = mergeSuggestedProductKnowledge({
-        distributor,
+        manualProductsSupplied,
         mergeDistributorProductKnowledge,
         likelyItems,
         suggestedItems,

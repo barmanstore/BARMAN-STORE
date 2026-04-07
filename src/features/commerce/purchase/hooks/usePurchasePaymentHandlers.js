@@ -20,6 +20,7 @@ const usePurchasePaymentHandlers = ({
   paymentOrder,
   poPaymentFormData,
   fetchOrders,
+  fetchOperationsSummary,
   fetchDistributorLedger,
   setError,
 }) => {
@@ -127,8 +128,11 @@ const usePurchasePaymentHandlers = ({
         client_request_id: clientRequestId,
       });
       closePoPaymentModal();
-      fetchOrders();
-      fetchDistributorLedger();
+      await Promise.all([
+        fetchOrders(),
+        typeof fetchOperationsSummary === 'function' ? fetchOperationsSummary() : Promise.resolve(),
+        fetchDistributorLedger(),
+      ]);
     } catch (err) {
       setError(err?.message || 'Failed to add PO payment');
       setPoPaymentSubmitting(false);
@@ -150,6 +154,7 @@ const usePurchasePaymentHandlers = ({
     poPaymentFormData,
     closePoPaymentModal,
     fetchOrders,
+    fetchOperationsSummary,
     fetchDistributorLedger,
     resolveLatestPaymentOrder,
     setPaymentOrder,

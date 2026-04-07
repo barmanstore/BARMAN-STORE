@@ -1,5 +1,5 @@
 const { createAuthMiddleware } = require('../../middleware/authMiddleware');
-const { createDistributorUtils } = require('../../features/commerce');
+const { createDistributorUtils, createSupplierUtils } = require('../../features/commerce');
 const { sanitizeUser } = require('../../features/auth');
 
 const createAuthServices = ({ core }) => {
@@ -23,10 +23,15 @@ const createAuthServices = ({ core }) => {
   const distributorUtils = createDistributorUtils({
     dbGetAsync: db.dbGetAsync,
   });
+  const supplierUtils = createSupplierUtils({
+    dbGetAsync: db.dbGetAsync,
+    dbAllAsync: db.dbAllAsync,
+  });
 
   return {
     authMiddleware,
     distributorUtils,
+    supplierUtils,
     sanitizeUser,
   };
 };

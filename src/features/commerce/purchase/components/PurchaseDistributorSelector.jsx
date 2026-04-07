@@ -1,5 +1,5 @@
 const PurchaseDistributorSelector = ({
-  activeDistributors,
+  activeSuppliers,
   orderFormData,
   handleDistributorInputChange,
   distributorInputRef,
@@ -15,16 +15,22 @@ const PurchaseDistributorSelector = ({
       <input
         ref={distributorInputRef}
         id="po-entry-distributor"
-        name="distributor_name"
+        name="supplier_name"
         type="text"
         list="po-distributor-list"
-        value={orderFormData.distributor_name || ''}
+        value={orderFormData.supplier_name || ''}
         onChange={(event) => handleDistributorInputChange(event.target.value)}
         placeholder="Type supplier name"
         required
       />
       <datalist id="po-distributor-list">
-        {activeDistributors.map((distributor) => <option key={distributor.id} value={distributor.name} />)}
+        {activeSuppliers.map((supplier) => (
+          <option
+            key={supplier.id}
+            value={supplier.name}
+            label={supplier.distributor_name || undefined}
+          />
+        ))}
       </datalist>
     </div>
   </section>

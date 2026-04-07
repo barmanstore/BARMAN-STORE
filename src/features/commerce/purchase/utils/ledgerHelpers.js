@@ -92,6 +92,8 @@ export const getDerivedLedgerFromOrders = (orders, selectedDistributorId) => {
     id: `po-${order.id}`,
     distributor_id: order.distributor_id,
     distributor_name: order.distributor_name,
+    supplier_id: order.supplier_id || null,
+    supplier_name: order.supplier_name || null,
     type: 'credit',
     transaction_type: 'credit',
     amount: calculateOrderBalanceAmount(order),

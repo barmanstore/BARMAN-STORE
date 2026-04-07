@@ -6,6 +6,15 @@ import { asNumber } from '../utils/adminHelpers';
 
 const normalizeId = (value) => String(value ?? '').trim();
 
+const matchesSupplierScheduleEntry = (entry, distributorId, supplierId) => {
+  if (!entry) return false;
+  const normalizedSupplierId = normalizeId(supplierId);
+  if (normalizedSupplierId) {
+    return normalizeId(entry?.supplier_id) === normalizedSupplierId;
+  }
+  return normalizeId(entry?.distributor_id) === normalizeId(distributorId);
+};
+
 const toShortDate = (value) => {
   if (!value) return '-';
   const parsed = new Date(value);
@@ -129,22 +138,38 @@ function DashboardSection({
           : weeklyDistributors[0]
             ? { kind: 'weekly', entry: weeklyDistributors[0] }
             : null;
-  const supplierId = normalizeId(primarySupplierContext?.entry?.distributor_id);
-  const matchingTodayEntry = todayDistributors.find((entry) => normalizeId(entry?.distributor_id) === supplierId) || null;
-  const matchingTomorrowEntry = tomorrowDistributors.find((entry) => normalizeId(entry?.distributor_id) === supplierId) || null;
-  const matchingWeeklyEntry = weeklyDistributors.find((entry) => normalizeId(entry?.distributor_id) === supplierId) || null;
+  const selectedDistributorId = normalizeId(primarySupplierContext?.entry?.distributor_id);
+  const selectedScheduleSupplierId = normalizeId(primarySupplierContext?.entry?.supplier_id);
+  const matchingTodayEntry = todayDistributors.find(
+    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+  ) || null;
+  const matchingTomorrowEntry = tomorrowDistributors.find(
+    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+  ) || null;
+  const matchingWeeklyEntry = weeklyDistributors.find(
+    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+  ) || null;
   const scheduleEntry = matchingTodayEntry || matchingTomorrowEntry || matchingWeeklyEntry || null;
-  const payableTarget = payables.find((entry) => normalizeId(entry?.distributor_id) === supplierId)
-    || workflow.find((entry) => normalizeId(entry?.distributor_id) === supplierId && Number(entry?.balance_due || 0) > 0)
+  const payableTarget = payables.find((entry) => normalizeId(entry?.distributor_id) === selectedDistributorId)
+    || workflow.find((entry) => normalizeId(entry?.distributor_id) === selectedDistributorId && Number(entry?.balance_due || 0) > 0)
     || null;
-  const reviewTarget = supplierId
+  const reviewTarget = selectedDistributorId
     ? (
       workflow.find(
-        (entry) => normalizeId(entry?.distributor_id) === supplierId && isReviewableWorkflowEntry(entry)
+        (entry) => normalizeId(entry?.distributor_id) === selectedDistributorId && isReviewableWorkflowEntry(entry)
       ) || null
     )
     : workflow.find((entry) => isReviewableWorkflowEntry(entry)) || null;
   const suggestedItemNames = takeSuggestedItemNames(scheduleEntry?.suggested_items || []);
+  const supplierDisplayName = String(
+    primarySupplierContext?.entry?.supplier_name
+      || scheduleEntry?.supplier_name
+      || primarySupplierContext?.entry?.distributor_name
+      || scheduleEntry?.distributor_name
+      || payableTarget?.distributor_name
+      || reviewTarget?.distributor_name
+      || ''
+  ).trim();
   const supplierName = String(
     primarySupplierContext?.entry?.distributor_name
       || scheduleEntry?.distributor_name
@@ -166,6 +191,15 @@ function DashboardSection({
   const supplierExpectedDate = scheduleEntry?.schedule_date
     || reviewTarget?.expected_delivery
     || '';
+  const supplierDraftSupplierId = normalizeId(
+    scheduleEntry?.supplier_id
+      || primarySupplierContext?.entry?.supplier_id
+  );
+  const supplierDraftSupplierName = String(
+    scheduleEntry?.supplier_name
+      || primarySupplierContext?.entry?.supplier_name
+      || ''
+  ).trim();
   const supplierDueAmount = Number(
     payableTarget?.balance_due
       || scheduleEntry?.po_balance_due
@@ -192,15 +226,18 @@ function DashboardSection({
   ];
 
   const handlePrepareSupplierPo = () => {
-    if (!supplierId) {
+    if (!selectedDistributorId) {
       onTabChange('purchases');
       return;
     }
     onOpenPurchaseOrder?.({
       action: 'create-draft',
       source: 'dashboard',
-      distributorId: supplierId,
+      distributorId: selectedDistributorId,
       distributorName: supplierName,
+      supplierId: supplierDraftSupplierId,
+      supplierName: supplierDraftSupplierName,
+      plannedOrderDate: supplierExpectedDate,
       expectedDelivery: supplierExpectedDate,
       suggestedItems: Array.isArray(scheduleEntry?.suggested_items) ? scheduleEntry.suggested_items : [],
     });
@@ -215,7 +252,7 @@ function DashboardSection({
       action: 'open-payment',
       source: 'dashboard',
       orderId: payableTarget.order_id,
-      distributorId: supplierId,
+      distributorId: selectedDistributorId,
       distributorName: supplierName,
     });
   };
@@ -243,7 +280,7 @@ function DashboardSection({
       action: 'open-order',
       source: 'dashboard',
       orderId: reviewTarget.order_id,
-      distributorId: supplierId,
+      distributorId: selectedDistributorId,
       distributorName: supplierName,
     });
   };
@@ -274,11 +311,11 @@ function DashboardSection({
           : weeklyDistributors.length
             ? `${weeklyDistributors.length} next`
             : 'Clear',
-      title: supplierName || 'No supplier visit queued',
+      title: supplierDisplayName || 'No supplier visit queued',
       meta: primarySupplierContext
         ? supplierSourceLabel
         : 'Open purchases to review supplier schedules and next prep.',
-      actionLabel: supplierId ? 'Prepare PO' : 'View plan',
+      actionLabel: selectedDistributorId ? 'Prepare PO' : 'View plan',
       onAction: handlePrepareSupplierPo,
     },
     {
@@ -607,7 +644,7 @@ function DashboardSection({
             <>
               <div className="dashboard-list">
                 <div className="dashboard-list-row">
-                  <span className="dashboard-row-primary">{supplierName || 'Supplier'}</span>
+                  <span className="dashboard-row-primary">{supplierDisplayName || 'Supplier'}</span>
                   <span className="dashboard-row-secondary">{supplierSourceLabel}</span>
                   <strong className="dashboard-row-value">{formatCurrency(supplierDueAmount)}</strong>
                 </div>

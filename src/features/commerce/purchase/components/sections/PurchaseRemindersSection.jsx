@@ -82,6 +82,7 @@ const PurchaseRemindersSection = ({
                   type="button"
                   className="admin-btn secondary small"
                   onClick={() => onDraftDistributor(entry.distributor_id, {
+                    planned_order_date: entry.suggested_next_order_date,
                     expected_delivery: entry.suggested_next_order_date,
                     suggested_items: entry.suggested_items || [],
                   })}
@@ -136,6 +137,7 @@ const PurchaseRemindersSection = ({
                   type="button"
                   className="admin-btn secondary small"
                   onClick={() => onDraftDistributor(entry.distributor_id, {
+                    planned_order_date: entry.next_order_date,
                     expected_delivery: entry.next_order_date,
                     suggested_items: entry.suggested_items || [],
                   })}

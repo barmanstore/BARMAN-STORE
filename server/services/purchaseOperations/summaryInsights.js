@@ -1,6 +1,7 @@
 const { createPurchaseOperationsDistributorInsights } = require('./summaryInsights/distributorInsights');
 const { createPurchaseOperationsDistributorSchedules } = require('./summaryInsights/distributorSchedules');
 const { createPurchaseOperationsPaymentPredictions } = require('./summaryInsights/paymentPredictions');
+const { buildSupplierVisitStates } = require('./summaryInsights/supplierVisits');
 const { createPurchaseOperationsSummaryCards } = require('./summaryInsights/summaryCards');
 
 const createPurchaseOperationsSummaryInsights = (deps) => {
@@ -48,6 +49,21 @@ const createPurchaseOperationsSummaryInsights = (deps) => {
       baseData,
       payablesWithInsights,
       distributorInsights: distributorInsightList,
+    });
+
+    const supplierVisits = buildSupplierVisitStates({
+      baseData,
+      metrics,
+      weeklyDistributors,
+      addDaysToDateKey: deps.addDaysToDateKey,
+      getSupplierScheduleConfig: deps.getSupplierScheduleConfig,
+      getWeekdayFromDateKey: deps.getWeekdayFromDateKey,
+      getPurchaseOrderLifecycleStatus,
+      normalizeTransactionDate,
+      PO_LIFECYCLE_CONFIRMED: deps.PO_LIFECYCLE_CONFIRMED,
+      PO_LIFECYCLE_PART_PAID: deps.PO_LIFECYCLE_PART_PAID,
+      PO_LIFECYCLE_FULLY_PAID: deps.PO_LIFECYCLE_FULLY_PAID,
+      PO_LIFECYCLE_CLOSED: deps.PO_LIFECYCLE_CLOSED,
     });
 
     const workflow = openOrders
@@ -105,6 +121,7 @@ const createPurchaseOperationsSummaryInsights = (deps) => {
       predictedPaymentsToday,
       predictedPaymentsNext,
       predictedDeliveriesNext,
+      supplierVisits,
       reminders,
       workflow,
       cards,

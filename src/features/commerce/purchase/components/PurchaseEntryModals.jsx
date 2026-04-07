@@ -115,6 +115,7 @@ export function PurchaseOrderFormModal({
   orderDraftProjection,
   handleDistributorInputChange,
   distributors,
+  suppliers,
   orderProductOptions,
   getAllowedPurchaseUnitsForProduct,
   getPurchasePackStep,
@@ -173,7 +174,20 @@ export function PurchaseOrderFormModal({
     totals: orderTotals,
   };
   const resolvedActiveItemIndex = items[activeItemIndex] ? activeItemIndex : 0;
-  const activeDistributors = distributors.filter((distributor) => distributor.status === 'active');
+  const distributorById = new Map(
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [String(entry?.id || ''), entry])
+  );
+  const activeSuppliers = (Array.isArray(suppliers) ? suppliers : [])
+    .filter((supplier) => supplier?.is_active !== false)
+    .map((supplier) => ({
+      ...supplier,
+      distributor_name: distributorById.get(String(supplier?.distributor_id || ''))?.name || '',
+    }))
+    .filter((supplier) => {
+      const distributor = distributorById.get(String(supplier?.distributor_id || ''));
+      return distributor && distributor.status === 'active';
+    })
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   const draftDiagnostics = draftProjection.diagnostics;
   const productLookupById = useMemo(() => {
     const map = new Map();
@@ -314,7 +328,8 @@ export function PurchaseOrderFormModal({
   const formTitle = editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order';
   const formSubtitle = '';
   const closeButtonLabel = inline ? 'Reset Form' : 'Cancel';
-  const distributorSelected = Boolean(String(orderFormData?.distributor_id || '').trim());
+  const supplierSelected = Boolean(String(orderFormData?.supplier_id || '').trim());
+  const distributorSelected = supplierSelected || Boolean(String(orderFormData?.distributor_id || '').trim());
   const hasMeaningfulItems = reviewableOrderRows.length > 0;
   const canReviewOrder = distributorSelected && reviewableOrderRows.length > 0 && !orderSubmitting;
   const activeWizardStep = orderReviewMode
@@ -764,7 +779,7 @@ export function PurchaseOrderFormModal({
             <section className={`po-popup-supplier-stage${supplierOnlyStep ? ' supplier-focus' : ''}`}>
               <div className={`po-party-grid${supplierOnlyStep ? ' po-supplier-focus-grid' : ' po-entry-header-grid'}`}>
                 <PurchaseDistributorSelector
-                  activeDistributors={activeDistributors}
+                  activeSuppliers={activeSuppliers}
                   orderFormData={orderFormData}
                   handleDistributorInputChange={handleDistributorInputChange}
                   distributorInputRef={distributorInputRef}
@@ -777,7 +792,7 @@ export function PurchaseOrderFormModal({
             <div className={`po-popup-items-screen single-flow${productPickerOpen ? ' picker-open' : ''}`}>
               <section className="po-popup-inline-toolbar compact">
                 <div className="po-popup-inline-toolbar-copy">
-                  <strong>{String(orderFormData?.distributor_name || '').trim() || 'Supplier selected'}</strong>
+                  <strong>{String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Supplier selected'}</strong>
                   <small>Update delivery date and note during review before final submit.</small>
                 </div>
                 <div className="po-popup-inline-toolbar-actions">
@@ -1019,7 +1034,7 @@ export function PurchaseOrderFormModal({
               description="Printed-bill style check. Only rows with qty above zero are included."
               badgeLabel={`${reviewableOrderRows.length} item${reviewableOrderRows.length === 1 ? '' : 's'}`}
               metaItems={[
-                { label: 'Supplier:', value: String(orderFormData?.distributor_name || '').trim() || 'Not selected' },
+              { label: 'Supplier:', value: String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Not selected' },
                 { label: 'Date:', value: new Date().toLocaleDateString() },
                 { label: 'Delivery:', value: String(orderFormData?.expected_delivery || '').trim() || 'Skipped' },
               ]}

@@ -13,6 +13,7 @@ const createPurchaseOperationsServices = ({ core, domainCore, notificationUtils 
     addDaysToDateKey: purchaseHelpers.addDaysToDateKey,
     normalizeBooleanFlag: purchaseHelpers.normalizeBooleanFlag,
     getDistributorOrderScheduleDay: purchaseHelpers.getDistributorOrderScheduleDay,
+    getSupplierScheduleConfig: purchaseHelpers.getSupplierScheduleConfig,
     getPurchaseOrderLifecycleStatus: purchaseHelpers.getPurchaseOrderLifecycleStatus,
     isPoEditableLifecycle: purchaseHelpers.isPoEditableLifecycle,
     getWeekdayFromDateKey: purchaseHelpers.getWeekdayFromDateKey,

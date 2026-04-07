@@ -7,6 +7,7 @@ const normalizeSearchValue = (value) => String(value || '')
 
 const usePurchaseLookups = ({
   distributors,
+  suppliers,
   products,
   purchaseOrders,
   buildOrderDraftItem,
@@ -18,19 +19,28 @@ const usePurchaseLookups = ({
   getLatestProductHistoryEntryHelper,
   getDistributorHistoryProductsHelper,
 }) => {
-  const resolveDistributorByInput = useCallback((value) => {
+  const distributorById = new Map(
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [String(entry?.id || ''), entry])
+  );
+
+  const resolveSupplierByInput = useCallback((value) => {
     const query = normalizeSearchValue(value);
     if (!query) return null;
-    return distributors.find((entry) => {
-      const status = String(entry?.status || '').trim().toLowerCase();
-      const isActive = !status || status === 'active';
+    return (Array.isArray(suppliers) ? suppliers : []).find((entry) => {
+      const isActive = entry?.is_active !== false;
       if (!isActive) return false;
+      const supplierName = normalizeSearchValue(entry?.name || '');
+      const distributorName = normalizeSearchValue(
+        distributorById.get(String(entry?.distributor_id || ''))?.name || ''
+      );
       return (
         String(entry.id) === query
-        || String(entry.name || '').trim().toLowerCase() === query
+        || supplierName === query
+        || `${supplierName} ${distributorName}`.trim() === query
+        || `${supplierName} - ${distributorName}`.trim() === query
       );
     }) || null;
-  }, [distributors]);
+  }, [distributorById, suppliers]);
 
   const resolveProductByInput = useCallback((value) => (
     resolveProductByInputHelper(value, products)
@@ -71,24 +81,30 @@ const usePurchaseLookups = ({
   ), [getDistributorHistoryProductsHelper, products, purchaseOrders, buildOrderDraftItem]);
 
   const handleDistributorInputChange = useCallback((value) => {
-    const match = resolveDistributorByInput(value);
+    const match = resolveSupplierByInput(value);
     setOrderFormData((prev) => {
-      const nextDistributorId = match ? String(match.id) : '';
-      const previousDistributorId = String(prev?.distributor_id || '').trim();
-      const distributorChanged = previousDistributorId !== nextDistributorId;
+      const nextSupplierId = match ? String(match.id) : '';
+      const nextDistributorId = match ? String(match.distributor_id || '') : '';
+      const distributorName = match
+        ? (distributorById.get(String(match.distributor_id || ''))?.name || '')
+        : '';
+      const previousSupplierId = String(prev?.supplier_id || '').trim();
+      const distributorChanged = previousSupplierId !== nextSupplierId;
       return {
         ...prev,
-        distributor_name: value,
+        supplier_id: nextSupplierId,
+        supplier_name: value,
         distributor_id: nextDistributorId,
+        distributor_name: distributorName,
         items: distributorChanged
           ? [createEmptyOrderItem()]
           : prev.items,
       };
     });
-  }, [createEmptyOrderItem, resolveDistributorByInput, setOrderFormData]);
+  }, [createEmptyOrderItem, distributorById, resolveSupplierByInput, setOrderFormData]);
 
   return {
-    resolveDistributorByInput,
+    resolveSupplierByInput,
     resolveProductByInput,
     getDistributorProductOptions,
     getDistributorProductHistoryEntry,

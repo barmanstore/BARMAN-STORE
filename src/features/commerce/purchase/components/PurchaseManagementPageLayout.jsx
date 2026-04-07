@@ -19,13 +19,14 @@ const PurchaseManagementPageLayout = ({
   operationsSummary,
   purchaseReturns,
   operationsLoading,
-  operationsCardItems,
   rollupParams,
   setRollupParams,
   lowStockProducts,
   openCreateOrderFormForDistributor,
   handleViewOrder,
   handleOpenPoPaymentById,
+  handleCloseSupplierVisit,
+  handleReopenSupplierVisit,
   openCreateOrderForm,
   handleOpenLedgerForm,
   handleOpenBrowserWorkspace,
@@ -34,6 +35,7 @@ const PurchaseManagementPageLayout = ({
   toNumber,
   filters,
   distributors,
+  suppliers,
   handleFilterChange,
   purchaseOrders,
   isPoEditable,
@@ -274,19 +276,12 @@ const PurchaseManagementPageLayout = ({
 
       {!popupMode && activeSubTab === 'dashboard' ? (
         <PurchaseDashboardSection
-          operationsLoading={operationsLoading}
-          operationsCardItems={operationsCardItems}
           operationsSummary={operationsSummary}
-          rollupParams={rollupParams}
-          setRollupParams={setRollupParams}
           lowStockProducts={lowStockProducts}
           onDraftDistributor={openCreateOrderFormForDistributor}
-          onOpenOrder={handleViewOrder}
           onOpenPayable={handleOpenPoPaymentById}
-          onNewOrder={openCreateOrderForm}
-          onOpenBrowserWorkspace={handleOpenBrowserWorkspace}
-          onOpenLedgerForm={handleOpenLedgerForm}
-          onOpenReturn={handleReturnFormOpen}
+          onCloseVisit={handleCloseSupplierVisit}
+          onReopenVisit={handleReopenSupplierVisit}
           formatCurrency={formatCurrency}
           toNumber={toNumber}
         />
@@ -295,17 +290,16 @@ const PurchaseManagementPageLayout = ({
       {!popupMode && activeSubTab === 'orders' ? (
         <PurchaseOrdersSection
           filters={filters}
-          distributors={distributors}
           onFilterChange={handleFilterChange}
           onOpenLedgerForm={handleOpenLedgerForm}
           onOpenReturn={handleReturnFormOpen}
-          onOpenBrowserWorkspace={handleOpenBrowserWorkspace}
           onNewOrder={openCreateOrderForm}
           purchaseOrders={purchaseOrders}
           isPoEditable={isPoEditable}
           canAddPaymentToPo={canAddPaymentToPo}
           canReceivePo={canReceivePo}
           canClosePo={canClosePo}
+          getPoLifecycleStatus={getPoLifecycleStatus}
           getPoPaymentStatus={getPoPaymentStatus}
           handleViewOrder={handleViewOrder}
           handleOpenProcessModal={handleOpenProcessModal}
@@ -330,6 +324,7 @@ const PurchaseManagementPageLayout = ({
         <PurchasePaymentsSection
           filters={filters}
           distributors={distributors}
+          suppliers={suppliers}
           onFilterChange={handleFilterChange}
           onOpenLedgerForm={handleOpenLedgerForm}
           ledgerBalanceSummary={ledgerBalanceSummary}
@@ -408,11 +403,11 @@ const PurchaseManagementPageLayout = ({
                 ) : null}
               </section>
             ) : null}
-            <PurchaseModals
-              showOrderForm={showOrderForm}
-              closeOrderForm={closeOrderForm}
-              poModalRef={poModalRef}
-              isMobile={isMobile}
+              <PurchaseModals
+                showOrderForm={showOrderForm}
+                closeOrderForm={closeOrderForm}
+                poModalRef={poModalRef}
+                isMobile={isMobile}
               poModalSize={poModalSize}
               editingOrderId={editingOrderId}
               handleOrderSubmit={handleOrderSubmit}
@@ -426,9 +421,10 @@ const PurchaseManagementPageLayout = ({
               orderFormData={orderFormData}
               setOrderFormData={setOrderFormData}
               orderDraftProjection={orderDraftProjection}
-              handleDistributorInputChange={handleDistributorInputChange}
-              distributors={distributors}
-              orderProductOptions={orderProductOptions}
+                handleDistributorInputChange={handleDistributorInputChange}
+                distributors={distributors}
+                suppliers={suppliers}
+                orderProductOptions={orderProductOptions}
               products={products}
               findProductForItem={findProductForItem}
               getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
@@ -560,11 +556,11 @@ const PurchaseManagementPageLayout = ({
           />
         </div>
       ) : (
-        <PurchaseModals
-          showOrderForm={showOrderForm}
-          closeOrderForm={closeOrderForm}
-          poModalRef={poModalRef}
-          isMobile={isMobile}
+          <PurchaseModals
+            showOrderForm={showOrderForm}
+            closeOrderForm={closeOrderForm}
+            poModalRef={poModalRef}
+            isMobile={isMobile}
           poModalSize={poModalSize}
           editingOrderId={editingOrderId}
           handleOrderSubmit={handleOrderSubmit}
@@ -578,9 +574,10 @@ const PurchaseManagementPageLayout = ({
           orderFormData={orderFormData}
           setOrderFormData={setOrderFormData}
           orderDraftProjection={orderDraftProjection}
-          handleDistributorInputChange={handleDistributorInputChange}
-          distributors={distributors}
-          orderProductOptions={orderProductOptions}
+            handleDistributorInputChange={handleDistributorInputChange}
+            distributors={distributors}
+            suppliers={suppliers}
+            orderProductOptions={orderProductOptions}
           products={products}
           findProductForItem={findProductForItem}
           getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}

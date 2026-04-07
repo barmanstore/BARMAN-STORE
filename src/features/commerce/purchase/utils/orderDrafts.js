@@ -495,6 +495,8 @@ const preparePurchaseOrderSubmission = ({
 
 const buildPurchaseOrderSavePayload = ({
   distributorId,
+  supplierId,
+  plannedOrderDate,
   expectedDelivery,
   strictDueDate,
   strictDueNote,
@@ -505,6 +507,8 @@ const buildPurchaseOrderSavePayload = ({
   clientRequestId,
 }) => ({
   distributor_id: distributorId,
+  supplier_id: supplierId || null,
+  planned_order_date: plannedOrderDate || null,
   expected_delivery: expectedDelivery,
   strict_due_date: strictDueDate || null,
   strict_due_note: strictDueNote || '',

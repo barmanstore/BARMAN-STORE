@@ -309,6 +309,43 @@ Use one dated section per completed change set.
 - Final same-day route audit after completing the remaining route/doc alignment work matched 174 documented routes to 174 mounted routes, with 0 undocumented routes, 0 missing documented routes, and 0 duplicate `METHOD + path` registrations.
 - `scripts/manual-modal-regression.ps1` passed locally on 2026-03-24 against `http://127.0.0.1:3000` and `http://127.0.0.1:5000`, including automated startup and teardown of the required local services.
 
+## 2026-04-06
+
+### Added
+
+- `POST /api/purchase-operations/visit/close` and `POST /api/purchase-operations/visit/reopen` for persisted today-only supplier visit decisions.
+- `supplier_visits` summary overlay and `supabase/migrations/20260406120000_supplier_visits.sql` so purchase planning can track supplier-day close state across operators and sessions.
+
+### Changed
+
+- Purchase planning now treats supplier visits as supplier-day workflow state: the dashboard stays schedule-based, overlays `supplier_visits`, hides active rows by `poDone || visitClosed`, and keeps payment as display-only status.
+- Purchase-order draft/create/edit flows now propagate explicit `planned_order_date` from schedule/reminder/admin/draft restore handoffs, and edit keeps the original stored visit anchor instead of recomputing it from delivery-date changes.
+- Purchase-operation summary enrichment is now supplier-scoped for routine handling, including supplier-day PO/payment state and supplier-aware payable targeting for dashboard actions.
+- Supplier routine rows no longer add distributor-wide ledger balance on top of supplier payables, preventing double-counted pending due amounts like `payable + same ledger total` on supplier cards.
+- Purchase routine supplier rows now use a tighter two-line layout with icon-only status markers, muted truncated prep text, and one overflow action menu instead of text-heavy status pills and full button rows.
+- The purchase-orders scoped search now applies the visible draft text when the scope changes and updates the placeholder/aria copy for `All`, `PO #`, and `Supplier` modes instead of filtering against stale submitted text.
+- The purchase payments tab now uses a denser operations layout with a stronger total-payable summary, compact supplier payable cards, lighter ghost-style pay actions, and a grouped ledger list with tighter rows, smaller inline refs, and method icons instead of the older wide ledger table.
+- The purchase payments tab now also prefers supplier-facing names in its filter options, payables cards, and ledger rows, and locally derived PO credit ledger entries now retain `supplier_id` / `supplier_name` so the screen no longer falls back to distributor names unnecessarily.
+- The purchase payments tab now shows supplier labels with distributor context as well, so filters and rows read like `Supplier - Distributor` instead of hiding the distributor entirely or falling back to distributor-only naming.
+- The purchase payments tab now keeps filtering and actions in one compact control bar, with the supplier filter plus quick-view chips on the left, a primary `Add Entry` action on the right, and lightweight `All` / `Due` / `Recent` view toggles driving the dense payable-plus-ledger layout.
+
+### Docs
+
+- Updated `ROUTES.md`, `docs/api-contract.md`, `docs/backend.md`, `docs/business-logic.md`, `docs/frontend.md`, `docs/ui-ux.md`, `docs/database.md`, and `TASKS.md` to reflect the supplier-visit workflow, visit-anchor rollout, and the compact routine-row presentation.
+- Updated `docs/frontend.md` and `docs/ui-ux.md` to record that purchase-orders scoped search should apply the visible draft immediately and reflect the active scope in the control copy.
+- Updated `docs/frontend.md` and `docs/ui-ux.md` to record the denser purchase payments screen layout and compact ledger presentation.
+
+### Verification
+
+- `node --check server/features/commerce/routes/purchaseOperationsRoutes.js`
+- `node --check server/services/purchaseOperations/summaryInsights.js`
+- `node --check server/services/purchaseOperations/summaryInsights/supplierVisits.js`
+- `node --check src/features/commerce/purchase/hooks/usePurchaseManagementController.js`
+- `node --check src/features/commerce/purchase/hooks/usePurchaseOrderFormHandlers.js`
+- `node --check src/features/commerce/purchase/hooks/usePurchaseOrderDetailHandlers.js`
+- `node --check src/features/commerce/purchase/hooks/usePurchasePaymentHandlers.js`
+- `npm run build`
+
 ## 2026-03-29
 
 ### Changed

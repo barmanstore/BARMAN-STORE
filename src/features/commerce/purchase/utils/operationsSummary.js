@@ -30,6 +30,7 @@ const createDefaultOperationsSummary = () => ({
   today_distributors: [],
   tomorrow_distributors: [],
   weekly_distributors: [],
+  supplier_visits: [],
   predicted_payments_today: [],
   predicted_payments_next: [],
   predicted_deliveries_next: [],

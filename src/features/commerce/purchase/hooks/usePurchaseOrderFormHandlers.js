@@ -25,6 +25,7 @@ const usePurchaseOrderFormHandlers = ({
   orderSubmitting,
   orderFormData,
   distributors,
+  suppliers,
   products,
   buildOrderDraftItem,
   createEmptyOrderItem,
@@ -41,6 +42,7 @@ const usePurchaseOrderFormHandlers = ({
   setError,
   getPurchaseRequestErrorMessage,
   fetchOrders,
+  fetchOperationsSummary,
   isPoEditable,
   toDateInputValue,
   getDistributorProductHistoryEntry,
@@ -49,9 +51,14 @@ const usePurchaseOrderFormHandlers = ({
   resolvePurchaseUnitForProduct,
   normalizeGstRateOption,
   onOrderSaved,
+  refreshSupplierRegisteredProducts,
 }) => {
-  const handleFilterChange = useCallback((e) => {
-    const { name, value } = e.target;
+  const handleFilterChange = useCallback((input) => {
+    if (input && !input.target && typeof input === 'object') {
+      setFilters((prev) => ({ ...prev, ...input }));
+      return;
+    }
+    const { name, value } = input.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
   }, [setFilters]);
 
@@ -206,6 +213,15 @@ const usePurchaseOrderFormHandlers = ({
     toNumber,
   ]);
 
+  const resolvePrimarySupplier = useCallback((distributorId) => {
+    const normalizedId = String(distributorId || '').trim();
+    if (!normalizedId) return null;
+    const matches = (Array.isArray(suppliers) ? suppliers : [])
+      .filter((entry) => String(entry?.distributor_id || '') === normalizedId);
+    if (!matches.length) return null;
+    return matches.find((entry) => entry?.is_primary) || matches[0] || null;
+  }, [suppliers]);
+
   const hydrateSuggestedOrderItemsFromLastPurchase = useCallback((suggestedItems = [], distributorId = '') => {
     suggestedItems.forEach((item, index) => {
       const selectedProductId = String(item?.product_id || '').trim();
@@ -260,6 +276,17 @@ const usePurchaseOrderFormHandlers = ({
     const safeOptions = options && typeof options === 'object' ? options : {};
     const suggestedItems = Array.isArray(safeOptions.suggested_items) ? safeOptions.suggested_items : [];
     const baseOrderFormData = getDefaultOrderFormData();
+    const plannedOrderDate = safeOptions.planned_order_date
+      || safeOptions.plannedOrderDate
+      || safeOptions.order_date
+      || safeOptions.expected_delivery
+      || baseOrderFormData.planned_order_date
+      || baseOrderFormData.expected_delivery;
+    const expectedDelivery = safeOptions.expected_delivery
+      || safeOptions.order_date
+      || safeOptions.planned_order_date
+      || safeOptions.plannedOrderDate
+      || baseOrderFormData.expected_delivery;
     setError('');
     resetOrderForm();
     setEditingOrderId(null);
@@ -269,14 +296,17 @@ const usePurchaseOrderFormHandlers = ({
       ...baseOrderFormData,
       distributor_id: '',
       distributor_name: '',
-      expected_delivery: safeOptions.expected_delivery || safeOptions.order_date || baseOrderFormData.expected_delivery,
+      supplier_id: '',
+      supplier_name: '',
+      planned_order_date: plannedOrderDate,
+      expected_delivery: expectedDelivery,
       strict_due_date: safeOptions.strict_due_date || '',
       strict_due_note: safeOptions.strict_due_note || '',
       notes: safeOptions.notes || '',
       items: buildSuggestedOrderItems(
         suggestedItems,
         '',
-        safeOptions.order_date || safeOptions.expected_delivery || baseOrderFormData.expected_delivery,
+        plannedOrderDate,
         ''
       ),
     });
@@ -298,11 +328,38 @@ const usePurchaseOrderFormHandlers = ({
   const openCreateOrderFormForDistributor = useCallback((distributorId, options = {}) => {
     const safeOptions = options && typeof options === 'object' ? options : {};
     const distributor = distributors.find((entry) => String(entry.id) === String(distributorId));
+    const resolvedDistributorId = distributor ? String(distributor.id) : String(distributorId || '');
+    const requestedSupplierId = String(
+      safeOptions.supplier_id ?? safeOptions.supplierId ?? ''
+    ).trim();
+    const supplierMatches = (Array.isArray(suppliers) ? suppliers : [])
+      .filter((entry) => String(entry?.distributor_id || '') === resolvedDistributorId);
+    const supplier = requestedSupplierId
+      ? (
+        supplierMatches.find((entry) => String(entry?.id || '') === requestedSupplierId && entry?.is_active !== false)
+        || supplierMatches.find((entry) => String(entry?.id || '') === requestedSupplierId)
+        || resolvePrimarySupplier(distributor?.id || distributorId)
+      )
+      : resolvePrimarySupplier(distributor?.id || distributorId);
     const suggestedItems = Array.isArray(safeOptions.suggested_items) ? safeOptions.suggested_items : [];
     const fallbackDistributorName = String(
       safeOptions.distributor_name || safeOptions.distributorName || ''
     ).trim();
+    const fallbackSupplierName = String(
+      safeOptions.supplier_name || safeOptions.supplierName || ''
+    ).trim();
     const baseOrderFormData = getDefaultOrderFormData();
+    const plannedOrderDate = safeOptions.planned_order_date
+      || safeOptions.plannedOrderDate
+      || safeOptions.order_date
+      || safeOptions.expected_delivery
+      || baseOrderFormData.planned_order_date
+      || baseOrderFormData.expected_delivery;
+    const expectedDelivery = safeOptions.expected_delivery
+      || safeOptions.order_date
+      || safeOptions.planned_order_date
+      || safeOptions.plannedOrderDate
+      || baseOrderFormData.expected_delivery;
     setError('');
     resetOrderForm();
     setEditingOrderId(null);
@@ -312,24 +369,29 @@ const usePurchaseOrderFormHandlers = ({
       ...baseOrderFormData,
       distributor_id: distributor ? String(distributor.id) : String(distributorId || ''),
       distributor_name: distributor?.name || fallbackDistributorName,
-      expected_delivery: safeOptions.expected_delivery || safeOptions.order_date || baseOrderFormData.expected_delivery,
+      supplier_id: supplier ? String(supplier.id) : '',
+      supplier_name: supplier?.name || fallbackSupplierName,
+      planned_order_date: plannedOrderDate,
+      expected_delivery: expectedDelivery,
       strict_due_date: safeOptions.strict_due_date || '',
       strict_due_note: safeOptions.strict_due_note || '',
       notes: safeOptions.notes || '',
       items: buildSuggestedOrderItems(
         suggestedItems,
         distributor?.name || fallbackDistributorName,
-        safeOptions.order_date || safeOptions.expected_delivery || baseOrderFormData.expected_delivery,
+        plannedOrderDate,
         distributor?.id || distributorId
       ),
     });
     setShowOrderForm(true);
     hydrateSuggestedOrderItemsFromLastPurchase(suggestedItems, distributor?.id || distributorId);
-  }, [
-    distributors,
-    buildSuggestedOrderItems,
-    getDefaultOrderFormData,
-    hydrateSuggestedOrderItemsFromLastPurchase,
+    }, [
+      distributors,
+      suppliers,
+      resolvePrimarySupplier,
+      buildSuggestedOrderItems,
+      getDefaultOrderFormData,
+      hydrateSuggestedOrderItemsFromLastPurchase,
     resetOrderForm,
     setError,
     setEditingOrderId,
@@ -351,8 +413,10 @@ const usePurchaseOrderFormHandlers = ({
 
   const handleOpenOrderReview = useCallback(() => {
     setError('');
+    const selectedSupplier = (Array.isArray(suppliers) ? suppliers : [])
+      .find((s) => String(s.id) === String(orderFormData.supplier_id) && s.is_active !== false);
     const selectedDistributor = distributors.find((d) => String(d.id) === String(orderFormData.distributor_id) && d.status === 'active');
-    if (!selectedDistributor) {
+    if (!selectedSupplier || !selectedDistributor || String(selectedSupplier.distributor_id || '') !== String(selectedDistributor.id || '')) {
       setError('Please select a valid supplier');
       return false;
     }
@@ -375,6 +439,7 @@ const usePurchaseOrderFormHandlers = ({
     calculateOrderItem,
     calculateOrderTotals,
     distributors,
+    suppliers,
     findProductForItem,
     orderFormData.distributor_id,
     orderFormData.items,
@@ -391,8 +456,10 @@ const usePurchaseOrderFormHandlers = ({
 
     try {
       setOrderSubmitting(true);
+      const selectedSupplier = (Array.isArray(suppliers) ? suppliers : [])
+        .find((s) => String(s.id) === String(orderFormData.supplier_id) && s.is_active !== false);
       const selectedDistributor = distributors.find((d) => String(d.id) === String(orderFormData.distributor_id) && d.status === 'active');
-      if (!selectedDistributor) {
+      if (!selectedSupplier || !selectedDistributor || String(selectedSupplier.distributor_id || '') !== String(selectedDistributor.id || '')) {
         setError('Please select a valid supplier');
         setOrderSubmitting(false);
         orderSubmitLockRef.current = false;
@@ -415,6 +482,8 @@ const usePurchaseOrderFormHandlers = ({
 
       const payload = buildPurchaseOrderSavePayload({
         distributorId: orderFormData.distributor_id,
+        supplierId: orderFormData.supplier_id,
+        plannedOrderDate: orderFormData.planned_order_date,
         expectedDelivery: orderFormData.expected_delivery,
         strictDueDate: orderFormData.strict_due_date || null,
         strictDueNote: orderFormData.strict_due_note || '',
@@ -429,7 +498,14 @@ const usePurchaseOrderFormHandlers = ({
         ? await purchaseOrdersApi.update(editingOrderId, payload)
         : await purchaseOrdersApi.create(payload);
       const savedOrderId = String(response?.id || editingOrderId || '').trim();
-      const nextOrders = await fetchOrders();
+      const nextSupplierId = String(orderFormData?.supplier_id || '').trim();
+      const [nextOrders] = await Promise.all([
+        fetchOrders(),
+        typeof fetchOperationsSummary === 'function' ? fetchOperationsSummary() : Promise.resolve(),
+        typeof refreshSupplierRegisteredProducts === 'function' && nextSupplierId
+          ? refreshSupplierRegisteredProducts(nextSupplierId)
+          : Promise.resolve([]),
+      ]);
       const savedOrder = nextOrders.find((order) => String(order?.id || '') === savedOrderId) || null;
       const savedPoNumber = String(
         response?.po_number
@@ -444,7 +520,13 @@ const usePurchaseOrderFormHandlers = ({
       setLastSavedOrderSummary({
         id: savedOrder?.id ?? response?.id ?? editingOrderId ?? null,
         poNumber: savedPoNumber,
-        distributorName: String(savedOrder?.distributor_name || orderFormData?.distributor_name || '').trim(),
+        distributorName: String(
+          savedOrder?.supplier_name
+          || orderFormData?.supplier_name
+          || savedOrder?.distributor_name
+          || orderFormData?.distributor_name
+          || ''
+        ).trim(),
         totalAmount: Number(savedOrder?.total_amount ?? savedOrder?.total ?? submission.totals?.totalAmount ?? 0) || 0,
         mode: editingOrderId ? 'updated' : 'created',
       });
@@ -471,6 +553,7 @@ const usePurchaseOrderFormHandlers = ({
     setError,
     setOrderSubmitting,
     distributors,
+    suppliers,
     orderFormData,
     products,
     findProductForItem,
@@ -485,7 +568,9 @@ const usePurchaseOrderFormHandlers = ({
     onOrderSaved,
     closeOrderForm,
     fetchOrders,
+    fetchOperationsSummary,
     getPurchaseRequestErrorMessage,
+    refreshSupplierRegisteredProducts,
   ]);
 
   const handleEditOrder = useCallback(async (orderId) => {
@@ -516,6 +601,9 @@ const usePurchaseOrderFormHandlers = ({
       setOrderFormData({
         distributor_id: order.distributor_id ? String(order.distributor_id) : '',
         distributor_name: order.distributor_name || distributors.find((d) => String(d.id) === String(order.distributor_id))?.name || '',
+        supplier_id: order.supplier_id ? String(order.supplier_id) : '',
+        supplier_name: order.supplier_name || '',
+        planned_order_date: toDateInputValue(order.planned_order_date || order.expected_delivery),
         expected_delivery: toDateInputValue(order.expected_delivery),
         strict_due_date: toDateInputValue(order.strict_due_date),
         strict_due_note: order.strict_due_note || '',

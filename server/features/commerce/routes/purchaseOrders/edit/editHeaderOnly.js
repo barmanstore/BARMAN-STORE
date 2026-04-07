@@ -2,6 +2,7 @@ const updatePurchaseOrderHeaderOnly = async (deps, {
   req,
   cur,
   updatedDistributorId,
+  updatedSupplierId,
   updatedNotes,
   updatedExpectedDelivery,
   plannedOrderDate,
@@ -35,10 +36,11 @@ const updatePurchaseOrderHeaderOnly = async (deps, {
 
   await dbRunAsync(
     `UPDATE purchase_orders
-     SET distributor_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
+     SET distributor_id=?, supplier_id=?, notes=?, expected_delivery=?, planned_order_date=?, payment_due_date=?, strict_due_date=?, strict_due_note=?, duplicate_key=?, status=?, po_status=?, revision_count=?, next_action=?, subtotal=?, tax_amount=?, total_amount=?, total=?, payment_status=?, paid_amount=?, balance_due=?, updated_at=CURRENT_TIMESTAMP
      WHERE id=?`,
     [
       updatedDistributorId,
+      updatedSupplierId || null,
       updatedNotes || null,
       updatedExpectedDelivery || null,
       plannedOrderDate,

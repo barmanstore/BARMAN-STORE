@@ -366,6 +366,7 @@ These helper trees act as the practical controller layer for complex routes:
   - `GET /api/distributors`
   - `GET /api/distributors/:id`
   - `GET /api/distributors/:id/products`
+  - `GET /api/distributors/:id/suppliers`
   - `POST /api/distributors`
   - `PUT /api/distributors/:id`
   - `DELETE /api/distributors/:id`
@@ -378,6 +379,13 @@ These helper trees act as the practical controller layer for complex routes:
   - `POST /api/distributors/:id/ledger`
   - `POST /api/distributors/:id/transactions`
   - `POST /api/distributors/:id/credit`
+- `server/features/commerce/supplierRoutes.js`
+  - `GET /api/suppliers`
+  - `GET /api/suppliers/:id`
+  - `GET /api/suppliers/:id/products`
+  - `POST /api/suppliers`
+  - `PUT /api/suppliers/:id`
+  - `DELETE /api/suppliers/:id`
 - `server/features/commerce/routes/insights/productInsightsList.js`
   - `GET /api/insights/products`
 - `server/features/commerce/routes/insights/productInsightsDetail.js`
@@ -389,9 +397,11 @@ These helper trees act as the practical controller layer for complex routes:
   - `GET /api/products/:id(\d+)/suppliers`
 - `server/features/commerce/routes/purchaseOperationsRoutes.js`
   - `GET /api/purchase-operations/summary`
+  - `POST /api/purchase-operations/visit/close`
+  - `POST /api/purchase-operations/visit/reopen`
   - `GET /api/internal/purchase-operations/analytics/run`
   - `POST /api/internal/purchase-operations/analytics/run`
-  - Handler note: delegates response ownership to `handlePurchaseOperationsSummary` from `server/services/purchaseOperations/summary.js`.
+  - Handler note: summary delegates response ownership to `handlePurchaseOperationsSummary` from `server/services/purchaseOperations/summary.js`, while visit close/reopen persist today-only `supplier_visits` rows for the shared purchase summary.
 - `server/features/commerce/routes/purchaseOrders/purchaseOrdersListRead.js`
   - `GET /api/purchase-orders`
 - `server/features/commerce/routes/purchaseOrders/purchaseOrdersListCreate.js`

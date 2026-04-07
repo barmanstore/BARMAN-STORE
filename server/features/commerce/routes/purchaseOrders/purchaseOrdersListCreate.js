@@ -21,6 +21,7 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
     findDuplicatePurchaseOrderAsync,
     generatePONumber,
     getDistributorByIdAsync,
+    getSupplierByIdAsync,
     isUniqueViolationError,
     logAdminAuditAsync,
     normalizePurchaseOrderItems,
@@ -53,14 +54,25 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
         });
       }
 
-      const { distributor, normalizedItems } = await validatePurchaseOrderInput({
+      const {
+        distributor,
+        supplier,
+        distributorId,
+        supplierId,
+        normalizedItems,
+      } = await validatePurchaseOrderInput({
         body: b,
         getDistributorByIdAsync,
+        getSupplierByIdAsync,
         normalizePurchaseOrderItems,
       });
 
       const context = buildPurchaseOrderContext({
-        body: b,
+        body: {
+          ...b,
+          distributor_id: distributorId,
+          supplier_id: supplierId || b.supplier_id || null,
+        },
         distributor,
         normalizedItems,
         buildPurchaseDuplicateKey,
@@ -71,7 +83,11 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
 
       const poNumber = generatePONumber();
       const { orderId } = await createPurchaseOrderTransaction({
-        body: b,
+        body: {
+          ...b,
+          distributor_id: distributorId,
+          supplier_id: supplierId || b.supplier_id || null,
+        },
         poNumber,
         clientRequestId,
         context,
@@ -89,7 +105,9 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
         PO_LIFECYCLE_PREPARED,
       });
 
-      await syncDistributorProductsSuppliedAsync(Number(b.distributor_id || 0), normalizedItems);
+      await syncDistributorProductsSuppliedAsync(Number(distributorId || 0), normalizedItems, {
+        supplierId: supplierId || b.supplier_id || null,
+      });
       await logPurchaseOrderCreateAudit({
         req,
         logAdminAuditAsync,
@@ -98,7 +116,7 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
         poNumber,
         totalAmount: context.totalAmount,
         normalizedItems,
-        distributorId: b.distributor_id,
+        distributorId,
       });
       return res.status(201).json({
         success: true,

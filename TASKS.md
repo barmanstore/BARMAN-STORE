@@ -14,16 +14,13 @@ None.
 
 ### Frontend Platform
 
-- Stabilize PO review modal behavior and unify PO review screens across the purchase flow:
-  - Prevent the PO review workspace from dismissing on backdrop clicks.
-  - Replace the legacy PO detail review surface with the shared printed-bill review sheet.
-  - Keep review styling consistent across draft review and saved PO review.
+None.
 
 ## Next
 
 ### Phase 1 (Core Daily Use)
 
-None.
+- Enforce `planned_order_date` as required on purchase-order create once every client handoff is sending it and fallback usage is confirmed at zero.
 
 ### Phase 2 (Supplier Planning)
 
@@ -38,6 +35,20 @@ None.
 - None currently.
 
 ## Done
+
+- Rolled out phase-1 supplier-visit workflow for purchase planning:
+  - Added server-backed supplier-day `Close Visit` / `Reopen` routes and `supplier_visits` summary overlay for the routine board.
+  - Switched the purchase dashboard routine handling from browser-local overrides to supplier-day `poDone || visitClosed` state while keeping payment display-only.
+  - Propagated `planned_order_date` through purchase draft/create/edit handoffs, restored missing anchors from legacy saved drafts, and kept the stored visit anchor immutable on edit.
+  - Tightened supplier routine rows into compact two-line cards with icon-only status markers and one overflow menu for routine actions.
+
+- Implemented supplier child entity with schedule types (daily/weekly/irregular) and supplier-level product links:
+  - Added `suppliers` table (distributor_id FK, name, contacts, schedule_type, schedule_day, active, primary).
+  - Extended `supplier_products` with `supplier_id` and updated PO creation/receive flows to upsert against it.
+  - Updated purchase scheduling/reminders to use supplier schedules first, distributor schedule as fallback.
+  - Added CRUD + lookup routes for suppliers and supplier products in backend + API wrappers.
+  - Updated purchase flow supplier pickers and summaries to use the new supplier entity while keeping distributor compatibility.
+  - Migrated existing distributor schedule into default supplier records and removed orphan supplier-product rows.
 
 - Stabilized PO review behavior and unified review layout:
   - Disabled backdrop-close on the PO create review workspace so it no longer auto-closes on stray clicks.

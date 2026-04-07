@@ -18,4 +18,16 @@ const buildOrdersByDistributor = (orders = []) => {
   return ordersByDistributor;
 };
 
-module.exports = { buildPaidTodayAmount, buildOrdersByDistributor };
+const buildOrdersBySupplier = (orders = []) => {
+  const ordersBySupplier = new Map();
+  for (const order of orders) {
+    const key = Number(order.supplier_id || 0);
+    if (!key) continue;
+    const list = ordersBySupplier.get(key) || [];
+    list.push(order);
+    ordersBySupplier.set(key, list);
+  }
+  return ordersBySupplier;
+};
+
+module.exports = { buildPaidTodayAmount, buildOrdersByDistributor, buildOrdersBySupplier };

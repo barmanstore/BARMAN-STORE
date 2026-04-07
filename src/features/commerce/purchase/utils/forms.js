@@ -4,6 +4,9 @@ import { createEmptyOrderItem } from './items';
 const createDefaultOrderFormData = () => ({
   distributor_id: '',
   distributor_name: '',
+  supplier_id: '',
+  supplier_name: '',
+  planned_order_date: getTodayDate(),
   expected_delivery: getTodayDate(),
   strict_due_date: '',
   strict_due_note: '',

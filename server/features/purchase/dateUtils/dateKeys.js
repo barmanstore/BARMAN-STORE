@@ -1,4 +1,30 @@
 const createDateKeyUtils = ({ PURCHASE_WEEKDAYS = [] } = {}) => {
+  const parseDateKeyParts = (value) => {
+    const raw = String(value || '').slice(0, 10);
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+    return { year, month, day };
+  };
+
+  const buildUtcDateFromKey = (value) => {
+    const parts = parseDateKeyParts(value);
+    if (!parts) return null;
+    const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const toUtcDateKey = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const normalizeWeekdayLabel = (value) => {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return '';
@@ -9,22 +35,22 @@ const createDateKeyUtils = ({ PURCHASE_WEEKDAYS = [] } = {}) => {
   };
 
   const addDaysToDateKey = (dateValue, days = 0) => {
-    const baseDate = new Date(`${String(dateValue || '').slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(baseDate.getTime())) return null;
-    baseDate.setDate(baseDate.getDate() + Number(days || 0));
-    return baseDate.toISOString().slice(0, 10);
+    const baseDate = buildUtcDateFromKey(dateValue);
+    if (!baseDate || Number.isNaN(baseDate.getTime())) return null;
+    baseDate.setUTCDate(baseDate.getUTCDate() + Number(days || 0));
+    return toUtcDateKey(baseDate);
   };
 
   const getWeekdayFromDateKey = (dateValue) => {
-    const baseDate = new Date(`${String(dateValue || '').slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(baseDate.getTime())) return '';
-    return PURCHASE_WEEKDAYS[baseDate.getDay()] || '';
+    const baseDate = buildUtcDateFromKey(dateValue);
+    if (!baseDate || Number.isNaN(baseDate.getTime())) return '';
+    return PURCHASE_WEEKDAYS[baseDate.getUTCDay()] || '';
   };
 
   const getDaysBetweenDateKeys = (fromDate, toDate) => {
-    const from = new Date(`${String(fromDate || '').slice(0, 10)}T00:00:00`);
-    const to = new Date(`${String(toDate || '').slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+    const from = buildUtcDateFromKey(fromDate);
+    const to = buildUtcDateFromKey(toDate);
+    if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
     return Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000));
   };
 

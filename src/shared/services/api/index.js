@@ -21,6 +21,7 @@ export { adminApi } from './admin';
 export { billingApi } from './billing';
 export { productRecommendationsApi } from './productRecommendations';
 export { distributorsApi } from './distributors';
+export { suppliersApi } from './suppliers';
 export { distributorLedgerApi } from './distributorLedger';
 export { purchaseOrdersApi } from './purchaseOrders';
 export { insightsApi } from './insights';

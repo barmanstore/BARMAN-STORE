@@ -29,24 +29,27 @@ const readCachedPurchaseLookups = () => {
       return null;
     }
     const distributors = Array.isArray(parsed?.distributors) ? parsed.distributors : null;
+    const suppliers = Array.isArray(parsed?.suppliers) ? parsed.suppliers : null;
     const products = Array.isArray(parsed?.products) ? parsed.products : null;
-    if (!distributors || !products) return null;
-    return { distributors, products };
+    if (!distributors || !products || !suppliers) return null;
+    return { distributors, suppliers, products };
   } catch (_) {
     return null;
   }
 };
 
-const writeCachedPurchaseLookups = ({ distributors, products }) => {
+const writeCachedPurchaseLookups = ({ distributors, suppliers, products }) => {
   safeSessionStorageSet(PURCHASE_LOOKUP_CACHE_KEY, JSON.stringify({
     updatedAt: Date.now(),
     distributors: Array.isArray(distributors) ? distributors : [],
+    suppliers: Array.isArray(suppliers) ? suppliers : [],
     products: Array.isArray(products) ? products : [],
   }));
 };
 
 const usePurchaseDataFetch = ({
   distributorsApi,
+  suppliersApi,
   productsApi,
   purchaseOrdersApi,
   purchaseReturnsApi,
@@ -60,6 +63,7 @@ const usePurchaseDataFetch = ({
   setError,
   setDistributors,
   setProducts,
+  setSuppliers,
   setPurchaseOrders,
   setOperationsLoading,
   setOperationsSummary,
@@ -71,6 +75,7 @@ const usePurchaseDataFetch = ({
     const cachedLookups = readCachedPurchaseLookups();
     if (cachedLookups) {
       setDistributors(cachedLookups.distributors);
+      setSuppliers(cachedLookups.suppliers);
       setProducts(cachedLookups.products);
       setLoading(false);
     } else {
@@ -78,16 +83,20 @@ const usePurchaseDataFetch = ({
     }
 
     try {
-      const [distributorsData, productsData] = await Promise.all([
+      const [distributorsData, suppliersData, productsData] = await Promise.all([
         distributorsApi.getAll(),
+        suppliersApi.getAll(),
         productsApi.getAll(),
       ]);
       const nextDistributors = Array.isArray(distributorsData) ? distributorsData : [];
+      const nextSuppliers = Array.isArray(suppliersData) ? suppliersData : [];
       const nextProducts = Array.isArray(productsData) ? productsData : [];
       setDistributors(nextDistributors);
+      setSuppliers(nextSuppliers);
       setProducts(nextProducts);
       writeCachedPurchaseLookups({
         distributors: nextDistributors,
+        suppliers: nextSuppliers,
         products: nextProducts,
       });
     } catch (err) {
@@ -97,7 +106,7 @@ const usePurchaseDataFetch = ({
     } finally {
       setLoading(false);
     }
-  }, [distributorsApi, productsApi, setLoading, setDistributors, setProducts, setError]);
+  }, [distributorsApi, suppliersApi, productsApi, setLoading, setDistributors, setSuppliers, setProducts, setError]);
 
   const fetchOrders = useCallback(async () => {
     try {

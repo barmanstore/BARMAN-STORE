@@ -51,11 +51,12 @@ const createPurchaseOrderTransaction = async ({
 
     const header = await dbRunAsync(
       `INSERT INTO purchase_orders
-       (po_number, distributor_id, subtotal, tax_amount, total_amount, total, status, po_status, payment_status, paid_amount, balance_due, notes, expected_delivery, planned_order_date, payment_due_date, strict_due_date, strict_due_note, duplicate_key, next_action, created_by, client_request_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (po_number, distributor_id, supplier_id, subtotal, tax_amount, total_amount, total, status, po_status, payment_status, paid_amount, balance_due, notes, expected_delivery, planned_order_date, payment_due_date, strict_due_date, strict_due_note, duplicate_key, next_action, created_by, client_request_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         poNumber,
         body.distributor_id,
+        body.supplier_id || null,
         subtotal,
         taxAmount,
         totalAmount,
@@ -130,7 +131,9 @@ const createPurchaseOrderTransaction = async ({
       }
     }
 
-    await upsertSupplierProductsAsync(body.distributor_id, normalizedItems);
+    await upsertSupplierProductsAsync(body.distributor_id, normalizedItems, {
+      supplierId: body.supplier_id || null,
+    });
     await recordPurchaseOrderStatusHistoryAsync(orderId, {
       fromStatus: null,
       toStatus: PO_LIFECYCLE_PREPARED,

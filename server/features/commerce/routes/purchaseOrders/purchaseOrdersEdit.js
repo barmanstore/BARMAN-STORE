@@ -7,6 +7,7 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
     requireAdmin,
     dbGetAsync,
     getDistributorByIdAsync,
+    getSupplierByIdAsync,
     getPurchaseOrderLifecycleStatus,
     isPoEditableLifecycle,
     computePurchasePaymentDueDate,
@@ -27,7 +28,16 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
       const b = req.body || {};
       const items = Array.isArray(b.items) ? b.items : null;
 
-      const updatedDistributorId = Number(b.distributor_id ?? cur.distributor_id ?? 0) || null;
+      const updatedSupplierId = Number(b.supplier_id ?? cur.supplier_id ?? 0) || null;
+      let updatedDistributorId = Number(b.distributor_id ?? cur.distributor_id ?? 0) || null;
+      if (updatedSupplierId && typeof getSupplierByIdAsync === 'function') {
+        const supplier = await getSupplierByIdAsync(updatedSupplierId);
+        if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
+        if (updatedDistributorId && Number(supplier.distributor_id || 0) !== updatedDistributorId) {
+          return res.status(400).json({ error: 'Supplier does not belong to distributor' });
+        }
+        updatedDistributorId = Number(supplier.distributor_id || 0) || null;
+      }
       const updatedNotes = b.notes ?? cur.notes ?? '';
       const updatedExpectedDelivery = b.expected_delivery ?? cur.expected_delivery ?? null;
       const distributor = await getDistributorByIdAsync(updatedDistributorId);
@@ -35,7 +45,7 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
       const nextLifecycleStatus = currentPoStatus === PO_LIFECYCLE_SENT ? PO_LIFECYCLE_REVISED : currentPoStatus;
       const shouldIncrementRevision = currentPoStatus === PO_LIFECYCLE_SENT || currentPoStatus === PO_LIFECYCLE_REVISED;
       const plannedOrderDate = normalizeTransactionDate(
-        b.planned_order_date || updatedExpectedDelivery || cur.planned_order_date || cur.expected_delivery || cur.created_at
+        cur.planned_order_date || cur.expected_delivery || cur.created_at
       ) || new Date().toISOString().slice(0, 10);
       const inferredPaymentDueDate = computePurchasePaymentDueDate(distributor, plannedOrderDate, {
         payment_cycle_type: b.payment_cycle_type,
@@ -58,6 +68,7 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
           cur,
           items,
           updatedDistributorId,
+          updatedSupplierId,
           updatedNotes,
           updatedExpectedDelivery,
           plannedOrderDate,
@@ -73,6 +84,7 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
           req,
           cur,
           updatedDistributorId,
+          updatedSupplierId,
           updatedNotes,
           updatedExpectedDelivery,
           plannedOrderDate,

@@ -29,12 +29,12 @@ const buildSuggestedItems = (suggestionMap, { limit = 5 } = {}) => (
 );
 
 const mergeSuggestedProductKnowledge = ({
-  distributor,
+  manualProductsSupplied = '',
   mergeDistributorProductKnowledge,
   likelyItems,
   suggestedItems,
 } = {}) => mergeDistributorProductKnowledge({
-  manualProductsSupplied: distributor.products_supplied || '',
+  manualProductsSupplied,
   likelyItems,
   suggestedItems,
 });

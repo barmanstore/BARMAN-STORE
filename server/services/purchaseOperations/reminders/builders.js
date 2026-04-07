@@ -9,6 +9,7 @@ const createPurchaseOperationsReminderBuilders = (deps) => {
     addDaysToDateKey,
     normalizeBooleanFlag,
     getDistributorOrderScheduleDay,
+    getSupplierScheduleConfig,
     getPurchaseOrderLifecycleStatus,
     isPoEditableLifecycle,
     getWeekdayFromDateKey,
@@ -26,6 +27,7 @@ const createPurchaseOperationsReminderBuilders = (deps) => {
     todayKey,
     tomorrowKey,
     distributors,
+    suppliers,
     orders,
     items,
   }) => {
@@ -52,11 +54,18 @@ const createPurchaseOperationsReminderBuilders = (deps) => {
     });
 
     const ordersByDistributor = new Map();
+    const ordersBySupplier = new Map();
     for (const order of enrichedOrders) {
       const key = Number(order.distributor_id || 0);
       const list = ordersByDistributor.get(key) || [];
       list.push(order);
       ordersByDistributor.set(key, list);
+      const supplierKey = Number(order.supplier_id || 0);
+      if (supplierKey) {
+        const supplierList = ordersBySupplier.get(supplierKey) || [];
+        supplierList.push(order);
+        ordersBySupplier.set(supplierKey, supplierList);
+      }
     }
 
     const distributorInsights = buildDistributorInsights({
@@ -76,10 +85,13 @@ const createPurchaseOperationsReminderBuilders = (deps) => {
     const reminders = buildReminderList({
       tomorrowKey,
       distributors,
+      suppliers,
       ordersByDistributor,
+      ordersBySupplier,
       distributorInsights,
       normalizeBooleanFlag,
       getDistributorOrderScheduleDay,
+      getSupplierScheduleConfig,
       getPurchaseOrderLifecycleStatus,
       isPoEditableLifecycle,
       getWeekdayFromDateKey,

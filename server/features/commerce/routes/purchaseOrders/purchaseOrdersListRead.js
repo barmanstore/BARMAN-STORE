@@ -60,9 +60,10 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
         params.push(req.query.end_date);
       }
       let sql = `
-        SELECT po.*, d.name as distributor_name, COALESCE(poi.item_count, 0) AS item_count
+        SELECT po.*, d.name as distributor_name, s.name as supplier_name, COALESCE(poi.item_count, 0) AS item_count
         FROM purchase_orders po
         LEFT JOIN distributors d ON d.id = po.distributor_id
+        LEFT JOIN suppliers s ON s.id = po.supplier_id
         LEFT JOIN (
           SELECT order_id, COUNT(*) AS item_count
           FROM purchase_order_items

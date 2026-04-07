@@ -2,7 +2,7 @@ const { buildItemsByOrderId, buildPaymentsByOrderId, buildLedgerBalanceByDistrib
 const { buildEnrichedOrders } = require('./summaryMetrics/enrichOrders');
 const { createOrderFlagUtils } = require('./summaryMetrics/orderFlags');
 const { buildPayables, buildPayablesByDistributor } = require('./summaryMetrics/payables');
-const { buildPaidTodayAmount, buildOrdersByDistributor } = require('./summaryMetrics/totals');
+const { buildPaidTodayAmount, buildOrdersByDistributor, buildOrdersBySupplier } = require('./summaryMetrics/totals');
 
 const createPurchaseOperationsSummaryMetrics = (deps) => {
   const {
@@ -58,6 +58,7 @@ const createPurchaseOperationsSummaryMetrics = (deps) => {
 
     const paidTodayAmount = buildPaidTodayAmount({ payments, todayKey, normalizeTransactionDate });
     const ordersByDistributor = buildOrdersByDistributor(enrichedOrders);
+    const ordersBySupplier = buildOrdersBySupplier(enrichedOrders);
 
     return {
       itemsByOrderId,
@@ -69,6 +70,7 @@ const createPurchaseOperationsSummaryMetrics = (deps) => {
       payables,
       payablesByDistributor,
       ordersByDistributor,
+      ordersBySupplier,
       paidTodayAmount,
       isOpenOrder,
       isDeliveryPending,

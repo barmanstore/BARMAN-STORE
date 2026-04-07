@@ -56,7 +56,9 @@ const registerPurchaseOrdersReceiveRoutes = (deps) => {
       });
 
       if (supplierUpdates.length) {
-        await upsertSupplierProductsAsync(order.distributor_id, supplierUpdates);
+        await upsertSupplierProductsAsync(order.distributor_id, supplierUpdates, {
+          supplierId: order.supplier_id || null,
+        });
       }
       await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
         fromStatus: poStatus,

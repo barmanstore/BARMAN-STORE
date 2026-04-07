@@ -17,6 +17,7 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [../ROUTES.md](../ROUTES.md)
 - Shared helpers belong in `server/utils`, `server/services`, or `server/appFactory/domainServices` only when they are truly cross-feature.
 - The in-memory limiter in [server/core/rateLimiter.js](../server/core/rateLimiter.js) is process-local. It is suitable for single-instance runtime and local development only. Use a shared backing store if multi-instance enforcement is required.
 - [server/whatsappProvider.js](../server/whatsappProvider.js) is currently a manual-prepared-message capability boundary, not a live send integration. Keep status endpoints, purchase flows, and verification helpers honest about manual scope until a real provider-backed sender is implemented.
+- Purchase planning remains a shared-summary backend surface. Keep supplier-day visit persistence inside the existing purchase-operations and purchase-order feature routes, and let [server/services/purchaseOperations/summary.js](../server/services/purchaseOperations/summary.js) stay the source of truth for board state instead of introducing dashboard-only workflow storage.
 
 ## Change Rules
 
