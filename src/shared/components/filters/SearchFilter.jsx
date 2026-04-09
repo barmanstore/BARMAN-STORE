@@ -38,6 +38,7 @@ function SearchFilter({
   onChange,
   onSubmit,
   width = '280px',
+  stretch = false,
   className = '',
   id,
   ariaLabel,
@@ -61,8 +62,16 @@ function SearchFilter({
     onSubmit?.(value);
   };
 
+  const frameStyle = stretch
+    ? { width, maxWidth: '100%', display: 'block' }
+    : { width, maxWidth: '100%' };
+
+  const shellStyle = stretch
+    ? { display: 'flex', alignItems: 'center', width: '100%', minWidth: 0 }
+    : undefined;
+
   return (
-    <div className={`${getFilterFrameClassName(className)} search-filter-frame`} style={{ width, maxWidth: '100%' }}>
+    <div className={`${getFilterFrameClassName(className)} search-filter-frame`} style={frameStyle}>
       <label htmlFor={inputId} style={VISUALLY_HIDDEN_STYLE}>
         {placeholder}
       </label>
@@ -71,6 +80,7 @@ function SearchFilter({
         className={`${getFieldContainerClassName(tone)} search-filter-shell`}
         role="search"
         aria-label={ariaLabel || placeholder}
+        style={shellStyle}
       >
         {hasScopeOptions ? (
           <>

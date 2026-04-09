@@ -1,7 +1,9 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
 import { insightsApi } from '../../shared/services/api';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
+import { DateRangeFilter, SearchFilter } from '../../shared/components/filters';
 import './Insights.css';
 
 const DEFAULT_SORT_DIRECTION = {
@@ -23,6 +25,40 @@ const RISK_ORDER = {
 };
 
 const TABLE_COLUMN_COUNT = 8;
+
+const toDateToken = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const shiftDateByDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const buildDateRangePresets = () => {
+  const today = new Date();
+  const todayToken = toDateToken(today);
+  const yesterday = shiftDateByDays(today, -1);
+  return [
+    { label: 'Today', value: [todayToken, todayToken] },
+    { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
+    { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
+    { label: 'Last 30 Days', value: [toDateToken(shiftDateByDays(today, -29)), todayToken] },
+    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+  ];
+};
+
+const formatDateDisplayToken = (value) => {
+  const normalized = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return '';
+  const [year, month, day] = normalized.split('-');
+  return `${day}/${month}/${year}`;
+};
 
 const formatPercent = (value) => {
   const num = Number(value);
@@ -69,8 +105,8 @@ const compareSortValues = (left, right) => {
 const renderRiskPill = (risk) => {
   const label = String(risk || 'unknown').trim().toLowerCase() || 'unknown';
   return (
-    <span className={`risk-pill ${label}`}>
-      {label}
+    <span className={`risk-pill ${label}`} title={`Risk ${label}`} aria-label={`Risk ${label}`}>
+      {label === 'high' ? '▲' : label === 'medium' ? '●' : label === 'low' ? '○' : '?'}
     </span>
   );
 };
@@ -139,11 +175,16 @@ const SortHeader = memo(function SortHeader({
       type="button"
       className={`sort-header-btn${numeric ? ' numeric' : ''}${isActive ? ' is-active' : ''}`}
       onClick={() => onToggle(sortKey)}
+      aria-label={title || `Sort by ${label}`}
       title={title || `Sort by ${label}`}
     >
       <span className="sort-header-label">{label}</span>
       <span className="sort-indicator" aria-hidden="true">
-        {isActive ? (direction === 'asc' ? '^' : 'v') : '-'}
+        {isActive
+          ? (direction === 'asc'
+            ? <ArrowUp size={12} aria-hidden="true" />
+            : <ArrowDown size={12} aria-hidden="true" />)
+          : <ArrowUpDown size={12} aria-hidden="true" />}
       </span>
     </button>
   );
@@ -178,15 +219,6 @@ const DistributorInsightsRow = memo(function DistributorInsightsRow({
         <div className="product-cell-button">
           <span className="product-name">{row.distributorName}</span>
           <span className="secondary-text">{row.activitySummaryLabel}</span>
-          {row.decisionTags.length > 0 && (
-            <span className="decision-tags">
-              {row.decisionTags.map((tag) => (
-                <span key={tag.label} className={`decision-tag ${tag.tone}`}>
-                  {tag.label}
-                </span>
-              ))}
-            </span>
-          )}
         </div>
       </td>
       <td className="numeric-cell">
@@ -327,7 +359,8 @@ const DistributorInsights = () => {
     start_date: '',
     end_date: '',
   });
-  const [search, setSearch] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -335,10 +368,12 @@ const DistributorInsights = () => {
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productsError, setProductsError] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState({
     key: 'distributorName',
     direction: DEFAULT_SORT_DIRECTION.distributorName,
   });
+  const dateRangePresets = useMemo(() => buildDateRangePresets(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -368,15 +403,9 @@ const DistributorInsights = () => {
     };
   }, [filters]);
 
-  const deferredSearch = useDeferredValue(search);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const filteredInsights = useMemo(() => {
-    const term = String(deferredSearch || '').trim().toLowerCase();
-    if (!term) return insights;
-    return insights.filter((row) => String(row.distributor_name || '').toLowerCase().includes(term));
-  }, [insights, deferredSearch]);
-
-  const tableRows = useMemo(() => filteredInsights.map((row) => {
+  const tableRows = useMemo(() => insights.map((row) => {
     const riskLabel = deriveRiskLabel(row);
     return {
       distributorId: Number(row.distributor_id || 0),
@@ -406,29 +435,51 @@ const DistributorInsights = () => {
     };
   }).map((row) => ({
     ...row,
-    activitySummaryLabel: `${row.productCountValue} products | ${row.purchaseCountValue} purchases`,
-    purchaseSummaryLabel: `${row.purchaseCountValue} buys | ${row.productCountValue} items`,
-    rangeSummaryLabel: `Min ${row.minCostLabel} | Max ${row.maxCostLabel}`,
+    activitySummaryLabel: `${row.productCountValue} products · ${row.purchaseCountValue} purchases`,
+    purchaseSummaryLabel: `${row.purchaseCountValue} buys · ${row.productCountValue} items`,
+    rangeSummaryLabel: `Min ${row.minCostLabel} · Max ${row.maxCostLabel}`,
     rangeTooltip: `Min ${row.minCostLabel} / Max ${row.maxCostLabel}`,
     leadTimeSummaryLabel: row.avgLeadTimeValue !== null
       ? `${formatCompactDayValue(row.avgLeadTimeValue)} avg`
       : '-',
     onTimeSummaryLabel: row.onTimeRateLabel,
     volatilitySummaryLabel: row.volatilityLabel !== '-'
-      ? `${row.volatilityLabel} swing`
+      ? `${row.volatilityLabel} · swing`
       : '-',
-  })).map((row) => ({
-    ...row,
-    decisionTags: buildDecisionTags(row),
-  })), [filteredInsights]);
+  })).map((row) => {
+    const decisionTags = buildDecisionTags(row);
+    return {
+      ...row,
+      decisionTags,
+      searchText: [
+        row.distributorName,
+        row.activitySummaryLabel,
+        row.purchaseSummaryLabel,
+        row.rangeSummaryLabel,
+        row.leadTimeSummaryLabel,
+        row.onTimeSummaryLabel,
+        row.volatilitySummaryLabel,
+        row.riskLabel,
+        ...decisionTags.map((tag) => tag.label),
+      ]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' '),
+    };
+  }), [insights]);
+
+  const visibleRows = useMemo(() => {
+    const term = String(deferredSearchQuery || '').trim().toLowerCase();
+    if (!term) return tableRows;
+    return tableRows.filter((row) => String(row.searchText || row.distributorName || '').toLowerCase().includes(term));
+  }, [deferredSearchQuery, tableRows]);
 
   const sortedRows = useMemo(() => {
-    const rows = [...tableRows];
+    const rows = [...visibleRows];
     const { key, direction } = sortConfig;
     const multiplier = direction === 'asc' ? 1 : -1;
     rows.sort((left, right) => multiplier * compareSortValues(left[key], right[key]));
     return rows;
-  }, [sortConfig, tableRows]);
+  }, [sortConfig, visibleRows]);
 
   const selectedRow = useMemo(
     () => sortedRows.find((row) => row.distributorId === Number(selectedDistributorId || 0)) || null,
@@ -466,11 +517,77 @@ const DistributorInsights = () => {
     });
   }, []);
 
+  const handleSearchDraftChange = useCallback((value) => {
+    setSearchDraft(value);
+  }, []);
+
+  const handleSearchSubmit = useCallback((value) => {
+    setSearchQuery(String(value || '').trim());
+  }, []);
+
+  const handleDateRangeChange = useCallback((nextValue) => {
+    const [startDate, endDate] = Array.isArray(nextValue) ? nextValue : ['', ''];
+    setFilters((prev) => ({
+      ...prev,
+      start_date: String(startDate || '').trim(),
+      end_date: String(endDate || '').trim(),
+    }));
+  }, []);
+
+  const handleClearAllFilters = useCallback(() => {
+    setSearchDraft('');
+    setSearchQuery('');
+    setFilters({
+      start_date: '',
+      end_date: '',
+    });
+    setSelectedDistributorId(null);
+    setProducts([]);
+    setProductsError('');
+  }, []);
+
+  const activeFilterCount = [
+    searchQuery,
+    filters.start_date,
+    filters.end_date,
+  ].filter(Boolean).length;
+
+  const activeFilterPills = useMemo(() => {
+    const pills = [];
+    const startLabel = formatDateDisplayToken(filters.start_date);
+    const endLabel = formatDateDisplayToken(filters.end_date);
+    if (startLabel || endLabel) {
+      const label = startLabel && endLabel
+        ? `Date: ${startLabel} - ${endLabel}`
+        : `Date: ${startLabel || endLabel}`;
+      pills.push({
+        key: 'date-range',
+        label,
+        onClear: () => setFilters((prev) => ({ ...prev, start_date: '', end_date: '' })),
+      });
+    }
+    return pills;
+  }, [filters.end_date, filters.start_date]);
+
   const distributorCountLabel = useMemo(() => {
-    if (!tableRows.length) return 'No matching distributors';
-    if (tableRows.length === insights.length) return `${tableRows.length} distributors`;
-    return `${tableRows.length} of ${insights.length} distributors`;
-  }, [insights.length, tableRows.length]);
+    if (!visibleRows.length) return 'No matching distributors';
+    if (visibleRows.length === insights.length) return `${visibleRows.length} distributors`;
+    return `${visibleRows.length} of ${insights.length} distributors`;
+  }, [insights.length, visibleRows.length]);
+
+  const summaryStats = useMemo(() => {
+    const totalDistributors = visibleRows.length;
+    const highRiskCount = visibleRows.filter((row) => row.riskLabel === 'high').length;
+    const reliableCount = visibleRows.filter((row) => row.onTimeRateValue !== null && row.onTimeRateValue >= 97).length;
+    const wideCatalogCount = visibleRows.filter((row) => row.productCountValue >= 15).length;
+
+    return {
+      totalDistributors,
+      highRiskCount,
+      reliableCount,
+      wideCatalogCount,
+    };
+  }, [visibleRows]);
 
   return (
     <div className="insights-page distributor-insights product-insights">
@@ -480,207 +597,260 @@ const DistributorInsights = () => {
         subtitle="Compare landed costs, lead times, reliability, and coverage across suppliers."
       />
 
-      <div className="insights-card">
-        <div className="filters-bar">
-          <div className="filter-group">
-            <label htmlFor="di-start">From</label>
-            <input
-              id="di-start"
-              type="date"
-              value={filters.start_date}
-              onChange={(event) => setFilters((prev) => ({ ...prev, start_date: event.target.value }))}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="di-end">To</label>
-            <input
-              id="di-end"
-              type="date"
-              value={filters.end_date}
-              onChange={(event) => setFilters((prev) => ({ ...prev, end_date: event.target.value }))}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="di-search">Search</label>
-            <input
-              id="di-search"
-              type="search"
-              placeholder="Distributor name"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+      <div className="filters-bar product-insights-filters distributor-insights-filters">
+        <SearchFilter
+          id="distributor-insights-search"
+          placeholder="Search distributor"
+          value={searchDraft}
+          onChange={handleSearchDraftChange}
+          onSubmit={handleSearchSubmit}
+          width="100%"
+          stretch
+          className="product-insights-search-filter distributor-insights-search-filter"
+          tone="sky"
+          ariaLabel="Search distributors"
+          ariaAutocomplete="none"
+          submitAriaLabel="Search distributors"
+        />
+
+        <button
+          type="button"
+          className={`product-insights-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
+          onClick={() => setShowAdvancedFilters((current) => !current)}
+          aria-expanded={showAdvancedFilters}
+          aria-controls="distributor-insights-advanced-filters"
+        >
+          <SlidersHorizontal size={14} />
+          <span>Filters</span>
+          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
+          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {(searchDraft || searchQuery || activeFilterCount) ? (
+          <button type="button" className="product-insights-filter-clear distributor-insights-filter-clear" onClick={handleClearAllFilters}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      {activeFilterPills.length ? (
+        <div className="product-insights-active-filters" aria-label="Active filters">
+          {activeFilterPills.map((pill) => (
+            <button key={pill.key} type="button" className="product-insights-active-filter-pill" onClick={pill.onClear}>
+              <span>{pill.label}</span>
+              <X size={12} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {showAdvancedFilters ? (
+        <div id="distributor-insights-advanced-filters" className="product-insights-advanced-filters">
+          <div className="product-insights-filter-row product-insights-filter-row--date">
+            <span className="product-insights-filter-row-label">Date Range</span>
+            <DateRangeFilter
+              value={[filters.start_date, filters.end_date]}
+              onChange={handleDateRangeChange}
+              width="100%"
+              className="product-insights-filter-row-control product-insights-filter-row-control--date"
+              tone="sky"
+              presets={dateRangePresets}
+              helperText="Purchase date"
+              showIcon={false}
+              showPlaceholderText
+              alwaysOpen
             />
           </div>
         </div>
+      ) : null}
 
-        {loading && <div className="empty-state">Loading insights...</div>}
-        {!loading && error && <div className="empty-state">{error}</div>}
-        {!loading && !error && tableRows.length === 0 && (
-          <div className="empty-state">No distributor insights found for the selected filters.</div>
-        )}
-
-        {!loading && !error && tableRows.length > 0 && (
-          <>
-            <div className="insights-table-toolbar">
-              <div className="table-toolbar-copy">
-                <strong>{distributorCountLabel}</strong>
-              </div>
-            </div>
-
-            <div className="data-table product-insights-table distributor-insights-table">
-              <table>
-                <colgroup>
-                  <col className="col-distributor" />
-                  <col className="col-purchase" />
-                  <col className="col-avg-cost" />
-                  <col className="col-range" />
-                  <col className="col-lead-time" />
-                  <col className="col-on-time" />
-                  <col className="col-volatility" />
-                  <col className="col-risk" />
-                </colgroup>
-                <thead>
-                  <tr className="header-detail-row sticky-header-row">
-                    <th
-                      className="sticky-col"
-                      aria-sort={sortConfig.key === 'distributorName' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Distributor"
-                        sortKey="distributorName"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by distributor name"
-                      />
-                    </th>
-                    <th
-                      className="numeric-header"
-                      aria-sort={sortConfig.key === 'purchaseCountValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Purchases / items"
-                        sortKey="purchaseCountValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by purchase count"
-                        numeric
-                      />
-                    </th>
-                    <th
-                      className="numeric-header"
-                      aria-sort={sortConfig.key === 'avgCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Avg cost"
-                        sortKey="avgCostValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by average landed cost"
-                        numeric
-                      />
-                    </th>
-                    <th
-                      className="numeric-header"
-                      aria-sort={sortConfig.key === 'minCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Min / Max"
-                        sortKey="minCostValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by minimum landed cost"
-                        numeric
-                      />
-                    </th>
-                    <th
-                      aria-sort={sortConfig.key === 'avgLeadTimeValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Lead time"
-                        sortKey="avgLeadTimeValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by average lead time"
-                      />
-                    </th>
-                    <th
-                      className="numeric-header"
-                      aria-sort={sortConfig.key === 'onTimeRateValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="On-time"
-                        sortKey="onTimeRateValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by on-time delivery rate"
-                        numeric
-                      />
-                    </th>
-                    <th
-                      className="numeric-header"
-                      aria-sort={sortConfig.key === 'volatilityValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Volatility"
-                        sortKey="volatilityValue"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by landed-cost fluctuation"
-                        numeric
-                      />
-                    </th>
-                    <th
-                      aria-sort={sortConfig.key === 'riskRank' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                    >
-                      <SortHeader
-                        label="Risk"
-                        sortKey="riskRank"
-                        activeKey={sortConfig.key}
-                        direction={sortConfig.direction}
-                        onToggle={handleSort}
-                        title="Sort by supplier delivery risk"
-                      />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRows.map((row) => {
-                    const isSelected = Number(selectedDistributorId || 0) === row.distributorId;
-                    return (
-                      <Fragment key={row.distributorId}>
-                        <DistributorInsightsRow
-                          row={row}
-                          isSelected={isSelected}
-                          onView={loadProducts}
-                        />
-                        {isSelected && (
-                          <tr className="detail-inline-row">
-                            <td colSpan={TABLE_COLUMN_COUNT} className="detail-inline-cell">
-                              <DistributorInsightsDetailPanel
-                                distributorName={row.distributorName}
-                                row={selectedRow}
-                                products={products}
-                                productsLoading={productsLoading}
-                                productsError={productsError}
-                              />
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+      <div className="summary-stats">
+        <div className="stat-card">
+          <span className="stat-value">{summaryStats.totalDistributors}</span>
+          <span className="stat-label">Total Distributors</span>
+        </div>
+        <div className="stat-card high-risk">
+          <span className="stat-value">{summaryStats.highRiskCount}</span>
+          <span className="stat-label">High Risk</span>
+        </div>
+        <div className="stat-card reliable">
+          <span className="stat-value">{summaryStats.reliableCount}</span>
+          <span className="stat-label">Reliable</span>
+        </div>
+        <div className="stat-card wide-catalog">
+          <span className="stat-value">{summaryStats.wideCatalogCount}</span>
+          <span className="stat-label">Wide Catalog</span>
+        </div>
       </div>
+
+      {loading && <div className="empty-state">Loading insights...</div>}
+      {!loading && error && <div className="empty-state">{error}</div>}
+      {!loading && !error && visibleRows.length === 0 && (
+        <div className="empty-state">No distributor insights found for the selected filters.</div>
+      )}
+
+      {!loading && !error && visibleRows.length > 0 && (
+        <>
+          <div className="insights-table-toolbar">
+            <div className="table-toolbar-copy">
+              <strong>{distributorCountLabel}</strong>
+            </div>
+          </div>
+
+          <div className="data-table product-insights-table distributor-insights-table">
+            <table>
+              <colgroup>
+                <col className="col-distributor" />
+                <col className="col-purchase" />
+                <col className="col-avg-cost" />
+                <col className="col-range" />
+                <col className="col-lead-time" />
+                <col className="col-on-time" />
+                <col className="col-volatility" />
+                <col className="col-risk" />
+              </colgroup>
+              <thead>
+                <tr className="header-detail-row sticky-header-row">
+                  <th
+                    className="sticky-col"
+                    aria-sort={sortConfig.key === 'distributorName' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Distributor"
+                      sortKey="distributorName"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by distributor name"
+                    />
+                  </th>
+                  <th
+                    className="numeric-header"
+                    aria-sort={sortConfig.key === 'purchaseCountValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Purchases"
+                      sortKey="purchaseCountValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by purchase count"
+                      numeric
+                    />
+                  </th>
+                  <th
+                    className="numeric-header"
+                    aria-sort={sortConfig.key === 'avgCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Avg Cost"
+                      sortKey="avgCostValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by average landed cost"
+                      numeric
+                    />
+                  </th>
+                  <th
+                    className="numeric-header"
+                    aria-sort={sortConfig.key === 'minCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Range"
+                      sortKey="minCostValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by minimum landed cost"
+                      numeric
+                    />
+                  </th>
+                  <th
+                    aria-sort={sortConfig.key === 'avgLeadTimeValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Lead Time"
+                      sortKey="avgLeadTimeValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by average lead time"
+                    />
+                  </th>
+                  <th
+                    className="numeric-header"
+                    aria-sort={sortConfig.key === 'onTimeRateValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="On-Time"
+                      sortKey="onTimeRateValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by on-time delivery rate"
+                      numeric
+                    />
+                  </th>
+                  <th
+                    className="numeric-header"
+                    aria-sort={sortConfig.key === 'volatilityValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Volatility"
+                      sortKey="volatilityValue"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by landed-cost fluctuation"
+                      numeric
+                    />
+                  </th>
+                  <th
+                    aria-sort={sortConfig.key === 'riskRank' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  >
+                    <SortHeader
+                      label="Risk"
+                      sortKey="riskRank"
+                      activeKey={sortConfig.key}
+                      direction={sortConfig.direction}
+                      onToggle={handleSort}
+                      title="Sort by supplier delivery risk"
+                    />
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRows.map((row) => {
+                  const isSelected = Number(selectedDistributorId || 0) === row.distributorId;
+                  return (
+                    <Fragment key={row.distributorId}>
+                      <DistributorInsightsRow
+                        row={row}
+                        isSelected={isSelected}
+                        onView={loadProducts}
+                      />
+                      {isSelected && (
+                        <tr className="detail-inline-row">
+                          <td colSpan={TABLE_COLUMN_COUNT} className="detail-inline-cell">
+                            <DistributorInsightsDetailPanel
+                              distributorName={row.distributorName}
+                              row={selectedRow}
+                              products={products}
+                              productsLoading={productsLoading}
+                              productsError={productsError}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 };

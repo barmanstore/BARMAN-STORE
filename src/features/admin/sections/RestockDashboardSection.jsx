@@ -4,11 +4,13 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Eraser,
   RefreshCw,
   RotateCw,
-  Search,
   ShoppingCart,
+  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
@@ -24,6 +26,8 @@ import {
   productsApi,
   stockLedgerApi,
 } from '../../../shared/services/api';
+import '../../inventory/StockLedgerHistory.css';
+import { DropdownFilter, SearchFilter } from '../../../shared/components/filters';
 import './RestockDashboardSection.css';
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -34,6 +38,42 @@ const SORTABLE_COLUMNS = {
   systemStock: 'systemStock',
   countedStock: 'countedStock',
   difference: 'difference',
+};
+
+const SEARCH_SCOPE_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'product', label: 'Product' },
+  { value: 'sku', label: 'SKU' },
+  { value: 'category', label: 'Category' },
+  { value: 'brand', label: 'Brand' },
+  { value: 'supplier', label: 'Supplier' },
+];
+
+const SEARCH_SCOPE_COPY = {
+  all: {
+    placeholder: 'Search restock dashboard',
+    ariaLabel: 'Search restock dashboard',
+  },
+  product: {
+    placeholder: 'Search product',
+    ariaLabel: 'Search product',
+  },
+  sku: {
+    placeholder: 'Search SKU',
+    ariaLabel: 'Search SKU',
+  },
+  category: {
+    placeholder: 'Search category',
+    ariaLabel: 'Search category',
+  },
+  brand: {
+    placeholder: 'Search brand',
+    ariaLabel: 'Search brand',
+  },
+  supplier: {
+    placeholder: 'Search supplier',
+    ariaLabel: 'Search supplier',
+  },
 };
 
 const asNumber = (value, fallback = 0) => {
@@ -47,7 +87,7 @@ const formatQty = (value) => {
   const normalized = asNumber(value, 0);
   return new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
+    maximumFractionDigits: 0,
   }).format(normalized);
 };
 
@@ -69,6 +109,19 @@ const getCategoryLabel = (product) => (
 const getPoUnitLabel = (product = {}) => (
   String(product?.base_unit || product?.uom || 'pcs').trim() || 'pcs'
 );
+
+const formatSupplierSummaryLabel = (distributors = []) => {
+  const names = Array.isArray(distributors)
+    ? distributors
+        .map((entry) => String(entry?.name || '').trim())
+        .filter(Boolean)
+    : [];
+
+  if (!names.length) return 'No supplier linked';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} / ${names[1]}`;
+  return `${names.slice(0, 2).join(' / ')} +${names.length - 2}`;
+};
 
 const createDefaultPoReviewDraft = () => ({
   distributorId: '',
@@ -168,17 +221,21 @@ function RestockDashboardSection({
   const [poReviewDraft, setPoReviewDraft] = useState(createDefaultPoReviewDraft);
   const [selectedIds, setSelectedIds] = useState([]);
   const [syncingIds, setSyncingIds] = useState([]);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchScope, setSearchScope] = useState('all');
   const [filters, setFilters] = useState({
-    search: '',
     distributorId: '',
     category: '',
     brand: '',
   });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState({
     key: SORTABLE_COLUMNS.systemStock,
     direction: 'asc',
   });
-  const deferredSearch = useDeferredValue(filters.search);
+  const deferredSearch = useDeferredValue(searchQuery);
+  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
 
   const fetchDashboard = async ({ silent = false } = {}) => {
     setError('');
@@ -293,6 +350,14 @@ function RestockDashboardSection({
     return Array.from(options.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [mergedProducts]);
 
+  const distributorFilterOptions = useMemo(() => ([
+    { value: '__missing__', label: 'No supplier linked' },
+    ...distributorOptions.map((entry) => ({
+      value: String(entry.id || ''),
+      label: entry.name,
+    })),
+  ]), [distributorOptions]);
+
   const categoryOptions = useMemo(() => (
     Array.from(new Set(mergedProducts.map((row) => row.categoryLabel))).sort((a, b) => a.localeCompare(b))
   ), [mergedProducts]);
@@ -327,14 +392,31 @@ function RestockDashboardSection({
     const selectedDistributorId = Number(filters.distributorId || 0) || null;
     return sortedProducts.filter((row) => {
       if (query) {
-        const haystack = [
-          row.name,
-          row.sku,
-          row.barcode,
-          row.categoryLabel,
-          row.brandLabel,
-          row.availableDistributors.map((entry) => entry.name).join(' '),
-        ].map(normalizeText).join(' ');
+        const haystackParts = (() => {
+          switch (searchScope) {
+            case 'product':
+              return [row.name];
+            case 'sku':
+              return [row.sku];
+            case 'category':
+              return [row.categoryLabel];
+            case 'brand':
+              return [row.brandLabel];
+            case 'supplier':
+              return row.availableDistributors.map((entry) => entry.name).filter(Boolean);
+            case 'all':
+            default:
+              return [
+                row.name,
+                row.sku,
+                row.barcode,
+                row.categoryLabel,
+                row.brandLabel,
+                row.availableDistributors.map((entry) => entry.name).join(' '),
+              ];
+          }
+        })();
+        const haystack = haystackParts.map(normalizeText).join(' ');
         if (!haystack.includes(query)) return false;
       }
 
@@ -353,14 +435,14 @@ function RestockDashboardSection({
       if (filters.brand && filters.brand !== row.brandLabel) return false;
       return true;
     });
-  }, [deferredSearch, filters.brand, filters.category, filters.distributorId, sortedProducts]);
+  }, [deferredSearch, filters.brand, filters.category, filters.distributorId, searchScope, sortedProducts]);
 
   const summary = useMemo(() => ({
-    lowStockCount: mergedProducts.filter((row) => row.stockStatus === 'low_stock').length,
-    availableCount: mergedProducts.filter((row) => row.stockStatus === 'available').length,
-    mismatchCount: mergedProducts.filter((row) => row.stockMismatch).length,
+    visibleCount: visibleProducts.length,
+    lowStockCount: visibleProducts.filter((row) => row.stockStatus === 'low_stock').length,
+    mismatchCount: visibleProducts.filter((row) => row.stockMismatch).length,
     selectedCount: selectedIds.length,
-  }), [mergedProducts, selectedIds.length]);
+  }), [selectedIds.length, visibleProducts]);
 
   const visibleProductIds = useMemo(() => (
     visibleProducts.map((row) => row.productId)
@@ -396,11 +478,19 @@ function RestockDashboardSection({
     setPoReviewDraft(createDefaultPoReviewDraft());
   }, [selectedIds.length]);
 
-  const handleFilterChange = (field) => (event) => {
-    const { value } = event.target;
+  const handleSearchDraftChange = (value) => {
+    setSearchDraft(value);
+  };
+
+  const handleSearchSubmit = (value) => {
+    setSearchQuery(String(value || '').trim());
+  };
+
+  const handleSingleFilterChange = (items, key) => {
+    const nextValue = Array.isArray(items) && items.length ? String(items[0] || '') : '';
     setFilters((current) => ({
       ...current,
-      [field]: value,
+      [key]: nextValue,
     }));
   };
 
@@ -495,6 +585,17 @@ function RestockDashboardSection({
     setSyncSuccess('');
   };
 
+  const clearFilters = () => {
+    setSearchDraft('');
+    setSearchQuery('');
+    setSearchScope('all');
+    setFilters({
+      distributorId: '',
+      category: '',
+      brand: '',
+    });
+  };
+
   const clearSelection = () => {
     setSelectedIds([]);
     setPoQuantities({});
@@ -517,6 +618,44 @@ function RestockDashboardSection({
     if (sortConfig.key !== columnKey) return <ArrowUpDown size={14} />;
     return sortConfig.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />;
   };
+
+  const activeFilterCount = [
+    searchQuery,
+    filters.distributorId,
+    filters.category,
+    filters.brand,
+  ].filter(Boolean).length;
+
+  const activeFilterPills = useMemo(() => {
+    const pills = [];
+    if (filters.distributorId) {
+      const label = filters.distributorId === '__missing__'
+        ? 'Supplier: No link'
+        : `Supplier: ${
+          distributorOptions.find((entry) => String(entry.id || '') === filters.distributorId)?.name || 'Supplier'
+        }`;
+      pills.push({
+        key: 'supplier',
+        label,
+        onClear: () => setFilters((current) => ({ ...current, distributorId: '' })),
+      });
+    }
+    if (filters.category) {
+      pills.push({
+        key: 'category',
+        label: `Category: ${filters.category}`,
+        onClear: () => setFilters((current) => ({ ...current, category: '' })),
+      });
+    }
+    if (filters.brand) {
+      pills.push({
+        key: 'brand',
+        label: `Brand: ${filters.brand}`,
+        onClear: () => setFilters((current) => ({ ...current, brand: '' })),
+      });
+    }
+    return pills;
+  }, [distributorOptions, filters.brand, filters.category, filters.distributorId]);
 
   const syncDrafts = async (productIds) => {
     const rows = mergedProducts.filter((row) => productIds.includes(row.productId) && row.stockMismatch);
@@ -621,9 +760,9 @@ function RestockDashboardSection({
       <div className="restock-dashboard">
         <BackofficePageHeader
           title="Restock Dashboard"
-        subtitle="Preparing active products and supplier coverage."
+          subtitle="Preparing active products and supplier coverage."
         />
-        <div className="restock-loading-state" role="status" aria-live="polite">
+        <div className="loading" role="status" aria-live="polite">
           Loading restock dashboard...
         </div>
       </div>
@@ -631,21 +770,23 @@ function RestockDashboardSection({
   }
 
   return (
-    <div className="restock-dashboard">
+    <div className="restock-dashboard stock-ledger-history">
       <BackofficePageHeader
+        className="page-header"
         title="Restock Dashboard"
-          subtitle="Review active products, update counted stock when needed, and move selected items into a supplier PO."
+        subtitle="Review active products, update counted stock when needed, and move selected items into a supplier PO."
         actions={(
           <div className="restock-header-actions">
             <button
               type="button"
-              className="restock-icon-btn restock-header-icon"
+              className="admin-btn restock-header-icon"
               onClick={() => { void fetchDashboard({ silent: true }); }}
               disabled={refreshing}
               title="Refresh restock data"
               aria-label="Refresh restock data"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={18} />
+              <span>Refresh</span>
             </button>
           </div>
         )}
@@ -655,53 +796,99 @@ function RestockDashboardSection({
       {syncError ? <div className="error-message">{syncError}</div> : null}
       {syncSuccess ? <div className="success-message">{syncSuccess}</div> : null}
 
-      <div className="restock-summary-label" role="status" aria-live="polite">
-        <span>Low stock: <strong>{summary.lowStockCount}</strong></span>
-        <span>Available: <strong>{summary.availableCount}</strong></span>
-        <span>Need sync: <strong>{summary.mismatchCount}</strong></span>
-        <span>Selected: <strong>{summary.selectedCount}</strong></span>
-      </div>
-
       <section className="restock-workspace-bar">
-        <div className="restock-search-field">
-          <Search size={16} />
-          <input
-            type="text"
-            value={filters.search}
-            onChange={handleFilterChange('search')}
-            placeholder="Search product, SKU, barcode, category, brand, supplier..."
-          />
-        </div>
+        <div className="restock-filter-surface">
+          <div className="filters-bar stock-ledger-filters">
+            <SearchFilter
+              id="restock-search"
+              placeholder={activeSearchScopeCopy.placeholder}
+              value={searchDraft}
+              onChange={handleSearchDraftChange}
+              onSubmit={handleSearchSubmit}
+              width="100%"
+              stretch
+              className="stock-ledger-search-filter"
+              tone="sky"
+              ariaLabel={activeSearchScopeCopy.ariaLabel}
+              ariaAutocomplete="none"
+              scopeOptions={SEARCH_SCOPE_OPTIONS}
+              scopeValue={searchScope}
+              onScopeChange={setSearchScope}
+              scopeAriaLabel="Search scope"
+              submitAriaLabel={activeSearchScopeCopy.ariaLabel}
+            />
 
-        <div className="restock-filters-grid">
-          <label>
-            Supplier
-            <select value={filters.distributorId} onChange={handleFilterChange('distributorId')}>
-              <option value="">All suppliers</option>
-              <option value="__missing__">No supplier linked</option>
-              {distributorOptions.map((row) => (
-                <option key={row.id} value={row.id}>{row.name}</option>
+            <button
+              type="button"
+              className={`stock-ledger-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              aria-expanded={showAdvancedFilters}
+              aria-controls="restock-advanced-filters"
+            >
+              <SlidersHorizontal size={14} />
+              <span>Filters</span>
+              {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
+              {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+
+            {(searchDraft || searchQuery || activeFilterCount) ? (
+              <button type="button" className="stock-ledger-filter-clear" onClick={clearFilters}>
+                Clear
+              </button>
+            ) : null}
+          </div>
+
+          {activeFilterPills.length ? (
+            <div className="stock-ledger-active-filters" aria-label="Active filters">
+              {activeFilterPills.map((pill) => (
+                <button key={pill.key} type="button" className="stock-ledger-active-filter-pill" onClick={pill.onClear}>
+                  <span>{pill.label}</span>
+                  <X size={12} aria-hidden="true" />
+                </button>
               ))}
-            </select>
-          </label>
-          <label>
-            Category
-            <select value={filters.category} onChange={handleFilterChange('category')}>
-              <option value="">All categories</option>
-              {categoryOptions.map((value) => (
-                <option key={value} value={value}>{value}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Brand
-            <select value={filters.brand} onChange={handleFilterChange('brand')}>
-              <option value="">All brands</option>
-              {brandOptions.map((value) => (
-                <option key={value} value={value}>{value}</option>
-              ))}
-            </select>
-          </label>
+            </div>
+          ) : null}
+
+          {showAdvancedFilters ? (
+            <div id="restock-advanced-filters" className="stock-ledger-advanced-filters">
+              <div className="stock-ledger-filter-row stock-ledger-filter-row--supplier">
+                <span className="stock-ledger-filter-row-label">Supplier</span>
+                <DropdownFilter
+                  options={distributorFilterOptions}
+                  selectedItems={filters.distributorId ? [filters.distributorId] : []}
+                  onChange={(items) => handleSingleFilterChange(items, 'distributorId')}
+                  width="100%"
+                  allLabel="All suppliers"
+                  tone="violet"
+                  className="stock-ledger-filter-row-control"
+                />
+              </div>
+              <div className="stock-ledger-filter-row stock-ledger-filter-row--category">
+                <span className="stock-ledger-filter-row-label">Category</span>
+                <DropdownFilter
+                  options={categoryOptions}
+                  selectedItems={filters.category ? [filters.category] : []}
+                  onChange={(items) => handleSingleFilterChange(items, 'category')}
+                  width="100%"
+                  allLabel="All categories"
+                  tone="sky"
+                  className="stock-ledger-filter-row-control"
+                />
+              </div>
+              <div className="stock-ledger-filter-row stock-ledger-filter-row--brand">
+                <span className="stock-ledger-filter-row-label">Brand</span>
+                <DropdownFilter
+                  options={brandOptions}
+                  selectedItems={filters.brand ? [filters.brand] : []}
+                  onChange={(items) => handleSingleFilterChange(items, 'brand')}
+                  width="100%"
+                  allLabel="All brands"
+                  tone="amber"
+                  className="stock-ledger-filter-row-control"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="restock-workspace-toolbar">
@@ -772,174 +959,123 @@ function RestockDashboardSection({
         </div>
       </section>
 
-      <section className="restock-table-card">
-        <div className="restock-table-head">
-          <div>
-            <h2>Products to Review</h2>
-            <p>{visibleProducts.length} visible active products</p>
-          </div>
-          <button
-            type="button"
-            className="restock-link-btn"
-            onClick={toggleSelectVisible}
-            disabled={!visibleProductIds.length}
-          >
-            {allVisibleSelected ? 'Clear visible selection' : 'Select visible'}
-          </button>
+      <div className="summary-stats">
+        <div className="stat-card restock-total">
+          <span className="stat-value">{summary.visibleCount}</span>
+          <span className="stat-label">Visible Products</span>
         </div>
+        <div className="stat-card restock-low-stock">
+          <span className="stat-value">{summary.lowStockCount}</span>
+          <span className="stat-label">Low Stock</span>
+        </div>
+        <div className="stat-card restock-mismatch">
+          <span className="stat-value">{summary.mismatchCount}</span>
+          <span className="stat-label">Need Sync</span>
+        </div>
+        <div className="stat-card restock-selected">
+          <span className="stat-value">{summary.selectedCount}</span>
+          <span className="stat-label">Selected</span>
+        </div>
+      </div>
 
+      <div className="ledger-table-container restock-table-container">
         {visibleProducts.length === 0 ? (
-          <div className="restock-empty-state">
+          <div className="empty-state">
             <p>No active products match the current restock filters.</p>
+            <p>Adjust search or filters to review more items.</p>
           </div>
         ) : (
-          <div className="restock-table-wrap">
-            <table className="restock-table">
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={allVisibleSelected}
-                      onChange={toggleSelectVisible}
-                      disabled={!visibleProductIds.length}
-                      aria-label="Select visible rows"
-                    />
-                  </th>
-                  <th>
-                    <button type="button" className="restock-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.product)}>
-                      Product
-                      {renderSortIcon(SORTABLE_COLUMNS.product)}
-                    </button>
-                  </th>
-                  <th>
-                    <button type="button" className="restock-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.systemStock)}>
-                      System Stock
-                      {renderSortIcon(SORTABLE_COLUMNS.systemStock)}
-                    </button>
-                  </th>
-                  <th>
-                    <button type="button" className="restock-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.countedStock)}>
-                      Counted Stock
-                      {renderSortIcon(SORTABLE_COLUMNS.countedStock)}
-                    </button>
-                  </th>
-                  <th>
-                    <button type="button" className="restock-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.difference)}>
-                      Difference
-                      {renderSortIcon(SORTABLE_COLUMNS.difference)}
-                    </button>
-                  </th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleProducts.map((row) => {
-                  const syncing = syncingIds.includes(row.productId);
-                  const isSelected = selectedIds.includes(row.productId);
-                  return (
-                    <tr
-                      key={row.productId}
-                      className={`restock-row restock-row-${row.stockStatus.replace('_', '-')}${row.stockMismatch ? ' restock-row-mismatch' : ''}`}
-                    >
-                      <td>
-                        <div className="restock-select-cell">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectedProduct(row.productId)}
-                            aria-label={`Select ${row.name}`}
-                          />
-                          {isSelected ? (
-                            <small className="restock-select-qty-label">In PO review</small>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="restock-product-cell">
-                          <SafeProductImage product={row} alt="" className="restock-product-image" />
-                          <div className="restock-product-copy">
-                            <strong>{row.name}</strong>
-                            <span>{row.sku || 'No SKU'} · {row.brandLabel}</span>
-                            <small className="restock-product-category">{row.categoryLabel}</small>
-                            <div className="restock-product-distributors">
-                              {row.availableDistributors.length ? (
-                                row.availableDistributors.map((entry) => (
-                                  <small key={`${row.productId}-${entry.id || entry.name}`}>{entry.name}</small>
-                                ))
-                              ) : (
-                                <small className="restock-product-muted">No supplier linked</small>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'restock-stock-low' : ''}>
-                        {formatQty(row.currentStock)}
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={drafts[row.productId]?.quantity || ''}
-                          onChange={(event) => handleDraftChange(row.productId, event.target.value)}
-                          className="restock-qty-input"
-                          placeholder={String(row.currentStock)}
-                          aria-label={`Counted stock for ${row.name}`}
-                        />
-                      </td>
-                      <td className={`restock-diff-cell${row.difference > 0 ? ' positive' : ''}${row.difference < 0 ? ' negative' : ''}`}>
-                        {row.draftQty === null ? '-' : formatSignedQty(row.difference)}
-                      </td>
-                      <td>
-                        {row.stockMismatch ? (
-                          <button
-                            type="button"
-                            className="restock-icon-btn"
-                            onClick={() => { void syncDrafts([row.productId]); }}
-                            disabled={syncing}
-                            title="Sync counted stock to system"
-                            aria-label={`Sync ${row.name}`}
-                          >
-                            <RotateCw size={16} />
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div className="restock-mobile-list">
+          <table className="ledger-table restock-table">
+            <colgroup>
+              <col className="col-select" />
+              <col className="col-product" />
+              <col className="col-stock" />
+              <col className="col-counted" />
+              <col className="col-diff" />
+              <col className="col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col" className="select-header">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectVisible}
+                    disabled={!visibleProductIds.length}
+                    aria-label="Select visible rows"
+                  />
+                </th>
+                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.product ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button
+                    type="button"
+                    className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.product ? ' is-active' : ''}`}
+                    onClick={() => handleSortChange(SORTABLE_COLUMNS.product)}
+                    aria-label="Sort by product"
+                    title="Sort by product"
+                  >
+                    <span className="ledger-sort-label">Product</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.product)}</span>
+                  </button>
+                </th>
+                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.systemStock ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button
+                    type="button"
+                    className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.systemStock ? ' is-active' : ''}`}
+                    onClick={() => handleSortChange(SORTABLE_COLUMNS.systemStock)}
+                    aria-label="Sort by system stock"
+                    title="Sort by system stock"
+                  >
+                    <span className="ledger-sort-label">Stock</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.systemStock)}</span>
+                  </button>
+                </th>
+                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.countedStock ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button
+                    type="button"
+                    className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.countedStock ? ' is-active' : ''}`}
+                    onClick={() => handleSortChange(SORTABLE_COLUMNS.countedStock)}
+                    aria-label="Sort by counted stock"
+                    title="Sort by counted stock"
+                  >
+                    <span className="ledger-sort-label">Counted</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.countedStock)}</span>
+                  </button>
+                </th>
+                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.difference ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button
+                    type="button"
+                    className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.difference ? ' is-active' : ''}`}
+                    onClick={() => handleSortChange(SORTABLE_COLUMNS.difference)}
+                    aria-label="Sort by difference"
+                    title="Sort by difference"
+                  >
+                    <span className="ledger-sort-label">Diff</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.difference)}</span>
+                  </button>
+                </th>
+                <th scope="col">
+                  <span className="ledger-sort-btn static-label">Sync</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
               {visibleProducts.map((row) => {
                 const syncing = syncingIds.includes(row.productId);
                 const isSelected = selectedIds.includes(row.productId);
+                const supplierSummary = formatSupplierSummaryLabel(row.availableDistributors);
+                const supplierTitle = row.availableDistributors.length
+                  ? row.availableDistributors.map((entry) => entry.name).join(', ')
+                  : 'No supplier linked';
+                const rowTitle = `${row.name} | ${row.sku || 'No SKU'} | ${row.brandLabel} | ${row.categoryLabel} | ${supplierTitle}`;
+
                 return (
-                  <article
-                    key={`mobile-${row.productId}`}
-                    className={`restock-mobile-card restock-row-${row.stockStatus.replace('_', '-')}${row.stockMismatch ? ' restock-row-mismatch' : ''}`}
+                  <tr
+                    key={row.productId}
+                    className="restock-row"
+                    title={rowTitle}
                   >
-                    <div className="restock-mobile-head">
-                      <div className="restock-product-cell">
-                        <SafeProductImage product={row} alt="" className="restock-product-image" />
-                        <div className="restock-product-copy">
-                          <strong>{row.name}</strong>
-                          <span>{row.sku || 'No SKU'} · {row.brandLabel}</span>
-                          <small className="restock-product-category">{row.categoryLabel}</small>
-                          <div className="restock-product-distributors">
-                            {row.availableDistributors.length ? (
-                              row.availableDistributors.map((entry) => (
-                                <small key={`mobile-${row.productId}-${entry.id || entry.name}`}>{entry.name}</small>
-                              ))
-                            ) : (
-                              <small className="restock-product-muted">No supplier linked</small>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="restock-select-cell restock-mobile-select-cell">
+                    <td className="select-cell" data-label="Select">
+                      <div className="restock-select-cell">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -950,14 +1086,21 @@ function RestockDashboardSection({
                           <small className="restock-select-qty-label">In PO review</small>
                         ) : null}
                       </div>
-                    </div>
-
-                    <div className="restock-mobile-meta">
-                      <span>System stock: {formatQty(row.currentStock)}</span>
-                      <span>Status: {row.stockStatus === 'low_stock' ? 'Low Stock' : 'Available'}</span>
-                    </div>
-
-                    <div className="restock-mobile-controls">
+                    </td>
+                    <td className="product-cell" data-label="Product">
+                      <div className="restock-product-cell">
+                        <SafeProductImage product={row} alt="" className="restock-product-image" />
+                        <div className="restock-product-copy">
+                          <span className="product-name">{row.name}</span>
+                          <span className="product-linked-number">{row.sku || 'No SKU'} · {row.brandLabel}</span>
+                          <span className="product-linked-number">{supplierSummary}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'restock-stock-low qty-cell' : 'qty-cell'} data-label="Stock">
+                      <span className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'negative' : ''}>{formatQty(row.currentStock)}</span>
+                    </td>
+                    <td data-label="Counted">
                       <input
                         type="number"
                         min="0"
@@ -966,51 +1109,37 @@ function RestockDashboardSection({
                         onChange={(event) => handleDraftChange(row.productId, event.target.value)}
                         className="restock-qty-input"
                         placeholder={String(row.currentStock)}
+                        aria-label={`Counted stock for ${row.name}`}
                       />
-                      <div className={`restock-diff-cell${row.difference > 0 ? ' positive' : ''}${row.difference < 0 ? ' negative' : ''}`}>
-                        Difference: {row.draftQty === null ? '-' : formatSignedQty(row.difference)}
-                      </div>
-                    </div>
-
-                    {row.stockMismatch ? (
-                      <button
-                        type="button"
-                        className="restock-icon-btn restock-mobile-sync"
-                        onClick={() => { void syncDrafts([row.productId]); }}
-                        disabled={syncing}
-                        aria-label={`Sync ${row.name}`}
-                      >
-                        <RotateCw size={16} />
-                        {syncing ? 'Syncing...' : 'Sync'}
-                      </button>
-                    ) : null}
-                  </article>
+                    </td>
+                    <td className={`qty-cell restock-diff-cell${row.difference > 0 ? ' positive' : ''}${row.difference < 0 ? ' negative' : ''}`} data-label="Diff">
+                      <span className={row.draftQty === null ? '' : (row.difference >= 0 ? 'positive' : 'negative')}>
+                        {row.draftQty === null ? '—' : formatSignedQty(row.difference)}
+                      </span>
+                    </td>
+                    <td data-label="Sync">
+                      {row.stockMismatch ? (
+                        <button
+                          type="button"
+                          className="restock-icon-btn"
+                          onClick={() => { void syncDrafts([row.productId]); }}
+                          disabled={syncing}
+                          title="Sync counted stock to system"
+                          aria-label={`Sync ${row.name}`}
+                        >
+                          <RotateCw size={16} />
+                        </button>
+                      ) : (
+                        <span className="restock-action-placeholder">—</span>
+                      )}
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
-          </div>
+            </tbody>
+          </table>
         )}
-      </section>
-
-      {selectedRows.length ? (
-        <div className="restock-sticky-po-bar" role="status" aria-live="polite">
-          <div className="restock-sticky-po-summary">
-            <span>{selectedRows.length} selected</span>
-            {selectedSyncRows.length ? <span>{selectedSyncRows.length} sync</span> : null}
-          </div>
-          <button
-            type="button"
-            className="restock-mini-action primary"
-            onClick={handleProceedToPo}
-            disabled={!canProceedToPo}
-            title="Open purchase order workspace"
-            aria-label="Open purchase order workspace"
-          >
-            <ShoppingCart size={15} />
-            <span>Open PO</span>
-          </button>
-        </div>
-      ) : null}
+      </div>
     </div>
   );
 }

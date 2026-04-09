@@ -435,7 +435,11 @@ These helper trees act as the practical controller layer for complex routes:
   - `DELETE /api/purchase-returns/:id`
 - `server/features/commerce/routes/stockRoutes.js`
   - `GET /api/stock-ledger`
+    - Response rows may include `po_number` for purchase-order-linked stock entries (`PO` and `PO_CONFIRM` references).
+    - Response rows may include `bill_number` for outgoing stock entries linked to bills or bill-backed orders (`bill` and `ORDER` references).
   - `GET /api/stock-ledger/product/:productId`
+    - Response rows may include `po_number` for purchase-order-linked stock entries (`PO` and `PO_CONFIRM` references).
+    - Response rows may include `bill_number` for outgoing stock entries linked to bills or bill-backed orders (`bill` and `ORDER` references).
   - `GET /api/stock-ledger/batch/:batchNumber`
   - `GET /api/stock-ledger/summary`
   - `POST /api/stock-ledger/adjustments`

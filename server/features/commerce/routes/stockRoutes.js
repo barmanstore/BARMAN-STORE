@@ -65,25 +65,42 @@ const registerStockRoutes = (deps) => {
 
   app.get('/api/stock-ledger', requireAdmin, async (req, res) => {
     try {
-      let sql = `SELECT * FROM stock_ledger WHERE 1=1`;
+      const requestedTransactionType = String(req.query.transaction_type || '').trim();
+      let sql = `
+        SELECT stock_ledger.*, po.po_number AS po_number, COALESCE(bill_by_id.bill_number, bill_by_order.bill_number) AS bill_number
+        FROM stock_ledger
+        LEFT JOIN purchase_orders po
+          ON po.id::text = stock_ledger.reference_id
+         AND LOWER(stock_ledger.reference_type) IN ('po', 'po_confirm')
+        LEFT JOIN bills bill_by_id
+          ON bill_by_id.id::text = stock_ledger.reference_id
+         AND LOWER(stock_ledger.reference_type) = 'bill'
+        LEFT JOIN bills bill_by_order
+          ON bill_by_order.order_id::text = stock_ledger.reference_id
+         AND LOWER(stock_ledger.reference_type) = 'order'
+        WHERE 1=1`;
       const params = [];
       if (req.query.product_id) {
-        sql += ` AND product_id = ?`;
+        sql += ` AND stock_ledger.product_id = ?`;
         params.push(req.query.product_id);
       }
-      if (req.query.transaction_type) {
-        sql += ` AND transaction_type = ?`;
-        params.push(req.query.transaction_type);
+      if (requestedTransactionType) {
+        if (requestedTransactionType.toUpperCase() === 'SALE') {
+          sql += ` AND (UPPER(stock_ledger.transaction_type) = 'SALE' OR LOWER(stock_ledger.transaction_type) = 'out')`;
+        } else {
+          sql += ` AND UPPER(stock_ledger.transaction_type) = UPPER(?)`;
+          params.push(requestedTransactionType);
+        }
       }
       if (req.query.start_date) {
-        sql += ` AND date(created_at) >= date(?)`;
+        sql += ` AND date(stock_ledger.created_at) >= date(?)`;
         params.push(req.query.start_date);
       }
       if (req.query.end_date) {
-        sql += ` AND date(created_at) <= date(?)`;
+        sql += ` AND date(stock_ledger.created_at) <= date(?)`;
         params.push(req.query.end_date);
       }
-      sql += ` ORDER BY created_at DESC`;
+      sql += ` ORDER BY stock_ledger.created_at DESC`;
       return res.json(await dbAllAsync(sql, params));
     } catch (error) {
       return res.status(500).json({ error: error.message });
@@ -92,7 +109,24 @@ const registerStockRoutes = (deps) => {
   
   app.get('/api/stock-ledger/product/:productId', requireAdmin, async (req, res) => {
     try {
-      return res.json(await dbAllAsync(`SELECT * FROM stock_ledger WHERE product_id = ? ORDER BY created_at DESC`, [req.params.productId]));
+      return res.json(await dbAllAsync(
+        `
+          SELECT stock_ledger.*, po.po_number AS po_number, COALESCE(bill_by_id.bill_number, bill_by_order.bill_number) AS bill_number
+          FROM stock_ledger
+          LEFT JOIN purchase_orders po
+            ON po.id::text = stock_ledger.reference_id
+           AND LOWER(stock_ledger.reference_type) IN ('po', 'po_confirm')
+          LEFT JOIN bills bill_by_id
+            ON bill_by_id.id::text = stock_ledger.reference_id
+           AND LOWER(stock_ledger.reference_type) = 'bill'
+          LEFT JOIN bills bill_by_order
+            ON bill_by_order.order_id::text = stock_ledger.reference_id
+           AND LOWER(stock_ledger.reference_type) = 'order'
+          WHERE stock_ledger.product_id = ?
+          ORDER BY stock_ledger.created_at DESC
+        `,
+        [req.params.productId]
+      ));
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -104,7 +138,19 @@ const registerStockRoutes = (deps) => {
   
   app.get('/api/stock-ledger/summary', requireAdmin, async (_, res) => {
     try {
-      const rows = await dbAllAsync(`SELECT transaction_type, COUNT(*) as count FROM stock_ledger GROUP BY transaction_type`);
+      const rows = await dbAllAsync(`
+        SELECT
+          CASE
+            WHEN LOWER(transaction_type) = 'out' THEN 'SALE'
+            ELSE UPPER(transaction_type)
+          END AS transaction_type,
+          COUNT(*) as count
+        FROM stock_ledger
+        GROUP BY CASE
+          WHEN LOWER(transaction_type) = 'out' THEN 'SALE'
+          ELSE UPPER(transaction_type)
+        END
+      `);
       return res.json(rows);
     } catch (error) {
       return res.status(500).json({ error: error.message });

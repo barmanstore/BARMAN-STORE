@@ -1,9 +1,923 @@
-.credit-khata .actions-bar.ledger-header {
-  margin-top: 12px;
+.credit-khata {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  color-scheme: light;
+}
+
+.credit-khata .credit-khata-header {
+  margin-bottom: 0;
+}
+
+.credit-khata .admin-page-header h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.credit-khata .admin-page-header p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.credit-khata .credit-khata-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.credit-khata .admin-btn,
+.credit-khata .submit-btn,
+.credit-khata .cancel-btn,
+.credit-khata .credit-khata-filter-toggle,
+.credit-khata .credit-khata-filter-clear,
+.credit-khata .credit-khata-active-filter-pill,
+.credit-khata .credit-khata-action-icon {
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.credit-khata .admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.credit-khata .admin-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.credit-khata .admin-btn.primary {
+  border-color: #c7d2fe;
+  background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+}
+
+.credit-khata .admin-btn.primary:hover {
+  background: linear-gradient(180deg, #5b5fe8 0%, #4338ca 100%);
+}
+
+.credit-khata .credit-khata-header-action--icon {
+  width: 38px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.credit-khata .credit-khata-header-action--icon svg {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.credit-khata .credit-khata-error {
+  margin-bottom: 0;
+}
+
+.credit-khata .credit-khata-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px 12px;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.credit-khata .credit-khata-search-filter.search-filter-frame {
+  display: inline-grid;
+  gap: 6px;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-shell {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-shell:focus-within {
+  border-color: #93c5fd;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.06),
+    0 0 0 4px rgba(219, 234, 254, 0.85);
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-scope {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-scope-select {
+  height: 38px;
+  width: 78px;
+  padding: 0 26px 0 10px;
+  border: 0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-scope-chevron {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-divider {
+  flex: 0 0 1px;
+  align-self: stretch;
+  width: 1px;
+  height: auto;
+  background: #e2e8f0;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-input-shell {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-input::placeholder {
+  color: #94a3b8;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 4px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #0369a1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-submit:hover,
+.credit-khata .credit-khata-search-filter .search-filter-submit:focus-visible {
+  background: #dbeafe;
+  color: #075985;
+}
+
+.credit-khata .credit-khata-search-filter .search-filter-submit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.85);
+}
+
+.credit-khata .credit-khata-filter-toggle,
+.credit-khata .credit-khata-filter-clear {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
+}
+
+.credit-khata .credit-khata-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.credit-khata .credit-khata-filter-toggle strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 10px;
+}
+
+.credit-khata .credit-khata-filter-toggle:hover,
+.credit-khata .credit-khata-filter-toggle.is-open,
+.credit-khata .credit-khata-filter-clear:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.credit-khata .credit-khata-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 14px;
+}
+
+.credit-khata .credit-khata-active-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.96));
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s ease;
+}
+
+.credit-khata .credit-khata-active-filter-pill:hover {
+  border-color: #a5b4fc;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(224, 231, 255, 0.95));
+}
+
+.credit-khata .credit-khata-advanced-filters {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.72);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.05), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
+  box-shadow:
+    0 14px 28px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.credit-khata .credit-khata-filter-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.credit-khata .credit-khata-filter-row + .credit-khata-filter-row {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 0;
+}
+
+.credit-khata .credit-khata-filter-row-label {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  justify-content: flex-start;
+  padding-right: 6px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-filter-row-control {
+  min-width: 0;
+}
+
+.credit-khata .credit-khata-filter-row-control.dropdown-filter-frame,
+.credit-khata .credit-khata-filter-row-control--date.dropdown-filter-frame {
+  display: block;
+}
+
+.credit-khata .credit-khata-filter-row-control .dropdown-filter-heading {
+  display: none;
+}
+
+.credit-khata .credit-khata-filter-row-control .flex.min-h-\[38px\] {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 999px;
+}
+
+.credit-khata .credit-khata-filter-row-control .dropdown-filter-frame,
+.credit-khata .credit-khata-filter-row-control .relative.inline-flex.min-h-\[38px\] {
+  width: 100%;
+}
+
+.credit-khata .credit-khata-filter-row-control .shrink-0.rounded-full.border {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 31px;
+  padding: 0 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.credit-khata .credit-khata-filter-row-control .dropdown-filter-pill {
+  position: relative;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-filter-row-control .dropdown-filter-pill-indicator {
+  flex: 0 0 auto;
+  opacity: 0.9;
+}
+
+.credit-khata .credit-khata-filter-row-control .dropdown-filter-pill.is-active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 6px 14px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.credit-khata .credit-khata-filter-row .overflow-x-auto {
+  scrollbar-width: thin;
+}
+
+.credit-khata .credit-khata-filter-row--customer .credit-khata-filter-row-label {
+  color: #475569;
+}
+
+.credit-khata .credit-khata-filter-row--type .credit-khata-filter-row-label {
+  color: #6d28d9;
+  white-space: normal;
+  line-height: 1.15;
+  text-align: left;
+  word-break: break-word;
+}
+
+.credit-khata .credit-khata-filter-row--type .dropdown-filter-pill.is-active {
+  border-color: #8b5cf6;
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  color: #f5f3ff;
+}
+
+.credit-khata .credit-khata-filter-row--date .credit-khata-filter-row-label {
+  color: #0369a1;
+}
+
+.credit-khata .credit-khata-filter-row-control--date {
+  width: 100%;
+}
+
+.credit-khata .credit-khata-filter-row-control--date.date-range-filter--icon {
+  width: 100%;
+}
+
+.credit-khata .credit-khata-filter-row-control--date > .rounded-full {
+  width: 100%;
+}
+
+.credit-khata .credit-khata-filter-row-control--date.date-range-filter--icon > .rounded-full {
+  width: 100%;
+}
+
+.credit-khata .credit-khata-filter-row-control--date .rounded-full,
+.credit-khata .credit-khata-filter-row-control--date button {
+  min-height: 38px;
+}
+
+.credit-khata .credit-khata-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.credit-khata .credit-khata-stat-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #dbe4ef;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.credit-khata .credit-khata-stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #cbd5e1;
+}
+
+.credit-khata .credit-khata-stat-card--due::before { background: #ef4444; }
+.credit-khata .credit-khata-stat-card--advance::before { background: #10b981; }
+.credit-khata .credit-khata-stat-card--payments::before { background: #3b82f6; }
+.credit-khata .credit-khata-stat-card--sales::before { background: #8b5cf6; }
+.credit-khata .credit-khata-stat-card--edited::before { background: #f59e0b; }
+
+.credit-khata .credit-khata-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.credit-khata .credit-khata-stat-value.positive { color: #b91c1c; }
+.credit-khata .credit-khata-stat-value.negative { color: #166534; }
+
+.credit-khata .credit-khata-stat-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.credit-khata .credit-khata-table-container {
+  position: sticky;
+  top: 16px;
+  z-index: 4;
+  overflow: auto;
+  max-height: min(72vh, 660px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  border: 1px solid #dbe4ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  scrollbar-width: thin;
+}
+
+.credit-khata .credit-khata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.credit-khata .credit-khata-table th {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-date-group-row td {
+  padding: 12px 12px 6px;
+  border: none;
+  background: transparent;
+}
+
+.credit-khata .credit-khata-date-group-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.94);
+  color: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.credit-khata .credit-khata-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eef2f7;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+.credit-khata .credit-khata-table tr:hover {
+  background: #f8fafc;
+}
+
+.credit-khata .credit-khata-customer-cell,
+.credit-khata .credit-khata-details-cell {
+  min-width: 180px;
+}
+
+.credit-khata .credit-khata-customer-name {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.credit-khata .credit-khata-type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-type-pill.payment { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.credit-khata .credit-khata-type-pill.manual-sale { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.credit-khata .credit-khata-type-pill.bill { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.credit-khata .credit-khata-type-pill.reversal { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.credit-khata .credit-khata-type-pill.correction { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+.credit-khata .credit-khata-type-pill.entry { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+
+.credit-khata .credit-khata-amount-cell,
+.credit-khata .credit-khata-balance-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.credit-khata .credit-khata-amount-positive {
+  color: #059669;
+  font-weight: 700;
+}
+
+.credit-khata .credit-khata-amount-negative {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.credit-khata .credit-khata-balance-due {
+  color: #b91c1c;
+}
+
+.credit-khata .credit-khata-balance-advance {
+  color: #166534;
+}
+
+.credit-khata .credit-khata-balance-settled {
+  color: #334155;
+}
+
+.credit-khata .credit-khata-details-cell {
+  min-width: 240px;
+}
+
+.credit-khata .credit-khata-detail-line,
+.credit-khata .credit-khata-detail-note {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credit-khata .credit-khata-detail-line {
+  color: #475569;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-detail-line strong {
+  color: #334155;
+}
+
+.credit-khata .credit-khata-detail-note {
+  margin-top: 2px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.credit-khata .credit-khata-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.credit-khata .credit-khata-status-chip.edited { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+.credit-khata .credit-khata-status-chip.attachment { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+.credit-khata .credit-khata-status-chip.bill { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+
+.credit-khata .credit-khata-actions-cell {
+  white-space: nowrap;
+}
+
+.credit-khata .credit-khata-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 6px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  text-decoration: none;
+}
+
+.credit-khata .credit-khata-action-icon:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.credit-khata .credit-khata-action-icon--edit {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.credit-khata .credit-khata-empty-state {
+  display: grid;
+  gap: 10px;
+  padding: 48px 20px;
+  text-align: center;
+  color: #64748b;
+}
+
+.credit-khata .credit-khata-empty-state strong {
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.credit-khata .credit-khata-empty-state p {
+  margin: 0;
+}
+
+.credit-khata .credit-khata-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.credit-khata .credit-khata-inline-loading {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.credit-khata .credit-khata-inline-loading-line,
+.credit-khata .credit-khata-skeleton-search,
+.credit-khata .credit-khata-skeleton-button,
+.credit-khata .credit-khata-skeleton-line,
+.credit-khata .credit-khata-skeleton-cell {
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 37%, #e5e7eb 63%);
+  background-size: 400% 100%;
+  animation: credit-khata-shimmer 1.5s linear infinite;
+}
+
+.credit-khata .credit-khata-inline-loading-line {
+  height: 14px;
+  border-radius: 999px;
+}
+
+.credit-khata .credit-khata-inline-loading-line.short {
+  width: 35%;
+}
+
+.credit-khata .credit-khata-loading-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.credit-khata .credit-khata-skeleton-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 10px;
+}
+
+.credit-khata .credit-khata-skeleton-search,
+.credit-khata .credit-khata-skeleton-button {
+  height: 38px;
+  border-radius: 999px;
+}
+
+.credit-khata .credit-khata-skeleton-button {
+  width: 104px;
+}
+
+.credit-khata .credit-khata-skeleton-summary {
+  margin: 0;
+}
+
+.credit-khata .credit-khata-skeleton-card {
+  min-height: 76px;
+}
+
+.credit-khata .credit-khata-skeleton-line {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.credit-khata .credit-khata-skeleton-line--value {
+  width: 64%;
+  height: 26px;
+}
+
+.credit-khata .credit-khata-skeleton-line--label {
+  width: 52%;
+}
+
+.credit-khata .credit-khata-skeleton-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.75fr 0.9fr 1.2fr 0.5fr;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid #eef2f7;
+}
+
+.credit-khata .credit-khata-skeleton-cell {
+  height: 18px;
+  border-radius: 8px;
+}
+
+.credit-khata .credit-khata-skeleton-cell--customer { width: 78%; }
+.credit-khata .credit-khata-skeleton-cell--type { width: 72%; }
+.credit-khata .credit-khata-skeleton-cell--amount { width: 80%; justify-self: end; }
+.credit-khata .credit-khata-skeleton-cell--balance { width: 74%; justify-self: end; }
+.credit-khata .credit-khata-skeleton-cell--details { width: 92%; }
+.credit-khata .credit-khata-skeleton-cell--actions { width: 64%; }
+
+.credit-khata .window-modal-frame {
+  border: 1px solid #dbe4ef;
+  border-radius: 22px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
+}
+
+.credit-khata .window-modal-header {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.credit-khata .window-modal-title-group h2 {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.credit-khata .window-modal-title-group p {
+  color: #64748b;
+}
+
+.credit-khata .window-modal-body {
+  background: #ffffff;
+}
+
+.credit-khata .credit-khata-form {
+  display: grid;
+  gap: 12px;
+}
+
+.credit-khata .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.credit-khata .form-row:first-child {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.credit-khata .form-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.credit-khata .form-group label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.credit-khata .form-group input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.credit-khata .form-group select {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.credit-khata .form-group input:not([type='checkbox']):not([type='radio']):not([type='file']):focus,
+.credit-khata .form-group select:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.8);
+}
+
+.credit-khata .calculated-amount-input {
+  display: grid;
+  gap: 6px;
+}
+
+.credit-khata .calculated-amount-input input {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.credit-khata .calculated-amount-input input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.8);
 }
 
 .credit-khata .amount-live-result {
-  margin-top: 6px;
+  margin-top: 2px;
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -14,4 +928,180 @@
 
 .credit-khata .amount-live-result.error {
   color: #b91c1c;
+}
+
+.credit-khata .credit-ledger-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+}
+
+.credit-khata .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.credit-khata .cancel-btn,
+.credit-khata .submit-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #dbe4ef;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.credit-khata .cancel-btn {
+  background: #ffffff;
+  color: #334155;
+}
+
+.credit-khata .submit-btn {
+  background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  border-color: #c7d2fe;
+}
+
+.credit-khata .submit-btn:hover {
+  background: linear-gradient(180deg, #5b5fe8 0%, #4338ca 100%);
+}
+
+@keyframes credit-khata-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 960px) {
+  .credit-khata .credit-khata-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credit-khata .credit-khata-filters > * {
+    width: 100%;
+  }
+
+  .credit-khata .credit-khata-filter-toggle,
+  .credit-khata .credit-khata-filter-clear {
+    justify-content: center;
+  }
+
+  .credit-khata .credit-khata-filter-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .credit-khata .credit-khata-filter-row + .credit-khata-filter-row {
+    margin-top: 8px;
+    padding-top: 10px;
+  }
+
+  .credit-khata .credit-khata-filter-row-label {
+    padding-right: 0;
+  }
+
+  .credit-khata .credit-khata-skeleton-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credit-khata .credit-khata-skeleton-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .credit-khata {
+    padding: 16px;
+  }
+
+  .credit-khata .credit-khata-table-container {
+    position: relative;
+    top: auto;
+    overflow: visible;
+    max-height: none;
+    box-shadow: none;
+    background: transparent;
+    border: none;
+  }
+
+  .credit-khata .credit-khata-table,
+  .credit-khata .credit-khata-table tbody,
+  .credit-khata .credit-khata-table tr,
+  .credit-khata .credit-khata-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .credit-khata .credit-khata-table thead {
+    display: none;
+  }
+
+  .credit-khata .credit-khata-table tr {
+    margin-bottom: 8px;
+    padding: 0.45rem 0.65rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+
+  .credit-khata .credit-khata-table td {
+    border: none;
+    border-bottom: 1px dashed #e5e7eb;
+    padding: 0.38rem 0;
+  }
+
+  .credit-khata .credit-khata-table tr.credit-khata-date-group-row {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .credit-khata .credit-khata-table tr.credit-khata-date-group-row td {
+    padding: 0 0 6px;
+    border: none;
+    background: transparent;
+  }
+
+  .credit-khata .credit-khata-table td:last-child {
+    border-bottom: none;
+  }
+
+  .credit-khata .credit-khata-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.18rem;
+    color: #6b7280;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .credit-khata .credit-khata-actions-cell {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .credit-khata .credit-khata-details-cell {
+    min-width: 0;
+  }
+
+  .credit-khata .form-row {
+    grid-template-columns: 1fr;
+  }
 }

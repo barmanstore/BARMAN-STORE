@@ -280,11 +280,6 @@ const usePurchaseOrderDetailHandlers = ({
   const handleOrderDetailItemRemove = useCallback((index) => {
     setOrderDetailDraft((prev) => {
       if (!prev) return prev;
-      const targetItem = prev.items?.[index];
-      const locked = targetItem?.po_item_locked === true
-        || targetItem?.po_item_source === 'supplier_default'
-        || String(targetItem?.row_source || '').trim().toLowerCase() === 'supplier';
-      if (locked) return prev;
       return {
         ...prev,
         items: (prev.items || []).filter((_, itemIndex) => itemIndex !== index),

@@ -449,6 +449,7 @@ const usePurchaseManagementHandlers = ({
     getProductUomProfile,
     toBaseQtyForProduct,
     toNumber,
+    calculateOrderItem,
     getOrderDisplayTotal,
     getPoLifecycleStatus,
     getPoPaymentStatus,

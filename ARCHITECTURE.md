@@ -1,6 +1,6 @@
 # Architecture
 
-See also: [AGENTS.md](AGENTS.md), [ROUTES.md](ROUTES.md), [ERROR_HANDLING.md](ERROR_HANDLING.md), [docs/backend.md](docs/backend.md), [docs/frontend.md](docs/frontend.md), [docs/database.md](docs/database.md)
+See also: [AGENTS.md](AGENTS.md), [ROUTES.md](ROUTES.md), [ERROR_HANDLING.md](ERROR_HANDLING.md), [docs/architecture-performance-rules.md](docs/architecture-performance-rules.md), [docs/backend.md](docs/backend.md), [docs/frontend.md](docs/frontend.md), [docs/database.md](docs/database.md)
 
 ## System Shape
 

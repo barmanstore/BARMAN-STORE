@@ -2939,13 +2939,56 @@
   margin-top: 14px;
   border-collapse: collapse;
   border: 1px solid #d1d5db;
+  table-layout: fixed;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-index {
+  width: 40px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-product {
+  width: 280px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-qty {
+  width: 56px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-uom {
+  width: 64px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-rate {
+  width: 92px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-discount-type {
+  width: 76px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-discount-value {
+  width: 60px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-gst {
+  width: 68px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-taxable,
+.purchase-management .po-invoice-table col.po-detail-col-tax,
+.purchase-management .po-invoice-table col.po-detail-col-total {
+  width: 68px;
+}
+
+.purchase-management .po-invoice-table col.po-detail-col-actions {
+  width: 64px;
 }
 
 .purchase-management .po-invoice-table th,
 .purchase-management .po-invoice-table td {
   border: 1px solid #d1d5db;
   padding: 8px;
-  font-size: 12px;
+  font-size: 11px;
   color: #111827;
   text-align: left;
 }
@@ -2962,8 +3005,111 @@
   padding: 0.35rem 0.45rem;
   border: 1px solid #cbd5e1;
   border-radius: 7px;
-  font-size: 12px;
+  font-size: 11px;
   background: #ffffff;
+}
+
+.purchase-management .po-invoice-table td input[name='quantity'],
+.purchase-management .po-invoice-table td input[name='rate'],
+.purchase-management .po-invoice-table td input[name='discount_value'],
+.purchase-management .po-invoice-table td select[name='discount_type'],
+.purchase-management .po-invoice-table td select[name='uom'],
+.purchase-management .po-invoice-table td select[name='gst_rate'] {
+  min-width: 0;
+  padding-inline: 0.28rem;
+  padding-block: 0.28rem;
+}
+
+.purchase-management .po-invoice-table th:last-child,
+.purchase-management .po-invoice-table td:last-child {
+  text-align: center;
+}
+
+.purchase-management .po-invoice-table th.sortable {
+  padding: 0;
+}
+
+.purchase-management .po-invoice-table th.sortable[aria-sort='ascending'],
+.purchase-management .po-invoice-table th.sortable[aria-sort='descending'] {
+  background: #eff6ff;
+}
+
+.purchase-management .po-invoice-table .po-detail-sort-btn {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+.purchase-management .po-invoice-table .po-detail-sort-btn:hover,
+.purchase-management .po-invoice-table .po-detail-sort-btn:focus-visible {
+  color: #0f172a;
+}
+
+.purchase-management .po-invoice-table .po-detail-sort-btn:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
+.purchase-management .po-invoice-table .po-detail-sort-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #475569;
+}
+
+.purchase-management .po-invoice-table th.sortable[aria-sort='ascending'] .po-detail-sort-icon,
+.purchase-management .po-invoice-table th.sortable[aria-sort='descending'] .po-detail-sort-icon {
+  color: #2563eb;
+}
+
+.purchase-management .po-invoice-table .remove-item-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #ef4444;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.purchase-management .po-invoice-table .remove-item-btn:hover {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.purchase-management .po-invoice-table .remove-item-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.14);
+}
+
+.purchase-management .po-invoice-table .remove-item-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.25;
 }
 
 .purchase-management .po-detail-row-edited {
@@ -2971,30 +3117,20 @@
 }
 
 .purchase-management .po-detail-field-changed {
-  background: #fefce8;
+  background: #fff7cc;
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
+.purchase-management .po-detail-field-changed input,
+.purchase-management .po-detail-field-changed select {
+  background: #fffdf2;
+  border-color: #f59e0b;
 }
 
 .purchase-management .po-detail-computed-change {
-  background: #fef3c7;
+  background: #fde68a;
+  box-shadow: inset 3px 0 0 #b45309;
   font-weight: 700;
-}
-
-.purchase-management .po-detail-change-note {
-  display: block;
-  margin-top: 4px;
-  color: #92400e;
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 600;
-}
-
-.purchase-management .po-detail-effective-note {
-  display: block;
-  margin-top: 4px;
-  color: #475569;
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 600;
 }
 
 .purchase-management .po-detail-row-status {

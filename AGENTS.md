@@ -22,9 +22,11 @@ Root docs:
 
 Focused docs:
 
+- [docs/architecture-performance-rules.md](docs/architecture-performance-rules.md): structured guide for architecture and performance changes
 - [docs/backend.md](docs/backend.md)
 - [docs/frontend.md](docs/frontend.md)
 - [docs/business-logic.md](docs/business-logic.md)
+- [docs/ui-architecture-reference.md](docs/ui-architecture-reference.md)
 - [docs/review-log.md](docs/review-log.md)
 - [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
 - [docs/routing.md](docs/routing.md)
@@ -42,6 +44,14 @@ Focused docs:
 
 Read only the docs needed for the task, then inspect code:
 
+- Architecture or performance changes:
+  - [ARCHITECTURE.md](ARCHITECTURE.md)
+  - [docs/architecture-performance-rules.md](docs/architecture-performance-rules.md)
+  - [docs/frontend.md](docs/frontend.md)
+  - [docs/backend.md](docs/backend.md)
+  - [docs/database.md](docs/database.md)
+  - [docs/patterns.md](docs/patterns.md)
+  - [docs/anti-patterns.md](docs/anti-patterns.md)
 - Backend or routing work:
   - [ROUTES.md](ROUTES.md)
   - [docs/routing.md](docs/routing.md)
@@ -51,6 +61,7 @@ Read only the docs needed for the task, then inspect code:
 - Frontend work:
   - [docs/frontend.md](docs/frontend.md)
   - [docs/ui-ux.md](docs/ui-ux.md)
+  - [docs/ui-architecture-reference.md](docs/ui-architecture-reference.md)
   - [docs/user-management-state-contract.md](docs/user-management-state-contract.md)
   - [docs/services.md](docs/services.md)
 - Domain changes:

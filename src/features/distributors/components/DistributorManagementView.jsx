@@ -1,7 +1,8 @@
 import React from 'react';
-import { Plus, Search, Phone, MapPin, Calendar, Users } from 'lucide-react';
+import { Plus, Phone, MapPin, Calendar, Users } from 'lucide-react';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
+import SearchFilter from '../../../shared/components/filters/SearchFilter';
 import WindowModal from '../../../shared/components/window/WindowModal';
 
 const DistributorManagementView = ({
@@ -81,15 +82,17 @@ const DistributorManagementView = ({
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="search-bar">
-        <Search size={20} />
-        <input
-          type="text"
+      <div className="distributor-search-shell">
+        <SearchFilter
           id="distributor-search"
-          name="distributor-search"
           placeholder="Search distributors, suppliers, or product groups..."
           value={searchTerm}
           onChange={onSearchChange}
+          width="100%"
+          stretch
+          className="distributor-search-filter"
+          tone="slate"
+          ariaLabel="Search distributors, suppliers, or product groups"
         />
       </div>
 

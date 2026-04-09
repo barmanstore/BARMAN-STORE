@@ -687,7 +687,7 @@ function DistributorManagement({ user }) {
       loading={loading}
       error={error}
       searchTerm={searchTerm}
-      onSearchChange={(e) => setSearchTerm(e.target.value)}
+      onSearchChange={(value) => setSearchTerm(value)}
       distributorCards={filteredDistributorCards}
       parseContacts={parseContacts}
       getStatusBadge={getStatusBadge}

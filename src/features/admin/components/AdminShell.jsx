@@ -1,15 +1,14 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { LogOut, X, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, X, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAdminShellContext } from '../context/AdminPageContext';
 
-const AdminNavItems = ({ items, activeTab, handleTabChange, variant = 'desktop' }) => (
+const AdminNavItems = ({ items, activeTab, handleTabChange }) => (
   <>
     {items.map((item) => {
       const ItemIcon = item.icon;
       const isActiveItem = activeTab === item.tab;
-      const itemClassName = variant === 'desktop'
-        ? `panel-item ${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`
-        : `${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`;
+      const itemClassName = `panel-item ${isActiveItem ? 'active' : ''} ${item.sub ? 'sub-item' : ''}`;
       return (
         <button
           key={item.tab}
@@ -18,8 +17,8 @@ const AdminNavItems = ({ items, activeTab, handleTabChange, variant = 'desktop' 
           aria-current={isActiveItem ? 'page' : undefined}
           onClick={() => handleTabChange(item.tab)}
         >
-          <ItemIcon size={variant === 'desktop' ? (item.sub ? 16 : 18) : (item.sub ? 18 : 20)} />
-          {variant === 'desktop' ? <span>{item.label}</span> : ` ${item.label}`}
+          <ItemIcon size={item.sub ? 16 : 18} />
+          <span>{item.label}</span>
         </button>
       );
     })}
@@ -44,6 +43,21 @@ const AdminShell = ({ children }) => {
     expandedGroups,
     toggleSidebarGroup,
   } = useAdminShellContext();
+  const desktopSidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (desktopPanelCollapsed) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (desktopSidebarRef.current?.contains(event.target)) return;
+      setDesktopPanelCollapsed(true);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [desktopPanelCollapsed, setDesktopPanelCollapsed]);
 
   return (
     <div className="admin-page admin-shell">
@@ -67,7 +81,11 @@ const AdminShell = ({ children }) => {
       </div>
 
       <div className="admin-shell-body">
-        <aside className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`} aria-label="Admin desktop navigation">
+        <aside
+          ref={desktopSidebarRef}
+          className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`}
+          aria-label="Admin desktop navigation"
+        >
           <div className="admin-sidebar-rail">
             <div className="admin-sidebar-rail-top">
               <button
@@ -98,7 +116,7 @@ const AdminShell = ({ children }) => {
             </div>
             <div className="admin-sidebar-rail-bottom">
               <Link to="/" className="rail-item rail-home-link" aria-label="Back to Store" title="Back to Store">
-                <LogOut size={18} />
+                <ArrowLeft size={18} />
               </Link>
             </div>
           </div>
@@ -111,7 +129,6 @@ const AdminShell = ({ children }) => {
                 items={desktopCurrentSection.items}
                 activeTab={activeTab}
                 handleTabChange={handleTabChange}
-                variant="desktop"
               />
             </nav>
           </div>
@@ -148,7 +165,6 @@ const AdminShell = ({ children }) => {
                         items={section.items}
                         activeTab={activeTab}
                         handleTabChange={handleTabChange}
-                        variant="mobile"
                       />
                     </div>
                   ) : null}
@@ -156,8 +172,9 @@ const AdminShell = ({ children }) => {
               );
             })}
 
-            <Link to="/" className="logout-link">
-              <LogOut size={20} />
+            <Link to="/" className="logout-link" aria-label="Back to Store" title="Back to Store">
+              <ArrowLeft size={18} />
+              <span>Back to Store</span>
             </Link>
           </nav>
         </div>

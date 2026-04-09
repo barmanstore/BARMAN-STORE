@@ -28,6 +28,7 @@ See also: [../ROUTES.md](../ROUTES.md), [routing.md](routing.md), [services.md](
 ## Purchase Operations Notes
 
 - `GET /api/purchase-operations/summary` keeps returning one shared summary payload for dashboard and purchase planning surfaces. The payload now stays backward-compatible for existing summary cards while also returning `supplier_visits`, a supplier-day overlay with `poDone`, `paymentDone`, `visitClosed`, and `isHandled`.
+- `GET /api/stock-ledger` and `GET /api/stock-ledger/product/:productId` may include `po_number` for incoming purchase-order rows and `bill_number` for outgoing stock rows tied to bills or bill-backed orders. The history page uses those fields as a secondary line under the product name instead of restoring extra reference columns.
 - `POST /api/purchase-operations/visit/close` and `POST /api/purchase-operations/visit/reopen` persist today-only supplier visit decisions. Both return the normalized supplier-day visit row that was written.
 - `GET /api/distributors/:id/products` returns the selected supplier's active PO board for PO creation. Board membership is sourced from that supplier's `products_supplied` group, with `supplier_products` used only as metadata/fallback enrichment, and the route rejects a `supplier_id` that does not belong to the distributor.
 - `GET /api/suppliers` and `GET /api/distributors/:id/suppliers` expose supplier child records under each distributor, including supplier-owned `products_supplied`; PO entry now selects a supplier first and carries `supplier_id` through saves.

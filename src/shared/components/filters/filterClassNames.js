@@ -3,9 +3,11 @@ const joinClassNames = (...classNames) => classNames.filter(Boolean).join(' ');
 const FILTER_FRAME_CLASS_NAME = 'inline-grid min-w-0 gap-1.5';
 const FILTER_LABEL_CLASS_NAME = 'text-[11px] font-semibold uppercase tracking-[0.08em]';
 const FILTER_SURFACE_CLASS_NAME = 'relative inline-flex min-h-[38px] items-center overflow-hidden rounded-full border bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition';
+const FILTER_ICON_TRIGGER_CLASS_NAME = 'relative inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-full border bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition';
 const FILTER_PILL_ROW_CLASS_NAME = 'flex min-h-[38px] items-center gap-2 overflow-x-auto rounded-full border bg-white p-1 shadow-[0_10px_24px_rgba(15,23,42,0.06)] [scrollbar-width:thin]';
 const FILTER_PILL_CLASS_NAME = 'shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition';
 const FILTER_POPOVER_CLASS_NAME = 'z-20 mt-2 grid w-full gap-3 rounded-2xl border bg-white p-3 shadow-[0_20px_40px_rgba(15,23,42,0.14)] sm:absolute sm:left-0 sm:top-[calc(100%+10px)] sm:mt-0 sm:min-w-[280px]';
+const FILTER_DATE_RANGE_POPOVER_CLASS_NAME = 'z-20 mt-2 grid w-full gap-3 rounded-[18px] border bg-white p-3 shadow-[0_20px_40px_rgba(15,23,42,0.14)] sm:absolute sm:left-0 sm:top-[calc(100%+10px)] sm:mt-0 sm:w-[560px] sm:max-w-[calc(100vw-24px)]';
 const FILTER_DATE_FIELD_CLASS_NAME = 'h-[36px] rounded-xl border bg-white px-3 text-[12px] font-medium text-slate-800 outline-none transition';
 const FILTER_SCOPE_SELECT_CLASS_NAME = 'h-[38px] w-[78px] shrink-0 appearance-none border-0 bg-slate-50 pl-2.5 pr-6 text-[10px] font-semibold uppercase tracking-[0.05em] outline-none';
 const FILTER_SEARCH_BUTTON_CLASS_NAME = 'my-1 mr-1 inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-transparent transition focus-visible:outline-none';
@@ -108,8 +110,20 @@ const getFilterTriggerClassName = ({ tone = 'sky', isOpen = false, hasValue = fa
   )
 );
 
+const getFilterIconTriggerClassName = ({ tone = 'sky', isOpen = false, hasValue = false } = {}) => (
+  joinClassNames(
+    FILTER_ICON_TRIGGER_CLASS_NAME,
+    isOpen ? getFilterTone(tone).triggerOpen : getFilterTone(tone).trigger,
+    hasValue ? 'text-slate-800' : 'text-slate-500'
+  )
+);
+
 const getFilterPopoverClassName = (tone = 'sky') => (
   joinClassNames(FILTER_POPOVER_CLASS_NAME, getFilterTone(tone).popover)
+);
+
+const getDateRangePopoverClassName = (tone = 'sky') => (
+  joinClassNames(FILTER_DATE_RANGE_POPOVER_CLASS_NAME, getFilterTone(tone).popover)
 );
 
 const getDateFieldClassName = (tone = 'sky') => (
@@ -132,12 +146,14 @@ const getSearchButtonClassName = (tone = 'sky') => (
 
 export {
   getDateFieldClassName,
+  getDateRangePopoverClassName,
   getFieldContainerClassName,
   getFilterActionClassName,
   getFilterFrameClassName,
   getFilterIconClassName,
   getFilterLabelClassName,
   getFilterPopoverClassName,
+  getFilterIconTriggerClassName,
   getFilterTriggerClassName,
   getPillClassName,
   getPillRowClassName,
