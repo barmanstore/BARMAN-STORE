@@ -14,12 +14,6 @@ import {
   resolveMediaUrl,
 } from '../api/index.js';
 import { getProductImageSrc, getProductFallbackImage } from '../../../shared/utils/productImage';
-import {
-  clearBackofficePopupHandoff,
-  focusBackofficePopup,
-  readBackofficePopupStatus,
-  writeBackofficePopupHandoff,
-} from '../../../shared/utils/backofficePopup';
 import { truncateUserName } from '../../../shared/utils/formatters';
 import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
 import useIsMobile from '../../../shared/hooks/useIsMobile';
@@ -300,6 +294,8 @@ const useAdminPageController = ({ user }) => {
     productTableCategoryFilter,
     productTableStatusFilter,
     productTableLowStockOnly,
+    productTableSortField,
+    productTableSortDir,
     setProductsPage,
   ]);
 
@@ -312,8 +308,11 @@ const useAdminPageController = ({ user }) => {
         page: productsPage,
         query: productTableSearch,
         category: productTableCategoryFilter,
+        brand: '',
         status: productTableStatusFilter,
         lowStockOnly: productTableLowStockOnly,
+        sortField: productTableSortField,
+        sortDir: productTableSortDir,
       });
     }, productTableSearch ? 180 : 0);
     return () => window.clearTimeout(timer);
@@ -324,6 +323,8 @@ const useAdminPageController = ({ user }) => {
     productTableCategoryFilter,
     productTableLowStockOnly,
     productTableSearch,
+    productTableSortDir,
+    productTableSortField,
     productTableStatusFilter,
     productsPage,
   ]);
@@ -355,16 +356,6 @@ const useAdminPageController = ({ user }) => {
     const shortcutAction = String(nextPayload?.action || 'create-draft').trim().toLowerCase();
     const selectedCount = Array.isArray(nextPayload?.suggestedItems) ? nextPayload.suggestedItems.length : 0;
     const isRestockShortcut = String(nextPayload?.source || '').trim().toLowerCase() === 'restock';
-    const popupStatus = readBackofficePopupStatus('purchase');
-    const popupMessage = shortcutAction === 'open-payment'
-      ? 'Supplier payment opened in popup.'
-      : shortcutAction === 'open-order'
-        ? 'Purchase review opened in popup.'
-        : (
-          selectedCount > 0
-            ? `PO request sent to popup with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
-            : 'PO request sent to popup.'
-        );
     const inlineMessage = shortcutAction === 'open-payment'
       ? 'Supplier payment opened.'
       : shortcutAction === 'open-order'
@@ -374,16 +365,6 @@ const useAdminPageController = ({ user }) => {
             ? `PO draft opened with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
             : 'PO draft opened.'
         );
-
-    if (!isRestockShortcut && popupStatus?.isOpen && nextPayload) {
-      const handoff = writeBackofficePopupHandoff('purchase', nextPayload);
-      const popupResult = focusBackofficePopup('purchase');
-      if (popupResult.status !== 'blocked') {
-        showNotification(popupMessage, 'success');
-        return;
-      }
-      clearBackofficePopupHandoff('purchase', handoff.id);
-    }
 
     setPurchaseShortcutPayload(nextPayload);
     setPurchaseShortcutRequest((current) => current + 1);
@@ -495,7 +476,14 @@ const useAdminPageController = ({ user }) => {
     handlePermanentDeleteProduct,
     handleEditProduct,
     handleAddProduct,
+    handleBulkProductUpdate,
+    handleUndoTableAction,
     handleProductSave,
+    bulkJob,
+    handleCancelBulkJob,
+    handleRetryFailedBulkJob,
+    dismissBulkJob,
+    registerBulkJob,
   } = useAdminProductHandlers({
     productsApi,
     statsApi,
@@ -512,6 +500,8 @@ const useAdminPageController = ({ user }) => {
     productTableCategoryFilter,
     productTableStatusFilter,
     productTableLowStockOnly,
+    productTableSortField,
+    productTableSortDir,
   });
   const {
     resetQuickAdd,
@@ -604,6 +594,7 @@ const useAdminPageController = ({ user }) => {
     handleTableCellClick,
     cancelTableEdit,
     handleTableEditChange,
+    handleTableEditKeyDown,
     handleTableEditSave,
   } = useAdminProductTable({
     products,
@@ -656,9 +647,15 @@ const useAdminPageController = ({ user }) => {
     importBusy,
     importFileInputRef,
     showNotification,
-    handleProductSave,
+    registerBulkJob,
     setShowExportDialog,
     exportFormat,
+    productTableSearch,
+    productTableCategoryFilter,
+    productTableStatusFilter,
+    productTableLowStockOnly,
+    productTableSortField,
+    productTableSortDir,
   });
   const {
     openApproveModal,
@@ -799,6 +796,8 @@ const useAdminPageController = ({ user }) => {
     slowMovingProducts,
     selectedSalesBills,
     handleAddProduct,
+    handleBulkProductUpdate,
+    handleUndoTableAction,
     setShowExportDialog,
     importBusy,
     handleStartImport,
@@ -845,6 +844,8 @@ const useAdminPageController = ({ user }) => {
     handleTableCellClick,
     setTableEditFieldRef,
     handleTableEditChange,
+    handleTableEditKeyDown,
+    handleUndoTableAction,
     setSelectedProductId,
     selectedProductId,
     showQuickAdd,
@@ -924,6 +925,10 @@ const useAdminPageController = ({ user }) => {
     showUserForm,
     isCreatingUser,
     handleCreateUser,
+    bulkJob,
+    handleCancelBulkJob,
+    handleRetryFailedBulkJob,
+    dismissBulkJob,
   };
 };
 

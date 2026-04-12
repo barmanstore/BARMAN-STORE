@@ -6,6 +6,7 @@ export {
   usersApi,
   adminApi,
   billingApi,
+  cashbookApi,
   creditApi,
   purchaseOrdersApi,
   insightsApi,

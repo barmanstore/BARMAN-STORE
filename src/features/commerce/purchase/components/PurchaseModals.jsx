@@ -271,6 +271,7 @@ const PurchaseModals = ({
       setPoPaymentFormData={setPoPaymentFormData}
       formatCurrency={formatCurrency}
       getPoBalanceDue={getPoBalanceDue}
+      getOrderDisplayTotal={getOrderDisplayTotal}
     />
 
     <LedgerEntryModal

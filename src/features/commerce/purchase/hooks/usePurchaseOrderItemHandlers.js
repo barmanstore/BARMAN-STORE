@@ -6,6 +6,9 @@ import {
   clearPurchaseDraftProductSelection,
   getLastPurchaseSuggestionPreserveFlags,
 } from '../utils/orderDrafts';
+import {
+  findActivePurchaseProduct,
+} from '../utils/productSearch';
 
 const usePurchaseOrderItemHandlers = ({
   setOrderFormData,
@@ -25,7 +28,7 @@ const usePurchaseOrderItemHandlers = ({
   const handleOrderItemChange = useCallback(async (index, field, value) => {
     if (field === 'product_id') {
       const selectedProductId = String(value || '');
-      const product = products.find((p) => String(p.id) === selectedProductId);
+      const product = findActivePurchaseProduct(products, selectedProductId);
       setOrderFormData((prev) => {
         const items = [...prev.items];
         const current = items[index];
@@ -72,7 +75,7 @@ const usePurchaseOrderItemHandlers = ({
           const nextItems = [...prev.items];
           const current = nextItems[index];
           if (!current || String(current.product_id) !== selectedProductId) return prev;
-          const selectedProduct = products.find((p) => String(p.id) === selectedProductId) || latestHistoryEntry.product || null;
+          const selectedProduct = findActivePurchaseProduct(products, selectedProductId) || latestHistoryEntry.product || null;
           const preserveFlags = getLastPurchaseSuggestionPreserveFlags({
             item: current,
             normalizeGstRateOption,
@@ -114,7 +117,7 @@ const usePurchaseOrderItemHandlers = ({
           const nextItems = [...prev.items];
           const current = nextItems[index];
           if (!current || String(current.product_id) !== selectedProductId) return prev;
-          const selectedProduct = products.find((p) => String(p.id) === selectedProductId) || null;
+          const selectedProduct = findActivePurchaseProduct(products, selectedProductId) || null;
           const preserveFlags = getLastPurchaseSuggestionPreserveFlags({
             item: current,
             normalizeGstRateOption,
@@ -197,7 +200,7 @@ const usePurchaseOrderItemHandlers = ({
       .map((product) => {
         const selectedProductId = String(product?.id || '').trim();
         if (!selectedProductId) return null;
-        return products.find((entry) => String(entry?.id || '') === selectedProductId) || product;
+        return findActivePurchaseProduct(products, selectedProductId) || null;
       })
       .filter(Boolean);
     if (!normalizedProducts.length) return;

@@ -1,10 +1,8 @@
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import { CreditCard, Search, ShoppingCart } from 'lucide-react';
 import UserEditModal from '../../../../shared/components/UserEditModal';
-import BillingBillList from './BillingBillList';
-import BillingPaymentPanel from './BillingPaymentPanel';
-import BillingProductForm from './BillingProductForm';
-import BillingSummary from './BillingSummary';
+import BillingItemSection from './BillingItemSection';
+import BillingPaymentSection from './BillingPaymentSection';
 
 const BillingTabView = ({
   isMobile,
@@ -64,13 +62,13 @@ const BillingTabView = ({
   handleAddCustomer,
   fulfillmentMode,
   setFulfillmentMode,
-  createBillConfirmationOpen,
-  clearBillConfirmationOpen,
   paidAmount,
   setPaidAmount,
   selectedPaymentMethod,
   effectivePaymentMethod,
   setSelectedPaymentMethod,
+  createBillConfirmationOpen,
+  clearBillConfirmationOpen,
   handleSelectCashPayment,
   handleSelectUpiPayment,
   handleSelectCreditPayment,
@@ -95,44 +93,6 @@ const BillingTabView = ({
     }
   }, [isMobile]);
 
-  const showRecentProducts = !String(currentItem?.name || '').trim();
-  const visibleEntryResults = useMemo(() => {
-    if (showRecentProducts) {
-      return recentProducts.slice(0, 8);
-    }
-    return productSearchResults.slice(0, 8);
-  }, [productSearchResults, recentProducts, showRecentProducts]);
-  const productResultSummary = useMemo(() => {
-    if (showRecentProducts) {
-      if (!recentProducts.length) return 'No recent items.';
-      return `${Math.min(visibleEntryResults.length, recentProducts.length)} of ${recentProducts.length} recent`;
-    }
-    if (productSearchLoading) return '';
-    const trimmedName = String(currentItem?.name || '').trim();
-    if (!trimmedName) return '';
-    if (!productSearchResults.length) return 'No matches.';
-    return `${Math.min(visibleEntryResults.length, productSearchResults.length)} of ${productSearchResults.length} matches`;
-  }, [
-    currentItem?.name,
-    productSearchLoading,
-    productSearchResults.length,
-    recentProducts.length,
-    showRecentProducts,
-    visibleEntryResults.length,
-  ]);
-  const showCustomItemAction = Boolean(
-    String(currentItem?.name || '').trim()
-    && !currentProduct
-    && !productSearchLoading
-  );
-  const requiresExplicitSuggestionChoice = Boolean(
-    String(currentItem?.name || '').trim()
-    && !showRecentProducts
-    && productSearchResults.length > 1
-    && !hasExplicitSuggestionChoice
-    && !currentProduct
-  );
-
   const handleMobilePrimaryAction = () => {
     if (mobileView === 'search') {
       setMobileView('cart');
@@ -144,6 +104,98 @@ const BillingTabView = ({
     }
     handleCreateBill();
   };
+
+  const customerSectionProps = useMemo(() => ({
+    isOrderLinked,
+    isSubmitting,
+    customer,
+    customersList,
+    handleCustomerChange,
+    handleAddCustomer,
+    fulfillmentMode,
+    setFulfillmentMode,
+  }), [
+    customer,
+    customersList,
+    fulfillmentMode,
+    handleAddCustomer,
+    handleCustomerChange,
+    isOrderLinked,
+    isSubmitting,
+    setFulfillmentMode,
+  ]);
+
+  const summaryProps = useMemo(() => ({
+    activeLineItemsCount,
+    subtotalAmount,
+    totalDiscount,
+    totalBill,
+    paidClamped,
+    creditAmount,
+    paymentStatusLabel,
+  }), [
+    activeLineItemsCount,
+    creditAmount,
+    paidClamped,
+    paymentStatusLabel,
+    subtotalAmount,
+    totalBill,
+    totalDiscount,
+  ]);
+
+  const paymentPanelProps = useMemo(() => ({
+    isSubmitting,
+    activeLineItemsCount,
+    totalBill,
+    paidClamped,
+    paidAmount,
+    setPaidAmount,
+    creditAmount,
+    paidAmountWarning,
+    selectedPaymentMethod,
+    effectivePaymentMethod,
+    setSelectedPaymentMethod,
+    createBillConfirmationOpen,
+    clearBillConfirmationOpen,
+    handleSelectCashPayment,
+    handleSelectUpiPayment,
+    handleSelectCreditPayment,
+    onClear,
+    onCancelCreateBill,
+    onCancelClearBill,
+    onCreateBill: handleCreateBill,
+    lastShareText,
+    onSendBill: handleSendWhatsApp,
+    customerName: String(customer?.name || '').trim(),
+  }), [
+    activeLineItemsCount,
+    clearBillConfirmationOpen,
+    creditAmount,
+    createBillConfirmationOpen,
+    customer?.name,
+    effectivePaymentMethod,
+    onCancelCreateBill,
+    handleSelectCashPayment,
+    handleSelectCreditPayment,
+    handleSelectUpiPayment,
+    handleSendWhatsApp,
+    handleCreateBill,
+    isSubmitting,
+    lastShareText,
+    onCancelClearBill,
+    onClear,
+    paidAmount,
+    paidAmountWarning,
+    paidClamped,
+    selectedPaymentMethod,
+    setPaidAmount,
+    setSelectedPaymentMethod,
+    totalBill,
+  ]);
+
+  const customerCreatePrefill = useMemo(() => ({
+    name: customerCreateName,
+  }), [customerCreateName]);
 
   return (
     <div className={`billing-content${isMobile ? ' billing-content-mobile' : ''}`}>
@@ -232,99 +284,51 @@ const BillingTabView = ({
         </div>
       ) : null}
 
-      <div className={`billing-pos-layout${isMobile ? ' billing-pos-layout-mobile' : ''}`}>
-        <div className={`billing-pos-left${isMobile ? ` billing-mobile-panel ${mobileView === 'search' ? 'active' : ''}` : ''}`}>
-          <BillingProductForm
-            currentItem={currentItem}
-            currentProduct={currentProduct}
-            pendingProductSelectionReview={pendingProductSelectionReview}
-            isManualPrice={isManualPrice}
-            isEntryActionLocked={isEntryActionLocked}
-            productSearchMessage={productSearchMessage}
-            requiresExplicitSuggestionChoice={requiresExplicitSuggestionChoice}
-            showCustomItemAction={showCustomItemAction}
-            currentUnitOptions={currentUnitOptions}
-            isEditing={editIndex !== null}
-            isSubmitting={isSubmitting}
-            productSearchInputRef={productSearchInputRef}
-            priceInputRef={priceInputRef}
-            qtyInputRef={qtyInputRef}
-            unitInputRef={unitInputRef}
-            discountInputRef={discountInputRef}
-            submitButtonRef={submitButtonRef}
-            visibleProductResults={visibleEntryResults}
-            productResultSummary={productResultSummary}
-            showRecentProducts={showRecentProducts}
-            productSearchLoading={productSearchLoading}
-            activeProductSuggestionIndex={activeProductSuggestionIndex}
-            getProductOptionLabel={getProductOptionLabel}
-            onFieldChange={handleCurrentItemChange}
-            onSearchKeyDown={handleProductSearchKeyDown}
-            onFieldKeyDown={handleEntryFieldKeyDown}
-            onSelectProduct={handleSelectSearchProduct}
-            onStartCustomItem={handleStartCustomItem}
-            onSubmitItem={handleCommitCurrentItem}
-            onCancelEdit={handleCancelEdit}
-            lowStockWarning={lowStockWarning}
-          />
-        </div>
+      <BillingItemSection
+        isMobile={isMobile}
+        mobileView={mobileView}
+        currentItem={currentItem}
+        currentProduct={currentProduct}
+        pendingProductSelectionReview={pendingProductSelectionReview}
+        isManualPrice={isManualPrice}
+        isEntryActionLocked={isEntryActionLocked}
+        productSearchMessage={productSearchMessage}
+        hasExplicitSuggestionChoice={hasExplicitSuggestionChoice}
+        currentUnitOptions={currentUnitOptions}
+        productSearchInputRef={productSearchInputRef}
+        priceInputRef={priceInputRef}
+        qtyInputRef={qtyInputRef}
+        unitInputRef={unitInputRef}
+        discountInputRef={discountInputRef}
+        submitButtonRef={submitButtonRef}
+        productSearchResults={productSearchResults}
+        recentProducts={recentProducts}
+        productSearchLoading={productSearchLoading}
+        activeProductSuggestionIndex={activeProductSuggestionIndex}
+        getProductOptionLabel={getProductOptionLabel}
+        handleCurrentItemChange={handleCurrentItemChange}
+        handleProductSearchKeyDown={handleProductSearchKeyDown}
+        handleEntryFieldKeyDown={handleEntryFieldKeyDown}
+        handleSelectSearchProduct={handleSelectSearchProduct}
+        handleStartCustomItem={handleStartCustomItem}
+        handleCommitCurrentItem={handleCommitCurrentItem}
+        handleCancelEdit={handleCancelEdit}
+        lowStockWarning={lowStockWarning}
+        billDisplayItems={billDisplayItems}
+        editIndex={editIndex}
+        selectedBillIndex={selectedBillIndex}
+        latestAddedItemId={latestAddedItemId}
+        lastRemovedItem={lastRemovedItem}
+        handleSelectBillItem={handleSelectBillItem}
+        handleDeleteBillItem={handleDeleteBillItem}
+        handleUndoLastRemoval={handleUndoLastRemoval}
+      />
 
-        <div className={`billing-pos-right${isMobile ? ` billing-mobile-panel ${mobileView === 'cart' ? 'active' : ''}` : ''}`}>
-          <BillingBillList
-            billItems={billDisplayItems}
-            editIndex={editIndex}
-            selectedBillIndex={selectedBillIndex}
-            latestAddedItemId={latestAddedItemId}
-            lastRemovedItem={lastRemovedItem}
-            onSelectItem={handleSelectBillItem}
-            onDeleteItem={handleDeleteBillItem}
-            onUndoLastRemoval={handleUndoLastRemoval}
-          />
-        </div>
-
-        <div className={`billing-pos-footer${isMobile ? ` billing-mobile-panel ${mobileView === 'checkout' ? 'active' : ''}` : ''}`}>
-          <BillingSummary
-            activeLineItemsCount={activeLineItemsCount}
-            subtotalAmount={subtotalAmount}
-            totalDiscount={totalDiscount}
-            totalBill={totalBill}
-            paidClamped={paidClamped}
-            creditAmount={creditAmount}
-            paymentStatusLabel={paymentStatusLabel}
-          />
-          <BillingPaymentPanel
-            isOrderLinked={isOrderLinked}
-            isSubmitting={isSubmitting}
-            customer={customer}
-            customersList={customersList}
-            handleCustomerChange={handleCustomerChange}
-            handleAddCustomer={handleAddCustomer}
-            fulfillmentMode={fulfillmentMode}
-            setFulfillmentMode={setFulfillmentMode}
-            activeLineItemsCount={activeLineItemsCount}
-            totalBill={totalBill}
-            paidClamped={paidClamped}
-            paidAmount={paidAmount}
-            setPaidAmount={setPaidAmount}
-            creditAmount={creditAmount}
-            paidAmountWarning={paidAmountWarning}
-            selectedPaymentMethod={selectedPaymentMethod}
-            effectivePaymentMethod={effectivePaymentMethod}
-            setSelectedPaymentMethod={setSelectedPaymentMethod}
-            createBillConfirmationOpen={createBillConfirmationOpen}
-            clearBillConfirmationOpen={clearBillConfirmationOpen}
-            handleSelectCashPayment={handleSelectCashPayment}
-            handleSelectUpiPayment={handleSelectUpiPayment}
-            handleSelectCreditPayment={handleSelectCreditPayment}
-            onClear={onClear}
-            onCancelCreateBill={onCancelCreateBill}
-            onCancelClearBill={onCancelClearBill}
-            onCreateBill={handleCreateBill}
-            lastShareText={lastShareText}
-            onSendBill={handleSendWhatsApp}
-          />
-        </div>
-      </div>
+      <BillingPaymentSection
+        customerSectionProps={customerSectionProps}
+        summaryProps={summaryProps}
+        paymentPanelProps={paymentPanelProps}
+      />
 
       {isMobile ? (
         <div className="billing-mobile-footer">
@@ -408,7 +412,7 @@ const BillingTabView = ({
       {showCustomerCreateModal ? (
         <UserEditModal
           isCreate={true}
-          createPrefill={{ name: customerCreateName }}
+          createPrefill={customerCreatePrefill}
           onClose={handleCustomerModalClose}
           onSave={handleCustomerModalSave}
         />

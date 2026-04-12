@@ -26,6 +26,7 @@ const useAdminNavigation = ({
     'restock-dashboard': 'products',
     categories: 'products',
     billing: 'billing',
+    cashbook: 'billing',
     'daily-sales': 'billing',
     'view-bills': 'billing',
     purchases: 'purchase',

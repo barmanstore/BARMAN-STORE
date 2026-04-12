@@ -2,6 +2,21 @@ const normalizeProductQuery = (rawValue) => String(rawValue || '')
   .replace(/^\[(recent|all)\]\s*/i, '')
   .trim();
 
+const isActivePurchaseProduct = (product = null) => (
+  Boolean(product)
+  && product?.is_active !== false
+  && Number(product?.is_active ?? 1) !== 0
+);
+
+const findActivePurchaseProduct = (products = [], productId = '') => {
+  const selectedProductId = String(productId || '').trim();
+  if (!selectedProductId) return null;
+  const product = (Array.isArray(products) ? products : []).find(
+    (entry) => String(entry?.id || '').trim() === selectedProductId
+  ) || null;
+  return isActivePurchaseProduct(product) ? product : null;
+};
+
 const getProductSearchLabel = (product) => {
   if (!product) return '';
   const name = String(product.name || '').trim();
@@ -36,6 +51,7 @@ const getProductSearchSuggestions = ({
       orderIndex,
     })),
   ].filter((entry) => {
+    if (!isActivePurchaseProduct(entry?.product)) return false;
     const productId = String(entry?.product?.id || '').trim();
     if (!productId || seen.has(productId)) return false;
     seen.add(productId);
@@ -93,7 +109,7 @@ const getProductSearchSuggestions = ({
 const resolveProductByInput = (value, products = []) => {
   const query = normalizeProductQuery(value).toLowerCase();
   if (!query) return null;
-  return (products || []).find((product) => {
+  const product = (products || []).find((product) => {
     if (!product) return false;
     const name = String(product.name || '').trim().toLowerCase();
     const sku = String(product.sku || '').trim().toLowerCase();
@@ -105,19 +121,21 @@ const resolveProductByInput = (value, products = []) => {
       label === query
     );
   }) || null;
+  return isActivePurchaseProduct(product) ? product : null;
 };
 
 const getDistributorProductOptions = ({ distributorId, products = [], purchaseOrders = [] }) => {
   const selectedDistributorId = String(distributorId || '').trim();
+  const activeProducts = (Array.isArray(products) ? products : []).filter(isActivePurchaseProduct);
   if (!selectedDistributorId) {
     return {
       prioritized: [],
-      all: products
+      all: activeProducts
     };
   }
 
   const productById = new Map(
-    products.map((product) => [String(product.id), product])
+    activeProducts.map((product) => [String(product.id), product])
   );
   const scoreByProductId = new Map();
 
@@ -151,7 +169,7 @@ const getDistributorProductOptions = ({ distributorId, products = [], purchaseOr
     .filter(Boolean);
 
   const prioritizedIdSet = new Set(prioritized.map((product) => String(product.id)));
-  const all = products.filter((product) => !prioritizedIdSet.has(String(product.id)));
+  const all = activeProducts.filter((product) => !prioritizedIdSet.has(String(product.id)));
 
   return { prioritized, all };
 };
@@ -166,7 +184,7 @@ const getDistributorProductHistoryEntry = ({
   const selectedProductId = String(productId || '').trim();
   if (!selectedDistributorId || !selectedProductId) return null;
 
-  const product = products.find((entry) => String(entry?.id || '').trim() === selectedProductId) || null;
+  const product = findActivePurchaseProduct(products, selectedProductId);
   if (!product) return null;
 
   let bestEntry = null;
@@ -203,7 +221,8 @@ const getLatestProductHistoryEntry = ({
   const selectedProductId = String(productId || '').trim();
   if (!selectedProductId) return null;
 
-  const product = products.find((entry) => String(entry?.id || '').trim() === selectedProductId) || null;
+  const product = findActivePurchaseProduct(products, selectedProductId);
+  if (!product) return null;
   let bestEntry = null;
 
   (purchaseOrders || []).forEach((order) => {
@@ -237,7 +256,8 @@ const getDistributorHistoryProducts = ({
   const selectedDistributorId = String(distributorId || '').trim();
   if (!selectedDistributorId) return [];
 
-  const productsById = new Map(products.map((product) => [String(product.id), product]));
+  const activeProducts = (Array.isArray(products) ? products : []).filter(isActivePurchaseProduct);
+  const productsById = new Map(activeProducts.map((product) => [String(product.id), product]));
   const historyByProductId = new Map();
 
   (purchaseOrders || []).forEach((order) => {
@@ -298,6 +318,8 @@ const getDistributorHistoryProducts = ({
 
 export {
   normalizeProductQuery,
+  isActivePurchaseProduct,
+  findActivePurchaseProduct,
   getProductSearchLabel,
   getProductSearchOptionLabel,
   getProductSearchSuggestions,

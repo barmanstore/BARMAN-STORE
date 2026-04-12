@@ -247,7 +247,7 @@ function RestockDashboardSection({
 
     try {
       const [productsPayload, insightsPayload] = await Promise.all([
-        productsApi.getAll(),
+        productsApi.getAll({ limit: 500 }),
         insightsApi.getProducts(),
       ]);
       setProducts(Array.isArray(productsPayload) ? productsPayload : []);
@@ -728,6 +728,7 @@ function RestockDashboardSection({
         base_unit: getPoUnitLabel(row),
         conversion_factor: asNumber(row.conversion_factor, 1) || 1,
         purchase_pack_size: asNumber(row.purchase_pack_size, 0),
+        is_active: row.is_active ?? row.isActive ?? true,
       },
     }));
 

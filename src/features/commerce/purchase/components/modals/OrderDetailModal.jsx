@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpDown, ChevronDown, ChevronUp, MessageCircle, Plus, Printer, Trash2 } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { ArrowUpDown, ChevronDown, ChevronUp, MessageCircle, Plus, Printer, Search, Trash2 } from 'lucide-react';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
 import PurchaseOrderReviewSheet from '../PurchaseOrderReviewSheet';
 
@@ -94,6 +94,24 @@ const renderOrderDetailSortIcon = (direction) => {
   return <ArrowUpDown size={14} aria-hidden="true" />;
 };
 
+const getOrderDetailRowSearchText = (row, products = []) => {
+  const item = row?.item || {};
+  const matchedProduct = products.find((product) => String(product?.id || '') === String(item?.product_id || '')) || null;
+
+  return [
+    item?.product_name,
+    item?.name,
+    item?.product_query,
+    item?.sku,
+    matchedProduct?.name,
+    matchedProduct?.sku,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+    .toLowerCase();
+};
+
 const OrderDetailModal = ({
   showOrderDetail,
   closeOrderDetail,
@@ -138,10 +156,16 @@ const OrderDetailModal = ({
   formatCurrency,
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [itemProductSearch, setItemProductSearch] = useState('');
+  const deferredItemProductSearch = useDeferredValue(itemProductSearch);
 
   useEffect(() => {
     setSortConfig({ key: null, direction: null });
   }, [orderDetail?.id, orderDetailEditMode]);
+
+  useEffect(() => {
+    setItemProductSearch('');
+  }, [orderDetail?.id]);
 
   const orderDetailRows = useMemo(() => {
     const items = Array.isArray(orderDetailItems) ? orderDetailItems : [];
@@ -180,6 +204,56 @@ const OrderDetailModal = ({
     });
   }, [orderDetailRows, sortConfig]);
 
+  const normalizedItemProductSearch = String(deferredItemProductSearch || '').trim().toLowerCase();
+  const displayedOrderDetailRows = useMemo(() => {
+    if (!normalizedItemProductSearch) {
+      return sortedOrderDetailRows;
+    }
+
+    return sortedOrderDetailRows.filter((entry) => (
+      getOrderDetailRowSearchText(entry, products).includes(normalizedItemProductSearch)
+    ));
+  }, [normalizedItemProductSearch, products, sortedOrderDetailRows]);
+
+  const renderOrderDetailProductHeader = () => {
+    const isActive = sortConfig.key === SORTABLE_ORDER_DETAIL_COLUMNS.product;
+    const ariaSort = isActive ? sortConfig.direction : 'none';
+    const sortLabel = isActive
+      ? `Sort by Product, currently ${sortConfig.direction}`
+      : 'Sort by Product';
+
+    return (
+      <th className="sortable po-detail-product-header-cell" aria-sort={ariaSort}>
+        <div className="po-detail-product-header">
+          <button
+            type="button"
+            className="po-detail-sort-btn po-detail-product-sort-toggle"
+            onClick={() => setSortConfig((current) => getNextOrderDetailSortConfig(current, SORTABLE_ORDER_DETAIL_COLUMNS.product))}
+            title={sortLabel}
+            aria-label={sortLabel}
+          >
+            <span>Product</span>
+            <span className="po-detail-sort-icon" aria-hidden="true">
+              {renderOrderDetailSortIcon(isActive ? sortConfig.direction : null)}
+            </span>
+          </button>
+          <label className="po-detail-product-search" htmlFor="po-detail-item-product-search">
+            <Search size={12} aria-hidden="true" />
+            <input
+              id="po-detail-item-product-search"
+              type="search"
+              value={itemProductSearch}
+              onChange={(event) => setItemProductSearch(event.target.value)}
+              placeholder="Search row"
+              aria-label="Search loaded item rows by product name or SKU"
+              disabled={orderDetailSaving}
+            />
+          </label>
+        </div>
+      </th>
+    );
+  };
+
   const renderOrderDetailSortableHeader = (label, columnKey) => {
     const isActive = sortConfig.key === columnKey;
     const ariaSort = isActive ? sortConfig.direction : 'none';
@@ -204,22 +278,6 @@ const OrderDetailModal = ({
       </th>
     );
   };
-
-  const hasBlockingDraftIssues = Boolean(
-    orderDetailEditMode
-    && (
-      orderDetailDraftDiagnostics?.hasDuplicateErrors
-      || orderDetailDraftDiagnostics?.hasRateConfirmationErrors
-      || orderDetailDraftDiagnostics?.hasDiscountErrors
-      || orderDetailDraftDiagnostics?.hasDiscountConfirmationErrors
-    )
-  );
-  const passiveRateWarningCount = Math.max(
-    0,
-    Number(orderDetailDraftDiagnostics?.rateWarningCount || 0)
-      - Number(orderDetailDraftDiagnostics?.rateConfirmationCount || 0)
-      - Number(orderDetailDraftDiagnostics?.rateAcknowledgedCount || 0)
-  );
 
   if (!showOrderDetail) return null;
 
@@ -369,7 +427,7 @@ const OrderDetailModal = ({
                 <thead>
                   <tr>
                     <th>#</th>
-                    {renderOrderDetailSortableHeader('Product', SORTABLE_ORDER_DETAIL_COLUMNS.product)}
+                    {renderOrderDetailProductHeader()}
                     {renderOrderDetailSortableHeader('Qty', SORTABLE_ORDER_DETAIL_COLUMNS.quantity)}
                     <th>UOM</th>
                     {renderOrderDetailSortableHeader('Rate', SORTABLE_ORDER_DETAIL_COLUMNS.rate)}
@@ -383,7 +441,7 @@ const OrderDetailModal = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedOrderDetailRows.map(({ item, originalIndex, line, originalItem }, displayIndex) => {
+                  {displayedOrderDetailRows.length ? displayedOrderDetailRows.map(({ item, originalIndex, line, originalItem }, displayIndex) => {
                     const originalLine = originalItem ? getItemFinancials(originalItem) : null;
                     const rowDiagnostics = orderDetailDraftDiagnostics?.rowDiagnostics?.[originalIndex] || {};
                     const rowChanged = orderDetailEditMode && hasOrderDetailItemChanged(item, originalIndex);
@@ -498,57 +556,6 @@ const OrderDetailModal = ({
                               />
                             </>
                           ) : String(toNumber(item.discount_value || 0))}
-                          {rowDiagnostics.rateChangeLabel || rowDiagnostics.rateAcknowledgementMessage || rowDiagnostics.rateAcknowledgedLabel || rowDiagnostics.discountAppliedLabel || rowDiagnostics.discountWarningMessage || rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountAcknowledgedLabel || rowDiagnostics.discountBlockingMessage || rowDiagnostics.duplicateMessage ? (
-                            <div className="po-detail-row-status">
-                              {rowDiagnostics.rateChangeLabel ? (
-                                <span className={`po-pos-status-chip ${rowDiagnostics.rateChangeTone || 'neutral'}`} title={rowDiagnostics.rateWarningMessage || undefined}>
-                                  {rowDiagnostics.rateChangeLabel}
-                                </span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.rateAcknowledgementMessage ? (
-                                <span className="po-pos-status-chip danger">{rowDiagnostics.rateAcknowledgementMessage}</span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.rateAcknowledgedLabel ? (
-                                <span className="po-pos-status-chip good">{rowDiagnostics.rateAcknowledgedLabel}</span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.rateRequiresAcknowledgement ? (
-                                <button
-                                  type="button"
-                                  className="po-pos-status-chip-btn danger"
-                                  onClick={() => handleOrderDetailItemChange(originalIndex, 'rate_warning_acknowledged', true)}
-                                >
-                                  Intentional rate
-                                </button>
-                              ) : null}
-                              {rowDiagnostics.discountAppliedLabel ? (
-                                <span className="po-pos-status-chip bad">{rowDiagnostics.discountAppliedLabel}</span>
-                              ) : null}
-                              {rowDiagnostics.discountWarningMessage ? (
-                                <span className="po-pos-status-chip bad">{rowDiagnostics.discountWarningMessage}</span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.discountAcknowledgementMessage ? (
-                                <span className="po-pos-status-chip danger">{rowDiagnostics.discountAcknowledgementMessage}</span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.discountAcknowledgedLabel ? (
-                                <span className="po-pos-status-chip good">{rowDiagnostics.discountAcknowledgedLabel}</span>
-                              ) : null}
-                              {orderDetailEditMode && rowDiagnostics.discountRequiresAcknowledgement ? (
-                                <button
-                                  type="button"
-                                  className="po-pos-status-chip-btn danger"
-                                  onClick={() => handleOrderDetailItemChange(originalIndex, 'discount_warning_acknowledged', true)}
-                                >
-                                  Intentional discount
-                                </button>
-                              ) : null}
-                              {rowDiagnostics.discountBlockingMessage ? (
-                                <span className="po-pos-status-chip danger">{rowDiagnostics.discountBlockingMessage}</span>
-                              ) : null}
-                              {rowDiagnostics.duplicateMessage ? (
-                                <span className="po-pos-status-chip danger">{rowDiagnostics.duplicateMessage}</span>
-                              ) : null}
-                            </div>
-                          ) : null}
                         </td>
                         <td className={gstChanged ? 'po-detail-field-changed' : ''}>
                           {orderDetailEditMode ? (
@@ -591,41 +598,13 @@ const OrderDetailModal = ({
                         ) : null}
                       </tr>
                     );
-                  })}
+                  }) : (
+                    <tr className="po-detail-empty-row">
+                      <td colSpan={orderDetailEditMode ? 12 : 11}>No rows match the product search.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-              {orderDetailDraftDiagnostics?.blockingMessage || (orderDetailEditMode && orderDetailDraftDiagnostics?.rateConfirmationCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.rateAcknowledgedCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.discountConfirmationCount) || (orderDetailEditMode && orderDetailDraftDiagnostics?.discountAcknowledgedCount) || orderDetailDraftDiagnostics?.rateWarningCount ? (
-                <div className="po-detail-table-status" aria-live="polite">
-                  {orderDetailDraftDiagnostics?.blockingMessage ? (
-                    <span className="po-pos-status-chip danger">{orderDetailDraftDiagnostics.blockingMessage}</span>
-                  ) : null}
-                  {orderDetailEditMode && orderDetailDraftDiagnostics?.rateConfirmationCount > 0 && !orderDetailDraftDiagnostics?.blockingMessage ? (
-                    <span className="po-pos-status-chip danger">
-                      {orderDetailDraftDiagnostics.rateConfirmationCount} row(s) have unusual rate changes. Confirm them before saving.
-                    </span>
-                  ) : null}
-                  {orderDetailEditMode && orderDetailDraftDiagnostics?.rateAcknowledgedCount > 0 ? (
-                    <span className="po-pos-status-chip good">
-                      {orderDetailDraftDiagnostics.rateAcknowledgedCount} row(s) include confirmed unusual rate changes.
-                    </span>
-                  ) : null}
-                  {orderDetailEditMode && orderDetailDraftDiagnostics?.discountConfirmationCount > 0 && !orderDetailDraftDiagnostics?.blockingMessage ? (
-                    <span className="po-pos-status-chip danger">
-                      {orderDetailDraftDiagnostics.discountConfirmationCount} row(s) have unusual discount values. Confirm them before saving.
-                    </span>
-                  ) : null}
-                  {orderDetailEditMode && orderDetailDraftDiagnostics?.discountAcknowledgedCount > 0 ? (
-                    <span className="po-pos-status-chip good">
-                      {orderDetailDraftDiagnostics.discountAcknowledgedCount} row(s) include confirmed unusual discounts.
-                    </span>
-                  ) : null}
-                  {passiveRateWarningCount > 0 ? (
-                    <span className="po-pos-status-chip bad">
-                      {passiveRateWarningCount} row(s) differ from the latest reference rate.
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
               {orderDetailEditMode ? (
                 <div className="po-detail-table-actions">
                   <button type="button" className="add-item-btn" onClick={handleOrderDetailItemAdd}>
@@ -705,11 +684,11 @@ const OrderDetailModal = ({
         )}
         <div className="modal-actions">
           {orderDetailIsEditable ? (
-            <button
+              <button
               type="button"
               className="submit-btn"
               onClick={orderDetailEditMode ? handleOrderDetailSave : openOrderDetailEditMode}
-              disabled={orderDetailSaving || hasBlockingDraftIssues}
+              disabled={orderDetailSaving}
             >
               {orderDetailEditMode ? (orderDetailSaving ? 'Saving...' : 'Save') : 'Edit'}
             </button>

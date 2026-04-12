@@ -1,4 +1,4 @@
-import { apiFetch, getApiUrl } from './core';
+import { apiFetch, getApiUrl, withClientRequestId } from './core';
 
 // Products API
 export const productsApi = {
@@ -39,16 +39,43 @@ export const productsApi = {
     apiFetch(`/api/products/${id}/permanent`, {
       method: 'DELETE',
     }),
+  createBulkJob: (payload = {}) =>
+    apiFetch('/api/admin/products/bulk-jobs', {
+      method: 'POST',
+      body: withClientRequestId(payload, 'bulk'),
+    }),
+  getBulkJob: (id) => apiFetch(`/api/admin/products/bulk-jobs/${id}`),
+  getBulkJobItems: (id, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/admin/products/bulk-jobs/${id}/items${query ? `?${query}` : ''}`);
+  },
+  cancelBulkJob: (id) =>
+    apiFetch(`/api/admin/products/bulk-jobs/${id}/cancel`, {
+      method: 'POST',
+    }),
+  retryBulkJob: (id, payload = {}) =>
+    apiFetch(`/api/admin/products/bulk-jobs/${id}/retry-failed`, {
+      method: 'POST',
+      body: withClientRequestId(payload, 'bulk'),
+    }),
   getTemplateUrl: (format = 'csv') => {
     const query = new URLSearchParams({ format }).toString();
     const baseUrl = getApiUrl();
     return `${baseUrl}/api/products/template?${query}`;
   },
-  getExportUrl: (format = 'csv', includeInactive = false) => {
-    const query = new URLSearchParams({
+  getExportUrl: (format = 'csv', includeInactiveOrParams = false) => {
+    const params = {
       format,
-      include_inactive: includeInactive ? 'true' : 'false',
-    }).toString();
+    };
+    if (includeInactiveOrParams && typeof includeInactiveOrParams === 'object' && !Array.isArray(includeInactiveOrParams)) {
+      Object.entries(includeInactiveOrParams).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') return;
+        params[key] = value;
+      });
+    } else {
+      params.include_inactive = includeInactiveOrParams ? 'true' : 'false';
+    }
+    const query = new URLSearchParams(params).toString();
     const baseUrl = getApiUrl();
     return `${baseUrl}/api/products/export?${query}`;
   },
@@ -60,6 +87,6 @@ export const productsApi = {
   importConfirm: (payload) =>
     apiFetch('/api/products/import/confirm', {
       method: 'POST',
-      body: payload,
+      body: withClientRequestId(payload, 'import'),
     }),
 };

@@ -71,6 +71,7 @@ import {
 import {
   getProductSearchLabel,
   getProductSearchOptionLabel,
+  findActivePurchaseProduct,
   resolveProductByInput as resolveProductByInputHelper,
   getDistributorProductOptions as getDistributorProductOptionsHelper,
   getDistributorProductHistoryEntry as getDistributorProductHistoryEntryHelper,
@@ -155,6 +156,7 @@ const usePurchaseManagementController = ({
   });
   const [savedOrderDrafts, setSavedOrderDrafts] = useState(() => readSavedPurchaseDrafts());
   const [activeSavedOrderDraftId, setActiveSavedOrderDraftId] = useState('');
+  const activeSavedOrderDraftIdRef = useRef('');
   const draftSaveCountRef = useRef(0);
   const [restockPendingSelection, setRestockPendingSelection] = useState(null);
   const restockPendingApplyRef = useRef('');
@@ -172,6 +174,11 @@ const usePurchaseManagementController = ({
     normalizeGstRateOption,
     findProductForItem,
   });
+
+  useEffect(() => {
+    activeSavedOrderDraftIdRef.current = String(activeSavedOrderDraftId || '').trim();
+  }, [activeSavedOrderDraftId]);
+
   const {
     fetchOrders,
     fetchOperationsSummary,
@@ -399,7 +406,9 @@ const usePurchaseManagementController = ({
     const productId = String(registeredProduct?.product_id || registeredProduct?.id || '').trim();
     if (!productId) return null;
 
-    const product = products.find((entry) => String(entry?.id || '') === productId) || registeredProduct || null;
+    const product = findActivePurchaseProduct(products, productId)
+      || (registeredProduct?.is_active === false || Number(registeredProduct?.is_active ?? 1) === 0 ? null : registeredProduct)
+      || null;
     const fallbackRate = Number(product?.price || registeredProduct?.price || 0) || 0;
     let nextItem = buildOrderDraftItem(product, {
       product_id: productId,
@@ -499,6 +508,7 @@ const usePurchaseManagementController = ({
 
     const supplierProductIds = new Set();
     (Array.isArray(registeredProducts) ? registeredProducts : []).forEach((registeredProduct) => {
+      if (registeredProduct?.is_active === false || Number(registeredProduct?.is_active ?? 1) === 0) return;
       const productId = String(registeredProduct?.product_id || registeredProduct?.id || '').trim();
       if (!productId || supplierProductIds.has(productId)) return;
       supplierProductIds.add(productId);
@@ -759,6 +769,7 @@ const usePurchaseManagementController = ({
     shortcutDraftHadMeaningfulItemsRef.current = false;
     setShortcutDraftContext(context && typeof context === 'object' ? context : null);
     setActiveSavedOrderDraftId('');
+    activeSavedOrderDraftIdRef.current = '';
     draftSaveCountRef.current = 0;
     openCreateOrderFormInternal(options);
   }, [openCreateOrderFormInternal]);
@@ -767,6 +778,7 @@ const usePurchaseManagementController = ({
     shortcutDraftHadMeaningfulItemsRef.current = false;
     setShortcutDraftContext(context && typeof context === 'object' ? context : null);
     setActiveSavedOrderDraftId('');
+    activeSavedOrderDraftIdRef.current = '';
     draftSaveCountRef.current = 0;
     openCreateOrderFormForDistributorInternal(distributorId, options);
   }, [openCreateOrderFormForDistributorInternal]);
@@ -775,6 +787,7 @@ const usePurchaseManagementController = ({
     const isRestockShortcutDraft = shortcutDraftContext?.source === 'restock';
     closeOrderFormInternal();
     setActiveSavedOrderDraftId('');
+    activeSavedOrderDraftIdRef.current = '';
     draftSaveCountRef.current = 0;
     if (isRestockShortcutDraft) {
       handleShortcutDraftClosed('cancel');
@@ -843,7 +856,7 @@ const usePurchaseManagementController = ({
         distributor_name: payload.distributorName || '',
         supplier_id: payload.supplierId || '',
         supplier_name: payload.supplierName || '',
-        planned_order_date: payload.plannedOrderDate || payload.expectedDelivery || '',
+        planned_order_date: payload.plannedOrderDate || '',
         expected_delivery: payload.expectedDelivery || '',
         notes: payload.notes || '',
         suggested_items: suggestedItems,
@@ -860,7 +873,7 @@ const usePurchaseManagementController = ({
     }
 
     openCreateOrderForm({
-      planned_order_date: payload?.plannedOrderDate || payload?.expectedDelivery || '',
+      planned_order_date: payload?.plannedOrderDate || '',
       expected_delivery: payload?.expectedDelivery || '',
       notes: payload?.notes || '',
       suggested_items: isRestockShortcut ? [] : suggestedItems,
@@ -880,13 +893,12 @@ const usePurchaseManagementController = ({
   const normalizeRestoredOrderForm = useCallback((value) => {
     const restoredOrderForm = value && typeof value === 'object' ? value : {};
     const plannedOrderDate = String(restoredOrderForm?.planned_order_date || '').trim()
-      || toDateInputValue(restoredOrderForm?.expected_delivery)
       || getTodayDate();
     return {
       ...restoredOrderForm,
       planned_order_date: plannedOrderDate,
     };
-  }, [getTodayDate, toDateInputValue]);
+  }, [getTodayDate]);
   const hasMeaningfulOrderItems = Array.isArray(orderFormData?.items)
     && orderFormData.items.some((item) => (
       Number(item?.product_id || item?.productId || 0) > 0
@@ -1138,9 +1150,15 @@ const usePurchaseManagementController = ({
         }
 
         const productSnapshot = row?.product_snapshot || null;
-        const product = products.find((entry) => String(entry?.id || '').trim() === productId)
-          || productSnapshot
-          || null;
+        const product = findActivePurchaseProduct(products, productId)
+          || (
+            productSnapshot
+            && productSnapshot.is_active !== false
+            && Number(productSnapshot?.is_active ?? 1) !== 0
+              ? productSnapshot
+              : null
+          );
+        if (!product) return;
         const fallbackRate = Number(
           row?.rate
           ?? row?.unit_price
@@ -1518,8 +1536,8 @@ const usePurchaseManagementController = ({
     }
 
     const now = Date.now();
-    const shouldCreateNewDraft = Boolean(activeSavedOrderDraftId && draftSaveCountRef.current > 0);
-    const nextDraftId = shouldCreateNewDraft ? `purchase-draft-${now}` : (activeSavedOrderDraftId || `purchase-draft-${now}`);
+    const nextDraftId = String(activeSavedOrderDraftIdRef.current || activeSavedOrderDraftId || '').trim()
+      || `purchase-draft-${now}`;
     const supplierName = String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim();
     const meaningfulItemCount = orderDraftProjection.rows.filter((row) => Number(row?.item?.product_id || 0) > 0).length;
     const draftTitle = supplierName
@@ -1565,8 +1583,8 @@ const usePurchaseManagementController = ({
       nextDraftEntry,
       ...current.filter((entry) => entry.id !== nextDraftId),
     ]);
+    activeSavedOrderDraftIdRef.current = nextDraftId;
     setActiveSavedOrderDraftId(nextDraftId);
-    draftSaveCountRef.current += 1;
     setError('');
     setSuccess(supplierName ? `Saved draft for ${supplierName}.` : 'Saved purchase draft.');
     return true;
@@ -1617,6 +1635,7 @@ const usePurchaseManagementController = ({
         : [createEmptyOrderItem()],
     });
     setShowOrderForm(true);
+    activeSavedOrderDraftIdRef.current = selectedDraft.id;
     setActiveSavedOrderDraftId(selectedDraft.id);
     draftSaveCountRef.current = 0;
     setError('');
@@ -1647,6 +1666,7 @@ const usePurchaseManagementController = ({
     const deletedDraft = savedOrderDrafts.find((entry) => entry.id === draftId) || null;
     persistSavedOrderDrafts((current) => current.filter((entry) => entry.id !== draftId));
     if (activeSavedOrderDraftId === draftId) {
+      activeSavedOrderDraftIdRef.current = '';
       setActiveSavedOrderDraftId('');
     }
     setSuccess(deletedDraft ? `Deleted ${deletedDraft.title}.` : 'Deleted saved draft.');
@@ -1663,7 +1683,7 @@ const usePurchaseManagementController = ({
       handleViewOrder, handleOpenPoPaymentById, openCreateOrderForm, handleOpenLedgerForm, handleReturnFormOpen,
       handleCloseSupplierVisit, handleReopenSupplierVisit,
       lowStockProducts,
-      formatCurrency, toNumber, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
+      formatCurrency, toNumber, fetchDistributorLedger, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
       canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
       handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,
       handleOpenPoCorrectionForm, poCorrectionSubmitting, handleUpdateStatus, handleDeleteOrder,

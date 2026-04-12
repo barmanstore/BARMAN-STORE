@@ -467,17 +467,6 @@ const preparePurchaseOrderSubmission = ({
     findProductForItem,
     calculateOrderItem,
   });
-  if (
-    diagnostics.hasDuplicateErrors
-    || diagnostics.hasRateConfirmationErrors
-    || diagnostics.hasDiscountErrors
-    || diagnostics.hasDiscountConfirmationErrors
-  ) {
-    return {
-      error: diagnostics.blockingMessage,
-      diagnostics,
-    };
-  }
 
   const calculatedItems = validItems.map((item) => toCalculatedPurchaseOrderItem({
     item,

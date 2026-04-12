@@ -5,9 +5,10 @@ const resolveProductsPayload = (payload) => {
   if (Array.isArray(payload)) {
     return { items: payload, pagination: null };
   }
+  const pageInfo = payload?.page_info || payload?.pagination || null;
   return {
     items: Array.isArray(payload?.items) ? payload.items : [],
-    pagination: payload?.pagination || null,
+    pagination: pageInfo,
   };
 };
 
@@ -57,7 +58,10 @@ const useProductsDataFetch = ({
         sort: serverSortBy,
       };
       if (serverCategoryFilter !== 'all') params.category = serverCategoryFilter;
-      if (appliedSearchQuery) params.name = appliedSearchQuery;
+      if (appliedSearchQuery) {
+        params.q = appliedSearchQuery;
+        params.name = appliedSearchQuery;
+      }
       if (inStockOnly) params.in_stock = 'true';
 
       const payload = await productService.list(params, { signal: controller.signal });

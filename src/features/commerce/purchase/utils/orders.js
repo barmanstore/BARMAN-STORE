@@ -96,7 +96,7 @@ const canReceivePo = (order) => {
     && String(order?.status || '').trim().toLowerCase() !== 'received';
 };
 
-const canAddPaymentToPo = (order) => ['confirmed', 'part_paid', 'fully_paid'].includes(getPoLifecycleStatus(order));
+const canAddPaymentToPo = (order) => ['confirmed', 'part_paid'].includes(getPoLifecycleStatus(order));
 const canClosePo = (order) => getPoLifecycleStatus(order) === 'fully_paid' && getPoBalanceDue(order) <= 0;
 const getPoNextAction = (order) => {
   const lifecycleStatus = getPoLifecycleStatus(order);

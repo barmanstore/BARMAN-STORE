@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { hasCapability } from '../../../shared/auth/capabilities';
+import { safeLocalStorageSet } from '../../../shared/utils/storage';
 
 const isUnauthorizedError = (error) => Number(error?.status || 0) === 401;
+const PRODUCT_TABLE_FILTERS_STORAGE_KEY = 'admin-products-table-filters';
 
 const useAdminEffects = ({
   user,
@@ -21,6 +23,10 @@ const useAdminEffects = ({
   showNotification,
   loadDailySalesBills,
   dailySalesDate,
+  productTableSearch,
+  productTableCategoryFilter,
+  productTableStatusFilter,
+  productTableLowStockOnly,
   productColumnPickerRef,
   tableEditId,
   tableEditFocusField,
@@ -170,6 +176,23 @@ const useAdminEffects = ({
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('admin-products-visible-columns', JSON.stringify(productTableVisibleColumns));
   }, [productTableVisibleColumns]);
+
+  useEffect(() => {
+    safeLocalStorageSet(
+      PRODUCT_TABLE_FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        search: productTableSearch,
+        category: productTableCategoryFilter,
+        status: productTableStatusFilter,
+        lowStockOnly: Boolean(productTableLowStockOnly),
+      })
+    );
+  }, [
+    productTableCategoryFilter,
+    productTableLowStockOnly,
+    productTableSearch,
+    productTableStatusFilter,
+  ]);
 
   useEffect(() => {
     if (!tableEditId) return;

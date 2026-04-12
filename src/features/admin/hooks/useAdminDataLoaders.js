@@ -57,18 +57,45 @@ const normalizeProductsResponse = (payload) => {
       limit: payload.length,
       total: payload.length,
       hasMore: false,
+      pageInfo: {
+        next_cursor: null,
+        prev_cursor: null,
+        has_more: false,
+      },
+      sort: {},
+      filters: {},
+      meta: {
+        page: 1,
+        page_size: payload.length,
+        total_count: payload.length,
+        page_mode: 'legacy-array',
+      },
     };
   }
-  const pagination = payload?.pagination || {};
-  const page = Math.max(1, Number(pagination?.page || 1));
-  const limit = Math.max(1, Number(pagination?.page_size || ADMIN_PRODUCTS_PAGE_LIMIT));
-  const total = Math.max(0, Number(pagination?.total || 0));
+  const pageInfo = payload?.page_info || payload?.pagination || {};
+  const meta = payload?.meta || {};
+  const page = Math.max(1, Number(meta?.page || pageInfo?.page || 1));
+  const limit = Math.max(1, Number(meta?.page_size || pageInfo?.page_size || ADMIN_PRODUCTS_PAGE_LIMIT));
+  const total = Math.max(0, Number(meta?.total_count ?? payload?.total_count ?? payload?.total ?? (Array.isArray(payload?.items) ? payload.items.length : 0)));
   return {
     items: Array.isArray(payload?.items) ? payload.items : [],
     page,
     limit,
     total,
-    hasMore: Boolean(pagination?.has_more),
+    hasMore: Boolean(pageInfo?.has_more),
+    pageInfo: {
+      next_cursor: pageInfo?.next_cursor || null,
+      prev_cursor: pageInfo?.prev_cursor || null,
+      has_more: Boolean(pageInfo?.has_more),
+    },
+    sort: payload?.sort && typeof payload.sort === 'object' ? payload.sort : {},
+    filters: payload?.filters && typeof payload.filters === 'object' ? payload.filters : {},
+    meta: {
+      ...meta,
+      page,
+      page_size: limit,
+      total_count: total,
+    },
   };
 };
 
@@ -323,8 +350,11 @@ const useAdminDataLoaders = ({
     page = 1,
     query = '',
     category = '',
+    brand = '',
     status = '',
     lowStockOnly = false,
+    sortField = '',
+    sortDir = '',
   } = {}) => {
     const requestId = activeListRequestRef.current.products + 1;
     activeListRequestRef.current.products = requestId;
@@ -345,10 +375,16 @@ const useAdminDataLoaders = ({
         params.status = 'active';
       }
       const trimmedQuery = String(query || '').trim();
-      if (trimmedQuery) params.name = trimmedQuery;
+      if (trimmedQuery) params.q = trimmedQuery;
       const trimmedCategory = String(category || '').trim();
       if (trimmedCategory) params.category = trimmedCategory;
+      const trimmedBrand = String(brand || '').trim();
+      if (trimmedBrand) params.brand = trimmedBrand;
       if (lowStockOnly) params.low_stock = 'true';
+      const normalizedSortField = String(sortField || '').trim();
+      const normalizedSortDir = String(sortDir || '').trim().toLowerCase();
+      if (normalizedSortField) params.sort_field = normalizedSortField;
+      if (normalizedSortDir === 'asc' || normalizedSortDir === 'desc') params.sort_dir = normalizedSortDir;
 
       const payload = await requestWithRetry(() => productsApi.getAll(params));
       const normalized = normalizeProductsResponse(payload);
@@ -379,13 +415,16 @@ const useAdminDataLoaders = ({
     page = 1,
     query = '',
     category = '',
+    brand = '',
     status = '',
     lowStockOnly = false,
+    sortField = '',
+    sortDir = '',
   } = {}) => {
     if (loadedDomainsRef.current.products && !force) return;
     await Promise.all([
       loadProductCategories(),
-      loadProductsPage({ page, query, category, status, lowStockOnly }),
+      loadProductsPage({ page, query, category, brand, status, lowStockOnly, sortField, sortDir }),
     ]);
   }, [loadProductCategories, loadProductsPage]);
 

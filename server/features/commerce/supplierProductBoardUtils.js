@@ -6,6 +6,11 @@ const normalizeBoardNumber = (value) => (
   value === null || value === undefined ? null : Number(value || 0)
 );
 
+const normalizeBoardText = (value) => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, ' ');
+
 const normalizeBoardRow = (row, { distributorId = null, supplierId = null } = {}) => ({
   ...row,
   id: Number(row.id || 0),
@@ -22,6 +27,69 @@ const normalizeBoardRow = (row, { distributorId = null, supplierId = null } = {}
   min_order_qty: normalizeBoardNumber(row.min_order_qty),
   lead_time_days: normalizeBoardNumber(row.lead_time_days),
 });
+
+const getBoardRowIdentityKey = (row = {}) => [
+  normalizeBoardText(row.sku) ? `sku:${normalizeBoardText(row.sku)}` : '',
+  normalizeBoardText(row.name),
+  normalizeBoardText(row.brand),
+  normalizeBoardText(row.sub_brand),
+  normalizeBoardText(row.content),
+  normalizeBoardText(row.color),
+].filter(Boolean).join('|');
+
+const toBoardRowTimestamp = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return 0;
+  const parsed = new Date(normalized.includes('T') ? normalized : normalized.replace(' ', 'T')).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getBoardRowSortScore = (row = {}) => ({
+  updatedAt: Math.max(
+    toBoardRowTimestamp(row.supplier_last_updated_at),
+    toBoardRowTimestamp(row.last_purchase_at)
+  ),
+  hasCost: Number(row.last_known_unit_cost_incl_tax || 0) > 0 ? 1 : 0,
+  productId: Number(row.product_id || row.id || 0) || 0,
+});
+
+const isPreferredBoardRow = (candidate, current) => {
+  const nextScore = getBoardRowSortScore(candidate);
+  const currentScore = getBoardRowSortScore(current);
+  if (nextScore.updatedAt !== currentScore.updatedAt) {
+    return nextScore.updatedAt > currentScore.updatedAt;
+  }
+  if (nextScore.hasCost !== currentScore.hasCost) {
+    return nextScore.hasCost > currentScore.hasCost;
+  }
+  if (Number(candidate?.last_known_unit_cost_incl_tax || 0) !== Number(current?.last_known_unit_cost_incl_tax || 0)) {
+    return Number(candidate?.last_known_unit_cost_incl_tax || 0) > Number(current?.last_known_unit_cost_incl_tax || 0);
+  }
+  return nextScore.productId > currentScore.productId;
+};
+
+const dedupeBoardRowsByIdentity = (rows = []) => {
+  const rowsByKey = new Map();
+  const keyOrder = [];
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const key = getBoardRowIdentityKey(row) || `product:${Number(row?.product_id || row?.id || 0)}`;
+    if (!key) continue;
+    const existing = rowsByKey.get(key);
+    if (!existing) {
+      rowsByKey.set(key, row);
+      keyOrder.push(key);
+      continue;
+    }
+    if (isPreferredBoardRow(row, existing)) {
+      rowsByKey.set(key, row);
+    }
+  }
+
+  return keyOrder
+    .map((key) => rowsByKey.get(key))
+    .filter(Boolean);
+};
 
 const createSupplierProductBoardUtils = ({
   dbAllAsync,
@@ -55,7 +123,9 @@ const createSupplierProductBoardUtils = ({
          p.id,
          p.name,
          p.brand,
+         p.sub_brand,
          p.content,
+         p.color,
          p.price,
          p.mrp,
          p.uom,
@@ -105,7 +175,7 @@ const createSupplierProductBoardUtils = ({
       ]
     );
 
-    return (rows || []).map((row) => normalizeBoardRow(row, { distributorId, supplierId }));
+    return dedupeBoardRowsByIdentity((rows || []).map((row) => normalizeBoardRow(row, { distributorId, supplierId })));
   };
 
   const getSupplierGroupBoardRowsAsync = async ({
@@ -132,7 +202,9 @@ const createSupplierProductBoardUtils = ({
          p.id,
          p.name,
          p.brand,
+         p.sub_brand,
          p.content,
+         p.color,
          p.price,
          p.mrp,
          p.uom,
@@ -195,7 +267,7 @@ const createSupplierProductBoardUtils = ({
       }
     });
 
-    return (rows || [])
+    return dedupeBoardRowsByIdentity((rows || [])
       .map((row) => normalizeBoardRow(row, {
         distributorId: normalizedDistributorId,
         supplierId: normalizedSupplierId,
@@ -207,7 +279,7 @@ const createSupplierProductBoardUtils = ({
           return Number(leftIndex ?? Number.MAX_SAFE_INTEGER) - Number(rightIndex ?? Number.MAX_SAFE_INTEGER);
         }
         return String(left?.name || '').localeCompare(String(right?.name || ''));
-      });
+      }));
   };
 
   const getSupplierProductBoardAsync = async ({ supplierId, distributorId = null } = {}) => {

@@ -13,9 +13,15 @@ const useAdminImportExport = ({
   importBusy,
   importFileInputRef,
   showNotification,
-  handleProductSave,
+  registerBulkJob,
   setShowExportDialog,
   exportFormat,
+  productTableSearch,
+  productTableCategoryFilter,
+  productTableStatusFilter,
+  productTableLowStockOnly,
+  productTableSortField,
+  productTableSortDir,
 }) => {
   const readFileAsBase64 = (file) =>
     new Promise((resolve, reject) => {
@@ -50,8 +56,16 @@ const useAdminImportExport = ({
   const handleExportProducts = async () => {
     const format = exportFormat === 'xlsx' ? 'xlsx' : 'csv';
     try {
-      // include_inactive=true ensures all existing DB products are exported.
-      const url = productsApi.getExportUrl(format, true);
+      const url = productsApi.getExportUrl(format, {
+        mode: 'current',
+        q: String(productTableSearch || '').trim(),
+        category: String(productTableCategoryFilter || '').trim(),
+        status: String(productTableStatusFilter || '').trim(),
+        low_stock: productTableLowStockOnly ? 'true' : '',
+        include_inactive: 'true',
+        sort_field: String(productTableSortField || '').trim(),
+        sort_dir: String(productTableSortDir || '').trim(),
+      });
       await downloadProtectedFile(url, `products-export.${format === 'xlsx' ? 'xlsx' : 'csv'}`);
       showNotification('Products exported successfully', 'success');
       setShowExportDialog(false);
@@ -113,11 +127,16 @@ const useAdminImportExport = ({
         checksum: importPreviewData.checksum,
         allow_identical_rows: importAllowIdenticalRows,
       });
-      await handleProductSave({ mode: 'create' });
+      const nextJob = registerBulkJob?.(result);
       setImportPreviewData(null);
       setImportFile(null);
       setImportAllowIdenticalRows([]);
-      showNotification(`Import applied. Created: ${result.created}, Updated: ${result.updated}`, 'success');
+      showNotification(
+        nextJob
+          ? 'Import job queued. The runner will process rows in the background.'
+          : 'Import queued, but job tracking could not be initialized.',
+        'success'
+      );
     } catch (error) {
       showNotification(error.message || 'Failed to confirm import', 'error');
     } finally {

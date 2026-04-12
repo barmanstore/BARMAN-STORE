@@ -1,5 +1,9 @@
 import { useCallback } from 'react';
 import {
+  findActivePurchaseProduct,
+  isActivePurchaseProduct,
+} from '../utils/productSearch';
+import {
   applyPurchaseDraftLastPurchaseSuggestion,
   buildPurchaseOrderSavePayload,
   getLastPurchaseSuggestionPreserveFlags,
@@ -75,20 +79,32 @@ const usePurchaseOrderFormHandlers = ({
       base_unit: String(rawSnapshot?.base_unit || item?.base_unit || item?.uom || 'pcs').trim() || 'pcs',
       conversion_factor: toNumber(rawSnapshot?.conversion_factor ?? item?.conversion_factor ?? 1) || 1,
       purchase_pack_size: toNumber(rawSnapshot?.purchase_pack_size ?? item?.purchase_pack_size ?? 0),
+      is_active: rawSnapshot?.is_active ?? item?.is_active ?? null,
     };
   }, [toNumber]);
 
   const resolveSuggestedProduct = useCallback((item = {}) => {
-    const product = products.find((entry) => String(entry.id) === String(item.product_id || '')) || null;
+    const rawSnapshot = item?.product_snapshot && typeof item.product_snapshot === 'object'
+      ? item.product_snapshot
+      : null;
+    const productId = String(rawSnapshot?.id ?? item?.product_id ?? '').trim();
+    const product = findActivePurchaseProduct(products, productId);
     const snapshot = buildSuggestedProductSnapshot(item);
-    if (!product) return snapshot;
-    if (!snapshot) return product;
-    return {
-      ...product,
-      ...snapshot,
-      id: product.id,
-      name: product.name || snapshot.name,
-    };
+    if (product) {
+      if (!snapshot) return product;
+      return {
+        ...product,
+        ...snapshot,
+        id: product.id,
+        name: product.name || snapshot.name,
+      };
+    }
+    const rawProduct = productId
+      ? (Array.isArray(products) ? products : []).find((entry) => String(entry?.id || '').trim() === productId) || null
+      : null;
+    if (rawProduct && !isActivePurchaseProduct(rawProduct)) return null;
+    if (snapshot && (snapshot.is_active === false || Number(snapshot.is_active || 1) === 0)) return null;
+    return snapshot;
   }, [buildSuggestedProductSnapshot, products]);
 
   const resetOrderForm = useCallback(() => {
@@ -158,6 +174,7 @@ const usePurchaseOrderFormHandlers = ({
     suggestedItems.length
       ? suggestedItems.map((item) => {
           const product = resolveSuggestedProduct(item);
+          if (!product) return null;
           const nextItem = buildOrderDraftItem(product, {
             ...item,
             quantity: Math.max(1, toNumber(item.quantity || 1)),
@@ -200,7 +217,7 @@ const usePurchaseOrderFormHandlers = ({
             po_item_source: sourceFlags.poItemSource,
             po_item_locked: sourceFlags.poItemLocked,
           };
-        })
+        }).filter(Boolean)
       : [createEmptyOrderItem()]
   ), [
     applyPurchaseDraftLastPurchaseSuggestion,
@@ -240,7 +257,9 @@ const usePurchaseOrderFormHandlers = ({
               normalizeGstRateOption,
               toNumber,
             });
-            const product = resolveSuggestedProduct(item) || products.find((entry) => String(entry?.id || '') === selectedProductId) || null;
+            const product = resolveSuggestedProduct(item)
+              || findActivePurchaseProduct(products, selectedProductId)
+              || null;
             nextItems[index] = applyPurchaseDraftLastPurchaseSuggestion({
               item: current,
               product,
@@ -278,10 +297,7 @@ const usePurchaseOrderFormHandlers = ({
     const baseOrderFormData = getDefaultOrderFormData();
     const plannedOrderDate = safeOptions.planned_order_date
       || safeOptions.plannedOrderDate
-      || safeOptions.order_date
-      || safeOptions.expected_delivery
-      || baseOrderFormData.planned_order_date
-      || baseOrderFormData.expected_delivery;
+      || baseOrderFormData.planned_order_date;
     const expectedDelivery = safeOptions.expected_delivery
       || safeOptions.order_date
       || safeOptions.planned_order_date
@@ -351,10 +367,7 @@ const usePurchaseOrderFormHandlers = ({
     const baseOrderFormData = getDefaultOrderFormData();
     const plannedOrderDate = safeOptions.planned_order_date
       || safeOptions.plannedOrderDate
-      || safeOptions.order_date
-      || safeOptions.expected_delivery
-      || baseOrderFormData.planned_order_date
-      || baseOrderFormData.expected_delivery;
+      || baseOrderFormData.planned_order_date;
     const expectedDelivery = safeOptions.expected_delivery
       || safeOptions.order_date
       || safeOptions.planned_order_date

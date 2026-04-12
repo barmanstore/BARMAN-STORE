@@ -19,6 +19,7 @@ export { statsApi } from './stats';
 export { offersApi } from './offers';
 export { adminApi } from './admin';
 export { billingApi } from './billing';
+export { cashbookApi } from './cashbook';
 export { productRecommendationsApi } from './productRecommendations';
 export { distributorsApi } from './distributors';
 export { suppliersApi } from './suppliers';

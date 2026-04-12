@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
 import {
   getDateRangePopoverClassName,
   getFilterActionClassName,
@@ -207,6 +207,7 @@ function DateRangeFilter({
   showPlaceholderText = true,
   alwaysOpen = false,
   weekStartsOn = 1,
+  iconSrc = '',
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('');
@@ -289,13 +290,21 @@ function DateRangeFilter({
 
     const handlePointerDown = (event) => {
       if (!wrapperRef.current?.contains(event.target)) {
-        setIsOpen(false);
+        if (alwaysOpen) {
+          closeCustomRange();
+        } else {
+          setIsOpen(false);
+        }
       }
     };
 
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        setIsOpen(false);
+        if (alwaysOpen) {
+          closeCustomRange();
+        } else {
+          setIsOpen(false);
+        }
       }
     };
 
@@ -410,9 +419,10 @@ function DateRangeFilter({
                   onClick={() => handlePresetSelect(preset)}
                   aria-pressed={isActive}
                 >
+                  {isActive ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
                   {preset.label}
-                  </button>
-                );
+                </button>
+              );
               })}
           </div>
 
@@ -474,7 +484,13 @@ function DateRangeFilter({
           aria-label={triggerLabel}
           title={triggerLabel}
         >
-          {showIcon ? <Calendar size={15} className={getFilterIconClassName(tone)} aria-hidden="true" /> : null}
+          {showIcon ? (
+            iconSrc ? (
+              <img src={iconSrc} alt="" className="date-filter-icon-image" />
+            ) : (
+              <Calendar size={15} className={getFilterIconClassName(tone)} aria-hidden="true" />
+            )
+          ) : null}
           {displayValue ? (
             <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[13px] font-medium">
               {displayValue}
@@ -520,6 +536,7 @@ function DateRangeFilter({
                   onClick={() => handlePresetSelect(preset)}
                   aria-pressed={isActive}
                 >
+                  {isActive ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
                   <span>{preset.label}</span>
                 </button>
               );
@@ -530,6 +547,7 @@ function DateRangeFilter({
               onClick={openCustomRange}
               aria-pressed={showCustom}
             >
+              {showCustom ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
               <span>Custom</span>
               <Calendar size={12} aria-hidden="true" />
             </button>

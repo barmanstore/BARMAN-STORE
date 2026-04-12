@@ -19,11 +19,43 @@ See also: [../ROUTES.md](../ROUTES.md), [routing.md](routing.md), [services.md](
   - `{ error: "..." }`
   - optional `message`, `issues`, `details`, `conflict_type`, or `conflict`
 
+## Catalog Notes
+
+- `GET /api/products` now supports the v1 catalog contract with server-side `q`, `category`, `brand`, `status`, `low_stock`, `include_inactive`, `sort_field`, `sort_dir`, `cursor`, `limit`, and legacy `page/page_size`.
+- The legacy array response path is now bounded. A plain `/api/products` call returns the default batch, while callers can request a larger capped batch with `limit` up to 500.
+- Cursor payloads are versioned and opaque. The server encodes the active `sort_field`, `sort_dir`, `last_value`, and `last_id` into the cursor token.
+- Object responses use `{ items, page_info, sort, filters, meta }`, with `page_info` owning `next_cursor`, `prev_cursor`, and `has_more`. `meta.total_count` is optional for cursor mode and present for offset pagination.
+- The admin client must treat the server response as authoritative and must not re-sort or re-filter the returned product slice locally.
+- The product search path uses the maintained `products.search_text` column so list searches do not depend on runtime string concatenation across product fields.
+
+## Product Bulk Job Notes
+
+- `POST /api/admin/products/bulk-jobs` creates a persisted async bulk job for the admin products surface. Supported v1 operations are `bulk_update` and `import_products`.
+- Bulk job creation uses `client_request_id` idempotency. Duplicate submits with the same request id return the existing job instead of creating a second job.
+- `GET /api/admin/products/bulk-jobs/:id` returns the persisted job record, including `status`, counters, and the stored request payload.
+- `GET /api/admin/products/bulk-jobs/:id/items` paginates job items with cursor-based item navigation instead of returning the full item set at once.
+- `POST /api/admin/products/bulk-jobs/:id/cancel` requests graceful cancellation. Running jobs stop before the next chunk; work already completed in the current chunk is kept.
+- `POST /api/admin/products/bulk-jobs/:id/retry-failed` creates a follow-up retry job for failed or conflicted rows.
+
+## Product Import And Export Notes
+
+- `POST /api/products/import/preview` still stages and validates import rows before execution. The preview payload includes the normalized row data, row-level action, and the matched product snapshot used for conflict checks.
+- `POST /api/products/import/confirm` now enqueues an `import_products` bulk job instead of applying rows in a single transaction. The confirm response returns the created job record and the UI should poll that job for the final result summary.
+- `GET /api/products/export` now honors the current catalog filter and sort parameters by default. Full-catalog export is explicit via `mode=all`.
+
 ## Admin Analytics Notes
 
 - `GET /api/admin/analytics/summary` now returns visitor/session metrics plus `today_cash_summary`, which keeps current-day billed totals separate from the optional manual cash tally.
 - `GET /api/admin/analytics/daily-cash-tally?date=YYYY-MM-DD` returns `{ date, entry }`, where `entry` is `null` until an admin saves a tally for that day.
 - `PUT /api/admin/analytics/daily-cash-tally` upserts `{ date, counted_cash_total, note? }` and returns `{ success: true, date, entry, summary }`.
+
+## Cashbook Notes
+
+- `GET /api/admin/cashbook` returns `{ range, today_summary, groups }`, where `groups` are date-descending day blocks containing `entries` with `direction`, `badge_label`, and optional `running_balance` fields. The timeline also includes read-only credit-history rows; credit `payment` rows count in cash flow, while credit `given` / manual-sale rows are informational and can be hidden in the cashbook UI.
+- `PUT /api/admin/cashbook/opening-balance` upserts `{ date, opening_balance, note? }` and returns `{ success: true, opening_balance, snapshot }`; `snapshot` may be `null` if the post-save reload cannot be built, but the write still succeeds.
+- `POST /api/admin/cashbook/entries` accepts only manual entry types (`manual_in`, `manual_out`, `expense`, `adjustment`, `task`), uses request-id idempotency if `client_request_id` is supplied, and returns `{ success: true, entry, snapshot }`.
+- `PUT /api/admin/cashbook/entries/:id` updates a manual cashbook entry and returns `{ success: true, entry, snapshot }`.
+- `DELETE /api/admin/cashbook/entries/:id` removes a manual cashbook entry and returns `{ success: true, deleted_entry, snapshot }`. Auto and credit-history rows remain read-only.
 
 ## Purchase Operations Notes
 
@@ -41,6 +73,7 @@ See also: [../ROUTES.md](../ROUTES.md), [routing.md](routing.md), [services.md](
 - Purchase-order create/update item payloads may include `row_source` (`supplier` or `manual`). The backend persists that item-origin hint on `purchase_order_items`, and PO detail/list reads return it with each item row.
 - `distributor_insights[*]`, `today_distributors[*]`, `tomorrow_distributors[*]`, and reminder entries may now include `novelty_alerts`, `novelty_summary`, and `has_novelty_alerts` so the UI can flag supplier-linked products that are missing from catalog or outside the recent purchase-habit window without adding a second planning endpoint.
 - `POST /api/purchase-orders/:id/distributor-whatsapp` is currently a manual preparation endpoint even though the path keeps the old WhatsApp-send naming. It returns `delivery_scope`, and clients should open `distributor_notice.whatsapp.whatsapp_url` as the launcher flow instead of assuming provider-backed automatic delivery.
+- `POST /api/purchase-orders/:id/payments` accepts only confirmed or part-paid purchase orders. Fully paid purchase orders are close-only and should not post another payment row.
 
 ## Auth Delivery Mode Notes
 

@@ -12,6 +12,7 @@ const CreditKhata = lazy(() => import('../../credits/khata/CreditKhata'));
 const CustomerRequestsAdmin = lazy(() => import('../../customerRequests/CustomerRequestsAdmin'));
 const DashboardSection = lazy(() => import('../sections/DashboardSection'));
 const DailySalesSection = lazy(() => import('../sections/DailySalesSection'));
+const CashbookSection = lazy(() => import('../sections/CashbookSection'));
 const DistributorInsights = lazy(() => import('../../insights/DistributorInsights'));
 const DistributorManagement = lazy(() => import('../../distributors/DistributorManagement'));
 const OfferManagement = lazy(() => import('../../marketing/OfferManagement'));
@@ -69,6 +70,11 @@ const AdminTabContent = () => {
     slowMovingProducts,
     selectedSalesBills,
     handleAddProduct,
+    handleBulkProductUpdate,
+    bulkJob,
+    handleCancelBulkJob,
+    handleRetryFailedBulkJob,
+    dismissBulkJob,
     setShowExportDialog,
     importBusy,
     handleStartImport,
@@ -85,6 +91,8 @@ const AdminTabContent = () => {
     productTableSearch,
     setProductTableSearch,
     visibleProducts,
+    productTableSortField,
+    productTableSortDir,
     productTableCategoryFilter,
     setProductTableCategoryFilter,
     productCategories,
@@ -108,6 +116,7 @@ const AdminTabContent = () => {
     productEditLoadingId,
     handleDeleteProduct,
     handlePermanentDeleteProduct,
+    handleUndoTableAction,
     productTableCalculatedMinWidth,
     toggleProductTableSort,
     getSortIndicator,
@@ -115,6 +124,7 @@ const AdminTabContent = () => {
     handleTableCellClick,
     setTableEditFieldRef,
     handleTableEditChange,
+    handleTableEditKeyDown,
     setSelectedProductId,
     selectedProductId,
     showQuickAdd,
@@ -259,6 +269,11 @@ const AdminTabContent = () => {
         <ProductsSection
           isMobile={isMobile}
           handleAddProduct={handleAddProduct}
+          handleBulkProductUpdate={handleBulkProductUpdate}
+          bulkJob={bulkJob}
+          handleCancelBulkJob={handleCancelBulkJob}
+          handleRetryFailedBulkJob={handleRetryFailedBulkJob}
+          dismissBulkJob={dismissBulkJob}
           setShowExportDialog={setShowExportDialog}
           importBusy={importBusy}
           handleStartImport={handleStartImport}
@@ -275,6 +290,8 @@ const AdminTabContent = () => {
           productTableSearch={productTableSearch}
           setProductTableSearch={setProductTableSearch}
           visibleProducts={visibleProducts}
+          productTableSortField={productTableSortField}
+          productTableSortDir={productTableSortDir}
           productsPage={productsPage}
           setProductsPage={setProductsPage}
           productsTotal={productsTotal}
@@ -302,6 +319,7 @@ const AdminTabContent = () => {
           productEditLoadingId={productEditLoadingId}
           handleDeleteProduct={handleDeleteProduct}
           handlePermanentDeleteProduct={handlePermanentDeleteProduct}
+          handleUndoTableAction={handleUndoTableAction}
           productTableCalculatedMinWidth={productTableCalculatedMinWidth}
           toggleProductTableSort={toggleProductTableSort}
           getSortIndicator={getSortIndicator}
@@ -309,6 +327,7 @@ const AdminTabContent = () => {
           handleTableCellClick={handleTableCellClick}
           setTableEditFieldRef={setTableEditFieldRef}
           handleTableEditChange={handleTableEditChange}
+          handleTableEditKeyDown={handleTableEditKeyDown}
           setSelectedProductId={setSelectedProductId}
           selectedProductId={selectedProductId}
           showQuickAdd={showQuickAdd}
@@ -410,6 +429,10 @@ const AdminTabContent = () => {
         />
       );
       break;
+    case 'cashbook':
+      loadingLabel = 'cashbook';
+      activePane = <CashbookSection />;
+      break;
     case 'view-bills':
       loadingLabel = 'bills history';
       activePane = <BillsViewer user={user} />;
@@ -420,7 +443,7 @@ const AdminTabContent = () => {
       break;
     case 'purchases':
       loadingLabel = 'purchase management';
-      activePane = purchasePopupStatus.isOpen && !allowInlinePurchase ? (
+      activePane = purchasePopupStatus.isOpen && !allowInlinePurchase && !purchaseShortcutRequest ? (
         <PopupWorkspaceNotice
           title="Purchase entry is already open in a popup"
           message="The popup workspace stays primary while it is open so the PO draft and heavy purchase data do not mount twice by default."

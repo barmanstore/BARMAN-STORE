@@ -19,6 +19,7 @@ const registerProductRoutes = (deps) => {
     normalizeProductInput,
     validateProductPayload,
     findProductConflictAsync,
+    resolveClientRequestId,
     XLSX,
     toProductExportRow,
     PRODUCT_IMPORT_HEADERS,
@@ -34,6 +35,7 @@ const registerProductRoutes = (deps) => {
     productImportBatches,
     SQL_UPSERT_IMPORT_BATCH,
     applyProductImportBatch,
+    catalogBulkJobs,
   } = deps;
 
   const listHelpers = createProductListHelpers({ zlib, env: process.env });
@@ -66,6 +68,8 @@ const registerProductRoutes = (deps) => {
     productImportBatches,
     SQL_UPSERT_IMPORT_BATCH,
     applyProductImportBatch,
+    resolveClientRequestId,
+    catalogBulkJobs,
     zlib,
     ...listHelpers,
     ...categoryHelpers,

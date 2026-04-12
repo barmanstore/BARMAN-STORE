@@ -1,6 +1,46 @@
 import { useRef, useState } from 'react';
 import { ADMIN_DEFAULT_TAB, normalizeAdminTab } from '../config/adminSidebarConfig';
 import { createEmptyCashSummary } from '../utils/dailyCashSummary';
+import { safeLocalStorageGet } from '../../../shared/utils/storage';
+
+const PRODUCT_TABLE_FILTERS_STORAGE_KEY = 'admin-products-table-filters';
+
+const readStoredProductTableFilters = () => {
+  const fallback = {
+    search: '',
+    category: '',
+    status: 'all',
+    lowStockOnly: false,
+  };
+
+  if (typeof window === 'undefined') return fallback;
+
+  const raw = safeLocalStorageGet(PRODUCT_TABLE_FILTERS_STORAGE_KEY);
+  if (!raw) return fallback;
+
+  try {
+    const parsed = JSON.parse(raw);
+    const status = String(parsed?.status || '').trim().toLowerCase();
+    const search = typeof parsed?.search === 'string' ? parsed.search : fallback.search;
+    const category = typeof parsed?.category === 'string' ? parsed.category : fallback.category;
+    const lowStockOnly = (
+      parsed?.lowStockOnly === true
+      || parsed?.lowStockOnly === 'true'
+      || parsed?.lowStockOnly === 1
+      || parsed?.lowStockOnly === '1'
+    );
+    return {
+      search,
+      category,
+      status: ['all', 'active', 'available', 'out_of_stock', 'inactive'].includes(status)
+        ? status
+        : fallback.status,
+      lowStockOnly,
+    };
+  } catch (_) {
+    return fallback;
+  }
+};
 
 const useAdminState = ({
   toLocalDateKey,
@@ -126,12 +166,16 @@ const useAdminState = ({
     stock: '',
     image: '',
   });
-  const [productTableSearch, setProductTableSearch] = useState('');
+  const productTableFiltersRef = useRef(null);
+  if (productTableFiltersRef.current === null) {
+    productTableFiltersRef.current = readStoredProductTableFilters();
+  }
+  const [productTableSearch, setProductTableSearch] = useState(() => productTableFiltersRef.current.search);
   const [productTableSortField, setProductTableSortField] = useState('created_at');
   const [productTableSortDir, setProductTableSortDir] = useState('desc');
-  const [productTableCategoryFilter, setProductTableCategoryFilter] = useState('');
-  const [productTableStatusFilter, setProductTableStatusFilter] = useState('all');
-  const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(false);
+  const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => productTableFiltersRef.current.category);
+  const [productTableStatusFilter, setProductTableStatusFilter] = useState(() => productTableFiltersRef.current.status);
+  const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(() => productTableFiltersRef.current.lowStockOnly);
   const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => {
     if (typeof window === 'undefined') return PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
     const fallback = window.localStorage.getItem('admin-products-columns') === 'full'

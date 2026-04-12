@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, ChevronDown, ChevronUp, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, Minus, SlidersHorizontal, X } from 'lucide-react';
 import { stockLedgerApi } from '../../shared/services/api';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
@@ -83,6 +83,10 @@ const LEDGER_TABLE_COLUMNS = [
 ];
 
 const LEDGER_TABLE_COLUMN_COUNT = LEDGER_TABLE_COLUMNS.length;
+const LEDGER_DATE_GROUP_ROW_HEIGHT = 36;
+const LEDGER_DATA_ROW_HEIGHT = 42;
+const LEDGER_VIRTUAL_OVERSCAN = 8;
+const LEDGER_VIRTUAL_MIN_ITEMS = 90;
 
 const TRANSACTION_TYPE_LABELS = {
   PURCHASE: 'Purchase',
@@ -261,6 +265,8 @@ function StockLedgerHistory({ user }) {
     key: SORTABLE_COLUMNS.dateTime,
     direction: DEFAULT_SORT_DIRECTION[SORTABLE_COLUMNS.dateTime],
   });
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
+  const [ledgerWindow, setLedgerWindow] = useState({ start: 0, end: 24 });
   const [filters, setFilters] = useState({
     transaction_type: '',
     start_date: '',
@@ -268,11 +274,29 @@ function StockLedgerHistory({ user }) {
   });
   const advancedFiltersRef = useRef(null);
   const filterToggleRef = useRef(null);
+  const ledgerTableScrollRef = useRef(null);
   const dateRangePresets = useMemo(() => buildDateRangePresets(), []);
 
   useEffect(() => {
     fetchLedger();
   }, [filters]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateLayout = () => {
+      setIsCompactLayout(Boolean(mediaQuery.matches));
+    };
+
+    updateLayout();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateLayout);
+      return () => mediaQuery.removeEventListener('change', updateLayout);
+    }
+
+    mediaQuery.addListener(updateLayout);
+    return () => mediaQuery.removeListener(updateLayout);
+  }, []);
 
   const fetchLedger = async () => {
     try {
@@ -379,6 +403,109 @@ function StockLedgerHistory({ user }) {
       }));
   }, [sortConfig.direction, sortConfig.key, visibleLedger]);
 
+  const flattenedLedger = useMemo(() => (
+    groupedLedger.flatMap((group) => ([
+      {
+        type: 'group',
+        key: `group-${group.key}`,
+        label: group.label,
+        height: LEDGER_DATE_GROUP_ROW_HEIGHT,
+      },
+      ...group.items.map((entry) => ({
+        type: 'entry',
+        key: `entry-${entry.id}`,
+        entry,
+        height: LEDGER_DATA_ROW_HEIGHT,
+      })),
+    ]))
+  ), [groupedLedger]);
+
+  const ledgerOffsets = useMemo(() => {
+    const offsets = [0];
+    flattenedLedger.forEach((item) => {
+      offsets.push(offsets[offsets.length - 1] + Number(item.height || 0));
+    });
+    return offsets;
+  }, [flattenedLedger]);
+
+  const ledgerTotalHeight = ledgerOffsets[flattenedLedger.length] || 0;
+  const shouldVirtualizeLedger = !isCompactLayout && flattenedLedger.length >= LEDGER_VIRTUAL_MIN_ITEMS;
+
+  useEffect(() => {
+    const nextEnd = Math.max(0, Math.min(flattenedLedger.length - 1, 24));
+    setLedgerWindow({ start: 0, end: nextEnd });
+    const node = ledgerTableScrollRef.current;
+    if (node) {
+      node.scrollTop = 0;
+    }
+  }, [flattenedLedger.length, sortConfig.direction, sortConfig.key, visibleLedger.length]);
+
+  useEffect(() => {
+    if (!shouldVirtualizeLedger) return undefined;
+    const node = ledgerTableScrollRef.current;
+    if (!node || typeof window === 'undefined') return undefined;
+
+    let frameId = 0;
+    const findIndexAtOffset = (offsetPx) => {
+      if (flattenedLedger.length <= 1) return 0;
+      let low = 0;
+      let high = flattenedLedger.length - 1;
+      while (low < high) {
+        const mid = Math.floor((low + high) / 2);
+        if ((ledgerOffsets[mid + 1] || 0) <= offsetPx) {
+          low = mid + 1;
+        } else {
+          high = mid;
+        }
+      }
+      return low;
+    };
+
+    const updateWindow = () => {
+      frameId = 0;
+      if (!flattenedLedger.length) {
+        setLedgerWindow({ start: 0, end: 0 });
+        return;
+      }
+      const scrollTop = Math.max(0, Number(node.scrollTop || 0));
+      const viewportHeight = Math.max(1, Number(node.clientHeight || 0));
+      let visibleStart = Math.max(0, findIndexAtOffset(scrollTop) - LEDGER_VIRTUAL_OVERSCAN);
+      const visibleEnd = Math.min(
+        flattenedLedger.length - 1,
+        findIndexAtOffset(scrollTop + viewportHeight) + LEDGER_VIRTUAL_OVERSCAN
+      );
+      while (visibleStart > 0 && flattenedLedger[visibleStart]?.type !== 'group') {
+        visibleStart -= 1;
+      }
+      setLedgerWindow((current) => {
+        if (current.start === visibleStart && current.end === visibleEnd) return current;
+        return { start: visibleStart, end: visibleEnd };
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateWindow);
+    };
+
+    scheduleUpdate();
+    node.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      node.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+    };
+  }, [flattenedLedger, ledgerOffsets, shouldVirtualizeLedger]);
+
+  const virtualizedLedgerItems = shouldVirtualizeLedger
+    ? flattenedLedger.slice(ledgerWindow.start, ledgerWindow.end + 1)
+    : flattenedLedger;
+  const ledgerTopSpacerHeight = shouldVirtualizeLedger ? (ledgerOffsets[ledgerWindow.start] || 0) : 0;
+  const ledgerBottomSpacerHeight = shouldVirtualizeLedger
+    ? Math.max(0, ledgerTotalHeight - (ledgerOffsets[ledgerWindow.end + 1] || ledgerTotalHeight))
+    : 0;
+
   const handleSearchDraftChange = (value) => {
     setSearchDraft(value);
   };
@@ -436,6 +563,31 @@ function StockLedgerHistory({ user }) {
     filters.start_date,
     filters.end_date,
   ].filter(Boolean).length;
+
+  const ledgerSummary = useMemo(() => (
+    visibleLedger.reduce((accumulator, entry) => {
+      accumulator.total += 1;
+      switch (normalizeLedgerTransactionType(entry.transaction_type)) {
+        case 'PURCHASE':
+          accumulator.purchases += 1;
+          break;
+        case 'SALE':
+          accumulator.sales += 1;
+          break;
+        case 'RETURN':
+          accumulator.returns += 1;
+          break;
+        default:
+          break;
+      }
+      return accumulator;
+    }, {
+      total: 0,
+      purchases: 0,
+      sales: 0,
+      returns: 0,
+    })
+  ), [visibleLedger]);
 
   const handleSortChange = (columnKey) => {
     setSortConfig((current) => (
@@ -597,31 +749,25 @@ function StockLedgerHistory({ user }) {
       {/* Summary Stats */}
       <div className="summary-stats">
         <div className="stat-card">
-          <span className="stat-value">{visibleLedger.length}</span>
+          <span className="stat-value">{ledgerSummary.total}</span>
           <span className="stat-label">Total Transactions</span>
         </div>
         <div className="stat-card purchase">
-          <span className="stat-value">
-            {visibleLedger.filter((l) => normalizeLedgerTransactionType(l.transaction_type) === 'PURCHASE').length}
-          </span>
+          <span className="stat-value">{ledgerSummary.purchases}</span>
           <span className="stat-label">Purchases</span>
         </div>
         <div className="stat-card sale">
-          <span className="stat-value">
-            {visibleLedger.filter((l) => normalizeLedgerTransactionType(l.transaction_type) === 'SALE').length}
-          </span>
+          <span className="stat-value">{ledgerSummary.sales}</span>
           <span className="stat-label">Sales</span>
         </div>
         <div className="stat-card return">
-          <span className="stat-value">
-            {visibleLedger.filter((l) => normalizeLedgerTransactionType(l.transaction_type) === 'RETURN').length}
-          </span>
+          <span className="stat-value">{ledgerSummary.returns}</span>
           <span className="stat-label">Returns</span>
         </div>
       </div>
 
       {/* Ledger Table */}
-      <div className="ledger-table-container">
+      <div ref={ledgerTableScrollRef} className="ledger-table-container">
         {loading ? (
           <div className="loading">Loading stock ledger...</div>
         ) : visibleLedger.length === 0 ? (
@@ -652,38 +798,52 @@ function StockLedgerHistory({ user }) {
               </tr>
             </thead>
             <tbody>
-              {groupedLedger.map((group) => (
-                <Fragment key={group.key}>
-                  <tr className="ledger-date-group-row">
-                    <td colSpan={LEDGER_TABLE_COLUMN_COUNT}>
-                      <span className="ledger-date-group-chip">{group.label}</span>
-                    </td>
-                  </tr>
-                  {group.items.map((entry) => (
-                    <tr key={entry.id}>
-                      <td className="product-cell" data-label="Product">
-                        <span className="product-name">{entry.product_name}</span>
-                        <span className="product-linked-number">{formatLedgerLinkedNumber(entry)}</span>
+              {shouldVirtualizeLedger && ledgerTopSpacerHeight > 0 ? (
+                <tr className="ledger-virtual-spacer" aria-hidden="true">
+                  <td colSpan={LEDGER_TABLE_COLUMN_COUNT} style={{ height: `${ledgerTopSpacerHeight}px` }} />
+                </tr>
+              ) : null}
+              {virtualizedLedgerItems.map((item) => {
+                if (item.type === 'group') {
+                  return (
+                    <tr key={item.key} className="ledger-date-group-row">
+                      <td colSpan={LEDGER_TABLE_COLUMN_COUNT}>
+                        <span className="ledger-date-group-chip">{item.label}</span>
                       </td>
-                      <td
-                        className="type-cell"
-                        data-label="Type"
-                        title={getTransactionTypeLabel(entry.transaction_type)}
-                        aria-label={getTransactionTypeLabel(entry.transaction_type)}
-                      >
-                        {getTransactionIcon(entry.transaction_type)}
-                      </td>
-                      <td className="qty-cell" data-label="Quantity">
-                        <span className={entry.quantity_change >= 0 ? 'positive' : 'negative'}>
-                          {entry.quantity_change >= 0 ? '+' : ''}{formatWholeNumber(entry.quantity_change)}
-                        </span>
-                      </td>
-                      <td data-label="Previous">{formatWholeNumber(entry.previous_balance)}</td>
-                      <td data-label="New Balance"><strong>{formatWholeNumber(entry.new_balance)}</strong></td>
                     </tr>
-                  ))}
-                </Fragment>
-              ))}
+                  );
+                }
+
+                const entry = item.entry;
+                return (
+                  <tr key={item.key}>
+                    <td className="product-cell" data-label="Product">
+                      <span className="product-name">{entry.product_name}</span>
+                      <span className="product-linked-number">{formatLedgerLinkedNumber(entry)}</span>
+                    </td>
+                    <td
+                      className="type-cell"
+                      data-label="Type"
+                      title={getTransactionTypeLabel(entry.transaction_type)}
+                      aria-label={getTransactionTypeLabel(entry.transaction_type)}
+                    >
+                      {getTransactionIcon(entry.transaction_type)}
+                    </td>
+                    <td className="qty-cell" data-label="Quantity">
+                      <span className={entry.quantity_change >= 0 ? 'positive' : 'negative'}>
+                        {entry.quantity_change >= 0 ? '+' : ''}{formatWholeNumber(entry.quantity_change)}
+                      </span>
+                    </td>
+                    <td data-label="Previous">{formatWholeNumber(entry.previous_balance)}</td>
+                    <td data-label="New Balance"><strong>{formatWholeNumber(entry.new_balance)}</strong></td>
+                  </tr>
+                );
+              })}
+              {shouldVirtualizeLedger && ledgerBottomSpacerHeight > 0 ? (
+                <tr className="ledger-virtual-spacer" aria-hidden="true">
+                  <td colSpan={LEDGER_TABLE_COLUMN_COUNT} style={{ height: `${ledgerBottomSpacerHeight}px` }} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         )}

@@ -17,6 +17,7 @@ const createDefaultOrderFormData = () => ({
 const createDefaultProcessFormData = () => ({
   bill_number: '',
   paid_amount: '',
+  payment_split: 'part',
   payment_mode: 'cash',
   payment_reference: '',
   payment_date: getTodayDate(),

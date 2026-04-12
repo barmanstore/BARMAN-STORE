@@ -23,9 +23,10 @@ const usePurchaseProcessHandlers = ({
     setProcessingOrder(order);
     setProcessFormData({
       ...getDefaultProcessFormData(),
-      bill_number: String(order.bill_number || order.invoice_number || '').trim(),
+      bill_number: '',
       paid_amount: '',
-      payment_reference: String(order.bill_number || order.invoice_number || '').trim(),
+      payment_split: 'part',
+      payment_reference: '',
       payment_date: getTodayDate(),
       payment_notes: '',
     });
@@ -59,14 +60,20 @@ const usePurchaseProcessHandlers = ({
     if (!processingOrder) return;
     if (processSubmitLockRef.current) return;
     processSubmitLockRef.current = true;
-    const billNumber = String(processFormData.bill_number || '').trim();
+    const poNumber = String(processingOrder.po_number || processingOrder.invoice_number || processingOrder.bill_number || '').trim();
+    const billNumber = String(processFormData.bill_number || '').trim() || poNumber;
     if (!billNumber) {
       processSubmitLockRef.current = false;
       setError('Bill number is required to process PO');
       return;
     }
-    const paidAmount = Math.max(0, toNumber(processFormData.paid_amount));
     const poTotal = Math.max(0, getOrderDisplayTotal(processingOrder));
+    const rawPaidAmount = Math.max(0, toNumber(processFormData.paid_amount));
+    const nextPaidAmount = Math.min(rawPaidAmount, poTotal);
+    const wantsFullPayment = String(processFormData.payment_split || '').trim().toLowerCase() === 'full';
+    const paidAmount = wantsFullPayment || nextPaidAmount >= poTotal
+      ? poTotal
+      : nextPaidAmount;
     if (paidAmount > poTotal) {
       processSubmitLockRef.current = false;
       setError('Initial paid amount cannot exceed PO total');

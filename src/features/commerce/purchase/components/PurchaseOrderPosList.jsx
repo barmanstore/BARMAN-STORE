@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { X } from 'lucide-react';
 import { formatCurrency } from '../../../../shared/utils/formatters';
-import { getLastPurchaseMeta } from '../utils/orderDrafts';
 
 const hasMeaningfulPoItem = (item = {}) => (
   Number(item?.product_id || 0) > 0
@@ -12,48 +11,6 @@ const hasMeaningfulPoItem = (item = {}) => (
   || String(item?.last_purchase_hint || '').trim().length > 0
   || Number(item?.last_purchase_rate || 0) > 0
 );
-
-const getCompactRowSignals = (rowDiagnostics = {}) => {
-  const signals = [];
-  const appendSignal = (tone, label, title) => {
-    if (!label || signals.length >= 2) return;
-    signals.push({ tone, label, title });
-  };
-
-  if (rowDiagnostics.duplicateMessage) {
-    appendSignal('danger', 'Duplicate', rowDiagnostics.duplicateMessage);
-  }
-  if (rowDiagnostics.discountBlockingMessage) {
-    appendSignal('danger', 'Fix discount', rowDiagnostics.discountBlockingMessage);
-  }
-  if (rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountWarningMessage) {
-    appendSignal(
-      'bad',
-      'Discount check',
-      rowDiagnostics.discountAcknowledgementMessage || rowDiagnostics.discountWarningMessage
-    );
-  }
-  if (rowDiagnostics.rateAcknowledgementMessage) {
-    appendSignal('danger', 'Rate check', rowDiagnostics.rateAcknowledgementMessage);
-  } else if (rowDiagnostics.rateWarningMessage && rowDiagnostics.rateChangeLabel) {
-    appendSignal(
-      rowDiagnostics.rateChangeTone || 'neutral',
-      rowDiagnostics.rateChangeLabel,
-      rowDiagnostics.rateWarningMessage
-    );
-  }
-  if (!signals.length && rowDiagnostics.discountAppliedLabel) {
-    appendSignal('neutral', 'Discount', rowDiagnostics.discountAppliedLabel);
-  }
-  if (!signals.length && rowDiagnostics.rateAcknowledgedLabel) {
-    appendSignal('good', 'Rate ok', rowDiagnostics.rateAcknowledgedLabel);
-  }
-  if (!signals.length && rowDiagnostics.discountAcknowledgedLabel) {
-    appendSignal('good', 'Discount ok', rowDiagnostics.discountAcknowledgedLabel);
-  }
-
-  return signals;
-};
 
 const PurchaseOrderPosListCard = memo(({
   index,
@@ -69,15 +26,6 @@ const PurchaseOrderPosListCard = memo(({
   const isDraft = !hasMeaningfulPoItem(item);
   const displayUom = String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
   const enteredQuantity = Math.max(0, Number(line.quantity || item?.quantity || 0));
-  const lastPurchaseMeta = getLastPurchaseMeta(item);
-  const lastPurchaseLabel = lastPurchaseMeta.hasValue
-    ? [
-        lastPurchaseMeta.rate > 0 ? `Last ${formatCurrency(lastPurchaseMeta.rate)}` : 'Last purchase',
-        lastPurchaseMeta.ageLabel || lastPurchaseMeta.dateLabel,
-      ].filter(Boolean).join(' • ') || lastPurchaseMeta.fallbackHint
-    : '';
-  const compactSignals = getCompactRowSignals(rowDiagnostics);
-  const showLastPurchaseNote = !compactSignals.length && lastPurchaseLabel;
 
   return (
     <div
@@ -102,11 +50,6 @@ const PurchaseOrderPosListCard = memo(({
           <div className="po-pos-item-meta">
             <span>{enteredQuantity} {displayUom}</span>
           </div>
-          {showLastPurchaseNote ? (
-            <p className="po-pos-item-note" title={lastPurchaseMeta.fallbackHint || lastPurchaseLabel}>
-              {lastPurchaseLabel}
-            </p>
-          ) : null}
         </div>
         <div className="po-pos-item-side">
           <strong>{formatCurrency(line.totalAmount || 0)}</strong>
@@ -124,19 +67,6 @@ const PurchaseOrderPosListCard = memo(({
         </div>
       </div>
 
-      {compactSignals.length ? (
-        <div className="po-pos-item-status" aria-live="polite">
-          {compactSignals.map((signal) => (
-            <span
-              key={`${index}-${signal.label}-${signal.tone}`}
-              className={`po-pos-status-chip ${signal.tone || 'neutral'}`}
-              title={signal.title || undefined}
-            >
-              {signal.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }, (prevProps, nextProps) => (

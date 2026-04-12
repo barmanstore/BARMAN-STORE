@@ -14,10 +14,12 @@ const createAppContext = () => {
     startAppNotificationPurgeWorker: domain.notificationRetentionWorker.start,
     startCustomerRequestPurgeWorker: domain.customerRequestRetentionWorker.start,
     startPurchaseOperationsNotificationWorker: domain.purchaseOperations.startPurchaseOperationsNotificationWorker,
+    startCatalogBulkJobWorker: domain.catalogBulkJobs?.startBulkJobRunner,
     stopPhoneChangeWorker: domain.phoneChangeService.stopPhoneChangeWorker,
     stopAppNotificationPurgeWorker: domain.notificationRetentionWorker.stop,
     stopCustomerRequestPurgeWorker: domain.customerRequestRetentionWorker.stop,
     stopPurchaseOperationsNotificationWorker: domain.purchaseOperations.stopPurchaseOperationsNotificationWorker,
+    stopCatalogBulkJobWorker: domain.catalogBulkJobs?.stopBulkJobRunner,
     env: process.env,
   });
 

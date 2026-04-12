@@ -1,17 +1,10 @@
 import React, { memo } from 'react';
-import { CreditCard, Landmark, Smartphone, UserPlus, Wallet } from 'lucide-react';
+import { CreditCard, Landmark, Smartphone, Wallet } from 'lucide-react';
 import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 
 const BillingPaymentPanel = ({
-  isOrderLinked,
   isSubmitting,
-  customer,
-  customersList,
-  handleCustomerChange,
-  handleAddCustomer,
-  fulfillmentMode,
-  setFulfillmentMode,
   activeLineItemsCount,
   totalBill,
   paidClamped,
@@ -33,77 +26,17 @@ const BillingPaymentPanel = ({
   onCreateBill,
   lastShareText,
   onSendBill,
+  customerName,
 }) => (
   <section className="billing-pos-panel billing-payment-panel">
     <div className="billing-panel-header">
       <div>
         <p className="billing-panel-kicker">Payment</p>
         <h2>Checkout</h2>
-        <p className="billing-panel-copy">Customer needed only for due.</p>
+        <p className="billing-panel-copy">Keep checkout compact.</p>
       </div>
       <span className="billing-panel-badge neutral">{effectivePaymentMethod}</span>
     </div>
-
-    <div className="billing-customer-block">
-      <label className="billing-entry-field" htmlFor="billing-customer-name">
-        <span>Customer</span>
-        <input
-          id="billing-customer-name"
-          list="billing-customer-options"
-          className="form-input"
-          value={customer.name}
-          onChange={handleCustomerChange}
-          placeholder="Walk-in or saved name"
-          autoComplete="name"
-          readOnly={isOrderLinked}
-        />
-        <datalist id="billing-customer-options">
-          {customersList.map((entry) => (
-            <option key={entry.id} value={entry.name} />
-          ))}
-        </datalist>
-      </label>
-
-      {!isOrderLinked ? (
-        <button
-          type="button"
-          className="billing-secondary-btn"
-          onClick={handleAddCustomer}
-          disabled={isSubmitting}
-        >
-          <UserPlus size={16} />
-          New Customer
-        </button>
-      ) : null}
-
-      {(customer.phone || customer.email) ? (
-        <div className="billing-customer-meta">
-          <div>
-            <span>Phone</span>
-            <strong>{customer.phone || '-'}</strong>
-          </div>
-          <div>
-            <span>Email</span>
-            <strong>{customer.email || '-'}</strong>
-          </div>
-        </div>
-      ) : null}
-    </div>
-
-    {isOrderLinked ? (
-      <label className="billing-entry-field" htmlFor="billing-fulfillment-mode">
-        <span>Mode</span>
-        <select
-          id="billing-fulfillment-mode"
-          className="form-input"
-          value={fulfillmentMode}
-          onChange={(event) => setFulfillmentMode(String(event.target.value || 'available_now'))}
-        >
-          <option value="available_now">Available now</option>
-          <option value="full_now">Full order</option>
-        </select>
-      </label>
-    ) : null}
 
     <div className="billing-payment-quick-actions" role="group" aria-label="Quick payment actions">
       <button
@@ -175,7 +108,7 @@ const BillingPaymentPanel = ({
       <div className="billing-final-confirmation" role="status" aria-live="polite">
         <strong>Confirm bill</strong>
         <span>
-          {activeLineItemsCount} item(s) | {customer.name ? customer.name : 'Walk-in'} | {formatCurrency(totalBill)} total | {formatCurrency(creditAmount)} due
+          {activeLineItemsCount} item(s) | {customerName || 'Walk-in'} | {formatCurrency(totalBill)} total | {formatCurrency(creditAmount)} due
         </span>
         <small>Save bill and update stock and due.</small>
       </div>

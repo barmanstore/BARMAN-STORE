@@ -31,6 +31,9 @@ const validatePurchaseOrderInput = async ({
   const items = Array.isArray(body.items) ? body.items : [];
   if (!items.length) throw createInputError(400, 'At least one item is required');
 
+  const plannedOrderDate = String(body?.planned_order_date || '').trim();
+  if (!plannedOrderDate) throw createInputError(400, 'planned_order_date is required');
+
   const normalizedItems = await normalizePurchaseOrderItems(items);
 
   return {

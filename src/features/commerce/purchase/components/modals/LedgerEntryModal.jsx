@@ -1,7 +1,9 @@
-import { X } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
+import { useRef } from 'react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import CalculatedAmountInput from '../../../../../shared/components/CalculatedAmountInput';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
+import { formatDate } from '../../../../../shared/utils/formatters';
 
 const LedgerEntryModal = ({
   isMobile,
@@ -13,7 +15,172 @@ const LedgerEntryModal = ({
   setLedgerFormData,
   distributors,
 }) => {
+  const transactionDateInputRef = useRef(null);
+
   if (!showLedgerForm) return null;
+
+  const selectedDistributor = distributors.find((d) => String(d.id) === String(ledgerFormData.distributor_id || ''));
+  const distributorLabel = selectedDistributor?.name || '-';
+  const typeLabel = ledgerFormData.type === 'credit' ? 'Credit (Increase due)' : 'Payment (Reduce due)';
+  const paymentModeLabel = String(ledgerFormData.payment_mode || '').trim() || 'Cash';
+
+  const updateLedgerField = (field, value) => {
+    setLedgerFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const openTransactionDatePicker = () => {
+    const input = transactionDateInputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+      return;
+    }
+    input.focus();
+    input.click();
+  };
+
+  const renderCoreFields = (prefix) => (
+    <>
+      <div className="purchase-process-info-row" aria-label="Distributor payment info">
+        <div className="purchase-process-info-item">
+          <span className="purchase-process-info-label">Distributor</span>
+          <strong className="purchase-process-info-value">{distributorLabel}</strong>
+        </div>
+        <div className="purchase-process-info-item">
+          <span className="purchase-process-info-label">Type</span>
+          <strong className="purchase-process-info-value">{typeLabel}</strong>
+        </div>
+        <div className="purchase-process-info-item purchase-process-info-item--total">
+          <span className="purchase-process-info-label">Mode</span>
+          <strong className="purchase-process-info-value">{paymentModeLabel}</strong>
+        </div>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor={`${prefix}-distributor`}>Distributor *</label>
+          <select
+            id={`${prefix}-distributor`}
+            name="distributor_id"
+            value={ledgerFormData.distributor_id}
+            onChange={(e) => updateLedgerField('distributor_id', e.target.value)}
+            required
+          >
+            <option value="">Select distributor</option>
+            {distributors.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label htmlFor={`${prefix}-type`}>Type *</label>
+          <select
+            id={`${prefix}-type`}
+            name="type"
+            value={ledgerFormData.type}
+            onChange={(e) => updateLedgerField('type', e.target.value)}
+          >
+            <option value="payment">Payment (Reduce due)</option>
+            <option value="credit">Credit (Increase due)</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label htmlFor={`${prefix}-amount`}>Amount *</label>
+          <CalculatedAmountInput
+            id={`${prefix}-amount`}
+            name="amount"
+            value={ledgerFormData.amount}
+            onValueChange={(nextValue) => updateLedgerField('amount', nextValue)}
+            placeholder="Enter amount or expression like (5+7)*100/35+56-25"
+            required
+            autoComplete="off"
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor={`${prefix}-payment-mode`}>Payment Mode</label>
+          <select
+            id={`${prefix}-payment-mode`}
+            name="payment_mode"
+            value={ledgerFormData.payment_mode}
+            onChange={(e) => updateLedgerField('payment_mode', e.target.value)}
+          >
+            <option value="cash">Cash</option>
+            <option value="bank">Bank Transfer</option>
+            <option value="upi">UPI</option>
+            <option value="cheque">Cheque</option>
+            <option value="credit">Credit</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <div className="purchase-process-date-label">
+            <label htmlFor={`${prefix}-transaction-date`}>Transaction Date</label>
+            <button
+              type="button"
+              className="purchase-process-date-btn"
+              onClick={openTransactionDatePicker}
+              aria-label="Open transaction date picker"
+            >
+              <CalendarDays size={15} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="purchase-process-date-value">
+            {formatDate(ledgerFormData.transaction_date)}
+          </div>
+          <input
+            ref={transactionDateInputRef}
+            id={`${prefix}-transaction-date`}
+            name="transaction_date"
+            type="date"
+            className="purchase-process-hidden-date-input"
+            value={ledgerFormData.transaction_date}
+            onChange={(e) => updateLedgerField('transaction_date', e.target.value)}
+            tabIndex={-1}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor={`${prefix}-reference`}>Reference</label>
+          <input
+            id={`${prefix}-reference`}
+            name="reference"
+            type="text"
+            value={ledgerFormData.reference}
+            onChange={(e) => updateLedgerField('reference', e.target.value)}
+            placeholder="Invoice / PO / Bank ref"
+            autoComplete="off"
+          />
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label htmlFor={`${prefix}-description`}>Description</label>
+        <textarea
+          id={`${prefix}-description`}
+          name="description"
+          rows="2"
+          value={ledgerFormData.description}
+          onChange={(e) => updateLedgerField('description', e.target.value)}
+          placeholder="Optional notes"
+        />
+      </div>
+    </>
+  );
+
+  const actionRow = (
+    <div className="modal-actions purchase-process-actions">
+      <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
+        Cancel
+      </button>
+      <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
+        {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
+      </button>
+    </div>
+  );
 
   if (isMobile) {
     return (
@@ -21,7 +188,7 @@ const LedgerEntryModal = ({
         open
         onClose={closeLedgerForm}
         title="Add Distributor Payment / Credit"
-        className="purchase-ledger-sheet"
+        className="purchase-ledger-sheet purchase-process-sheet"
         dismissible={!ledgerSubmitting}
         actions={(
           <>
@@ -35,99 +202,7 @@ const LedgerEntryModal = ({
         )}
       >
         <form id="purchase-ledger-form" onSubmit={handleLedgerSubmit}>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-distributor">Distributor *</label>
-              <select
-                id="ledger-mobile-distributor"
-                name="distributor_id"
-                value={ledgerFormData.distributor_id}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                required
-              >
-                <option value="">Select distributor</option>
-                {distributors.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-type">Type *</label>
-              <select
-                id="ledger-mobile-type"
-                name="type"
-                value={ledgerFormData.type}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
-              >
-                <option value="payment">Payment (Reduce due)</option>
-                <option value="credit">Credit (Increase due)</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-amount">Amount *</label>
-              <CalculatedAmountInput
-                id="ledger-mobile-amount"
-                name="amount"
-                value={ledgerFormData.amount}
-                onValueChange={nextValue => setLedgerFormData(prev => ({ ...prev, amount: nextValue }))}
-                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-payment-mode">Payment Mode</label>
-              <select
-                id="ledger-mobile-payment-mode"
-                name="payment_mode"
-                value={ledgerFormData.payment_mode}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-              >
-                <option value="cash">Cash</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="upi">UPI</option>
-                <option value="cheque">Cheque</option>
-                <option value="credit">Credit</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-transaction-date">Transaction Date</label>
-              <input
-                id="ledger-mobile-transaction-date"
-                name="transaction_date"
-                type="date"
-                value={ledgerFormData.transaction_date}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-mobile-reference">Reference</label>
-              <input
-                id="ledger-mobile-reference"
-                name="reference"
-                type="text"
-                value={ledgerFormData.reference}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
-                placeholder="Invoice / PO / Bank ref"
-                autoComplete="off"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label htmlFor="ledger-mobile-description">Description</label>
-            <textarea
-              id="ledger-mobile-description"
-              name="description"
-              rows="2"
-              value={ledgerFormData.description}
-              onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Optional notes"
-            />
-          </div>
+          {renderCoreFields('ledger-mobile')}
         </form>
       </MobileBottomSheet>
     );
@@ -140,117 +215,17 @@ const LedgerEntryModal = ({
       onClose={closeLedgerForm}
       dismissible={!ledgerSubmitting}
       themeClassName="purchase-management"
-      dialogClassName="purchase-modal-frame"
+      dialogClassName="purchase-modal-frame purchase-process-frame"
       headerClassName="purchase-modal-header"
       closeButtonClassName="purchase-modal-close-btn"
       initialSize={{ width: 720, height: 560 }}
     >
       <form onSubmit={handleLedgerSubmit}>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-distributor">Distributor *</label>
-              <select
-                id="ledger-desktop-distributor"
-                name="distributor_id"
-                value={ledgerFormData.distributor_id}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, distributor_id: e.target.value }))}
-                required
-              >
-                <option value="">Select distributor</option>
-                {distributors.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-type">Type *</label>
-              <select
-                id="ledger-desktop-type"
-                name="type"
-                value={ledgerFormData.type}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, type: e.target.value }))}
-              >
-                <option value="payment">Payment (Reduce due)</option>
-                <option value="credit">Credit (Increase due)</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-amount">Amount *</label>
-              <CalculatedAmountInput
-                id="ledger-desktop-amount"
-                name="amount"
-                value={ledgerFormData.amount}
-                onValueChange={nextValue => setLedgerFormData(prev => ({ ...prev, amount: nextValue }))}
-                placeholder="Enter amount or expression like (5+7)*100/35+56-25"
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-payment-mode">Payment Mode</label>
-              <select
-                id="ledger-desktop-payment-mode"
-                name="payment_mode"
-                value={ledgerFormData.payment_mode}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, payment_mode: e.target.value }))}
-              >
-                <option value="cash">Cash</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="upi">UPI</option>
-                <option value="cheque">Cheque</option>
-                <option value="credit">Credit</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-transaction-date">Transaction Date</label>
-              <input
-                id="ledger-desktop-transaction-date"
-                name="transaction_date"
-                type="date"
-                value={ledgerFormData.transaction_date}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, transaction_date: e.target.value }))}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="ledger-desktop-reference">Reference</label>
-              <input
-                id="ledger-desktop-reference"
-                name="reference"
-                type="text"
-                value={ledgerFormData.reference}
-                onChange={e => setLedgerFormData(prev => ({ ...prev, reference: e.target.value }))}
-                placeholder="Invoice / PO / Bank ref"
-                autoComplete="off"
-              />
-            </div>
-          </div>
-          <div className="form-group">
-            <label htmlFor="ledger-desktop-description">Description</label>
-            <textarea
-              id="ledger-desktop-description"
-              name="description"
-              rows="2"
-              value={ledgerFormData.description}
-              onChange={e => setLedgerFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Optional notes"
-            />
-          </div>
-          <div className="modal-actions">
-            <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
-              {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
-            </button>
-          </div>
+        {renderCoreFields('ledger-desktop')}
+        {actionRow}
       </form>
     </WindowModal>
   );
 };
 
 export default LedgerEntryModal;
-

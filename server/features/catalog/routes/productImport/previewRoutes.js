@@ -16,8 +16,9 @@ const registerProductImportPreviewRoutes = (deps) => {
     PRODUCT_IMPORT_BATCH_TTL_MS,
     productImportBatches,
     SQL_UPSERT_IMPORT_BATCH,
-    applyProductImportBatch,
+    catalogBulkJobs,
   } = deps;
+  const { queueImportBulkJobFromBatchAsync } = require('./importBulkJobHelpers');
 
   app.post('/api/products/import/preview', requireAdmin, async (req, res) => {
     try {
@@ -116,6 +117,8 @@ const registerProductImportPreviewRoutes = (deps) => {
           row: rowNo,
           action,
           matched_product_id: existing?.id || null,
+          raw: row,
+          before_state: existing ? { updated_at: existing.updated_at || null } : {},
           payload: normalized,
           barcode: normalized.barcode,
           requires_identical_confirmation: requiresIdenticalConfirmation,
@@ -151,6 +154,7 @@ const registerProductImportPreviewRoutes = (deps) => {
       const batchPayload = {
         mode,
         stockMode,
+        fileName: String(req.body?.file_name || '').trim(),
         rows: normalizedRows,
         createdBy: req.authUser?.id || null,
         createdAt,
@@ -185,17 +189,21 @@ const registerProductImportPreviewRoutes = (deps) => {
       };
 
       if (Boolean(req.body?.auto_confirm)) {
-        const applied = await applyProductImportBatch({
+        const jobResult = await queueImportBulkJobFromBatchAsync({
+          catalogBulkJobs,
+          req,
           batchId,
           checksum,
+          batch: batchPayload,
           authUser: req.authUser,
+          allowIdenticalRows: req.body?.allow_identical_rows || [],
         });
         responsePayload.auto_confirmed = true;
-        responsePayload.apply_result = applied.result;
+        responsePayload.job = jobResult.job;
         responsePayload.notification = {
           type: 'success',
-          title: 'Product import completed',
-          message: `Created ${applied.result.created}, updated ${applied.result.updated}, failed ${applied.result.failed}`,
+          title: 'Product import queued',
+          message: `Import job queued with ${batchPayload.rows.length} rows`,
         };
       }
 

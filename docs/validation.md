@@ -6,7 +6,7 @@ See also: [business-logic.md](business-logic.md), [api-contract.md](api-contract
 
 - Customer order readiness: [server/utils/customerValidation.js](../server/utils/customerValidation.js)
 - Product payload rules: [server/utils/product/normalizers/productPayloadValidator.js](../server/utils/product/normalizers/productPayloadValidator.js)
-- Purchase-order creation input: `server/features/commerce/routes/purchaseOrders/listCreate/validateInput.js`
+- Purchase-order creation input: `server/features/commerce/routes/purchaseOrders/listCreate/validateInput.js` now requires `planned_order_date` alongside distributor, items, and supplier validation.
 - Credit issue admin correction dates and actions: [server/features/credits/routes/creditIssues/admin/resolveIssue.js](../server/features/credits/routes/creditIssues/admin/resolveIssue.js)
 - Admin customer credit-limit updates: [server/features/auth/routes/userCrud/userRoleActions.js](../server/features/auth/routes/userCrud/userRoleActions.js) and [server/features/auth/routes/userCrud/profile/profileValidation.js](../server/features/auth/routes/userCrud/profile/profileValidation.js)
 - User-management identity rules: [server/features/auth/routes/userCrud/userRoleActions.js](../server/features/auth/routes/userCrud/userRoleActions.js), [server/features/auth/routes/userCrud/profile/profileValidation.js](../server/features/auth/routes/userCrud/profile/profileValidation.js), and [user-management-state-contract.md](user-management-state-contract.md)

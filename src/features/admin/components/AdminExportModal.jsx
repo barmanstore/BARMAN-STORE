@@ -17,7 +17,7 @@ const AdminExportModal = ({
       onClose={onClose}
       dialogClassName="export-modal-card"
     >
-      <p>Select format, then confirm export.</p>
+      <p>Select format, then export the current filtered view.</p>
       <div className="export-format-toggle-group">
         <button
           className={`admin-btn ${exportFormat === 'csv' ? 'primary' : ''}`}

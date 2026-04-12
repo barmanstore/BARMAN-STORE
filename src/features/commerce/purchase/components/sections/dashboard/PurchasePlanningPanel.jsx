@@ -413,15 +413,15 @@ const PurchasePlanningPanel = ({
           <span>Supplier Routine</span>
         </div>
 
-        <div className="purchase-routine-summary-grid">
+        <div className="purchase-routine-stat-grid">
           {summaryCards.map(({ key, icon: Icon, label, value, meta }) => (
-            <article key={key} className="purchase-routine-summary-card">
-              <div className="purchase-routine-summary-head">
+            <article key={key} className={`stat-card purchase-routine-stat-card purchase-routine-stat-card--${key}`}>
+              <span className="purchase-routine-stat-icon" aria-hidden="true">
                 <Icon size={15} />
-                <span>{label}</span>
-              </div>
-              <strong>{value}</strong>
-              <small>{meta}</small>
+              </span>
+              <strong className="stat-value">{value}</strong>
+              <span className="stat-label">{label}</span>
+              <small className="purchase-routine-stat-meta">{meta}</small>
             </article>
           ))}
         </div>

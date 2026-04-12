@@ -86,7 +86,7 @@ const usePurchaseDataFetch = ({
       const [distributorsData, suppliersData, productsData] = await Promise.all([
         distributorsApi.getAll(),
         suppliersApi.getAll(),
-        productsApi.getAll(),
+        productsApi.getAll({ limit: 500 }),
       ]);
       const nextDistributors = Array.isArray(distributorsData) ? distributorsData : [];
       const nextSuppliers = Array.isArray(suppliersData) ? suppliersData : [];

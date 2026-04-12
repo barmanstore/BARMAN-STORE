@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, ListPlus, SlidersHorizontal } from 'lucide-react';
+import { ListPlus, SlidersHorizontal } from 'lucide-react';
 import ProductSearchCombobox from '../../../../shared/components/product-search/ProductSearchCombobox';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { getLastPurchaseMeta } from '../utils/orderDrafts';
@@ -168,32 +168,6 @@ const PurchaseOrderPosEntry = ({
         : <>Use <strong>Tab</strong> or <strong>Enter</strong> for {autocompleteCandidate.name}.</>
     )
     : null;
-  const primaryRowStatus = buildPrimaryRowStatus({
-    duplicateWarning,
-    productSelectionWarning,
-    discountBlockingWarning,
-    rateConfirmationWarning,
-    discountNeedsConfirmation,
-    discountWarning,
-    rateChangeLabel,
-    rateChangeTone,
-    draftWarning,
-    rateConfirmedLabel,
-    discountConfirmedLabel,
-  });
-  const statusAction = rateNeedsConfirmation
-    ? {
-        label: 'Confirm rate',
-        onClick: onConfirmRateWarning,
-      }
-    : (discountNeedsConfirmation
-        ? {
-            label: 'Confirm discount',
-            onClick: onConfirmDiscountWarning,
-          }
-        : null);
-  const passiveStatusNote = !primaryRowStatus && lastPurchaseLabel ? lastPurchaseLabel : '';
-
   useEffect(() => {
     setShowAdvancedAdjustments(shouldExposeMoreFields);
   }, [activeItemIndex, shouldExposeMoreFields]);
@@ -243,35 +217,6 @@ const PurchaseOrderPosEntry = ({
             Choose supplier first.
           </div>
         ) : null}
-        {primaryRowStatus || statusAction || passiveStatusNote ? (
-          <div className="po-pos-status-row" aria-live="polite">
-            {primaryRowStatus ? (
-              <span
-                className={`po-pos-status-chip ${primaryRowStatus.tone || 'neutral'}`}
-                title={primaryRowStatus.title || undefined}
-              >
-                {primaryRowStatus.text}
-              </span>
-            ) : null}
-            {statusAction ? (
-              <button
-                type="button"
-                className="po-pos-status-chip-btn danger"
-                onClick={statusAction.onClick}
-                disabled={orderSubmitting}
-              >
-                <CheckCircle2 size={14} />
-                {statusAction.label}
-              </button>
-            ) : null}
-            {!primaryRowStatus && passiveStatusNote ? (
-              <p className="po-pos-status-note" title={passiveStatusNote}>
-                {passiveStatusNote}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="po-pos-entry-lane">
           <label className="po-pos-field po-pos-field-search po-pos-field-primary po-pos-field-search-wide" htmlFor="po-pos-product-search">
             <span>Product</span>

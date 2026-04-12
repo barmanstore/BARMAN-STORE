@@ -1,4 +1,4 @@
-import { TrendingUp, ShoppingCart, Gift, BarChart2, Package, PackagePlus, FolderOpen, FileText, Eye, ShoppingBag, Truck, History, Users, CreditCard } from 'lucide-react';
+import { TrendingUp, ShoppingCart, Gift, BarChart2, Package, PackagePlus, FolderOpen, FileText, Eye, ShoppingBag, Truck, History, Users, CreditCard, Wallet } from 'lucide-react';
 
 const filterSections = (sections, predicate) => (
   sections
@@ -14,6 +14,7 @@ export const MOBILE_ALLOWED_TABS = new Set([
   'orders',
   'products',
   'billing',
+  'cashbook',
   'users',
   'credit-khata',
   'customer-requests',
@@ -43,10 +44,11 @@ export const SIDEBAR_SECTIONS = [
   },
   {
     key: 'billing',
-    label: 'Billing',
+    label: 'Payments',
     icon: FileText,
     items: [
       { tab: 'billing', label: 'Billing', icon: FileText, mobile: true },
+      { tab: 'cashbook', label: 'Cashbook', icon: Wallet, mobile: true },
       { tab: 'daily-sales', label: 'Daily Sales', icon: BarChart2, sub: true, mobile: false },
       { tab: 'view-bills', label: 'Bills History', icon: Eye, sub: true, mobile: false },
     ],

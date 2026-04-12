@@ -8,6 +8,7 @@ const { registerPurchaseOperationNotificationRoutes } = require('./routes/purcha
 const { registerMessageRecipientRoutes } = require('./routes/messageRecipientRoutes');
 const { registerMessageToAdminRoutes } = require('./routes/messageToAdminRoutes');
 const { registerMessageToCustomerRoutes } = require('./routes/messageToCustomerRoutes');
+const { registerCashbookRoutes } = require('./routes/cashbookRoutes');
 
 const registerCommunicationRoutes = (deps) => {
   registerNotifyRoutes(deps);
@@ -20,6 +21,7 @@ const registerCommunicationRoutes = (deps) => {
   registerMessageRecipientRoutes(deps);
   registerMessageToAdminRoutes(deps);
   registerMessageToCustomerRoutes(deps);
+  registerCashbookRoutes(deps);
 };
 
 module.exports = { registerCommunicationRoutes };

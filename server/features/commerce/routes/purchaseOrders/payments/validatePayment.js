@@ -14,7 +14,7 @@ const validatePurchaseOrderPayment = async ({
 
   const poStatus = getPurchaseOrderLifecycleStatus(order);
   if (!canPoAcceptPayment(poStatus)) {
-    throw createInputError(400, 'Payments are allowed only for confirmed purchase orders');
+    throw createInputError(400, 'Payments are allowed only for confirmed or part-paid purchase orders');
   }
 
   const amount = Math.max(0, Number(body?.amount || 0));

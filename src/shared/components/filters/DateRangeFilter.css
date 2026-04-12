@@ -74,12 +74,11 @@
 
 .date-presets {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
-  scrollbar-width: thin;
 }
 
 .date-chip {
@@ -101,6 +100,10 @@
   transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
+.date-range-pill-check {
+  flex: 0 0 auto;
+}
+
 .date-chip:hover {
   background: #eff6ff;
   border-color: #bfdbfe;
@@ -108,10 +111,18 @@
 }
 
 .date-chip.active {
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0.06));
-  border-color: rgba(37, 99, 235, 0.28);
+  background: linear-gradient(180deg, rgba(29, 78, 216, 0.18), rgba(29, 78, 216, 0.1));
+  border-color: rgba(29, 78, 216, 0.45);
+  font-weight: 800;
   color: #1d4ed8;
-  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.12);
+  box-shadow:
+    0 10px 18px rgba(37, 99, 235, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.date-chip.active .date-range-pill-check {
+  color: currentColor;
 }
 
 .date-custom {

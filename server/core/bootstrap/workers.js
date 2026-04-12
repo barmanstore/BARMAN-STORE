@@ -3,10 +3,12 @@ const createBootstrapWorkers = ({
   startAppNotificationPurgeWorker,
   startCustomerRequestPurgeWorker,
   startPurchaseOperationsNotificationWorker,
+  startCatalogBulkJobWorker,
   stopPhoneChangeWorker,
   stopAppNotificationPurgeWorker,
   stopCustomerRequestPurgeWorker,
   stopPurchaseOperationsNotificationWorker,
+  stopCatalogBulkJobWorker,
   env,
 } = {}) => {
   const isTestEnv = String(env?.NODE_ENV || process.env.NODE_ENV || '').trim().toLowerCase() === 'test';
@@ -16,6 +18,7 @@ const createBootstrapWorkers = ({
     startAppNotificationPurgeWorker();
     startCustomerRequestPurgeWorker();
     startPurchaseOperationsNotificationWorker();
+    startCatalogBulkJobWorker();
   };
 
   const stopWorkers = () => {
@@ -24,6 +27,7 @@ const createBootstrapWorkers = ({
     stopAppNotificationPurgeWorker();
     stopCustomerRequestPurgeWorker();
     stopPurchaseOperationsNotificationWorker();
+    stopCatalogBulkJobWorker();
   };
 
   return { startWorkers, stopWorkers };

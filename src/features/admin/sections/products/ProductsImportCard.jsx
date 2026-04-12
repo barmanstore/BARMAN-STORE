@@ -83,7 +83,7 @@ const ProductsImportCard = ({
             </table>
             {importPreviewData.preview.length > 25 && (
               <p className="products-import-preview-note">
-                Showing first 25 rows of {importPreviewData.preview.length}. Confirm applies full validated batch.
+                Showing first 25 rows of {importPreviewData.preview.length}. Confirm queues the full validated batch as a background job.
               </p>
             )}
           </div>

@@ -18,7 +18,7 @@ See also:
 - In this repo, route ownership is split between:
   - leaf route modules under `server/features/**/routes/**`
   - named helper/service functions called from those route modules
-- The live Express app mounted `175` non-static business/API routes in the audited runtime.
+- The live Express app mounted `178` non-static business/API routes in the audited runtime.
 - That count excludes the global `OPTIONS *` handler and the four conditional profile-upload redirect routes documented below when `profileImagePublicBaseUrl` is configured.
 - Exact duplicate `METHOD + path` registrations were not found.
 
@@ -209,6 +209,8 @@ These helper trees act as the practical controller layer for complex routes:
 
 - `server/features/catalog/routes/productSearch/listRoutes.js`
   - `GET /api/products`
+    - Supports the v1 catalog list contract with server-side `q`, `category`, `brand`, `status`, `low_stock`, `include_inactive`, `sort_field`, `sort_dir`, `cursor`, `limit`, and legacy `page/page_size`.
+    - Legacy array-mode responses are bounded; callers that need more than the default batch should request `limit` explicitly, up to the documented 500-row cap.
 - `server/features/catalog/routes/productSearch/detailRoutes.js`
   - `GET /api/products/:id(\d+)`
 - `server/features/catalog/routes/productSearch/categoryRoutes.js`
@@ -228,6 +230,12 @@ These helper trees act as the practical controller layer for complex routes:
 - `server/features/catalog/routes/productAdmin/deleteRoutes.js`
   - `DELETE /api/products/:id(\d+)`
   - `DELETE /api/products/:id(\d+)/permanent`
+- `server/features/catalog/routes/productAdmin/bulkJobRoutes.js`
+  - `POST /api/admin/products/bulk-jobs`
+  - `GET /api/admin/products/bulk-jobs/:id(\d+)`
+  - `GET /api/admin/products/bulk-jobs/:id(\d+)/items`
+  - `POST /api/admin/products/bulk-jobs/:id(\d+)/cancel`
+  - `POST /api/admin/products/bulk-jobs/:id(\d+)/retry-failed`
 - `server/features/catalog/routes/productAdmin/categoryRoutes.js`
   - `PATCH /api/products/:id(\d+)/category`
 - `server/features/catalog/routes/productImport/templateRoutes.js`
@@ -338,6 +346,12 @@ These helper trees act as the practical controller layer for complex routes:
     - Handler note: also returns a `today_cash_summary` object with bill-derived current-day totals plus the optional saved daily cash tally.
   - `GET /api/admin/analytics/daily-cash-tally`
   - `PUT /api/admin/analytics/daily-cash-tally`
+- `server/features/communication/routes/cashbookRoutes.js`
+  - `GET /api/admin/cashbook`
+  - `PUT /api/admin/cashbook/opening-balance`
+  - `POST /api/admin/cashbook/entries`
+  - `PUT /api/admin/cashbook/entries/:id`
+  - `DELETE /api/admin/cashbook/entries/:id`
 - `server/features/communication/routes/adminNotificationRoutes.js`
   - `POST /api/admin/notifications/email/prepare`
   - `POST /api/admin/notifications/whatsapp/prepare`

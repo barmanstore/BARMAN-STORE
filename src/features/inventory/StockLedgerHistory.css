@@ -645,6 +645,16 @@
   background: transparent;
 }
 
+.stock-ledger-history .ledger-table tr.ledger-virtual-spacer td {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.stock-ledger-history .ledger-table tr.ledger-virtual-spacer:hover {
+  background: transparent;
+}
+
 .stock-ledger-history .product-cell {
   display: flex;
   flex-direction: column;

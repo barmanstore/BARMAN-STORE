@@ -1,3 +1,5 @@
+const createInputError = (status, message) => Object.assign(new Error(message), { status });
+
 const buildPurchaseOrderContext = ({
   body,
   distributor,
@@ -7,10 +9,15 @@ const buildPurchaseOrderContext = ({
   calculatePoPaymentSnapshot,
   computePurchasePaymentDueDate,
 }) => {
-  const plannedOrderDate = normalizeTransactionDate(
-    body.planned_order_date || body.expected_delivery || new Date().toISOString()
-  )
-    || new Date().toISOString().slice(0, 10);
+  const plannedOrderDateInput = String(body?.planned_order_date || '').trim();
+  if (!plannedOrderDateInput) {
+    throw createInputError(400, 'planned_order_date is required');
+  }
+
+  const plannedOrderDate = normalizeTransactionDate(plannedOrderDateInput);
+  if (!plannedOrderDate) {
+    throw createInputError(400, 'planned_order_date is invalid');
+  }
 
   const duplicateKey = buildPurchaseDuplicateKey({
     distributorId: Number(body.distributor_id || 0),

@@ -40,7 +40,6 @@ function GlobalAdminShortcuts() {
 
     const handleKeyDown = (event) => {
       if (event.defaultPrevented || event.repeat) return;
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (typeof document !== 'undefined') {
         if (document.visibilityState !== 'visible') return;
         if (typeof document.hasFocus === 'function' && !document.hasFocus()) return;
@@ -49,10 +48,21 @@ function GlobalAdminShortcuts() {
       if (hasActiveModalDialog()) return;
 
       const key = String(event.key || '').toLowerCase();
-      let shortcutAction = '';
-      let targetTab = '';
+      const isBillingShortcut = key === 'b'
+        && event.altKey
+        && !event.ctrlKey
+        && !event.metaKey
+        && !event.shiftKey;
+      const isPurchaseShortcut = key === 'p'
+        && (event.altKey || event.ctrlKey)
+        && !event.metaKey
+        && !event.shiftKey;
 
-      if (key === 'b') {
+      if (!isBillingShortcut && !isPurchaseShortcut) {
+        return;
+      }
+
+      if (isBillingShortcut) {
         event.preventDefault();
         const popupResult = openBackofficePopup('billing');
         if (popupResult.status === 'blocked') {
@@ -67,24 +77,14 @@ function GlobalAdminShortcuts() {
         return;
       }
 
-      if (key === 'p') {
-        shortcutAction = 'open-po';
-        targetTab = 'purchases';
-      } else {
-        return;
-      }
-
       event.preventDefault();
-      const popupResult = openBackofficePopup('purchase');
-      if (popupResult.status === 'blocked') {
-        shortcutSequenceRef.current += 1;
-        const next = new URLSearchParams(location.search || '');
-        next.set('shortcut', shortcutAction);
-        next.set('shortcutToken', String(shortcutSequenceRef.current));
-        navigate(`${getAdminTabHref(targetTab)}?${next.toString()}`, {
-          replace: inAdminArea,
-        });
-      }
+      shortcutSequenceRef.current += 1;
+      const next = new URLSearchParams(location.search || '');
+      next.set('shortcut', 'open-po');
+      next.set('shortcutToken', String(shortcutSequenceRef.current));
+      navigate(`${getAdminTabHref('purchases')}?${next.toString()}`, {
+        replace: inAdminArea,
+      });
     };
 
     window.addEventListener('keydown', handleKeyDown);

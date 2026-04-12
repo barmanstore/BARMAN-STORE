@@ -1,5 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from 'lucide-react';
 import SafeProductImage from '../../../../shared/components/product/SafeProductImage';
 import WindowModal from '../../../../shared/components/window/WindowModal';
 import PurchaseDistributorSelector from './PurchaseDistributorSelector';
@@ -7,7 +7,6 @@ import PurchaseOrderEntryControlPanel from './PurchaseOrderEntryControlPanel';
 import PurchaseOrderSummaryPanel from './PurchaseOrderSummaryPanel';
 import PurchaseOrderReviewSheet from './PurchaseOrderReviewSheet';
 import ProductForm from '../../../catalog/products/components/form/ProductForm';
-import { getLastPurchaseMeta } from '../utils/orderDrafts';
 
 const getPreferredActiveIndex = (items = []) => {
   if (!Array.isArray(items) || !items.length) return 0;
@@ -96,6 +95,43 @@ const isSupplierDefaultItem = (item = {}) => (
   || String(item?.row_source || '').trim().toLowerCase() === 'supplier'
 );
 
+const getPurchaseOrderRowProductSearchText = (entry = {}) => {
+  const item = entry?.item || {};
+  const product = entry?.product || {};
+  return [
+    item?.product_name,
+    item?.product_query,
+    product?.name,
+    product?.sku,
+    item?.sku,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)
+    .join(' ');
+};
+
+const getPurchaseOrderRowProductSortLabel = (entry = {}) => {
+  const item = entry?.item || {};
+  const product = entry?.product || {};
+  const name = String(
+    item?.product_name
+    || item?.product_query
+    || product?.name
+    || ''
+  ).trim().toLowerCase();
+  const sku = String(product?.sku || item?.sku || '').trim().toLowerCase();
+  return `${name} ${sku}`.trim();
+};
+
+const getNextPurchaseOrderRowSortDirection = (direction) => {
+  if (direction === 'ascending') return 'descending';
+  if (direction === 'descending') return null;
+  return 'ascending';
+};
+
+const PO_SELECTED_ROW_ESTIMATED_HEIGHT = 74;
+const PO_SELECTED_ROW_OVERSCAN = 6;
+
 export function PurchaseOrderFormModal({
   open,
   closeOrderForm,
@@ -141,14 +177,19 @@ export function PurchaseOrderFormModal({
   const [productPickerSelectedIds, setProductPickerSelectedIds] = useState([]);
   const [quickProductFormOpen, setQuickProductFormOpen] = useState(false);
   const [productPickerVisibleLimit, setProductPickerVisibleLimit] = useState(48);
+  const [selectedRowsWindow, setSelectedRowsWindow] = useState({ start: 0, end: 24 });
+  const [itemProductSearch, setItemProductSearch] = useState('');
+  const [itemProductSortDirection, setItemProductSortDirection] = useState(null);
   const [discountColumnType, setDiscountColumnType] = useState(
     () => resolveDiscountColumnType(orderFormData?.items)
   );
   const deferredProductPickerSearch = useDeferredValue(productPickerSearch);
+  const deferredItemProductSearch = useDeferredValue(itemProductSearch);
   const distributorInputRef = useRef(null);
   const quantityInputRefs = useRef({});
   const formFooterRef = useRef(null);
   const submitButtonRef = useRef(null);
+  const selectedRowsScrollRef = useRef(null);
   const productPickerScrollRef = useRef(null);
   const productPickerLoadMoreRef = useRef(null);
   const previousDistributorIdRef = useRef('');
@@ -217,6 +258,38 @@ export function PurchaseOrderFormModal({
       .filter((entry) => hasMeaningfulDraftRow(entry.item)),
     [draftDiagnostics.rowDiagnostics, draftProjection.rows, productLookupById]
   );
+  const normalizedItemProductSearch = String(deferredItemProductSearch || '').trim().toLowerCase();
+  const filteredOrderRows = useMemo(() => {
+    if (!normalizedItemProductSearch) return visibleOrderRows;
+    return visibleOrderRows.filter((entry) => (
+      getPurchaseOrderRowProductSearchText(entry).includes(normalizedItemProductSearch)
+    ));
+  }, [normalizedItemProductSearch, visibleOrderRows]);
+  const displayedOrderRows = useMemo(() => {
+    if (!itemProductSortDirection) return filteredOrderRows;
+    const directionMultiplier = itemProductSortDirection === 'descending' ? -1 : 1;
+    return [...filteredOrderRows].sort((left, right) => {
+      const comparison = getPurchaseOrderRowProductSortLabel(left).localeCompare(
+        getPurchaseOrderRowProductSortLabel(right),
+        undefined,
+        { numeric: true, sensitivity: 'base' }
+      );
+
+      if (comparison !== 0) {
+        return comparison * directionMultiplier;
+      }
+
+      return left.index - right.index;
+    });
+  }, [filteredOrderRows, itemProductSortDirection]);
+  const selectedRowsTotalHeight = displayedOrderRows.length * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
+  const selectedRowsWindowStart = Math.max(0, Math.min(selectedRowsWindow.start, Math.max(0, displayedOrderRows.length - 1)));
+  const selectedRowsWindowEnd = Math.max(
+    selectedRowsWindowStart,
+    Math.min(selectedRowsWindow.end, Math.max(0, displayedOrderRows.length - 1))
+  );
+  const windowedDisplayedOrderRows = displayedOrderRows.slice(selectedRowsWindowStart, selectedRowsWindowEnd + 1);
+  const selectedRowsWindowOffset = selectedRowsWindowStart * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
   const reviewableOrderRows = useMemo(
     () => visibleOrderRows.filter((entry) => Number(entry?.item?.quantity || 0) > 0),
     [visibleOrderRows]
@@ -243,11 +316,37 @@ export function PurchaseOrderFormModal({
     }),
     [reviewableOrderRows]
   );
+  const reviewMinimumRows = useMemo(
+    () => reviewableOrderRows
+      .map((entry, index) => {
+        const minimumStep = Math.max(
+          1,
+          Number(getPurchasePackStep(entry?.product, entry?.line?.uom)) || 1
+        );
+        return {
+          index,
+          minimumStep,
+          productName: String(entry?.item?.product_name || entry?.item?.product_query || `Row ${index + 1}`).trim(),
+        };
+      })
+      .filter((entry) => entry.minimumStep > 1),
+    [getPurchasePackStep, reviewableOrderRows]
+  );
+  const reviewMinimumSummary = useMemo(() => {
+    if (!reviewMinimumRows.length) return 'Standard qty';
+    const smallestMinimumStep = reviewMinimumRows.reduce(
+      (min, entry) => Math.min(min, entry.minimumStep),
+      Number.POSITIVE_INFINITY
+    );
+    const stepLabel = Number.isInteger(smallestMinimumStep)
+      ? String(smallestMinimumStep)
+      : smallestMinimumStep.toFixed(2);
+    return `x${stepLabel} on ${reviewMinimumRows.length} row${reviewMinimumRows.length === 1 ? '' : 's'}`;
+  }, [reviewMinimumRows]);
   const supplierBoardItemCount = useMemo(
     () => visibleOrderRows.reduce((sum, entry) => (isSupplierDefaultItem(entry?.item || {}) ? sum + 1 : sum), 0),
     [visibleOrderRows]
   );
-  const displayedOrderRows = visibleOrderRows;
   const existingOrderProductIds = useMemo(
     () => new Set(
       visibleOrderRows
@@ -364,13 +463,29 @@ export function PurchaseOrderFormModal({
     });
   }, []);
   const focusQuantityField = useCallback((rowIndex) => {
-    const target = quantityInputRefs.current[rowIndex];
-    if (!target) return;
-    window.requestAnimationFrame(() => {
-      target.focus();
-      if (typeof target.select === 'function') target.select();
-    });
-  }, []);
+    const attemptFocus = (shouldRetry = false) => {
+      const target = quantityInputRefs.current[rowIndex];
+      if (target) {
+        window.requestAnimationFrame(() => {
+          target.focus();
+          if (typeof target.select === 'function') target.select();
+        });
+        return;
+      }
+      if (shouldRetry) return;
+      const scrollNode = selectedRowsScrollRef.current;
+      const visiblePosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
+      if (scrollNode && visiblePosition >= 0) {
+        scrollNode.scrollTo({
+          top: Math.max(0, (visiblePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
+          behavior: 'auto',
+        });
+      }
+      window.requestAnimationFrame(() => attemptFocus(true));
+    };
+
+    attemptFocus(false);
+  }, [displayedOrderRows]);
 
   const isWizardStepUnlocked = useCallback((stepIndex) => {
     if (stepIndex <= 0) return true;
@@ -447,6 +562,8 @@ export function PurchaseOrderFormModal({
     setProductPickerOpen(false);
     setProductPickerSearch('');
     setProductPickerSelectedIds([]);
+    setItemProductSearch('');
+    setItemProductSortDirection(null);
     previousDistributorIdRef.current = String(orderFormData?.distributor_id || '').trim();
     const frameId = window.requestAnimationFrame(() => {
       if (orderReviewMode) {
@@ -481,6 +598,7 @@ export function PurchaseOrderFormModal({
       setProductPickerOpen(false);
       setProductPickerSearch('');
       setProductPickerSelectedIds([]);
+      setItemProductSearch('');
       previousDistributorIdRef.current = nextDistributorId;
       return;
     }
@@ -489,6 +607,7 @@ export function PurchaseOrderFormModal({
       setProductPickerOpen(false);
       setProductPickerSearch('');
       setProductPickerSelectedIds([]);
+      setItemProductSearch('');
     }
     previousDistributorIdRef.current = nextDistributorId;
   }, [open, orderFormData?.distributor_id]);
@@ -524,6 +643,66 @@ export function PurchaseOrderFormModal({
     if (!productPickerOpen) return;
     setProductPickerVisibleLimit(productPickerPageSize);
   }, [deferredProductPickerSearch, productPickerOpen, productPickerPageSize, filteredAllProductPickerProducts.length]);
+
+  useEffect(() => {
+    const totalRows = displayedOrderRows.length;
+    setSelectedRowsWindow({
+      start: 0,
+      end: Math.max(0, Math.min(totalRows - 1, 24)),
+    });
+  }, [displayedOrderRows.length, itemProductSearch, itemProductSortDirection]);
+
+  useEffect(() => {
+    const scrollNode = selectedRowsScrollRef.current;
+    if (!scrollNode || typeof window === 'undefined') return undefined;
+
+    let frameId = 0;
+    const updateWindow = () => {
+      frameId = 0;
+      const totalRows = displayedOrderRows.length;
+      if (totalRows === 0) {
+        setSelectedRowsWindow({ start: 0, end: 0 });
+        return;
+      }
+      const viewportHeight = Math.max(1, Number(scrollNode.clientHeight || 0));
+      const scrollTop = Math.max(0, Number(scrollNode.scrollTop || 0));
+      const visibleStart = Math.max(0, Math.floor(scrollTop / PO_SELECTED_ROW_ESTIMATED_HEIGHT) - PO_SELECTED_ROW_OVERSCAN);
+      const visibleEnd = Math.min(
+        totalRows - 1,
+        Math.ceil((scrollTop + viewportHeight) / PO_SELECTED_ROW_ESTIMATED_HEIGHT) + PO_SELECTED_ROW_OVERSCAN
+      );
+      setSelectedRowsWindow((current) => {
+        if (current.start === visibleStart && current.end === visibleEnd) return current;
+        return { start: visibleStart, end: visibleEnd };
+      });
+    };
+
+    const scheduleUpdate = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateWindow);
+    };
+
+    scheduleUpdate();
+    scrollNode.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId);
+      scrollNode.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+    };
+  }, [displayedOrderRows.length]);
+
+  useEffect(() => {
+    const activePosition = displayedOrderRows.findIndex((entry) => entry.index === activeItemIndex);
+    if (activePosition < 0) return;
+    if (activePosition >= selectedRowsWindow.start && activePosition <= selectedRowsWindow.end) return;
+    const scrollNode = selectedRowsScrollRef.current;
+    if (!scrollNode) return;
+    scrollNode.scrollTo({
+      top: Math.max(0, (activePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
+      behavior: 'auto',
+    });
+  }, [activeItemIndex, displayedOrderRows, selectedRowsWindow.end, selectedRowsWindow.start]);
 
   useEffect(() => {
     if (!productPickerOpen) return undefined;
@@ -619,6 +798,14 @@ export function PurchaseOrderFormModal({
     setQuickProductFormOpen(true);
   }, []);
 
+  const handleItemProductSearchChange = useCallback((event) => {
+    setItemProductSearch(event.target.value);
+  }, []);
+
+  const handleItemProductSortToggle = useCallback(() => {
+    setItemProductSortDirection((current) => getNextPurchaseOrderRowSortDirection(current));
+  }, []);
+
   const handleCloseQuickProductForm = useCallback(() => {
     setQuickProductFormOpen(false);
   }, []);
@@ -699,7 +886,7 @@ export function PurchaseOrderFormModal({
 
   const canSubmitOrder = orderReviewMode && canReviewOrder;
   const reviewActionLabel = editingOrderId ? 'Review Update' : 'Review';
-  const finalSubmitLabel = editingOrderId ? 'Final Update' : 'Final Submit';
+  const finalSubmitLabel = editingOrderId ? 'Confirm Update' : 'Confirm PO';
   const stepPrimaryActionLabel = orderReviewMode
     ? finalSubmitLabel
     : activeWizardStep === 0
@@ -790,12 +977,18 @@ export function PurchaseOrderFormModal({
 
           {!orderReviewMode && activeWizardStep === 1 ? (
             <div className={`po-popup-items-screen single-flow${productPickerOpen ? ' picker-open' : ''}`}>
-              <section className="po-popup-inline-toolbar compact">
-                <div className="po-popup-inline-toolbar-copy">
-                  <strong>{String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Supplier selected'}</strong>
-                  <small>Update delivery date and note during review before final submit.</small>
+              <section className="po-popup-items-head">
+                <div className="po-popup-items-head-copy">
+                  <strong>
+                    {String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Supplier selected'}
+                  </strong>
                 </div>
-                <div className="po-popup-inline-toolbar-actions">
+                <div className="po-popup-items-head-actions">
+                  <span className="po-popup-board-count">
+                    {normalizedItemProductSearch
+                      ? `${displayedOrderRows.length} shown of ${visibleOrderRows.length}`
+                      : `${supplierBoardItemCount} supplier items • ${reviewableOrderRows.length} ordered`}
+                  </span>
                   <button
                     type="button"
                     className="po-popup-inline-action"
@@ -804,33 +997,63 @@ export function PurchaseOrderFormModal({
                   >
                     Change Supplier
                   </button>
+                  <button
+                    type="button"
+                    className="po-popup-inline-action"
+                    onClick={handleOpenProductPicker}
+                    disabled={orderSubmitting}
+                  >
+                    Add Product
+                  </button>
                 </div>
               </section>
 
               <section className="po-popup-selected-panel full-width">
-                <div className="po-pos-panel-header">
-                  <div>
-                    <h4>Products</h4>
-                    <p className="po-pos-panel-note">Enter qty first. Press Enter for the next row. All supplier items are loaded by default.</p>
-                  </div>
-                  <div className="po-popup-board-toolbar">
-                    <span className="po-popup-board-count">
-                      {supplierBoardItemCount} supplier items • {reviewableOrderRows.length} ordered
-                    </span>
-                    <button
-                      type="button"
-                      className="po-popup-inline-action"
-                      onClick={handleOpenProductPicker}
-                      disabled={orderSubmitting}
-                    >
-                      Add Product
-                    </button>
-                  </div>
-                </div>
                 {displayedOrderRows.length ? (
                   <div className="po-popup-items-table">
                     <div className="po-popup-items-table-head">
-                      <span>Product</span>
+                      <div className="po-popup-product-header">
+                        <button
+                          type="button"
+                          className="po-popup-column-toggle po-popup-product-sort-toggle"
+                          onClick={handleItemProductSortToggle}
+                          disabled={orderSubmitting}
+                          title={
+                            itemProductSortDirection
+                              ? `Sort rows by Product, currently ${itemProductSortDirection}`
+                              : 'Sort rows by Product'
+                          }
+                          aria-label={
+                            itemProductSortDirection
+                              ? `Sort rows by Product, currently ${itemProductSortDirection}`
+                              : 'Sort rows by Product'
+                          }
+                          aria-sort={itemProductSortDirection || 'none'}
+                        >
+                          <span>Product</span>
+                          <span className="po-popup-sort-icon" aria-hidden="true">
+                            {itemProductSortDirection === 'ascending' ? (
+                              <ArrowUp size={13} />
+                            ) : itemProductSortDirection === 'descending' ? (
+                              <ArrowDown size={13} />
+                            ) : (
+                              <ArrowUpDown size={13} />
+                            )}
+                          </span>
+                        </button>
+                        <label className="po-popup-product-search" htmlFor="po-popup-item-product-search">
+                          <Search size={12} aria-hidden="true" />
+                          <input
+                            id="po-popup-item-product-search"
+                            type="search"
+                            value={itemProductSearch}
+                            onChange={handleItemProductSearchChange}
+                            placeholder="Search row"
+                            aria-label="Search loaded item rows by product name or SKU"
+                            disabled={orderSubmitting}
+                          />
+                        </label>
+                      </div>
                       <span>Qty</span>
                       <span>Unit</span>
                       <span>Rate</span>
@@ -847,17 +1070,32 @@ export function PurchaseOrderFormModal({
                       </button>
                       <span>Total</span>
                     </div>
-                    <div className="po-popup-items-table-body">
-                      {displayedOrderRows.map(({ index, item, line, product, diagnostics }) => {
-                        const displayName = String(item?.product_name || item?.product_query || `Row ${index + 1}`).trim();
+                    <div ref={selectedRowsScrollRef} className="po-popup-items-table-body">
+                      {displayedOrderRows.length ? (
+                        <div
+                          className="po-popup-items-table-virtual"
+                          style={{
+                            width: '100%',
+                            height: `${Math.max(selectedRowsTotalHeight, PO_SELECTED_ROW_ESTIMATED_HEIGHT)}px`,
+                          }}
+                        >
+                          <div
+                            className="po-popup-items-table-virtual-window"
+                            style={{
+                              width: '100%',
+                              transform: `translateY(${selectedRowsWindowOffset}px)`,
+                            }}
+                          >
+                            {windowedDisplayedOrderRows.map(({ index, item, line, product, diagnostics }) => {
+                        const productSku = String(product?.sku || item?.sku || '').trim();
+                        const displayName = String(
+                          item?.product_name
+                          || item?.product_query
+                          || product?.name
+                          || `Row ${index + 1}`
+                        ).trim();
+                        const displayTitle = productSku ? `${displayName} (SKU: ${productSku})` : displayName;
                         const rowUom = String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
-                        const lastPurchaseMeta = getLastPurchaseMeta(item);
-                        const compactLastPurchaseLabel = lastPurchaseMeta.hasValue
-                          ? [
-                              lastPurchaseMeta.rate > 0 ? `₹${formatReviewAmount(lastPurchaseMeta.rate)}` : '',
-                              lastPurchaseMeta.ageLabel || lastPurchaseMeta.dateLabel,
-                            ].filter(Boolean).join(' • ')
-                          : '';
                         const itemUomOptions = getAllowedPurchaseUnitsForProduct(product);
                         const rowIssue = getDraftRowIssue(diagnostics);
                         const gstRate = Number(item?.gst_rate ?? line?.gstRate ?? 0) || 0;
@@ -876,7 +1114,6 @@ export function PurchaseOrderFormModal({
                         const rowLocked = isSupplierDefaultItem(item);
                         const rowIsZero = quantityValue <= 0;
                         const rowMetaNote = [
-                          compactLastPurchaseLabel,
                           rowIssue ? rowIssue.text : '',
                           !rowIssue && hasEditedRate ? 'edited' : '',
                         ].filter(Boolean).join(' • ');
@@ -887,12 +1124,12 @@ export function PurchaseOrderFormModal({
                           >
                             <div className="po-popup-grid-product">
                               <SafeProductImage
-                                product={product || { name: displayName, image: item?.image || item?.image_url || '' }}
-                                alt={displayName}
+                                product={product || { name: displayTitle, image: item?.image || item?.image_url || '' }}
+                                alt={displayTitle}
                                 className="po-popup-grid-image"
                               />
                               <div className="po-popup-grid-product-copy">
-                                <strong>{displayName}</strong>
+                                <strong>{displayTitle}</strong>
                                 {rowMetaNote ? <small>{rowMetaNote}</small> : null}
                               </div>
                             </div>
@@ -913,7 +1150,7 @@ export function PurchaseOrderFormModal({
                                 onFocus={() => setActiveItemIndex(index)}
                                 onKeyDown={handleQuantityKeyDown(index)}
                                 disabled={orderSubmitting}
-                                aria-label={`Quantity for ${displayName}`}
+                                aria-label={`Quantity for ${displayTitle}`}
                               />
                               {quantityStep > 1 ? <small>pack {quantityStep}</small> : null}
                             </div>
@@ -924,7 +1161,7 @@ export function PurchaseOrderFormModal({
                                 onFocus={() => setActiveItemIndex(index)}
                                 onKeyDown={handleInlineFieldKeyDown(index)}
                                 disabled={orderSubmitting}
-                                aria-label={`Unit for ${displayName}`}
+                                aria-label={`Unit for ${displayTitle}`}
                               >
                                 {itemUomOptions.map((uomOption) => (
                                   <option key={`${index}-${uomOption}`} value={uomOption}>{uomOption}</option>
@@ -941,7 +1178,7 @@ export function PurchaseOrderFormModal({
                                 onFocus={() => setActiveItemIndex(index)}
                                 onKeyDown={handleInlineFieldKeyDown(index)}
                                 disabled={orderSubmitting}
-                                aria-label={`Rate for ${displayName}`}
+                                aria-label={`Rate for ${displayTitle}`}
                               />
                             </div>
                             <div className="po-popup-grid-cell">
@@ -951,7 +1188,7 @@ export function PurchaseOrderFormModal({
                                 onFocus={() => setActiveItemIndex(index)}
                                 onKeyDown={handleInlineFieldKeyDown(index)}
                                 disabled={orderSubmitting}
-                                aria-label={`GST for ${displayName}`}
+                                aria-label={`GST for ${displayTitle}`}
                               >
                                 {GST_RATE_OPTIONS.map((rateOption) => (
                                   <option key={`${index}-gst-${rateOption}`} value={rateOption}>{rateOption}%</option>
@@ -968,7 +1205,7 @@ export function PurchaseOrderFormModal({
                                 onFocus={() => setActiveItemIndex(index)}
                                 onKeyDown={handleInlineFieldKeyDown(index)}
                                 disabled={orderSubmitting}
-                                aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayName}`}
+                                aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayTitle}`}
                               />
                               <small>{getDiscountColumnSuffix(discountColumnType)}</small>
                             </div>
@@ -1009,9 +1246,17 @@ export function PurchaseOrderFormModal({
                               </div>
                             </div>
                           </article>
-                        );
-                      })}
+                            );
+                          })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
+                  </div>
+                ) : normalizedItemProductSearch && visibleOrderRows.length ? (
+                  <div className="po-popup-empty-state">
+                    <strong>No matching products found.</strong>
+                    <p>Try a different product name or SKU, or clear the search to see all rows.</p>
                   </div>
                 ) : (
                   <div className="po-pos-empty-state">
@@ -1031,7 +1276,7 @@ export function PurchaseOrderFormModal({
             <PurchaseOrderReviewSheet
               kicker="Purchase Order"
               title="Review Before Final Submit"
-              description="Printed-bill style check. Only rows with qty above zero are included."
+              description="Review the order and then do the final submit."
               badgeLabel={`${reviewableOrderRows.length} item${reviewableOrderRows.length === 1 ? '' : 's'}`}
               metaItems={[
               { label: 'Supplier:', value: String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Not selected' },
@@ -1059,36 +1304,38 @@ export function PurchaseOrderFormModal({
         </div>
 
         <div ref={formFooterRef} className={`form-section po-form-section po-form-footer${supplierOnlyStep ? ' supplier-step' : ''}`}>
-          {distributorSelected && !orderReviewMode ? (
-            <PurchaseOrderSummaryPanel
-              orderFullMode={orderFullMode}
-              orderTotals={orderTotals}
-              itemCount={reviewableOrderRows.length}
-              quantityTotal={reviewQuantityTotal}
-            />
-          ) : null}
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="cancel-btn"
-              onClick={orderReviewMode ? handleBackFromReview : closeOrderForm}
-            >
-              {orderReviewMode ? 'Modify' : closeButtonLabel}
-            </button>
-            {!orderReviewMode && distributorSelected ? (
-              <button type="button" className="submit-btn secondary" onClick={saveCurrentOrderDraft} disabled={orderSubmitting}>
-                Save Draft
-              </button>
+          <div className="po-form-footer-panel">
+            {distributorSelected && !orderReviewMode ? (
+              <PurchaseOrderSummaryPanel
+                orderFullMode={orderFullMode}
+                orderTotals={orderTotals}
+                itemCount={reviewableOrderRows.length}
+                quantityTotal={reviewQuantityTotal}
+              />
             ) : null}
-            <button
-              ref={submitButtonRef}
-              type="button"
-              className="submit-btn"
-              disabled={stepPrimaryActionDisabled}
-              onClick={orderReviewMode ? handleFinalSubmitClick : handleAdvanceWorkflow}
-            >
-              {orderSubmitting ? 'Saving...' : stepPrimaryActionLabel}
-            </button>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={orderReviewMode ? handleBackFromReview : closeOrderForm}
+              >
+                {orderReviewMode ? 'Modify' : closeButtonLabel}
+              </button>
+              {!orderReviewMode && distributorSelected ? (
+                <button type="button" className="submit-btn secondary" onClick={saveCurrentOrderDraft} disabled={orderSubmitting}>
+                  Save Draft
+                </button>
+              ) : null}
+              <button
+                ref={submitButtonRef}
+                type="button"
+                className="submit-btn"
+                disabled={stepPrimaryActionDisabled}
+                onClick={orderReviewMode ? handleFinalSubmitClick : handleAdvanceWorkflow}
+              >
+                {orderSubmitting ? 'Saving...' : stepPrimaryActionLabel}
+              </button>
+            </div>
           </div>
         </div>
       </form>

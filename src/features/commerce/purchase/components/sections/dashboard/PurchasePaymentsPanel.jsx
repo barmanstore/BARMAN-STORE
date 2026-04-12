@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Clock, Sparkles, Wallet } from 'lucide-react';
+import { Check, Clock, Sparkles, Wallet } from 'lucide-react';
+import { canAddPaymentToPo } from '../../../utils/orders';
 import { sortPurchaseAnalyticsEntries } from '../../../utils/purchaseAnalyticsSort';
 
 const PurchasePaymentsPanel = ({
   operationsSummary,
   onOpenPayable,
+  onOpenProcessModal,
   formatCurrency,
   toNumber,
 }) => {
@@ -32,23 +34,49 @@ const PurchasePaymentsPanel = ({
           <span>Payables</span>
         </div>
         {(operationsSummary.payables || []).length ? (
-          (operationsSummary.payables || []).slice(0, 4).map((entry) => (
-            <div key={`payable-${entry.order_id}`} className="purchase-ops-item">
-              <div>
-                <strong>{entry.distributor_name}</strong>
-                <p>{entry.po_number} | {formatCurrency(toNumber(entry.balance_due))}</p>
-                <small>
-                  Due: {entry.payment_due_date}{entry.overdue_days ? ` | ${entry.overdue_days} day overdue` : ''}
-                </small>
-                <small>
-                  Strict: {entry.strict_due_date || '-'} | Inferred: {entry.inferred_due_date || '-'}
-                </small>
+          (operationsSummary.payables || []).slice(0, 4).map((entry) => {
+            const paymentEligible = canAddPaymentToPo(entry);
+            const isConfirmAction = !paymentEligible;
+            const actionLabel = paymentEligible ? 'Pay' : 'Confirm';
+            const ActionIcon = paymentEligible ? Wallet : Check;
+            const handleAction = paymentEligible
+              ? () => onOpenPayable(entry.order_id)
+              : () => {
+                  if (typeof onOpenProcessModal !== 'function') return;
+                  onOpenProcessModal({
+                    id: entry.order_id,
+                    po_number: entry.po_number,
+                    bill_number: entry.bill_number,
+                    invoice_number: entry.invoice_number,
+                    distributor_name: entry.distributor_name,
+                    supplier_name: entry.supplier_name,
+                  });
+                };
+
+            return (
+              <div key={`payable-${entry.order_id}`} className="purchase-ops-item">
+                <div>
+                  <strong>{entry.distributor_name}</strong>
+                  <p>{entry.po_number} | {formatCurrency(toNumber(entry.balance_due))}</p>
+                  <small>
+                    Due: {entry.payment_due_date}{entry.overdue_days ? ` | ${entry.overdue_days} day overdue` : ''}
+                  </small>
+                  <small>
+                    Strict: {entry.strict_due_date || '-'} | Inferred: {entry.inferred_due_date || '-'}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="admin-btn secondary small"
+                  onClick={handleAction}
+                  disabled={isConfirmAction && typeof onOpenProcessModal !== 'function'}
+                >
+                  <ActionIcon size={14} />
+                  {actionLabel}
+                </button>
               </div>
-              <button type="button" className="admin-btn secondary small" onClick={() => onOpenPayable(entry.order_id)}>
-                Pay
-              </button>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="purchase-ops-empty">No payable items due right now.</div>
         )}

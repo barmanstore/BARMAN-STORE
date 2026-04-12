@@ -33,6 +33,7 @@ const PurchaseManagementPageLayout = ({
   handleReturnFormOpen,
   formatCurrency,
   toNumber,
+  fetchDistributorLedger,
   filters,
   distributors,
   suppliers,
@@ -327,6 +328,8 @@ const PurchaseManagementPageLayout = ({
           suppliers={suppliers}
           onFilterChange={handleFilterChange}
           onOpenLedgerForm={handleOpenLedgerForm}
+          onRefreshLedger={fetchDistributorLedger}
+          onOpenProcessModal={handleOpenProcessModal}
           ledgerBalanceSummary={ledgerBalanceSummary}
           payables={operationsSummary.payables || []}
           onOpenPayable={handleOpenPoPaymentById}
