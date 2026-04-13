@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { DOMAINS, invalidateDomain, registerDomainListener } from '../../../../shared/services/invalidation';
 import { createClientRequestId, purchaseOrdersApi, distributorsApi, suppliersApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
 import { formatCurrency, formatDate } from '../../../../shared/utils/formatters';
@@ -118,6 +119,14 @@ const usePurchaseManagementController = ({
   const getDefaultPoPaymentFormData = createDefaultPoPaymentFormData;
   const getDefaultLedgerFormData = createDefaultLedgerFormData;
   const getDefaultPoCorrectionFormData = createDefaultPoCorrectionFormData;
+  const {
+    poModalSize,
+    poModalRef,
+  } = usePoModalSizing({
+    isMobile,
+    storageKey: PO_MODAL_SIZE_KEY,
+    toNumber,
+  });
   const restoredPopupDraftRef = useRef(false);
   const processedPopupHandoffIdRef = useRef('');
   const handledShortcutRequestRef = useRef(0);
@@ -175,11 +184,8 @@ const usePurchaseManagementController = ({
     findProductForItem,
   });
 
-  useEffect(() => {
-    activeSavedOrderDraftIdRef.current = String(activeSavedOrderDraftId || '').trim();
-  }, [activeSavedOrderDraftId]);
-
   const {
+    fetchData,
     fetchOrders,
     fetchOperationsSummary,
     fetchReturns,
@@ -208,74 +214,138 @@ const usePurchaseManagementController = ({
     setLedgerLoading,
     setLedgerRecords,
   });
-  const {
-    poModalSize,
-    poModalRef,
-  } = usePoModalSizing({
-    isMobile,
-    storageKey: PO_MODAL_SIZE_KEY,
-    toNumber,
-  });
 
   useEffect(() => {
-    if (!success) return undefined;
-    const timerId = window.setTimeout(() => setSuccess(''), 3200);
-    return () => window.clearTimeout(timerId);
-  }, [success]);
+    activeSavedOrderDraftIdRef.current = String(activeSavedOrderDraftId || '').trim();
+  }, [activeSavedOrderDraftId]);
 
-  const handleOpenBrowserWorkspace = useCallback(() => {
-    const popupResult = openBackofficePopup('purchase');
-    if (popupResult.status === 'blocked' && popupResult.path) {
-      window.location.assign(popupResult.path);
-      return;
+  const refreshPurchaseData = useCallback(async () => {
+    try {
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to refresh purchase data:', error);
     }
-    if (popupResult.status === 'unsupported') {
-      window.location.assign(buildBackofficePopupPath('purchase'));
-    }
-  }, []);
+  }, [fetchData]);
+
+  const refreshProductsAfterMutation = useCallback(async () => {
+    await refreshPurchaseData();
+    void invalidateDomain(DOMAINS.Products, { sourceId: 'purchase-products' });
+  }, [refreshPurchaseData]);
 
   const clearLastSavedOrderSummary = useCallback(() => {
     setLastSavedOrderSummary(null);
   }, [setLastSavedOrderSummary]);
 
-  const patchSupplierVisitSummary = useCallback((supplierIdValue, dateValue, updates = {}) => {
-    const supplierId = Number(supplierIdValue || 0) || null;
-    const dateKey = toDateInputValue(dateValue || getTodayDate());
-    if (!supplierId || !dateKey) return;
+  const handleOpenBrowserWorkspace = useCallback(() => {
+    const popupResult = openBackofficePopup('purchase');
+    if (popupResult?.status === 'blocked') {
+      setError('Popup blocked. Allow popups to open the purchase workspace.');
+      return false;
+    }
+    return popupResult?.status === 'opened';
+  }, [setError]);
+
+  const patchSupplierVisitSummary = useCallback((supplierId, date, patch = {}) => {
+    const normalizedSupplierId = Number(supplierId || 0);
+    const normalizedDateKey = toLocalDateKey(date);
+    if (!normalizedSupplierId || !normalizedDateKey) return;
     setOperationsSummary((current) => {
-      const baseSummary = current && typeof current === 'object'
-        ? current
-        : createDefaultOperationsSummary();
-      const currentVisits = Array.isArray(baseSummary?.supplier_visits)
-        ? baseSummary.supplier_visits
-        : [];
-      const nextVisits = [...currentVisits];
-      const visitIndex = nextVisits.findIndex((entry) => (
-        Number(entry?.supplier_id || 0) === supplierId
-        && String(entry?.date || '').trim() === dateKey
-      ));
-      const existingVisit = visitIndex >= 0 ? nextVisits[visitIndex] : null;
-      const nextVisit = {
-        supplier_id: supplierId,
-        date: dateKey,
-        poDone: Boolean(existingVisit?.poDone),
-        paymentDone: Boolean(existingVisit?.paymentDone),
-        visitClosed: Boolean(existingVisit?.visitClosed),
-        ...existingVisit,
-        ...updates,
-      };
-      nextVisit.isHandled = Boolean(nextVisit.poDone || nextVisit.visitClosed);
-      if (visitIndex >= 0) {
-        nextVisits[visitIndex] = nextVisit;
-      } else {
-        nextVisits.push(nextVisit);
+      const baseSummary = current || createDefaultOperationsSummary();
+      const visits = Array.isArray(baseSummary.supplier_visits) ? baseSummary.supplier_visits : [];
+      let didPatch = false;
+      const nextVisits = visits.map((entry) => {
+        if (Number(entry?.supplier_id || 0) !== normalizedSupplierId) return entry;
+        const entryDateKey = toLocalDateKey(entry?.date);
+        if (entryDateKey !== normalizedDateKey) return entry;
+        didPatch = true;
+        return {
+          ...entry,
+          ...patch,
+          supplier_id: normalizedSupplierId,
+          date: normalizedDateKey,
+        };
+      });
+      if (!didPatch) {
+        nextVisits.push({
+          supplier_id: normalizedSupplierId,
+          date: normalizedDateKey,
+          poDone: false,
+          paymentDone: false,
+          visitClosed: false,
+          isHandled: false,
+          ...patch,
+        });
       }
       return {
         ...baseSummary,
         supplier_visits: nextVisits,
       };
     });
-  }, [getTodayDate, setOperationsSummary]);
+  }, [setOperationsSummary]);
+
+  useEffect(() => registerDomainListener(DOMAINS.Products, refreshPurchaseData, {
+    listenerId: 'purchase-products',
+  }), [refreshPurchaseData]);
+
+  const buildPageProps = () => buildPurchaseManagementPageProps(
+    {
+      loading, error, success, activeSubTab, handlePurchaseSectionChange, operationsSummary, purchaseReturns,
+      operationsLoading, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
+      handleViewOrder, handleOpenPoPaymentById, openCreateOrderForm, handleOpenLedgerForm, handleReturnFormOpen,
+      handleCloseSupplierVisit, handleReopenSupplierVisit,
+      lowStockProducts,
+      formatCurrency, toNumber, fetchDistributorLedger, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
+      onRefreshProducts: refreshProductsAfterMutation,
+      canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
+      handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,
+      handleOpenPoCorrectionForm, poCorrectionSubmitting, handleUpdateStatus, handleDeleteOrder,
+      getOrderDisplayTotal, getStatusBadgeForOrder, getPoPaymentBadgeForOrder, getPoBalanceDue, getPoNextAction,
+      ledgerBalanceSummary, ledgerLoading, ledgerRecords, getLedgerRowStatusClassForEntry, getDistributorName,
+      getLedgerTypeLabel, getEntryDisplayBalance, getLedgerBillNumber, handleOpenBrowserWorkspace,
+      lastSavedOrderSummary, clearLastSavedOrderSummary,
+    },
+    {
+      showOrderForm, closeOrderForm, poModalRef, isMobile, poModalSize, editingOrderId,
+      handleOrderSubmit, handleOpenOrderReview, orderFullMode, setOrderFullMode, orderReviewMode, closeOrderReview,
+      loadingDistributorItems, handleLoadDistributorItems,
+      orderFormData, setOrderFormData, orderDraftProjection, handleDistributorInputChange, orderProductOptions, products, findProductForItem,
+      getAllowedPurchaseUnitsForProduct, getPurchasePackStep, handleOrderProductInputChange,
+      handleOrderProductFieldFocus, handleOrderItemChange, GST_RATE_OPTIONS, handleOrderItemRemove, handleOrderItemAdd,
+      handleApplySupplierHistoryItem, handleApplyCatalogProducts, supplierHistoryItems, supplierRegisteredProducts: selectedSupplierRegisteredProducts,
+      orderTotals, getProductSearchOptionLabel, orderSubmitting, savedOrderDrafts, saveCurrentOrderDraft, openSavedOrderDraft,
+      deleteSavedOrderDraft, activeSavedOrderDraftId,
+    },
+    {
+      showReceiveModal, selectedOrder, setShowReceiveModal, receiveSubmitting, handleReceiveSubmit, receiveData,
+      setReceiveData, handleReceiveQtyStep, handleReceiveItemChange, getProductUomProfile,
+      resolvePurchaseUnitForProduct, toBaseQtyForProduct,
+    },
+    {
+      showOrderDetail, closeOrderDetail, orderDetail, orderDetailLoading, orderDetailSupplier, orderDetailEditMode,
+      orderDetailDraft, handleOrderDetailFieldChange, formatDateTime, formatDate, getPoLifecycleStatus,
+      getPoPaidAmount, orderDetailItems, getItemFinancials, getOrderDetailOriginalItem, hasOrderDetailItemChanged,
+      getOrderDetailItemFieldChanged, handleOrderDetailProductInputChange, getProductSearchLabel,
+      getOrderDetailItemOriginalLabel, handleOrderDetailItemChange, handleOrderDetailItemRemove,
+      handleOrderDetailItemAdd, orderDetailHasComputedChanges, orderDetailComputedTotals, orderDetailDraftDiagnostics, orderDetailIsEditable,
+      orderDetailSaving, handleOrderDetailSave, openOrderDetailEditMode, handlePrintOrderDetail,
+    },
+    {
+      showProcessModal, processingOrder, closeProcessModal, handleProcessSubmit, processSubmitting, processFormData,
+      setProcessFormData, showPoPaymentModal, paymentOrder, closePoPaymentModal, handlePoPaymentSubmit,
+      poPaymentSubmitting, poPaymentFormData, setPoPaymentFormData,
+    },
+    {
+      showLedgerForm, closeLedgerForm, ledgerSubmitting, handleLedgerSubmit, ledgerFormData, setLedgerFormData,
+      showPoCorrectionForm, selectedCorrectionOrder, closePoCorrectionForm, handlePoCorrectionSubmit,
+      poCorrectionFormData, setPoCorrectionFormData, poCorrectionContext, showReturnForm, closeReturnForm,
+      returnSubmitting, handleReturnSubmit, returnFormData, setReturnFormData, handleReturnItemAdd,
+      handleReturnItemChange, handleReturnItemRemove,
+    },
+    {
+      popupMode,
+      showSectionTabs,
+    },
+  );
 
   const handleCloseSupplierVisit = useCallback(async ({ supplierId, date } = {}) => {
     const normalizedSupplierId = Number(supplierId || 0) || null;
@@ -1684,6 +1754,7 @@ const usePurchaseManagementController = ({
       handleCloseSupplierVisit, handleReopenSupplierVisit,
       lowStockProducts,
       formatCurrency, toNumber, fetchDistributorLedger, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
+      onRefreshProducts: refreshProductsAfterMutation,
       canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
       handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,
       handleOpenPoCorrectionForm, poCorrectionSubmitting, handleUpdateStatus, handleDeleteOrder,
@@ -1735,7 +1806,7 @@ const usePurchaseManagementController = ({
     },
   );
 
-  return pageProps;
+  return buildPageProps();
 };
 
 export default usePurchaseManagementController;

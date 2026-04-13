@@ -94,10 +94,12 @@ const ProductsPageLayout = ({
   hasMoreProducts,
   filteredFamilies,
   commitSearchQuery,
-  DEFAULT_SORT_BY,
-  showMobileFilters,
-  smartSectionsProps,
-}) => {
+   DEFAULT_SORT_BY,
+   showMobileFilters,
+   smartSectionsProps,
+   snackbar,
+   dismissSnackbar,
+ }) => {
   if (!isMobile && loading && productsLength === 0) {
     const skeletonCount = isMobile ? 6 : 8;
     return (
@@ -126,7 +128,7 @@ const ProductsPageLayout = ({
   const profileName = String(localUser?.name || '').trim();
   const profileInitials = profileName ? getInitials(profileName) : '';
   const isAdminUser = normalizeText(localUser?.role) === 'admin';
-  const disableMobileLogoLink = !isAdminUser;
+  const disableMobileLogoLink = true;
 
   if (isMobile) {
     return (
@@ -199,6 +201,8 @@ const ProductsPageLayout = ({
         decreaseFromCart={decreaseFromCart}
         cartQtyById={cartQtyById}
         buttonStatus={buttonStatus}
+        snackbar={snackbar}
+        dismissSnackbar={dismissSnackbar}
       />
     );
   }

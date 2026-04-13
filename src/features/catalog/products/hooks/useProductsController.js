@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useCart } from '../../../../providers/CartProvider';
 import { getProductFallbackImage } from '../../../../shared/utils/productImage';
@@ -28,6 +28,7 @@ import useProductsRecommendations from './useProductsRecommendations';
 import buildProductFamilies from '../utils/productFamilies';
 import buildProductsPageProps from './buildProductsPageProps';
 import * as productHelpers from '../utils/productHelpers.js';
+import { DOMAINS, registerDomainListener } from '../../../../shared/services/invalidation';
 export default function useProductsController() {
   const { cart: sharedCart, replaceCart } = useCart();
   const isMobile = useIsMobile();
@@ -37,6 +38,7 @@ export default function useProductsController() {
   const initialGroupBy = searchParams.get('group') === productHelpers.GROUP_BY_OPTIONS.brand
     ? productHelpers.GROUP_BY_OPTIONS.brand
     : productHelpers.GROUP_BY_OPTIONS.category;
+  const [snackbar, setSnackbar] = useState({ show: false, message: '', undo: null });
   const productsState = useProductsState({
     initialSearchQuery,
     initialGroupBy,
@@ -84,6 +86,51 @@ export default function useProductsController() {
     setLoading: productsState.setLoading,
     setIsLoadingMore: productsState.setIsLoadingMore,
   });
+
+  const refreshProductsCatalog = useCallback(async () => {
+    if (productsState.productsAbortControllerRef.current) {
+      productsState.productsAbortControllerRef.current.abort();
+      productsState.productsAbortControllerRef.current = null;
+    }
+    const cacheKey = productHelpers.buildProductsListSessionCacheKey({
+      selectedCategory: serverCategoryFilter,
+      query: productsState.appliedSearchQuery,
+      sortBy: productsState.sortBy,
+      inStockOnly: productsState.inStockOnly,
+      pageSize: productPageSize,
+    });
+    const requestId = productsState.latestProductsRequestRef.current + 1;
+    productsState.latestProductsRequestRef.current = requestId;
+    productsState.productsLoadingMoreRef.current = false;
+    productsState.setIsLoadingMore(false);
+    productsState.setError('');
+    productsState.setLoading(true);
+    await fetchProductsPage({
+      page: Math.max(1, Number(productsState.productsPage || 1)),
+      append: false,
+      requestId,
+      cacheKey,
+    });
+  }, [
+    fetchProductsPage,
+    productPageSize,
+    productsState.appliedSearchQuery,
+    productsState.inStockOnly,
+    productsState.latestProductsRequestRef,
+    productsState.productsAbortControllerRef,
+    productsState.productsLoadingMoreRef,
+    productsState.productsPage,
+    productsState.setError,
+    productsState.setIsLoadingMore,
+    productsState.setLoading,
+    productsState.sortBy,
+    serverCategoryFilter,
+  ]);
+
+  useEffect(() => registerDomainListener(DOMAINS.Products, refreshProductsCatalog, {
+    listenerId: 'catalog-products',
+  }), [refreshProductsCatalog]);
+
   useEffect(() => {
     productsState.setCart(Array.isArray(sharedCart) ? sharedCart : []);
   }, [productsState.setCart, sharedCart]);
@@ -332,7 +379,34 @@ export default function useProductsController() {
   });
 
   const handleRepeatOrder = () => {
-    cartActions.addFamilyPackToCart(recommendations.repeatOrderFamilies, { source: 'repeat_order' });
+    const availableFamilies = recommendations.repeatOrderFamilies.filter((family) => {
+      // Check if the selected variation is in stock
+      const selectedVariation = getSelectedVariation(family);
+      return selectedVariation && selectedVariation.in_stock;
+    });
+    const skippedCount = recommendations.repeatOrderFamilies.length - availableFamilies.length;
+    cartActions.addFamilyPackToCart(availableFamilies, { source: 'repeat_order' });
+    if (skippedCount > 0) {
+      // Show toast or notification
+      console.log(`${skippedCount} items unavailable and skipped`);
+      // TODO: Integrate with toast system
+    }
+  };
+
+  const showSnackbar = (message, undo = null) => {
+    setSnackbar({ show: true, message, undo });
+    setTimeout(() => setSnackbar({ show: false, message: '', undo: null }), 3000);
+  };
+
+  const toggleExpressMode = () => {
+    const newValue = !isExpressMode;
+    setIsExpressMode(newValue);
+    localStorage.setItem("expressMode", newValue.toString());
+  };
+
+  const addToCartWithSnackbar = (family, variation) => {
+    cartActions.addToCart(family, variation);
+    showSnackbar('Added to cart', () => cartActions.decreaseFromCart(variation));
   };
 
   const handleRestockAll = () => {
@@ -355,7 +429,7 @@ export default function useProductsController() {
     getFamilyCardState: productHelpers.getFamilyCardState,
     cartQtyById: cartActions.cartQtyById,
     openFamilyDetails: cartActions.openFamilyDetails,
-    addToCart: cartActions.addToCart,
+    addToCart: addToCartWithSnackbar,
     decreaseFromCart: cartActions.decreaseFromCart,
     handleSelectVariation: cartActions.handleSelectVariation,
     buttonStatus: productsState.buttonStatus,
@@ -493,6 +567,8 @@ export default function useProductsController() {
     DEFAULT_SORT_BY: productHelpers.DEFAULT_SORT_BY,
     showMobileFilters: productsState.showMobileFilters,
     smartSectionsProps,
+    snackbar,
+    dismissSnackbar: () => setSnackbar({ show: false, message: '', undo: null }),
   });
 }
 

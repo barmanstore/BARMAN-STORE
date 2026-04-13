@@ -21,13 +21,12 @@ It is written for non‑technical readers and should stay up to date.
 14. [Orders and Fulfillment](#orders-and-fulfillment)
 15. [Notifications and Reminders](#notifications-and-reminders)
 16. [Reports and Admin Views](#reports-and-admin-views)
-17. [Planned Improvements](#planned-improvements)
-18. [What This System Is Not](#what-this-system-is-not)
-19. [Who Should Use This System](#who-should-use-this-system)
-20. [Common Questions](#common-questions)
-21. [Glossary (Simple Words)](#glossary-simple-words)
-22. [Update Rules](#update-rules)
-23. [Change Notes](#change-notes)
+17. [What This System Is Not](#what-this-system-is-not)
+18. [Who Should Use This System](#who-should-use-this-system)
+19. [Common Questions](#common-questions)
+20. [Glossary (Simple Words)](#glossary-simple-words)
+21. [Update Rules](#update-rules)
+22. [Change Notes](#change-notes)
 
 ---
 
@@ -362,83 +361,6 @@ Reports help you make business decisions without guessing.
 
 ---
 
-## Planned Improvements
-
-This section lists what we want to build next.
-These items may not be fully active today.
-
-### 1. Trusted and Responsive User Interface
-
-Goal: Build trust at first glance.
-
-- A simple home page with:
-  - Store name clearly shown
-  - "Cash Only" and "In‑Store Pickup" message
-  - "Open / Closed" status badge
-  - A WhatsApp button for direct contact
-
-Mobile experience:
-- One‑handed use
-- Vertical product list
-- Large "Add" buttons
-- Floating "View Bill / Order" button
-
-Desktop experience:
-- Owner dashboard layout
-- Side‑by‑side view of:
-  - Catalog
-  - Short items
-  - Active orders
-
-### 2. "Informative Only" Inventory Logic
-
-Goal: Allow real‑world stock mismatch without blocking sales.
-
-- Owner can bill even if stock shows 0 or negative.
-- "Quick Add Custom Item" for items not in catalog.
-- If customer orders more than shown stock:
-  - Show a polite "Stock may vary" note.
-  - Allow the order to continue.
-
-### 3. Digital Khata and Payment Collection
-
-Goal: Replace the manual register.
-
-- Simple customer status:
-  - Green = no dues
-  - Red = owes money
-- One‑tap WhatsApp payment request.
-  Message example:
-  "Hi [Name], your balance at [Store Name] is ₹[Amount]. Please settle at your next visit. Thank you!"
-- Every credit entry should store:
-  - date
-  - optional note (example: "forgot wallet")
-
-### 4. Advanced Distributor and Analytics
-
-Smart scheduling:
-- Calendar view
-- Highlights "Today’s Distributors" based on their weekly day
-
-Shortage bridge:
-- Short items can be tagged to a distributor
-- Distributor profile shows "Items you need from them"
-
-Simple business analytics:
-- Top selling vs slow moving items
-- Cash collected today vs udhar given
-- Total vendor dues
-
-### 5. Internal Implementation Notes
-
-These are for developers, not customers:
-
-- Database should allow negative stock (soft constraint).
-- UI should support mobile and desktop layouts easily.
-- Heavy analytics should run on backend, not mobile.
-
----
-
 ## What This System Is Not
 
 This is not:
@@ -508,3 +430,40 @@ If the system changes, update this guide the same day.
 Add short notes here when the system changes:
 
 - YYYY‑MM‑DD: short summary of what changed in simple language.
+
+
+## Recommandation
+
+1. Trusted & Responsive User Interface
+Trust-Building Home Page:
+Simple Hero Section: Bold store name, "Cash Only," and "In-Store Pickup" disclaimer.
+Live Status: A clear "Open/Closed" badge.
+Direct Contact: A prominent WhatsApp button for immediate queries.
+Adaptive Layout (Mobile vs. Desktop):
+Mobile View: A "One-Handed" design. Focus on a vertical, scrollable catalog with large "Add" buttons and a floating "View Bill/Order" button. Use Responsive Web Design to ensure usability on small screens.
+Desktop View: A multi-column dashboard for the owner. View the catalog, short-items, and active orders side-by-side to minimize clicking. 
+
+2. "Informative Only" Inventory Logic
+The system must allow for real-world stock mismatches: 
+Flexible Billing: The owner must be able to bill any quantity, even if the system shows 0 or Negative stock.
+Non-Listed Sales: A "Quick Add Custom Item" button on the billing screen for products not yet in the digital catalog.
+Warning, Not Block: If a user orders more than what is "listed," show a "Stock may vary" note to the customer, but allow the order to proceed.
+
+3. Digital "Khata" & Payment Collection
+To replace manual registers with a Digital Retail Management System: 
+Customer Credit Profile: A simple "Red/Green" status. Red if they owe money (Udhar), Green if they have a balance.
+One-Tap Collection: Inside each customer’s profile, include a "Request Payment" button. This launches WhatsApp with a pre-written message: "Hi [Name], your balance at [Store Name] is ₹[Amount]. Please settle at your next visit. Thank you!"
+History Logs: Every "Udhar" entry must be timestamped with a optional note (e.g., "forgot wallet" or "weekly credit").
+
+4. Advanced Distributor & Analytics Logic
+Smart Scheduling: A calendar view that automatically highlights "Today’s Distributors" based on their assigned weekly day.
+PO "Shortage" Bridge: The "Short Item" list should allow you to tag items to a specific distributor. When you open that distributor's profile, it automatically shows: "Items you need from them."
+Store Analytics (Simple):
+Top Items: What is actually selling vs. what is sitting on the shelf.
+Cash Flow: Total cash collected today vs. total "Udhar" given out today.
+Vendor Due: Total money currently owed to all distributors.
+
+5. Technical Instruction for Coder
+Database: Use Supabase Postgres with "Soft Constraints"—do not set the stock column to UNSIGNED (allow it to go below zero).
+UI Framework: Use Tailwind CSS for easy mobile/desktop toggling.
+No Heavy Logic: Keep analytics calculations on the backend to ensure the mobile app remains fast for the "Simple User."

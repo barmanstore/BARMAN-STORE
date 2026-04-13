@@ -51,6 +51,7 @@ const PurchaseModals = ({
   openSavedOrderDraft,
   deleteSavedOrderDraft,
   activeSavedOrderDraftId,
+  onRefreshProducts,
   showReceiveModal,
   selectedOrder,
   setShowReceiveModal,
@@ -183,6 +184,7 @@ const PurchaseModals = ({
       openSavedOrderDraft={openSavedOrderDraft}
       deleteSavedOrderDraft={deleteSavedOrderDraft}
       activeSavedOrderDraftId={activeSavedOrderDraftId}
+      onRefreshProducts={onRefreshProducts}
       inline={renderOrderFormInline}
     />
 

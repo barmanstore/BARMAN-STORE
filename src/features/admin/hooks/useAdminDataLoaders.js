@@ -4,6 +4,7 @@ import {
   normalizeCashSummary,
   normalizeDailyCashTallyEntry,
 } from '../utils/dailyCashSummary';
+import { productService } from '../../../shared/services/productService';
 
 const ADMIN_PREVIEW_LIMIT = 3;
 const ADMIN_LIST_PAGE_LIMIT = 25;
@@ -218,9 +219,9 @@ const useAdminDataLoaders = ({
         limit: ADMIN_PREVIEW_LIMIT,
       })),
       requestWithRetry(() => adminApi.getAnalyticsSummary()).catch(() => null),
-      requestWithRetry(() => productsApi.getAll({ status: 'active', page_size: 1 })),
-      requestWithRetry(() => productsApi.getAll({ status: 'inactive', page_size: 1 })),
-      requestWithRetry(() => productsApi.getAll({ status: 'active', low_stock: 'true', page_size: 3 })),
+      requestWithRetry(() => productService.fetchProducts({ status: 'active', page_size: 1 })),
+      requestWithRetry(() => productService.fetchProducts({ status: 'inactive', page_size: 1 })),
+      requestWithRetry(() => productService.fetchProducts({ status: 'active', low_stock: 'true', page_size: 3 })),
       requestWithRetry(() => creditApi.getAgingReport()).catch(() => null),
       requestWithRetry(() => purchaseOrdersApi.getOperationsSummary()).catch(() => null),
       requestWithRetry(() => insightsApi.getProducts()).catch(() => []),
@@ -386,7 +387,7 @@ const useAdminDataLoaders = ({
       if (normalizedSortField) params.sort_field = normalizedSortField;
       if (normalizedSortDir === 'asc' || normalizedSortDir === 'desc') params.sort_dir = normalizedSortDir;
 
-      const payload = await requestWithRetry(() => productsApi.getAll(params));
+      const payload = await requestWithRetry(() => productService.fetchProducts(params));
       const normalized = normalizeProductsResponse(payload);
       if (activeListRequestRef.current.products !== requestId) {
         return normalized;

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../../shared/services/invalidation';
 import formatApiError from '../../../../shared/utils/formatApiError';
 
 const usePurchaseStatusHandlers = ({
@@ -31,6 +32,12 @@ const usePurchaseStatusHandlers = ({
       }
       await fetchOrders();
       await fetchDistributorLedger();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      if (normalizedStatus === 'processed') {
+        await invalidateDomain(DOMAINS.Products, { sourceId: 'purchase-orders' });
+        await invalidateDomain(DOMAINS.Stock, { sourceId: 'purchase-orders' });
+        await invalidateDomain(DOMAINS.Ledger, { sourceId: 'purchase-orders' });
+      }
     } catch (err) {
       setError(formatApiError(err));
       throw err;
@@ -64,6 +71,7 @@ const usePurchaseStatusHandlers = ({
     try {
       await purchaseOrdersApi.delete(orderId);
       fetchOrders();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
     } catch (err) {
       setError(formatApiError(err));
     }

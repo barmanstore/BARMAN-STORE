@@ -36,6 +36,7 @@ import useAdminUserActions from './useAdminUserActions';
 import useAdminNavigation from './useAdminNavigation';
 import useAdminEffects from './useAdminEffects';
 import { normalizeCashSummary, normalizeDailyCashTallyEntry } from '../utils/dailyCashSummary';
+import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
 
 const useAdminPageController = ({ user }) => {
   const navigate = useNavigate();
@@ -286,6 +287,32 @@ const useAdminPageController = ({ user }) => {
     ordersPage,
     ordersSearchQuery,
   ]);
+
+  const refreshAdminProducts = useCallback(async () => {
+    await loadProductsPage({
+      page: productsPage,
+      query: productTableSearch,
+      category: productTableCategoryFilter,
+      brand: '',
+      status: productTableStatusFilter,
+      lowStockOnly: productTableLowStockOnly,
+      sortField: productTableSortField,
+      sortDir: productTableSortDir,
+    });
+  }, [
+    loadProductsPage,
+    productsPage,
+    productTableSearch,
+    productTableCategoryFilter,
+    productTableStatusFilter,
+    productTableLowStockOnly,
+    productTableSortField,
+    productTableSortDir,
+  ]);
+
+  useEffect(() => registerDomainListener(DOMAINS.Products, refreshAdminProducts, {
+    listenerId: 'admin-products',
+  }), [refreshAdminProducts]);
 
   useEffect(() => {
     setProductsPage(1);

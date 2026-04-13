@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../../shared/services/invalidation';
 import { getSignedLedgerAmount } from '../../../../shared/utils/ledger';
 import { validateAmountInput } from '../../../../shared/utils/amountExpression';
 
@@ -186,6 +187,8 @@ const usePurchaseLedgerCorrections = ({
 
       closePoCorrectionForm();
       fetchDistributorLedger();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Ledger, { sourceId: 'purchase-orders' });
     } catch (err) {
       setError(err?.message || 'Failed to post PO correction');
     } finally {
@@ -271,6 +274,8 @@ const usePurchaseLedgerCorrections = ({
 
       closeLedgerForm();
       fetchDistributorLedger();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Ledger, { sourceId: 'purchase-orders' });
     } catch (err) {
       const localEntry = {
         id: `local-${Date.now()}`,
@@ -288,6 +293,8 @@ const usePurchaseLedgerCorrections = ({
       addLocalLedgerEntry(localLedgerKey, localEntry);
       closeLedgerForm();
       fetchDistributorLedger();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Ledger, { sourceId: 'purchase-orders' });
     } finally {
       setLedgerSubmitting(false);
       ledgerSubmitLockRef.current = false;

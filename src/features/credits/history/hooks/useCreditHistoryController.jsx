@@ -48,6 +48,7 @@ import {
   getCreditEntryDelta,
   getCreditEntryTypeLabel,
 } from '../utils/creditLedgerPresentation';
+import { DOMAINS, registerDomainListener } from '../../../../shared/services/invalidation';
 
 const useCreditHistoryController = ({ user }) => {
   const { userId } = useParams();
@@ -167,6 +168,12 @@ const useCreditHistoryController = ({ user }) => {
     setError,
     effectiveUserId,
   });
+
+  useEffect(() => registerDomainListener(DOMAINS.Ledger, () => {
+    void fetchCreditData(effectiveUserId);
+  }, {
+    listenerId: 'credit-history',
+  }), [effectiveUserId, fetchCreditData]);
 
   const getTypeIcon = (type) => {
     const entry = type && typeof type === 'object' ? type : { type };

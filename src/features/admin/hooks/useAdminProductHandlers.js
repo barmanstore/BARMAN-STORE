@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../shared/services/invalidation';
 
 const BULK_JOB_FINAL_STATES = new Set([
   'completed',
@@ -80,6 +81,7 @@ const useAdminProductHandlers = ({
       await refreshProductsPage();
       const statsData = await statsApi.orders();
       setStats(statsData);
+      void invalidateDomain(DOMAINS.Products, { sourceId: 'admin-products' });
       return { success: true };
     } catch (error) {
       return { success: false, error };
@@ -388,10 +390,11 @@ const useAdminProductHandlers = ({
 
   const handleProductSave = useCallback(async (meta = {}) => {
     try {
-      await refreshProductsPage();
-
-      const statsData = await statsApi.orders();
-      setStats(statsData);
+      const refreshResult = await refreshProductsPageAndStats();
+      if (!refreshResult.success) {
+        showNotification(refreshResult.error.message || 'Failed to refresh products', 'error');
+        return;
+      }
 
       if (meta?.mode === 'create' && Number(meta?.createdCount) > 1) {
         showNotification(`${meta.createdCount} products added successfully`, 'success');
@@ -408,7 +411,7 @@ const useAdminProductHandlers = ({
     } catch (error) {
       showNotification('Failed to refresh products', 'error');
     }
-  }, [statsApi, setStats, showNotification, editingProduct, refreshProductsPage]);
+  }, [editingProduct, refreshProductsPageAndStats, showNotification]);
 
   const handleCancelBulkJob = useCallback(async () => {
     if (!bulkJob?.id) return { success: false };

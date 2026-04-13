@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../../shared/services/invalidation';
 import { validateAmountInput } from '../../../../shared/utils/amountExpression';
 
 const usePurchasePaymentHandlers = ({
@@ -133,6 +134,8 @@ const usePurchasePaymentHandlers = ({
         typeof fetchOperationsSummary === 'function' ? fetchOperationsSummary() : Promise.resolve(),
         fetchDistributorLedger(),
       ]);
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Ledger, { sourceId: 'purchase-orders' });
     } catch (err) {
       setError(err?.message || 'Failed to add PO payment');
       setPoPaymentSubmitting(false);

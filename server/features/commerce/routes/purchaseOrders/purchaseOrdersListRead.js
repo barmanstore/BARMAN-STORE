@@ -86,8 +86,13 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
 
       const rows = includeItems
         ? await Promise.all(baseRows.map(async (row) => {
-          const items = await dbAllAsync('SELECT * FROM purchase_order_items WHERE order_id = ?', [row.id]);
-          return { ...row, item_count: Number(row?.item_count || items.length || 0), items };
+          try {
+            const items = await dbAllAsync('SELECT * FROM purchase_order_items WHERE order_id = ?', [row.id]);
+            return { ...row, item_count: Number(row?.item_count || items.length || 0), items };
+          } catch (_) {
+            // Keep the list response usable even if one order's item expansion fails.
+            return { ...row, item_count: Number(row?.item_count || 0), items: [] };
+          }
         }))
         : baseRows.map((row) => ({ ...row, item_count: Number(row?.item_count || 0) }));
 

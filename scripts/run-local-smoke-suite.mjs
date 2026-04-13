@@ -6,6 +6,11 @@ import { spawn } from 'node:child_process';
 import process from 'node:process';
 import pg from 'pg';
 import EmbeddedPostgres from 'embedded-postgres';
+import {
+  logSmokeSkipInfo,
+  parseBooleanEnv,
+  resolveSmokeDbConfig,
+} from './smokeDbConfig.mjs';
 
 const { Client } = pg;
 
@@ -61,6 +66,8 @@ const dbUser = String(process.env.LOCAL_SMOKE_DB_USER || 'postgres').trim() || '
 const dbPassword = String(process.env.LOCAL_SMOKE_DB_PASSWORD || 'postgres').trim() || 'postgres';
 const dbName = String(process.env.LOCAL_SMOKE_DB_NAME || 'barman_store_smoke').trim() || 'barman_store_smoke';
 const preferredPort = Math.max(1025, Number(process.env.LOCAL_SMOKE_DB_PORT || 55432) || 55432);
+const preferEmbedded = parseBooleanEnv(process.env.LOCAL_SMOKE_DB_FORCE_EMBEDDED, false);
+const defaultLocalDbUrl = `postgresql://${dbUser}@127.0.0.1:55433/${dbName}`;
 const dbDir = path.join(repoRoot, '.local', 'embedded-postgres', 'smoke-utf8');
 const verbose = String(process.env.LOCAL_SMOKE_DB_VERBOSE || '').trim() === '1';
 const POSTGRES_READY_TIMEOUT_MS = Math.max(1000, Number(process.env.LOCAL_SMOKE_DB_READY_TIMEOUT_MS || 12000) || 12000);
@@ -129,6 +136,26 @@ const ensureDatabase = async (pg, databaseName) => {
     if (!message.includes('already exists') && !message.includes('duplicate database')) {
       throw error;
     }
+  }
+};
+
+const ensureDatabaseExists = async (connectionString, databaseName) => {
+  const safeName = String(databaseName || '').replace(/"/g, '');
+  if (!safeName) return;
+  const client = new Client({
+    connectionString,
+    ssl: false,
+  });
+  await client.connect();
+  try {
+    await client.query(`CREATE DATABASE "${safeName}"`);
+  } catch (error) {
+    const message = String(error?.message || '').toLowerCase();
+    if (!message.includes('already exists') && !message.includes('duplicate database')) {
+      throw error;
+    }
+  } finally {
+    await client.end().catch(() => {});
   }
 };
 
@@ -227,12 +254,100 @@ const buildConnectionString = (databaseName, port) => {
 const describeConnectionTarget = (databaseName, port) =>
   `127.0.0.1:${port}/${databaseName}`;
 
+const buildAdminUrlForExternal = (dbUrl) => {
+  const parsed = new URL(dbUrl);
+  parsed.pathname = '/postgres';
+  return parsed.toString();
+};
+
+const canConnectToDb = async (dbUrl) => {
+  const client = new Client({
+    connectionString: dbUrl,
+    ssl: false,
+    connectionTimeoutMillis: 3000,
+  });
+  try {
+    await client.connect();
+    await client.query('SELECT 1 AS ok');
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    await client.end().catch(() => {});
+  }
+};
+
 const isExpectedPostgresShutdownError = (error) => {
   const message = formatError(error);
   return EXPECTED_POSTGRES_SHUTDOWN_PATTERNS.some((pattern) => pattern.test(message));
 };
 
+const runSuiteWithDb = async (dbUrl, label) => {
+  const smokeDbUrl = String(dbUrl || '').trim();
+  if (!smokeDbUrl) return;
+
+  const parsed = new URL(smokeDbUrl);
+  const databaseName = parsed.pathname.replace(/^\/+/, '') || dbName;
+  const adminDbUrl = buildAdminUrlForExternal(smokeDbUrl);
+
+  const smokeTestEnv = {
+    ...process.env,
+    PG_SSL: 'false',
+    PG_SSL_REJECT_UNAUTHORIZED: 'false',
+    SMOKE_TEST_DB_URL: smokeDbUrl,
+    PHONE_TEST_DB_URL: smokeDbUrl,
+    SMOKE_TEST_ALLOW_PRIMARY_DB: '0',
+    PHONE_TEST_ALLOW_NO_DB: '0',
+    SMOKE_ALLOW_NO_DB: '0',
+  };
+  const migrationEnv = {
+    ...smokeTestEnv,
+    DB_CLIENT: 'postgres',
+    DB_EXECUTION_MODE: 'postgres',
+    SUPABASE_DB_URL: smokeDbUrl,
+    DATABASE_URL: smokeDbUrl,
+  };
+
+  console.log(`[LOCAL_SMOKE_DB] Using ${label} database: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}/${databaseName}`);
+  await ensureDatabaseExists(adminDbUrl, databaseName);
+  await ensureLocalSupabaseRoles(adminDbUrl);
+  await runCommand('Applying Postgres migrations', process.execPath, [scriptPath('apply-supabase-migrations.js')], migrationEnv);
+  await cleanupSmokeData(smokeTestEnv, {
+    strict: true,
+    label: 'Cleaning smoke-test data before suite',
+  });
+  for (const step of steps) {
+    await runCommand(step.label, step.command, step.args, smokeTestEnv);
+  }
+  await cleanupSmokeData(smokeTestEnv, {
+    strict: false,
+    label: 'Cleaning smoke-test data after suite',
+  });
+  console.log(`[LOCAL_SMOKE_DB] Suite "${suiteName}" passed.`);
+};
+
 const main = async () => {
+  const smokeDbConfig = resolveSmokeDbConfig({
+    testName: 'Local smoke suite',
+    explicitEnvKeys: ['SMOKE_TEST_DB_URL', 'PHONE_TEST_DB_URL'],
+  });
+
+  if (smokeDbConfig.shouldSkip) {
+    logSmokeSkipInfo(smokeDbConfig.reason);
+    return;
+  }
+
+  if (!preferEmbedded) {
+    const explicitUrl = String(smokeDbConfig.dbUrl || '').trim();
+    const candidateUrls = [explicitUrl, defaultLocalDbUrl].filter(Boolean);
+    for (const candidate of candidateUrls) {
+      if (await canConnectToDb(candidate)) {
+        await runSuiteWithDb(candidate, explicitUrl ? 'configured' : 'local');
+        return;
+      }
+    }
+  }
+
   await fs.mkdir(dbDir, { recursive: true });
   const initializedCluster = await hasInitializedCluster(dbDir);
   if (!initializedCluster) {

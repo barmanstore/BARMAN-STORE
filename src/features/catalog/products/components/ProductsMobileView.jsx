@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import MobileBottomSheet from '../../../../shared/components/mobile/MobileBottomSheet';
 import MobileFooter from '../../../../shared/components/mobile/MobileFooter';
 import MobileProductsHeader from './MobileProductsHeader';
@@ -5,6 +6,9 @@ import MobileShopBody from './mobile/MobileShopBody';
 import ProductDetailView from './ProductDetailView';
 
 function ProductsMobileView({
+  isMobile,
+  loading,
+  productsLength,
   productsPageRef,
   mobileHeaderRef,
   logoImage,
@@ -15,6 +19,12 @@ function ProductsMobileView({
   profileName,
   profileInitials,
   onAvatarError,
+  localUser,
+  avatarLoadFailed,
+  avatarSrc,
+  setAvatarLoadFailed,
+  normalizeText,
+  getInitials,
   searchInputValue,
   handleMobileSearchChange,
   handleMobileSearchFocus,
@@ -34,10 +44,7 @@ function ProductsMobileView({
   selectedCategory,
   handleMobileCategorySelect,
   mobileRootCategories,
-  normalizeText,
   renderCategoryChipLabel,
-  loading,
-  productsLength,
   notice,
   error,
   mobileSubcategories,
@@ -73,7 +80,33 @@ function ProductsMobileView({
   decreaseFromCart,
   cartQtyById,
   buttonStatus,
+  snackbar = { show: false, message: '', undo: null },
+  dismissSnackbar,
 }) {
+  const [isCartExpanded, setIsCartExpanded] = useState(false);
+
+  const handleCartClick = () => {
+    if (cartItemCount > 0) {
+      setIsCartExpanded(prev => !prev);
+    }
+  };
+
+  const MiniCartPreview = () => (
+    <div className="mini-cart-preview">
+      <div className="mini-cart-header">
+        <h3>Your Cart</h3>
+        <button onClick={() => setIsCartExpanded(false)}>×</button>
+      </div>
+      <div className="mini-cart-items">
+        {/* Placeholder for cart items - need to access cart data */}
+        <p>Cart items preview here</p>
+      </div>
+      <div className="mini-cart-actions">
+        <button onClick={() => setIsCartExpanded(false)}>Continue Shopping</button>
+        <button>Checkout</button>
+      </div>
+    </div>
+  );
   return (
     <div className="mobile-shop-page" ref={productsPageRef}>
       <MobileProductsHeader
@@ -143,10 +176,13 @@ function ProductsMobileView({
         loadMoreProductsRef={loadMoreProductsRef}
       />
 
+      {isCartExpanded && <MiniCartPreview />}
+
       <MobileFooter
         cartCount={cartItemCount}
         onHome={() => handleMobileScrollTo('mobile-shop-top')}
         onTopPicks={() => handleMobileScrollTo('mobile-popular-section')}
+        onCartClick={handleCartClick}
       />
 
       {activeMobileFamily && (
@@ -167,6 +203,16 @@ function ProductsMobileView({
             showImage
           />
         </MobileBottomSheet>
+      )}
+
+      {snackbar.show && (
+        <div className="mobile-snackbar">
+          <span>{snackbar.message}</span>
+          {snackbar.undo && (
+            <button onClick={() => { snackbar.undo(); dismissSnackbar(); }}>Undo</button>
+          )}
+          <button onClick={dismissSnackbar}>×</button>
+        </div>
       )}
     </div>
   );

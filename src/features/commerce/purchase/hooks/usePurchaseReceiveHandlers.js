@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../../shared/services/invalidation';
 import formatApiError from '../../../../shared/utils/formatApiError';
 
 const usePurchaseReceiveHandlers = ({
@@ -71,6 +72,9 @@ const usePurchaseReceiveHandlers = ({
       setSelectedOrder(null);
       setReceiveData({ invoice_number: '', items: [] });
       fetchOrders();
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Products, { sourceId: 'purchase-orders' });
+      await invalidateDomain(DOMAINS.Stock, { sourceId: 'purchase-orders' });
     } catch (err) {
       setError(formatApiError(err));
     } finally {

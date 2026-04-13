@@ -8,19 +8,16 @@ const handlePurchaseOrderClose = async (deps, {
     dbRunAsync,
     canPoAcceptPayment,
     logAdminAuditAsync,
-    normalizePoPaymentStatus,
     recordPurchaseOrderStatusHistoryAsync,
     PO_LIFECYCLE_CLOSED,
     PO_LIFECYCLE_FULLY_PAID,
-    PO_PAYMENT_PAID,
-    PO_PAYMENT_UNPAID,
   } = deps;
 
   const balanceDue = Math.max(0, Number(order.balance_due || 0));
   if (!canPoAcceptPayment(currentPoStatus) && currentPoStatus !== PO_LIFECYCLE_FULLY_PAID) {
     return res.status(400).json({ error: 'Only confirmed purchase orders can be closed' });
   }
-  if (balanceDue > 0 || normalizePoPaymentStatus(order.payment_status, PO_PAYMENT_UNPAID) !== PO_PAYMENT_PAID) {
+  if (balanceDue > 0) {
     return res.status(400).json({ error: 'Purchase order can be closed only after full payment' });
   }
   await dbRunAsync(

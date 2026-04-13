@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
 const PRODUCT_CACHE_LIMIT = 160;
-const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
-const roundMoney = (value = 0) => Math.round((Number(value) || 0) * 100) / 100;
 
 const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_CACHE_LIMIT) => {
   const merged = [];
@@ -32,9 +30,6 @@ const findCustomerById = (list = [], customerId = null) => {
   return list.find((entry) => Number(entry?.id || 0) === id) || null;
 };
 
-const isCustomBillingItem = (item = {}) =>
-  String(item?.item_type || '').trim().toLowerCase() === 'custom' || Boolean(item?.is_custom);
-
 const findProductByItem = (list = [], item = {}) => {
   const productId = Number(item?.product_id || 0);
   if (productId > 0) {
@@ -42,27 +37,14 @@ const findProductByItem = (list = [], item = {}) => {
     if (byId) return byId;
   }
 
-  const lookupKey = normalizeLookupKey(item?.product_name);
-  if (!lookupKey) return null;
-
-  const barcodeMatches = list.filter((product) =>
-    normalizeLookupKey(product?.barcode) === lookupKey
-  );
-  if (barcodeMatches.length > 0) {
-    return barcodeMatches.length === 1 ? barcodeMatches[0] : null;
-  }
-
-  const skuMatches = list.filter((product) =>
-    normalizeLookupKey(product?.sku) === lookupKey
-  );
-  if (skuMatches.length > 0) {
-    return skuMatches.length === 1 ? skuMatches[0] : null;
-  }
-
-  const nameMatches = list.filter((product) =>
-    normalizeLookupKey(product?.name) === lookupKey
-  );
-  return nameMatches.length === 1 ? nameMatches[0] : null;
+  const nameKey = String(item?.product_name || '').trim().toLowerCase();
+  if (!nameKey) return null;
+  return list.find((product) => {
+    const productName = String(product?.name || '').trim().toLowerCase();
+    const sku = String(product?.sku || '').trim().toLowerCase();
+    const barcode = String(product?.barcode || '').trim().toLowerCase();
+    return productName === nameKey || sku === nameKey || barcode === nameKey;
+  }) || null;
 };
 
 const useBillingCreateBill = ({
@@ -117,38 +99,22 @@ const useBillingCreateBill = ({
       order_id: isOrderLinked ? Number(linkedOrderId || 0) : null,
       fulfillment_mode: isOrderLinked ? fulfillmentMode : 'full_now',
       items: items
-        .filter((it) => {
-          const lineName = String(it?.name || it?.product_name || '').trim();
-          if (!lineName) return false;
-          if (isOrderLinked) {
-            return Boolean(
-              Number(it?.linkedOrderItemId || it?.linked_order_item_id || 0)
-              || Math.max(0, Number(it?.qty || 0)) > 0
-            );
-          }
-          return Number(it.amount) > 0;
-        })
+        .filter((it) => it.name && Number(it.amount) > 0)
         .map((it) => {
           const itemType = String(it?.type || '').trim().toLowerCase() === 'custom' || Boolean(it?.isCustom)
             ? 'custom'
             : 'inventory';
-          const explicitProductId = Number(it?.productId || it?.product_id || 0) || null;
-          const product = explicitProductId ? getProductForLine(it) : null;
+          const product = getProductForLine(it);
           const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
-          const skipOffers = itemType === 'custom'
-            || (product ? roundMoney(it?.price) !== roundMoney(product?.price) : false);
           return {
-            client_item_id: it?.id || null,
-            linked_order_item_id: Number(it?.linkedOrderItemId || it?.linked_order_item_id || 0) || null,
             item_type: itemType,
             is_custom: itemType === 'custom',
-            product_id: explicitProductId,
+            product_id: Number(it?.productId || it?.product_id || 0) || null,
             product_name: String(it?.name || it?.product_name || '').trim(),
             mrp: Number(it.price) || 0,
             qty: Number(it.qty) || 0,
             ...(normalizedUnit ? { unit: normalizedUnit } : {}),
             discount: Number(it.disc) || 0,
-            skip_offers: skipOffers,
             amount: Number(it.amount) || 0
           };
         })
@@ -183,9 +149,8 @@ const useBillingCreateBill = ({
         }
 
         const productUpdates = [];
-        const productSearchRequests = new Map();
         itemsWithProducts = payload.items.map((it) => {
-          if (isCustomBillingItem(it)) {
+          if (String(it?.item_type || '').trim().toLowerCase() === 'custom' || it?.is_custom) {
             return { ...it, product_id: null };
           }
 
@@ -200,21 +165,14 @@ const useBillingCreateBill = ({
 
           const nextItem = { ...it, product_id: null };
           productUpdates.push((async () => {
-            const productName = String(nextItem.product_name || '').trim();
-            const searchKey = normalizeLookupKey(productName);
-            if (!searchKey) {
+            if (!String(nextItem.product_name || '').trim()) {
               return nextItem;
             }
-            let searchRequest = productSearchRequests.get(searchKey);
-            if (!searchRequest) {
-              searchRequest = billingApi.searchProducts(
-                productName,
-                undefined,
-                { limit: 10, exactOnly: true }
-              );
-              productSearchRequests.set(searchKey, searchRequest);
-            }
-            const productSearchResults = await searchRequest;
+            const productSearchResults = await billingApi.searchProducts(
+              String(nextItem.product_name || '').trim(),
+              undefined,
+              { limit: 10, exactOnly: true }
+            );
             const matchedProduct = findProductByItem(productSearchResults, nextItem);
             if (matchedProduct?.id) {
               nextItem.product_id = matchedProduct.id;
@@ -229,23 +187,6 @@ const useBillingCreateBill = ({
         if (productUpdates.length) {
           await Promise.all(productUpdates);
         }
-      }
-
-      const unresolvedInventoryItems = itemsWithProducts.filter((it) =>
-        !isCustomBillingItem(it) && !Number(it?.product_id || 0)
-      );
-      if (unresolvedInventoryItems.length > 0) {
-        const unresolvedLabels = unresolvedInventoryItems
-          .map((it, index) => String(it?.product_name || `Item ${index + 1}`).trim())
-          .filter(Boolean);
-        const previewLabel = unresolvedLabels.slice(0, 3).join(', ');
-        const extraCount = Math.max(0, unresolvedLabels.length - 3);
-        const details = previewLabel
-          ? `: ${previewLabel}${extraCount > 0 ? ` and ${extraCount} more` : ''}`
-          : '.';
-        throw new Error(
-          `Select each inventory product from search or mark it as custom before creating the bill${details}`
-        );
       }
 
       const resolvedCustomer =

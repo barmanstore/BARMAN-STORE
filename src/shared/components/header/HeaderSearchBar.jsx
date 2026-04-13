@@ -32,7 +32,7 @@ function HeaderSearchBar({ className = '' }) {
         id="header-search"
         name="search"
         type="search"
-        placeholder="Search groceries..."
+        placeholder="Search products, orders…"
         value={value}
         onChange={(event) => setValue(event.target.value)}
         aria-label="Search products"

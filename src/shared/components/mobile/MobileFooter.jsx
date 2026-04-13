@@ -3,7 +3,7 @@ import { Home, Sparkles, ShoppingCart, Store } from 'lucide-react';
 import { useCart } from '../../../providers/CartProvider';
 import './MobileFooter.css';
 
-function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null }) {
+function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null, onCartClick = null }) {
   const location = useLocation();
   const { cartCount: sharedCartCount } = useCart();
   const isStorePage = location.pathname === '/store';
@@ -38,11 +38,19 @@ function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null }) {
     <nav className="mobile-shop-footer" aria-label="Mobile navigation">
       {homeButton}
       {topPicksButton}
-      <Link to="/cart" className="mobile-footer-btn basket">
-        <ShoppingCart size={18} />
-        <span>Basket</span>
-        {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
-      </Link>
+      {onCartClick ? (
+        <button type="button" className="mobile-footer-btn basket" onClick={onCartClick}>
+          <ShoppingCart size={18} />
+          <span>Basket</span>
+          {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
+        </button>
+      ) : (
+        <Link to="/cart" className="mobile-footer-btn basket">
+          <ShoppingCart size={18} />
+          <span>Basket</span>
+          {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
+        </Link>
+      )}
       <Link to="/store" className="mobile-footer-btn" aria-current={isStorePage ? 'page' : undefined}>
         <Store size={18} />
         <span>Store</span>

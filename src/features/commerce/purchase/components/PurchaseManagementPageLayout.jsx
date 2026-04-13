@@ -31,6 +31,7 @@ const PurchaseManagementPageLayout = ({
   handleOpenLedgerForm,
   handleOpenBrowserWorkspace,
   handleReturnFormOpen,
+  onRefreshProducts,
   formatCurrency,
   toNumber,
   fetchDistributorLedger,
@@ -539,6 +540,7 @@ const PurchaseManagementPageLayout = ({
               handleReturnItemAdd={handleReturnItemAdd}
               handleReturnItemChange={handleReturnItemChange}
               handleReturnItemRemove={handleReturnItemRemove}
+              onRefreshProducts={onRefreshProducts}
               renderOrderFormInline
             />
           </div>
@@ -692,6 +694,7 @@ const PurchaseManagementPageLayout = ({
           handleReturnItemAdd={handleReturnItemAdd}
           handleReturnItemChange={handleReturnItemChange}
           handleReturnItemRemove={handleReturnItemRemove}
+          onRefreshProducts={onRefreshProducts}
           renderOrderFormInline={popupMode}
         />
       )}

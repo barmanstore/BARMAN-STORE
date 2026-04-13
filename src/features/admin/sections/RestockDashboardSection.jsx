@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -21,6 +21,7 @@ import {
   safeSessionStorageRemove,
   safeSessionStorageSet,
 } from '../../../shared/utils/storage';
+import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
 import {
   insightsApi,
   productsApi,
@@ -237,7 +238,7 @@ function RestockDashboardSection({
   const deferredSearch = useDeferredValue(searchQuery);
   const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
 
-  const fetchDashboard = async ({ silent = false } = {}) => {
+  const fetchDashboard = useCallback(async ({ silent = false } = {}) => {
     setError('');
     if (silent) {
       setRefreshing(true);
@@ -258,11 +259,19 @@ function RestockDashboardSection({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchDashboard();
   }, []);
+
+  useEffect(() => registerDomainListener(
+    DOMAINS.Stock,
+    () => {
+      void fetchDashboard({ silent: true });
+    },
+    { listenerId: 'restock-dashboard' },
+  ), [fetchDashboard]);
 
   useEffect(() => {
     if (restoredReviewStateRef.current) return;

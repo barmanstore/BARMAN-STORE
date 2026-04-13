@@ -41,6 +41,8 @@ Runs:
 - `npm run test:phone`
 - `npm run test:order-flow`
 - `npm run test:credit-ui`
+Notes:
+The health-check script now tries to start the local smoke Postgres cluster first. It only falls back to the embedded Postgres runner if you set `ALLOW_EMBEDDED_SMOKE_DB=1`. For `npm run smoke:local:*`, you can force the embedded runner by setting `LOCAL_SMOKE_DB_FORCE_EMBEDDED=1`.
 
 ### Smoke suite only
 ```bat
@@ -101,6 +103,8 @@ Notable maintenance entries in the workbench:
 - worktree cleanup preview / apply
 - staged secret scan
 - production build
+
+The smoke Postgres helper on option 12 checks whether the persistent cluster at `C:\Users\naren\pgdata\smoke` is already accepting connections, then waits up to 300 seconds for startup and crash recovery so a slow recovery does not fail the menu action prematurely.
 
 ## 5) Cleanup helpers
 

@@ -168,6 +168,7 @@ export function PurchaseOrderFormModal({
   openSavedOrderDraft,
   deleteSavedOrderDraft,
   activeSavedOrderDraftId,
+  onRefreshProducts,
   inline = false,
 }) {
   const [mobileStep, setMobileStep] = useState(0);
@@ -810,9 +811,24 @@ export function PurchaseOrderFormModal({
     setQuickProductFormOpen(false);
   }, []);
 
-  const handleQuickProductSaved = useCallback(() => {
+  const handleQuickProductSaved = useCallback(async () => {
     setQuickProductFormOpen(false);
-  }, []);
+
+    // Invalidate the purchase lookup cache and refresh products
+    try {
+      const cacheKey = 'purchase_lookup_cache_v1';
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.removeItem(cacheKey);
+      }
+
+      // Refresh products data by calling the API directly
+      if (onRefreshProducts) {
+        await onRefreshProducts();
+      }
+    } catch (error) {
+      console.warn('Failed to refresh products after adding new product:', error);
+    }
+  }, [onRefreshProducts]);
 
   const handleSubmitProductPicker = useCallback(() => {
     if (orderSubmitting || productPickerSelectedIds.length === 0) return;

@@ -24,28 +24,34 @@ const registerPurchaseOrdersReadRoutes = (deps) => {
         [req.params.id]
       );
       if (!row) return res.status(404).json({ error: 'Purchase order not found' });
-      const items = await dbAllAsync(`SELECT * FROM purchase_order_items WHERE order_id = ?`, [row.id]);
-      const payments = await dbAllAsync(
-        `SELECT *
-         FROM purchase_order_payments
-         WHERE purchase_order_id = ?
-         ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC`,
-        [row.id]
-      );
-      const history = await dbAllAsync(
-        `SELECT *
-         FROM purchase_order_status_history
-         WHERE purchase_order_id = ?
-         ORDER BY created_at DESC, id DESC`,
-        [row.id]
-      );
-      const reminders = await dbAllAsync(
-        `SELECT *
-         FROM distributor_purchase_reminders
-         WHERE purchase_order_id = ?
-         ORDER BY scheduled_for DESC, created_at DESC, id DESC`,
-        [row.id]
-      );
+      const loadMany = async (sql, fallback = []) => {
+        try {
+          return await dbAllAsync(sql, [row.id]);
+        } catch (_) {
+          return fallback;
+        }
+      };
+      const [items, payments, history, reminders] = await Promise.all([
+        loadMany(`SELECT * FROM purchase_order_items WHERE order_id = ?`),
+        loadMany(
+          `SELECT *
+           FROM purchase_order_payments
+           WHERE purchase_order_id = ?
+           ORDER BY COALESCE(transaction_date, created_at) DESC, id DESC`
+        ),
+        loadMany(
+          `SELECT *
+           FROM purchase_order_status_history
+           WHERE purchase_order_id = ?
+           ORDER BY created_at DESC, id DESC`
+        ),
+        loadMany(
+          `SELECT *
+           FROM distributor_purchase_reminders
+           WHERE purchase_order_id = ?
+           ORDER BY scheduled_for DESC, created_at DESC, id DESC`
+        ),
+      ]);
       return res.json({ ...row, items, payments, history, reminders });
     } catch (error) {
       return res.status(500).json({ error: error.message });

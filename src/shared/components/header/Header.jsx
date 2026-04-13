@@ -78,14 +78,14 @@ const Header = memo(function Header({
         </Link>
 
         <nav id="app-mobile-nav" className={`nav ${mobileMenuOpen ? 'nav-open' : ''}`}>
-          <Link to="/" onClick={onCloseMobileMenu}>
+          <Link to="/" className="mobile-nav-only" onClick={onCloseMobileMenu}>
             <HomeIcon size={20} /> Home
           </Link>
           <Link to="/products" onClick={onCloseMobileMenu}>
-            <Store size={20} /> Products
+            <Store size={20} /> Shop
           </Link>
           <div
-            className="orders-menu"
+            className="orders-menu header-nav-primary"
             role="group"
             aria-label="Orders"
             onMouseLeave={() => setOrdersMenuOpen(false)}
@@ -109,7 +109,7 @@ const Header = memo(function Header({
                 }
               }}
             >
-              <ClipboardList size={20} /> Orders <ChevronDown size={16} />
+              <ClipboardList size={20} /> Orders <ChevronDown size={15} />
             </button>
             <div
               id="orders-submenu"

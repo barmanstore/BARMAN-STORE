@@ -33,6 +33,7 @@ import {
   getCreditEntrySourceLabel,
   getCreditEntryTypeLabel,
 } from '../history/utils/creditLedgerPresentation';
+import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
 import './CreditKhata.css';
 
 const SEARCH_SCOPE_OPTIONS = [
@@ -459,6 +460,12 @@ function CreditKhata({ user }) {
     setShowAdvancedFilters(false);
   };
   const handleRefreshLedger = () => fetchLedger(filters.user_id, users);
+
+  useEffect(() => registerDomainListener(DOMAINS.Ledger, () => {
+    void fetchLedger(filters.user_id, users);
+  }, {
+    listenerId: 'credit-khata',
+  }), [fetchLedger, filters.user_id, users]);
 
   const renderLoadingState = () => (
     <div className="credit-khata">

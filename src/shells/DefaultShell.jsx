@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MessageCircle, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Header from '../shared/components/header/Header';
 import useLockBodyScroll from '../shared/hooks/useLockBodyScroll';
@@ -60,6 +60,7 @@ function DefaultShell({
   const suppressClickRef = useRef(false);
   const QUICK_CONTACT_POS_KEY = 'barman_quick_contact_pos_v1';
   const [isDragging, setIsDragging] = useState(false);
+  const currentYear = new Date().getFullYear();
   const [quickContactPos, setQuickContactPos] = useState(() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -285,18 +286,7 @@ function DefaultShell({
         onPointerCancel={handleQuickContactPointerUp}
         onClickCapture={handleQuickContactClickCapture}
       >
-        {whatsappHref ? (
-          <a
-            href={whatsappHref}
-            className="quick-contact-btn chat"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Chat on WhatsApp"
-          >
-            <MessageCircle size={18} />
-            <span>Chat</span>
-          </a>
-        ) : null}
+
         <a href={callHref} className="quick-contact-btn call" aria-label="Call store">
           <Phone size={18} />
           <span>Call</span>
@@ -305,54 +295,40 @@ function DefaultShell({
 
       <footer className="footer">
         <div className="footer-content">
-          <div className="footer-section footer-brand">
+          <div className="footer-brand">
             <h3>{info.TITLE}</h3>
             <p>{info.SUB_TITLE}</p>
           </div>
-          <div className="footer-section footer-links">
-            <h4>Quick Links</h4>
-            <div className="footer-links-list">
+          <div className="footer-inline-stack">
+            <div className="footer-inline-links" aria-label="Quick links">
               <Link to="/products">Shop</Link>
-              <Link to="/cart">Cart</Link>
-              <Link to="/my-bills">My Bills</Link>
-              <Link to="/product-requests">Product Requests</Link>
-              <a href={resolvePublicFileUrl('terms-of-service.html')}>Terms of Service</a>
-              <a href={resolvePublicFileUrl('privacy-policy.html')}>Privacy Policy</a>
-              <a href={resolvePublicFileUrl('data-deletion.html')}>Data Deletion</a>
+              <a href={resolvePublicFileUrl('terms-of-service.html')}>Terms</a>
             </div>
-          </div>
-          <div className="footer-section footer-contact">
-            <h4>CONTACT US</h4>
-            <div className="footer-contact-list">
-              <p>Email: {info.EMAIL}</p>
-              <p>Phone: {info.CONTACT}</p>
-              {info.SHOP_ADDRESS ? <p>Address: {info.SHOP_ADDRESS}</p> : null}
-              {info.COUNTER_HOURS ? <p>Counter Hours: {info.COUNTER_HOURS}</p> : null}
+            <div className="footer-inline-action" aria-label="Primary contact">
               {whatsappHref ? (
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="footer-whatsapp-link"
-                >
-                  WhatsApp Chat
+                <a href={whatsappHref} target="_blank" rel="noreferrer">
+                  WhatsApp
                 </a>
-              ) : null}
-              {info.SHOP_LOCATION_URL ? (
-                <a
-                  href={info.SHOP_LOCATION_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="footer-location-link"
-                >
-                  Shop Location
-                </a>
-              ) : null}
+              ) : (
+                <a href={`tel:${info.CONTACT}`}>Call</a>
+              )}
             </div>
           </div>
-        </div>
-        <div className="footer-bottom">
-          <p>&copy; 2026 {info.TITLE}. All rights reserved.</p>
+          <div className="footer-bottom">
+            <p>
+              &copy; {currentYear} {info.TITLE}
+              {info.COUNTER_HOURS ? ` · ${info.COUNTER_HOURS}` : ''}
+              {info.ONLINE_STORE_URL ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  <a href={info.ONLINE_STORE_URL} target="_blank" rel="noreferrer">
+                    Online Store
+                  </a>
+                </>
+              ) : null}
+            </p>
+          </div>
         </div>
       </footer>
     </div>

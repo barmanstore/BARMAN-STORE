@@ -64,7 +64,7 @@ const useProductsDataFetch = ({
       }
       if (inStockOnly) params.in_stock = 'true';
 
-      const payload = await productService.list(params, { signal: controller.signal });
+      const payload = await productService.fetchProducts(params, { signal: controller.signal });
       if (requestId !== latestProductsRequestRef.current) return;
 
       const { items: nextItems, pagination } = resolveProductsPayload(payload);

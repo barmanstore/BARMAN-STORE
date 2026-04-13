@@ -9,6 +9,8 @@ See also: [controllers.md](controllers.md), [services.md](services.md), [naming-
   - [src/features/admin/hooks/useAdminPageController.js](../src/features/admin/hooks/useAdminPageController.js)
   - [src/features/catalog/products/hooks/useProductsController.js](../src/features/catalog/products/hooks/useProductsController.js)
   - [src/features/commerce/purchase/hooks/usePurchaseManagementController.js](../src/features/commerce/purchase/hooks/usePurchaseManagementController.js)
+- Shared mutable domains should broadcast through one invalidation contract, not ad hoc refresh calls. Register the active read surfaces for a domain once, then fan out product, purchase, ledger, or stock refreshes through the shared invalidation service instead of wiring page-specific refresh chains in each mutation handler; when a new UI surface needs the same domain data, add another listener rather than creating a second owner. In this repo, product panels stay on `DOMAINS.Products` because they read `product.stock`, while the restock dashboard listens to `DOMAINS.Stock` for the stock-ledger projection.
+- The invalidation smoke tests live in [docs/invalidation-smoke-tests.md](invalidation-smoke-tests.md). Keep those four manual cases passing whenever you touch product, purchase-order, ledger, or stock refresh wiring.
 - Backend route composition through feature-local helper trees instead of giant single files:
   - `server/features/commerce/routes/purchaseOrders/listCreate/*`
   - `server/features/communication/routes/messageToCustomer/*`

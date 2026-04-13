@@ -180,7 +180,7 @@ goto :eof
 set "TARGET_ALIAS=%~1"
 if "%TARGET_ALIAS%"=="" goto :eof
 echo [INFO] Alias %TARGET_ALIAS% -> %LATEST_URL%
-call %VERCEL_NPX% alias set %LATEST_URL% %TARGET_ALIAS% >> "%LAST_LOG%" 2>&1
+call %VERCEL_NPX% alias set "%LATEST_URL%" "%TARGET_ALIAS%" >> "%LAST_LOG%" 2>&1
 if errorlevel 1 (
   echo [WARN] Failed to set alias %TARGET_ALIAS%. See log.
 )

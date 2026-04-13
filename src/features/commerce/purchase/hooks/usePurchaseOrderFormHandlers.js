@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { DOMAINS, invalidateDomain } from '../../../../shared/services/invalidation';
 import {
   findActivePurchaseProduct,
   isActivePurchaseProduct,
@@ -519,6 +520,7 @@ const usePurchaseOrderFormHandlers = ({
           ? refreshSupplierRegisteredProducts(nextSupplierId)
           : Promise.resolve([]),
       ]);
+      await invalidateDomain(DOMAINS.PurchaseOrders, { sourceId: 'purchase-orders' });
       const savedOrder = nextOrders.find((order) => String(order?.id || '') === savedOrderId) || null;
       const savedPoNumber = String(
         response?.po_number

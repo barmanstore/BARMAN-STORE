@@ -23,6 +23,7 @@ if exist "%LOADENV_JS%" (
 set "MODE=%~1"
 if /i "%MODE%"=="" set "MODE=quick"
 if not defined SMOKE_PGDATA set "SMOKE_PGDATA=%USERPROFILE%\pgdata\smoke"
+if not defined SMOKE_LOCAL_DB_URL set "SMOKE_LOCAL_DB_URL=postgresql://postgres@127.0.0.1:55433/barman_store_smoke"
 
 if /i "%MODE%"=="help" goto help
 if /i "%MODE%"=="fast" goto fast
@@ -204,7 +205,10 @@ if defined PHONE_TEST_DB_URL set "HAS_DB_ENV=1"
 if /i "%SMOKE_TEST_ALLOW_PRIMARY_DB%"=="1" set "HAS_DB_ENV=1"
 if defined HAS_DB_ENV goto :eof
 
-if exist "%REPO_ROOT%\node_modules\embedded-postgres\dist\index.js" (
+call :try_local_smoke_postgres
+if defined HAS_DB_ENV goto :eof
+
+if /i "%ALLOW_EMBEDDED_SMOKE_DB%"=="1" if exist "%REPO_ROOT%\node_modules\embedded-postgres\dist\index.js" (
   echo [INFO] No dedicated smoke-test database configured. Falling back to repo-local embedded Postgres.
   set "USE_LOCAL_SMOKE_DB=1"
   goto :eof
@@ -240,6 +244,23 @@ if errorlevel 1 (
 )
 echo [INFO] Starting local Supabase (supabase start)...
 call supabase start
+goto :eof
+
+:try_local_smoke_postgres
+if defined SMOKE_TEST_DB_URL goto :eof
+if defined PHONE_TEST_DB_URL goto :eof
+if not exist "%~dp0postgres-smoke-start.bat" goto :eof
+echo [INFO] Attempting to start local smoke Postgres...
+call "%~dp0postgres-smoke-start.bat"
+if errorlevel 1 (
+  echo [WARN] Local smoke Postgres did not start. Skipping local DB wiring.
+  goto :eof
+)
+set "SMOKE_TEST_DB_URL=%SMOKE_LOCAL_DB_URL%"
+set "PHONE_TEST_DB_URL=%SMOKE_LOCAL_DB_URL%"
+set "PG_SSL=false"
+set "PG_SSL_REJECT_UNAUTHORIZED=false"
+set "HAS_DB_ENV=1"
 goto :eof
 
 :fail_step

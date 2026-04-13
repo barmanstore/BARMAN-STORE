@@ -3207,6 +3207,53 @@
     line-height: 1.2;
   }
 
+  .mobile-repeat-unavailable {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #dc2626;
+    border-radius: 6px;
+  }
+
+  .mobile-repeat-last-bought {
+    font-size: 0.6rem;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+.mobile-snackbar {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  background: #333;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1000;
+}
+
+.mobile-snackbar button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+
+
   .mobile-products-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3297,6 +3344,67 @@
     overflow-x: auto;
     padding-bottom: 0.2rem;
   }
+
+.mini-cart-preview {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  padding: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.mini-cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mini-cart-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.mini-cart-header button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.mini-cart-items {
+  margin-bottom: 12px;
+}
+
+.mini-cart-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-cart-actions button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.mini-cart-actions button:first-child {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.mini-cart-actions button:last-child {
+  background: #16a34a;
+  color: #fff;
+}
 
   .mobile-tab-btn {
     flex: 0 0 auto;

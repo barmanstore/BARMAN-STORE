@@ -82,14 +82,16 @@ const MobileShopBody = ({
           />
         ) : null}
 
-        <MobileRepeatOrderSection
-          repeatOrderFamilies={repeatOrderFamilies}
-          recentlyBoughtFamilies={recentlyBoughtFamilies}
-          handleRepeatOrder={handleRepeatOrder}
-          openFamilyDetails={openFamilyDetails}
-          getSelectedVariation={getSelectedVariation}
-          getFamilyPreviewVariation={getFamilyPreviewVariation}
-        />
+        {(repeatOrderFamilies.length > 0 || recentlyBoughtFamilies.length > 0) ? (
+          <MobileRepeatOrderSection
+            repeatOrderFamilies={repeatOrderFamilies}
+            recentlyBoughtFamilies={recentlyBoughtFamilies}
+            handleRepeatOrder={handleRepeatOrder}
+            openFamilyDetails={openFamilyDetails}
+            getSelectedVariation={getSelectedVariation}
+            getFamilyPreviewVariation={getFamilyPreviewVariation}
+          />
+        ) : null}
 
         <MobilePopularSection
           popularFamilies={popularFamilies}
