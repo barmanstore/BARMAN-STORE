@@ -85,6 +85,8 @@ const AdminShell = ({ children }) => {
           ref={desktopSidebarRef}
           className={`admin-sidebar-shell ${desktopPanelCollapsed ? 'panel-collapsed' : ''}`}
           aria-label="Admin desktop navigation"
+          onPointerEnter={() => setDesktopPanelCollapsed(false)}
+          onPointerLeave={() => setDesktopPanelCollapsed(true)}
         >
           <div className="admin-sidebar-rail">
             <div className="admin-sidebar-rail-top">

@@ -26,7 +26,8 @@ const usePurchaseLookups = ({
   const resolveSupplierByInput = useCallback((value) => {
     const query = normalizeSearchValue(value);
     if (!query) return null;
-    return (Array.isArray(suppliers) ? suppliers : []).find((entry) => {
+
+    const supplierMatches = (Array.isArray(suppliers) ? suppliers : []).find((entry) => {
       const isActive = entry?.is_active !== false;
       if (!isActive) return false;
       const supplierName = normalizeSearchValue(entry?.name || '');
@@ -38,8 +39,23 @@ const usePurchaseLookups = ({
         || supplierName === query
         || `${supplierName} ${distributorName}`.trim() === query
         || `${supplierName} - ${distributorName}`.trim() === query
+        || `${distributorName} ${supplierName}`.trim() === query
+        || `${distributorName} - ${supplierName}`.trim() === query
       );
-    }) || null;
+    });
+    if (supplierMatches) return supplierMatches || null;
+
+    const distributorMatch = Array.from(distributorById.values()).find(
+      (entry) => normalizeSearchValue(entry?.name || '') === query
+    );
+    if (!distributorMatch) return null;
+
+    const distributorSuppliers = (Array.isArray(suppliers) ? suppliers : []).filter((entry) => {
+      const isActive = entry?.is_active !== false;
+      return isActive && String(entry?.distributor_id || '') === String(distributorMatch.id || '');
+    });
+    if (distributorSuppliers.length === 1) return distributorSuppliers[0];
+    return distributorSuppliers.find((entry) => entry?.is_primary) || null;
   }, [distributorById, suppliers]);
 
   const resolveProductByInput = useCallback((value) => (
