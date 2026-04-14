@@ -281,9 +281,12 @@ const PurchaseManagementPageLayout = ({
           operationsSummary={operationsSummary}
           lowStockProducts={lowStockProducts}
           onDraftDistributor={openCreateOrderFormForDistributor}
+          onOpenOrder={handleViewOrder}
           onOpenPayable={handleOpenPoPaymentById}
           onCloseVisit={handleCloseSupplierVisit}
           onReopenVisit={handleReopenSupplierVisit}
+          savedOrderDrafts={savedOrderDrafts}
+          openSavedOrderDraft={openSavedOrderDraft}
           formatCurrency={formatCurrency}
           toNumber={toNumber}
         />

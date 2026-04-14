@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CalendarDays,
@@ -71,9 +71,16 @@ const isSupplierScopedEntry = (entry = {}) => {
   return Boolean(supplierName && supplierName !== distributorName);
 };
 
-const getEntryPendingDue = (entry = {}) => (
-  asAmount(entry?.po_balance_due) + (isSupplierScopedEntry(entry) ? 0 : asAmount(entry?.ledger_balance))
-);
+const getEntryPendingDue = (entry = {}) => {
+  const supplierPendingDue = isSupplierScopedEntry(entry) ? 0 : asAmount(entry?.ledger_balance);
+  if (entry?.confirmed_po_balance_due !== undefined) {
+    return asAmount(entry.confirmed_po_balance_due) + supplierPendingDue;
+  }
+  if (entry?.unconfirmed_po_count > 0) {
+    return Math.max(0, asAmount(entry?.po_balance_due) - asAmount(entry?.unconfirmed_po_due)) + supplierPendingDue;
+  }
+  return asAmount(entry?.po_balance_due) + supplierPendingDue;
+};
 
 const getDisplayName = (entry = {}) => (
   String(entry?.supplier_name || entry?.distributor_name || 'Supplier').trim() || 'Supplier'
@@ -280,11 +287,25 @@ const closeRoutineMenu = (event) => {
 };
 
 const RoutineActionMenu = ({ actions = [] }) => {
+  const detailsRef = useRef(null);
   const visibleActions = actions.filter(Boolean);
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const details = detailsRef.current;
+      if (!details || !details.hasAttribute('open')) return;
+      if (!details.contains(event.target)) {
+        details.removeAttribute('open');
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
   if (!visibleActions.length) return null;
 
   return (
-    <details className="purchase-routine-menu">
+    <details className="purchase-routine-menu" ref={detailsRef}>
       <summary aria-label="More actions">
         <MoreHorizontal size={16} />
       </summary>
@@ -318,9 +339,12 @@ const RoutineActionMenu = ({ actions = [] }) => {
 const PurchasePlanningPanel = ({
   operationsSummary,
   onDraftDistributor,
+  onOpenOrder,
   onOpenPayable,
   onCloseVisit,
   onReopenVisit,
+  savedOrderDrafts,
+  openSavedOrderDraft,
   formatCurrency,
 }) => {
   const todayKey = normalizeDateKey(operationsSummary?.today) || toLocalDateKey(new Date());
@@ -344,6 +368,34 @@ const PurchasePlanningPanel = ({
       expected_delivery: entry.schedule_date,
       suggested_items: entry.suggested_items || [],
     });
+  };
+
+  const findSavedOrderDraft = (entry) => {
+    if (!Array.isArray(savedOrderDrafts) || !entry) return null;
+    const supplierId = String(entry?.supplier_id || '').trim();
+    const distributorId = String(entry?.distributor_id || '').trim();
+    return savedOrderDrafts.find((draft) => {
+      const draftForm = draft?.orderFormData || {};
+      const draftSupplierId = String(draftForm?.supplier_id || '').trim();
+      const draftDistributorId = String(draftForm?.distributor_id || '').trim();
+      if (supplierId && draftSupplierId && supplierId === draftSupplierId) return true;
+      if (distributorId && draftDistributorId && distributorId === draftDistributorId) return true;
+      return false;
+    }) || null;
+  };
+
+  const handleOpenSupplierOrder = async (entry) => {
+    if (!entry) return;
+    const draft = findSavedOrderDraft(entry);
+    if (entry.unconfirmed_po_order_id) {
+      await onOpenOrder?.(entry.unconfirmed_po_order_id);
+      return;
+    }
+    if (draft) {
+      await openSavedOrderDraft?.(draft.id);
+      return;
+    }
+    handleDraftSupplier(entry);
   };
 
   const handleCloseVisit = async (entry) => {
@@ -475,18 +527,26 @@ const PurchasePlanningPanel = ({
                       scheduleContext,
                       getScheduleTypeLabel(entry.schedule_type),
                     ].filter(Boolean);
+                    const hasSavedDraft = Boolean(findSavedOrderDraft(entry));
+                    const editPoLabel = entry.unconfirmed_po_order_id || entry.has_open_draft || hasSavedDraft
+                      ? 'Edit PO'
+                      : 'Add PO';
+                    const canRecordPayment = entry.payable_order_id
+                      && asAmount(entry.po_balance_due) > 0
+                      && !Number(entry.unconfirmed_po_count || 0);
                     const actionMenu = [
                       !entry.poDone ? {
                         key: 'draft-po',
-                        label: entry.has_open_draft ? 'Edit PO' : 'Draft PO',
+                        label: editPoLabel,
                         icon: PenSquare,
-                        onClick: () => handleDraftSupplier(entry),
+                        onClick: () => handleOpenSupplierOrder(entry),
                       } : null,
                       entry.payable_order_id ? {
                         key: 'record-payment',
                         label: 'Record Payment',
                         icon: Wallet,
                         onClick: () => onOpenPayable?.(entry.payable_order_id),
+                        disabled: !canRecordPayment,
                       } : null,
                       day.isToday && !entry.poDone ? {
                         key: 'close-visit',
@@ -524,6 +584,13 @@ const PurchasePlanningPanel = ({
                               tone={entry.poDone ? 'done' : (entry.has_open_draft ? 'draft' : 'pending')}
                               label={entry.poDone ? 'PO done' : (entry.has_open_draft ? 'PO draft' : 'PO pending')}
                             />
+                            {entry.has_open_draft && !entry.poDone ? (
+                              <RoutineStatusIcon
+                                icon={CircleDashed}
+                                tone="attention"
+                                label="Unconfirmed PO"
+                              />
+                            ) : null}
                             <RoutineStatusIcon
                               icon={Wallet}
                               tone={entry.paymentDone ? 'done' : (entry.payable_order_id ? 'attention' : 'pending')}
@@ -537,6 +604,11 @@ const PurchasePlanningPanel = ({
                               />
                             ) : null}
                           </div>
+                          {entry.unconfirmed_po_count > 0 && !entry.poDone ? (
+                            <p className="purchase-routine-entry-unconfirmed">
+                              {`${entry.unconfirmed_po_count} unconfirmed po ${formatCurrency(entry.unconfirmed_po_due)}`}
+                            </p>
+                          ) : null}
                           {prepareNames.length ? (
                             <p className="purchase-routine-entry-prepare" title={`Prepare: ${prepareNames.join(', ')}`}>
                               Prepare: {prepareNames.join(', ')}
@@ -571,12 +643,16 @@ const PurchasePlanningPanel = ({
                       getScheduleTypeLabel(entry.schedule_type),
                       entry.visitClosed && !entry.poDone ? 'Closed' : 'Handled',
                     ].filter(Boolean);
+                    const canRecordPayment = entry.payable_order_id
+                      && asAmount(entry.po_balance_due) > 0
+                      && !Number(entry.unconfirmed_po_count || 0);
                     const actionMenu = [
                       entry.payable_order_id ? {
                         key: 'record-payment',
                         label: 'Record Payment',
                         icon: Wallet,
                         onClick: () => onOpenPayable?.(entry.payable_order_id),
+                        disabled: !canRecordPayment,
                       } : null,
                       day.isToday && entry.visitClosed ? {
                         key: 'reopen-visit',
@@ -610,6 +686,13 @@ const PurchasePlanningPanel = ({
                               tone={entry.poDone ? 'done' : 'pending'}
                               label={entry.poDone ? 'PO done' : 'PO pending'}
                             />
+                            {entry.has_open_draft && !entry.poDone ? (
+                              <RoutineStatusIcon
+                                icon={CircleDashed}
+                                tone="attention"
+                                label="Unconfirmed PO"
+                              />
+                            ) : null}
                             <RoutineStatusIcon
                               icon={Wallet}
                               tone={entry.paymentDone ? 'done' : (entry.payable_order_id ? 'attention' : 'pending')}
@@ -630,6 +713,11 @@ const PurchasePlanningPanel = ({
                               />
                             ) : null}
                           </div>
+                          {entry.unconfirmed_po_count > 0 && !entry.poDone ? (
+                            <p className="purchase-routine-entry-unconfirmed">
+                              {`${entry.unconfirmed_po_count} unconfirmed po ${formatCurrency(entry.unconfirmed_po_due)}`}
+                            </p>
+                          ) : null}
                           {prepareNames.length ? (
                             <p className="purchase-routine-entry-prepare" title={`Prepare: ${prepareNames.join(', ')}`}>
                               Prepare: {prepareNames.join(', ')}
