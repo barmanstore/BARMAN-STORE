@@ -15,7 +15,7 @@ const usePurchaseStatusHandlers = ({
       setError('');
       const normalizedStatus = String(status || '').trim().toLowerCase();
       const statusResult = normalizedStatus === 'processed'
-        ? await purchaseOrdersApi.process(orderId, extra)
+        ? await purchaseOrdersApi.confirmPO(orderId, extra)
         : await purchaseOrdersApi.updateStatus(orderId, status, extra);
       if (normalizedStatus === 'processed' && Number(statusResult?.cap_applied_count || 0) > 0) {
         const lines = (statusResult.cap_adjustments || [])

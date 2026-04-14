@@ -32,6 +32,7 @@ const handlePurchaseOrderConfirm = async (deps, {
     paymentMode,
     paymentReference,
     paymentNotes,
+    delivered,
     paymentDate,
     confirmedAt,
     distributorId,
@@ -74,13 +75,18 @@ const handlePurchaseOrderConfirm = async (deps, {
       paymentDueDate,
       nextAction,
       confirmedAt,
+      delivered,
     });
   });
+
+  const statusNote = delivered
+    ? 'Purchase order confirmed and marked delivered'
+    : 'Purchase order confirmed without delivery';
 
   await recordPurchaseOrderStatusHistoryAsync(req.params.id, {
     fromStatus: currentPoStatus,
     toStatus: nextLifecycleStatus,
-    note: 'Purchase order confirmed with bill',
+    note: statusNote,
     billNumber: billNumber || null,
     paymentStatus: totalSnapshot.paymentStatus,
     balanceDue: totalSnapshot.balanceDue,
@@ -93,13 +99,14 @@ const handlePurchaseOrderConfirm = async (deps, {
     details: {
       status: 'confirmed',
       po_status: nextLifecycleStatus,
-      bill_number: billNumber || null,
-      initial_paid_amount: totalSnapshot.paidAmount,
-      balance_due: totalSnapshot.balanceDue,
-      payment_status: totalSnapshot.paymentStatus,
-      stock_applied: !stockAlreadyApplied,
-      stock_already_applied: stockAlreadyApplied,
-      cap_applied_count: capAdjustments.length,
+        bill_number: billNumber || null,
+        initial_paid_amount: totalSnapshot.paidAmount,
+        balance_due: totalSnapshot.balanceDue,
+        payment_status: totalSnapshot.paymentStatus,
+        delivered,
+        stock_applied: !stockAlreadyApplied,
+        stock_already_applied: stockAlreadyApplied,
+        cap_applied_count: capAdjustments.length,
       process_payment_id: createdPaymentId,
     },
   });
@@ -111,6 +118,7 @@ const handlePurchaseOrderConfirm = async (deps, {
     stockAlreadyApplied,
     capAdjustments,
     PURCHASE_STOCK_CAP,
+    delivered,
   }));
 };
 

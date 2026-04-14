@@ -4,9 +4,12 @@ const PurchaseDashboardSection = ({
   operationsSummary,
   lowStockProducts,
   onDraftDistributor,
+  onOpenOrder,
   onOpenPayable,
   onCloseVisit,
   onReopenVisit,
+  savedOrderDrafts,
+  openSavedOrderDraft,
   formatCurrency,
   toNumber,
 }) => (
@@ -16,9 +19,12 @@ const PurchaseDashboardSection = ({
         operationsSummary={operationsSummary}
         lowStockProducts={lowStockProducts}
         onDraftDistributor={onDraftDistributor}
+        onOpenOrder={onOpenOrder}
         onOpenPayable={onOpenPayable}
         onCloseVisit={onCloseVisit}
         onReopenVisit={onReopenVisit}
+        savedOrderDrafts={savedOrderDrafts}
+        openSavedOrderDraft={openSavedOrderDraft}
         formatCurrency={formatCurrency}
         toNumber={toNumber}
       />

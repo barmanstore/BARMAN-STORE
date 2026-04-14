@@ -1,3 +1,13 @@
+const normalizeConfirmedDeliveredFlag = (value, fallback = true) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const raw = String(value).trim().toLowerCase();
+  if (!raw) return fallback;
+  if (['true', '1', 'yes', 'y', 'on'].includes(raw)) return true;
+  if (['false', '0', 'no', 'n', 'off'].includes(raw)) return false;
+  return fallback;
+};
+
 const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoStatus, billNumber }) => {
   const {
     calculatePoPaymentSnapshot,
@@ -52,6 +62,7 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
   const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
   const paymentReference = String(req.body?.payment_reference || req.body?.reference || billNumber || '').trim() || null;
   const paymentNotes = String(req.body?.payment_notes || req.body?.notes || '').trim() || null;
+  const delivered = normalizeConfirmedDeliveredFlag(req.body?.delivered, true);
   const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || new Date().toISOString());
   const confirmedAt = new Date().toISOString();
   const distributorId = Number(order.distributor_id || 0);
@@ -96,6 +107,7 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
       paymentMode,
       paymentReference,
       paymentNotes,
+      delivered,
       paymentDate,
       confirmedAt,
       distributorId,

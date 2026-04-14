@@ -22,6 +22,7 @@ const createDefaultProcessFormData = () => ({
   payment_reference: '',
   payment_date: getTodayDate(),
   payment_notes: '',
+  delivered: true,
 });
 
 const createDefaultPoPaymentFormData = () => ({

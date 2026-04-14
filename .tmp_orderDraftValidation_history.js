@@ -28,41 +28,24 @@ const getPurchaseDraftDiagnostics = ({
     const rateWarningAcknowledged = Boolean(item?.rate_warning_acknowledged);
     const isHigher = currentRate > referenceRate;
     const direction = isHigher ? 'higher' : 'cheaper';
-    const quantityInBase = toPositiveNumber(line?.quantityInBase);
-    const totalAmount = toPositiveNumber(line?.totalAmount);
-    const calculatedUnitPrice = quantityInBase > 0 ? totalAmount / quantityInBase : 0;
-    const itemMrp = toPositiveNumber(item?.mrp ?? product?.mrp);
-    const mrpPriceBelowThreshold = itemMrp > 0 && calculatedUnitPrice > 0 && calculatedUnitPrice < (itemMrp * 0.75);
-    const mrpPriceAboveMrp = itemMrp > 0 && calculatedUnitPrice > itemMrp;
-    const mrpPriceError = mrpPriceBelowThreshold || mrpPriceAboveMrp;
-    const mrpPriceRequiresAcknowledgement = mrpPriceError && !rateWarningAcknowledged;
-    const rateRequiresAcknowledgement = mrpPriceError
-      ? mrpPriceRequiresAcknowledgement
-      : (deltaPercent >= rateConfirmationThresholdPercent && !rateWarningAcknowledged);
-    const tone = mrpPriceError
-      ? 'bad'
-      : (deltaPercent > 0
-          ? ((deltaPercent >= rateWarningThresholdPercent || rateRequiresAcknowledgement) ? 'bad' : (isHigher ? 'bad' : 'good'))
-          : 'neutral');
-    const rateChangeLabel = mrpPriceError
-      ? ''
-      : (deltaPercent > 0 ? `${deltaPercent.toFixed(1)}% ${direction}` : '');
-    const rateWarningMessage = mrpPriceError
-      ? ''
-      : (deltaPercent >= rateWarningThresholdPercent
-          ? `Rate is ${deltaPercent.toFixed(1)}% ${direction} than ${referenceSource || 'reference'} (${referenceRate.toFixed(2)})`
-          : '');
-    const rateAcknowledgedLabel = !rateRequiresAcknowledgement && rateWarningAcknowledged
-      ? 'Unusual rate confirmed'
+    const rateRequiresAcknowledgement = deltaPercent >= rateConfirmationThresholdPercent && !rateWarningAcknowledged;
+    const tone = deltaPercent > 0
+      ? ((deltaPercent >= rateWarningThresholdPercent || rateRequiresAcknowledgement) ? 'bad' : (isHigher ? 'bad' : 'good'))
+      : 'neutral';
+    const rateChangeLabel = deltaPercent > 0
+      ? `${deltaPercent.toFixed(1)}% ${direction}`
       : '';
-    const rateAcknowledgementMessage = mrpPriceRequiresAcknowledgement
-      ? (mrpPriceBelowThreshold
-          ? 'Calculated price after GST and discount is below 75% of MRP. Confirm it is intentional before saving.'
-          : 'Calculated price after GST and discount is above MRP. Confirm it is intentional before saving.')
-      : (rateRequiresAcknowledgement
-          ? `This ${direction} rate is unusual. Confirm it is intentional before saving.`
-          : '');
+    const rateWarningMessage = deltaPercent >= rateWarningThresholdPercent
+      ? `Rate is ${deltaPercent.toFixed(1)}% ${direction} than ${referenceSource || 'reference'} (${referenceRate.toFixed(2)})`
+      : '';
+    const rateAcknowledgedLabel = rateRequiresAcknowledgement || !rateWarningAcknowledged || deltaPercent < rateConfirmationThresholdPercent
+      ? ''
+      : 'Unusual rate confirmed';
+    const rateAcknowledgementMessage = rateRequiresAcknowledgement
+      ? `This ${direction} rate is unusual. Confirm it is intentional before saving.`
+      : '';
     const grossAmount = toPositiveNumber(line?.grossAmount);
+    const quantityInBase = toPositiveNumber(line?.quantityInBase);
     const discountType = item?.discount_type === 'fixed' ? 'fixed' : 'percent';
     const rawDiscountValue = toPositiveNumber(item?.discount_value);
     const requestedDiscountAmount = discountType === 'fixed'

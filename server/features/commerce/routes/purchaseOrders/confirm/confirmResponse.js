@@ -5,6 +5,7 @@ const buildConfirmResponse = ({
   stockAlreadyApplied,
   capAdjustments,
   PURCHASE_STOCK_CAP,
+  delivered,
 }) => ({
   success: true,
   po_status: nextLifecycleStatus,
@@ -12,6 +13,7 @@ const buildConfirmResponse = ({
   paid_amount: totalSnapshot.paidAmount,
   balance_due: totalSnapshot.balanceDue,
   payment_due_date: paymentDueDate,
+  delivered: Boolean(delivered),
   stock_cap: PURCHASE_STOCK_CAP,
   stock_applied: !stockAlreadyApplied,
   stock_already_applied: stockAlreadyApplied,

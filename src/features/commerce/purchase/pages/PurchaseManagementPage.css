@@ -2003,6 +2003,14 @@
   text-overflow: ellipsis;
 }
 
+.purchase-management .purchase-routine-entry-unconfirmed {
+  margin: 0;
+  min-width: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .purchase-management .purchase-routine-menu {
   position: relative;
   flex-shrink: 0;
@@ -3860,6 +3868,38 @@
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
 }
 
+.purchase-management .purchase-process-delivered-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.purchase-management .purchase-process-delivered-toggle:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.06);
+}
+
+.purchase-management .purchase-process-delivered-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #1d4ed8;
+  flex-shrink: 0;
+}
+
 .purchase-management .purchase-process-optional {
   border: 1px dashed #dbe4ef;
   border-radius: 12px;
@@ -5271,6 +5311,13 @@
   text-align: right;
 }
 
+.purchase-management .po-popup-grid-total-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 .purchase-management .po-popup-grid-total strong {
   color: #0f172a;
   font-size: 0.88rem;
@@ -5285,17 +5332,34 @@
 }
 
 .purchase-management .po-popup-grid-total-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   justify-content: flex-end;
 }
 
-.purchase-management .po-popup-item-calc-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 8px;
+.purchase-management .po-popup-inline-action {
+  min-height: 28px;
+  padding: 0.28rem 0.56rem;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.purchase-management .po-popup-inline-action.po-popup-inline-action-small {
+  min-height: 22px;
+  padding: 0.12rem 0.32rem;
+  font-size: 0.66rem;
+}
+
+.purchase-management .po-popup-inline-action.danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .purchase-management .po-popup-mini-field {

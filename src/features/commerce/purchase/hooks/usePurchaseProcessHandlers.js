@@ -29,6 +29,7 @@ const usePurchaseProcessHandlers = ({
       payment_reference: '',
       payment_date: getTodayDate(),
       payment_notes: '',
+      delivered: true,
     });
     setShowProcessModal(true);
   }, [
@@ -90,6 +91,7 @@ const usePurchaseProcessHandlers = ({
         payment_reference: processFormData.payment_reference || billNumber,
         payment_date: processFormData.payment_date || getTodayDate(),
         payment_notes: processFormData.payment_notes,
+        delivered: Boolean(processFormData.delivered),
         updated_by: user?.id,
       });
       closeProcessModal();

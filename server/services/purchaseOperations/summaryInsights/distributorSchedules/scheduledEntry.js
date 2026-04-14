@@ -25,6 +25,17 @@ const buildScheduledDistributorEntry = ({
     if (supplierId) return Number(entry?.supplier_id || 0) === supplierId;
     return Number(entry?.distributor_id || 0) === distributorId;
   });
+  const openDraftOrders = ordersForEntry.filter((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)));
+  const orderedUnconfirmedOrders = openDraftOrders.slice().sort((left, right) => (
+    String(left.created_at || '').localeCompare(String(right.created_at || ''))
+    || Number(left.id || 0) - Number(right.id || 0)
+  ));
+  const unconfirmedPoCount = orderedUnconfirmedOrders.length;
+  const unconfirmedPoDue = orderedUnconfirmedOrders.reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
+  const unconfirmedPoOrder = orderedUnconfirmedOrders[0] || null;
+  const confirmedPoBalanceDue = ordersForEntry
+    .filter((order) => !isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)))
+    .reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
   const fallbackProductsSuppliedText = String(supplier?.products_supplied || '').trim()
     || String(distributor?.products_supplied || '').trim();
   const dueTodayAmount = activePayables
@@ -57,8 +68,9 @@ const buildScheduledDistributorEntry = ({
     preferred_whatsapp_time: distributor.preferred_whatsapp_time || null,
     payment_terms: distributor.payment_terms || null,
     configured_payment_due_days: insight?.configured_payment_due_days ?? null,
-    inferred_payment_due_days: insight?.inferred_payment_due_days ?? null,
+    inferred_payment_due_days: insight?.inferred_due_days ?? null,
     po_balance_due: activePayables.reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0),
+    confirmed_po_balance_due: confirmedPoBalanceDue,
     ledger_balance: ledgerBalance,
     due_today_amount: dueTodayAmount,
     overdue_amount: overdueAmountForDistributor,
@@ -72,7 +84,11 @@ const buildScheduledDistributorEntry = ({
     next_payment_due_date: insight?.next_payment_due_date || null,
     inferred_due_date: insight?.inferred_due_date || null,
     strict_due_date: strictDeadlineOrder,
-    has_open_draft: ordersForEntry.some((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order))),
+    has_open_draft: unconfirmedPoCount > 0,
+    unconfirmed_po_count: unconfirmedPoCount,
+    unconfirmed_po_due: unconfirmedPoDue,
+    unconfirmed_po_order_id: unconfirmedPoOrder?.id || null,
+    unconfirmed_po_order_number: unconfirmedPoOrder?.po_number || null,
   };
 };
 

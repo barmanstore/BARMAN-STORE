@@ -27,6 +27,10 @@ const registerPurchaseOrdersStatusRoutes = (deps) => {
       const currentPoStatus = getPurchaseOrderLifecycleStatus(order);
       const normalizedRequestedPoStatus = normalizePoLifecycleStatus(status, currentPoStatus);
       const requestedStatusRaw = String(status || '').trim().toLowerCase();
+      const deliveredRaw = req.body?.delivered;
+      const delivered = deliveredRaw === undefined || deliveredRaw === null || deliveredRaw === ''
+        ? true
+        : !['false', '0', 'no', 'n', 'off'].includes(String(deliveredRaw).trim().toLowerCase());
       const isConfirmRequest = normalizedRequestedPoStatus === PO_LIFECYCLE_CONFIRMED
         || normalizedRequestedPoStatus === PO_LIFECYCLE_PART_PAID
         || normalizedRequestedPoStatus === PO_LIFECYCLE_FULLY_PAID
@@ -39,6 +43,7 @@ const registerPurchaseOrdersStatusRoutes = (deps) => {
           order,
           currentPoStatus,
           billNumber,
+          delivered,
         });
       }
 

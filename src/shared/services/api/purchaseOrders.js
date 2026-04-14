@@ -10,6 +10,12 @@ const prepareDistributorWhatsApp = (id, payload = {}) =>
     body: payload,
   });
 
+const confirmPurchaseOrder = (id, payload = {}) =>
+  apiFetch(`/api/purchase-orders/${id}/status`, {
+    method: 'PUT',
+    body: { status: 'processed', ...payload },
+  });
+
 export const purchaseOrdersApi = {
   getAll: (params = {}) => {
     const query = new URLSearchParams(params).toString();
@@ -45,11 +51,8 @@ export const purchaseOrdersApi = {
       method: 'PUT',
       body: { status, ...extra },
     }),
-  process: (id, processData = {}) =>
-    apiFetch(`/api/purchase-orders/${id}/status`, {
-      method: 'PUT',
-      body: { status: 'processed', ...processData },
-    }),
+  confirmPO: confirmPurchaseOrder,
+  process: confirmPurchaseOrder,
   prepareDistributorWhatsApp,
   sendDistributorWhatsApp: prepareDistributorWhatsApp,
   addPayment: (id, paymentData = {}) =>

@@ -25,6 +25,7 @@ const ProcessOrderModal = ({
   const poNumber = String(processingOrder.po_number || processingOrder.invoice_number || '-').trim() || '-';
   const distributorName = processingOrder.distributor_name || getDistributorName(processingOrder) || '-';
   const paymentSplit = String(processFormData.payment_split || 'part').trim().toLowerCase();
+  const isDelivered = Boolean(processFormData.delivered);
   const paidAmountRaw = String(processFormData.paid_amount || '').trim();
   const paidAmountNumber = paidAmountRaw === '' ? 0 : Math.min(Math.max(0, Number.parseFloat(paidAmountRaw) || 0), poTotal);
   const remainingBalance = Math.max(0, poTotal - paidAmountNumber);
@@ -141,6 +142,16 @@ const ProcessOrderModal = ({
             Part paid
           </button>
         </div>
+      </div>
+      <div className="form-group">
+        <label className="purchase-process-delivered-toggle">
+          <input
+            type="checkbox"
+            checked={isDelivered}
+            onChange={(event) => updateProcessField('delivered', event.target.checked)}
+          />
+          <span>Mark as delivered</span>
+        </label>
       </div>
       <div className="form-row">
         <div className="form-group">

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DollarSign, RefreshCw } from 'lucide-react';
 import { creditApi, usersApi, adminApi, createClientRequestId } from '../../../../shared/services/api';
