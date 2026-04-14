@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../../../shared/utils/formatters';
+import { formatCurrency, formatCurrencyRounded } from '../../../../shared/utils/formatters';
 
 const PurchaseOrderSummaryPanel = ({
   orderFullMode,
@@ -24,7 +24,7 @@ const PurchaseOrderSummaryPanel = ({
         </div>
         <div className="summary-row grand-total">
           <span>Total</span>
-          <strong>{formatCurrency(orderTotals.totalAmount)}</strong>
+          <strong>{formatCurrencyRounded(orderTotals.totalAmount)}</strong>
         </div>
       </div>
       {hasTaxDetails ? (

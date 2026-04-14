@@ -71,7 +71,7 @@ const getDraftRowIssue = (rowDiagnostics = {}) => {
     return { tone: 'danger', text: 'Fix discount', detail: rowDiagnostics.discountBlockingMessage };
   }
   if (rowDiagnostics.rateAcknowledgementMessage) {
-    return { tone: 'bad', text: 'Confirm rate', detail: rowDiagnostics.rateAcknowledgementMessage };
+    return { tone: 'bad', text: '', detail: rowDiagnostics.rateAcknowledgementMessage };
   }
   if (rowDiagnostics.discountAcknowledgementMessage) {
     return { tone: 'bad', text: 'Confirm discount', detail: rowDiagnostics.discountAcknowledgementMessage };
@@ -79,7 +79,7 @@ const getDraftRowIssue = (rowDiagnostics = {}) => {
   if (rowDiagnostics.rateWarningMessage) {
     return {
       tone: rowDiagnostics.rateChangeTone || 'neutral',
-      text: rowDiagnostics.rateChangeLabel || 'Rate changed',
+      text: '',
       detail: rowDiagnostics.rateWarningMessage,
     };
   }
@@ -857,12 +857,27 @@ export function PurchaseOrderFormModal({
     event.preventDefault();
     handleOrderSubmit(event);
   }, [handleOrderSubmit]);
-  const handleQuantityKeyDown = useCallback((rowIndex) => (event) => {
+  const handleQuantityFieldKeyDown = useCallback((rowIndex, quantityStep) => (event) => {
+    const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
+    if (integerOnly && ['e', 'E', '.', ','].includes(event.key)) {
+      event.preventDefault();
+      return;
+    }
     if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
     event.preventDefault();
     const direction = event.key === 'ArrowUp' || (event.key === 'Enter' && event.shiftKey) ? -1 : 1;
     moveDisplayedRowFocus(rowIndex, direction);
   }, [moveDisplayedRowFocus]);
+  const handleQuantityFieldBlur = useCallback((rowIndex, quantityStep) => (event) => {
+    const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
+    if (!integerOnly) return;
+    const parsedValue = Number(event.target.value);
+    if (!Number.isFinite(parsedValue)) return;
+    const normalizedValue = Math.max(0, Math.trunc(parsedValue));
+    if (parsedValue !== normalizedValue) {
+      handleOrderItemChange(rowIndex, 'quantity', normalizedValue);
+    }
+  }, [handleOrderItemChange]);
   const handleInlineFieldKeyDown = useCallback((rowIndex) => (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
@@ -1130,7 +1145,7 @@ export function PurchaseOrderFormModal({
                         const rowLocked = isSupplierDefaultItem(item);
                         const rowIsZero = quantityValue <= 0;
                         const rowMetaNote = [
-                          rowIssue ? rowIssue.text : '',
+                          rowIssue && rowIssue.text ? rowIssue.text : '',
                           !rowIssue && hasEditedRate ? 'edited' : '',
                         ].filter(Boolean).join(' • ');
                         return (
@@ -1160,15 +1175,16 @@ export function PurchaseOrderFormModal({
                                 }}
                                 type="number"
                                 min="0"
-                                step={getPurchasePackStep(product, rowUom)}
+                                step={quantityStep}
+                                inputMode={Number.isInteger(quantityStep) ? 'numeric' : 'decimal'}
                                 value={item?.quantity ?? ''}
                                 onChange={(event) => handleOrderItemChange(index, 'quantity', event.target.value)}
                                 onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleQuantityKeyDown(index)}
+                                onKeyDown={handleQuantityFieldKeyDown(index, quantityStep)}
+                                onBlur={handleQuantityFieldBlur(index, quantityStep)}
                                 disabled={orderSubmitting}
                                 aria-label={`Quantity for ${displayTitle}`}
                               />
-                              {quantityStep > 1 ? <small>pack {quantityStep}</small> : null}
                             </div>
                             <div className="po-popup-grid-cell">
                               <select
@@ -1226,39 +1242,45 @@ export function PurchaseOrderFormModal({
                               <small>{getDiscountColumnSuffix(discountColumnType)}</small>
                             </div>
                             <div className="po-popup-grid-total">
-                              <strong>₹{formatReviewAmount(line?.totalAmount || 0)}</strong>
-                              {rowIssue ? <small>{rowIssue.text}</small> : null}
-                              <div className="po-popup-grid-total-actions">
-                                {diagnostics.rateRequiresAcknowledgement ? (
-                                  <button
-                                    type="button"
-                                    className="po-popup-inline-action"
-                                    onClick={() => handleOrderItemChange(index, 'rate_warning_acknowledged', true)}
-                                    disabled={orderSubmitting}
-                                  >
-                                    Confirm rate
-                                  </button>
-                                ) : null}
-                                {diagnostics.discountRequiresAcknowledgement ? (
-                                  <button
-                                    type="button"
-                                    className="po-popup-inline-action"
-                                    onClick={() => handleOrderItemChange(index, 'discount_warning_acknowledged', true)}
-                                    disabled={orderSubmitting}
-                                  >
-                                    Confirm discount
-                                  </button>
-                                ) : null}
-                                {!rowLocked ? (
-                                  <button
-                                    type="button"
-                                    className="po-popup-inline-action danger"
-                                    onClick={() => handleRemoveRow(index)}
-                                    disabled={orderSubmitting}
-                                  >
-                                    Remove
-                                  </button>
-                                ) : null}
+                              <div className="po-popup-grid-total-main">
+                                <strong>₹{formatReviewAmount(line?.totalAmount || 0)}</strong>
+                                <div className="po-popup-grid-total-actions">
+                                  {diagnostics.rateRequiresAcknowledgement ? (
+                                    <button
+                                      type="button"
+                                      className="po-popup-inline-action po-popup-inline-action-small"
+                                      onClick={() => handleOrderItemChange(index, 'rate_warning_acknowledged', true)}
+                                      disabled={orderSubmitting}
+                                      title={diagnostics.rateAcknowledgementMessage || diagnostics.rateWarningMessage || 'Accept price'}
+                                      aria-label={`Accept rate for ${displayTitle}`}
+                                    >
+                                      ✓
+                                    </button>
+                                  ) : null}
+                                  {diagnostics.discountRequiresAcknowledgement ? (
+                                    <button
+                                      type="button"
+                                      className="po-popup-inline-action po-popup-inline-action-small"
+                                      onClick={() => handleOrderItemChange(index, 'discount_warning_acknowledged', true)}
+                                      disabled={orderSubmitting}
+                                      title={diagnostics.discountAcknowledgementMessage || diagnostics.discountWarningMessage || 'Confirm discount'}
+                                      aria-label={`Confirm unusual discount for ${displayTitle}`}
+                                    >
+                                      ✓
+                                    </button>
+                                  ) : null}
+                                  {!rowLocked ? (
+                                    <button
+                                      type="button"
+                                      className="po-popup-inline-action danger"
+                                      onClick={() => handleRemoveRow(index)}
+                                      disabled={orderSubmitting}
+                                      aria-label={`Remove ${displayTitle}`}
+                                    >
+                                      ✕
+                                    </button>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </article>

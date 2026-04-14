@@ -1,6 +1,6 @@
 import { toNumber } from '../../../../shared/utils/ledger';
 
-const GST_RATE_OPTIONS = [0, 5, 18];
+const GST_RATE_OPTIONS = [0, 5, 18, 40];
 
 const normalizeGstRateOption = (value) => {
   const numeric = toNumber(value);

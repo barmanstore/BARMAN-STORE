@@ -3,6 +3,11 @@ const formatReviewAmount = (value) => Number(value || 0).toLocaleString(undefine
   maximumFractionDigits: 2,
 });
 
+const formatReviewTotalAmount = (value) => Number(value || 0).toLocaleString(undefined, {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
 const normalizeDiscountType = (value) => (
   String(value || '').trim().toLowerCase() === 'fixed' ? 'fixed' : 'percent'
 );
@@ -74,7 +79,7 @@ const PurchaseOrderReviewSheet = ({
     <div className="po-review-bill-totals">
       <div><span>Subtotal</span><strong>{formatReviewAmount(totals.taxableValue || 0)}</strong></div>
       <div><span>GST</span><strong>{formatReviewAmount(totals.taxAmount || 0)}</strong></div>
-      <div className="grand"><span>Total</span><strong>{formatReviewAmount(totals.totalAmount || 0)}</strong></div>
+      <div className="grand"><span>Total</span><strong>{formatReviewTotalAmount(totals.totalAmount || 0)}</strong></div>
     </div>
 
     {notes.length ? (

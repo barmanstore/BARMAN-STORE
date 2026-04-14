@@ -19,6 +19,15 @@ export const formatCurrency = (amount) => {
   }).format(toNumber(amount));
 };
 
+export const formatCurrencyRounded = (amount) => {
+  return new Intl.NumberFormat(INR_LOCALE, {
+    style: 'currency',
+    currency: INR_CURRENCY,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(toNumber(amount));
+};
+
 export const getSignedCurrencyDisplay = (amount) => {
   const normalized = toNumber(amount);
   const formatted = formatCurrency(Math.abs(normalized));
