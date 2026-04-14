@@ -531,9 +531,10 @@ const PurchasePlanningPanel = ({
                     const editPoLabel = entry.unconfirmed_po_order_id || entry.has_open_draft || hasSavedDraft
                       ? 'Edit PO'
                       : 'Add PO';
-                    const canRecordPayment = entry.payable_order_id
-                      && asAmount(entry.po_balance_due) > 0
-                      && !Number(entry.unconfirmed_po_count || 0);
+                    const confirmedBalanceDue = entry.confirmed_po_balance_due !== undefined
+                      ? asAmount(entry.confirmed_po_balance_due)
+                      : Math.max(0, asAmount(entry.po_balance_due) - asAmount(entry.unconfirmed_po_due));
+                    const canRecordPayment = entry.payable_order_id && confirmedBalanceDue > 0;
                     const actionMenu = [
                       !entry.poDone ? {
                         key: 'draft-po',
@@ -643,9 +644,10 @@ const PurchasePlanningPanel = ({
                       getScheduleTypeLabel(entry.schedule_type),
                       entry.visitClosed && !entry.poDone ? 'Closed' : 'Handled',
                     ].filter(Boolean);
-                    const canRecordPayment = entry.payable_order_id
-                      && asAmount(entry.po_balance_due) > 0
-                      && !Number(entry.unconfirmed_po_count || 0);
+                    const confirmedBalanceDue = entry.confirmed_po_balance_due !== undefined
+                      ? asAmount(entry.confirmed_po_balance_due)
+                      : Math.max(0, asAmount(entry.po_balance_due) - asAmount(entry.unconfirmed_po_due));
+                    const canRecordPayment = entry.payable_order_id && confirmedBalanceDue > 0;
                     const actionMenu = [
                       entry.payable_order_id ? {
                         key: 'record-payment',
