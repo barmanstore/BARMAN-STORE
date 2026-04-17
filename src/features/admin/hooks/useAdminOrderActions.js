@@ -2,7 +2,6 @@ import { apiFetch } from '../../../shared/services/api';
 
 const useAdminOrderActions = ({
   ordersApi,
-  user,
   setModalLoading,
   setModalOrder,
   setModalItems,

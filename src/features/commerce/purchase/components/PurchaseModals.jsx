@@ -42,7 +42,6 @@ const PurchaseModals = ({
   handleOrderItemAdd,
   handleApplySupplierHistoryItem,
   handleApplyCatalogProducts,
-  supplierHistoryItems,
   supplierRegisteredProducts,
   orderTotals,
   orderSubmitting,

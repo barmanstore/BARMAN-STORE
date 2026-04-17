@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 const useCategoryManagementComputed = ({
   categories,
@@ -31,7 +31,7 @@ const useCategoryManagementComputed = ({
     [categories, selectedCategoryId]
   );
 
-  const isDescendantOf = (candidateId, ancestorId) => {
+  const isDescendantOf = useCallback((candidateId, ancestorId) => {
     let cursor = categoryMap.get(Number(candidateId));
     const visited = new Set();
     while (cursor && cursor.parent_id && !visited.has(Number(cursor.id))) {
@@ -40,7 +40,7 @@ const useCategoryManagementComputed = ({
       cursor = categoryMap.get(Number(cursor.parent_id));
     }
     return false;
-  };
+  }, [categoryMap]);
 
   const parentOptions = useMemo(() => (
     flattenedTree.filter((node) => {
@@ -49,7 +49,7 @@ const useCategoryManagementComputed = ({
       if (isDescendantOf(node.id, editingId)) return false;
       return true;
     })
-  ), [flattenedTree, editingId, categoryMap]);
+  ), [flattenedTree, editingId, isDescendantOf]);
 
   const productCategoryOptions = useMemo(
     () => flattenedTree.map((node) => ({

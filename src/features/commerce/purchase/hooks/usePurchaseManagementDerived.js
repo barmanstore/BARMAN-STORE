@@ -1,13 +1,11 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { projectPurchaseOrderDraft } from '../utils/orderDrafts';
 
 const usePurchaseManagementDerived = ({
   showOrderForm,
   orderFormData,
-  purchaseOrders,
   products,
   distributors,
-  operationsSummary,
   ledgerRecords,
   filters,
   orderDetail,
@@ -27,14 +25,13 @@ const usePurchaseManagementDerived = ({
   normalizePoPaymentStatus,
   toNumber,
 }) => {
-  const previousProjectionRef = useRef(null);
   const orderDraftProjection = useMemo(() => projectPurchaseOrderDraft({
     items: showOrderForm ? orderFormData.items : [],
     products,
     findProductForItem,
     calculateOrderItem,
     calculateOrderTotals,
-    previousProjection: previousProjectionRef.current,
+    previousProjection: null,
   }), [
     showOrderForm,
     orderFormData.items,
@@ -43,7 +40,6 @@ const usePurchaseManagementDerived = ({
     calculateOrderItem,
     calculateOrderTotals,
   ]);
-  previousProjectionRef.current = orderDraftProjection;
   const orderTotals = orderDraftProjection.totals;
   const ledgerBalanceSummary = getLedgerBalanceSummary(ledgerRecords, filters.distributor_id);
 
@@ -51,11 +47,11 @@ const usePurchaseManagementDerived = ({
   const orderDetailIsEditable = orderDetail ? isPoEditable(orderDetail) : false;
   const orderProductOptions = useMemo(
     () => getDistributorProductOptions(orderFormData.distributor_id),
-    [orderFormData.distributor_id, purchaseOrders, products, getDistributorProductOptions]
+    [orderFormData.distributor_id, getDistributorProductOptions]
   );
   const supplierHistoryItems = useMemo(
     () => getDistributorHistoryProducts(orderFormData.distributor_id),
-    [getDistributorHistoryProducts, orderFormData.distributor_id, purchaseOrders, products]
+    [getDistributorHistoryProducts, orderFormData.distributor_id]
   );
 
   const lowStockProducts = useMemo(() => {

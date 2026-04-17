@@ -54,12 +54,12 @@ function CreditTransactionsSection({
           {creditHistory.length === 0 ? (
             <>
               <p>No ledger entries yet{isAdminView ? ' for this customer.' : '.'}</p>
-              {isAdminView && <p>Use "Add Manual Sale" when a customer purchase is added to due, or "Add Payment" when money is received.</p>}
+              {isAdminView && <p>Use &quot;Add Manual Sale&quot; when a customer purchase is added to due, or &quot;Add Payment&quot; when money is received.</p>}
             </>
           ) : (
             <>
               <p>No entries match current filters.</p>
-              {hasFiltersApplied && <p>Switch filters to "All" to view the full ledger.</p>}
+              {hasFiltersApplied && <p>Switch filters to &quot;All&quot; to view the full ledger.</p>}
             </>
           )}
         </div>

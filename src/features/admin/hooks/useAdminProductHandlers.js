@@ -139,7 +139,7 @@ const useAdminProductHandlers = ({
     }
   }, [showNotification]);
 
-  const pollBulkJobAsync = useCallback(async (jobId, pollRunId) => {
+  const pollBulkJobAsync = useCallback(async function pollBulkJobAsync(jobId, pollRunId) {
     if (!jobId) return;
     try {
       const response = await productsApi.getBulkJob(jobId);
@@ -283,7 +283,7 @@ const useAdminProductHandlers = ({
     } finally {
       setProductEditLoadingId(null);
     }
-  }, [productsApi, setProductEditLoadingId, setEditingProduct, setShowProductForm, showNotification]);
+  }, [productsApi, setProductEditLoadingId, setEditingProduct, setProductFormMode, setShowProductForm, showNotification]);
 
   const handleAddProduct = useCallback(() => {
     setEditingProduct(null);
@@ -386,7 +386,7 @@ const useAdminProductHandlers = ({
       showNotification(error.message || 'Failed to queue bulk update', 'error');
       return { success: false, updatedIds: [], failedIds: [], error };
     }
-  }, [productsApi, showNotification, startBulkJobPolling]);
+  }, [productsApi, registerBulkJob, showNotification]);
 
   const handleProductSave = useCallback(async (meta = {}) => {
     try {
@@ -442,7 +442,7 @@ const useAdminProductHandlers = ({
       showNotification(error.message || 'Failed to retry bulk update', 'error');
       return { success: false, error };
     }
-  }, [bulkJob, productsApi, showNotification, startBulkJobPolling]);
+  }, [bulkJob, productsApi, registerBulkJob, showNotification]);
 
   const dismissBulkJob = useCallback(() => {
     clearBulkJobPolling();

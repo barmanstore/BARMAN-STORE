@@ -2,7 +2,6 @@
 
 const MobileRepeatOrderSection = ({
   repeatOrderFamilies,
-  recentlyBoughtFamilies,
   handleRepeatOrder,
   openFamilyDetails,
   getSelectedVariation,

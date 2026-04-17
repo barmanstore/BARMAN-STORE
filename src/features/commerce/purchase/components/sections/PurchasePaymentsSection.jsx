@@ -38,6 +38,7 @@ const SEARCH_SCOPE_OPTIONS = [
   { value: 'ledger', label: 'Ledger' },
   { value: 'notes', label: 'Notes' },
 ];
+const DEFAULT_NOW_TIMESTAMP = Date.now();
 const SEARCH_SCOPE_COPY = {
   all: {
     placeholder: 'Search payments',
@@ -188,15 +189,6 @@ const buildDateRangePresets = () => {
   ];
 };
 
-const compareNullable = (left, right, comparator) => {
-  const leftMissing = left === null || left === undefined || left === '';
-  const rightMissing = right === null || right === undefined || right === '';
-  if (leftMissing && rightMissing) return 0;
-  if (leftMissing) return 1;
-  if (rightMissing) return -1;
-  return comparator(left, right);
-};
-
 const getPayableActionMeta = (entry) => {
   const paymentEligible = canAddPaymentToPo(entry);
   return paymentEligible
@@ -234,7 +226,6 @@ const PurchasePaymentsSection = ({
   getLedgerTypeLabel = (entry) => String(entry?.transaction_type || entry?.type || ''),
   formatCurrency = (amount) => String(amount ?? 0),
   toNumber = (value) => Number(value) || 0,
-  getEntryDisplayBalance = () => 0,
   getLedgerBillNumber = (entry) => entry?.bill_number || entry?.po_number || '-',
 }) => {
   const [quickView, setQuickView] = useState('all');
@@ -342,16 +333,6 @@ const PurchasePaymentsSection = ({
     });
     return next;
   }, [payableEntries]);
-  const recentLedgerEntries = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - (RECENT_LEDGER_DAY_WINDOW - 1));
-    return ledgerEntries.filter((entry) => {
-      const value = entry?.created_at || entry?.transaction_date || entry?.date;
-      const parsed = value ? new Date(value) : null;
-      return parsed && !Number.isNaN(parsed.getTime()) && parsed >= cutoff;
-    });
-  }, [ledgerEntries]);
   const matchesSearch = useMemo(() => {
     const text = (values = []) => values
       .filter(Boolean)
@@ -363,17 +344,15 @@ const PurchasePaymentsSection = ({
       return !normalizedSearchQuery || text(scopeValues).includes(normalizedSearchQuery);
     };
   }, [normalizedSearchQuery]);
-  const matchesDateRange = useMemo(() => {
+  const matchesDateRange = useCallback((value) => {
     const startDate = normalizeDateKey(filters.start_date);
     const endDate = normalizeDateKey(filters.end_date);
-    if (!startDate && !endDate) return () => true;
-    return (value) => {
-      const dateKey = normalizeDateKey(value);
-      if (!dateKey) return false;
-      if (startDate && dateKey < startDate) return false;
-      if (endDate && dateKey > endDate) return false;
-      return true;
-    };
+    if (!startDate && !endDate) return true;
+    const dateKey = normalizeDateKey(value);
+    if (!dateKey) return false;
+    if (startDate && dateKey < startDate) return false;
+    if (endDate && dateKey > endDate) return false;
+    return true;
   }, [filters.end_date, filters.start_date]);
   const filteredPayableEntries = useMemo(() => {
     const nextEntries = payableEntries.filter((entry) => {
@@ -467,16 +446,17 @@ const PurchasePaymentsSection = ({
     if (quickView === 'recent') return filtered;
     if (quickView === 'due') return filtered;
     return filtered;
-  }, [dueSupplierKeys, filters.distributor_id, getDistributorName, getLedgerBillNumber, getLedgerTypeLabel, getSupplierDisplayName, ledgerEntries, matchesDateRange, matchesSearch, quickView, searchScope]);
+  }, [dueSupplierKeys, filters.distributor_id, getLedgerBillNumber, getLedgerTypeLabel, getSupplierDisplayName, ledgerEntries, matchesDateRange, matchesSearch, quickView, searchScope]);
   const visiblePayables = useMemo(
     () => filteredPayableEntries.slice(0, PAYABLE_CARD_LIMIT),
     [filteredPayableEntries]
   );
+  const nowTimestamp = DEFAULT_NOW_TIMESTAMP;
   const ledgerGroups = useMemo(() => {
     const groups = [];
 
     filteredLedgerEntries.forEach((entry) => {
-      const label = formatLedgerDate(entry.created_at || entry.transaction_date || entry.date || Date.now());
+      const label = formatLedgerDate(entry.created_at || entry.transaction_date || entry.date || nowTimestamp);
       const lastGroup = groups[groups.length - 1];
       if (!lastGroup || lastGroup.label !== label) {
         groups.push({
@@ -490,7 +470,7 @@ const PurchasePaymentsSection = ({
     });
 
     return groups;
-  }, [filteredLedgerEntries]);
+  }, [filteredLedgerEntries, nowTimestamp]);
 
   const activeFilterPills = [
     filters.distributor_id ? {

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import { Package, ShoppingCart, Users, TrendingUp, CreditCard, Wallet, Clock, Truck } from 'lucide-react';
 import SignedCurrency from '../../../shared/components/SignedCurrency';
 import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
@@ -92,6 +93,7 @@ function DashboardSection({
   onTabChange,
   onOpenPurchaseOrder,
 }) {
+  const fallbackOrderDate = useMemo(() => new Date(), []);
   const todayDistributors = Array.isArray(purchaseOpsSummary?.todayDistributors)
     ? purchaseOpsSummary.todayDistributors
     : [];
@@ -746,7 +748,7 @@ function DashboardSection({
                 <div className="dashboard-list-row" key={order.id}>
                   <span className="dashboard-row-primary">{order.order_number || `#${order.id}`}</span>
                   <span className="dashboard-row-secondary">
-                    Date: {new Date(order.created_at || Date.now()).toLocaleDateString()}
+                    Date: {new Date(order.created_at || fallbackOrderDate).toLocaleDateString()}
                   </span>
                   <span className="dashboard-row-value">{formatCurrency(order.total_amount || 0)}</span>
                 </div>

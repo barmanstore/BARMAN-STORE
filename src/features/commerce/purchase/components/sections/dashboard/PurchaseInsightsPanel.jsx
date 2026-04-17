@@ -15,7 +15,10 @@ const PurchaseInsightsPanel = ({
   const [rollupChartMode, setRollupChartMode] = useState('total');
 
   const actionRollups = operationsSummary?.action_rollups || {};
-  const rollupActions = actionRollups.actions || [];
+  const rollupActions = useMemo(
+    () => actionRollups.actions || [],
+    [actionRollups.actions]
+  );
   const rollupWeekdays = actionRollups.by_weekday || [];
   const rollupDays = actionRollups.by_day || [];
   const rollupTotals = actionRollups.totals || {};

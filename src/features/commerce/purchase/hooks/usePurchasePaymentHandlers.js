@@ -16,7 +16,6 @@ const usePurchasePaymentHandlers = ({
   purchaseOrdersApi,
   createClientRequestId,
   getTodayDate,
-  toNumber,
   user,
   paymentOrder,
   poPaymentFormData,
@@ -144,7 +143,6 @@ const usePurchasePaymentHandlers = ({
   }, [
     poPaymentSubmitting,
     poPaymentLockRef,
-    toNumber,
     getPoBalanceDue,
     setError,
     setPoPaymentSubmitting,

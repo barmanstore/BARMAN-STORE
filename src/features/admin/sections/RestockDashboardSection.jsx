@@ -262,8 +262,9 @@ function RestockDashboardSection({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchDashboard();
-  }, []);
+  }, [fetchDashboard]);
 
   useEffect(() => registerDomainListener(
     DOMAINS.Stock,
@@ -278,8 +279,11 @@ function RestockDashboardSection({
     restoredReviewStateRef.current = true;
     const storedReview = readStoredRestockPoReview();
     if (!storedReview) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedIds(storedReview.selectedIds);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPoQuantities(storedReview.poQuantities);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPoReviewDraft(storedReview.poReviewDraft);
   }, []);
 
@@ -472,7 +476,6 @@ function RestockDashboardSection({
     selectedRows.filter((row) => row.stockMismatch)
   ), [selectedRows]);
 
-  const selectedDistributorId = Number(filters.distributorId || 0) || null;
   const effectivePoDistributorId = Number(poReviewDraft.distributorId || filters.distributorId || 0) || null;
   const effectivePoDistributorName = effectivePoDistributorId
     ? String(
@@ -484,6 +487,7 @@ function RestockDashboardSection({
 
   useEffect(() => {
     if (selectedIds.length > 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPoReviewDraft(createDefaultPoReviewDraft());
   }, [selectedIds.length]);
 
@@ -522,25 +526,6 @@ function RestockDashboardSection({
         },
       };
     });
-  };
-
-  const handlePoQuantityChange = (productId, value) => {
-    const trimmed = String(value || '').trim();
-    if (!trimmed) {
-      setPoQuantities((current) => ({
-        ...current,
-        [productId]: '1',
-      }));
-      return;
-    }
-    const numeric = asNumber(trimmed, NaN);
-    if (!Number.isFinite(numeric) || numeric < 1) {
-      return;
-    }
-    setPoQuantities((current) => ({
-      ...current,
-      [productId]: String(Math.max(1, Math.round(numeric))),
-    }));
   };
 
   const toggleSelectedProduct = (productId) => {

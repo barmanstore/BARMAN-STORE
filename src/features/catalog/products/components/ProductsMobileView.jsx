@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import MobileBottomSheet from '../../../../shared/components/mobile/MobileBottomSheet';
 import MobileFooter from '../../../../shared/components/mobile/MobileFooter';
 import MobileProductsHeader from './MobileProductsHeader';
@@ -6,7 +6,6 @@ import MobileShopBody from './mobile/MobileShopBody';
 import ProductDetailView from './ProductDetailView';
 
 function ProductsMobileView({
-  isMobile,
   loading,
   productsLength,
   productsPageRef,
@@ -19,12 +18,7 @@ function ProductsMobileView({
   profileName,
   profileInitials,
   onAvatarError,
-  localUser,
-  avatarLoadFailed,
-  avatarSrc,
-  setAvatarLoadFailed,
   normalizeText,
-  getInitials,
   searchInputValue,
   handleMobileSearchChange,
   handleMobileSearchFocus,
@@ -87,26 +81,10 @@ function ProductsMobileView({
 
   const handleCartClick = () => {
     if (cartItemCount > 0) {
-      setIsCartExpanded(prev => !prev);
+      setIsCartExpanded((prev) => !prev);
     }
   };
 
-  const MiniCartPreview = () => (
-    <div className="mini-cart-preview">
-      <div className="mini-cart-header">
-        <h3>Your Cart</h3>
-        <button onClick={() => setIsCartExpanded(false)}>×</button>
-      </div>
-      <div className="mini-cart-items">
-        {/* Placeholder for cart items - need to access cart data */}
-        <p>Cart items preview here</p>
-      </div>
-      <div className="mini-cart-actions">
-        <button onClick={() => setIsCartExpanded(false)}>Continue Shopping</button>
-        <button>Checkout</button>
-      </div>
-    </div>
-  );
   return (
     <div className="mobile-shop-page" ref={productsPageRef}>
       <MobileProductsHeader
@@ -176,7 +154,7 @@ function ProductsMobileView({
         loadMoreProductsRef={loadMoreProductsRef}
       />
 
-      {isCartExpanded && <MiniCartPreview />}
+      {isCartExpanded && <MiniCartPreview onClose={() => setIsCartExpanded(false)} />}
 
       <MobileFooter
         cartCount={cartItemCount}
@@ -214,6 +192,24 @@ function ProductsMobileView({
           <button onClick={dismissSnackbar}>×</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniCartPreview({ onClose }) {
+  return (
+    <div className="mini-cart-preview">
+      <div className="mini-cart-header">
+        <h3>Your Cart</h3>
+        <button type="button" onClick={onClose}>×</button>
+      </div>
+      <div className="mini-cart-items">
+        <p>Cart items preview here</p>
+      </div>
+      <div className="mini-cart-actions">
+        <button type="button" onClick={onClose}>Continue Shopping</button>
+        <button type="button">Checkout</button>
+      </div>
     </div>
   );
 }

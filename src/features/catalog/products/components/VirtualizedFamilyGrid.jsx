@@ -1,4 +1,4 @@
-﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 function VirtualizedFamilyGrid({
   families,
@@ -24,11 +24,12 @@ function VirtualizedFamilyGrid({
     }
     return offsets;
   }, [rowHeights, totalRows, rowHeight]);
+
   const totalHeight = Math.max(110, rowOffsets[totalRows] || (totalRows * rowHeight));
   const startRowIndex = Math.floor(Math.max(0, visibleRange.start) / cols);
   const virtualWindowOffset = rowOffsets[startRowIndex] || 0;
 
-  const findRowIndexAtOffset = (offsetPx) => {
+  const findRowIndexAtOffset = useCallback((offsetPx) => {
     if (totalRows <= 1) return 0;
     let low = 0;
     let high = totalRows - 1;
@@ -41,13 +42,15 @@ function VirtualizedFamilyGrid({
       }
     }
     return low;
-  };
+  }, [rowOffsets, totalRows]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisibleRange({ start: 0, end: Math.max(0, Math.min(totalItems - 1, 15)) });
   }, [totalItems]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRowHeights((prev) => Array.from({ length: totalRows }, (_, index) => (
       Math.max(120, Number(prev[index] || rowHeight))
     )));
@@ -55,6 +58,7 @@ function VirtualizedFamilyGrid({
 
   useEffect(() => {
     if (!shouldVirtualize) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsNearViewport(true);
       return undefined;
     }
@@ -92,6 +96,7 @@ function VirtualizedFamilyGrid({
       const endRow = Math.min(totalRows - 1, findRowIndexAtOffset(Math.max(0, visibleBottomPx)) + overscanRows);
       const nextStart = Math.max(0, startRow * cols);
       const nextEnd = Math.min(totalItems - 1, ((endRow + 1) * cols) - 1);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisibleRange((prev) => {
         if (prev.start === nextStart && prev.end === nextEnd) return prev;
         return { start: nextStart, end: nextEnd };
@@ -111,7 +116,7 @@ function VirtualizedFamilyGrid({
       window.removeEventListener('scroll', scheduleCompute);
       window.removeEventListener('resize', scheduleCompute);
     };
-  }, [shouldVirtualize, isNearViewport, totalRows, totalHeight, cols, totalItems, rowOffsets]);
+  }, [shouldVirtualize, isNearViewport, totalRows, totalHeight, cols, totalItems, rowOffsets, findRowIndexAtOffset]);
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || !isNearViewport || totalItems === 0) return undefined;

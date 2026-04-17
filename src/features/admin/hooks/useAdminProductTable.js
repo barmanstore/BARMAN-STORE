@@ -23,10 +23,6 @@ const PRODUCT_TABLE_EDITABLE_COLUMN_SEQUENCE = [
 
 const useAdminProductTable = ({
   products,
-  productTableSearch,
-  productTableCategoryFilter,
-  productTableStatusFilter,
-  productTableLowStockOnly,
   productTableSortField,
   productTableSortDir,
   productTableVisibleColumns,

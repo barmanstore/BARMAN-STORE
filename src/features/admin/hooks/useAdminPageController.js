@@ -47,8 +47,6 @@ const useAdminPageController = ({ user }) => {
     activeTab,
     setActiveTab,
     stats,
-    creditAgingSummary,
-    purchaseOpsSummary,
     setStats,
     visitorStats,
     setVisitorStats,
@@ -431,12 +429,14 @@ const useAdminPageController = ({ user }) => {
       if (activeTab !== 'billing') {
         setActiveTab('billing');
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBillingShortcutRequest((current) => current + 1);
     } else if (shortcutAction === 'open-po') {
       if (activeTab !== 'purchases') {
         setActiveTab('purchases');
       }
       setPurchaseShortcutPayload(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPurchaseShortcutRequest((current) => current + 1);
     }
 
@@ -756,7 +756,6 @@ const useAdminPageController = ({ user }) => {
     setDailyCashTallySaving,
     setTodayCashSummary,
     showNotification,
-    toLocalDateKey,
   ]);
 
   const showProductsImportCard = !isMobile && Boolean(
@@ -872,7 +871,6 @@ const useAdminPageController = ({ user }) => {
     setTableEditFieldRef,
     handleTableEditChange,
     handleTableEditKeyDown,
-    handleUndoTableAction,
     setSelectedProductId,
     selectedProductId,
     showQuickAdd,

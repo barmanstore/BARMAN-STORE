@@ -200,7 +200,6 @@ const usePurchaseLedgerCorrections = ({
     poCorrectionSubmitting,
     poCorrectionLockRef,
     poCorrectionFormData,
-    toNumber,
     setError,
     setPoCorrectionSubmitting,
     distributorLedgerApi,
@@ -302,7 +301,6 @@ const usePurchaseLedgerCorrections = ({
   }, [
     ledgerSubmitting,
     ledgerSubmitLockRef,
-    toNumber,
     ledgerFormData,
     setError,
     setLedgerSubmitting,

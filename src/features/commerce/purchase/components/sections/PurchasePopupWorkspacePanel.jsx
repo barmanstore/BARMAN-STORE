@@ -96,7 +96,7 @@ const PurchasePopupWorkspacePanel = ({
                     </button>
                   </div>
                   <div className="purchase-popup-order-card-meta">
-                    <span>{new Date(order.created_at || order.order_date || order.expected_delivery || Date.now()).toLocaleDateString()}</span>
+                    <span>{new Date(order.created_at || order.order_date || order.expected_delivery || 0).toLocaleDateString()}</span>
                     <strong>{formatCurrency(getOrderDisplayTotal(order))}</strong>
                   </div>
                   <div className="purchase-popup-order-card-badges">

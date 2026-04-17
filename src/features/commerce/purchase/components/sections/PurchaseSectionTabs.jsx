@@ -1,22 +1,8 @@
-import { useMemo, useState } from 'react';
 import {
-  BarChart3,
   BellRing,
-  CheckCheck,
-  Clock,
-  DollarSign,
-  Eye,
-  MessageCircle,
   Package,
-  Plus,
   RotateCcw,
-  Sparkles,
-  Truck,
   Wallet,
-  AlertTriangle,
-  ArrowUpDown,
-  Check,
-  Trash2,
 } from 'lucide-react';
 
 const PurchaseSectionTabs = ({ activeTab, onChange, counts = {} }) => {

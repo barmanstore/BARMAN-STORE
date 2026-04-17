@@ -15,8 +15,14 @@ function useOrderDetailComputed({
   getOrderDisplayTotal,
   toDateInputValue,
 }) {
-  const orderDetailItems = orderDetailEditMode ? (orderDetailDraft?.items || []) : (orderDetail?.items || []);
-  const orderDetailOriginalItems = orderDetail?.items || [];
+  const orderDetailItems = useMemo(
+    () => (orderDetailEditMode ? (orderDetailDraft?.items || []) : (orderDetail?.items || [])),
+    [orderDetailEditMode, orderDetailDraft?.items, orderDetail?.items]
+  );
+  const orderDetailOriginalItems = useMemo(
+    () => (orderDetail?.items || []),
+    [orderDetail?.items]
+  );
 
   const getOrderDetailOriginalItem = useCallback((draftItem, index) => {
     if (draftItem?.id) {
@@ -115,9 +121,6 @@ function useOrderDetailComputed({
     orderDetailEditMode,
     orderDetailItems,
     calculateOrderTotals,
-    orderDetail?.taxable_value,
-    orderDetail?.tax_amount,
-    orderDetail?.total_amount,
     orderDetail,
     getOrderDisplayTotal,
     toNumber,

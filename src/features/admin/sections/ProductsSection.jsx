@@ -69,10 +69,6 @@ const ProductsSelectionBar = ({
   productEditLoadingId,
   handleDeleteProduct,
   handlePermanentDeleteProduct,
-  bulkJob,
-  handleCancelBulkJob,
-  handleRetryFailedBulkJob,
-  dismissBulkJob,
 }) => {
   if (selectedCount <= 0) return null;
   const isSingleSelection = selectedCount === 1 && Boolean(selectedVisibleProduct);
@@ -393,6 +389,7 @@ function ProductsSection({
   );
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProductTableSearchDraft(productTableSearch);
   }, [productTableSearch]);
 
@@ -681,6 +678,7 @@ function ProductsSection({
     tableEditId,
     tableUndoAction,
     visibleProducts.length,
+    selectVisibleProducts,
   ]);
 
   useEffect(() => {
@@ -698,11 +696,13 @@ function ProductsSection({
 
   useEffect(() => {
     if (!commandPaletteOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCommandPaletteQuery('');
     }
   }, [commandPaletteOpen]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     clearBulkSelection();
   }, [
     productTableSearch,

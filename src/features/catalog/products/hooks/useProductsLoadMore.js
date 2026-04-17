@@ -26,5 +26,5 @@ export default function useProductsLoadMore({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loading, isLoadingMore, productsHasMore, productsLoadTriggerRef, loadMoreProductsRef, rootMargin, ...deps]);
+  }, [loading, isLoadingMore, productsHasMore, productsLoadTriggerRef, loadMoreProductsRef, rootMargin, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
 }

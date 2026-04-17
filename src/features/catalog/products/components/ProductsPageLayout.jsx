@@ -127,7 +127,6 @@ const ProductsPageLayout = ({
   const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';
   const profileName = String(localUser?.name || '').trim();
   const profileInitials = profileName ? getInitials(profileName) : '';
-  const isAdminUser = normalizeText(localUser?.role) === 'admin';
   const disableMobileLogoLink = true;
 
   if (isMobile) {

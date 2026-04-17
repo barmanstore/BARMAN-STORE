@@ -93,12 +93,14 @@ const useProductsDataFetch = ({
       setError('Failed to load products. Please refresh and try again.');
       setProductsHasMore(false);
     } finally {
-      if (requestId !== latestProductsRequestRef.current) return;
-      productsLoadingMoreRef.current = false;
-      setLoading(false);
-      setIsLoadingMore(false);
-      if (productsAbortControllerRef.current === controller) {
-        productsAbortControllerRef.current = null;
+      const shouldIgnore = requestId !== latestProductsRequestRef.current;
+      if (!shouldIgnore) {
+        productsLoadingMoreRef.current = false;
+        setLoading(false);
+        setIsLoadingMore(false);
+        if (productsAbortControllerRef.current === controller) {
+          productsAbortControllerRef.current = null;
+        }
       }
     }
   }, [

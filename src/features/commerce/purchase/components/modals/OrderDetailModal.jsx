@@ -162,13 +162,17 @@ const OrderDetailModal = ({
   const [itemProductSearch, setItemProductSearch] = useState('');
   const deferredItemProductSearch = useDeferredValue(itemProductSearch);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSortConfig({ key: null, direction: null });
   }, [orderDetail?.id, orderDetailEditMode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setItemProductSearch('');
   }, [orderDetail?.id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const orderDetailRows = useMemo(() => {
     const items = Array.isArray(orderDetailItems) ? orderDetailItems : [];

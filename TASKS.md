@@ -11,6 +11,32 @@ Use this file for cross-session task tracking only.
   - Mirror the stacked payment control, quick-entry amount field, remaining-balance hint, and label + calendar trigger for payment date.
   - Keep the payment amount cursor-safe while typing and format on blur.
 
+### Lint Remediation
+
+- Run a full source lint sweep and preserve the report for review.
+- Resolve the biggest rule categories first:
+  - `react-hooks/set-state-in-effect`
+  - `react-hooks/exhaustive-deps`
+  - `react-hooks/refs`
+  - `react-hooks/purity`
+  - `no-unused-vars`, `no-dupe-keys`, `no-useless-escape`, `no-empty`
+- Break the cleanup into feature-area passes:
+  1. Admin area: `src/features/admin/*` and shared admin hooks.
+  2. Catalog & products: `src/features/catalog/*` and mobile product views.
+  3. Commerce purchase flows: `src/features/commerce/purchase/*`.
+  4. Checkout/cart/auth surfaces: `src/features/checkout/*`, `src/features/cart/*`, `src/features/auth/*`.
+  5. Shared utilities and framework code: `src/shared/components/*`, `src/shared/hooks/*`, `src/shared/utils/*`, `src/RootShell.jsx`.
+- For each pass:
+  - fix invalid effect state updates and hook dependency issues,
+  - remove dead imports/unused variables,
+  - refactor impure render-time expressions,
+  - keep lint fixes local and regress feature behavior with quick smoke checks.
+- Validation criteria:
+  - `npm run lint -- --max-warnings=0` passes for the whole `src` tree,
+  - no new global disable-comments are introduced except clearly justified cases,
+  - the developer can rerun targeted checks such as `npx eslint --ext .js,.jsx src/features/admin --max-warnings=0`.
+- Current status: Admin area pass complete; proceeding to Catalog & products.
+
 ### Ops & Scripts
 
 - None.
@@ -21,7 +47,7 @@ Use this file for cross-session task tracking only.
 
 ## Next
 
-- None.
+- Catalog & products lint pass: `src/features/catalog/*` and mobile product views.
 
 ## Backlog
 

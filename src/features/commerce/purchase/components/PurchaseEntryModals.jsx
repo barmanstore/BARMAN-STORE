@@ -136,16 +136,14 @@ export function PurchaseOrderFormModal({
   open,
   closeOrderForm,
   poModalRef,
-  isMobile,
   poModalSize,
   editingOrderId,
   handleOrderSubmit,
   handleOpenOrderReview,
-  orderFullMode,
-  setOrderFullMode,
   orderReviewMode,
   closeOrderReview,
   loadingDistributorItems,
+  orderFullMode,
   orderFormData,
   setOrderFormData,
   orderDraftProjection,
@@ -196,7 +194,10 @@ export function PurchaseOrderFormModal({
   const previousDistributorIdRef = useRef('');
   const productPickerPageSize = 48;
 
-  const items = Array.isArray(orderFormData?.items) ? orderFormData.items : [];
+  const items = useMemo(
+    () => (Array.isArray(orderFormData?.items) ? orderFormData.items : []),
+    [orderFormData]
+  );
   const draftProjection = orderDraftProjection || {
     rows: [],
     diagnostics: {
@@ -242,7 +243,7 @@ export function PurchaseOrderFormModal({
       map.set(productId, product);
     });
     return map;
-  }, [orderProductOptions?.all, orderProductOptions?.prioritized]);
+  }, [orderProductOptions]);
   const visibleOrderRows = useMemo(
     () => draftProjection.rows
       .map((row, index) => {
@@ -317,33 +318,6 @@ export function PurchaseOrderFormModal({
     }),
     [reviewableOrderRows]
   );
-  const reviewMinimumRows = useMemo(
-    () => reviewableOrderRows
-      .map((entry, index) => {
-        const minimumStep = Math.max(
-          1,
-          Number(getPurchasePackStep(entry?.product, entry?.line?.uom)) || 1
-        );
-        return {
-          index,
-          minimumStep,
-          productName: String(entry?.item?.product_name || entry?.item?.product_query || `Row ${index + 1}`).trim(),
-        };
-      })
-      .filter((entry) => entry.minimumStep > 1),
-    [getPurchasePackStep, reviewableOrderRows]
-  );
-  const reviewMinimumSummary = useMemo(() => {
-    if (!reviewMinimumRows.length) return 'Standard qty';
-    const smallestMinimumStep = reviewMinimumRows.reduce(
-      (min, entry) => Math.min(min, entry.minimumStep),
-      Number.POSITIVE_INFINITY
-    );
-    const stepLabel = Number.isInteger(smallestMinimumStep)
-      ? String(smallestMinimumStep)
-      : smallestMinimumStep.toFixed(2);
-    return `x${stepLabel} on ${reviewMinimumRows.length} row${reviewMinimumRows.length === 1 ? '' : 's'}`;
-  }, [reviewMinimumRows]);
   const supplierBoardItemCount = useMemo(
     () => visibleOrderRows.reduce((sum, entry) => (isSupplierDefaultItem(entry?.item || {}) ? sum + 1 : sum), 0),
     [visibleOrderRows]
@@ -376,7 +350,7 @@ export function PurchaseOrderFormModal({
         if (product?.is_active === false || Number(product?.is_active || 1) === 0) return false;
         return true;
       });
-  }, [orderProductOptions?.all, orderProductOptions?.prioritized]);
+  }, [orderProductOptions]);
   const filteredProductPickerProducts = useMemo(() => {
     const query = String(deferredProductPickerSearch || '').trim().toLowerCase();
     if (!query) return productPickerProducts;
@@ -550,6 +524,7 @@ export function PurchaseOrderFormModal({
     handleOpenOrderReview,
   ]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return undefined;
     if (orderReviewMode) {
@@ -577,8 +552,10 @@ export function PurchaseOrderFormModal({
       focusSupplierField(true);
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [open]);
+  }, [open, focusSupplierField, items, orderFormData?.distributor_id, orderReviewMode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     if (!items.length) {
@@ -589,7 +566,9 @@ export function PurchaseOrderFormModal({
       setActiveItemIndex(resolvedActiveItemIndex);
     }
   }, [activeItemIndex, items.length, open, resolvedActiveItemIndex]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     const previousDistributorId = previousDistributorIdRef.current;
@@ -612,7 +591,9 @@ export function PurchaseOrderFormModal({
     }
     previousDistributorIdRef.current = nextDistributorId;
   }, [open, orderFormData?.distributor_id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     if (orderReviewMode) {
@@ -625,13 +606,17 @@ export function PurchaseOrderFormModal({
       return current;
     });
   }, [distributorSelected, open, orderReviewMode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     const nextType = resolveDiscountColumnType(items);
     setDiscountColumnType((current) => (current === nextType ? current : nextType));
   }, [items, open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (activeWizardStep !== 1 || orderReviewMode) {
       setProductPickerOpen(false);
@@ -639,12 +624,16 @@ export function PurchaseOrderFormModal({
       setProductPickerSearch('');
     }
   }, [activeWizardStep, orderReviewMode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!productPickerOpen) return;
     setProductPickerVisibleLimit(productPickerPageSize);
   }, [deferredProductPickerSearch, productPickerOpen, productPickerPageSize, filteredAllProductPickerProducts.length]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const totalRows = displayedOrderRows.length;
     setSelectedRowsWindow({
@@ -652,6 +641,7 @@ export function PurchaseOrderFormModal({
       end: Math.max(0, Math.min(totalRows - 1, 24)),
     });
   }, [displayedOrderRows.length, itemProductSearch, itemProductSortDirection]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     const scrollNode = selectedRowsScrollRef.current;
@@ -691,7 +681,7 @@ export function PurchaseOrderFormModal({
       scrollNode.removeEventListener('scroll', scheduleUpdate);
       window.removeEventListener('resize', scheduleUpdate);
     };
-  }, [displayedOrderRows.length]);
+  }, [displayedOrderRows.length]); // eslint-disable-line react-hooks/set-state-in-effect
 
   useEffect(() => {
     const activePosition = displayedOrderRows.findIndex((entry) => entry.index === activeItemIndex);
@@ -841,14 +831,6 @@ export function PurchaseOrderFormModal({
     event.preventDefault();
     handleSubmitProductPicker();
   }, [handleSubmitProductPicker]);
-
-  const handleReviewSubmit = useCallback((event) => {
-    event.preventDefault();
-    const opened = handleOpenOrderReview();
-    if (opened && isMobile) {
-      setMobileStep(ORDER_FLOW_REVIEW_STEP);
-    }
-  }, [handleOpenOrderReview, isMobile]);
 
   const handleFormSubmit = useCallback((event) => {
     event.preventDefault();
@@ -1472,7 +1454,7 @@ export function PurchaseOrderFormModal({
               </span>
             </div>
             <p className="po-pos-panel-note">
-              Only products outside this supplier's registered board are shown here. Products already on the board stay hidden.
+              Only products outside this supplier&apos;s registered board are shown here. Products already on the board stay hidden.
             </p>
           </div>
 

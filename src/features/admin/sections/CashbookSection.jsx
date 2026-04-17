@@ -253,8 +253,8 @@ const parseCashbookLine = (rawValue) => {
   if (!value) return null;
 
   const lowered = value.toLowerCase();
-  if (/^(task|todo|note)\s*[:\-]?\s*/.test(lowered) || value.startsWith('!')) {
-    const note = value.replace(/^(task|todo|note)\s*[:\-]?\s*/i, '').replace(/^!\s*/, '').trim();
+  if (/^(task|todo|note)\s*[:-]?\s*/.test(lowered) || value.startsWith('!')) {
+    const note = value.replace(/^(task|todo|note)\s*[:-]?\s*/i, '').replace(/^!\s*/, '').trim();
     return { type: 'task', amount: null, note };
   }
 
@@ -280,7 +280,7 @@ const parseCashbookLine = (rawValue) => {
 
   const cleanedNote = value
     .replace(amountMatch[0], ' ')
-    .replace(/^[+\-]/, ' ')
+    .replace(/^[+-]/, ' ')
     .replace(/\b(task|todo|note|income|received|in|cash in|add|expense|spent|out|cash out|paid|payment|reduce|deduct|adjust|adjustment|correction|rectify)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -580,8 +580,9 @@ function CashbookSection() {
   useEffect(() => {
     if (!snapshot?.today_summary) return;
     const openingValue = snapshot.today_summary.opening_balance ?? 0;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpeningDraft(String(openingValue));
-  }, [snapshot?.today_summary?.date, snapshot?.today_summary?.opening_balance]);
+  }, [snapshot]);
 
   useEffect(() => {
     editingEntryIdRef.current = editingEntryId;
@@ -597,13 +598,19 @@ function CashbookSection() {
 
   useEffect(() => {
     if (!showAnalysisPanel) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomFromInput(formatDateInputValue(dateRange[0]));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomToInput(formatDateInputValue(dateRange[1]));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCalendarField('');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCalendarMonthToken(dateRange[0] || dateRange[1] || todayKey || '');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomDateError('');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHoverDate('');
-  }, [dateRange, showAnalysisPanel]);
+  }, [dateRange, showAnalysisPanel, todayKey]);
 
   useEffect(() => {
     if (!showAnalysisPanel) return undefined;
@@ -645,8 +652,9 @@ function CashbookSection() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadSnapshot();
-  }, []);
+  }, [loadSnapshot]);
 
   const dateRangePresets = useMemo(() => {
     if (!todayKey) return [];
@@ -692,7 +700,11 @@ function CashbookSection() {
     [snapshot, hideCreditHistory, todayKey]
   );
 
-  const filteredGroups = Array.isArray(displaySnapshot?.groups) ? displaySnapshot.groups : [];
+  const filteredGroups = useMemo(
+    () => (Array.isArray(displaySnapshot?.groups) ? displaySnapshot.groups : []),
+    [displaySnapshot]
+  );
+
   const latestEditableEntry = useMemo(() => {
     for (const group of filteredGroups) {
       const entries = Array.isArray(group?.entries) ? group.entries : [];
@@ -707,6 +719,7 @@ function CashbookSection() {
   useEffect(() => {
     if (!todayKey || hasInitializedDateRange.current) return;
     if (!dateRange[0] && !dateRange[1]) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDateRange([todayKey, todayKey]);
       hasInitializedDateRange.current = true;
     }

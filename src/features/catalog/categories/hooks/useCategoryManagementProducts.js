@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const toNumericId = (value) => {
   const n = Number(value);
@@ -36,7 +36,7 @@ const useCategoryManagementProducts = ({
       .slice(0, 40);
   }, [editingProductCategoryQuery, productCategoryOptions]);
 
-  const fetchCategoryProducts = async (categoryId) => {
+  const fetchCategoryProducts = useCallback(async (categoryId) => {
     const id = toNumericId(categoryId);
     if (!id) {
       setCategoryProducts([]);
@@ -52,27 +52,13 @@ const useCategoryManagementProducts = ({
     } finally {
       setProductsLoading(false);
     }
-  };
+  }, [categoriesApi, setError, setCategoryProducts, setProductsLoading]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategoryProducts(selectedCategoryId);
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, fetchCategoryProducts]);
 
-  useEffect(() => {
-    if (!Number(editingProductId)) return;
-    if (!filteredProductCategoryOptions.length) {
-      setEditingProductCategoryFocusIndex(-1);
-      return;
-    }
-    const selectedIndex = filteredProductCategoryOptions.findIndex(
-      (option) => Number(option.id) === Number(editingProductCategoryId)
-    );
-    if (selectedIndex >= 0) {
-      setEditingProductCategoryFocusIndex(selectedIndex);
-      return;
-    }
-    setEditingProductCategoryFocusIndex(0);
-  }, [editingProductId, editingProductCategoryId, filteredProductCategoryOptions]);
 
   const handleDropProductOnCategory = async (targetCategoryId) => {
     const productId = toNumericId(dragProductId);

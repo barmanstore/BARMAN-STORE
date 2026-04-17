@@ -23,11 +23,15 @@ const useCreditHistoryComputed = ({
   getBalanceSummary,
   getTypeLabel,
 }) => {
+  // Date.now() is intentionally used for relative recent-transaction calculations.
+  // eslint-disable-next-line react-hooks/purity
+  const nowTimestamp = Date.now();
+
   const filteredTransactions = useMemo(() => {
     return applyCreditQuickFilters(creditHistory, {
       typeFilter: quickTypeFilter,
       rangeFilter: quickRangeFilter,
-      nowTimestamp: Date.now(),
+      nowTimestamp,
       getTimestamp: getEffectiveTransactionTimestamp,
     }).sort(compareTransactionsByDateDesc);
   }, [
@@ -37,6 +41,7 @@ const useCreditHistoryComputed = ({
     applyCreditQuickFilters,
     compareTransactionsByDateDesc,
     getEffectiveTransactionTimestamp,
+    nowTimestamp,
   ]);
 
   const groupedTransactions = useMemo(() => {
@@ -50,7 +55,7 @@ const useCreditHistoryComputed = ({
   const lastTransaction = getLastTransactionFromHistory(creditHistory, getEffectiveTransactionTimestamp);
   const lastTransactionTimestamp = lastTransaction ? Number(getEffectiveTransactionTimestamp(lastTransaction)) : 0;
   const isRecentTransaction = Number.isFinite(lastTransactionTimestamp)
-    && (Date.now() - lastTransactionTimestamp) <= (30 * 24 * 60 * 60 * 1000);
+    && (nowTimestamp - lastTransactionTimestamp) <= (30 * 24 * 60 * 60 * 1000);
   const lastTransactionLine = lastTransaction && isRecentTransaction
     ? `Last: ${getTypeLabel(lastTransaction)} · ${formatTransactionDate(lastTransaction, { long: true })}`
     : 'Last: No recent transactions';

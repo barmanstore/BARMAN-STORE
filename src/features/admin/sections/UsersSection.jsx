@@ -14,8 +14,6 @@ function UsersSection({
   filteredUsersCount,
   users,
   filteredUsers,
-  adminUsers,
-  customerUsers,
   usersPage,
   setUsersPage,
   usersTotal,

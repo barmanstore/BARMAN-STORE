@@ -19,7 +19,6 @@ const useCreditHistoryTransactions = ({
   addTransactionRequestIdRef,
   addingTransaction,
   setAddingTransaction,
-  uploading,
   setUploading,
   newTransaction,
   setNewTransaction,

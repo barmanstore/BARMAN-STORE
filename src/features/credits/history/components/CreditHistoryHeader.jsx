@@ -11,21 +11,6 @@ const PAYMENT_BADGE_RULES = (Array.isArray(scoreBands) ? scoreBands : []).map((b
   description: band.description || '',
 }));
 
-const getBadgeCoinLabel = (badge) => {
-  const shortLabel = String(badge?.shortLabel || '').trim();
-  if (shortLabel) return shortLabel;
-
-  const tone = String(badge?.tone || '').toLowerCase();
-  if (tone === 'gold') return 'Gold';
-  if (tone === 'silver') return 'Silver';
-  if (tone === 'bronze') return 'Bronze';
-  if (tone === 'streak') return 'Streak';
-
-  const label = String(badge?.label || badge?.title || 'Badge').trim();
-  if (!label) return 'Badge';
-  return label.split(/\s+/).slice(0, 2).join(' ');
-};
-
 const getInitials = (name) => {
   const trimmed = String(name || '').trim();
   if (!trimmed) return '?';
@@ -38,6 +23,13 @@ const getInitials = (name) => {
     .toUpperCase();
 };
 
+const WhatsAppIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.472-.149-.672.149-.198.297-.768.967-.942 1.167-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.786-1.48-1.75-1.653-2.047-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.173.198-.297.298-.497.099-.198.05-.372-.025-.521-.075-.149-.672-1.617-.921-2.214-.242-.579-.487-.5-.672-.51l-.573-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.064 2.876 1.213 3.074c.149.198 2.102 3.2 5.076 4.487.709.306 1.26.489 1.69.626.71.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.125-.273-.198-.57-.347z" />
+    <path d="M20.52 3.48A10.05 10.05 0 0012 0C5.383 0 .23 5.183.23 11.593c0 2.043.535 3.946 1.468 5.61L0 24l6.196-1.62a10.85 10.85 0 005.737 1.51h.005c5.617 0 10.78-5.183 10.78-11.593 0-3.103-1.186-5.997-3.18-8.307zM12 21.155a9.27 9.27 0 01-4.717-1.279l-.337-.2-3.676.962.981-3.582-.22-.362A8.773 8.773 0 013.23 11.594c0-4.86 4.015-8.813 8.77-8.813 2.344 0 4.537.914 6.187 2.575a8.648 8.648 0 012.573 6.223c0 4.86-4.015 8.813-8.77 8.813z" />
+  </svg>
+);
+
 function CreditHistoryHeader({
   backHref,
   backLabel,
@@ -46,18 +38,15 @@ function CreditHistoryHeader({
   balanceSummary,
   balance,
   ledgerSummary,
-  lastTransactionLine,
-  trustLine,
   billsHref,
   showPaymentBadges,
-  paymentBadgesLoading,
-  paymentBadges,
   paymentBadgeSummary,
   inactivityHint,
   error,
   success,
   isMobile,
   openAddModalWithType,
+  onContactWhatsApp,
 }) {
   const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -108,7 +97,9 @@ function CreditHistoryHeader({
     };
   }, [showBadgeTooltip]);
 
+  // Reset avatar load failure when the customer profile image changes.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAvatarLoadFailed(false);
   }, [customer?.profile_image]);
 
@@ -152,37 +143,39 @@ function CreditHistoryHeader({
             <p className="page-subline">{pageSubline}</p>
           </div>
         </div>
-        <div className="customer-identity-card">
-          <div className="customer-identity-avatar" aria-hidden="true">
-            {avatarSrc ? (
-              <img
-                src={avatarSrc}
-                alt={identityName}
-                onError={() => setAvatarLoadFailed(true)}
-              />
-            ) : customerName ? (
-              <span className="customer-identity-avatar-fallback">{getInitials(customerName)}</span>
-            ) : (
-              <User size={24} />
-            )}
-          </div>
-          <div className="customer-identity-copy">
-            <strong className="customer-identity-name">{identityName}</strong>
-            <span className="customer-subline">{customerSubline}</span>
-          </div>
-        </div>
       </div>
 
       <section className="balance-card summary-hero-card">
-        <div className="balance-card-main">
-          <div className="balance-card-copy">
-            <span className="balance-label">{balanceSummary.headline}</span>
-            <span className={`balance-amount ${balanceSummary.toneClass}`}>
-              {formatCurrency(Math.abs(Number(balance || 0)))}
-            </span>
-            <span className="summary-direction">{balanceSummary.directionLine}</span>
-            <span className="summary-last-line">{lastTransactionLine}</span>
-            <span className="summary-trust-line">{trustLine}</span>
+        <div className="balance-card-head">
+          <div className="balance-card-identity">
+            <div className="customer-identity-avatar" aria-hidden="true">
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={identityName}
+                  onError={() => setAvatarLoadFailed(true)}
+                />
+              ) : customerName ? (
+                <span className="customer-identity-avatar-fallback">{getInitials(customerName)}</span>
+              ) : (
+                <User size={24} />
+              )}
+            </div>
+            <div className="customer-identity-copy">
+              <strong className="customer-identity-name">{identityName}</strong>
+              <span className="customer-subline">{customerSubline}</span>
+            </div>
+            {onContactWhatsApp ? (
+              <button
+                type="button"
+                className="customer-identity-whatsapp"
+                onClick={onContactWhatsApp}
+                title="Chat on WhatsApp"
+                aria-label="Chat on WhatsApp"
+              >
+                <WhatsAppIcon />
+              </button>
+            ) : null}
           </div>
           {showPaymentBadges && (
             <div className="balance-card-badge-side">
@@ -242,6 +235,17 @@ function CreditHistoryHeader({
               ) : null}
             </div>
           )}
+        </div>
+        <div className="balance-card-main">
+          <div className="balance-card-copy">
+            <span className="balance-label">{balanceSummary.headline}</span>
+            <span className={`balance-amount ${balanceSummary.toneClass}`}>
+              {formatCurrency(Math.abs(Number(balance || 0)))}
+            </span>
+            {balanceSummary.directionLine ? (
+              <span className="summary-direction">{balanceSummary.directionLine}</span>
+            ) : null}
+          </div>
         </div>
       </section>
 

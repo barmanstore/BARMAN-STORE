@@ -1,4 +1,3 @@
-import { X } from 'lucide-react';
 import MobileBottomSheet from '../../../../../shared/components/mobile/MobileBottomSheet';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
 

@@ -4,6 +4,8 @@ import ProductSearchCombobox from '../../../../shared/components/product-search/
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import { getLastPurchaseMeta } from '../utils/orderDrafts';
 
+// Note: buildPrimaryRowStatus is not currently used in this component
+/* 
 const buildPrimaryRowStatus = ({
   duplicateWarning,
   productSelectionWarning,
@@ -51,6 +53,7 @@ const buildPrimaryRowStatus = ({
   }
   return null;
 };
+*/ 
 
 const PurchaseOrderPosEntry = ({
   activeItem,
@@ -63,18 +66,6 @@ const PurchaseOrderPosEntry = ({
   getProductSearchMeta,
   getPurchasePackStep,
   GST_RATE_OPTIONS,
-  draftWarning,
-  rateChangeLabel,
-  rateChangeTone,
-  rateNeedsConfirmation,
-  rateConfirmedLabel,
-  rateConfirmationWarning,
-  discountWarning,
-  discountBlockingWarning,
-  discountNeedsConfirmation,
-  discountConfirmedLabel,
-  duplicateWarning,
-  productSelectionWarning,
   orderSubmitting,
   visibleProductResults,
   productResultSummary,
@@ -105,8 +96,6 @@ const PurchaseOrderPosEntry = ({
   onInlineProductCreateCancel,
   onInlineProductCreateKeyDown,
   onItemChange,
-  onConfirmRateWarning,
-  onConfirmDiscountWarning,
   onFieldKeyDown,
 }) => {
   const lastPurchaseMeta = getLastPurchaseMeta(activeItem);
@@ -128,21 +117,13 @@ const PurchaseOrderPosEntry = ({
   const shouldExposeDiscountControls = Boolean(
     Number(activeItem?.discount_value || 0) > 0
     || discountAppliedAmount > 0
-    || discountNeedsConfirmation
-    || discountBlockingWarning
-    || discountConfirmedLabel
   );
   const shouldExposeMoreFields = Boolean(
     hasAdvancedAdjustments
     || shouldExposeDiscountControls
   );
-  const [showAdvancedAdjustments, setShowAdvancedAdjustments] = useState(false);
-  const lastPurchaseLabel = lastPurchaseMeta.hasValue
-    ? [
-        lastPurchaseMeta.rate > 0 ? `Last ${formatCurrency(lastPurchaseMeta.rate)}` : 'Last purchase',
-        lastPurchaseMeta.ageLabel || lastPurchaseMeta.dateLabel,
-      ].filter(Boolean).join(' • ') || lastPurchaseMeta.fallbackHint
-    : '';
+  const [showAdvancedAdjustmentsOverride, setShowAdvancedAdjustmentsOverride] = useState(shouldExposeMoreFields);
+  const showAdvancedAdjustments = Boolean(showAdvancedAdjustmentsOverride || shouldExposeMoreFields);
   const rateFieldMeta = lastPurchaseMeta.hasValue
     ? `Auto-filled from ${lastPurchaseMeta.poNumber || 'last purchase'}.`
     : (activeItem?.reference_rate_source
@@ -168,9 +149,6 @@ const PurchaseOrderPosEntry = ({
         : <>Use <strong>Tab</strong> or <strong>Enter</strong> for {autocompleteCandidate.name}.</>
     )
     : null;
-  useEffect(() => {
-    setShowAdvancedAdjustments(shouldExposeMoreFields);
-  }, [activeItemIndex, shouldExposeMoreFields]);
 
   if (!activeItem) {
     return (
@@ -392,7 +370,7 @@ const PurchaseOrderPosEntry = ({
           <button
             type="button"
             className="po-pos-action-btn po-pos-stage-toggle-btn"
-            onClick={() => setShowAdvancedAdjustments((prev) => !prev)}
+            onClick={() => setShowAdvancedAdjustmentsOverride((prev) => !prev)}
           >
             <SlidersHorizontal size={15} />
             {showAdvancedAdjustments ? 'Less' : 'More'}

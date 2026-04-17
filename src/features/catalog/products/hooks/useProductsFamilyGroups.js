@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react';
 
+const getCurrentTime = () => Date.now();
+
 const useProductsFamilyGroups = ({
   productFamilies,
   deferredAppliedSearchQuery,
@@ -119,8 +121,9 @@ const useProductsFamilyGroups = ({
       const history = usageHistory[family.id] || {};
       const addCount = Number(history.addCount || 0);
       const lastAddedAt = Date.parse(history.lastAddedAt || '');
+      const now = getCurrentTime();
       const daysSince = Number.isFinite(lastAddedAt)
-        ? Math.max(0, (Date.now() - lastAddedAt) / 86400000)
+        ? Math.max(0, (now - lastAddedAt) / 86400000)
         : 999;
       const hasDiscount = family.variations.some((variation) => Number(variation.mrp || variation.price || 0) > Number(variation.price || 0));
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);

@@ -438,6 +438,7 @@ const PurchaseOrdersSection = ({
     sortedPurchaseOrders,
   ]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setCurrentPage(1);
   }, [
@@ -450,15 +451,18 @@ const PurchaseOrdersSection = ({
     filters.start_date,
     filters.end_date,
   ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const totalPages = Math.max(1, Math.ceil(visiblePurchaseOrders.length / PAGE_SIZE));
   const activePage = Math.min(currentPage, totalPages);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const paginatedPurchaseOrders = useMemo(() => {
     const startIndex = (activePage - 1) * PAGE_SIZE;

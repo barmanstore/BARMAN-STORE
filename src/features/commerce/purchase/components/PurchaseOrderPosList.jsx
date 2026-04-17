@@ -15,7 +15,6 @@ const hasMeaningfulPoItem = (item = {}) => (
 const PurchaseOrderPosListCard = memo(({
   index,
   row,
-  rowDiagnostics,
   activeItemIndex,
   onSelectItem,
   onRemoveItem,
@@ -85,6 +84,8 @@ const PurchaseOrderPosListCard = memo(({
   && prevProps.rowDiagnostics.discountBlockingMessage === nextProps.rowDiagnostics.discountBlockingMessage
   && prevProps.rowDiagnostics.duplicateMessage === nextProps.rowDiagnostics.duplicateMessage
 ));
+
+PurchaseOrderPosListCard.displayName = 'PurchaseOrderPosListCard';
 
 const PurchaseOrderPosList = ({
   rows,

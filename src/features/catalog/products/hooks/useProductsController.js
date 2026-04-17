@@ -51,62 +51,141 @@ export default function useProductsController() {
   const logoImage = productHelpers.getPublicFileUrl(info.LOGO_URL || 'logo.png');
   const storeTitle = String(info.TITLE || 'Store').trim() || 'Store';
   const productPageSize = productHelpers.getProductPageSize(isMobile);
-  const serverCategoryFilter = productsState.groupBy === productHelpers.GROUP_BY_OPTIONS.category ? productsState.selectedCategory : 'all';
+  const {
+    productsPageRef,
+    mobileHeaderRef,
+    controlsRef,
+    quickTileTouchStartRef,
+    quickTileDidSwipeRef,
+    loadMoreProductsRef,
+    productsLoadTriggerRef,
+    latestProductsRequestRef,
+    productsLoadingMoreRef,
+    productsAbortControllerRef,
+    productsTelemetryRef,
+    searchSuggestionsCacheRef,
+    searchSuggestionsRequestRef,
+    searchSuggestionsAbortRef,
+    searchInputRef,
+    searchSuggestionsListId,
+    products,
+    setProducts,
+    categories,
+    setCategories,
+    recentlyBought,
+    setRecentlyBought,
+    selectedCategory,
+    setSelectedCategory,
+    selectedSubcategory,
+    setSelectedSubcategory,
+    searchInputValue,
+    setSearchInputValue,
+    appliedSearchQuery,
+    setAppliedSearchQuery,
+    deferredAppliedSearchQuery,
+    searchSuggestions,
+    setSearchSuggestions,
+    showSearchSuggestions,
+    setShowSearchSuggestions,
+    searchSuggestionsEnabled,
+    setSearchSuggestionsEnabled,
+    activeSuggestionIndex,
+    setActiveSuggestionIndex,
+    isLoadingSuggestions,
+    setIsLoadingSuggestions,
+    sortBy,
+    setSortBy,
+    groupBy,
+    setGroupBy,
+    inStockOnly,
+    setInStockOnly,
+    loading,
+    setLoading,
+    isLoadingMore,
+    setIsLoadingMore,
+    error,
+    setError,
+    cart,
+    setCart,
+    productsPage,
+    setProductsPage,
+    productsHasMore,
+    setProductsHasMore,
+    buttonStatus,
+    setButtonStatus,
+    notice,
+    setNotice,
+    showMobileFilters,
+    setShowMobileFilters,
+    activeDesktopFamilyId,
+    setActiveDesktopFamilyId,
+    activeMobileFamilyId,
+    setActiveMobileFamilyId,
+    activeMobileTab,
+    setActiveMobileTab,
+    selectedVariationByFamily,
+    setSelectedVariationByFamily,
+    usageHistory,
+    setUsageHistory,
+    swipeAddedFamilyId,
+    setSwipeAddedFamilyId,
+  } = productsState;
+  const serverCategoryFilter = groupBy === productHelpers.GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
   const { getLocalSuggestions } = useProductsLocalSuggestions({
-    products: productsState.products,
+    products,
     normalizeText: productHelpers.normalizeText,
     SEARCH_SUGGESTIONS_MIN_CHARS: productHelpers.SEARCH_SUGGESTIONS_MIN_CHARS,
     SEARCH_SUGGESTIONS_MAX_ITEMS: productHelpers.SEARCH_SUGGESTIONS_MAX_ITEMS,
   });
 
   useProductsLayoutEffects({
-    productsPageRef: productsState.productsPageRef,
-    controlsRef: productsState.controlsRef,
-    mobileHeaderRef: productsState.mobileHeaderRef,
+    productsPageRef: productsPageRef,
+    controlsRef: controlsRef,
+    mobileHeaderRef: mobileHeaderRef,
     isMobile,
   });
   const { fetchProductsPage } = useProductsDataFetch({
     serverCategoryFilter,
-    appliedSearchQuery: productsState.appliedSearchQuery,
-    sortBy: productsState.sortBy,
-    inStockOnly: productsState.inStockOnly,
+    appliedSearchQuery: appliedSearchQuery,
+    sortBy: sortBy,
+    inStockOnly: inStockOnly,
     productPageSize,
     SORT_API_FALLBACK: productHelpers.SORT_API_FALLBACK,
     buildProductsListSessionCacheKey: productHelpers.buildProductsListSessionCacheKey,
     PRODUCTS_LIST_CACHE_TTL_MS: productHelpers.PRODUCTS_LIST_CACHE_TTL_MS,
     safeReadSessionJson: productHelpers.safeReadSessionJson,
     safeWriteSessionJson: productHelpers.safeWriteSessionJson,
-    latestProductsRequestRef: productsState.latestProductsRequestRef,
-    productsLoadingMoreRef: productsState.productsLoadingMoreRef,
-    productsAbortControllerRef: productsState.productsAbortControllerRef,
-    setProducts: productsState.setProducts,
-    setProductsPage: productsState.setProductsPage,
-    setProductsHasMore: productsState.setProductsHasMore,
-    setError: productsState.setError,
-    setLoading: productsState.setLoading,
-    setIsLoadingMore: productsState.setIsLoadingMore,
+    latestProductsRequestRef: latestProductsRequestRef,
+    productsLoadingMoreRef: productsLoadingMoreRef,
+    productsAbortControllerRef: productsAbortControllerRef,
+    setProducts: setProducts,
+    setProductsPage: setProductsPage,
+    setProductsHasMore: setProductsHasMore,
+    setError: setError,
+    setLoading: setLoading,
+    setIsLoadingMore: setIsLoadingMore,
   });
 
   const refreshProductsCatalog = useCallback(async () => {
-    if (productsState.productsAbortControllerRef.current) {
-      productsState.productsAbortControllerRef.current.abort();
-      productsState.productsAbortControllerRef.current = null;
+    if (productsAbortControllerRef.current) {
+      productsAbortControllerRef.current.abort();
+      productsAbortControllerRef.current = null;
     }
     const cacheKey = productHelpers.buildProductsListSessionCacheKey({
       selectedCategory: serverCategoryFilter,
-      query: productsState.appliedSearchQuery,
-      sortBy: productsState.sortBy,
-      inStockOnly: productsState.inStockOnly,
+      query: appliedSearchQuery,
+      sortBy,
+      inStockOnly,
       pageSize: productPageSize,
     });
-    const requestId = productsState.latestProductsRequestRef.current + 1;
-    productsState.latestProductsRequestRef.current = requestId;
-    productsState.productsLoadingMoreRef.current = false;
-    productsState.setIsLoadingMore(false);
-    productsState.setError('');
-    productsState.setLoading(true);
+    const requestId = latestProductsRequestRef.current + 1;
+    latestProductsRequestRef.current = requestId;
+    productsLoadingMoreRef.current = false;
+    setIsLoadingMore(false);
+    setError('');
+    setLoading(true);
     await fetchProductsPage({
-      page: Math.max(1, Number(productsState.productsPage || 1)),
+      page: Math.max(1, Number(productsPage || 1)),
       append: false,
       requestId,
       cacheKey,
@@ -114,16 +193,16 @@ export default function useProductsController() {
   }, [
     fetchProductsPage,
     productPageSize,
-    productsState.appliedSearchQuery,
-    productsState.inStockOnly,
-    productsState.latestProductsRequestRef,
-    productsState.productsAbortControllerRef,
-    productsState.productsLoadingMoreRef,
-    productsState.productsPage,
-    productsState.setError,
-    productsState.setIsLoadingMore,
-    productsState.setLoading,
-    productsState.sortBy,
+    appliedSearchQuery,
+    inStockOnly,
+    latestProductsRequestRef,
+    productsAbortControllerRef,
+    productsLoadingMoreRef,
+    productsPage,
+    setError,
+    setIsLoadingMore,
+    setLoading,
+    sortBy,
     serverCategoryFilter,
   ]);
 
@@ -132,15 +211,15 @@ export default function useProductsController() {
   }), [refreshProductsCatalog]);
 
   useEffect(() => {
-    productsState.setCart(Array.isArray(sharedCart) ? sharedCart : []);
-  }, [productsState.setCart, sharedCart]);
+    setCart(Array.isArray(sharedCart) ? sharedCart : []);
+  }, [setCart, sharedCart]);
 
   useProductsBootstrap({
-    setCategories: productsState.setCategories,
-    setRecentlyBought: productsState.setRecentlyBought,
-    setCart: productsState.setCart,
+    setCategories: setCategories,
+    setRecentlyBought: setRecentlyBought,
+    setCart: setCart,
     storedCart: sharedCart,
-    setUsageHistory: productsState.setUsageHistory,
+    setUsageHistory: setUsageHistory,
     safeReadJson: productHelpers.safeReadJson,
     safeReadSessionJson: productHelpers.safeReadSessionJson,
     safeWriteSessionJson: productHelpers.safeWriteSessionJson,
@@ -153,84 +232,84 @@ export default function useProductsController() {
   useProductsSearchParamsSync({
     searchParams,
     setSearchParams,
-    selectedCategory: productsState.selectedCategory,
-    appliedSearchQuery: productsState.appliedSearchQuery,
-    sortBy: productsState.sortBy,
-    groupBy: productsState.groupBy,
-    inStockOnly: productsState.inStockOnly,
-    setSelectedCategory: productsState.setSelectedCategory,
-    setSearchInputValue: productsState.setSearchInputValue,
-    setAppliedSearchQuery: productsState.setAppliedSearchQuery,
-    setSortBy: productsState.setSortBy,
-    setGroupBy: productsState.setGroupBy,
-    setInStockOnly: productsState.setInStockOnly,
-    setSearchSuggestionsEnabled: productsState.setSearchSuggestionsEnabled,
-    setShowSearchSuggestions: productsState.setShowSearchSuggestions,
-    setActiveSuggestionIndex: productsState.setActiveSuggestionIndex,
+    selectedCategory: selectedCategory,
+    appliedSearchQuery: appliedSearchQuery,
+    sortBy: sortBy,
+    groupBy: groupBy,
+    inStockOnly: inStockOnly,
+    setSelectedCategory: setSelectedCategory,
+    setSearchInputValue: setSearchInputValue,
+    setAppliedSearchQuery: setAppliedSearchQuery,
+    setSortBy: setSortBy,
+    setGroupBy: setGroupBy,
+    setInStockOnly: setInStockOnly,
+    setSearchSuggestionsEnabled: setSearchSuggestionsEnabled,
+    setShowSearchSuggestions: setShowSearchSuggestions,
+    setActiveSuggestionIndex: setActiveSuggestionIndex,
     normalizeSortBy: productHelpers.normalizeSortBy,
     GROUP_BY_OPTIONS: productHelpers.GROUP_BY_OPTIONS,
     DEFAULT_SORT_BY: productHelpers.DEFAULT_SORT_BY,
   });
   useProductsUiEffects({
-    notice: productsState.notice,
-    setNotice: productsState.setNotice,
-    showSearchSuggestions: productsState.showSearchSuggestions,
-    searchInputRef: productsState.searchInputRef,
-    setSearchSuggestionsEnabled: productsState.setSearchSuggestionsEnabled,
-    setShowSearchSuggestions: productsState.setShowSearchSuggestions,
-    setActiveSuggestionIndex: productsState.setActiveSuggestionIndex,
-    swipeAddedFamilyId: productsState.swipeAddedFamilyId,
-    setSwipeAddedFamilyId: productsState.setSwipeAddedFamilyId,
+    notice: notice,
+    setNotice: setNotice,
+    showSearchSuggestions: showSearchSuggestions,
+    searchInputRef: searchInputRef,
+    setSearchSuggestionsEnabled: setSearchSuggestionsEnabled,
+    setShowSearchSuggestions: setShowSearchSuggestions,
+    setActiveSuggestionIndex: setActiveSuggestionIndex,
+    swipeAddedFamilyId: swipeAddedFamilyId,
+    setSwipeAddedFamilyId: setSwipeAddedFamilyId,
   });
-  useProductsVitals({ productsTelemetryRef: productsState.productsTelemetryRef });
+  useProductsVitals({ productsTelemetryRef: productsTelemetryRef });
 
   useEffect(() => {
-    productsState.setSelectedSubcategory('all');
-  }, [productsState.selectedCategory]);
+    setSelectedSubcategory('all');
+  }, [selectedCategory, setSelectedSubcategory]);
 
   useProductSearchSuggestions({
-    searchInputValue: productsState.searchInputValue,
-    searchSuggestionsEnabled: productsState.searchSuggestionsEnabled,
+    searchInputValue: searchInputValue,
+    searchSuggestionsEnabled: searchSuggestionsEnabled,
     getLocalSuggestions,
     normalizeText: productHelpers.normalizeText,
     SEARCH_SUGGESTIONS_MIN_CHARS: productHelpers.SEARCH_SUGGESTIONS_MIN_CHARS,
     SEARCH_SUGGESTIONS_CACHE_TTL_MS: productHelpers.SEARCH_SUGGESTIONS_CACHE_TTL_MS,
     SEARCH_SUGGESTIONS_MAX_ITEMS: productHelpers.SEARCH_SUGGESTIONS_MAX_ITEMS,
-    searchSuggestionsCacheRef: productsState.searchSuggestionsCacheRef,
-    searchSuggestionsRequestRef: productsState.searchSuggestionsRequestRef,
-    searchSuggestionsAbortRef: productsState.searchSuggestionsAbortRef,
-    setSearchSuggestions: productsState.setSearchSuggestions,
-    setShowSearchSuggestions: productsState.setShowSearchSuggestions,
-    setActiveSuggestionIndex: productsState.setActiveSuggestionIndex,
-    setIsLoadingSuggestions: productsState.setIsLoadingSuggestions,
-    showSearchSuggestions: productsState.showSearchSuggestions,
-    activeSuggestionIndex: productsState.activeSuggestionIndex,
-    searchSuggestionsLength: productsState.searchSuggestions.length,
+    searchSuggestionsCacheRef: searchSuggestionsCacheRef,
+    searchSuggestionsRequestRef: searchSuggestionsRequestRef,
+    searchSuggestionsAbortRef: searchSuggestionsAbortRef,
+    setSearchSuggestions: setSearchSuggestions,
+    setShowSearchSuggestions: setShowSearchSuggestions,
+    setActiveSuggestionIndex: setActiveSuggestionIndex,
+    setIsLoadingSuggestions: setIsLoadingSuggestions,
+    showSearchSuggestions: showSearchSuggestions,
+    activeSuggestionIndex: activeSuggestionIndex,
+    searchSuggestionsLength: searchSuggestions.length,
   });
 
   const trackProductsEvent = useProductsTelemetry({
-    productsTelemetryRef: productsState.productsTelemetryRef,
-    groupBy: productsState.groupBy,
-    sortBy: productsState.sortBy,
-    inStockOnly: productsState.inStockOnly,
+    productsTelemetryRef: productsTelemetryRef,
+    groupBy: groupBy,
+    sortBy: sortBy,
+    inStockOnly: inStockOnly,
     isMobile,
     searchParams,
   });
 
   useEffect(() => {
     trackProductsEvent('products_search_changed', {
-      query_length: String(productsState.appliedSearchQuery || '').trim().length,
-      has_query: productsState.appliedSearchQuery ? 1 : 0
+      query_length: String(appliedSearchQuery || '').trim().length,
+      has_query: appliedSearchQuery ? 1 : 0
     }, { throttleMs: 1200, throttleKey: 'products_search_changed' });
-  }, [productsState.appliedSearchQuery, trackProductsEvent]);
+  }, [appliedSearchQuery, trackProductsEvent]);
 
-  const productFamilies = useMemo(() => buildProductFamilies(productsState.products), [productsState.products]);
+  const productFamilies = useMemo(() => buildProductFamilies(products), [products]);
 
   const catalogFilters = useProductsCatalogFilters({
-    categories: productsState.categories,
+    categories: categories,
     productFamilies,
-    groupBy: productsState.groupBy,
-    selectedCategory: productsState.selectedCategory,
+    groupBy: groupBy,
+    selectedCategory: selectedCategory,
     normalizeText: productHelpers.normalizeText,
     splitHierarchyValue: productHelpers.splitHierarchyValue,
     resolveBrandLogoUrl: productHelpers.resolveBrandLogoUrl,
@@ -238,8 +317,8 @@ export default function useProductsController() {
   });
 
   const filterScopes = useProductsFilterScopes({
-    selectedCategory: productsState.selectedCategory,
-    groupBy: productsState.groupBy,
+    selectedCategory: selectedCategory,
+    groupBy: groupBy,
     effectiveCategories: catalogFilters.effectiveCategories,
     activeFilterOptions: catalogFilters.activeFilterOptions,
     normalizeText: productHelpers.normalizeText,
@@ -249,16 +328,16 @@ export default function useProductsController() {
 
   const familyGroups = useProductsFamilyGroups({
     productFamilies,
-    deferredAppliedSearchQuery: productsState.deferredAppliedSearchQuery,
-    selectedCategory: productsState.selectedCategory,
-    sortBy: productsState.sortBy,
-    inStockOnly: productsState.inStockOnly,
-    groupBy: productsState.groupBy,
+    deferredAppliedSearchQuery: deferredAppliedSearchQuery,
+    selectedCategory: selectedCategory,
+    sortBy: sortBy,
+    inStockOnly: inStockOnly,
+    groupBy: groupBy,
     categoryPathScopeSet: filterScopes.categoryPathScopeSet,
     categoryIdScopeSet: filterScopes.categoryIdScopeSet,
     categoryNameScopeSet: filterScopes.categoryNameScopeSet,
     brandPathScopeSet: filterScopes.brandPathScopeSet,
-    usageHistory: productsState.usageHistory,
+    usageHistory: usageHistory,
     normalizeText: productHelpers.normalizeText,
     tokenizeSearchText: productHelpers.tokenizeSearchText,
     PRODUCTS_SYNONYMS: productHelpers.PRODUCTS_SYNONYMS,
@@ -271,81 +350,84 @@ export default function useProductsController() {
     familyHasImage: productHelpers.familyHasImage,
     getFirstAvailableVariation: productHelpers.getFirstAvailableVariation,
     activeFilterOptions: catalogFilters.activeFilterOptions,
-    selectedSubcategory: productsState.selectedSubcategory,
+    selectedSubcategory: selectedSubcategory,
     isMobile,
-    setSelectedCategory: productsState.setSelectedCategory,
-    setSelectedVariationByFamily: productsState.setSelectedVariationByFamily,
+    setSelectedCategory: setSelectedCategory,
+    setSelectedVariationByFamily: setSelectedVariationByFamily,
     GROUP_BY_OPTIONS: productHelpers.GROUP_BY_OPTIONS,
-    productsHasMore: productsState.productsHasMore,
+    productsHasMore: productsHasMore,
   });
 
-  productsState.loadMoreProductsRef.current = () => {
-    if (productsState.loading || productsState.isLoadingMore || productsState.productsLoadingMoreRef.current || !productsState.productsHasMore) return;
-    trackProductsEvent('products_load_more', {
-      current_page: Number(productsState.productsPage || 0),
-      next_page: Number(productsState.productsPage || 0) + 1
-    }, { throttleMs: 600, throttleKey: 'products_load_more' });
-    const nextRequestId = productsState.latestProductsRequestRef.current;
-    productsState.productsLoadingMoreRef.current = true;
-    productsState.setIsLoadingMore(true);
-    fetchProductsPage({
-      page: productsState.productsPage + 1,
-      append: true,
-      requestId: nextRequestId,
-    });
-  };
+  useEffect(() => {
+    loadMoreProductsRef.current = () => {
+      if (loading || isLoadingMore || productsLoadingMoreRef.current || !productsHasMore) return;
+      trackProductsEvent('products_load_more', {
+        current_page: Number(productsPage || 0),
+        next_page: Number(productsPage || 0) + 1
+      }, { throttleMs: 600, throttleKey: 'products_load_more' });
+      const nextRequestId = latestProductsRequestRef.current;
+      productsLoadingMoreRef.current = true;
+      setIsLoadingMore(true);
+      fetchProductsPage({
+        page: productsPage + 1,
+        append: true,
+        requestId: nextRequestId,
+      });
+    };
+  }, [loading, isLoadingMore, productsLoadingMoreRef, productsHasMore, trackProductsEvent, productsPage, latestProductsRequestRef, setIsLoadingMore, fetchProductsPage, loadMoreProductsRef]);
 
   useEffect(() => {
-    if (productsState.loading) return;
+    if (loading) return;
     if (familyGroups.filteredFamilies.length !== 0) return;
     trackProductsEvent('products_no_results', {
-      query_length: String(productsState.appliedSearchQuery || '').trim().length,
-      category: productsState.selectedCategory,
-      sort_by: productsState.sortBy,
-      stock_only: productsState.inStockOnly ? 1 : 0
+      query_length: String(appliedSearchQuery || '').trim().length,
+      category: selectedCategory,
+      sort_by: sortBy,
+      stock_only: inStockOnly ? 1 : 0
     }, { throttleMs: 1600, throttleKey: 'products_no_results' });
-  }, [productsState.loading, familyGroups.filteredFamilies.length, productsState.appliedSearchQuery, productsState.selectedCategory, productsState.sortBy, productsState.inStockOnly, trackProductsEvent]);
+  }, [loading, familyGroups.filteredFamilies.length, appliedSearchQuery, selectedCategory, sortBy, inStockOnly, trackProductsEvent]);
 
   useProductsLoadMore({
-    loading: productsState.loading,
-    isLoadingMore: productsState.isLoadingMore,
-    productsHasMore: productsState.productsHasMore,
-    productsLoadTriggerRef: productsState.productsLoadTriggerRef,
-    loadMoreProductsRef: productsState.loadMoreProductsRef,
+    loading: loading,
+    isLoadingMore: isLoadingMore,
+    productsHasMore: productsHasMore,
+    productsLoadTriggerRef: productsLoadTriggerRef,
+    loadMoreProductsRef: loadMoreProductsRef,
     rootMargin: productHelpers.PRODUCTS_AUTOLOAD_ROOT_MARGIN,
-    deps: [productsState.productsPage, serverCategoryFilter, productsState.appliedSearchQuery, productsState.sortBy, productsState.inStockOnly, productPageSize],
+    deps: [productsPage, serverCategoryFilter, appliedSearchQuery, sortBy, inStockOnly, productPageSize],
   });
 
   const cartActions = useProductsCartActions({
-    cart: productsState.cart,
-    setCart: productsState.setCart,
+    cart: cart,
+    setCart: setCart,
     replaceCart,
-    setButtonStatus: productsState.setButtonStatus,
-    setNotice: productsState.setNotice,
-    setUsageHistory: productsState.setUsageHistory,
-    setSelectedVariationByFamily: productsState.setSelectedVariationByFamily,
-    selectedVariationByFamily: productsState.selectedVariationByFamily,
-    quickTileTouchStartRef: productsState.quickTileTouchStartRef,
-    quickTileDidSwipeRef: productsState.quickTileDidSwipeRef,
-    setSwipeAddedFamilyId: productsState.setSwipeAddedFamilyId,
+    setButtonStatus: setButtonStatus,
+    setNotice: setNotice,
+    setUsageHistory: setUsageHistory,
+    setSelectedVariationByFamily: setSelectedVariationByFamily,
+    selectedVariationByFamily: selectedVariationByFamily,
+    quickTileTouchStartRef: quickTileTouchStartRef,
+    quickTileDidSwipeRef: quickTileDidSwipeRef,
+    setSwipeAddedFamilyId: setSwipeAddedFamilyId,
     trackProductsEvent,
     safeWriteJson: productHelpers.safeWriteJson,
     USAGE_HISTORY_KEY: productHelpers.USAGE_HISTORY_KEY,
     getFirstAvailableVariation: productHelpers.getFirstAvailableVariation,
     isMobile,
-    setActiveMobileFamilyId: productsState.setActiveMobileFamilyId,
-    setActiveDesktopFamilyId: productsState.setActiveDesktopFamilyId,
+    setActiveMobileFamilyId: setActiveMobileFamilyId,
+    setActiveDesktopFamilyId: setActiveDesktopFamilyId,
   });
 
   const activeMobileFamily = useMemo(
-    () => familyGroups.filteredFamilies.find((family) => family.id === productsState.activeMobileFamilyId) || null,
-    [familyGroups.filteredFamilies, productsState.activeMobileFamilyId]
+    () => familyGroups.filteredFamilies.find((family) => family.id === activeMobileFamilyId) || null,
+    [familyGroups.filteredFamilies, activeMobileFamilyId]
   );
 
+  const { addFamilyPackToCart } = cartActions;
   const handleAddCombo = useCallback((combo) => {
     if (!combo?.items?.length) return;
-    cartActions.addFamilyPackToCart(combo.items, { source: `combo_${String(combo.id || 'unknown')}` });
-  }, [cartActions.addFamilyPackToCart]);
+    addFamilyPackToCart(combo.items, { source: `combo_${String(combo.id || 'unknown')}` });
+  }, [addFamilyPackToCart]);
 
   const {
     handleMobileCategorySelect,
@@ -353,24 +435,24 @@ export default function useProductsController() {
     handleMobileOfferAction,
     handleMobileScrollTo,
   } = useProductsMobileActions({
-    groupBy: productsState.groupBy,
-    setGroupBy: productsState.setGroupBy,
-    setSelectedCategory: productsState.setSelectedCategory,
-    setSelectedSubcategory: productsState.setSelectedSubcategory,
+    groupBy: groupBy,
+    setGroupBy: setGroupBy,
+    setSelectedCategory: setSelectedCategory,
+    setSelectedSubcategory: setSelectedSubcategory,
     isMobile,
     locationHash: location.hash,
     handleAddCombo,
     GROUP_BY_OPTIONS: productHelpers.GROUP_BY_OPTIONS,
   });
   const recommendations = useProductsRecommendations({
-    selectedCategory: productsState.selectedCategory,
+    selectedCategory: selectedCategory,
     filteredFamilies: familyGroups.filteredFamilies,
     mobileFilteredFamilies: familyGroups.mobileFilteredFamilies,
     productFamilies,
-    usageHistory: productsState.usageHistory,
-    recentlyBought: productsState.recentlyBought,
+    usageHistory: usageHistory,
+    recentlyBought: recentlyBought,
     isMobile,
-    selectedVariationByFamily: productsState.selectedVariationByFamily,
+    selectedVariationByFamily: selectedVariationByFamily,
     getSelectedVariation: cartActions.getSelectedVariation,
     getUsageWindowDays: productHelpers.getUsageWindowDays,
     RESTOCK_ALERT_THRESHOLD: productHelpers.RESTOCK_ALERT_THRESHOLD,
@@ -381,7 +463,7 @@ export default function useProductsController() {
   const handleRepeatOrder = () => {
     const availableFamilies = recommendations.repeatOrderFamilies.filter((family) => {
       // Check if the selected variation is in stock
-      const selectedVariation = getSelectedVariation(family);
+      const selectedVariation = cartActions.getSelectedVariation(family);
       return selectedVariation && selectedVariation.in_stock;
     });
     const skippedCount = recommendations.repeatOrderFamilies.length - availableFamilies.length;
@@ -396,12 +478,6 @@ export default function useProductsController() {
   const showSnackbar = (message, undo = null) => {
     setSnackbar({ show: true, message, undo });
     setTimeout(() => setSnackbar({ show: false, message: '', undo: null }), 3000);
-  };
-
-  const toggleExpressMode = () => {
-    const newValue = !isExpressMode;
-    setIsExpressMode(newValue);
-    localStorage.setItem("expressMode", newValue.toString());
   };
 
   const addToCartWithSnackbar = (family, variation) => {
@@ -422,7 +498,7 @@ export default function useProductsController() {
   const eagerImageBudget = isMobile ? productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.mobile : productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.desktop;
   const renderers = useProductsRenderers({
     isMobile,
-    activeDesktopFamilyId: productsState.activeDesktopFamilyId,
+    activeDesktopFamilyId: activeDesktopFamilyId,
     visibleFamilyIndexById: familyGroups.visibleFamilyIndexById,
     eagerImageBudget,
     getSelectedVariation: cartActions.getSelectedVariation,
@@ -432,9 +508,9 @@ export default function useProductsController() {
     addToCart: addToCartWithSnackbar,
     decreaseFromCart: cartActions.decreaseFromCart,
     handleSelectVariation: cartActions.handleSelectVariation,
-    buttonStatus: productsState.buttonStatus,
-    swipeAddedFamilyId: productsState.swipeAddedFamilyId,
-    quickTileDidSwipeRef: productsState.quickTileDidSwipeRef,
+    buttonStatus: buttonStatus,
+    swipeAddedFamilyId: swipeAddedFamilyId,
+    quickTileDidSwipeRef: quickTileDidSwipeRef,
     handleQuickTileTouchStart: cartActions.handleQuickTileTouchStart,
     handleQuickTileTouchEnd: cartActions.handleQuickTileTouchEnd,
     formatCurrency,
@@ -442,16 +518,16 @@ export default function useProductsController() {
   });
 
   const searchHandlers = useProductsSearchHandlers({
-    searchInputValue: productsState.searchInputValue,
-    setSearchInputValue: productsState.setSearchInputValue,
-    setSearchSuggestionsEnabled: productsState.setSearchSuggestionsEnabled,
-    setSearchSuggestions: productsState.setSearchSuggestions,
-    setShowSearchSuggestions: productsState.setShowSearchSuggestions,
-    setActiveSuggestionIndex: productsState.setActiveSuggestionIndex,
-    setAppliedSearchQuery: productsState.setAppliedSearchQuery,
-    showSearchSuggestions: productsState.showSearchSuggestions,
-    searchSuggestions: productsState.searchSuggestions,
-    activeSuggestionIndex: productsState.activeSuggestionIndex,
+    searchInputValue: searchInputValue,
+    setSearchInputValue: setSearchInputValue,
+    setSearchSuggestionsEnabled: setSearchSuggestionsEnabled,
+    setSearchSuggestions: setSearchSuggestions,
+    setShowSearchSuggestions: setShowSearchSuggestions,
+    setActiveSuggestionIndex: setActiveSuggestionIndex,
+    setAppliedSearchQuery: setAppliedSearchQuery,
+    showSearchSuggestions: showSearchSuggestions,
+    searchSuggestions: searchSuggestions,
+    activeSuggestionIndex: activeSuggestionIndex,
     SEARCH_SUGGESTIONS_MIN_CHARS: productHelpers.SEARCH_SUGGESTIONS_MIN_CHARS,
     trackProductsEvent,
   });
@@ -471,12 +547,13 @@ export default function useProductsController() {
     handleAddCombo,
   };
 
+  // eslint-disable-next-line react-hooks/refs
   return buildProductsPageProps({
     isMobile,
-    loading: productsState.loading,
-    products: productsState.products,
-    productsPageRef: productsState.productsPageRef,
-    mobileHeaderRef: productsState.mobileHeaderRef,
+    loading: loading,
+    products: products,
+    productsPageRef: productsPageRef,
+    mobileHeaderRef: mobileHeaderRef,
     logoImage,
     storeTitle,
     localUser: userProfile.localUser,
@@ -485,30 +562,30 @@ export default function useProductsController() {
     setAvatarLoadFailed: userProfile.setAvatarLoadFailed,
     normalizeText: productHelpers.normalizeText,
     getInitials: productHelpers.getInitials,
-    searchInputValue: productsState.searchInputValue,
+    searchInputValue: searchInputValue,
     handleMobileSearchChange: searchHandlers.handleMobileSearchChange,
     handleMobileSearchFocus: searchHandlers.handleMobileSearchFocus,
     handleMobileSearchKeyDown: searchHandlers.handleMobileSearchKeyDown,
-    showSearchSuggestions: productsState.showSearchSuggestions,
-    searchSuggestions: productsState.searchSuggestions,
-    searchSuggestionsListId: productsState.searchSuggestionsListId,
-    activeSuggestionIndex: productsState.activeSuggestionIndex,
-    setActiveSuggestionIndex: productsState.setActiveSuggestionIndex,
+    showSearchSuggestions: showSearchSuggestions,
+    searchSuggestions: searchSuggestions,
+    searchSuggestionsListId: searchSuggestionsListId,
+    activeSuggestionIndex: activeSuggestionIndex,
+    setActiveSuggestionIndex: setActiveSuggestionIndex,
     selectSearchSuggestion: searchHandlers.selectSearchSuggestion,
     clearSearchQuery: searchHandlers.clearSearchQuery,
-    isLoadingSuggestions: productsState.isLoadingSuggestions,
+    isLoadingSuggestions: isLoadingSuggestions,
     SEARCH_SUGGESTIONS_MAX_ITEMS: productHelpers.SEARCH_SUGGESTIONS_MAX_ITEMS,
     getSuggestionImageSrc: productHelpers.getSuggestionImageSrc,
     getProductFallbackImage,
     formatCurrency,
-    selectedCategory: productsState.selectedCategory,
+    selectedCategory: selectedCategory,
     handleMobileCategorySelect,
     mobileRootCategories: catalogFilters.mobileRootCategories,
     renderCategoryChipLabel: renderers.renderCategoryChipLabel,
-    notice: productsState.notice,
-    error: productsState.error,
+    notice: notice,
+    error: error,
     mobileSubcategories: catalogFilters.mobileSubcategories,
-    selectedSubcategory: productsState.selectedSubcategory,
+    selectedSubcategory: selectedSubcategory,
     handleMobileSubcategorySelect,
     mobileOffers: recommendations.mobileOffers,
     handleMobileOfferAction,
@@ -525,37 +602,37 @@ export default function useProductsController() {
     addToCart: cartActions.addToCart,
     quickAddFamilies: recommendations.quickAddFamilies,
     MOBILE_TAB_OPTIONS: productHelpers.MOBILE_TAB_OPTIONS,
-    activeMobileTab: productsState.activeMobileTab,
-    setActiveMobileTab: productsState.setActiveMobileTab,
+    activeMobileTab: activeMobileTab,
+    setActiveMobileTab: setActiveMobileTab,
     mobileTabFamilies: recommendations.mobileTabFamilies,
-    productsHasMore: productsState.productsHasMore,
-    productsLoadTriggerRef: productsState.productsLoadTriggerRef,
-    isLoadingMore: productsState.isLoadingMore,
-    loadMoreProductsRef: productsState.loadMoreProductsRef,
+    productsHasMore: productsHasMore,
+    productsLoadTriggerRef: productsLoadTriggerRef,
+    isLoadingMore: isLoadingMore,
+    loadMoreProductsRef: loadMoreProductsRef,
     cartItemCount: cartActions.cartItemCount,
     handleMobileScrollTo,
     activeMobileFamily,
-    setActiveMobileFamilyId: productsState.setActiveMobileFamilyId,
+    setActiveMobileFamilyId: setActiveMobileFamilyId,
     handleSelectVariation: cartActions.handleSelectVariation,
     decreaseFromCart: cartActions.decreaseFromCart,
     cartQtyById: cartActions.cartQtyById,
-    buttonStatus: productsState.buttonStatus,
-    controlsRef: productsState.controlsRef,
-    searchInputRef: productsState.searchInputRef,
+    buttonStatus: buttonStatus,
+    controlsRef: controlsRef,
+    searchInputRef: searchInputRef,
     handleDesktopSearchChange: searchHandlers.handleDesktopSearchChange,
     handleDesktopSearchFocus: searchHandlers.handleDesktopSearchFocus,
     handleDesktopSearchKeyDown: searchHandlers.handleDesktopSearchKeyDown,
     cartPreviewTotal: cartActions.cartPreviewTotal,
-    setShowMobileFilters: productsState.setShowMobileFilters,
-    groupBy: productsState.groupBy,
-    setGroupBy: productsState.setGroupBy,
-    sortBy: productsState.sortBy,
-    setSortBy: productsState.setSortBy,
-    inStockOnly: productsState.inStockOnly,
-    setInStockOnly: productsState.setInStockOnly,
+    setShowMobileFilters: setShowMobileFilters,
+    groupBy: groupBy,
+    setGroupBy: setGroupBy,
+    sortBy: sortBy,
+    setSortBy: setSortBy,
+    inStockOnly: inStockOnly,
+    setInStockOnly: setInStockOnly,
     GROUP_BY_OPTIONS: productHelpers.GROUP_BY_OPTIONS,
     activeFilterOptions: catalogFilters.activeFilterOptions,
-    setSelectedCategory: productsState.setSelectedCategory,
+    setSelectedCategory: setSelectedCategory,
     visibleFamilies: familyGroups.visibleFamilies,
     groupedVisibleFamilies: familyGroups.groupedVisibleFamilies,
     renderFamilyCard: renderers.renderFamilyCard,
@@ -565,7 +642,7 @@ export default function useProductsController() {
     filteredFamilies: familyGroups.filteredFamilies,
     commitSearchQuery: searchHandlers.commitSearchQuery,
     DEFAULT_SORT_BY: productHelpers.DEFAULT_SORT_BY,
-    showMobileFilters: productsState.showMobileFilters,
+    showMobileFilters: showMobileFilters,
     smartSectionsProps,
     snackbar,
     dismissSnackbar: () => setSnackbar({ show: false, message: '', undo: null }),

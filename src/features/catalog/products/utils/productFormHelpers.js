@@ -168,7 +168,7 @@ const buildVariantFormRows = (data) => {
     if (!values.length) return '';
     if (values.length === 1) return values[0];
     if (values.length === variantCount) return values[index];
-    throw new Error(`Field \"${name}\" must have either 1 value or ${variantCount} comma-separated values.`);
+    throw new Error(`Field "${name}" must have either 1 value or ${variantCount} comma-separated values.`);
   };
 
   const rows = [];

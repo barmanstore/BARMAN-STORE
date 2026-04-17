@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+const getCurrentTime = () => Date.now();
+
 const roundMoney = (value = 0) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 
 const getVariationOfferSnapshot = (variation = null) => {
@@ -62,7 +64,6 @@ const useProductsRecommendations = ({
   usageHistory,
   recentlyBought,
   isMobile,
-  selectedVariationByFamily,
   getSelectedVariation,
   getUsageWindowDays,
   RESTOCK_ALERT_THRESHOLD,
@@ -102,7 +103,7 @@ const useProductsRecommendations = ({
   const quickAddFamilies = useMemo(() => {
     const sourceList = selectedCategory !== 'all' ? filteredFamilies : productFamilies;
     if (!sourceList.length) return [];
-    const now = Date.now();
+    const now = getCurrentTime();
     const scored = sourceList.map((family, index) => {
       const history = usageHistory[family.id] || {};
       const addCount = Number(history.addCount || 0);
@@ -125,7 +126,7 @@ const useProductsRecommendations = ({
   }, [recentlyBoughtFamilies, quickAddFamilies]);
 
   const smartRestockItems = useMemo(() => {
-    const now = Date.now();
+    const now = getCurrentTime();
     return Object.values(usageHistory)
       .map((entry) => {
         const family = familyById.get(entry.familyId);
@@ -156,7 +157,6 @@ const useProductsRecommendations = ({
     familyById,
     isMobile,
     getSelectedVariation,
-    selectedVariationByFamily,
     getUsageWindowDays,
     RESTOCK_ALERT_THRESHOLD,
     CRITICAL_RESTOCK_THRESHOLD,
@@ -164,7 +164,7 @@ const useProductsRecommendations = ({
 
   const popularFamilies = useMemo(() => {
     if (!mobileFilteredFamilies.length) return [];
-    const now = Date.now();
+    const now = getCurrentTime();
     const scored = mobileFilteredFamilies.map((family, index) => {
       const history = usageHistory[family.id] || {};
       const addCount = Number(history.addCount || 0);
@@ -271,7 +271,7 @@ const useProductsRecommendations = ({
     }
 
     return [];
-  }, [quickAddFamilies, getSelectedVariation, selectedVariationByFamily, normalizeText]);
+  }, [quickAddFamilies, getSelectedVariation, normalizeText]);
 
   const mobileOffers = useMemo(() => {
     const liveOfferCards = (selectedCategory !== 'all' ? mobileFilteredFamilies : productFamilies)

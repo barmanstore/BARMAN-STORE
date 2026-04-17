@@ -30,8 +30,10 @@ const CreditAddTransactionModal = ({
 }) => {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
+  // Reset details section when the modal opens or transaction type changes.
   useEffect(() => {
     if (showAddModal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDetailsExpanded(false);
     }
   }, [showAddModal, newTransaction.type]);

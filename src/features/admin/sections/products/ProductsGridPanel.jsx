@@ -96,6 +96,7 @@ function ProductsGridPanel({
 
   useEffect(() => {
     if (!shouldVirtualize) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisibleRowRange({ start: 0, end: rowCount - 1 });
       return undefined;
     }

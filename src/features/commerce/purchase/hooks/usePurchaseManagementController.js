@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DOMAINS, invalidateDomain, registerDomainListener } from '../../../../shared/services/invalidation';
 import { createClientRequestId, purchaseOrdersApi, distributorsApi, suppliersApi, productsApi, purchaseReturnsApi, distributorLedgerApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
@@ -8,7 +8,6 @@ import { getLedgerTypeLabel, toNumber } from '../../../../shared/utils/ledger';
 import useIsMobile from '../../../../shared/hooks/useIsMobile';
 import usePopupDraftPersistence from '../../../../shared/hooks/usePopupDraftPersistence';
 import {
-  buildBackofficePopupPath,
   clearBackofficePopupHandoff,
   createBackofficePopupChannel,
   getBackofficePopupHandoffKey,
@@ -34,7 +33,6 @@ import {
   findProductForItem,
 } from '../utils/items';
 import {
-  fromBaseQtyForProduct,
   getAllowedPurchaseUnitsForProduct,
   getProductUomProfile,
   getPurchasePackStep,
@@ -368,8 +366,6 @@ const usePurchaseManagementController = ({
     }
   }, [
     fetchOperationsSummary,
-    getPurchaseRequestErrorMessage,
-    getTodayDate,
     patchSupplierVisitSummary,
     setError,
     setSuccess,
@@ -396,8 +392,6 @@ const usePurchaseManagementController = ({
     }
   }, [
     fetchOperationsSummary,
-    getPurchaseRequestErrorMessage,
-    getTodayDate,
     patchSupplierVisitSummary,
     setError,
     setSuccess,
@@ -407,6 +401,17 @@ const usePurchaseManagementController = ({
     shortcutDraftHadMeaningfulItemsRef.current = false;
     setShortcutDraftContext(null);
   }, []);
+  const scheduleClearShortcutDraftContext = useCallback(() => {
+    const runClear = () => {
+      clearShortcutDraftContext();
+      shortcutDraftHadMeaningfulItemsRef.current = false;
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runClear);
+      return;
+    }
+    setTimeout(runClear, 0);
+  }, [clearShortcutDraftContext]);
   const persistSavedOrderDrafts = useCallback((nextValue) => {
     setSavedOrderDrafts((current) => {
       const nextDrafts = typeof nextValue === 'function' ? nextValue(current) : nextValue;
@@ -470,6 +475,17 @@ const usePurchaseManagementController = ({
       force: true,
       silent: true,
     });
+  }, [loadSupplierRegisteredProducts]);
+  const scheduleLoadSupplierRegisteredProducts = useCallback((supplierId) => {
+    if (!supplierId) return;
+    const loadRequest = () => {
+      void loadSupplierRegisteredProducts(supplierId);
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(loadRequest);
+      return;
+    }
+    setTimeout(loadRequest, 0);
   }, [loadSupplierRegisteredProducts]);
 
   const buildSupplierDefaultOrderItem = useCallback((registeredProduct = null, distributorId = '') => {
@@ -550,11 +566,8 @@ const usePurchaseManagementController = ({
     };
   }, [
     buildOrderDraftItem,
-    normalizeGstRateOption,
     products,
     purchaseOrders,
-    resolvePurchaseUnitForProduct,
-    toNumber,
   ]);
 
   const buildSupplierBoardItems = useCallback(({
@@ -627,9 +640,11 @@ const usePurchaseManagementController = ({
   }, [buildSupplierDefaultOrderItem]);
   const selectedOrderDistributorId = String(orderFormData?.distributor_id || '').trim();
   const selectedOrderSupplierId = String(orderFormData?.supplier_id || '').trim();
-  const selectedSupplierRegisteredProducts = selectedOrderSupplierId
-    ? (supplierRegisteredProductsBySupplier[selectedOrderSupplierId] || [])
-    : [];
+  const selectedSupplierRegisteredProducts = useMemo(() => (
+    selectedOrderSupplierId
+      ? (supplierRegisteredProductsBySupplier[selectedOrderSupplierId] || [])
+      : []
+  ), [selectedOrderSupplierId, supplierRegisteredProductsBySupplier]);
   const hasLoadedSelectedSupplierRegisteredProducts = selectedOrderSupplierId
     ? Object.prototype.hasOwnProperty.call(supplierRegisteredProductsBySupplier, selectedOrderSupplierId)
     : false;
@@ -650,7 +665,6 @@ const usePurchaseManagementController = ({
     handlePurchaseSectionChange,
     handleOpenOrderReview,
     handleOrderSubmit,
-    handleEditOrder,
     handleOrderItemChange,
     handleOrderProductInputChange,
     handleApplyCatalogProducts,
@@ -968,7 +982,7 @@ const usePurchaseManagementController = ({
       ...restoredOrderForm,
       planned_order_date: plannedOrderDate,
     };
-  }, [getTodayDate]);
+  }, []);
   const hasMeaningfulOrderItems = Array.isArray(orderFormData?.items)
     && orderFormData.items.some((item) => (
       Number(item?.product_id || item?.productId || 0) > 0
@@ -995,11 +1009,21 @@ const usePurchaseManagementController = ({
 
   useEffect(() => {
     if (showOrderForm) return;
-    shortcutDraftHadMeaningfulItemsRef.current = false;
-    setShortcutDraftContext(null);
-    setActiveSavedOrderDraftId('');
-    setRestockPendingSelection(null);
-    restockPendingApplyRef.current = '';
+
+    const runResetDraftState = () => {
+      shortcutDraftHadMeaningfulItemsRef.current = false;
+      setShortcutDraftContext(null);
+      setActiveSavedOrderDraftId('');
+      setRestockPendingSelection(null);
+      restockPendingApplyRef.current = '';
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runResetDraftState);
+      return;
+    }
+
+    setTimeout(runResetDraftState, 0);
   }, [setRestockPendingSelection, showOrderForm]);
 
   useEffect(() => {
@@ -1131,11 +1155,11 @@ const usePurchaseManagementController = ({
     if (hasLoadedSelectedSupplierRegisteredProducts) {
       return;
     }
-    void loadSupplierRegisteredProducts(selectedOrderSupplierId);
+    scheduleLoadSupplierRegisteredProducts(selectedOrderSupplierId);
   }, [
     editingOrderId,
     hasLoadedSelectedSupplierRegisteredProducts,
-    loadSupplierRegisteredProducts,
+    scheduleLoadSupplierRegisteredProducts,
     selectedOrderSupplierId,
     showOrderForm,
   ]);
@@ -1273,7 +1297,6 @@ const usePurchaseManagementController = ({
     selectedOrderSupplierId,
     setOrderFormData,
     showOrderForm,
-    toNumber,
   ]);
 
   useEffect(() => {
@@ -1341,23 +1364,31 @@ const usePurchaseManagementController = ({
         }
       }
 
-      const shortcutResult = applyShortcutPayload(payload, popupShortcutContext);
+      const schedulePopupShortcut = () => {
+        const shortcutResult = applyShortcutPayload(payload, popupShortcutContext);
+        if (!shortcutResult.opened) {
+          setError(shortcutResult.message || 'Failed to open the purchase shortcut.');
+          return;
+        }
+        if (shortcutResult.action === 'open-payment') {
+          setSuccess('Supplier payment opened in popup.');
+          return;
+        }
+        if (shortcutResult.action === 'open-order') {
+          setSuccess('Purchase order review opened in popup.');
+          return;
+        }
+        setSuccess(itemCount > 0
+          ? `PO popup opened with ${itemCount} item${itemCount === 1 ? '' : 's'}.`
+          : 'PO popup opened.');
+      };
+
       clearBackofficePopupHandoff('purchase', handoff.id);
-      if (!shortcutResult.opened) {
-        setError(shortcutResult.message || 'Failed to open the purchase shortcut.');
-        return;
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(schedulePopupShortcut);
+      } else {
+        setTimeout(schedulePopupShortcut, 0);
       }
-      if (shortcutResult.action === 'open-payment') {
-        setSuccess('Supplier payment opened in popup.');
-        return;
-      }
-      if (shortcutResult.action === 'open-order') {
-        setSuccess('Purchase order review opened in popup.');
-        return;
-      }
-      setSuccess(itemCount > 0
-        ? `PO popup opened with ${itemCount} item${itemCount === 1 ? '' : 's'}.`
-        : 'PO popup opened.');
     };
 
     const handleStorage = (event) => {
@@ -1416,15 +1447,18 @@ const usePurchaseManagementController = ({
     if (shortcutAction === 'create-draft' && hasOpenDirtyOrderDraft) {
       if (shortcutContext?.source === 'restock') {
         closeOrderFormInternal();
-        clearShortcutDraftContext();
-        shortcutDraftHadMeaningfulItemsRef.current = false;
+        scheduleClearShortcutDraftContext();
       } else {
         const shouldDiscardDraft = window.confirm(
           'A purchase order draft is already open.\n\nOpen a new PO and discard the current draft?'
         );
         if (!shouldDiscardDraft) {
           if (shortcutContext?.source === 'restock') {
-            handleShortcutDraftClosed('deferred');
+            if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(() => handleShortcutDraftClosed('deferred'));
+            } else {
+              setTimeout(() => handleShortcutDraftClosed('deferred'), 0);
+            }
           }
           if (typeof onShortcutOpenOrderHandled === 'function') {
             onShortcutOpenOrderHandled();
@@ -1433,12 +1467,21 @@ const usePurchaseManagementController = ({
         }
       }
     }
-    const shortcutResult = applyShortcutPayload(shortcutPayload, shortcutContext);
-    if (!shortcutResult.opened) {
-      setError(shortcutResult.message || 'Failed to open the purchase shortcut.');
-    }
-    if (typeof onShortcutOpenOrderHandled === 'function') {
-      onShortcutOpenOrderHandled();
+
+    const executeShortcutPayload = () => {
+      const shortcutResult = applyShortcutPayload(shortcutPayload, shortcutContext);
+      if (!shortcutResult.opened) {
+        setError(shortcutResult.message || 'Failed to open the purchase shortcut.');
+      }
+      if (typeof onShortcutOpenOrderHandled === 'function') {
+        onShortcutOpenOrderHandled();
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(executeShortcutPayload);
+    } else {
+      setTimeout(executeShortcutPayload, 0);
     }
   }, [
     applyShortcutPayload,
@@ -1450,6 +1493,9 @@ const usePurchaseManagementController = ({
     setError,
     shortcutOpenOrderPayload,
     shortcutOpenOrderRequest,
+    clearShortcutDraftContext,
+    closeOrderFormInternal,
+    scheduleClearShortcutDraftContext,
   ]);
 
   const orderDraftPersistable = Boolean(
@@ -1616,23 +1662,20 @@ const usePurchaseManagementController = ({
     const cleanItems = (Array.isArray(orderFormData?.items) ? orderFormData.items : [])
       .map((item) => {
         if (!item || typeof item !== 'object') return item;
-        const {
-          id,
-          po_item_id,
-          purchase_order_id,
-          purchase_order_item_id,
-          order_id,
-          po_number,
-          ...rest
-        } = item;
-        return rest;
+        const nextItem = { ...item };
+        delete nextItem.id;
+        delete nextItem.po_item_id;
+        delete nextItem.purchase_order_id;
+        delete nextItem.purchase_order_item_id;
+        delete nextItem.order_id;
+        delete nextItem.po_number;
+        return nextItem;
       });
-    const {
-      id: orderId,
-      po_number: orderPoNumber,
-      purchase_order_id: orderPurchaseId,
-      ...restOrderFormData
-    } = orderFormData || {};
+    // Intentional: exclude certain properties from order form data
+    const restOrderFormData = { ...(orderFormData || {}) };
+    delete restOrderFormData.id;
+    delete restOrderFormData.po_number;
+    delete restOrderFormData.purchase_order_id;
     const nextDraftEntry = {
       id: nextDraftId,
       title: draftTitle,
@@ -1660,7 +1703,6 @@ const usePurchaseManagementController = ({
     return true;
   }, [
     activeSavedOrderDraftId,
-    createEmptyOrderItem,
     hasOpenDirtyOrderDraft,
     orderDraftProjection.rows,
     orderFormData,
@@ -1711,8 +1753,6 @@ const usePurchaseManagementController = ({
     setError('');
     setSuccess(`Opened ${selectedDraft.title}.`);
   }, [
-    createClientRequestId,
-    createEmptyOrderItem,
     getDefaultOrderFormData,
     orderSubmitLockRef,
     savedOrderDrafts,
@@ -1746,65 +1786,6 @@ const usePurchaseManagementController = ({
     savedOrderDrafts,
     setSuccess,
   ]);
-  const pageProps = buildPurchaseManagementPageProps(
-    {
-      loading, error, success, activeSubTab, handlePurchaseSectionChange, operationsSummary, purchaseReturns,
-      operationsLoading, rollupParams, setRollupParams, openCreateOrderFormForDistributor,
-      handleViewOrder, handleOpenPoPaymentById, openCreateOrderForm, handleOpenLedgerForm, handleReturnFormOpen,
-      handleCloseSupplierVisit, handleReopenSupplierVisit,
-      lowStockProducts,
-      formatCurrency, toNumber, fetchDistributorLedger, filters, distributors, suppliers, handleFilterChange, purchaseOrders, isPoEditable,
-      onRefreshProducts: refreshProductsAfterMutation,
-      canAddPaymentToPo, canReceivePo, canClosePo, getPoPaymentStatus, handleOpenProcessModal,
-      handleSendDistributorWhatsApp, sendingWhatsAppOrderId, handleReceiveClick, handleOpenPoPaymentModal,
-      handleOpenPoCorrectionForm, poCorrectionSubmitting, handleUpdateStatus, handleDeleteOrder,
-      getOrderDisplayTotal, getStatusBadgeForOrder, getPoPaymentBadgeForOrder, getPoBalanceDue, getPoNextAction,
-      ledgerBalanceSummary, ledgerLoading, ledgerRecords, getLedgerRowStatusClassForEntry, getDistributorName,
-      getLedgerTypeLabel, getEntryDisplayBalance, getLedgerBillNumber, handleOpenBrowserWorkspace,
-      lastSavedOrderSummary, clearLastSavedOrderSummary,
-    },
-    {
-      showOrderForm, closeOrderForm, poModalRef, isMobile, poModalSize, editingOrderId,
-      handleOrderSubmit, handleOpenOrderReview, orderFullMode, setOrderFullMode, orderReviewMode, closeOrderReview,
-      loadingDistributorItems, handleLoadDistributorItems,
-      orderFormData, setOrderFormData, orderDraftProjection, handleDistributorInputChange, orderProductOptions, products, findProductForItem,
-      getAllowedPurchaseUnitsForProduct, getPurchasePackStep, handleOrderProductInputChange,
-      handleOrderProductFieldFocus, handleOrderItemChange, GST_RATE_OPTIONS, handleOrderItemRemove, handleOrderItemAdd,
-      handleApplySupplierHistoryItem, handleApplyCatalogProducts, supplierHistoryItems, supplierRegisteredProducts: selectedSupplierRegisteredProducts,
-      orderTotals, getProductSearchOptionLabel, orderSubmitting, savedOrderDrafts, saveCurrentOrderDraft, openSavedOrderDraft,
-      deleteSavedOrderDraft, activeSavedOrderDraftId,
-    },
-    {
-      showReceiveModal, selectedOrder, setShowReceiveModal, receiveSubmitting, handleReceiveSubmit, receiveData,
-      setReceiveData, handleReceiveQtyStep, handleReceiveItemChange, getProductUomProfile,
-      resolvePurchaseUnitForProduct, toBaseQtyForProduct,
-    },
-    {
-      showOrderDetail, closeOrderDetail, orderDetail, orderDetailLoading, orderDetailSupplier, orderDetailEditMode,
-      orderDetailDraft, handleOrderDetailFieldChange, formatDateTime, formatDate, getPoLifecycleStatus,
-      getPoPaidAmount, orderDetailItems, getItemFinancials, getOrderDetailOriginalItem, hasOrderDetailItemChanged,
-      getOrderDetailItemFieldChanged, handleOrderDetailProductInputChange, getProductSearchLabel,
-      getOrderDetailItemOriginalLabel, handleOrderDetailItemChange, handleOrderDetailItemRemove,
-      handleOrderDetailItemAdd, orderDetailHasComputedChanges, orderDetailComputedTotals, orderDetailDraftDiagnostics, orderDetailIsEditable,
-      orderDetailSaving, handleOrderDetailSave, openOrderDetailEditMode, handlePrintOrderDetail,
-    },
-    {
-      showProcessModal, processingOrder, closeProcessModal, handleProcessSubmit, processSubmitting, processFormData,
-      setProcessFormData, showPoPaymentModal, paymentOrder, closePoPaymentModal, handlePoPaymentSubmit,
-      poPaymentSubmitting, poPaymentFormData, setPoPaymentFormData,
-    },
-    {
-      showLedgerForm, closeLedgerForm, ledgerSubmitting, handleLedgerSubmit, ledgerFormData, setLedgerFormData,
-      showPoCorrectionForm, selectedCorrectionOrder, closePoCorrectionForm, handlePoCorrectionSubmit,
-      poCorrectionFormData, setPoCorrectionFormData, poCorrectionContext, showReturnForm, closeReturnForm,
-      returnSubmitting, handleReturnSubmit, returnFormData, setReturnFormData, handleReturnItemAdd,
-      handleReturnItemChange, handleReturnItemRemove,
-    },
-    {
-      popupMode,
-      showSectionTabs,
-    },
-  );
 
   return buildPageProps();
 };

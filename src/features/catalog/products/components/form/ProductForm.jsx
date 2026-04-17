@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { productsApi, categoriesApi } from '../../api/index.js';
 import useIsMobile from '../../../../../shared/hooks/useIsMobile';
 import {
@@ -35,7 +35,17 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
     return window.innerWidth > 768;
   });
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const data = await categoriesApi.getAll();
+      setCategories(data);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  }, []);
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategories();
     if (product) {
       setFormData({
@@ -100,16 +110,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
       setIsStockAutoFromPrice(false);
       setShowAdvancedFields(isQuickMode ? false : !isMobile);
     }
-  }, [product, initialFormPatch, isMobile, isQuickMode]);
-
-  const fetchCategories = async () => {
-    try {
-      const data = await categoriesApi.getAll();
-      setCategories(data);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-    }
-  };
+  }, [product, initialFormPatch, isMobile, isQuickMode, fetchCategories]);
 
   const handleSuggestDescription = () => {
     const suggested = generateDescriptionSuggestion(formData);

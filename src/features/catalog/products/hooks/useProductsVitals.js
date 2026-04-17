@@ -36,7 +36,9 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
         if (lastEntry?.startTime) metrics.lcp = Math.max(metrics.lcp, lastEntry.startTime);
       });
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-    } catch (_) {}
+    } catch (_) {
+      // Ignore unsupported LCP metrics
+    }
 
     try {
       clsObserver = new PerformanceObserver((entryList) => {
@@ -47,7 +49,9 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
         });
       });
       clsObserver.observe({ type: 'layout-shift', buffered: true });
-    } catch (_) {}
+    } catch (_) {
+      // Ignore unsupported CLS metrics
+    }
 
     try {
       inpObserver = new PerformanceObserver((entryList) => {
@@ -57,7 +61,9 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
         });
       });
       inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
-    } catch (_) {}
+    } catch (_) {
+      // Ignore unsupported input delay metrics
+    }
 
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flushVitals();

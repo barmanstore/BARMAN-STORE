@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { categoriesApi } from '../../../../shared/services/api';
 import useCategoryManagementComputed from './useCategoryManagementComputed';
 import useCategoryManagementProducts from './useCategoryManagementProducts';
@@ -63,7 +63,7 @@ const useCategoryManagementController = ({ onClose }) => {
     }, 80);
   };
 
-  const fetchCategories = async ({ keepSelection = true } = {}) => {
+  const fetchCategories = useCallback(async ({ keepSelection = true } = {}) => {
     try {
       const [flatRows, treeRows] = await Promise.all([
         categoriesApi.getAll({ scope: 'all' }),
@@ -101,11 +101,12 @@ const useCategoryManagementController = ({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategoryId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategories({ keepSelection: false });
-  }, []);
+  }, [fetchCategories]);
 
   const resetForm = () => {
     setIsEditing(false);

@@ -64,7 +64,7 @@ function SafeProductImage({ src, alt, className, fallbackProduct, width, height,
       className={className}
       width={explicitWidth}
       height={explicitHeight}
-      fetchpriority={fetchPriority}
+      fetchPriority={fetchPriority}
       {...rest}
       decoding={decodeMode}
       onError={(event) => {

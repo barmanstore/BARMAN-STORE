@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 const normalizeSearchValue = (value) => String(value || '')
   .trim()
@@ -19,8 +19,11 @@ const usePurchaseLookups = ({
   getLatestProductHistoryEntryHelper,
   getDistributorHistoryProductsHelper,
 }) => {
-  const distributorById = new Map(
-    (Array.isArray(distributors) ? distributors : []).map((entry) => [String(entry?.id || ''), entry])
+  const distributorById = useMemo(
+    () => new Map(
+      (Array.isArray(distributors) ? distributors : []).map((entry) => [String(entry?.id || ''), entry])
+    ),
+    [distributors]
   );
 
   const resolveSupplierByInput = useCallback((value) => {

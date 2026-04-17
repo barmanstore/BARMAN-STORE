@@ -209,7 +209,7 @@ const useCreditHistoryController = ({ user }) => {
     historyHasMore,
     loadFullHistory,
     effectiveUserId,
-    getEffectiveTransactionDateKey,
+
   ]);
 
   const reports = useCreditHistoryReports({
@@ -247,6 +247,38 @@ const useCreditHistoryController = ({ user }) => {
     formatPdfCurrency,
     getPdfColumnStyles,
   });
+
+  const handleOpenWhatsAppChat = useCallback(async () => {
+    if (isAdminView) {
+      await reports.handleSendWhatsApp();
+      return;
+    }
+
+    const adminPhone = String(info.WHATSAPP_NUMBER || '').replace(/\D/g, '');
+    const adminText = String(info.WHATSAPP_DEFAULT_TEXT || 'Hello, I need help with my credit history.').trim();
+
+    if (!adminPhone) {
+      setError('Admin WhatsApp contact is unavailable.');
+      return;
+    }
+
+    const result = await sendWhatsAppSmart({
+      phone: adminPhone,
+      text: adminText,
+    });
+
+    if (result.status === 'blocked_no_phone') {
+      setError('Admin WhatsApp contact is unavailable.');
+      return;
+    }
+    if (result.status === 'opened_with_copy') {
+      setSuccess('Copied message. WhatsApp opened; paste and send to chat.');
+      return;
+    }
+    if (result.status === 'opened_without_copy') {
+      setError('WhatsApp opened. Please paste the message manually.');
+    }
+  }, [isAdminView, reports, setError, setSuccess]);
 
   const transactions = useCreditHistoryTransactions({
     creditApi,
@@ -438,6 +470,7 @@ const useCreditHistoryController = ({ user }) => {
       reportText,
       handleCopyReport: reports.handleCopyReport,
       handleSendWhatsApp: reports.handleSendWhatsApp,
+      handleOpenWhatsAppChat,
       generatePDFReport: reports.generatePDFReport,
       setShowReport,
       setReportSummary,

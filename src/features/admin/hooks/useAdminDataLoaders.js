@@ -121,7 +121,6 @@ const buildUserDirectorySummary = (payload) => ({
 
 const useAdminDataLoaders = ({
   statsApi,
-  productsApi,
   categoriesApi,
   ordersApi,
   usersApi,
@@ -317,7 +316,6 @@ const useAdminDataLoaders = ({
     creditApi,
     insightsApi,
     ordersApi,
-    productsApi,
     purchaseOrdersApi,
     requestWithRetry,
     setOrdersPage,
@@ -403,7 +401,6 @@ const useAdminDataLoaders = ({
       }
     }
   }, [
-    productsApi,
     requestWithRetry,
     setProducts,
     setProductsLoading,

@@ -1,5 +1,5 @@
 .credit-history-page {
-  padding: 20px;
+  padding: 12px;
   max-width: 1200px;
   margin: 0 auto;
   color-scheme: light;
@@ -9,34 +9,34 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 2px;
   flex-wrap: wrap;
 }
 
 .credit-history-page .page-header-main {
   display: grid;
-  gap: 6px;
+  gap: 3px;
   min-width: 0;
 }
 
 .credit-history-page .page-title-block {
   display: grid;
-  gap: 4px;
+  gap: 1px;
 }
 
 .credit-history-page .page-title-block h1 {
   margin: 0;
-  font-size: 28px;
-  line-height: 1.1;
+  font-size: 24px;
+  line-height: 1.15;
   color: #0f172a;
 }
 
 .credit-history-page .page-subline {
   margin: 0;
   color: #64748b;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .credit-history-page .customer-identity-card {
@@ -134,26 +134,96 @@
 .credit-history-page .balance-card {
   background: linear-gradient(135deg, #0f4fa8 0%, #1f6ed4 100%);
   color: white;
-  padding: 16px 20px;
-  border-radius: 12px;
+  padding: 10px;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  min-width: 220px;
+  gap: 10px;
+  min-width: 0;
+}
+
+.credit-history-page .balance-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.credit-history-page .balance-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.credit-history-page .balance-card-identity .customer-identity-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.credit-history-page .balance-card-identity .customer-identity-name {
+  display: block;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credit-history-page .customer-identity-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.credit-history-page .customer-identity-whatsapp:hover,
+.credit-history-page .customer-identity-whatsapp:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.credit-history-page .customer-identity-whatsapp svg {
+  width: 16px;
+  height: 16px;
+}
+
+.credit-history-page .balance-card-identity .customer-subline {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.credit-history-page .balance-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .credit-history-page .balance-label {
   font-size: 12px;
-  opacity: 0.9;
+  opacity: 0.85;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.75px;
 }
 
 .credit-history-page .balance-amount {
   font-size: 34px;
-  font-weight: bold;
-  margin-top: 8px;
-  line-height: 1;
+  font-weight: 800;
+  margin-top: 0;
+  line-height: 1.05;
 }
 
 .credit-history-page .balance-amount.positive {
@@ -170,13 +240,13 @@
 
 .credit-history-page .summary-hero-card {
   width: 100%;
-  margin-bottom: 12px;
-  box-shadow: 0 8px 20px rgba(11, 56, 122, 0.2);
+  margin-bottom: 6px;
+  box-shadow: 0 8px 18px rgba(11, 56, 122, 0.16);
 }
 
 .credit-history-page .summary-direction {
-  margin-top: 8px;
-  font-size: 14px;
+  margin-top: 4px;
+  font-size: 12px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
 }
@@ -197,7 +267,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   width: 100%;
 }
 
@@ -214,8 +284,8 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
-  width: min(100%, 292px);
+  gap: 6px;
+  width: min(100%, 200px);
   min-width: 0;
   margin-left: auto;
 }

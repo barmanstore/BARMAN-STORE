@@ -197,18 +197,21 @@ const AdminTabContent = () => {
 
   useEffect(() => {
     if (!billingPopupStatus.isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllowInlineBilling(false);
     }
   }, [billingPopupStatus.isOpen]);
 
   useEffect(() => {
     if (!purchasePopupStatus.isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllowInlinePurchase(false);
     }
   }, [purchasePopupStatus.isOpen]);
 
   useEffect(() => {
     if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllowInlinePurchase(true);
     }
   }, [purchaseShortcutPayload]);

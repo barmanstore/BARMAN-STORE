@@ -221,7 +221,6 @@ const usePurchaseOrderFormHandlers = ({
         }).filter(Boolean)
       : [createEmptyOrderItem()]
   ), [
-    applyPurchaseDraftLastPurchaseSuggestion,
     buildOrderDraftItem,
     createEmptyOrderItem,
     normalizeGstRateOption,
@@ -457,6 +456,7 @@ const usePurchaseOrderFormHandlers = ({
     findProductForItem,
     orderFormData.distributor_id,
     orderFormData.items,
+    orderFormData.supplier_id,
     products,
     setError,
     setOrderReviewMode,

@@ -44,7 +44,7 @@ const useAdminImportExport = ({
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     const disposition = String(response.headers.get('Content-Disposition') || '');
-    const match = disposition.match(/filename=\"?([^\"]+)\"?/i);
+    const match = disposition.match(/filename="?([^"]+)"?/i);
     anchor.href = href;
     anchor.download = match?.[1] || fallbackName;
     document.body.appendChild(anchor);

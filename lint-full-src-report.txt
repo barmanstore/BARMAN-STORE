@@ -1,0 +1,2016 @@
+C:\Users\naren\barman-storereact-mysql-migration\src\RootShell.jsx:49:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  47 |
+  48 |   useEffect(() => {
+> 49 |     setMobileMenuOpen(false);
+     |     ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  50 |   }, [location.pathname, location.search, routePolicy.variant]);
+  51 |
+  52 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\components\AdminTabContent.jsx:200:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  198 |   useEffect(() => {
+  199 |     if (!billingPopupStatus.isOpen) {
+> 200 |       setAllowInlineBilling(false);
+      |       ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  201 |     }
+  202 |   }, [billingPopupStatus.isOpen]);
+  203 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\components\AdminTabContent.jsx:206:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  204 |   useEffect(() => {
+  205 |     if (!purchasePopupStatus.isOpen) {
+> 206 |       setAllowInlinePurchase(false);
+      |       ^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  207 |     }
+  208 |   }, [purchasePopupStatus.isOpen]);
+  209 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\components\AdminTabContent.jsx:212:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  210 |   useEffect(() => {
+  211 |     if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+> 212 |       setAllowInlinePurchase(true);
+      |       ^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  213 |     }
+  214 |   }, [purchaseShortcutPayload]);
+  215 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\components\CommandPalette.jsx:29:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  27 |     if (!open) return;
+  28 |     const firstEnabledIndex = filteredActions.findIndex((action) => !action?.disabled);
+> 29 |     setActiveIndex(firstEnabledIndex >= 0 ? firstEnabledIndex : 0);
+     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |   }, [filteredActions, open]);
+  31 |
+  32 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminDataLoaders.js:314:6: React Hook useCallback has an unnecessary dependency: 'productsApi'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminDataLoaders.js:405:6: React Hook useCallback has an unnecessary dependency: 'productsApi'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminImportExport.js:47:47: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminImportExport.js:47:53: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminImportExport.js:47:58: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminOrderActions.js:5:3: 'user' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminPageController.js:50:5: 'creditAgingSummary' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminPageController.js:51:5: 'purchaseOpsSummary' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminPageController.js:434:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  432 |         setActiveTab('billing');
+  433 |       }
+> 434 |       setBillingShortcutRequest((current) => current + 1);
+      |       ^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  435 |     } else if (shortcutAction === 'open-po') {
+  436 |       if (activeTab !== 'purchases') {
+  437 |         setActiveTab('purchases'); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminPageController.js:753:6: React Hook useCallback has an unnecessary dependency: 'toLocalDateKey'. Either exclude it or remove the dependency array. Outer scope values like 'toLocalDateKey' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminPageController.js:875:5: Duplicate key 'handleUndoTableAction'. [Error/no-dupe-keys]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductHandlers.js:164:12: Error: Cannot access variable before it is declared
+
+`pollBulkJobAsync` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  162 |     if (bulkJobPollRunRef.current !== pollRunId) return;
+  163 |     bulkJobPollTimerRef.current = setTimeout(() => {
+> 164 |       void pollBulkJobAsync(jobId, pollRunId);
+      |            ^^^^^^^^^^^^^^^^ `pollBulkJobAsync` accessed before it is declared
+  165 |     }, 2500);
+  166 |   }, [
+  167 |     clearBulkJobPolling,
+
+  140 |   }, [showNotification]);
+  141 |
+> 142 |   const pollBulkJobAsync = useCallback(async (jobId, pollRunId) => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 143 |     if (!jobId) return;
+      | ^^^^^^^^^^^^^^^^^^^^^^^
+> 144 |     try {
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^
+> 170 |     refreshProductsAfterBulkJob,
+      | ^^^^^^^^^^^^^^^^^^^^^^^
+> 171 |   ]);
+      | ^^^^^^ `pollBulkJobAsync` is declared here
+  172 |
+  173 |   const startBulkJobPolling = useCallback((jobId) => {
+  174 |     const normalizedJobId = Number(jobId || 0); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductHandlers.js:286:6: React Hook useCallback has a missing dependency: 'setProductFormMode'. Either include it or remove the dependency array. If 'setProductFormMode' changes too often, find the parent component that defines it and wrap that definition in useCallback. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductHandlers.js:389:6: React Hook useCallback has a missing dependency: 'registerBulkJob'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductHandlers.js:445:6: React Hook useCallback has a missing dependency: 'registerBulkJob'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductTable.js:26:3: 'productTableSearch' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductTable.js:27:3: 'productTableCategoryFilter' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductTable.js:28:3: 'productTableStatusFilter' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminProductTable.js:29:3: 'productTableLowStockOnly' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminState.js:173:64: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  171 |     productTableFiltersRef.current = readStoredProductTableFilters();
+  172 |   }
+> 173 |   const [productTableSearch, setProductTableSearch] = useState(() => productTableFiltersRef.current.search);
+      |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  174 |   const [productTableSortField, setProductTableSortField] = useState('created_at');
+  175 |   const [productTableSortDir, setProductTableSortDir] = useState('desc');
+  176 |   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => productTableFiltersRef.current.category); [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminState.js:176:80: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  174 |   const [productTableSortField, setProductTableSortField] = useState('created_at');
+  175 |   const [productTableSortDir, setProductTableSortDir] = useState('desc');
+> 176 |   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => productTableFiltersRef.current.category);
+      |                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  177 |   const [productTableStatusFilter, setProductTableStatusFilter] = useState(() => productTableFiltersRef.current.status);
+  178 |   const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(() => productTableFiltersRef.current.lowStockOnly);
+  179 |   const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => { [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminState.js:177:76: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  175 |   const [productTableSortDir, setProductTableSortDir] = useState('desc');
+  176 |   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => productTableFiltersRef.current.category);
+> 177 |   const [productTableStatusFilter, setProductTableStatusFilter] = useState(() => productTableFiltersRef.current.status);
+      |                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  178 |   const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(() => productTableFiltersRef.current.lowStockOnly);
+  179 |   const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => {
+  180 |     if (typeof window === 'undefined') return PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS; [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\hooks\useAdminState.js:178:76: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  176 |   const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => productTableFiltersRef.current.category);
+  177 |   const [productTableStatusFilter, setProductTableStatusFilter] = useState(() => productTableFiltersRef.current.status);
+> 178 |   const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(() => productTableFiltersRef.current.lowStockOnly);
+      |                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  179 |   const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => {
+  180 |     if (typeof window === 'undefined') return PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
+  181 |     const fallback = window.localStorage.getItem('admin-products-columns') === 'full' [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:256:30: Unnecessary escape character: \-. [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:257:55: Unnecessary escape character: \-. [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:283:18: Unnecessary escape character: \-. [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:583:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  581 |     if (!snapshot?.today_summary) return;
+  582 |     const openingValue = snapshot.today_summary.opening_balance ?? 0;
+> 583 |     setOpeningDraft(String(openingValue));
+      |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  584 |   }, [snapshot?.today_summary?.date, snapshot?.today_summary?.opening_balance]);
+  585 |
+  586 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:584:6: React Hook useEffect has a missing dependency: 'snapshot.today_summary'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:600:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  598 |   useEffect(() => {
+  599 |     if (!showAnalysisPanel) return;
+> 600 |     setCustomFromInput(formatDateInputValue(dateRange[0]));
+      |     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  601 |     setCustomToInput(formatDateInputValue(dateRange[1]));
+  602 |     setCalendarField('');
+  603 |     setCalendarMonthToken(dateRange[0] || dateRange[1] || todayKey || ''); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:606:6: React Hook useEffect has a missing dependency: 'todayKey'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:648:10: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  646 |
+  647 |   useEffect(() => {
+> 648 |     void loadSnapshot();
+      |          ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  649 |   }, []);
+  650 |
+  651 |   const dateRangePresets = useMemo(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:649:6: React Hook useEffect has a missing dependency: 'loadSnapshot'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:695:9: The 'filteredGroups' conditional could make the dependencies of useMemo Hook (at line 705) change on every render. To fix this, wrap the initialization of 'filteredGroups' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\CashbookSection.jsx:710:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  708 |     if (!todayKey || hasInitializedDateRange.current) return;
+  709 |     if (!dateRange[0] && !dateRange[1]) {
+> 710 |       setDateRange([todayKey, todayKey]);
+      |       ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  711 |       hasInitializedDateRange.current = true;
+  712 |     }
+  713 |   }, [dateRange, todayKey]); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\DailySalesSection.jsx:35:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  33 |   useEffect(() => {
+  34 |     if (dailyCashTally) {
+> 35 |       setCountedCashDraft(String(dailyCashTally.countedCashTotal ?? ''));
+     |       ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  36 |       setNoteDraft(String(dailyCashTally.note || ''));
+  37 |       return;
+  38 |     } [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\DailySalesSection.jsx:41:6: React Hook useEffect has a missing dependency: 'dailyCashTally'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\DailySalesSection.jsx:261:50: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  259 |             ) : selectedSalesBills.map((bill) => (
+  260 |               <tr key={bill.id}>
+> 261 |                 <td>{new Date(bill.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+      |                                                  ^^^^^^^^^^ Cannot call impure function
+  262 |                 <td>{bill.bill_number || `#${bill.id}`}</td>
+  263 |                 <td>{truncateUserName(bill.customer_name || '-', 15)}</td>
+  264 |                 <td>{formatCurrency(asNumber(bill.total_amount, 0))}</td> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\DashboardSection.jsx:749:57: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  747 |                   <span className="dashboard-row-primary">{order.order_number || `#${order.id}`}</span>
+  748 |                   <span className="dashboard-row-secondary">
+> 749 |                     Date: {new Date(order.created_at || Date.now()).toLocaleDateString()}
+      |                                                         ^^^^^^^^^^ Cannot call impure function
+  750 |                   </span>
+  751 |                   <span className="dashboard-row-value">{formatCurrency(order.total_amount || 0)}</span>
+  752 |                 </div> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:72:3: 'bulkJob' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:73:3: 'handleCancelBulkJob' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:74:3: 'handleRetryFailedBulkJob' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:75:3: 'dismissBulkJob' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:396:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  394 |
+  395 |   useEffect(() => {
+> 396 |     setProductTableSearchDraft(productTableSearch);
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  397 |   }, [productTableSearch]);
+  398 |
+  399 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:666:6: React Hook useMemo has a missing dependency: 'selectVisibleProducts'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:701:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  699 |   useEffect(() => {
+  700 |     if (!commandPaletteOpen) {
+> 701 |       setCommandPaletteQuery('');
+      |       ^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  702 |     }
+  703 |   }, [commandPaletteOpen]);
+  704 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\ProductsSection.jsx:706:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  704 |
+  705 |   useEffect(() => {
+> 706 |     clearBulkSelection();
+      |     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  707 |   }, [
+  708 |     productTableSearch,
+  709 |     productTableCategoryFilter, [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:265:10: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  263 |
+  264 |   useEffect(() => {
+> 265 |     void fetchDashboard();
+      |          ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  266 |   }, []);
+  267 |
+  268 |   useEffect(() => registerDomainListener( [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:266:6: React Hook useEffect has a missing dependency: 'fetchDashboard'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:281:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  279 |     const storedReview = readStoredRestockPoReview();
+  280 |     if (!storedReview) return;
+> 281 |     setSelectedIds(storedReview.selectedIds);
+      |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  282 |     setPoQuantities(storedReview.poQuantities);
+  283 |     setPoReviewDraft(storedReview.poReviewDraft);
+  284 |   }, []); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:475:9: 'selectedDistributorId' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:487:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  485 |   useEffect(() => {
+  486 |     if (selectedIds.length > 0) return;
+> 487 |     setPoReviewDraft(createDefaultPoReviewDraft());
+      |     ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  488 |   }, [selectedIds.length]);
+  489 |
+  490 |   const handleSearchDraftChange = (value) => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\RestockDashboardSection.jsx:527:9: 'handlePoQuantityChange' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\UsersSection.jsx:17:3: 'adminUsers' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\UsersSection.jsx:18:3: 'customerUsers' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\admin\sections\products\ProductsGridPanel.jsx:99:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+   97 |   useEffect(() => {
+   98 |     if (!shouldVirtualize) {
+>  99 |       setVisibleRowRange({ start: 0, end: rowCount - 1 });
+      |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  100 |       return undefined;
+  101 |     }
+  102 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\auth\Profile.jsx:36:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  34 |
+  35 |   useEffect(() => {
+> 36 |     setImageLoadFailed(false);
+     |     ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |   }, [formData.profile_image]);
+  38 |
+  39 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\auth\Profile.jsx:63:5: Error: Cannot access variable before it is declared
+
+`loadProfile` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  61 |
+  62 |   useEffect(() => {
+> 63 |     loadProfile();
+     |     ^^^^^^^^^^^ `loadProfile` accessed before it is declared
+  64 |   }, [user]);
+  65 |
+  66 |   const applyVerificationRequestStatus = (payload = {}) => {
+
+   93 |
+   94 |
+>  95 |   const loadProfile = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  96 |     try {
+      | ^^^^^^^^^
+>  97 |       if (!user?.id) {
+      ΓÇª
+      | ^^^^^^^^^
+> 146 |     }
+      | ^^^^^^^^^
+> 147 |   };
+      | ^^^^^ `loadProfile` is declared here
+  148 |
+  149 |   const validateProfile = (profile, address) => {
+  150 |     const issues = []; [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\auth\Profile.jsx:64:6: React Hook useEffect has a missing dependency: 'loadProfile'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\auth\Profile.jsx:126:21: Empty block statement. [Error/no-empty]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\auth\components\ProfileView.jsx:18:3: 'user' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\cart\Cart.jsx:86:5: Error: Cannot access variable before it is declared
+
+`loadRecommendationNames` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  84 |
+  85 |   useEffect(() => {
+> 86 |     loadRecommendationNames();
+     |     ^^^^^^^^^^^^^^^^^^^^^^^ `loadRecommendationNames` accessed before it is declared
+  87 |   }, [user]);
+  88 |
+  89 |   useEffect(() => {
+
+  172 |   }, [manualDraft.name]);
+  173 |
+> 174 |   const loadRecommendationNames = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 175 |     try {
+      | ^^^^^^^^^
+> 176 |       if (!user?.id) {
+      ΓÇª
+      | ^^^^^^^^^
+> 189 |     }
+      | ^^^^^^^^^
+> 190 |   };
+      | ^^^^^ `loadRecommendationNames` is declared here
+  191 |
+  192 |   const updateCart = (newCart) => {
+  193 |     setCart(newCart); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\cart\Cart.jsx:87:6: React Hook useEffect has a missing dependency: 'loadRecommendationNames'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\cart\Cart.jsx:90:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  88 |
+  89 |   useEffect(() => {
+> 90 |     setCart(normalizeCartRows(storedCart));
+     |     ^^^^^^^ Avoid calling setState() directly within an effect
+  91 |   }, [storedCart]);
+  92 |
+  93 |   const previewCustomerUserId = useMemo(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\cart\Cart.jsx:107:8: React Hook useMemo has a missing dependency: 'isUnknownPriceItem'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\cart\Cart.jsx:128:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  126 |     const query = String(manualDraft.name || '').trim();
+  127 |     if (query.length < 2) {
+> 128 |       setManualMatches([]);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  129 |       setManualMatchCursor(-1);
+  130 |       setManualSearchError('');
+  131 |       setManualSearchLoading(false); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementComputed.js:52:6: React Hook useMemo has a missing dependency: 'isDescendantOf'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementController.js:107:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  105 |
+  106 |   useEffect(() => {
+> 107 |     fetchCategories({ keepSelection: false });
+      |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  108 |   }, []);
+  109 |
+  110 |   const resetForm = () => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementController.js:108:6: React Hook useEffect has a missing dependency: 'fetchCategories'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementProducts.js:58:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  56 |
+  57 |   useEffect(() => {
+> 58 |     fetchCategoryProducts(selectedCategoryId);
+     |     ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  59 |   }, [selectedCategoryId]);
+  60 |
+  61 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementProducts.js:59:6: React Hook useEffect has a missing dependency: 'fetchCategoryProducts'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\categories\hooks\useCategoryManagementProducts.js:64:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  62 |     if (!Number(editingProductId)) return;
+  63 |     if (!filteredProductCategoryOptions.length) {
+> 64 |       setEditingProductCategoryFocusIndex(-1);
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  65 |       return;
+  66 |     }
+  67 |     const selectedIndex = filteredProductCategoryOptions.findIndex( [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:1:20: 'useEffect' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:9:3: 'isMobile' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:22:3: 'localUser' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:23:3: 'avatarLoadFailed' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:24:3: 'avatarSrc' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:25:3: 'setAvatarLoadFailed' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:27:3: 'getInitials' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsMobileView.jsx:179:27: Error: Cannot create components during render
+
+Components created during render will reset their state each time they are created. Declare components outside of render.
+
+  177 |       />
+  178 |
+> 179 |       {isCartExpanded && <MiniCartPreview />}
+      |                           ^^^^^^^^^^^^^^^ This component is created during render
+  180 |
+  181 |       <MobileFooter
+  182 |         cartCount={cartItemCount}
+
+   92 |   };
+   93 |
+>  94 |   const MiniCartPreview = () => (
+      |                           ^^^^^^^
+>  95 |     <div className="mini-cart-preview">
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  96 |       <div className="mini-cart-header">
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 108 |     </div>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 109 |   );
+      | ^^^^ The component is created during render here
+  110 |   return (
+  111 |     <div className="mobile-shop-page" ref={productsPageRef}>
+  112 |       <MobileProductsHeader [Error/react-hooks/static-components]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\ProductsPageLayout.jsx:130:9: 'isAdminUser' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\SafeProductImage.jsx:67:7: Unknown property 'fetchpriority' found, use 'fetchPriority' instead [Error/react/no-unknown-property]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\VirtualizedFamilyGrid.jsx:47:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  45 |
+  46 |   useEffect(() => {
+> 47 |     setVisibleRange({ start: 0, end: Math.max(0, Math.min(totalItems - 1, 15)) });
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |   }, [totalItems]);
+  49 |
+  50 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\VirtualizedFamilyGrid.jsx:51:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  49 |
+  50 |   useEffect(() => {
+> 51 |     setRowHeights((prev) => Array.from({ length: totalRows }, (_, index) => (
+     |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  52 |       Math.max(120, Number(prev[index] || rowHeight))
+  53 |     )));
+  54 |   }, [totalRows, rowHeight, cols]); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\VirtualizedFamilyGrid.jsx:58:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  56 |   useEffect(() => {
+  57 |     if (!shouldVirtualize) {
+> 58 |       setIsNearViewport(true);
+     |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  59 |       return undefined;
+  60 |     }
+  61 |     const node = hostRef.current; [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\VirtualizedFamilyGrid.jsx:114:6: React Hook useEffect has a missing dependency: 'findRowIndexAtOffset'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\form\ProductForm.jsx:39:5: Error: Cannot access variable before it is declared
+
+`fetchCategories` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  37 |
+  38 |   useEffect(() => {
+> 39 |     fetchCategories();
+     |     ^^^^^^^^^^^^^^^ `fetchCategories` accessed before it is declared
+  40 |     if (product) {
+  41 |       setFormData({
+  42 |         name: product.name || '',
+
+  103 |   }, [product, initialFormPatch, isMobile, isQuickMode]);
+  104 |
+> 105 |   const fetchCategories = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 106 |     try {
+      | ^^^^^^^^^
+> 107 |       const data = await categoriesApi.getAll();
+      | ^^^^^^^^^
+> 108 |       setCategories(data);
+      | ^^^^^^^^^
+> 109 |     } catch (err) {
+      | ^^^^^^^^^
+> 110 |       console.error('Error fetching categories:', err);
+      | ^^^^^^^^^
+> 111 |     }
+      | ^^^^^^^^^
+> 112 |   };
+      | ^^^^^ `fetchCategories` is declared here
+  113 |
+  114 |   const handleSuggestDescription = () => {
+  115 |     const suggested = generateDescriptionSuggestion(formData); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\form\ProductForm.jsx:41:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  39 |     fetchCategories();
+  40 |     if (product) {
+> 41 |       setFormData({
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |         name: product.name || '',
+  43 |         description: product.description || '',
+  44 |         brand: product.brand_path || product.brand || '', [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\components\mobile\MobileRepeatOrderSection.jsx:5:3: 'recentlyBoughtFamilies' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:93:7: Error: This value cannot be modified
+
+Modifying a value returned from a hook is not allowed. Consider moving the modification into the hook where the value is constructed.
+
+  91 |     if (productsState.productsAbortControllerRef.current) {
+  92 |       productsState.productsAbortControllerRef.current.abort();
+> 93 |       productsState.productsAbortControllerRef.current = null;
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `productsState` cannot be modified
+  94 |     }
+  95 |     const cacheKey = productHelpers.buildProductsListSessionCacheKey({
+  96 |       selectedCategory: serverCategoryFilter, [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:114:6: React Hook useCallback has a missing dependency: 'productsState'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:136:6: React Hook useEffect has a missing dependency: 'productsState'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:189:6: React Hook useEffect has a missing dependency: 'productsState'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:282:3: Error: This value cannot be modified
+
+Modifying a value returned from a hook is not allowed. Consider moving the modification into the hook where the value is constructed.
+
+  280 |   });
+  281 |
+> 282 |   productsState.loadMoreProductsRef.current = () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ value cannot be modified
+  283 |     if (productsState.loading || productsState.isLoadingMore || productsState.productsLoadingMoreRef.current || !productsState.productsHasMore) return;
+  284 |     trackProductsEvent('products_load_more', {
+  285 |       current_page: Number(productsState.productsPage || 0),
+
+Hint: If this value is a Ref (value returned by `useRef()`), rename the variable to end in "Ref". [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:289:5: Error: This value cannot be modified
+
+Modifying a value returned from a hook is not allowed. Consider moving the modification into the hook where the value is constructed.
+
+  287 |     }, { throttleMs: 600, throttleKey: 'products_load_more' });
+  288 |     const nextRequestId = productsState.latestProductsRequestRef.current;
+> 289 |     productsState.productsLoadingMoreRef.current = true;
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `productsState` cannot be modified
+  290 |     productsState.setIsLoadingMore(true);
+  291 |     fetchProductsPage({
+  292 |       page: productsState.productsPage + 1, [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:348:6: React Hook useCallback has a missing dependency: 'cartActions'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:384:33: 'getSelectedVariation' is not defined. [Error/no-undef]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:401:9: 'toggleExpressMode' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:402:23: 'isExpressMode' is not defined. [Error/no-undef]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsController.js:403:5: 'setIsExpressMode' is not defined. [Error/no-undef]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsDataFetch.js:96:59: Unsafe usage of ReturnStatement. [Error/no-unsafe-finally]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsFamilyGroups.js:123:24: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  121 |       const lastAddedAt = Date.parse(history.lastAddedAt || '');
+  122 |       const daysSince = Number.isFinite(lastAddedAt)
+> 123 |         ? Math.max(0, (Date.now() - lastAddedAt) / 86400000)
+      |                        ^^^^^^^^^^ Cannot call impure function
+  124 |         : 999;
+  125 |       const hasDiscount = family.variations.some((variation) => Number(variation.mrp || variation.price || 0) > Number(variation.price || 0));
+  126 |       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0); [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsLoadMore.js:29:105: React Hook useEffect has a spread element in its dependency array. This means we can't statically verify whether you've passed the correct dependencies. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsRecommendations.js:105:17: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  103 |     const sourceList = selectedCategory !== 'all' ? filteredFamilies : productFamilies;
+  104 |     if (!sourceList.length) return [];
+> 105 |     const now = Date.now();
+      |                 ^^^^^^^^^^ Cannot call impure function
+  106 |     const scored = sourceList.map((family, index) => {
+  107 |       const history = usageHistory[family.id] || {};
+  108 |       const addCount = Number(history.addCount || 0); [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsRecommendations.js:128:17: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  126 |
+  127 |   const smartRestockItems = useMemo(() => {
+> 128 |     const now = Date.now();
+      |                 ^^^^^^^^^^ Cannot call impure function
+  129 |     return Object.values(usageHistory)
+  130 |       .map((entry) => {
+  131 |         const family = familyById.get(entry.familyId); [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsRecommendations.js:154:6: React Hook useMemo has an unnecessary dependency: 'selectedVariationByFamily'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsRecommendations.js:167:17: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  165 |   const popularFamilies = useMemo(() => {
+  166 |     if (!mobileFilteredFamilies.length) return [];
+> 167 |     const now = Date.now();
+      |                 ^^^^^^^^^^ Cannot call impure function
+  168 |     const scored = mobileFilteredFamilies.map((family, index) => {
+  169 |       const history = usageHistory[family.id] || {};
+  170 |       const addCount = Number(history.addCount || 0); [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsRecommendations.js:274:6: React Hook useMemo has an unnecessary dependency: 'selectedVariationByFamily'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsUserProfile.js:22:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  20 |
+  21 |   useEffect(() => {
+> 22 |     setAvatarLoadFailed(false);
+     |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  23 |   }, [localUser?.profile_image]);
+  24 |
+  25 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsVitals.js:39:17: Empty block statement. [Error/no-empty]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsVitals.js:50:17: Empty block statement. [Error/no-empty]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\hooks\useProductsVitals.js:60:17: Empty block statement. [Error/no-empty]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\utils\productFormHelpers.js:171:28: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\catalog\products\utils\productFormHelpers.js:171:37: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:6:10: 'formatCurrency' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:70:5: Error: Cannot access variable before it is declared
+
+`initializeCheckout` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  68 |
+  69 |   useEffect(() => {
+> 70 |     initializeCheckout();
+     |     ^^^^^^^^^^^^^^^^^^ `initializeCheckout` accessed before it is declared
+  71 |   }, []);
+  72 |
+  73 |   useEffect(() => {
+
+  101 |   }, [success, orderResult, adminMode, selectedCustomer, user]);
+  102 |
+> 103 |   const initializeCheckout = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 104 |     try {
+      | ^^^^^^^^^
+> 105 |       const retryOrderId = searchParams.get('retry');
+      ΓÇª
+      | ^^^^^^^^^
+> 207 |     }
+      | ^^^^^^^^^
+> 208 |   };
+      | ^^^^^ `initializeCheckout` is declared here
+  209 |
+  210 |   const validateCustomerProfile = async (userId) => {
+  211 |     try { [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:71:6: React Hook useEffect has a missing dependency: 'initializeCheckout'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:75:7: Error: Cannot access variable before it is declared
+
+`searchCustomers` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  73 |   useEffect(() => {
+  74 |     if (adminMode && customerSearch.length >= 2) {
+> 75 |       searchCustomers();
+     |       ^^^^^^^^^^^^^^^ `searchCustomers` accessed before it is declared
+  76 |     }
+  77 |   }, [customerSearch]);
+  78 |
+
+  241 |   };
+  242 |
+> 243 |   const searchCustomers = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 244 |     try {
+      | ^^^^^^^^^
+> 245 |       const results = await customersApi.search(customerSearch);
+      | ^^^^^^^^^
+> 246 |       setCustomerSearchResults(results);
+      | ^^^^^^^^^
+> 247 |       setShowCustomerDropdown(true);
+      | ^^^^^^^^^
+> 248 |     } catch (err) {
+      | ^^^^^^^^^
+> 249 |       console.error('Customer search error:', err);
+      | ^^^^^^^^^
+> 250 |     }
+      | ^^^^^^^^^
+> 251 |   };
+      | ^^^^^ `searchCustomers` is declared here
+  252 |
+  253 |   const selectCustomer = async (customer) => {
+  254 |     setSelectedCustomer(customer); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:77:6: React Hook useEffect has missing dependencies: 'adminMode' and 'searchCustomers'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\checkout\Checkout.jsx:311:9: 'hasUnknownPriceItems' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:145:3: 'setOrderFullMode' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:199:9: The 'items' conditional could make the dependencies of useEffect Hook (at line 633) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:199:9: The 'items' conditional could make the dependencies of useCallback Hook (at line 907) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:199:9: The 'items' conditional could make the dependencies of useCallback Hook (at line 914) change on every render. To fix this, wrap the initialization of 'items' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:234:37: Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `orderProductOptions`, but the source dependencies were [orderProductOptions?.all, orderProductOptions?.prioritized]. Inferred less specific property than source.
+
+  232 |     .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  233 |   const draftDiagnostics = draftProjection.diagnostics;
+> 234 |   const productLookupById = useMemo(() => {
+      |                                     ^^^^^^^
+> 235 |     const map = new Map();
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |     [
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 244 |     return map;
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 245 |   }, [orderProductOptions?.all, orderProductOptions?.prioritized]);
+      | ^^^^ Could not preserve existing manual memoization
+  246 |   const visibleOrderRows = useMemo(
+  247 |     () => draftProjection.rows
+  248 |       .map((row, index) => { [Error/react-hooks/preserve-manual-memoization]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:336:9: 'reviewMinimumSummary' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:367:41: Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `orderProductOptions`, but the source dependencies were [orderProductOptions?.all, orderProductOptions?.prioritized]. Inferred less specific property than source.
+
+  365 |     [supplierRegisteredProducts]
+  366 |   );
+> 367 |   const productPickerProducts = useMemo(() => {
+      |                                         ^^^^^^^
+> 368 |     const prioritized = Array.isArray(orderProductOptions?.prioritized) ? orderProductOptions.prioritized : [];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 369 |     const all = Array.isArray(orderProductOptions?.all) ? orderProductOptions.all : [];
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 378 |       });
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 379 |   }, [orderProductOptions?.all, orderProductOptions?.prioritized]);
+      | ^^^^ Could not preserve existing manual memoization
+  380 |   const filteredProductPickerProducts = useMemo(() => {
+  381 |     const query = String(deferredProductPickerSearch || '').trim().toLowerCase();
+  382 |     if (!query) return productPickerProducts; [Error/react-hooks/preserve-manual-memoization]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:556:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  554 |     if (!open) return undefined;
+  555 |     if (orderReviewMode) {
+> 556 |       setMobileStep(ORDER_FLOW_REVIEW_STEP);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  557 |     } else if (!String(orderFormData?.distributor_id || '').trim()) {
+  558 |       setMobileStep(0);
+  559 |     } else { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:580:6: React Hook useEffect has missing dependencies: 'focusSupplierField', 'items', 'orderFormData?.distributor_id', and 'orderReviewMode'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:585:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  583 |     if (!open) return;
+  584 |     if (!items.length) {
+> 585 |       setActiveItemIndex(0);
+      |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  586 |       return;
+  587 |     }
+  588 |     if (resolvedActiveItemIndex !== activeItemIndex) { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:598:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  596 |     const nextDistributorId = String(orderFormData?.distributor_id || '').trim();
+  597 |     if (!nextDistributorId) {
+> 598 |       setMobileStep(0);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  599 |       setProductPickerOpen(false);
+  600 |       setProductPickerSearch('');
+  601 |       setProductPickerSelectedIds([]); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:619:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  617 |     if (!open) return;
+  618 |     if (orderReviewMode) {
+> 619 |       setMobileStep(ORDER_FLOW_REVIEW_STEP);
+      |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  620 |       return;
+  621 |     }
+  622 |     setMobileStep((current) => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:632:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  630 |     if (!open) return;
+  631 |     const nextType = resolveDiscountColumnType(items);
+> 632 |     setDiscountColumnType((current) => (current === nextType ? current : nextType));
+      |     ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  633 |   }, [items, open]);
+  634 |
+  635 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:637:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  635 |   useEffect(() => {
+  636 |     if (activeWizardStep !== 1 || orderReviewMode) {
+> 637 |       setProductPickerOpen(false);
+      |       ^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  638 |       setProductPickerSelectedIds([]);
+  639 |       setProductPickerSearch('');
+  640 |     } [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:645:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  643 |   useEffect(() => {
+  644 |     if (!productPickerOpen) return;
+> 645 |     setProductPickerVisibleLimit(productPickerPageSize);
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  646 |   }, [deferredProductPickerSearch, productPickerOpen, productPickerPageSize, filteredAllProductPickerProducts.length]);
+  647 |
+  648 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:650:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  648 |   useEffect(() => {
+  649 |     const totalRows = displayedOrderRows.length;
+> 650 |     setSelectedRowsWindow({
+      |     ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  651 |       start: 0,
+  652 |       end: Math.max(0, Math.min(totalRows - 1, 24)),
+  653 |     }); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:845:9: 'handleReviewSubmit' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseEntryModals.jsx:1475:50: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`. [Error/react/no-unescaped-entities]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseManagementPageLayout.jsx:22:3: 'rollupParams' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseManagementPageLayout.jsx:23:3: 'setRollupParams' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseManagementPageLayout.jsx:32:3: 'handleOpenBrowserWorkspace' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseModals.jsx:45:3: 'supplierHistoryItems' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:7:7: 'buildPrimaryRowStatus' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:66:3: 'draftWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:67:3: 'rateChangeLabel' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:68:3: 'rateChangeTone' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:69:3: 'rateNeedsConfirmation' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:70:3: 'rateConfirmedLabel' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:71:3: 'rateConfirmationWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:72:3: 'discountWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:76:3: 'duplicateWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:77:3: 'productSelectionWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:108:3: 'onConfirmRateWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:109:3: 'onConfirmDiscountWarning' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:140:9: 'lastPurchaseLabel' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosEntry.jsx:172:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  170 |     : null;
+  171 |   useEffect(() => {
+> 172 |     setShowAdvancedAdjustments(shouldExposeMoreFields);
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  173 |   }, [activeItemIndex, shouldExposeMoreFields]);
+  174 |
+  175 |   if (!activeItem) { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosList.jsx:15:34: Component definition is missing display name [Error/react/display-name]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\PurchaseOrderPosList.jsx:18:3: 'rowDiagnostics' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\modals\OrderDetailModal.jsx:166:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  164 |
+  165 |   useEffect(() => {
+> 166 |     setSortConfig({ key: null, direction: null });
+      |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  167 |   }, [orderDetail?.id, orderDetailEditMode]);
+  168 |
+  169 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\modals\OrderDetailModal.jsx:170:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  168 |
+  169 |   useEffect(() => {
+> 170 |     setItemProductSearch('');
+      |     ^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  171 |   }, [orderDetail?.id]);
+  172 |
+  173 |   const orderDetailRows = useMemo(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\modals\PoCorrectionModal.jsx:1:10: 'X' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\modals\ReceiveInventoryModal.jsx:1:10: 'X' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseOrdersSection.jsx:442:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  440 |
+  441 |   useEffect(() => {
+> 442 |     setCurrentPage(1);
+      |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  443 |   }, [
+  444 |     normalizedSearchQuery,
+  445 |     searchScope, [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseOrdersSection.jsx:459:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  457 |   useEffect(() => {
+  458 |     if (currentPage > totalPages) {
+> 459 |       setCurrentPage(totalPages);
+      |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  460 |     }
+  461 |   }, [currentPage, totalPages]);
+  462 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:191:7: 'compareNullable' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:237:3: 'getEntryDisplayBalance' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:345:9: 'recentLedgerEntries' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:366:28: Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+  364 |     };
+  365 |   }, [normalizedSearchQuery]);
+> 366 |   const matchesDateRange = useMemo(() => {
+      |                            ^^^^^^^^^^^^^^^
+> 367 |     const startDate = normalizeDateKey(filters.start_date);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 368 |     const endDate = normalizeDateKey(filters.end_date);
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 376 |     };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 377 |   }, [filters.end_date, filters.start_date]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  378 |   const filteredPayableEntries = useMemo(() => {
+  379 |     const nextEntries = payableEntries.filter((entry) => {
+  380 |       const overdueDays = toNumber(entry?.overdue_days); [Error/react-hooks/preserve-manual-memoization]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:470:6: React Hook useMemo has an unnecessary dependency: 'getDistributorName'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePaymentsSection.jsx:479:98: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  477 |
+  478 |     filteredLedgerEntries.forEach((entry) => {
+> 479 |       const label = formatLedgerDate(entry.created_at || entry.transaction_date || entry.date || Date.now());
+      |                                                                                                  ^^^^^^^^^^ Cannot call impure function
+  480 |       const lastGroup = groups[groups.length - 1];
+  481 |       if (!lastGroup || lastGroup.label !== label) {
+  482 |         groups.push({ [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchasePopupWorkspacePanel.jsx:99:104: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+   97 |                   </div>
+   98 |                   <div className="purchase-popup-order-card-meta">
+>  99 |                     <span>{new Date(order.created_at || order.order_date || order.expected_delivery || Date.now()).toLocaleDateString()}</span>
+      |                                                                                                        ^^^^^^^^^^ Cannot call impure function
+  100 |                     <strong>{formatCurrency(getOrderDisplayTotal(order))}</strong>
+  101 |                   </div>
+  102 |                   <div className="purchase-popup-order-card-badges"> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:1:10: 'useMemo' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:1:19: 'useState' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:3:3: 'BarChart3' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:5:3: 'CheckCheck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:7:3: 'DollarSign' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:8:3: 'Eye' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:9:3: 'MessageCircle' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:10:3: 'Package' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:11:3: 'Plus' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:12:3: 'RotateCcw' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:14:3: 'Truck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:15:3: 'Wallet' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:17:3: 'ArrowUpDown' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:18:3: 'Check' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseRemindersSection.jsx:19:3: 'Trash2' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:1:10: 'useMemo' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:1:19: 'useState' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:3:3: 'BarChart3' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:4:3: 'BellRing' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:5:3: 'CheckCheck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:6:3: 'Clock' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:7:3: 'DollarSign' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:8:3: 'Eye' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:9:3: 'MessageCircle' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:10:3: 'Package' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:11:3: 'Plus' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:13:3: 'Sparkles' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:14:3: 'Truck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:15:3: 'Wallet' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:16:3: 'AlertTriangle' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:17:3: 'ArrowUpDown' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:18:3: 'Check' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseReturnsSection.jsx:19:3: 'Trash2' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:1:10: 'useMemo' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:1:19: 'useState' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:3:3: 'BarChart3' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:5:3: 'CheckCheck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:6:3: 'Clock' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:7:3: 'DollarSign' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:8:3: 'Eye' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:9:3: 'MessageCircle' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:11:3: 'Plus' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:13:3: 'Sparkles' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:14:3: 'Truck' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:16:3: 'AlertTriangle' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:17:3: 'ArrowUpDown' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:18:3: 'Check' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\PurchaseSectionTabs.jsx:19:3: 'Trash2' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\components\sections\dashboard\PurchaseInsightsPanel.jsx:18:9: The 'rollupActions' logical expression could make the dependencies of useMemo Hook (at line 37) change on every render. To fix this, wrap the initialization of 'rollupActions' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\useOrderDetailComputed.js:18:9: The 'orderDetailItems' conditional could make the dependencies of useMemo Hook (at line 90) change on every render. To fix this, wrap the initialization of 'orderDetailItems' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\useOrderDetailComputed.js:18:9: The 'orderDetailItems' conditional could make the dependencies of useMemo Hook (at line 137) change on every render. To fix this, wrap the initialization of 'orderDetailItems' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\useOrderDetailComputed.js:19:9: The 'orderDetailOriginalItems' logical expression could make the dependencies of useCallback Hook (at line 27) change on every render. To fix this, wrap the initialization of 'orderDetailOriginalItems' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\useOrderDetailComputed.js:114:6: React Hook useMemo has unnecessary dependencies: 'orderDetail?.tax_amount', 'orderDetail?.taxable_value', and 'orderDetail?.total_amount'. Either exclude them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseLedgerCorrections.js:198:6: React Hook useCallback has an unnecessary dependency: 'toNumber'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseLedgerCorrections.js:302:6: React Hook useCallback has an unnecessary dependency: 'toNumber'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseLookups.js:22:9: The 'distributorById' object construction makes the dependencies of useCallback Hook (at line 59) change on every render. To fix this, wrap the initialization of 'distributorById' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseLookups.js:22:9: The 'distributorById' object construction makes the dependencies of useCallback Hook (at line 120) change on every render. To fix this, wrap the initialization of 'distributorById' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:11:3: 'buildBackofficePopupPath' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:37:3: 'fromBaseQtyForProduct' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:369:6: React Hook useCallback has unnecessary dependencies: 'getPurchaseRequestErrorMessage' and 'getTodayDate'. Either exclude them or remove the dependency array. Outer scope values like 'getPurchaseRequestErrorMessage' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:397:6: React Hook useCallback has unnecessary dependencies: 'getPurchaseRequestErrorMessage' and 'getTodayDate'. Either exclude them or remove the dependency array. Outer scope values like 'getPurchaseRequestErrorMessage' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:551:6: React Hook useCallback has unnecessary dependencies: 'normalizeGstRateOption', 'resolvePurchaseUnitForProduct', and 'toNumber'. Either exclude them or remove the dependency array. Outer scope values like 'normalizeGstRateOption' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:630:9: The 'selectedSupplierRegisteredProducts' conditional could make the dependencies of useEffect Hook (at line 1174) change on every render. To fix this, wrap the initialization of 'selectedSupplierRegisteredProducts' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:653:5: 'handleEditOrder' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:971:6: React Hook useCallback has an unnecessary dependency: 'getTodayDate'. Either exclude it or remove the dependency array. Outer scope values like 'getTodayDate' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:999:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+   997 |     if (showOrderForm) return;
+   998 |     shortcutDraftHadMeaningfulItemsRef.current = false;
+>  999 |     setShortcutDraftContext(null);
+       |     ^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1000 |     setActiveSavedOrderDraftId('');
+  1001 |     setRestockPendingSelection(null);
+  1002 |     restockPendingApplyRef.current = ''; [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1134:10: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  1132 |       return;
+  1133 |     }
+> 1134 |     void loadSupplierRegisteredProducts(selectedOrderSupplierId);
+       |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1135 |   }, [
+  1136 |     editingOrderId,
+  1137 |     hasLoadedSelectedSupplierRegisteredProducts, [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1265:6: React Hook useEffect has an unnecessary dependency: 'toNumber'. Either exclude it or remove the dependency array. Outer scope values like 'toNumber' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1419:9: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  1417 |       if (shortcutContext?.source === 'restock') {
+  1418 |         closeOrderFormInternal();
+> 1419 |         clearShortcutDraftContext();
+       |         ^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  1420 |         shortcutDraftHadMeaningfulItemsRef.current = false;
+  1421 |       } else {
+  1422 |         const shouldDiscardDraft = window.confirm( [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1443:6: React Hook useEffect has missing dependencies: 'clearShortcutDraftContext' and 'closeOrderFormInternal'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1620:11: 'id' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1621:11: 'po_item_id' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1622:11: 'purchase_order_id' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1623:11: 'purchase_order_item_id' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1624:11: 'order_id' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1625:11: 'po_number' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1631:11: 'orderId' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1632:18: 'orderPoNumber' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1633:26: 'orderPurchaseId' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1661:6: React Hook useCallback has an unnecessary dependency: 'createEmptyOrderItem'. Either exclude it or remove the dependency array. Outer scope values like 'createEmptyOrderItem' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1713:6: React Hook useCallback has unnecessary dependencies: 'createClientRequestId' and 'createEmptyOrderItem'. Either exclude them or remove the dependency array. Outer scope values like 'createClientRequestId' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementController.js:1749:9: 'pageProps' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:10:3: 'operationsSummary' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:37:25: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  35 |     calculateOrderItem,
+  36 |     calculateOrderTotals,
+> 37 |     previousProjection: previousProjectionRef.current,
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  38 |   }), [
+  39 |     showOrderForm,
+  40 |     orderFormData.items, [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:37:25: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  35 |     calculateOrderItem,
+  36 |     calculateOrderTotals,
+> 37 |     previousProjection: previousProjectionRef.current,
+     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  38 |   }), [
+  39 |     showOrderForm,
+  40 |     orderFormData.items, [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:46:3: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  44 |     calculateOrderTotals,
+  45 |   ]);
+> 46 |   previousProjectionRef.current = orderDraftProjection;
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  47 |   const orderTotals = orderDraftProjection.totals;
+  48 |   const ledgerBalanceSummary = getLedgerBalanceSummary(ledgerRecords, filters.distributor_id);
+  49 | [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:54:5: React Hook useMemo has unnecessary dependencies: 'products' and 'purchaseOrders'. Either exclude them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseManagementDerived.js:58:5: React Hook useMemo has unnecessary dependencies: 'products' and 'purchaseOrders'. Either exclude them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseOrderFormHandlers.js:223:6: React Hook useCallback has an unnecessary dependency: 'applyPurchaseDraftLastPurchaseSuggestion'. Either exclude it or remove the dependency array. Outer scope values like 'applyPurchaseDraftLastPurchaseSuggestion' aren't valid dependencies because mutating them doesn't re-render the component. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchaseOrderFormHandlers.js:452:6: React Hook useCallback has a missing dependency: 'orderFormData.supplier_id'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\commerce\purchase\hooks\usePurchasePaymentHandlers.js:144:6: React Hook useCallback has an unnecessary dependency: 'toNumber'. Either exclude it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\khata\CreditKhata.jsx:187:9: The 'fetchLedger' function makes the dependencies of useEffect Hook (at line 468) change on every render. To fix this, wrap the definition of 'fetchLedger' in its own useCallback() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\khata\CreditKhata.jsx:272:6: React Hook useEffect has a missing dependency: 'clearUser'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\khata\CreditKhata.jsx:276:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  274 |   useEffect(() => {
+  275 |     if (loading) return;
+> 276 |     fetchLedger(filters.user_id, users);
+      |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  277 |   }, [filters.user_id, loading]);
+  278 |
+  279 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\khata\CreditKhata.jsx:277:6: React Hook useEffect has missing dependencies: 'fetchLedger' and 'users'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\reports\CreditAgingReport.jsx:10:30: 'user' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\credits\reports\CreditAgingReport.jsx:27:5: Error: Cannot access variable before it is declared
+
+`fetchAgingReport` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  25 |
+  26 |   useEffect(() => {
+> 27 |     fetchAgingReport();
+     |     ^^^^^^^^^^^^^^^^ `fetchAgingReport` accessed before it is declared
+  28 |   }, []);
+  29 |
+  30 |   const fetchAgingReport = async () => {
+
+  28 |   }, []);
+  29 |
+> 30 |   const fetchAgingReport = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 31 |     try {
+     | ^^^^^^^^^
+> 32 |       setLoading(true);
+     ΓÇª
+     | ^^^^^^^^^
+> 49 |     }
+     | ^^^^^^^^^
+> 50 |   };
+     | ^^^^^ `fetchAgingReport` is declared here
+  51 |
+  52 |   const getPaymentStatus = (customer) => {
+  53 |     const status = String(customer?.payment_status || '').trim().toLowerCase(); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:47:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  45 |
+  46 |   useEffect(() => {
+> 47 |     load();
+     |     ^^^^ Avoid calling setState() directly within an effect
+  48 |   }, [recommendationStatusFilter, issueStatusFilter, phoneStatusFilter]);
+  49 |
+  50 |   const { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:48:6: React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:134:61: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  132 |                       <div className="request-compact-meta">
+  133 |                         <span className={`status ${item.status}`}>{item.status}</span>
+> 134 |                         <small>{new Date(item.created_at || Date.now()).toLocaleDateString()}</small>
+      |                                                             ^^^^^^^^^^ Cannot call impure function
+  135 |                       </div>
+  136 |                     </div>
+  137 |                     {expanded ? ( [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:143:61: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  141 |                         {item.contact_phone ? <p>Phone: {item.contact_phone}</p> : null}
+  142 |                         {item.admin_note ? <p>Admin note: {item.admin_note}</p> : null}
+> 143 |                         <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
+      |                                                             ^^^^^^^^^^ Cannot call impure function
+  144 |                         <div className="request-actions">
+  145 |                           {recommendationStatuses.map((status) => (
+  146 |                             <button key={status} type="button" onClick={() => updateRecommendation(item.id, status)} disabled={status === item.status}> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:191:59: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  189 |                     <div className="request-compact-meta">
+  190 |                       <span className={`status ${item.status}`}>{item.status}</span>
+> 191 |                       <small>{new Date(item.created_at || Date.now()).toLocaleDateString()}</small>
+      |                                                           ^^^^^^^^^^ Cannot call impure function
+  192 |                     </div>
+  193 |                   </div>
+  194 |                   {isCardExpanded('issue', item.id) ? ( [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\customerRequests\CustomerRequestsAdmin.jsx:217:59: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  215 |                         </p>
+  216 |                       ) : null}
+> 217 |                       <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
+      |                                                           ^^^^^^^^^^ Cannot call impure function
+  218 |                       <div className="request-actions request-actions-column">
+  219 |                         <a className="request-link" href={`/admin/users/${item.user_id}/credit?returnTab=customer-requests&focusIssue=${encodeURIComponent(String(item.id || ''))}${item.credit_entry_id ? `&focusEntry=${encodeURIComponent(String(item.credit_entry_id))}` : ''}`}>
+  220 |                           Open Credit History [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\DistributorManagement.jsx:8:34: 'user' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\DistributorManagement.jsx:192:6: React Hook useCallback has a missing dependency: 'normalizeSupplierRecord'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\DistributorManagement.jsx:195:10: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  193 |
+  194 |   useEffect(() => {
+> 195 |     void fetchDistributors();
+      |          ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  196 |     void fetchSuppliers();
+  197 |   }, [fetchDistributors, fetchSuppliers]);
+  198 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\DistributorManagement.jsx:201:10: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  199 |   useEffect(() => {
+  200 |     if (!suppliers.length) return;
+> 201 |     void hydrateMissingSupplierProductGroups(suppliers);
+      |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  202 |   }, [hydrateMissingSupplierProductGroups, suppliers]);
+  203 |
+  204 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\components\DistributorManagementView.jsx:103:22: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`. [Error/react/no-unescaped-entities]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\distributors\components\DistributorManagementView.jsx:103:38: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`. [Error/react/no-unescaped-entities]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\insights\ProductInsights.jsx:81:7: 'formatSignedCurrencyValue' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\inventory\StockLedgerHistory.jsx:2:10: 'Download' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\inventory\StockLedgerHistory.jsx:4:10: 'formatCurrency' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\inventory\StockLedgerHistory.jsx:257:31: 'user' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\inventory\StockLedgerHistory.jsx:282:6: React Hook useEffect has a missing dependency: 'fetchLedger'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\marketing\components\OfferProductSelector.jsx:64:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  62 |
+  63 |     if (!value) {
+> 64 |       setSelectedProduct(null);
+     |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  65 |       return () => {
+  66 |         isActive = false;
+  67 |       }; [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:135:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  133 |       }, 45000);
+  134 |     } else {
+> 135 |       resetNotificationState();
+      |       ^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  136 |       clearNotificationFeedback();
+  137 |     }
+  138 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:144:6: React Hook useEffect has a missing dependency: 'enabled'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:148:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  146 |   useEffect(() => {
+  147 |     if (enabled) return;
+> 148 |     setNotificationPanelOpen(false);
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  149 |     setExpandedNotificationId(null);
+  150 |     setMessageDraft('');
+  151 |     setMessageRecipients([]); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:218:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  216 |   useEffect(() => {
+  217 |     if (!enabled || !notificationPanelOpen || !userId || !userToken || !isAdminUser) {
+> 218 |       setMessageRecipients([]);
+      |       ^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  219 |       setSelectedRecipientIds([]);
+  220 |       return;
+  221 |     } [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:245:6: React Hook useEffect has a missing dependency: 'enabled'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:249:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  247 |   useEffect(() => {
+  248 |     if (!notificationPanelOpen) {
+> 249 |       setMessageFeedback({ type: '', text: '' });
+      |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  250 |       clearNotificationFeedback();
+  251 |       setExpandedNotificationId(null);
+  252 |     } [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\notifications\hooks\useNotificationsInbox.js:393:6: React Hook useEffect has a missing dependency: 'enabled'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderHistoryPage.jsx:211:5: Error: Cannot access variable before it is declared
+
+`loadOrders` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  209 |
+  210 |   useEffect(() => {
+> 211 |     loadOrders();
+      |     ^^^^^^^^^^ `loadOrders` accessed before it is declared
+  212 |   }, []);
+  213 |
+  214 |   useEffect(() => {
+
+  216 |   }, [orders, searchTerm, statusFilter, sortBy]);
+  217 |
+> 218 |   const loadOrders = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 219 |     setLoading(true);
+      | ^^^^^^^^^^^^^^^^^^^^^
+> 220 |     setError(null);
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^
+> 232 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^
+> 233 |   };
+      | ^^^^^ `loadOrders` is declared here
+  234 |
+  235 |   const filterAndSortOrders = () => {
+  236 |     let result = [...orders]; [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderHistoryPage.jsx:212:6: React Hook useEffect has a missing dependency: 'loadOrders'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderHistoryPage.jsx:215:5: Error: Cannot access variable before it is declared
+
+`filterAndSortOrders` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  213 |
+  214 |   useEffect(() => {
+> 215 |     filterAndSortOrders();
+      |     ^^^^^^^^^^^^^^^^^^^ `filterAndSortOrders` accessed before it is declared
+  216 |   }, [orders, searchTerm, statusFilter, sortBy]);
+  217 |
+  218 |   const loadOrders = async () => {
+
+  233 |   };
+  234 |
+> 235 |   const filterAndSortOrders = () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 236 |     let result = [...orders];
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 237 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 270 |     setFilteredOrders(result);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 271 |   };
+      | ^^^^^ `filterAndSortOrders` is declared here
+  272 |
+  273 |   const getStatusCounts = () => {
+  274 |     const counts = { [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderHistoryPage.jsx:216:6: React Hook useEffect has a missing dependency: 'filterAndSortOrders'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderTrackingPage.jsx:9:52: 'extractQtyLabelFromName' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderTrackingPage.jsx:23:7: Error: Cannot access variable before it is declared
+
+`loadOrder` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  21 |   useEffect(() => {
+  22 |     if (orderId) {
+> 23 |       loadOrder();
+     |       ^^^^^^^^^ `loadOrder` accessed before it is declared
+  24 |     }
+  25 |   }, [orderId, user]);
+  26 |
+
+  25 |   }, [orderId, user]);
+  26 |
+> 27 |   const loadOrder = async () => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |     setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 29 |     setError(null);
+     ΓÇª
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 46 |     }
+     | ^^^^^^^^^^^^^^^^^^^^^
+> 47 |   };
+     | ^^^^^ `loadOrder` is declared here
+  48 |
+  49 |   const handleSearch = (e) => {
+  50 |     e.preventDefault(); [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderTrackingPage.jsx:25:6: React Hook useEffect has a missing dependency: 'loadOrder'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\orders\pages\OrderTrackingPage.jsx:191:25: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`. [Error/react/no-unescaped-entities]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:55:7: 'mergeCustomersById' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:240:6: React Hook useEffect has missing dependencies: 'setCustomersList', 'setLoading', and 'setProductsList'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:276:6: React Hook useCallback has a missing dependency: 'setEntryActionLocked'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:642:6: React Hook useEffect has missing dependencies: 'setBillItems', 'setClearBillConfirmationOpen', 'setCreateBillConfirmationOpen', 'setCurrentItem', 'setCustomer', 'setEditIndex', 'setEntryActionLocked', 'setFulfillmentMode', 'setLastAddedItemId', 'setLastRemovedItem', 'setLastShareNumber', 'setLastSharePhone', 'setLastShareText', 'setLinkedOrderId', 'setPaidAmount', 'setPendingProductSelectionReview', 'setPrefillSummary', 'setSelectedBillIndex', and 'setSelectedPaymentMethod'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:696:6: React Hook useEffect has a missing dependency: 'setSelectedBillIndex'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:714:6: React Hook useEffect has a missing dependency: 'setCreateBillConfirmationOpen'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillingTabController.jsx:788:6: React Hook useCallback has missing dependencies: 'setClearBillConfirmationOpen', 'setCreateBillConfirmationOpen', and 'setError'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillsViewer.jsx:35:12: Error: Cannot access variable before it is declared
+
+`fetchBills` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  33 |   useEffect(() => {
+  34 |     const timer = window.setTimeout(() => {
+> 35 |       void fetchBills({ nextPage: page, nextQuery: searchTerm });
+     |            ^^^^^^^^^^ `fetchBills` accessed before it is declared
+  36 |     }, searchTerm ? 180 : 0);
+  37 |     return () => window.clearTimeout(timer);
+  38 |   }, [page, searchTerm]);
+
+  56 |   };
+  57 |
+> 58 |   const fetchBills = async ({ nextPage = page, nextQuery = searchTerm } = {}) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 59 |     try {
+     | ^^^^^^^^^
+> 60 |       setLoading(true);
+     ΓÇª
+     | ^^^^^^^^^
+> 80 |     }
+     | ^^^^^^^^^
+> 81 |   };
+     | ^^^^^ `fetchBills` is declared here
+  82 |
+  83 |   const handleSelectBill = async (bill) => {
+  84 |     if (!bill?.id) return; [Error/react-hooks/immutability]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\BillsViewer.jsx:38:6: React Hook useEffect has a missing dependency: 'fetchBills'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\MyBills.jsx:47:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  45 |       return;
+  46 |     }
+> 47 |     loadBills(user);
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |   }, [navigate, user]);
+  49 |
+  50 |   const openBill = async (bill) => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\MyBills.jsx:48:6: React Hook useEffect has a missing dependency: 'loadBills'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\MyBills.jsx:106:54: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  104 |                 </div>
+  105 |                 <div className="my-bill-meta">
+> 106 |                   <span>{new Date(bill.created_at || Date.now()).toLocaleDateString()}</span>
+      |                                                      ^^^^^^^^^^ Cannot call impure function
+  107 |                   <span>{formatCurrency(Number(bill.total_amount || 0))}</span>
+  108 |                 </div>
+  109 |               </button> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\MyBills.jsx:123:63: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  121 |               <div className="my-bill-panel">
+  122 |                 <h2>{selectedBill.bill_number}</h2>
+> 123 |                 <p>Date: {new Date(selectedBill.created_at || Date.now()).toLocaleString()}</p>
+      |                                                               ^^^^^^^^^^ Cannot call impure function
+  124 |                 <p>Payment: {selectedBill.payment_method || 'cash'}</p>
+  125 |                 <p>Status: {selectedBill.payment_status || 'pending'}</p>
+  126 |                 {downloadUrl ? ( [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\components\BillingTabView.jsx:92:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  90 |   useEffect(() => {
+  91 |     if (!isMobile) {
+> 92 |       setMobileView('search');
+     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  93 |     }
+  94 |   }, [isMobile]);
+  95 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\hooks\useBillingCheckoutHandlers.js:36:3: 'selectedPaymentMethod' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\hooks\useBillingCheckoutHandlers.js:65:3: 'setLastShareText' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\hooks\useBillingCheckoutHandlers.js:66:3: 'setLastShareNumber' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\hooks\useBillingCheckoutHandlers.js:67:3: 'setLastSharePhone' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\sales\billing\hooks\useBillingCheckoutHandlers.js:257:6: React Hook useCallback has missing dependencies: 'customer?.address' and 'customer?.email'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\storefront\Home.jsx:22:7: 'getPublicFileUrl' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\storefront\Home.jsx:230:56: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`. [Error/react/no-unescaped-entities]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\storefront\ProductRecommendations.jsx:40:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  38 |       return;
+  39 |     }
+> 40 |     load();
+     |     ^^^^ Avoid calling setState() directly within an effect
+  41 |   }, [navigate, user]);
+  42 |
+  43 |   const handleSubmit = async (event) => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\storefront\ProductRecommendations.jsx:119:53: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  117 |                 {item.notes ? <p>{item.notes}</p> : null}
+  118 |                 {item.admin_note ? <p className="admin-note">Admin: {item.admin_note}</p> : null}
+> 119 |                 <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
+      |                                                     ^^^^^^^^^^ Cannot call impure function
+  120 |               </article>
+  121 |             ))}
+  122 |           </div> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\features\storefront\StorePage.jsx:118:67: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  116 |                           <strong>{notice.title}</strong>
+  117 |                           <div className="notification-item-head-right">
+> 118 |                             <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
+      |                                                                   ^^^^^^^^^^ Cannot call impure function
+  119 |                           </div>
+  120 |                         </div>
+  121 |                         <p className="notification-item-message collapsed">{notice.message}</p> [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\providers\OverlayProvider.jsx:21:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  19 |     node.setAttribute('data-overlay-root', 'true');
+  20 |     document.body.appendChild(node);
+> 21 |     setHostNode(node);
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  22 |     return () => {
+  23 |       document.body.removeChild(node);
+  24 |       setHostNode(null); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\UserEditModal.jsx:34:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  32 |   useEffect(() => {
+  33 |     if (user && !isCreate) {
+> 34 |       setFormData({
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  35 |         name: user.name || '',
+  36 |         email: user.email || '',
+  37 |         phone: user.phone || '', [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\UserMenu.jsx:11:27: 'setUser' is defined but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\UserMenu.jsx:47:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  45 |
+  46 |   useEffect(() => {
+> 47 |     setMenuOpen(false);
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |   }, [location.pathname]);
+  49 |
+  50 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\UserMenu.jsx:75:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  73 |
+  74 |   useEffect(() => {
+> 75 |     setAvatarLoadFailed(false);
+     |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  76 |   }, [user?.profile_image]);
+  77 |
+  78 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\filters\DateRangeFilter.jsx:223:9: The 'safePresets' conditional could make the dependencies of useMemo Hook (at line 234) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'safePresets' in its own useMemo() Hook. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\filters\DateRangeFilter.jsx:283:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  281 |     if (!isPickerOpen) return undefined;
+  282 |
+> 283 |     setDraftStartDate(committedStartDate);
+      |     ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  284 |     setDraftEndDate(committedEndDate);
+  285 |     setSelectedPreset(committedPresetLabel);
+  286 |     setShowCustom(hasCustomRange); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\filters\DateRangeFilter.jsx:320:6: React Hook useEffect has a missing dependency: 'alwaysOpen'. Either include it or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\header\HeaderSearchBar.jsx:15:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  13 |     if (!location.pathname.startsWith('/products')) return;
+  14 |     const params = new URLSearchParams(location.search);
+> 15 |     setValue(String(params.get('q') || ''));
+     |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  16 |   }, [location.pathname, location.search]);
+  17 |
+  18 |   const handleSubmit = (event) => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\mobile\MobileAccountHeader.jsx:27:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  25 |
+  26 |   useEffect(() => {
+> 27 |     setAvatarLoadFailed(false);
+     |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |   }, [user?.profile_image]);
+  29 |
+  30 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\runtime\VisitorTracker.jsx:47:6: React Hook useEffect has missing dependencies: 'location.pathname' and 'location.search'. Either include them or remove the dependency array. [Warning/react-hooks/exhaustive-deps]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\components\window\WindowManagerProvider.jsx:69:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  67 |
+  68 |     if (nextActiveWindowId !== activeWindowId) {
+> 69 |       setActiveWindowId(nextActiveWindowId);
+     |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  70 |     }
+  71 |   }, [activeWindowId, windows]);
+  72 | [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useBackofficePopupLifecycle.js:51:16: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  49 |     kind: popupKind,
+  50 |     label: config?.label || '',
+> 51 |     sessionId: sessionIdRef.current,
+     |                ^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  52 |   };
+  53 | }
+  54 | [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useBackofficePopupLifecycle.js:51:16: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  49 |     kind: popupKind,
+  50 |     label: config?.label || '',
+> 51 |     sessionId: sessionIdRef.current,
+     |                ^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  52 |   };
+  53 | }
+  54 | [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useBackofficePopupStatus.js:13:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  11 |
+  12 |   useEffect(() => {
+> 13 |     setStatus(readBackofficePopupStatus(popupKind));
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  14 |   }, [popupKind]);
+  15 |
+  16 |   useEffect(() => { [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useFocusTrap.js:25:3: Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  23 |   const { open = active, restoreOnDeactivate = true } = options;
+  24 |   const latestStateRef = useRef({ active, open, restoreOnDeactivate });
+> 25 |   latestStateRef.current = { active, open, restoreOnDeactivate };
+     |   ^^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  26 |
+  27 |   useEffect(() => {
+  28 |     if (!active || typeof document === 'undefined') return undefined; [Error/react-hooks/refs]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useInertBackground.js:23:57: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useInertBackground.js:23:63: Unnecessary escape character: \". [Error/no-useless-escape]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useIsMobile.js:19:5: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  17 |     const handleChange = (event) => setIsMobile(event.matches);
+  18 |
+> 19 |     setIsMobile(mediaQuery.matches);
+     |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  20 |     mediaQuery.addEventListener('change', handleChange);
+  21 |
+  22 |     return () => mediaQuery.removeEventListener('change', handleChange); [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useOfferPricingPreview.js:58:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  56 |   useEffect(() => {
+  57 |     if (!enabled) {
+> 58 |       setPreview(null);
+     |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  59 |       setLoading(false);
+  60 |       setError('');
+  61 |       return undefined; [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\usePopupDraftPersistence.js:19:16: Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  17 |   const draftSnapshot = useMemo(() => ({
+  18 |     version: 1,
+> 19 |     updatedAt: Date.now(),
+     |                ^^^^^^^^^^ Cannot call impure function
+  20 |     draft,
+  21 |   }), [draft]);
+  22 | [Error/react-hooks/purity]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\hooks\useProductSearchCombobox.js:302:7: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  300 |
+  301 |     if (!activeQuery || normalizedSelectedProductId || activeQuery.length < minChars) {
+> 302 |       setSearchLoading(false);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  303 |       applySearchResults([]);
+  304 |       return undefined;
+  305 |     } [Error/react-hooks/set-state-in-effect]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\services\api\distributorLedger.js:60:9: 'lastError' is assigned a value but never used. [Error/no-unused-vars]
+C:\Users\naren\barman-storereact-mysql-migration\src\shared\utils\printService.js:52:42: Empty block statement. [Error/no-empty]
+
+353 problems

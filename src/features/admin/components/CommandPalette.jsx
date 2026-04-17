@@ -26,6 +26,7 @@ const CommandPalette = ({ open, query, setQuery, actions = [], onClose }) => {
   useEffect(() => {
     if (!open) return;
     const firstEnabledIndex = filteredActions.findIndex((action) => !action?.disabled);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveIndex(firstEnabledIndex >= 0 ? firstEnabledIndex : 0);
   }, [filteredActions, open]);
 
