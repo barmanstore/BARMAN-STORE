@@ -62,9 +62,8 @@ const billingStateKeys = [
 const billingStateReducer = (state, action) => {
   switch (action.type) {
     case 'set': {
-      const nextValue = typeof action.value === 'function'
-        ? action.value(state[action.key])
-        : action.value;
+      const nextValue =
+        typeof action.value === 'function' ? action.value(state[action.key]) : action.value;
       if (Object.is(state[action.key], nextValue)) return state;
       return {
         ...state,

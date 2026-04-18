@@ -11,9 +11,7 @@ function ImmersiveShell({ children }) {
 
   return (
     <div className="app app-immersive-shell" data-window-background-root="true">
-      <main className="main-content main-content-immersive">
-        {children}
-      </main>
+      <main className="main-content main-content-immersive">{children}</main>
     </div>
   );
 }

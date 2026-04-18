@@ -19,7 +19,10 @@ const createPhoneVerificationSender = (deps = {}) => {
     deliveryModeOverride = null,
   }) => {
     if (!phone) return { queued: false, reason: 'missing_phone' };
-    await dbRunAsync('UPDATE phone_verification_tokens SET used = 1 WHERE user_id = ? AND phone = ? AND used = 0', [userId, phone]);
+    await dbRunAsync(
+      'UPDATE phone_verification_tokens SET used = 1 WHERE user_id = ? AND phone = ? AND used = 0',
+      [userId, phone]
+    );
     const { code, expiresAt } = await createPhoneVerificationRecord({ userId, phone });
     const link = buildPhoneVerificationLink({ phone, code });
     const preparedWhatsApp = notificationService.prepareWhatsApp({
@@ -27,14 +30,18 @@ const createPhoneVerificationSender = (deps = {}) => {
       to: phone,
       payload: { recipientName, code, link, expiresAt },
     });
-    const requestedMode = String(deliveryModeOverride || WHATSAPP_DELIVERY_MODE).trim().toLowerCase() === 'auto'
-      ? 'auto'
-      : 'manual';
-    const effectiveMode = requestedMode === 'auto'
-      && Boolean(whatsappProvider?.supportsSend)
-      && Boolean(whatsappProvider?.isReady)
-      ? 'auto'
-      : 'manual';
+    const requestedMode =
+      String(deliveryModeOverride || WHATSAPP_DELIVERY_MODE)
+        .trim()
+        .toLowerCase() === 'auto'
+        ? 'auto'
+        : 'manual';
+    const effectiveMode =
+      requestedMode === 'auto' &&
+      Boolean(whatsappProvider?.supportsSend) &&
+      Boolean(whatsappProvider?.isReady)
+        ? 'auto'
+        : 'manual';
     const eventId = await createNotificationEvent({
       type: 'phone_verification',
       channel: 'whatsapp',

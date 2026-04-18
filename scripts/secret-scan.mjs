@@ -5,11 +5,12 @@ import { readFileSync } from 'node:fs';
 const args = new Set(process.argv.slice(2));
 const mode = args.has('--all') ? 'all' : 'staged';
 
-const run = (cmd, cmdArgs, options = {}) => spawnSync(cmd, cmdArgs, {
-  stdio: 'pipe',
-  encoding: 'utf8',
-  ...options,
-});
+const run = (cmd, cmdArgs, options = {}) =>
+  spawnSync(cmd, cmdArgs, {
+    stdio: 'pipe',
+    encoding: 'utf8',
+    ...options,
+  });
 
 const stagedFiles = () => {
   const out = run('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMRT']);
@@ -49,7 +50,9 @@ const readHead = (filePath) => {
 const isLikelyBinary = (content) => content.includes('\u0000');
 
 const isPlaceholder = (value) => {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return true;
   return [
     '<password>',
@@ -65,12 +68,7 @@ const isPlaceholder = (value) => {
 
 const skipPath = (filePath) => {
   if (!filePath) return true;
-  return [
-    'node_modules/',
-    'dist/',
-    '.git/',
-    'tmp.',
-  ].some((prefix) => filePath.startsWith(prefix));
+  return ['node_modules/', 'dist/', '.git/', 'tmp.'].some((prefix) => filePath.startsWith(prefix));
 };
 
 const isEnvLikeFile = (filePath) => {
@@ -106,7 +104,8 @@ const patterns = [
   },
 ];
 
-const sensitiveAssignment = /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|API_KEY|SERVICE_ROLE_KEY))\s*=\s*(.+)\s*$/;
+const sensitiveAssignment =
+  /^\s*(?:export\s+)?([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|API_KEY|SERVICE_ROLE_KEY))\s*=\s*(.+)\s*$/;
 const findings = [];
 
 const files = mode === 'all' ? allFiles() : stagedFiles();
@@ -139,7 +138,9 @@ for (const filePath of files) {
     const assign = line.match(sensitiveAssignment);
     if (!assign) return;
     const key = String(assign[1] || '').trim();
-    const rawValue = String(assign[2] || '').trim().replace(/^['"]|['"]$/g, '');
+    const rawValue = String(assign[2] || '')
+      .trim()
+      .replace(/^['"]|['"]$/g, '');
     if (isPlaceholder(rawValue)) return;
     if (/^false$|^true$|^[0-9]+$/i.test(rawValue)) return;
     findings.push({
@@ -161,5 +162,7 @@ console.error(`[secret-scan] Found ${findings.length} potential secret(s):`);
 for (const finding of findings) {
   console.error(`- ${finding.filePath}:${finding.lineNo} [${finding.id}] ${finding.message}`);
 }
-console.error('[secret-scan] Commit/push blocked. Move secrets to environment variables and retry.');
+console.error(
+  '[secret-scan] Commit/push blocked. Move secrets to environment variables and retry.'
+);
 process.exit(1);

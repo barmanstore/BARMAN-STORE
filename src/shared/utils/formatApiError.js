@@ -1,9 +1,6 @@
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong. Please try again.';
 
-const passThroughPrefixes = [
-  'PROFILE_INCOMPLETE',
-  'INCOMPLETE_PROFILE',
-];
+const passThroughPrefixes = ['PROFILE_INCOMPLETE', 'INCOMPLETE_PROFILE'];
 
 const formatApiError = (err) => {
   if (!err) return DEFAULT_ERROR_MESSAGE;

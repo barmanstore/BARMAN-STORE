@@ -30,16 +30,13 @@ const useAdminOrderActions = ({
   };
 
   const buildAddressTextFromOrder = (order) => {
-    const shipping = order?.shipping_address && typeof order.shipping_address === 'object'
-      ? order.shipping_address
-      : {};
-    const parts = [
-      shipping.street,
-      shipping.city,
-      shipping.state,
-      shipping.zip,
-      shipping.country,
-    ].map((value) => String(value || '').trim()).filter(Boolean);
+    const shipping =
+      order?.shipping_address && typeof order.shipping_address === 'object'
+        ? order.shipping_address
+        : {};
+    const parts = [shipping.street, shipping.city, shipping.state, shipping.zip, shipping.country]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean);
     return parts.join(', ');
   };
 
@@ -63,7 +60,7 @@ const useAdminOrderActions = ({
         const requestedQty = Math.max(1, Number(item?.requested_qty ?? item?.quantity ?? 1) || 1);
         const lineSubtotal = Math.max(
           0,
-          Number(item?.line_subtotal || 0) || (Math.max(0, Number(item?.price || 0)) * requestedQty)
+          Number(item?.line_subtotal || 0) || Math.max(0, Number(item?.price || 0)) * requestedQty
         );
         const offerDiscount = Math.max(0, Number(item?.offer_discount || 0));
         const manualDiscount = Math.max(0, Number(item?.manual_discount || 0));
@@ -72,9 +69,10 @@ const useAdminOrderActions = ({
           name: String(item?.product_name || item?.name || 'Item').trim() || 'Item',
           productId: Number(item?.product_id || 0) > 0 ? Number(item.product_id) : null,
           linkedOrderItemId: Number(item?.id || 0) || null,
-          price: requestedQty > 0
-            ? roundMoney(lineSubtotal / requestedQty)
-            : Math.max(0, Number(item?.price || 0)),
+          price:
+            requestedQty > 0
+              ? roundMoney(lineSubtotal / requestedQty)
+              : Math.max(0, Number(item?.price || 0)),
           qty: requestedQty,
           unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
           disc: manualDiscount,
@@ -121,10 +119,7 @@ const useAdminOrderActions = ({
       });
       setShowApproveModal(false);
       await Promise.all([refreshOrdersData(), refreshAdminData()]);
-      showNotification(
-        buildReceiveResultMessage(result, 'Order received.'),
-        'success'
-      );
+      showNotification(buildReceiveResultMessage(result, 'Order received.'), 'success');
       await apiFetch(`/api/notify-order/${modalOrder.id}`, {
         method: 'POST',
         body: { action: 'received' },
@@ -157,14 +152,10 @@ const useAdminOrderActions = ({
   const handleApplyPendingFulfillment = async (orderId) => {
     if (!orderId) return;
     try {
-      const result = await ordersApi.updateStatus(
-        orderId,
-        'received',
-        {
-          description: 'Pending fulfillment re-applied via admin panel',
-          reapply_pending: true,
-        }
-      );
+      const result = await ordersApi.updateStatus(orderId, 'received', {
+        description: 'Pending fulfillment re-applied via admin panel',
+        reapply_pending: true,
+      });
       await Promise.all([refreshOrdersData(), refreshAdminData()]);
       showNotification(
         buildReceiveResultMessage(result, 'Pending quantity re-checked against current stock.'),
@@ -184,7 +175,9 @@ const useAdminOrderActions = ({
         ? orderInput
         : await ordersApi.getById(orderId);
       let didAutoReceive = false;
-      const currentStatus = String(fullOrder?.status || '').trim().toLowerCase();
+      const currentStatus = String(fullOrder?.status || '')
+        .trim()
+        .toLowerCase();
       if (currentStatus === 'ordered') {
         const confirmReceiveThenBill = window.confirm(
           'This order is still pending receipt.\n\nMark as received and open billing now?'

@@ -46,13 +46,21 @@ const CreditInvoiceModal = ({
 
       <div className="invoice-details">
         <div className="invoice-info">
-          <p><strong>Entry #:</strong> {selectedTransaction.id}</p>
-          <p><strong>Date:</strong> {formatTransactionDate(selectedTransaction, { long: true })}</p>
-          <p><strong>Type:</strong> {entryTypeLabel}</p>
+          <p>
+            <strong>Entry #:</strong> {selectedTransaction.id}
+          </p>
+          <p>
+            <strong>Date:</strong> {formatTransactionDate(selectedTransaction, { long: true })}
+          </p>
+          <p>
+            <strong>Type:</strong> {entryTypeLabel}
+          </p>
         </div>
         <div className="customer-info">
           <h4>Customer</h4>
-          <p><strong>{customer?.name}</strong></p>
+          <p>
+            <strong>{customer?.name}</strong>
+          </p>
           <p>{customer?.email || 'No email'}</p>
           <p>{customer?.phone || 'No phone'}</p>
           {customer?.address && <p>{customer.address}</p>}

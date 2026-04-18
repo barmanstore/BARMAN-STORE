@@ -26,7 +26,9 @@ const registerPhoneChangeRoutes = (deps) => {
         request: serializePhoneChangeRequest(row),
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load phone change request status' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to load phone change request status' });
     }
   });
 
@@ -67,7 +69,9 @@ const registerPhoneChangeRoutes = (deps) => {
         request: serializePhoneChangeRequest(cancelled),
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to cancel phone change request' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to cancel phone change request' });
     }
   });
 
@@ -91,12 +95,22 @@ const registerPhoneChangeRoutes = (deps) => {
         },
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to process phone change queue' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to process phone change queue' });
     }
   };
 
-  app.get('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
-  app.post('/api/internal/phone-change/process', requireInternalCron, handleInternalPhoneChangeProcess);
+  app.get(
+    '/api/internal/phone-change/process',
+    requireInternalCron,
+    handleInternalPhoneChangeProcess
+  );
+  app.post(
+    '/api/internal/phone-change/process',
+    requireInternalCron,
+    handleInternalPhoneChangeProcess
+  );
 };
 
 module.exports = { registerPhoneChangeRoutes };

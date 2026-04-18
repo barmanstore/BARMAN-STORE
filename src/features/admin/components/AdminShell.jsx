@@ -64,7 +64,9 @@ const AdminShell = ({ children }) => {
       {notification && (
         <div className={`notification ${notification.type}`}>
           <span>{notification.message}</span>
-          <button onClick={closeNotification}><X size={16} /></button>
+          <button onClick={closeNotification}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -94,7 +96,9 @@ const AdminShell = ({ children }) => {
                 type="button"
                 className="rail-item rail-collapse-toggle"
                 onClick={() => setDesktopPanelCollapsed((prev) => !prev)}
-                aria-label={desktopPanelCollapsed ? 'Expand sidebar panel' : 'Collapse sidebar panel'}
+                aria-label={
+                  desktopPanelCollapsed ? 'Expand sidebar panel' : 'Collapse sidebar panel'
+                }
                 title={desktopPanelCollapsed ? 'Expand panel' : 'Collapse panel'}
               >
                 {desktopPanelCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
@@ -117,7 +121,12 @@ const AdminShell = ({ children }) => {
               })}
             </div>
             <div className="admin-sidebar-rail-bottom">
-              <Link to="/" className="rail-item rail-home-link" aria-label="Back to Store" title="Back to Store">
+              <Link
+                to="/"
+                className="rail-item rail-home-link"
+                aria-label="Back to Store"
+                title="Back to Store"
+              >
                 <ArrowLeft size={18} />
               </Link>
             </div>
@@ -182,9 +191,7 @@ const AdminShell = ({ children }) => {
         </div>
 
         <div className="admin-shell-main">
-          <div className="admin-content">
-            {children}
-          </div>
+          <div className="admin-content">{children}</div>
         </div>
       </div>
     </div>

@@ -9,8 +9,12 @@ const buildSummaryCounts = ({
   weeklyDistributors,
 } = {}) => ({
   reminderCount: Array.isArray(reminders) ? reminders.length : 0,
-  predictedPaymentNextCount: Array.isArray(predictedPaymentsNext) ? predictedPaymentsNext.length : 0,
-  predictedDeliveryNextCount: Array.isArray(predictedDeliveriesNext) ? predictedDeliveriesNext.length : 0,
+  predictedPaymentNextCount: Array.isArray(predictedPaymentsNext)
+    ? predictedPaymentsNext.length
+    : 0,
+  predictedDeliveryNextCount: Array.isArray(predictedDeliveriesNext)
+    ? predictedDeliveriesNext.length
+    : 0,
   nextPaymentDate: nextPaymentDate || null,
   nextDeliveryDate: nextDeliveryDate || null,
   todayDistributorCount: Array.isArray(todayDistributors) ? todayDistributors.length : 0,

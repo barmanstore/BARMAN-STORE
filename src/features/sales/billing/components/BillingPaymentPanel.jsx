@@ -108,14 +108,19 @@ const BillingPaymentPanel = ({
       <div className="billing-final-confirmation" role="status" aria-live="polite">
         <strong>Confirm bill</strong>
         <span>
-          {activeLineItemsCount} item(s) | {customerName || 'Walk-in'} | {formatCurrency(totalBill)} total | {formatCurrency(creditAmount)} due
+          {activeLineItemsCount} item(s) | {customerName || 'Walk-in'} | {formatCurrency(totalBill)}{' '}
+          total | {formatCurrency(creditAmount)} due
         </span>
         <small>Save bill and update stock and due.</small>
       </div>
     ) : null}
 
     {clearBillConfirmationOpen ? (
-      <div className="billing-final-confirmation billing-final-confirmation-clear" role="status" aria-live="polite">
+      <div
+        className="billing-final-confirmation billing-final-confirmation-clear"
+        role="status"
+        aria-live="polite"
+      >
         <strong>Clear bill?</strong>
         <span>Removes current items, payment, and customer.</span>
         <small>Press Clear again.</small>
@@ -163,11 +168,7 @@ const BillingPaymentPanel = ({
     ) : null}
 
     <div className="billing-entry-actions">
-      <button
-        type="button"
-        className="billing-secondary-btn"
-        onClick={onClear}
-      >
+      <button type="button" className="billing-secondary-btn" onClick={onClear}>
         {clearBillConfirmationOpen ? 'Confirm Clear' : 'Clear'}
       </button>
       {clearBillConfirmationOpen ? (

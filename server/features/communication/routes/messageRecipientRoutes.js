@@ -41,11 +41,14 @@ const registerMessageRecipientRoutes = (deps) => {
     try {
       const q = String(req.query?.q || '').trim();
       const requestedLimit = Number(req.query?.limit || 20);
-      const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
+      const limit = Math.max(
+        1,
+        Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20)
+      );
       const like = `%${q}%`;
       const rows = q
         ? await dbAllAsync(
-          `SELECT id, name, email, phone
+            `SELECT id, name, email, phone
            FROM users
            WHERE role = 'customer'
              AND (
@@ -55,22 +58,21 @@ const registerMessageRecipientRoutes = (deps) => {
              )
            ORDER BY name ASC
            LIMIT ?`,
-          [like, like, like, limit]
-        )
+            [like, like, like, limit]
+          )
         : await dbAllAsync(
-          `SELECT id, name, email, phone
+            `SELECT id, name, email, phone
            FROM users
            WHERE role = 'customer'
            ORDER BY name ASC
            LIMIT ?`,
-          [limit]
-        );
+            [limit]
+          );
       return res.json(rows || []);
     } catch (error) {
       return res.status(500).json({ error: error.message || 'Failed to load recipients' });
     }
   });
-
 };
 
 module.exports = { registerMessageRecipientRoutes };

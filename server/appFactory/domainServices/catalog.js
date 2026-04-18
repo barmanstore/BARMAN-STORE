@@ -1,4 +1,6 @@
-const { createCategoryRouteHelpers } = require('../../features/catalog/productRoutes/categoryHelpers');
+const {
+  createCategoryRouteHelpers,
+} = require('../../features/catalog/productRoutes/categoryHelpers');
 const { createCatalogBulkJobsService } = require('../../features/catalog/bulkJobsService');
 
 const createCatalogServices = ({ core, domainCore } = {}) => {

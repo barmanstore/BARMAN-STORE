@@ -4,19 +4,14 @@ const createPhoneMergeImpactSummary = (deps = {}) => {
   const getPhoneMergeImpactSummary = async (sourceUserId) => {
     const id = Number(sourceUserId || 0);
     if (!id) return null;
-    const [
-      creditHistoryRow,
-      creditIssueRow,
-      billsRow,
-      ordersRow,
-      recommendationsRow,
-    ] = await Promise.all([
-      dbGetAsync('SELECT COUNT(*) AS count FROM credit_history WHERE user_id = ?', [id]),
-      dbGetAsync('SELECT COUNT(*) AS count FROM credit_entry_issues WHERE user_id = ?', [id]),
-      dbGetAsync('SELECT COUNT(*) AS count FROM bills WHERE customer_id = ?', [id]),
-      dbGetAsync('SELECT COUNT(*) AS count FROM orders WHERE user_id = ?', [id]),
-      dbGetAsync('SELECT COUNT(*) AS count FROM product_recommendations WHERE user_id = ?', [id]),
-    ]);
+    const [creditHistoryRow, creditIssueRow, billsRow, ordersRow, recommendationsRow] =
+      await Promise.all([
+        dbGetAsync('SELECT COUNT(*) AS count FROM credit_history WHERE user_id = ?', [id]),
+        dbGetAsync('SELECT COUNT(*) AS count FROM credit_entry_issues WHERE user_id = ?', [id]),
+        dbGetAsync('SELECT COUNT(*) AS count FROM bills WHERE customer_id = ?', [id]),
+        dbGetAsync('SELECT COUNT(*) AS count FROM orders WHERE user_id = ?', [id]),
+        dbGetAsync('SELECT COUNT(*) AS count FROM product_recommendations WHERE user_id = ?', [id]),
+      ]);
     const summary = {
       credit_history: Number(creditHistoryRow?.count || 0),
       credit_entry_issues: Number(creditIssueRow?.count || 0),

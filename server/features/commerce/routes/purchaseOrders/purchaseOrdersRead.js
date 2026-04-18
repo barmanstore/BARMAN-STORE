@@ -1,10 +1,5 @@
 const registerPurchaseOrdersReadRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbAllAsync,
-    dbGetAsync,
-  } = deps;
+  const { app, requireAdmin, dbAllAsync, dbGetAsync } = deps;
 
   app.get('/api/purchase-orders/:id', requireAdmin, async (req, res) => {
     try {

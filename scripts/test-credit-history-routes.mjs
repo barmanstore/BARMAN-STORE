@@ -2,8 +2,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { registerCreditIssuesListRoutes } = require('../server/features/credits/routes/creditIssues/creditIssuesList.js');
-const { registerCreditLedgerReportsRoutes } = require('../server/features/credits/routes/creditLedger/creditLedgerReports.js');
+const {
+  registerCreditIssuesListRoutes,
+} = require('../server/features/credits/routes/creditIssues/creditIssuesList.js');
+const {
+  registerCreditLedgerReportsRoutes,
+} = require('../server/features/credits/routes/creditLedger/creditLedgerReports.js');
 const { createCreditBalanceUtils } = require('../server/features/credits/utils/creditBalances.js');
 
 const createResponse = () => {
@@ -97,18 +101,23 @@ const testCreditHistoryOrderingContract = async () => {
   assert.ok(historyHandler, 'credit history handler should register');
 
   const firstRes = createResponse();
-  await historyHandler({
-    params: { userId: '7' },
-    authUser: { id: 7, role: 'customer' },
-    query: { limit: '1' },
-  }, firstRes);
+  await historyHandler(
+    {
+      params: { userId: '7' },
+      authUser: { id: 7, role: 'customer' },
+      query: { limit: '1' },
+    },
+    firstRes
+  );
 
   assert.equal(firstRes.result.statusCode, 200);
   assert.equal(firstRes.result.body.hasMore, true);
   assert.ok(firstRes.result.body.nextCursor, 'expected a pagination cursor');
 
   const firstQuery = queries[0];
-  assert.ok(firstQuery.sql.includes('ORDER BY ch.transaction_ts DESC, ch.created_at DESC, ch.id DESC'));
+  assert.ok(
+    firstQuery.sql.includes('ORDER BY ch.transaction_ts DESC, ch.created_at DESC, ch.id DESC')
+  );
   assert.ok(
     !firstQuery.sql.includes('ORDER BY COALESCE(ch.transaction_ts, ch.created_at)'),
     'credit history should not fall back to created_at ordering'
@@ -118,11 +127,14 @@ const testCreditHistoryOrderingContract = async () => {
   assert.deepEqual(decodedCursor, ['2026-03-10T08:00:00Z', '2026-03-10T12:00:00Z', 30]);
 
   const secondRes = createResponse();
-  await historyHandler({
-    params: { userId: '7' },
-    authUser: { id: 7, role: 'customer' },
-    query: { limit: '1', cursor: firstRes.result.body.nextCursor },
-  }, secondRes);
+  await historyHandler(
+    {
+      params: { userId: '7' },
+      authUser: { id: 7, role: 'customer' },
+      query: { limit: '1', cursor: firstRes.result.body.nextCursor },
+    },
+    secondRes
+  );
 
   assert.equal(secondRes.result.statusCode, 200);
   const secondQuery = queries[1];
@@ -151,15 +163,17 @@ const testPaymentBadgesAreNotCached = async () => {
       if (sql.includes('FROM credit_history')) {
         historyReads += 1;
       }
-      return [{
-        id: 1,
-        type: 'given',
-        amount: 100,
-        transaction_ts: '2026-03-10T12:00:00Z',
-        transaction_date: '2026-03-10',
-        due_date: '2026-03-20',
-        created_at: '2026-03-10T12:00:00Z',
-      }];
+      return [
+        {
+          id: 1,
+          type: 'given',
+          amount: 100,
+          transaction_ts: '2026-03-10T12:00:00Z',
+          transaction_date: '2026-03-10',
+          due_date: '2026-03-20',
+          created_at: '2026-03-10T12:00:00Z',
+        },
+      ];
     },
     dbGetAsync: async (sql) => {
       if (sql.includes('SELECT credit_limit FROM users')) {
@@ -187,17 +201,24 @@ const testPaymentBadgesAreNotCached = async () => {
 
   for (let index = 0; index < 2; index += 1) {
     const res = createResponse();
-    await paymentBadgeHandler({
-      params: { userId: '7' },
-      authUser: { id: 7, role: 'customer' },
-      query: {},
-    }, res);
+    await paymentBadgeHandler(
+      {
+        params: { userId: '7' },
+        authUser: { id: 7, role: 'customer' },
+        query: {},
+      },
+      res
+    );
     assert.equal(res.result.statusCode, 200);
     assert.equal(res.result.body.summary.payment_score, 88);
   }
 
   assert.equal(historyReads, 2, 'payment badge reads should execute fresh ledger queries');
-  assert.equal(latestReads, 2, 'payment badge reads should not reuse a stale cached latest balance');
+  assert.equal(
+    latestReads,
+    2,
+    'payment badge reads should not reuse a stale cached latest balance'
+  );
   assert.equal(creditLimitReads, 2);
   assert.equal(profileReads, 2);
 };
@@ -219,7 +240,10 @@ const testRecalculateCreditBalancesChronologically = async () => {
       updates.push({ sql, params });
       return {};
     },
-    normalizeCreditType: (type) => String(type || '').trim().toLowerCase(),
+    normalizeCreditType: (type) =>
+      String(type || '')
+        .trim()
+        .toLowerCase(),
   });
 
   const balance = await recalculateCreditBalancesForUser(42);
@@ -243,7 +267,51 @@ const testCreditAgingRebuildsStaleSnapshots = async () => {
       if (!sql.includes('FROM users u')) return [];
       customerReads += 1;
       if (customerReads === 1) {
-        return [{
+        return [
+          {
+            customer_id: 76,
+            customer_name: 'Demo Customer',
+            email: 'demo@example.com',
+            phone: '9999999999',
+            credit_limit: 0,
+            is_active: 1,
+            grace_days: 3,
+            current_balance: 4553,
+            payment_score: 86,
+            payment_status: 'excellent',
+            payment_status_label: 'Excellent',
+            payment_status_tone: 'excellent',
+            payment_status_description: 'Old snapshot',
+            payment_status_tag: null,
+            customer_tag: null,
+            snapshot_active: 1,
+            is_defaulter: 0,
+            limit_status: 'not_set',
+            limit_status_label: 'Limit Not Set',
+            credit_limit_utilization: 0,
+            oldest_open_days: 29,
+            oldest_overdue_days: 28,
+            average_settlement_days: null,
+            average_delay_days: 13,
+            total_periods: 11,
+            on_time_periods: 3,
+            within_7d_periods: 2,
+            within_30d_periods: 2,
+            within_60d_periods: 0,
+            late_periods: 4,
+            missed_periods: 0,
+            days_0_30: 4553,
+            days_31_60: 0,
+            days_61_90: 0,
+            days_over_90: 0,
+            badges: '[]',
+            summary_line: 'Excellent · Due Rs 4553.00',
+            model_version: 1,
+          },
+        ];
+      }
+      return [
+        {
           customer_id: 76,
           customer_name: 'Demo Customer',
           email: 'demo@example.com',
@@ -252,11 +320,11 @@ const testCreditAgingRebuildsStaleSnapshots = async () => {
           is_active: 1,
           grace_days: 3,
           current_balance: 4553,
-          payment_score: 86,
-          payment_status: 'excellent',
-          payment_status_label: 'Excellent',
-          payment_status_tone: 'excellent',
-          payment_status_description: 'Old snapshot',
+          payment_score: 54,
+          payment_status: 'good',
+          payment_status_label: 'Good',
+          payment_status_tone: 'good',
+          payment_status_description: 'Current snapshot',
           payment_status_tag: null,
           customer_tag: null,
           snapshot_active: 1,
@@ -265,65 +333,25 @@ const testCreditAgingRebuildsStaleSnapshots = async () => {
           limit_status_label: 'Limit Not Set',
           credit_limit_utilization: 0,
           oldest_open_days: 29,
-          oldest_overdue_days: 28,
+          oldest_overdue_days: 0,
           average_settlement_days: null,
-          average_delay_days: 13,
+          average_delay_days: 0,
           total_periods: 11,
           on_time_periods: 3,
           within_7d_periods: 2,
           within_30d_periods: 2,
           within_60d_periods: 0,
-          late_periods: 4,
-          missed_periods: 0,
+          late_periods: 1,
+          missed_periods: 2,
           days_0_30: 4553,
           days_31_60: 0,
           days_61_90: 0,
           days_over_90: 0,
           badges: '[]',
-          summary_line: 'Excellent · Due Rs 4553.00',
-          model_version: 1,
-        }];
-      }
-      return [{
-        customer_id: 76,
-        customer_name: 'Demo Customer',
-        email: 'demo@example.com',
-        phone: '9999999999',
-        credit_limit: 0,
-        is_active: 1,
-        grace_days: 3,
-        current_balance: 4553,
-        payment_score: 54,
-        payment_status: 'good',
-        payment_status_label: 'Good',
-        payment_status_tone: 'good',
-        payment_status_description: 'Current snapshot',
-        payment_status_tag: null,
-        customer_tag: null,
-        snapshot_active: 1,
-        is_defaulter: 0,
-        limit_status: 'not_set',
-        limit_status_label: 'Limit Not Set',
-        credit_limit_utilization: 0,
-        oldest_open_days: 29,
-        oldest_overdue_days: 0,
-        average_settlement_days: null,
-        average_delay_days: 0,
-        total_periods: 11,
-        on_time_periods: 3,
-        within_7d_periods: 2,
-        within_30d_periods: 2,
-        within_60d_periods: 0,
-        late_periods: 1,
-        missed_periods: 2,
-        days_0_30: 4553,
-        days_31_60: 0,
-        days_61_90: 0,
-        days_over_90: 0,
-        badges: '[]',
-        summary_line: 'Good · Score 54/100 · Due Rs 4553.00',
-        model_version: 2,
-      }];
+          summary_line: 'Good · Score 54/100 · Due Rs 4553.00',
+          model_version: 2,
+        },
+      ];
     },
     rebuildAllCustomerPaymentIntelligence: async () => {
       rebuilds += 1;

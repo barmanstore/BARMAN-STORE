@@ -19,9 +19,12 @@ const LedgerEntryModal = ({
 
   if (!showLedgerForm) return null;
 
-  const selectedDistributor = distributors.find((d) => String(d.id) === String(ledgerFormData.distributor_id || ''));
+  const selectedDistributor = distributors.find(
+    (d) => String(d.id) === String(ledgerFormData.distributor_id || '')
+  );
   const distributorLabel = selectedDistributor?.name || '-';
-  const typeLabel = ledgerFormData.type === 'credit' ? 'Credit (Increase due)' : 'Payment (Reduce due)';
+  const typeLabel =
+    ledgerFormData.type === 'credit' ? 'Credit (Increase due)' : 'Payment (Reduce due)';
   const paymentModeLabel = String(ledgerFormData.payment_mode || '').trim() || 'Cash';
 
   const updateLedgerField = (field, value) => {
@@ -68,7 +71,9 @@ const LedgerEntryModal = ({
           >
             <option value="">Select distributor</option>
             {distributors.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
             ))}
           </select>
         </div>
@@ -173,7 +178,12 @@ const LedgerEntryModal = ({
 
   const actionRow = (
     <div className="modal-actions purchase-process-actions">
-      <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
+      <button
+        type="button"
+        className="cancel-btn"
+        onClick={closeLedgerForm}
+        disabled={ledgerSubmitting}
+      >
         Cancel
       </button>
       <button type="submit" className="submit-btn" disabled={ledgerSubmitting}>
@@ -190,16 +200,26 @@ const LedgerEntryModal = ({
         title="Add Distributor Payment / Credit"
         className="purchase-ledger-sheet purchase-process-sheet"
         dismissible={!ledgerSubmitting}
-        actions={(
+        actions={
           <>
-            <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting}>
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={closeLedgerForm}
+              disabled={ledgerSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" form="purchase-ledger-form" className="submit-btn" disabled={ledgerSubmitting}>
+            <button
+              type="submit"
+              form="purchase-ledger-form"
+              className="submit-btn"
+              disabled={ledgerSubmitting}
+            >
               {ledgerSubmitting ? 'Saving...' : 'Save Entry'}
             </button>
           </>
-        )}
+        }
       >
         <form id="purchase-ledger-form" onSubmit={handleLedgerSubmit}>
           {renderCoreFields('ledger-mobile')}

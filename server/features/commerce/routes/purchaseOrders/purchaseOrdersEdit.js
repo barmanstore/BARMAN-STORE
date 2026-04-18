@@ -23,7 +23,9 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
       if (!cur) return res.status(404).json({ error: 'Purchase order not found' });
       const currentPoStatus = getPurchaseOrderLifecycleStatus(cur);
       if (!isPoEditableLifecycle(currentPoStatus)) {
-        return res.status(400).json({ error: 'Only prepared, sent, or revised purchase orders can be edited' });
+        return res
+          .status(400)
+          .json({ error: 'Only prepared, sent, or revised purchase orders can be edited' });
       }
       const b = req.body || {};
       const items = Array.isArray(b.items) ? b.items : null;
@@ -42,24 +44,25 @@ const registerPurchaseOrdersEditRoutes = (deps) => {
       const updatedExpectedDelivery = b.expected_delivery ?? cur.expected_delivery ?? null;
       const distributor = await getDistributorByIdAsync(updatedDistributorId);
       if (!distributor) return res.status(404).json({ error: 'Distributor not found' });
-      const nextLifecycleStatus = currentPoStatus === PO_LIFECYCLE_SENT ? PO_LIFECYCLE_REVISED : currentPoStatus;
-      const shouldIncrementRevision = currentPoStatus === PO_LIFECYCLE_SENT || currentPoStatus === PO_LIFECYCLE_REVISED;
-      const plannedOrderDate = normalizeTransactionDate(
-        cur.planned_order_date || cur.expected_delivery || cur.created_at
-      ) || new Date().toISOString().slice(0, 10);
+      const nextLifecycleStatus =
+        currentPoStatus === PO_LIFECYCLE_SENT ? PO_LIFECYCLE_REVISED : currentPoStatus;
+      const shouldIncrementRevision =
+        currentPoStatus === PO_LIFECYCLE_SENT || currentPoStatus === PO_LIFECYCLE_REVISED;
+      const plannedOrderDate =
+        normalizeTransactionDate(
+          cur.planned_order_date || cur.expected_delivery || cur.created_at
+        ) || new Date().toISOString().slice(0, 10);
       const inferredPaymentDueDate = computePurchasePaymentDueDate(distributor, plannedOrderDate, {
         payment_cycle_type: b.payment_cycle_type,
         payment_due_days: b.payment_due_days,
       });
       const strictDueDate = normalizeTransactionDate(
-        b.strict_due_date
-        ?? b.strict_payment_due_date
-        ?? cur.strict_due_date
-        ?? null
+        b.strict_due_date ?? b.strict_payment_due_date ?? cur.strict_due_date ?? null
       );
-      const strictDueNote = (b.strict_due_note !== undefined || b.strict_deadline_note !== undefined)
-        ? (String(b.strict_due_note || b.strict_deadline_note || '').trim() || null)
-        : (String(cur.strict_due_note || '').trim() || null);
+      const strictDueNote =
+        b.strict_due_note !== undefined || b.strict_deadline_note !== undefined
+          ? String(b.strict_due_note || b.strict_deadline_note || '').trim() || null
+          : String(cur.strict_due_note || '').trim() || null;
       const paymentDueDate = strictDueDate || inferredPaymentDueDate;
 
       if (items) {

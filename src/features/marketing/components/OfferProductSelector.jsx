@@ -10,12 +10,15 @@ const normalizeSuggestionRows = (result) => {
   return [];
 };
 
-const buildProductMeta = (product = {}) => [
-  product?.brand ? String(product.brand).trim() : '',
-  product?.category ? String(product.category).trim() : '',
-  product?.size ? String(product.size).trim() : '',
-  Number(product?.id || 0) > 0 ? `ID ${product.id}` : '',
-].filter(Boolean).join(' | ');
+const buildProductMeta = (product = {}) =>
+  [
+    product?.brand ? String(product.brand).trim() : '',
+    product?.category ? String(product.category).trim() : '',
+    product?.size ? String(product.size).trim() : '',
+    Number(product?.id || 0) > 0 ? `ID ${product.id}` : '',
+  ]
+    .filter(Boolean)
+    .join(' | ');
 
 function OfferProductSelector({
   inputId,
@@ -35,9 +38,10 @@ function OfferProductSelector({
     return normalizeSuggestionRows(result);
   }, []);
 
-  const localProducts = useMemo(() => (
-    selectedProduct && Number(selectedProduct?.id || 0) > 0 ? [selectedProduct] : []
-  ), [selectedProduct]);
+  const localProducts = useMemo(
+    () => (selectedProduct && Number(selectedProduct?.id || 0) > 0 ? [selectedProduct] : []),
+    [selectedProduct]
+  );
 
   const {
     searchResults,
@@ -77,9 +81,10 @@ function OfferProductSelector({
       try {
         const product = await productsApi.getById(value);
         if (!isActive) return;
-        const normalizedProduct = product && typeof product === 'object'
-          ? product
-          : { id: value, name: `Product #${value}` };
+        const normalizedProduct =
+          product && typeof product === 'object'
+            ? product
+            : { id: value, name: `Product #${value}` };
         setSelectedProduct(normalizedProduct);
         setQuery(String(normalizedProduct?.name || `Product #${value}`));
       } catch (_) {
@@ -97,66 +102,93 @@ function OfferProductSelector({
     };
   }, [selectedProduct?.id, value]);
 
-  const selectProduct = useCallback((product) => {
-    const nextProductId = Number(product?.id || 0) || null;
-    setSelectedProduct(product || null);
-    setQuery(String(product?.name || ''));
-    setHasExplicitChoice(true);
-    if (typeof onChange === 'function') {
-      onChange(nextProductId, product || null);
-    }
-  }, [onChange, setHasExplicitChoice]);
-
-  const handleQueryChange = useCallback((nextValue) => {
-    setQuery(nextValue);
-    if (Number(value || 0) > 0) {
-      setSelectedProduct(null);
-      setHasExplicitChoice(false);
+  const selectProduct = useCallback(
+    (product) => {
+      const nextProductId = Number(product?.id || 0) || null;
+      setSelectedProduct(product || null);
+      setQuery(String(product?.name || ''));
+      setHasExplicitChoice(true);
       if (typeof onChange === 'function') {
-        onChange(null, null);
+        onChange(nextProductId, product || null);
       }
-    }
-  }, [onChange, setHasExplicitChoice, value]);
+    },
+    [onChange, setHasExplicitChoice]
+  );
 
-  const handleKeyDown = useCallback((event) => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setActiveIndex((prev) => Math.min(prev + 1, Math.max(searchResults.length - 1, 0)));
-      return;
-    }
+  const handleQueryChange = useCallback(
+    (nextValue) => {
+      setQuery(nextValue);
+      if (Number(value || 0) > 0) {
+        setSelectedProduct(null);
+        setHasExplicitChoice(false);
+        if (typeof onChange === 'function') {
+          onChange(null, null);
+        }
+      }
+    },
+    [onChange, setHasExplicitChoice, value]
+  );
 
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex((prev) => Math.max(prev - 1, 0));
-      return;
-    }
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setActiveIndex((prev) => Math.min(prev + 1, Math.max(searchResults.length - 1, 0)));
+        return;
+      }
 
-    if (event.key === 'Escape') {
-      clearSearchState();
-      return;
-    }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setActiveIndex((prev) => Math.max(prev - 1, 0));
+        return;
+      }
 
-    if ((event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey)) && searchResults.length > 0) {
-      const product = resolveHighlightedProduct(query, searchResults);
-      if (!product) return;
-      event.preventDefault();
-      selectProduct(product);
-    }
-  }, [clearSearchState, query, resolveHighlightedProduct, searchResults, selectProduct, setActiveIndex]);
+      if (event.key === 'Escape') {
+        clearSearchState();
+        return;
+      }
 
-  const highlightedProduct = useMemo(() => (
-    searchResults[activeIndex] || searchResults[0] || null
-  ), [activeIndex, searchResults]);
+      if (
+        (event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey)) &&
+        searchResults.length > 0
+      ) {
+        const product = resolveHighlightedProduct(query, searchResults);
+        if (!product) return;
+        event.preventDefault();
+        selectProduct(product);
+      }
+    },
+    [
+      clearSearchState,
+      query,
+      resolveHighlightedProduct,
+      searchResults,
+      selectProduct,
+      setActiveIndex,
+    ]
+  );
 
-  const hintContent = selectedProduct
-    ? <>Selected product ID <strong>{selectedProduct.id}</strong>. Type again to replace it.</>
-    : highlightedProduct
-      ? <>Top match: <strong>{highlightedProduct.name}</strong>. Press `Tab` or `Enter` to select it.</>
-      : <>Search by product name. The matching product ID is filled automatically.</>;
+  const highlightedProduct = useMemo(
+    () => searchResults[activeIndex] || searchResults[0] || null,
+    [activeIndex, searchResults]
+  );
 
-  const resultsSummaryText = searchResults.length > 0
-    ? `${searchResults.length} matching product${searchResults.length === 1 ? '' : 's'}`
-    : '';
+  const hintContent = selectedProduct ? (
+    <>
+      Selected product ID <strong>{selectedProduct.id}</strong>. Type again to replace it.
+    </>
+  ) : highlightedProduct ? (
+    <>
+      Top match: <strong>{highlightedProduct.name}</strong>. Press `Tab` or `Enter` to select it.
+    </>
+  ) : (
+    <>Search by product name. The matching product ID is filled automatically.</>
+  );
+
+  const resultsSummaryText =
+    searchResults.length > 0
+      ? `${searchResults.length} matching product${searchResults.length === 1 ? '' : 's'}`
+      : '';
 
   const handleClear = useCallback(() => {
     setSelectedProduct(null);

@@ -2,15 +2,14 @@ import React from 'react';
 import { Package, CheckCircle, Clock } from 'lucide-react';
 import { formatDateTime } from '../../../shared/utils/dateTime';
 
-const formatDate = (dateString) => (
+const formatDate = (dateString) =>
   formatDateTime(dateString, 'en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  })
-);
+    minute: '2-digit',
+  });
 
 const getStatusIcon = (status) => {
   switch (status) {
@@ -47,7 +46,7 @@ const getOrderItemDisplay = (item) => {
   const unitPrice = Number(item?.price || 0);
   const quantity = Number(item?.quantity || 0);
   const lineSubtotal = Number(item?.line_subtotal || computedFallbackLineSubtotal(item));
-  const computedTotal = Number(item?.total || (quantity * unitPrice));
+  const computedTotal = Number(item?.total || quantity * unitPrice);
   const offerDiscount = Math.max(0, Number(item?.offer_discount || 0));
   const manualDiscount = Math.max(0, Number(item?.manual_discount || 0));
   const quantityLabel = String(item?.quantity_label || parsed.qtyLabel || '').trim();
@@ -71,11 +70,4 @@ function computedFallbackLineSubtotal(item) {
   return quantity * unitPrice;
 }
 
-export {
-  formatDate,
-  getStatusIcon,
-  getStatusStep,
-  extractQtyLabelFromName,
-  getOrderItemDisplay,
-};
-
+export { formatDate, getStatusIcon, getStatusStep, extractQtyLabelFromName, getOrderItemDisplay };

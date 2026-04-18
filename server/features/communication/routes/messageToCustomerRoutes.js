@@ -1,7 +1,14 @@
 const { validateMessagePayload, resolveSenderName } = require('./messageToCustomer/validation');
 const { fetchMessageRecipients, mapRecipientNames } = require('./messageToCustomer/recipients');
-const { findExistingBatch, createSendBatch, finalizeSendBatch } = require('./messageToCustomer/batches');
-const { sendCustomerNotifications, sendSenderReceipt } = require('./messageToCustomer/notifications');
+const {
+  findExistingBatch,
+  createSendBatch,
+  finalizeSendBatch,
+} = require('./messageToCustomer/batches');
+const {
+  sendCustomerNotifications,
+  sendSenderReceipt,
+} = require('./messageToCustomer/notifications');
 
 const registerMessageToCustomerRoutes = (deps) => {
   const {

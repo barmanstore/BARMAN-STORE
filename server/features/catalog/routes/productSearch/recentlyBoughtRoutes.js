@@ -1,11 +1,5 @@
 const registerRecentlyBoughtRoutes = (deps) => {
-  const {
-    app,
-    requireAuth,
-    dbAllAsync,
-    normalizeProductRecord,
-    clampInt,
-  } = deps;
+  const { app, requireAuth, dbAllAsync, normalizeProductRecord, clampInt } = deps;
 
   app.get('/api/products/recently-bought', requireAuth, async (req, res) => {
     try {
@@ -40,7 +34,9 @@ const registerRecentlyBoughtRoutes = (deps) => {
       }));
       return res.json(payload);
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to fetch recently bought products' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to fetch recently bought products' });
     }
   });
 };

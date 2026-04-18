@@ -8,13 +8,15 @@ const {
 
 const API_DIR = path.join(__dirname, '..', 'src', 'shared', 'services', 'api');
 
-const readApiFiles = () => fs.readdirSync(API_DIR)
-  .filter((file) => file.endsWith('.js'))
-  .filter((file) => !['core.js', 'index.js'].includes(file))
-  .map((file) => ({
-    file,
-    content: fs.readFileSync(path.join(API_DIR, file), 'utf8'),
-  }));
+const readApiFiles = () =>
+  fs
+    .readdirSync(API_DIR)
+    .filter((file) => file.endsWith('.js'))
+    .filter((file) => !['core.js', 'index.js'].includes(file))
+    .map((file) => ({
+      file,
+      content: fs.readFileSync(path.join(API_DIR, file), 'utf8'),
+    }));
 
 const findCallEnd = (source, startIndex) => {
   let depth = 0;
@@ -29,7 +31,7 @@ const findCallEnd = (source, startIndex) => {
       escaped = !escaped && char === '\\';
       continue;
     }
-    if (char === '"' || char === '\'' || char === '`') {
+    if (char === '"' || char === "'" || char === '`') {
       inString = char;
       escaped = false;
       continue;

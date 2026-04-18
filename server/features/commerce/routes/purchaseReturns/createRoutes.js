@@ -65,7 +65,8 @@ const registerPurchaseReturnsCreateRoutes = (deps) => {
         const unitPrice = Math.max(0, Number(it.unit_price || 0));
         normalizedItems.push({
           product_id: productId,
-          product_name: String(it.product_name || '').trim() || String(product.name || '').trim() || 'Unknown',
+          product_name:
+            String(it.product_name || '').trim() || String(product.name || '').trim() || 'Unknown',
           quantity,
           quantity_base: quantityBase,
           uom: normalizedUom,
@@ -76,7 +77,9 @@ const registerPurchaseReturnsCreateRoutes = (deps) => {
       }
 
       if (itemErrors.length) {
-        return res.status(400).json({ error: 'Invalid purchase return items', details: itemErrors });
+        return res
+          .status(400)
+          .json({ error: 'Invalid purchase return items', details: itemErrors });
       }
 
       const total = normalizedItems.reduce((sum, it) => sum + Number(it.total || 0), 0);
@@ -85,7 +88,15 @@ const registerPurchaseReturnsCreateRoutes = (deps) => {
         const head = await dbRunAsync(
           `INSERT INTO purchase_returns (return_number, distributor_id, total, reason, return_type, reference_po, created_by)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [returnNumber, b.distributor_id, total, b.reason || null, b.return_type || 'return', b.reference_po || null, b.created_by || null]
+          [
+            returnNumber,
+            b.distributor_id,
+            total,
+            b.reason || null,
+            b.return_type || 'return',
+            b.reference_po || null,
+            b.created_by || null,
+          ]
         );
         const returnId = head.lastInsertRowid;
         for (const it of normalizedItems) {
@@ -104,9 +115,16 @@ const registerPurchaseReturnsCreateRoutes = (deps) => {
             ]
           );
           if (it.product_id) {
-            const before = (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [it.product_id]))?.stock || 0;
-            await dbRunAsync('UPDATE products SET stock = stock - ? WHERE id = ?', [Number(it.quantity_base || 0), it.product_id]);
-            const after = (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [it.product_id]))?.stock || 0;
+            const before =
+              (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [it.product_id]))
+                ?.stock || 0;
+            await dbRunAsync('UPDATE products SET stock = stock - ? WHERE id = ?', [
+              Number(it.quantity_base || 0),
+              it.product_id,
+            ]);
+            const after =
+              (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [it.product_id]))
+                ?.stock || 0;
             await logStockLedgerAsync({
               productId: it.product_id,
               transactionType: 'PURCHASE_RETURN',

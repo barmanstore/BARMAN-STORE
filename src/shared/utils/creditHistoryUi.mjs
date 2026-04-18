@@ -9,8 +9,8 @@ const getStartOfMonthTimestamp = (timestamp) => {
 };
 
 const getRangeStartTimestamp = (rangeFilter, nowTimestamp) => {
-  if (rangeFilter === '7d') return nowTimestamp - (7 * DAY_MS);
-  if (rangeFilter === '30d') return nowTimestamp - (30 * DAY_MS);
+  if (rangeFilter === '7d') return nowTimestamp - 7 * DAY_MS;
+  if (rangeFilter === '30d') return nowTimestamp - 30 * DAY_MS;
   if (rangeFilter === 'this_month') return getStartOfMonthTimestamp(nowTimestamp);
   return null;
 };
@@ -66,7 +66,11 @@ export const getBalanceSummary = (rawBalance, { viewerRole = 'customer' } = {}) 
 };
 
 export const getLastTransactionFromHistory = (transactions, getTimestamp) => {
-  if (!Array.isArray(transactions) || transactions.length === 0 || typeof getTimestamp !== 'function') {
+  if (
+    !Array.isArray(transactions) ||
+    transactions.length === 0 ||
+    typeof getTimestamp !== 'function'
+  ) {
     return null;
   }
   return transactions.reduce((latest, transaction) => {
@@ -78,19 +82,21 @@ export const getLastTransactionFromHistory = (transactions, getTimestamp) => {
   }, null);
 };
 
-export const applyCreditQuickFilters = (transactions, {
-  typeFilter = 'all',
-  rangeFilter = 'all',
-  nowTimestamp = Date.now(),
-  getTimestamp,
-} = {}) => {
+export const applyCreditQuickFilters = (
+  transactions,
+  { typeFilter = 'all', rangeFilter = 'all', nowTimestamp = Date.now(), getTimestamp } = {}
+) => {
   if (!Array.isArray(transactions) || transactions.length === 0) return [];
   const normalizedTypeFilter = String(typeFilter || 'all').toLowerCase();
   const hasTypeFilter = normalizedTypeFilter === 'given' || normalizedTypeFilter === 'payment';
-  const rangeStart = getRangeStartTimestamp(String(rangeFilter || 'all').toLowerCase(), Number(nowTimestamp));
-  const timestampGetter = typeof getTimestamp === 'function'
-    ? getTimestamp
-    : (transaction) => new Date(transaction?.created_at || '').getTime();
+  const rangeStart = getRangeStartTimestamp(
+    String(rangeFilter || 'all').toLowerCase(),
+    Number(nowTimestamp)
+  );
+  const timestampGetter =
+    typeof getTimestamp === 'function'
+      ? getTimestamp
+      : (transaction) => new Date(transaction?.created_at || '').getTime();
 
   return transactions.filter((transaction) => {
     const txType = String(transaction?.type || '').toLowerCase();
@@ -102,10 +108,10 @@ export const applyCreditQuickFilters = (transactions, {
   });
 };
 
-export const getRecentActivityHint = (lastTimestamp, {
-  idleDays = 30,
-  nowTimestamp = Date.now(),
-} = {}) => {
+export const getRecentActivityHint = (
+  lastTimestamp,
+  { idleDays = 30, nowTimestamp = Date.now() } = {}
+) => {
   const lastTxTimestamp = Number(lastTimestamp);
   if (!Number.isFinite(lastTxTimestamp) || lastTxTimestamp <= 0) return '';
   const days = Number(idleDays || 30);
@@ -115,25 +121,25 @@ export const getRecentActivityHint = (lastTimestamp, {
   return `No activity in last ${Math.floor(days)} days. Consider sending a reminder.`;
 };
 
-export const buildMonthlyCreditStatements = (transactions, {
-  getTimestamp,
-  getDelta,
-  maxStatements = 6,
-} = {}) => {
+export const buildMonthlyCreditStatements = (
+  transactions,
+  { getTimestamp, getDelta, maxStatements = 6 } = {}
+) => {
   if (!Array.isArray(transactions) || transactions.length === 0) return [];
-  const timestampGetter = typeof getTimestamp === 'function'
-    ? getTimestamp
-    : (transaction) => new Date(transaction?.created_at || '').getTime();
-  const deltaGetter = typeof getDelta === 'function'
-    ? getDelta
-    : (transaction) => Number(transaction?.amount || 0);
+  const timestampGetter =
+    typeof getTimestamp === 'function'
+      ? getTimestamp
+      : (transaction) => new Date(transaction?.created_at || '').getTime();
+  const deltaGetter =
+    typeof getDelta === 'function' ? getDelta : (transaction) => Number(transaction?.amount || 0);
 
   const normalized = transactions
     .map((transaction, index) => {
       const timestamp = Number(timestampGetter(transaction));
       const delta = Number(deltaGetter(transaction));
       const balance = Number(transaction?.balance || 0);
-      if (!Number.isFinite(timestamp) || !Number.isFinite(delta) || !Number.isFinite(balance)) return null;
+      if (!Number.isFinite(timestamp) || !Number.isFinite(delta) || !Number.isFinite(balance))
+        return null;
       return {
         index,
         timestamp,
@@ -142,7 +148,7 @@ export const buildMonthlyCreditStatements = (transactions, {
       };
     })
     .filter(Boolean)
-    .sort((a, b) => (a.timestamp - b.timestamp) || (a.index - b.index));
+    .sort((a, b) => a.timestamp - b.timestamp || a.index - b.index);
 
   const grouped = new Map();
 
@@ -177,9 +183,7 @@ export const buildMonthlyCreditStatements = (transactions, {
     group.netChange = roundMoney(group.netChange + transaction.delta);
   });
 
-  const limit = Number.isFinite(Number(maxStatements))
-    ? Math.max(1, Number(maxStatements))
-    : 6;
+  const limit = Number.isFinite(Number(maxStatements)) ? Math.max(1, Number(maxStatements)) : 6;
 
   return Array.from(grouped.values())
     .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
@@ -188,7 +192,7 @@ export const buildMonthlyCreditStatements = (transactions, {
       ...group,
       startDateLabel: formatStatementDateLabel(group.startTimestamp),
       endDateLabel: formatStatementDateLabel(group.endTimestamp),
-      netTone: group.netChange > 0 ? 'debit' : (group.netChange < 0 ? 'credit' : 'neutral'),
+      netTone: group.netChange > 0 ? 'debit' : group.netChange < 0 ? 'credit' : 'neutral',
     }));
 };
 

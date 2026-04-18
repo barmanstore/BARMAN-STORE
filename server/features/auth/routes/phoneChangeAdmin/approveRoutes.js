@@ -18,10 +18,16 @@ const registerPhoneChangeAdminApproveRoutes = (deps) => {
     try {
       const requestId = Number(req.params.id || 0);
       if (!requestId) return res.status(400).json({ error: 'Invalid request id' });
-      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [requestId]);
+      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [
+        requestId,
+      ]);
       if (!requestRow) return res.status(404).json({ error: 'Phone change request not found' });
-      if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
-        return res.status(400).json({ error: `Cannot approve request in status "${requestRow.status}"` });
+      if (
+        normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING
+      ) {
+        return res
+          .status(400)
+          .json({ error: `Cannot approve request in status "${requestRow.status}"` });
       }
 
       const adminId = Number(req.authUser?.id || 0) || null;

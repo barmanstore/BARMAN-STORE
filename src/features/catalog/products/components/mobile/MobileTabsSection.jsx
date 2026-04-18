@@ -17,8 +17,10 @@ const MobileTabsSection = ({
     let nextIndex = currentIndex;
     if (event.key === 'Home') nextIndex = 0;
     else if (event.key === 'End') nextIndex = tabs.length - 1;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown')
+      nextIndex = (currentIndex + 1) % tabs.length;
     tabs[nextIndex].focus();
   };
 
@@ -53,7 +55,9 @@ const MobileTabsSection = ({
         <p className="mobile-empty">No products available in this tab.</p>
       ) : (
         <div className="mobile-products-grid">
-          {activeTabFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 2 }))}
+          {activeTabFamilies.map((family, index) =>
+            renderMobileProductCard(family, { prioritizeImage: index < 2 })
+          )}
         </div>
       )}
     </section>

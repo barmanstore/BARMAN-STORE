@@ -42,7 +42,9 @@ const MobileRestockSection = ({ smartRestockItems, handleRestockAll, addToCart }
             <div className={`restock-progress ${item.tone}`}>
               <span style={{ width: `${item.depletionPercent}%` }} />
             </div>
-            <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Add</button>
+            <button type="button" onClick={() => addToCart(item.family, item.variation)}>
+              + Add
+            </button>
           </article>
         ))}
       </div>
@@ -51,4 +53,3 @@ const MobileRestockSection = ({ smartRestockItems, handleRestockAll, addToCart }
 );
 
 export default MobileRestockSection;
-

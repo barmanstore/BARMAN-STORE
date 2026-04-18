@@ -47,36 +47,32 @@ const BillingItemSection = ({
     ? recentProducts.slice(0, 8)
     : productSearchResults.slice(0, 8);
   const productResultSummary = showRecentProducts
-    ? (
-      !recentProducts.length
-        ? 'No recent items.'
-        : `${Math.min(visibleEntryResults.length, recentProducts.length)} of ${recentProducts.length} recent`
-    )
-    : (
-      productSearchLoading
+    ? !recentProducts.length
+      ? 'No recent items.'
+      : `${Math.min(visibleEntryResults.length, recentProducts.length)} of ${recentProducts.length} recent`
+    : productSearchLoading
+      ? ''
+      : !String(currentItem?.name || '').trim()
         ? ''
-        : !String(currentItem?.name || '').trim()
-          ? ''
-          : !productSearchResults.length
-            ? 'No matches.'
-            : `${Math.min(visibleEntryResults.length, productSearchResults.length)} of ${productSearchResults.length} matches`
-    );
+        : !productSearchResults.length
+          ? 'No matches.'
+          : `${Math.min(visibleEntryResults.length, productSearchResults.length)} of ${productSearchResults.length} matches`;
   const showCustomItemAction = Boolean(
-    String(currentItem?.name || '').trim()
-    && !currentProduct
-    && !productSearchLoading
+    String(currentItem?.name || '').trim() && !currentProduct && !productSearchLoading
   );
   const requiresExplicitSuggestionChoice = Boolean(
-    String(currentItem?.name || '').trim()
-    && !showRecentProducts
-    && productSearchResults.length > 1
-    && !hasExplicitSuggestionChoice
-    && !currentProduct
+    String(currentItem?.name || '').trim() &&
+    !showRecentProducts &&
+    productSearchResults.length > 1 &&
+    !hasExplicitSuggestionChoice &&
+    !currentProduct
   );
 
   return (
     <div className={`billing-pos-layout${isMobile ? ' billing-pos-layout-mobile' : ''}`}>
-      <div className={`billing-pos-left${isMobile ? ` billing-mobile-panel ${mobileView === 'search' ? 'active' : ''}` : ''}`}>
+      <div
+        className={`billing-pos-left${isMobile ? ` billing-mobile-panel ${mobileView === 'search' ? 'active' : ''}` : ''}`}
+      >
         <BillingProductForm
           currentItem={currentItem}
           currentProduct={currentProduct}
@@ -112,7 +108,9 @@ const BillingItemSection = ({
         />
       </div>
 
-      <div className={`billing-pos-right${isMobile ? ` billing-mobile-panel ${mobileView === 'cart' ? 'active' : ''}` : ''}`}>
+      <div
+        className={`billing-pos-right${isMobile ? ` billing-mobile-panel ${mobileView === 'cart' ? 'active' : ''}` : ''}`}
+      >
         <BillingBillList
           billItems={billDisplayItems}
           editIndex={editIndex}

@@ -40,7 +40,9 @@ const applyReceiveStatusUpdate = async ({
         continue;
       }
 
-      const current = await dbGetAsync('SELECT id, stock FROM products WHERE id = ?', [item.product_id]);
+      const current = await dbGetAsync('SELECT id, stock FROM products WHERE id = ?', [
+        item.product_id,
+      ]);
       if (!current) throw new Error(`Product ${item.product_id} not found`);
 
       const fulfilledAlready = Math.max(0, Number(item?.fulfilled_qty || 0));
@@ -60,8 +62,14 @@ const applyReceiveStatusUpdate = async ({
 
       if (fulfillNow > 0) {
         const before = availableStock;
-        await dbRunAsync('UPDATE products SET stock = stock - ? WHERE id = ?', [fulfillNow, item.product_id]);
-        const after = Number((await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock || 0);
+        await dbRunAsync('UPDATE products SET stock = stock - ? WHERE id = ?', [
+          fulfillNow,
+          item.product_id,
+        ]);
+        const after = Number(
+          (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock ||
+            0
+        );
         await logStockLedgerAsync({
           productId: item.product_id,
           transactionType: 'SALE',

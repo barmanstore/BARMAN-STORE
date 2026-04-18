@@ -1,5 +1,7 @@
 const normalizePurchaseUomToken = (value, fallback = 'pcs') =>
-  String(value || fallback).trim().toLowerCase() || fallback;
+  String(value || fallback)
+    .trim()
+    .toLowerCase() || fallback;
 
 const PURCHASE_UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
   pcs: 'pcs',

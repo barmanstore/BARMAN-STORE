@@ -20,7 +20,9 @@ const OrdersSection = lazy(() => import('../sections/OrdersSection'));
 const ProductInsights = lazy(() => import('../../insights/ProductInsights'));
 const ProductsSection = lazy(() => import('../sections/ProductsSection'));
 const RestockDashboardSection = lazy(() => import('../sections/RestockDashboardSection'));
-const PurchaseManagementPage = lazy(() => import('../../commerce/purchase/pages/PurchaseManagementPage'));
+const PurchaseManagementPage = lazy(
+  () => import('../../commerce/purchase/pages/PurchaseManagementPage')
+);
 const StockLedgerHistory = lazy(() => import('../../inventory/StockLedgerHistory'));
 const UsersSection = lazy(() => import('../sections/UsersSection'));
 const CategoriesSection = lazy(() => import('../sections/CategoriesSection'));
@@ -210,7 +212,11 @@ const AdminTabContent = () => {
   }, [purchasePopupStatus.isOpen]);
 
   useEffect(() => {
-    if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+    if (
+      String(purchaseShortcutPayload?.source || '')
+        .trim()
+        .toLowerCase() === 'restock'
+    ) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAllowInlinePurchase(true);
     }
@@ -253,7 +259,9 @@ const AdminTabContent = () => {
         <DailySalesSection
           selectedDateKey={selectedDateKey}
           onDateChange={setDailySalesDate}
-          onRefresh={() => { void loadDailySalesBills({ silent: false, dateKey: selectedDateKey }); }}
+          onRefresh={() => {
+            void loadDailySalesBills({ silent: false, dateKey: selectedDateKey });
+          }}
           dailyCashTally={dailyCashTally}
           dailyCashTallySaving={dailyCashTallySaving}
           dailyCashTallyError={dailyCashTallyError}
@@ -416,21 +424,22 @@ const AdminTabContent = () => {
       break;
     case 'billing':
       loadingLabel = 'billing';
-      activePane = billingPopupStatus.isOpen && !allowInlineBilling ? (
-        <PopupWorkspaceNotice
-          title="Billing is already open in a popup"
-          message="To avoid duplicate billing fetches and conflicting drafts, the popup workspace stays primary while it is open."
-          onFocusPopup={() => focusBackofficePopup('billing')}
-          onContinueInline={() => setAllowInlineBilling(true)}
-        />
-      ) : (
-        <BillingTab
-          initialPrefill={billingPrefill}
-          onPrefillApplied={() => setBillingPrefill(null)}
-          shortcutFocusRequest={billingShortcutRequest}
-          onShortcutFocusHandled={() => setBillingShortcutRequest(0)}
-        />
-      );
+      activePane =
+        billingPopupStatus.isOpen && !allowInlineBilling ? (
+          <PopupWorkspaceNotice
+            title="Billing is already open in a popup"
+            message="To avoid duplicate billing fetches and conflicting drafts, the popup workspace stays primary while it is open."
+            onFocusPopup={() => focusBackofficePopup('billing')}
+            onContinueInline={() => setAllowInlineBilling(true)}
+          />
+        ) : (
+          <BillingTab
+            initialPrefill={billingPrefill}
+            onPrefillApplied={() => setBillingPrefill(null)}
+            shortcutFocusRequest={billingShortcutRequest}
+            onShortcutFocusHandled={() => setBillingShortcutRequest(0)}
+          />
+        );
       break;
     case 'cashbook':
       loadingLabel = 'cashbook';
@@ -446,25 +455,26 @@ const AdminTabContent = () => {
       break;
     case 'purchases':
       loadingLabel = 'purchase management';
-      activePane = purchasePopupStatus.isOpen && !allowInlinePurchase && !purchaseShortcutRequest ? (
-        <PopupWorkspaceNotice
-          title="Purchase entry is already open in a popup"
-          message="The popup workspace stays primary while it is open so the PO draft and heavy purchase data do not mount twice by default."
-          onFocusPopup={() => focusBackofficePopup('purchase')}
-          onContinueInline={() => setAllowInlinePurchase(true)}
-        />
-      ) : (
-        <PurchaseManagementPage
-          user={user}
-          shortcutOpenOrderRequest={purchaseShortcutRequest}
-          shortcutOpenOrderPayload={purchaseShortcutPayload}
-          onShortcutDraftClosed={handleClosePurchaseShortcutDraft}
-          onShortcutOpenOrderHandled={() => {
-            setPurchaseShortcutRequest(0);
-            setPurchaseShortcutPayload(null);
-          }}
-        />
-      );
+      activePane =
+        purchasePopupStatus.isOpen && !allowInlinePurchase && !purchaseShortcutRequest ? (
+          <PopupWorkspaceNotice
+            title="Purchase entry is already open in a popup"
+            message="The popup workspace stays primary while it is open so the PO draft and heavy purchase data do not mount twice by default."
+            onFocusPopup={() => focusBackofficePopup('purchase')}
+            onContinueInline={() => setAllowInlinePurchase(true)}
+          />
+        ) : (
+          <PurchaseManagementPage
+            user={user}
+            shortcutOpenOrderRequest={purchaseShortcutRequest}
+            shortcutOpenOrderPayload={purchaseShortcutPayload}
+            onShortcutDraftClosed={handleClosePurchaseShortcutDraft}
+            onShortcutOpenOrderHandled={() => {
+              setPurchaseShortcutRequest(0);
+              setPurchaseShortcutPayload(null);
+            }}
+          />
+        );
       break;
     case 'stock-ledger':
       loadingLabel = 'stock history';
@@ -533,7 +543,11 @@ const AdminTabContent = () => {
             shortcutOpenOrderPayload={purchaseShortcutPayload}
             onShortcutDraftClosed={handleClosePurchaseShortcutDraft}
             onShortcutOpenOrderHandled={() => {
-              if (String(purchaseShortcutPayload?.source || '').trim().toLowerCase() === 'restock') {
+              if (
+                String(purchaseShortcutPayload?.source || '')
+                  .trim()
+                  .toLowerCase() === 'restock'
+              ) {
                 return;
               }
               setPurchaseShortcutRequest(0);

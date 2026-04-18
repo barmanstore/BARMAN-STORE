@@ -53,9 +53,11 @@ const useProfileVerificationActions = ({
         return;
       }
       if (!token) {
-        setError(emailVerificationTokenType === 'token_hash'
-          ? 'Email verification token_hash is required'
-          : 'Email verification token is required');
+        setError(
+          emailVerificationTokenType === 'token_hash'
+            ? 'Email verification token_hash is required'
+            : 'Email verification token is required'
+        );
         return;
       }
       setVerificationLoading('email_confirm');
@@ -71,13 +73,18 @@ const useProfileVerificationActions = ({
       await refreshVerificationRequestStatus();
       setSuccess(response?.message || 'Email verified successfully');
       validateProfile(
-        { ...formData, email_verified: true, phone_verified: phoneVerified, phone: normalizedDraftPhone || formData.phone },
+        {
+          ...formData,
+          email_verified: true,
+          phone_verified: phoneVerified,
+          phone: normalizedDraftPhone || formData.phone,
+        },
         {
           street: formData.street,
           city: formData.city,
           state: formData.state,
           zip: formData.zip,
-          country: formData.country
+          country: formData.country,
         }
       );
     } catch (err) {

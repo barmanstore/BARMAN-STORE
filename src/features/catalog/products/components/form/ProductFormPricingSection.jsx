@@ -1,9 +1,4 @@
-const ProductFormPricingSection = ({
-  formData,
-  errors,
-  onChange,
-  isQuickMode,
-}) => (
+const ProductFormPricingSection = ({ formData, errors, onChange, isQuickMode }) => (
   <div className="form-section">
     <h3 className="section-title">{isQuickMode ? 'Rates & Stock' : 'Pricing'}</h3>
 
@@ -21,7 +16,10 @@ const ProductFormPricingSection = ({
           className={`input-field ${errors.price ? 'error' : ''}`}
         />
         {errors.price && <span className="field-error">{errors.price}</span>}
-        <small className="field-help">For multiple variants use comma values, e.g. `5,10,50`. Content/Size and Stock auto-fill from this and stay editable.</small>
+        <small className="field-help">
+          For multiple variants use comma values, e.g. `5,10,50`. Content/Size and Stock auto-fill
+          from this and stay editable.
+        </small>
       </div>
 
       <div className="form-group">
@@ -36,7 +34,9 @@ const ProductFormPricingSection = ({
           placeholder="0.00"
           className="input-field"
         />
-        <small className="field-help">Optional comma values. If blank, each variant uses selling price as MRP.</small>
+        <small className="field-help">
+          Optional comma values. If blank, each variant uses selling price as MRP.
+        </small>
       </div>
     </div>
 

@@ -2,14 +2,14 @@ const { createDistributorProductKnowledgeUtils } = require('../purchase');
 
 const { parseDistributorProductsSupplied } = createDistributorProductKnowledgeUtils();
 
-const normalizeBoardNumber = (value) => (
-  value === null || value === undefined ? null : Number(value || 0)
-);
+const normalizeBoardNumber = (value) =>
+  value === null || value === undefined ? null : Number(value || 0);
 
-const normalizeBoardText = (value) => String(value || '')
-  .trim()
-  .toLowerCase()
-  .replace(/\s+/g, ' ');
+const normalizeBoardText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 
 const normalizeBoardRow = (row, { distributorId = null, supplierId = null } = {}) => ({
   ...row,
@@ -28,19 +28,24 @@ const normalizeBoardRow = (row, { distributorId = null, supplierId = null } = {}
   lead_time_days: normalizeBoardNumber(row.lead_time_days),
 });
 
-const getBoardRowIdentityKey = (row = {}) => [
-  normalizeBoardText(row.sku) ? `sku:${normalizeBoardText(row.sku)}` : '',
-  normalizeBoardText(row.name),
-  normalizeBoardText(row.brand),
-  normalizeBoardText(row.sub_brand),
-  normalizeBoardText(row.content),
-  normalizeBoardText(row.color),
-].filter(Boolean).join('|');
+const getBoardRowIdentityKey = (row = {}) =>
+  [
+    normalizeBoardText(row.sku) ? `sku:${normalizeBoardText(row.sku)}` : '',
+    normalizeBoardText(row.name),
+    normalizeBoardText(row.brand),
+    normalizeBoardText(row.sub_brand),
+    normalizeBoardText(row.content),
+    normalizeBoardText(row.color),
+  ]
+    .filter(Boolean)
+    .join('|');
 
 const toBoardRowTimestamp = (value) => {
   const normalized = String(value || '').trim();
   if (!normalized) return 0;
-  const parsed = new Date(normalized.includes('T') ? normalized : normalized.replace(' ', 'T')).getTime();
+  const parsed = new Date(
+    normalized.includes('T') ? normalized : normalized.replace(' ', 'T')
+  ).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -62,8 +67,14 @@ const isPreferredBoardRow = (candidate, current) => {
   if (nextScore.hasCost !== currentScore.hasCost) {
     return nextScore.hasCost > currentScore.hasCost;
   }
-  if (Number(candidate?.last_known_unit_cost_incl_tax || 0) !== Number(current?.last_known_unit_cost_incl_tax || 0)) {
-    return Number(candidate?.last_known_unit_cost_incl_tax || 0) > Number(current?.last_known_unit_cost_incl_tax || 0);
+  if (
+    Number(candidate?.last_known_unit_cost_incl_tax || 0) !==
+    Number(current?.last_known_unit_cost_incl_tax || 0)
+  ) {
+    return (
+      Number(candidate?.last_known_unit_cost_incl_tax || 0) >
+      Number(current?.last_known_unit_cost_incl_tax || 0)
+    );
   }
   return nextScore.productId > currentScore.productId;
 };
@@ -86,15 +97,10 @@ const dedupeBoardRowsByIdentity = (rows = []) => {
     }
   }
 
-  return keyOrder
-    .map((key) => rowsByKey.get(key))
-    .filter(Boolean);
+  return keyOrder.map((key) => rowsByKey.get(key)).filter(Boolean);
 };
 
-const createSupplierProductBoardUtils = ({
-  dbAllAsync,
-  dbGetAsync,
-} = {}) => {
+const createSupplierProductBoardUtils = ({ dbAllAsync, dbGetAsync } = {}) => {
   const getSupplierContextAsync = async ({ supplierId, distributorId = null } = {}) => {
     const normalizedSupplierId = Number(supplierId || 0);
     if (!normalizedSupplierId) return null;
@@ -169,13 +175,12 @@ const createSupplierProductBoardUtils = ({
          AND COALESCE(sp.is_available, TRUE) = TRUE
          AND COALESCE(p.is_active, 1) <> 0
        ORDER BY LOWER(COALESCE(p.name, '')) ASC, p.id ASC`,
-      [
-        Number(distributorId || 0),
-        Number(supplierId || 0),
-      ]
+      [Number(distributorId || 0), Number(supplierId || 0)]
     );
 
-    return dedupeBoardRowsByIdentity((rows || []).map((row) => normalizeBoardRow(row, { distributorId, supplierId })));
+    return dedupeBoardRowsByIdentity(
+      (rows || []).map((row) => normalizeBoardRow(row, { distributorId, supplierId }))
+    );
   };
 
   const getSupplierGroupBoardRowsAsync = async ({
@@ -192,9 +197,7 @@ const createSupplierProductBoardUtils = ({
       return [];
     }
 
-    const normalizedNameKeys = [...new Set(
-      normalizedNames.map((value) => value.toLowerCase())
-    )];
+    const normalizedNameKeys = [...new Set(normalizedNames.map((value) => value.toLowerCase()))];
     const placeholders = normalizedNameKeys.map(() => '?').join(', ');
 
     const rows = await dbAllAsync(
@@ -267,19 +270,34 @@ const createSupplierProductBoardUtils = ({
       }
     });
 
-    return dedupeBoardRowsByIdentity((rows || [])
-      .map((row) => normalizeBoardRow(row, {
-        distributorId: normalizedDistributorId,
-        supplierId: normalizedSupplierId,
-      }))
-      .sort((left, right) => {
-        const leftIndex = nameOrderMap.get(String(left?.name || '').trim().toLowerCase());
-        const rightIndex = nameOrderMap.get(String(right?.name || '').trim().toLowerCase());
-        if (leftIndex !== rightIndex) {
-          return Number(leftIndex ?? Number.MAX_SAFE_INTEGER) - Number(rightIndex ?? Number.MAX_SAFE_INTEGER);
-        }
-        return String(left?.name || '').localeCompare(String(right?.name || ''));
-      }));
+    return dedupeBoardRowsByIdentity(
+      (rows || [])
+        .map((row) =>
+          normalizeBoardRow(row, {
+            distributorId: normalizedDistributorId,
+            supplierId: normalizedSupplierId,
+          })
+        )
+        .sort((left, right) => {
+          const leftIndex = nameOrderMap.get(
+            String(left?.name || '')
+              .trim()
+              .toLowerCase()
+          );
+          const rightIndex = nameOrderMap.get(
+            String(right?.name || '')
+              .trim()
+              .toLowerCase()
+          );
+          if (leftIndex !== rightIndex) {
+            return (
+              Number(leftIndex ?? Number.MAX_SAFE_INTEGER) -
+              Number(rightIndex ?? Number.MAX_SAFE_INTEGER)
+            );
+          }
+          return String(left?.name || '').localeCompare(String(right?.name || ''));
+        })
+    );
   };
 
   const getSupplierProductBoardAsync = async ({ supplierId, distributorId = null } = {}) => {
@@ -317,7 +335,9 @@ const createSupplierProductBoardUtils = ({
     return {
       supplier,
       rows: fallbackRows,
-      source: suppliedNames.length ? 'supplier_products_registry_fallback' : 'supplier_products_registry',
+      source: suppliedNames.length
+        ? 'supplier_products_registry_fallback'
+        : 'supplier_products_registry',
     };
   };
 

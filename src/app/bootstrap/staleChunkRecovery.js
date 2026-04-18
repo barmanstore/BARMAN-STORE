@@ -25,7 +25,7 @@ const recoverFromStaleChunk = (reason) => {
   try {
     const alreadyRetried = sessionStorage.getItem(STALE_CHUNK_RELOAD_KEY) === '1';
     const lastReloadAt = Number(sessionStorage.getItem(STALE_CHUNK_RELOAD_AT_KEY) || 0);
-    const tooSoon = Number.isFinite(lastReloadAt) && (Date.now() - lastReloadAt) < 15000;
+    const tooSoon = Number.isFinite(lastReloadAt) && Date.now() - lastReloadAt < 15000;
     if (alreadyRetried && tooSoon) return;
     sessionStorage.setItem(STALE_CHUNK_RELOAD_KEY, '1');
     sessionStorage.setItem(STALE_CHUNK_RELOAD_AT_KEY, String(Date.now()));
@@ -39,6 +39,8 @@ const recoverFromStaleChunk = (reason) => {
 
 export const registerStaleChunkRecovery = () => {
   if (typeof window === 'undefined') return;
-  window.addEventListener('error', (event) => recoverFromStaleChunk(event?.error || event?.message));
+  window.addEventListener('error', (event) =>
+    recoverFromStaleChunk(event?.error || event?.message)
+  );
   window.addEventListener('unhandledrejection', (event) => recoverFromStaleChunk(event?.reason));
 };

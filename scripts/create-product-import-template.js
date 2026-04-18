@@ -22,7 +22,7 @@ const headers = [
   'expiry_date',
   'default_discount',
   'discount_type',
-  'is_active'
+  'is_active',
 ];
 const sampleRow = {
   name: 'Sample Product',

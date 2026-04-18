@@ -54,8 +54,30 @@ const registerHandlers = (overrides = {}) => {
 
 const testManualStockSyncUpdatesProductsAndLogsLedger = async () => {
   const products = new Map([
-    [11, { id: 11, name: 'Rice Bag', sku: 'RICE-1', stock: 3, category: 'Groceries', brand: 'Barman', is_active: 1 }],
-    [12, { id: 12, name: 'Milk Pack', sku: 'MILK-1', stock: 0, category: 'Dairy', brand: 'Fresh', is_active: 1 }],
+    [
+      11,
+      {
+        id: 11,
+        name: 'Rice Bag',
+        sku: 'RICE-1',
+        stock: 3,
+        category: 'Groceries',
+        brand: 'Barman',
+        is_active: 1,
+      },
+    ],
+    [
+      12,
+      {
+        id: 12,
+        name: 'Milk Pack',
+        sku: 'MILK-1',
+        stock: 0,
+        category: 'Dairy',
+        brand: 'Fresh',
+        is_active: 1,
+      },
+    ],
   ]);
   const ledgerCalls = [];
   const auditCalls = [];
@@ -86,15 +108,18 @@ const testManualStockSyncUpdatesProductsAndLogsLedger = async () => {
   assert.ok(syncHandler, 'manual stock sync handler should register');
 
   const res = createResponse();
-  await syncHandler({
-    user: { id: 7, name: 'Restock Admin' },
-    body: {
-      items: [
-        { product_id: 11, quantity: 5, mode: 'increment', notes: 'Shelf refill' },
-        { product_id: 12, quantity: 2, mode: 'increment' },
-      ],
+  await syncHandler(
+    {
+      user: { id: 7, name: 'Restock Admin' },
+      body: {
+        items: [
+          { product_id: 11, quantity: 5, mode: 'increment', notes: 'Shelf refill' },
+          { product_id: 12, quantity: 2, mode: 'increment' },
+        ],
+      },
     },
-  }, res);
+    res
+  );
 
   assert.equal(res.result.statusCode, 200);
   assert.equal(res.result.body.success, true);
@@ -130,12 +155,18 @@ const testManualStockSyncRejectsInvalidPayload = async () => {
   assert.equal(emptyRes.result.body.error, 'At least one stock adjustment item is required');
 
   const negativeRes = createResponse();
-  await syncHandler({
-    user: { id: 1, name: 'Admin' },
-    body: { items: [{ product_id: 22, quantity: -1 }] },
-  }, negativeRes);
+  await syncHandler(
+    {
+      user: { id: 1, name: 'Admin' },
+      body: { items: [{ product_id: 22, quantity: -1 }] },
+    },
+    negativeRes
+  );
   assert.equal(negativeRes.result.statusCode, 400);
-  assert.equal(negativeRes.result.body.error, 'Each stock adjustment item requires a non-negative quantity');
+  assert.equal(
+    negativeRes.result.body.error,
+    'Each stock adjustment item requires a non-negative quantity'
+  );
 };
 
 const run = async () => {

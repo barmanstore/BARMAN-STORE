@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../providers/CartProvider';
 import { useSession } from '../../providers/SessionProvider';
@@ -15,23 +15,31 @@ const normalizeCartRows = (rows) => {
   const parsed = Array.isArray(rows) ? rows : [];
   return parsed.map((item, index) => {
     const rawId = String(item?.id || '').toLowerCase();
-    const manual = Number(item?.is_manual || 0) === 1
-      || String(item?.item_type || '').toLowerCase() === 'manual'
-      || rawId.startsWith('manual:')
-      || !Number(item?.id || item?.product_id || 0);
+    const manual =
+      Number(item?.is_manual || 0) === 1 ||
+      String(item?.item_type || '').toLowerCase() === 'manual' ||
+      rawId.startsWith('manual:') ||
+      !Number(item?.id || item?.product_id || 0);
     const fallbackId = manual
-      ? `manual:${index}:${String(item?.name || 'item').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'item'}`
+      ? `manual:${index}:${
+          String(item?.name || 'item')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-') || 'item'
+        }`
       : Number(item?.id || item?.product_id || 0);
     const quantity = Math.max(1, Number(item?.quantity || 1));
-    const quantityLabelRaw = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim();
+    const quantityLabelRaw = String(
+      item?.quantity_label || item?.qty_text || item?.quantity_text || ''
+    ).trim();
     const quantityLabel = quantityLabelRaw || String(quantity);
     const price = Math.max(0, Number(item?.price || 0));
     const stock = manual ? null : Math.max(0, Number(item?.stock || 0));
-    const outOfStockRequest = !manual && (
-      Number(item?.out_of_stock_request || 0) === 1
-      || Number(stock || 0) <= 0
-      || Number(quantity || 0) > Number(stock || 0)
-    );
+    const outOfStockRequest =
+      !manual &&
+      (Number(item?.out_of_stock_request || 0) === 1 ||
+        Number(stock || 0) <= 0 ||
+        Number(quantity || 0) > Number(stock || 0));
     return {
       ...item,
       id: item?.id ?? fallbackId,
@@ -53,7 +61,7 @@ const normalizeCartRows = (rows) => {
 function Cart() {
   const { cart: storedCart, cartCount, replaceCart } = useCart();
   const { user } = useSession();
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => normalizeCartRows(storedCart));
   const [recommendationNames, setRecommendationNames] = useState([]);
   const [manualDraft, setManualDraft] = useState({ name: '', qtyText: '1' });
   const [manualError, setManualError] = useState('');
@@ -65,11 +73,17 @@ function Cart() {
 
   const getCartItemKey = (item) => String(item?.id ?? item?.product_id ?? '');
   const isManualItem = (item) => {
-    const rawId = String(item?.id ?? '').trim().toLowerCase();
-    return Number(item?.is_manual || 0) === 1
-      || String(item?.item_type || '').trim().toLowerCase() === 'manual'
-      || rawId.startsWith('manual:')
-      || (!item?.product_id && !item?.id);
+    const rawId = String(item?.id ?? '')
+      .trim()
+      .toLowerCase();
+    return (
+      Number(item?.is_manual || 0) === 1 ||
+      String(item?.item_type || '')
+        .trim()
+        .toLowerCase() === 'manual' ||
+      rawId.startsWith('manual:') ||
+      (!item?.product_id && !item?.id)
+    );
   };
   const getItemQuantityLabel = (item) => {
     const customLabel = String(item?.quantity_label || item?.qty_text || '').trim();
@@ -77,34 +91,58 @@ function Cart() {
     const quantity = Number(item?.quantity || 1);
     return Number.isFinite(quantity) && quantity > 0 ? String(quantity) : '1';
   };
-  const isUnknownPriceItem = (item) => isManualItem(item) && (
-    Number(item?.price_unknown || 0) === 1
-    || Number(item?.price || 0) <= 0
+  const isUnknownPriceItem = useCallback(
+    (item) =>
+      isManualItem(item) &&
+      (Number(item?.price_unknown || 0) === 1 || Number(item?.price || 0) <= 0),
+    []
   );
 
-  useEffect(() => {
-    loadRecommendationNames();
+  // Define handlers before effects
+  const loadRecommendationNames = useCallback(async () => {
+    try {
+      if (!user?.id) {
+        setRecommendationNames([]);
+        return;
+      }
+      const rows = await productRecommendationsApi.getMine();
+      const names = Array.from(
+        new Set(
+          (Array.isArray(rows) ? rows : [])
+            .map((row) => String(row?.requested_name || '').trim())
+            .filter(Boolean)
+        )
+      );
+      setRecommendationNames(names);
+    } catch (_) {
+      setRecommendationNames([]);
+    }
   }, [user]);
 
   useEffect(() => {
-    setCart(normalizeCartRows(storedCart));
-  }, [storedCart]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRecommendationNames();
+  }, [user, loadRecommendationNames]);
 
   const previewCustomerUserId = useMemo(() => {
     return Number(user?.id || 0) || null;
   }, [user]);
 
-  const cartPricingItems = useMemo(() => cart.map((item) => ({
-    client_item_id: getCartItemKey(item),
-    product_id: Number(item?.product_id || item?.id || 0) || null,
-    product_name: String(item?.name || item?.product_name || '').trim(),
-    quantity: Math.max(1, Number(item?.quantity || 1)),
-    unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
-    item_type: isManualItem(item) ? 'manual' : 'catalog',
-    unit_price_override: isManualItem(item) ? Math.max(0, Number(item?.price || 0)) : undefined,
-    skip_offers: isManualItem(item),
-    price_unknown: isUnknownPriceItem(item) ? 1 : 0,
-  })), [cart]);
+  const cartPricingItems = useMemo(
+    () =>
+      cart.map((item) => ({
+        client_item_id: getCartItemKey(item),
+        product_id: Number(item?.product_id || item?.id || 0) || null,
+        product_name: String(item?.name || item?.product_name || '').trim(),
+        quantity: Math.max(1, Number(item?.quantity || 1)),
+        unit: String(item?.uom || item?.unit || 'pcs').trim() || 'pcs',
+        item_type: isManualItem(item) ? 'manual' : 'catalog',
+        unit_price_override: isManualItem(item) ? Math.max(0, Number(item?.price || 0)) : undefined,
+        skip_offers: isManualItem(item),
+        price_unknown: isUnknownPriceItem(item) ? 1 : 0,
+      })),
+    [cart, isUnknownPriceItem]
+  );
   const {
     preview: cartPricingPreview,
     loading: cartPricingLoading,
@@ -124,19 +162,15 @@ function Cart() {
 
   useEffect(() => {
     const query = String(manualDraft.name || '').trim();
-    if (query.length < 2) {
-      setManualMatches([]);
-      setManualMatchCursor(-1);
-      setManualSearchError('');
-      setManualSearchLoading(false);
-      return;
-    }
+    if (query.length < 2) return undefined;
 
     let cancelled = false;
-    setManualSearchLoading(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setManualSearchError('');
     const timer = setTimeout(async () => {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setManualSearchLoading(true);
         const suggestResult = await productsApi.suggest({ q: query, limit: 8 });
         const rawProducts = Array.isArray(suggestResult?.items)
           ? suggestResult.items
@@ -149,9 +183,7 @@ function Cart() {
         const ranked = rankManualMatches(rawProducts, query);
         const list = ranked.length
           ? ranked
-          : rawProducts
-            .filter((product) => Number(product?.id || 0) > 0)
-            .slice(0, 8);
+          : rawProducts.filter((product) => Number(product?.id || 0) > 0).slice(0, 8);
         setManualMatches(list);
         setManualMatchCursor(list.length ? 0 : -1);
       } catch (_) {
@@ -161,7 +193,10 @@ function Cart() {
           setManualSearchError('Unable to search products right now.');
         }
       } finally {
-        if (!cancelled) setManualSearchLoading(false);
+        if (!cancelled) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setManualSearchLoading(false);
+        }
       }
     }, 240);
 
@@ -171,24 +206,6 @@ function Cart() {
     };
   }, [manualDraft.name]);
 
-  const loadRecommendationNames = async () => {
-    try {
-      if (!user?.id) {
-        setRecommendationNames([]);
-        return;
-      }
-      const rows = await productRecommendationsApi.getMine();
-      const names = Array.from(new Set(
-        (Array.isArray(rows) ? rows : [])
-          .map((row) => String(row?.requested_name || '').trim())
-          .filter(Boolean)
-      ));
-      setRecommendationNames(names);
-    } catch (_) {
-      setRecommendationNames([]);
-    }
-  };
-
   const updateCart = (newCart) => {
     setCart(newCart);
     replaceCart(newCart);
@@ -196,27 +213,37 @@ function Cart() {
 
   const getMergeKey = (item) => {
     if (isManualItem(item)) {
-      return `manual:${String(item?.name || '').trim().toLowerCase()}:${String(item?.quantity_label || '').trim().toLowerCase()}`;
+      return `manual:${String(item?.name || '')
+        .trim()
+        .toLowerCase()}:${String(item?.quantity_label || '')
+        .trim()
+        .toLowerCase()}`;
     }
-    return `catalog:${Number(item?.product_id || item?.id || 0)}:${String(item?.quantity_label || '').trim().toLowerCase()}`;
+    return `catalog:${Number(item?.product_id || item?.id || 0)}:${String(
+      item?.quantity_label || ''
+    )
+      .trim()
+      .toLowerCase()}`;
   };
 
   const addOrMergeItem = (itemToAdd) => {
     const mergeKey = getMergeKey(itemToAdd);
     const existingIndex = cart.findIndex((item) => getMergeKey(item) === mergeKey);
     if (existingIndex >= 0) {
-      const nextCart = cart.map((item, index) => (
-        index === existingIndex ? (() => {
-          const nextQuantity = Number(item.quantity || 0) + Number(itemToAdd.quantity || 0);
-          const stock = Math.max(0, Number(item.stock || 0));
-          const manual = isManualItem(item);
-          return {
-            ...item,
-            quantity: nextQuantity,
-            out_of_stock_request: manual ? 0 : ((stock <= 0 || nextQuantity > stock) ? 1 : 0),
-          };
-        })() : item
-      ));
+      const nextCart = cart.map((item, index) =>
+        index === existingIndex
+          ? (() => {
+              const nextQuantity = Number(item.quantity || 0) + Number(itemToAdd.quantity || 0);
+              const stock = Math.max(0, Number(item.stock || 0));
+              const manual = isManualItem(item);
+              return {
+                ...item,
+                quantity: nextQuantity,
+                out_of_stock_request: manual ? 0 : stock <= 0 || nextQuantity > stock ? 1 : 0,
+              };
+            })()
+          : item
+      );
       updateCart(nextCart);
       return;
     }
@@ -254,7 +281,10 @@ function Cart() {
   const getTotal = () => {
     const previewTotal = Number(cartPricingPreview?.summary?.net_subtotal);
     if (Number.isFinite(previewTotal)) return previewTotal;
-    return cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+    return cart.reduce(
+      (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
+      0
+    );
   };
 
   const handleCheckout = () => {
@@ -336,7 +366,11 @@ function Cart() {
       setManualMatchCursor((prev) => (prev <= 0 ? manualMatches.length - 1 : prev - 1));
       return;
     }
-    if (event.key === 'Enter' && manualMatchCursor >= 0 && manualMatchCursor < manualMatches.length) {
+    if (
+      event.key === 'Enter' &&
+      manualMatchCursor >= 0 &&
+      manualMatchCursor < manualMatches.length
+    ) {
       event.preventDefault();
       addMatchedProductToCart(manualMatches[manualMatchCursor]);
     }
@@ -352,7 +386,16 @@ function Cart() {
         id="manual-cart-product-name"
         type="text"
         value={manualDraft.name}
-        onChange={(e) => setManualDraft((prev) => ({ ...prev, name: e.target.value }))}
+        onChange={(e) => {
+          const nextName = e.target.value;
+          setManualDraft((prev) => ({ ...prev, name: nextName }));
+          if (String(nextName || '').trim().length < 2) {
+            setManualMatches([]);
+            setManualMatchCursor(-1);
+            setManualSearchError('');
+            setManualSearchLoading(false);
+          }
+        }}
         onKeyDown={handleManualNameKeyDown}
         placeholder="Type product name"
         list="manual-cart-suggestions"
@@ -363,7 +406,9 @@ function Cart() {
         required
       />
       <datalist id="manual-cart-suggestions">
-        {recommendationNames.map((name) => <option key={name} value={name} />)}
+        {recommendationNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
       </datalist>
       <div className="manual-entry-row">
         <label htmlFor="manual-cart-qty-text">Quantity</label>
@@ -391,12 +436,21 @@ function Cart() {
           </button>
         ))}
       </div>
-      <button type="submit" className="manual-entry-btn">Add Custom Item</button>
+      <button type="submit" className="manual-entry-btn">
+        Add Custom Item
+      </button>
       <div className="manual-search-meta">
         {manualSearchLoading ? <span>Searching matching products...</span> : null}
-        {!manualSearchLoading && manualSearchError ? <span className="manual-search-error">{manualSearchError}</span> : null}
-        {!manualSearchLoading && !manualSearchError && manualDraft.name.trim().length >= 2 && manualMatches.length === 0 ? (
-          <span>No matching products found in inventory. Item will be added as a custom request.</span>
+        {!manualSearchLoading && manualSearchError ? (
+          <span className="manual-search-error">{manualSearchError}</span>
+        ) : null}
+        {!manualSearchLoading &&
+        !manualSearchError &&
+        manualDraft.name.trim().length >= 2 &&
+        manualMatches.length === 0 ? (
+          <span>
+            No matching products found in inventory. Item will be added as a custom request.
+          </span>
         ) : null}
       </div>
       {!manualSearchLoading && manualMatches.length > 0 && (
@@ -416,7 +470,9 @@ function Cart() {
                   <strong>{product.name}</strong>
                   <span>{product.category || 'Product'}</span>
                   <span>Price: {formatCurrency(Number(product.price || 0))}</span>
-                  <span>{outOfStock ? 'Out of stock' : `Stock: ${Number(product.stock || 0)}`}</span>
+                  <span>
+                    {outOfStock ? 'Out of stock' : `Stock: ${Number(product.stock || 0)}`}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -457,4 +513,3 @@ function Cart() {
 }
 
 export default Cart;
-

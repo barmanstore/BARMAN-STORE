@@ -9,8 +9,12 @@ const buildOrderCounts = ({
 } = {}) => {
   const waitingBillCount = (openOrders || []).filter((order) => {
     const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
-    return (lifecycleStatus === PO_LIFECYCLE_SENT || lifecycleStatus === PO_LIFECYCLE_REVISED || lifecycleStatus === PO_LIFECYCLE_PREPARED)
-      && !String(order.bill_number || order.invoice_number || '').trim();
+    return (
+      (lifecycleStatus === PO_LIFECYCLE_SENT ||
+        lifecycleStatus === PO_LIFECYCLE_REVISED ||
+        lifecycleStatus === PO_LIFECYCLE_PREPARED) &&
+      !String(order.bill_number || order.invoice_number || '').trim()
+    );
   }).length;
   const waitingDeliveryCount = (openOrders || []).filter(isDeliveryPending).length;
   const closeReadyCount = (openOrders || []).filter(

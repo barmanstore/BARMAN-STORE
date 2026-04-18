@@ -1,9 +1,5 @@
 const createCategoryTree = (deps = {}) => {
-  const {
-    toNullablePositiveInt,
-    normalizeCategoryRow,
-    getCategoryByIdAsync,
-  } = deps;
+  const { toNullablePositiveInt, normalizeCategoryRow, getCategoryByIdAsync } = deps;
 
   const buildCategoryTree = (rows) => {
     const byId = new Map();
@@ -26,9 +22,13 @@ const createCategoryTree = (deps = {}) => {
     });
 
     const walk = (node, parentPath = '') => {
-      const currentPath = parentPath ? `${parentPath} -> ${node.name}` : String(node.name || '').trim();
+      const currentPath = parentPath
+        ? `${parentPath} -> ${node.name}`
+        : String(node.name || '').trim();
       node.path = currentPath;
-      node.children.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+      node.children.sort((a, b) =>
+        String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+      );
       let subtotal = Number(node.product_count || 0);
       node.children.forEach((child) => {
         subtotal += walk(child, currentPath);
@@ -37,7 +37,9 @@ const createCategoryTree = (deps = {}) => {
       return subtotal;
     };
 
-    roots.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+    roots.sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+    );
     roots.forEach((node) => walk(node, ''));
     return roots;
   };

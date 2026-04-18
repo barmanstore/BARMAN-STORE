@@ -67,11 +67,7 @@ const PurchaseSavedOrderPanel = ({
           </button>
         ) : null}
         {typeof onNewOrder === 'function' ? (
-          <button
-            type="button"
-            className="admin-btn secondary"
-            onClick={() => onNewOrder()}
-          >
+          <button type="button" className="admin-btn secondary" onClick={() => onNewOrder()}>
             New PO
           </button>
         ) : null}

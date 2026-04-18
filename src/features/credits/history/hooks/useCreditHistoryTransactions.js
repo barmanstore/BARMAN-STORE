@@ -140,8 +140,9 @@ const useCreditHistoryTransactions = ({
       const txSnapshot = {
         type: newTransaction.type,
         amount,
-        description: String(newTransaction.description || '').trim()
-          || getCreditTransactionDefaultDescription(newTransaction.type),
+        description:
+          String(newTransaction.description || '').trim() ||
+          getCreditTransactionDefaultDescription(newTransaction.type),
         reference: String(newTransaction.reference || '').trim(),
         transactionDate: newTransaction.transactionDate || getTodayDateInputValue(),
       };
@@ -196,7 +197,12 @@ const useCreditHistoryTransactions = ({
     if (!isAdminView) return;
     const entryId = Number(transaction?.id || 0);
     if (!entryId || !effectiveUserId) return;
-    if (!window.confirm(`Create a reversal for ledger entry #${entryId}? This keeps history intact and recalculates the running balance.`)) return;
+    if (
+      !window.confirm(
+        `Create a reversal for ledger entry #${entryId}? This keeps history intact and recalculates the running balance.`
+      )
+    )
+      return;
     try {
       setDeletingEntryId(entryId);
       setError('');
@@ -276,7 +282,8 @@ const useCreditHistoryTransactions = ({
     const html = buildCreditInvoiceHtml(selectedTransaction);
     const sourceLabel = getCreditEntrySourceLabel(selectedTransaction);
     printHtmlDocument({
-      title: `Ledger Entry ${sourceLabel !== '-' ? sourceLabel : selectedTransaction?.id || ''}`.trim(),
+      title:
+        `Ledger Entry ${sourceLabel !== '-' ? sourceLabel : selectedTransaction?.id || ''}`.trim(),
       bodyHtml: html,
       cssText: `
         .credit-invoice { max-width: 780px; margin: 0 auto; font-family: 'Arial', sans-serif; }

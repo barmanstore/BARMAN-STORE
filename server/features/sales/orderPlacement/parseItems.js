@@ -3,13 +3,14 @@ const { normalizeUomToken } = require('./normalizeUom');
 const parseOrderItems = ({ items, parseBooleanEnv }) => {
   const parsedItems = items.map((it, index) => {
     const parsedProductId = Number(it?.product_id ?? it?.id ?? 0);
-    const productId = Number.isFinite(parsedProductId) && parsedProductId > 0
-      ? Math.trunc(parsedProductId)
-      : null;
+    const productId =
+      Number.isFinite(parsedProductId) && parsedProductId > 0 ? Math.trunc(parsedProductId) : null;
     let quantity = Number(it?.quantity || 0);
     const providedName = String(it?.product_name || it?.name || '').trim();
     const quantityLabel = String(it?.quantity_label || it?.qty_text || '').trim();
-    const itemType = String(it?.item_type || '').trim().toLowerCase();
+    const itemType = String(it?.item_type || '')
+      .trim()
+      .toLowerCase();
     const manualHint = parseBooleanEnv(it?.is_manual, false) || itemType === 'manual';
     const isManual = manualHint || !productId;
     if ((!Number.isFinite(quantity) || quantity <= 0) && quantityLabel) {
@@ -19,7 +20,8 @@ const parseOrderItems = ({ items, parseBooleanEnv }) => {
       }
     }
     const rawPrice = Number(it?.price);
-    const priceUnknownHint = parseBooleanEnv(it?.price_unknown, false) || parseBooleanEnv(it?.unknown_price, false);
+    const priceUnknownHint =
+      parseBooleanEnv(it?.price_unknown, false) || parseBooleanEnv(it?.unknown_price, false);
     let price = Number.isFinite(rawPrice) ? rawPrice : NaN;
     if (isManual && (priceUnknownHint || !Number.isFinite(price) || price < 0)) {
       price = 0;

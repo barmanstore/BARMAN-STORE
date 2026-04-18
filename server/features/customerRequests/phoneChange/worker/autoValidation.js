@@ -101,7 +101,10 @@ const processAutoValidationRequests = async ({
       }
     } catch (error) {
       const message = String(error?.message || '');
-      if (error?.status === 404 || message.includes('User not found for this phone change request')) {
+      if (
+        error?.status === 404 ||
+        message.includes('User not found for this phone change request')
+      ) {
         const rejected = await rejectPhoneChangeRequest({
           id: requestId,
           reviewedBy: null,

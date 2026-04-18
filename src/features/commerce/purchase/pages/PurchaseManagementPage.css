@@ -371,7 +371,11 @@
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .purchase-management .purchase-payments-quick-filter:hover,
@@ -552,7 +556,12 @@
 .purchase-management .purchase-orders-toolbar-separator {
   width: 1px;
   height: 18px;
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.05), rgba(148, 163, 184, 0.65), rgba(148, 163, 184, 0.05));
+  background: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.05),
+    rgba(148, 163, 184, 0.65),
+    rgba(148, 163, 184, 0.05)
+  );
 }
 
 .purchase-management .purchase-orders-toolbar-note {
@@ -617,7 +626,9 @@
   border-radius: 999px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .purchase-management .purchase-orders-search-filter .search-filter-shell:focus-within {
@@ -704,7 +715,10 @@
   background: #eff6ff;
   color: #0369a1;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .purchase-management .purchase-orders-search-filter .search-filter-submit:hover,
@@ -1183,15 +1197,24 @@
   background: #e3faed;
 }
 
-.purchase-management .purchase-orders-table tr.purchase-orders-row.payment-status-unpaid td:first-child {
+.purchase-management
+  .purchase-orders-table
+  tr.purchase-orders-row.payment-status-unpaid
+  td:first-child {
   box-shadow: inset 3px 0 0 #fb7185;
 }
 
-.purchase-management .purchase-orders-table tr.purchase-orders-row.payment-status-part-paid td:first-child {
+.purchase-management
+  .purchase-orders-table
+  tr.purchase-orders-row.payment-status-part-paid
+  td:first-child {
   box-shadow: inset 3px 0 0 #f59e0b;
 }
 
-.purchase-management .purchase-orders-table tr.purchase-orders-row.payment-status-paid td:first-child {
+.purchase-management
+  .purchase-orders-table
+  tr.purchase-orders-row.payment-status-paid
+  td:first-child {
   box-shadow: inset 3px 0 0 #10b981;
 }
 
@@ -2441,7 +2464,10 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .purchase-management .purchase-payable-action span {
@@ -2862,7 +2888,6 @@
   .purchase-management .po-history-section {
     grid-template-columns: 1fr;
   }
-
 }
 
 .purchase-management .action-btn.delete {
@@ -3761,7 +3786,10 @@
   background: #ffffff;
   color: #1d4ed8;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .purchase-management .purchase-process-date-btn:hover {
@@ -3879,7 +3907,11 @@
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .purchase-management .purchase-process-split-btn:hover {
@@ -3909,7 +3941,10 @@
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .purchase-management .purchase-process-delivered-toggle:hover {
@@ -4091,7 +4126,10 @@
   background: #ffffff;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
 }
 
 .purchase-management .po-desktop-workflow-step:hover {
@@ -4103,7 +4141,7 @@
   border-color: #2563eb;
   background: #eff6ff;
   color: #1d4ed8;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.10);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1);
 }
 
 .purchase-management .po-desktop-workflow-step.complete {
@@ -4397,7 +4435,11 @@
     height: 10px;
     border-top: 1px solid rgba(219, 228, 239, 0.7);
     border-radius: 12px 12px 0 0;
-    background: linear-gradient(180deg, rgba(248, 251, 255, 0.9) 0%, rgba(255, 255, 255, 0.78) 100%);
+    background: linear-gradient(
+      180deg,
+      rgba(248, 251, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.78) 100%
+    );
     box-shadow: 0 -6px 14px rgba(15, 23, 42, 0.04);
   }
 
@@ -4420,16 +4462,24 @@
     backdrop-filter: blur(14px);
     opacity: 0;
     transform: translateY(100%);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      opacity 0.2s ease;
     pointer-events: none;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer-panel .order-summary {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer-panel
+    .order-summary {
     flex: 1 1 320px;
     min-width: 0;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer-panel .modal-actions {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer-panel
+    .modal-actions {
     flex: 0 0 auto;
     margin-left: auto;
     padding-top: 0;
@@ -4439,8 +4489,14 @@
     border-radius: 0;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer:hover .po-form-footer-panel,
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer:focus-within .po-form-footer-panel {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer:hover
+    .po-form-footer-panel,
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer:focus-within
+    .po-form-footer-panel {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -4453,14 +4509,26 @@
     box-shadow: none;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer .modal-actions .cancel-btn,
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer .modal-actions .submit-btn {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer
+    .modal-actions
+    .cancel-btn,
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer
+    .modal-actions
+    .submit-btn {
     min-height: 40px;
     padding: 0.48rem 0.82rem;
     border-radius: 10px;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer .modal-actions .submit-btn {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer
+    .modal-actions
+    .submit-btn {
     min-width: 112px;
   }
 }
@@ -4747,11 +4815,15 @@
   align-items: start;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-popup-items-screen {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-popup-items-screen {
   gap: 0;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-popup-items-screen {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-popup-items-screen {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -4920,7 +4992,9 @@
   white-space: nowrap;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-product-picker-panel.inline {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-product-picker-panel.inline {
   max-height: 240px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -4994,7 +5068,9 @@
   width: 100%;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-popup-selected-panel {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-popup-selected-panel {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -5053,7 +5129,10 @@
   background: #ffffff;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-popup-selected-panel .po-popup-items-table {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-popup-selected-panel
+  .po-popup-items-table {
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
@@ -5178,7 +5257,9 @@
   display: grid;
 }
 
-.purchase-management .po-entry-view-form.fullscreen-workspace.items-workspace .po-popup-items-table-body {
+.purchase-management
+  .po-entry-view-form.fullscreen-workspace.items-workspace
+  .po-popup-items-table-body {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -5535,8 +5616,14 @@
   gap: 10px 12px;
 }
 
-.purchase-management .po-inline-other-fields .po-entry-advanced-toggle-body .form-group:nth-child(2),
-.purchase-management .po-inline-other-fields .po-entry-advanced-toggle-body .form-group:nth-child(4) {
+.purchase-management
+  .po-inline-other-fields
+  .po-entry-advanced-toggle-body
+  .form-group:nth-child(2),
+.purchase-management
+  .po-inline-other-fields
+  .po-entry-advanced-toggle-body
+  .form-group:nth-child(4) {
   grid-column: 1 / -1;
 }
 
@@ -5573,7 +5660,10 @@
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .purchase-management .po-product-picker-card:hover {
@@ -6385,7 +6475,7 @@
 
 .purchase-management .purchase-popup-order-card.latest-save {
   border-color: #60a5fa;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.10);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.1);
 }
 
 .purchase-management .purchase-popup-order-card-top,
@@ -6711,7 +6801,10 @@
   font-weight: 800;
   line-height: 1.3;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .purchase-management .po-pos-status-chip-btn:hover {
@@ -7171,7 +7264,10 @@
   border-radius: 12px;
   background: #f8fafc;
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 .purchase-management .po-pos-item-card:hover {
@@ -7714,7 +7810,10 @@
     align-items: stretch;
   }
 
-  .purchase-management .po-entry-view-form.fullscreen-workspace .po-form-footer-panel .modal-actions {
+  .purchase-management
+    .po-entry-view-form.fullscreen-workspace
+    .po-form-footer-panel
+    .modal-actions {
     width: 100%;
     margin-left: 0;
   }
@@ -8029,13 +8128,19 @@ body.po-modal-resizing {
     display: none;
   }
 
-  .purchase-management .po-entry-form.mobile-step-mode .po-entry-header-grid.po-mobile-panel.active {
+  .purchase-management
+    .po-entry-form.mobile-step-mode
+    .po-entry-header-grid.po-mobile-panel.active {
     display: grid;
   }
 
   .purchase-management .po-entry-form.mobile-step-mode .po-entry-table-shell.po-mobile-panel.active,
-  .purchase-management .po-entry-form.mobile-step-mode .po-supplier-history-panel.po-mobile-panel.active,
-  .purchase-management .po-entry-form.mobile-step-mode .po-other-fields-panel.po-mobile-panel.active,
+  .purchase-management
+    .po-entry-form.mobile-step-mode
+    .po-supplier-history-panel.po-mobile-panel.active,
+  .purchase-management
+    .po-entry-form.mobile-step-mode
+    .po-other-fields-panel.po-mobile-panel.active,
   .purchase-management .po-entry-form.mobile-step-mode .po-review-sheet.po-mobile-panel.active,
   .purchase-management .po-entry-form.mobile-step-mode .po-form-footer.po-mobile-panel.active {
     display: block;

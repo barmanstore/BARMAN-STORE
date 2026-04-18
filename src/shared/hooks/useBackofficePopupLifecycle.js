@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   clearBackofficePopupStatus,
   getBackofficePopupConfig,
@@ -13,9 +13,12 @@ const createSessionId = () => {
 };
 
 function useBackofficePopupLifecycle(kind) {
-  const popupKind = String(kind || '').trim().toLowerCase();
+  const popupKind = String(kind || '')
+    .trim()
+    .toLowerCase();
   const config = useMemo(() => getBackofficePopupConfig(popupKind), [popupKind]);
-  const sessionIdRef = useRef(createSessionId());
+  // Create sessionId once and reuse it via useMemo
+  const sessionId = useMemo(() => createSessionId(), []);
 
   useEffect(() => {
     if (!config) return undefined;
@@ -23,13 +26,13 @@ function useBackofficePopupLifecycle(kind) {
     const publishOpen = () => {
       writeBackofficePopupStatus(popupKind, {
         isOpen: true,
-        sessionId: sessionIdRef.current,
+        sessionId,
         updatedAt: Date.now(),
         label: config.label,
       });
     };
     const publishClose = () => {
-      clearBackofficePopupStatus(popupKind, sessionIdRef.current);
+      clearBackofficePopupStatus(popupKind, sessionId);
     };
 
     publishOpen();
@@ -43,12 +46,12 @@ function useBackofficePopupLifecycle(kind) {
       window.removeEventListener('pagehide', publishClose);
       publishClose();
     };
-  }, [config, popupKind]);
+  }, [config, popupKind, sessionId]);
 
   return {
     kind: popupKind,
     label: config?.label || '',
-    sessionId: sessionIdRef.current,
+    sessionId,
   };
 }
 

@@ -50,150 +50,157 @@ const useCreditHistoryLoaders = ({
     });
     return merged;
   };
-  const loadPaymentBadges = useCallback(async (targetUserId = effectiveUserId) => {
-    if (!targetUserId) return;
-    try {
-      setPaymentBadgesLoading(true);
-      const data = await creditApi.getPaymentBadges(targetUserId);
-      const badges = Array.isArray(data?.badges) ? data.badges : [];
-      const summary = data?.summary || null;
-      setPaymentBadges(badges);
-      setPaymentBadgeSummary(summary);
-      return { badges, summary };
-    } catch (_) {
-      setPaymentBadges([]);
-      setPaymentBadgeSummary(null);
-      return { badges: [], summary: null };
-    } finally {
-      setPaymentBadgesLoading(false);
-    }
-  }, [
-    creditApi,
-    effectiveUserId,
-    setPaymentBadgesLoading,
-    setPaymentBadges,
-    setPaymentBadgeSummary,
-  ]);
-
-  const fetchCreditData = useCallback(async (targetUserId = effectiveUserId) => {
-    try {
-      setLoading(true);
-      const [historyPayload, balanceData, customerData] = await Promise.all([
-        creditApi.getHistory(targetUserId, { limit: HISTORY_PAGE_SIZE }),
-        creditApi.getBalance(targetUserId),
-        usersApi.getById(targetUserId),
-      ]);
-      const normalizedHistory = normalizeHistoryPayload(historyPayload);
-      setCreditHistory(normalizedHistory.rows);
-      setHistoryCursor(normalizedHistory.nextCursor);
-      setHistoryHasMore(normalizedHistory.hasMore);
-      setBalance(balanceData.balance);
-      setCustomer(customerData);
-
-      const [issueRows, badgeData] = await Promise.all([
-        creditApi.getIssues(targetUserId)
-          .then((rows) => (Array.isArray(rows) ? rows : []))
-          .catch(() => []),
-        loadPaymentBadges(targetUserId),
-      ]);
-      setCreditIssues(issueRows);
-
-      return {
-        history: normalizedHistory.rows,
-        balance: Number(balanceData?.balance || 0),
-        customer: customerData,
-        paymentBadgeSummary: badgeData?.summary || null,
-        paymentBadges: badgeData?.badges || [],
-      };
-    } catch (err) {
-      if (err?.status === 401) {
-        clearUser();
-        navigate('/login');
-        return null;
+  const loadPaymentBadges = useCallback(
+    async (targetUserId = effectiveUserId) => {
+      if (!targetUserId) return;
+      try {
+        setPaymentBadgesLoading(true);
+        const data = await creditApi.getPaymentBadges(targetUserId);
+        const badges = Array.isArray(data?.badges) ? data.badges : [];
+        const summary = data?.summary || null;
+        setPaymentBadges(badges);
+        setPaymentBadgeSummary(summary);
+        return { badges, summary };
+      } catch (_) {
+        setPaymentBadges([]);
+        setPaymentBadgeSummary(null);
+        return { badges: [], summary: null };
+      } finally {
+        setPaymentBadgesLoading(false);
       }
-      setError(err.message || 'Failed to load credit history');
-      setPaymentBadges([]);
-      setPaymentBadgeSummary(null);
-      setHistoryHasMore(false);
-      setHistoryCursor('');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    creditApi,
-    usersApi,
-    navigate,
-    clearUser,
-    setLoading,
-    setCreditHistory,
-    setHistoryCursor,
-    setHistoryHasMore,
-    setBalance,
-    setCustomer,
-    setCreditIssues,
-    setError,
-    setPaymentBadges,
-    setPaymentBadgeSummary,
-    effectiveUserId,
-    loadPaymentBadges,
-  ]);
+    },
+    [creditApi, effectiveUserId, setPaymentBadgesLoading, setPaymentBadges, setPaymentBadgeSummary]
+  );
 
-  const loadMoreHistory = useCallback(async (targetUserId = effectiveUserId) => {
-    if (!targetUserId) return [];
-    if (!historyHasMore || historyLoadingMore || !historyCursor) return [];
-    try {
-      setHistoryLoadingMore(true);
-      const payload = await creditApi.getHistory(targetUserId, {
-        limit: HISTORY_PAGE_SIZE,
-        cursor: historyCursor,
-      });
-      const normalizedHistory = normalizeHistoryPayload(payload);
-      setCreditHistory((prev) => mergeHistoryRows(prev, normalizedHistory.rows));
-      setHistoryCursor(normalizedHistory.nextCursor);
-      setHistoryHasMore(normalizedHistory.hasMore);
-      return normalizedHistory.rows;
-    } catch (_) {
-      return [];
-    } finally {
-      setHistoryLoadingMore(false);
-    }
-  }, [
-    creditApi,
-    effectiveUserId,
-    historyHasMore,
-    historyLoadingMore,
-    historyCursor,
-    setCreditHistory,
-    setHistoryCursor,
-    setHistoryHasMore,
-    setHistoryLoadingMore,
-  ]);
+  const fetchCreditData = useCallback(
+    async (targetUserId = effectiveUserId) => {
+      try {
+        setLoading(true);
+        const [historyPayload, balanceData, customerData] = await Promise.all([
+          creditApi.getHistory(targetUserId, { limit: HISTORY_PAGE_SIZE }),
+          creditApi.getBalance(targetUserId),
+          usersApi.getById(targetUserId),
+        ]);
+        const normalizedHistory = normalizeHistoryPayload(historyPayload);
+        setCreditHistory(normalizedHistory.rows);
+        setHistoryCursor(normalizedHistory.nextCursor);
+        setHistoryHasMore(normalizedHistory.hasMore);
+        setBalance(balanceData.balance);
+        setCustomer(customerData);
 
-  const loadFullHistory = useCallback(async (targetUserId = effectiveUserId) => {
-    if (!targetUserId || historyLoadingFull) return [];
-    try {
-      setHistoryLoadingFull(true);
-      const payload = await creditApi.getHistory(targetUserId, { all: 'true' });
-      const normalizedHistory = normalizeHistoryPayload(payload);
-      setCreditHistory(normalizedHistory.rows);
-      setHistoryCursor('');
-      setHistoryHasMore(false);
-      return normalizedHistory.rows;
-    } catch (_) {
-      return [];
-    } finally {
-      setHistoryLoadingFull(false);
-    }
-  }, [
-    creditApi,
-    effectiveUserId,
-    historyLoadingFull,
-    setCreditHistory,
-    setHistoryCursor,
-    setHistoryHasMore,
-    setHistoryLoadingFull,
-  ]);
+        const [issueRows, badgeData] = await Promise.all([
+          creditApi
+            .getIssues(targetUserId)
+            .then((rows) => (Array.isArray(rows) ? rows : []))
+            .catch(() => []),
+          loadPaymentBadges(targetUserId),
+        ]);
+        setCreditIssues(issueRows);
+
+        return {
+          history: normalizedHistory.rows,
+          balance: Number(balanceData?.balance || 0),
+          customer: customerData,
+          paymentBadgeSummary: badgeData?.summary || null,
+          paymentBadges: badgeData?.badges || [],
+        };
+      } catch (err) {
+        if (err?.status === 401) {
+          clearUser();
+          navigate('/login');
+          return null;
+        }
+        setError(err.message || 'Failed to load credit history');
+        setPaymentBadges([]);
+        setPaymentBadgeSummary(null);
+        setHistoryHasMore(false);
+        setHistoryCursor('');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      creditApi,
+      usersApi,
+      navigate,
+      clearUser,
+      setLoading,
+      setCreditHistory,
+      setHistoryCursor,
+      setHistoryHasMore,
+      setBalance,
+      setCustomer,
+      setCreditIssues,
+      setError,
+      setPaymentBadges,
+      setPaymentBadgeSummary,
+      effectiveUserId,
+      loadPaymentBadges,
+    ]
+  );
+
+  const loadMoreHistory = useCallback(
+    async (targetUserId = effectiveUserId) => {
+      if (!targetUserId) return [];
+      if (!historyHasMore || historyLoadingMore || !historyCursor) return [];
+      try {
+        setHistoryLoadingMore(true);
+        const payload = await creditApi.getHistory(targetUserId, {
+          limit: HISTORY_PAGE_SIZE,
+          cursor: historyCursor,
+        });
+        const normalizedHistory = normalizeHistoryPayload(payload);
+        setCreditHistory((prev) => mergeHistoryRows(prev, normalizedHistory.rows));
+        setHistoryCursor(normalizedHistory.nextCursor);
+        setHistoryHasMore(normalizedHistory.hasMore);
+        return normalizedHistory.rows;
+      } catch (_) {
+        return [];
+      } finally {
+        setHistoryLoadingMore(false);
+      }
+    },
+    [
+      creditApi,
+      effectiveUserId,
+      historyHasMore,
+      historyLoadingMore,
+      historyCursor,
+      setCreditHistory,
+      setHistoryCursor,
+      setHistoryHasMore,
+      setHistoryLoadingMore,
+    ]
+  );
+
+  const loadFullHistory = useCallback(
+    async (targetUserId = effectiveUserId) => {
+      if (!targetUserId || historyLoadingFull) return [];
+      try {
+        setHistoryLoadingFull(true);
+        const payload = await creditApi.getHistory(targetUserId, { all: 'true' });
+        const normalizedHistory = normalizeHistoryPayload(payload);
+        setCreditHistory(normalizedHistory.rows);
+        setHistoryCursor('');
+        setHistoryHasMore(false);
+        return normalizedHistory.rows;
+      } catch (_) {
+        return [];
+      } finally {
+        setHistoryLoadingFull(false);
+      }
+    },
+    [
+      creditApi,
+      effectiveUserId,
+      historyLoadingFull,
+      setCreditHistory,
+      setHistoryCursor,
+      setHistoryHasMore,
+      setHistoryLoadingFull,
+    ]
+  );
 
   return {
     loadPaymentBadges,

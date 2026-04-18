@@ -22,5 +22,3 @@ function BrandFilterVisual({ logo, name }) {
 }
 
 export default BrandFilterVisual;
-
-

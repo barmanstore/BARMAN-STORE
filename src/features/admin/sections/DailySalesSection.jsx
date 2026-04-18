@@ -53,8 +53,14 @@ function DailySalesSection({
   const savedCashDraft = dailyCashTally ? String(dailyCashTally.countedCashTotal ?? '') : '';
   const savedNoteDraft = String(dailyCashTally?.note || '');
   const isDirty = normalizedCashDraft !== savedCashDraft || noteDraft !== savedNoteDraft;
-  const hasDraftValidationError = normalizedCashDraft !== '' && (!Number.isFinite(draftAmount) || draftAmount < 0);
-  const canSubmit = canEditDailyCashTally && isDirty && !hasDraftValidationError && normalizedCashDraft !== '' && !dailyCashTallySaving;
+  const hasDraftValidationError =
+    normalizedCashDraft !== '' && (!Number.isFinite(draftAmount) || draftAmount < 0);
+  const canSubmit =
+    canEditDailyCashTally &&
+    isDirty &&
+    !hasDraftValidationError &&
+    normalizedCashDraft !== '' &&
+    !dailyCashTallySaving;
   const hasSavedTally = Boolean(dailySalesSummary?.hasManualCashTally);
   const savedTallyText = hasSavedTally
     ? formatCurrency(dailySalesSummary.manualCashTally)
@@ -98,7 +104,7 @@ function DailySalesSection({
       <AdminPageHeader
         className="section-header"
         title="Daily Sales Summary"
-        actions={(
+        actions={
           <div className="daily-sales-controls">
             <input
               id="daily-sales-date"
@@ -117,7 +123,7 @@ function DailySalesSection({
               {dailySalesLoading ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
-        )}
+        }
       />
 
       {dailySalesError ? <p className="daily-sales-error">{dailySalesError}</p> : null}
@@ -157,7 +163,10 @@ function DailySalesSection({
         <div className="daily-sales-cash-head">
           <div>
             <h3>Daily Cash Tally</h3>
-            <p>Save counted cash separately from billing so walk-in cash or shortages stay visible against billed cash.</p>
+            <p>
+              Save counted cash separately from billing so walk-in cash or shortages stay visible
+              against billed cash.
+            </p>
           </div>
           <div className="daily-sales-cash-metrics">
             <div className="daily-sales-cash-metric">
@@ -176,12 +185,12 @@ function DailySalesSection({
         </div>
 
         {savedTallyNote ? (
-          <p className="daily-sales-cash-note-preview">
-            Note: {savedTallyNote}
-          </p>
+          <p className="daily-sales-cash-note-preview">Note: {savedTallyNote}</p>
         ) : null}
 
-        {dailyCashTallyError ? <p className="daily-sales-cash-error">{dailyCashTallyError}</p> : null}
+        {dailyCashTallyError ? (
+          <p className="daily-sales-cash-error">{dailyCashTallyError}</p>
+        ) : null}
 
         <form className="daily-sales-cash-form" onSubmit={handleSubmit}>
           <label>
@@ -192,7 +201,9 @@ function DailySalesSection({
               min="0"
               step="0.01"
               value={countedCashDraft}
-              onChange={(event) => setCountedCashDraft(String(event.target.value || '').trimStart())}
+              onChange={(event) =>
+                setCountedCashDraft(String(event.target.value || '').trimStart())
+              }
               disabled={!canEditDailyCashTally || dailyCashTallySaving}
               placeholder="0.00"
             />
@@ -208,11 +219,7 @@ function DailySalesSection({
             />
           </label>
           <div className="daily-sales-cash-actions">
-            <button
-              type="submit"
-              className="admin-btn primary"
-              disabled={!canSubmit}
-            >
+            <button type="submit" className="admin-btn primary" disabled={!canSubmit}>
               {dailyCashTallySaving ? 'Saving...' : 'Save Tally'}
             </button>
             <button
@@ -230,16 +237,28 @@ function DailySalesSection({
           <p className="daily-sales-cash-help">Only admins can save the daily cash tally.</p>
         ) : null}
         {hasDraftValidationError ? (
-          <p className="daily-sales-cash-help">Enter a valid non-negative counted cash total before saving.</p>
+          <p className="daily-sales-cash-help">
+            Enter a valid non-negative counted cash total before saving.
+          </p>
         ) : null}
       </section>
 
       <div className="daily-sales-meta-row">
-        <span>Transactions: <strong>{dailySalesSummary.txCount}</strong></span>
-        <span>Paid Bills: <strong>{dailySalesSummary.paidBills}</strong></span>
-        <span>Pending Bills: <strong>{dailySalesSummary.pendingBills}</strong></span>
-        <span>Avg Ticket: <strong>{formatCurrency(dailySalesSummary.avgTicket)}</strong></span>
-        <span>Cash Delta: <strong>{formatCurrency(dailySalesSummary.cashVariance)}</strong></span>
+        <span>
+          Transactions: <strong>{dailySalesSummary.txCount}</strong>
+        </span>
+        <span>
+          Paid Bills: <strong>{dailySalesSummary.paidBills}</strong>
+        </span>
+        <span>
+          Pending Bills: <strong>{dailySalesSummary.pendingBills}</strong>
+        </span>
+        <span>
+          Avg Ticket: <strong>{formatCurrency(dailySalesSummary.avgTicket)}</strong>
+        </span>
+        <span>
+          Cash Delta: <strong>{formatCurrency(dailySalesSummary.cashVariance)}</strong>
+        </span>
       </div>
 
       <div className="orders-table daily-sales-table">
@@ -258,19 +277,28 @@ function DailySalesSection({
           <tbody>
             {selectedSalesBills.length === 0 ? (
               <tr>
-                <td colSpan={7} className="orders-empty-row">No sales bills found for selected date.</td>
+                <td colSpan={7} className="orders-empty-row">
+                  No sales bills found for selected date.
+                </td>
               </tr>
-            ) : selectedSalesBills.map((bill) => (
+            ) : (
+              selectedSalesBills.map((bill) => (
                 <tr key={bill.id}>
-                  <td>{new Date(bill.created_at || fallbackBillDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                <td>{bill.bill_number || `#${bill.id}`}</td>
-                <td>{truncateUserName(bill.customer_name || '-', 15)}</td>
-                <td>{formatCurrency(asNumber(bill.total_amount, 0))}</td>
-                <td>{formatCurrency(asNumber(bill.paid_amount, 0))}</td>
-                <td>{formatCurrency(asNumber(bill.credit_amount, 0))}</td>
-                <td>{String(bill.payment_status || '-').toUpperCase()}</td>
-              </tr>
-            ))}
+                  <td>
+                    {new Date(bill.created_at || fallbackBillDate).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td>{bill.bill_number || `#${bill.id}`}</td>
+                  <td>{truncateUserName(bill.customer_name || '-', 15)}</td>
+                  <td>{formatCurrency(asNumber(bill.total_amount, 0))}</td>
+                  <td>{formatCurrency(asNumber(bill.paid_amount, 0))}</td>
+                  <td>{formatCurrency(asNumber(bill.credit_amount, 0))}</td>
+                  <td>{String(bill.payment_status || '-').toUpperCase()}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

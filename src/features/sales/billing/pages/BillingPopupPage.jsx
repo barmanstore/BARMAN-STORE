@@ -21,10 +21,7 @@ function BillingPopupWorkspace() {
       subtitle="Dedicated browser window for billing with draft restore."
       adminHref={getAdminTabHref('billing')}
     >
-      <BillingTab
-        popupMode
-        draftStorageKey={getBackofficePopupDraftKey('billing')}
-      />
+      <BillingTab popupMode draftStorageKey={getBackofficePopupDraftKey('billing')} />
     </BackofficePopupShell>
   );
 }

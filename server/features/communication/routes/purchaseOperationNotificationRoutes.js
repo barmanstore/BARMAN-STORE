@@ -18,12 +18,22 @@ const registerPurchaseOperationNotificationRoutes = (deps) => {
       });
       return res.json({ success: true, ...result });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to run purchase operation notifications' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to run purchase operation notifications' });
     }
   };
 
-  app.get('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
-  app.post('/api/internal/purchase-operations/notifications/run', requireCronSecret, handlePurchaseOperationNotificationsRun);
+  app.get(
+    '/api/internal/purchase-operations/notifications/run',
+    requireCronSecret,
+    handlePurchaseOperationNotificationsRun
+  );
+  app.post(
+    '/api/internal/purchase-operations/notifications/run',
+    requireCronSecret,
+    handlePurchaseOperationNotificationsRun
+  );
 };
 
 module.exports = { registerPurchaseOperationNotificationRoutes };

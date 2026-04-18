@@ -5,7 +5,11 @@ const createAuthSupport = ({
   authTokenSecret = '',
   tokenTtlMs = 7 * 24 * 60 * 60 * 1000,
 } = {}) => {
-  const sha256 = (password) => crypto.createHash('sha256').update(String(password || '')).digest('hex');
+  const sha256 = (password) =>
+    crypto
+      .createHash('sha256')
+      .update(String(password || ''))
+      .digest('hex');
 
   const isSha256Hex = (value) => /^[a-f0-9]{64}$/i.test(String(value || ''));
 
@@ -46,7 +50,8 @@ const createAuthSupport = ({
     return false;
   };
 
-  const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
+  const PHONE_POLICY_MESSAGE =
+    'Phone number must be 10 digits (India format, optional +91 prefix).';
   const parsePhoneInput = (phone, { required = false } = {}) => {
     const raw = String(phone ?? '').trim();
     if (!raw) {
@@ -78,7 +83,9 @@ const createAuthSupport = ({
   };
   const normalizePhone = (phone) => parsePhoneInput(phone).value;
   const normalizeEmail = (email) => {
-    const v = String(email || '').trim().toLowerCase();
+    const v = String(email || '')
+      .trim()
+      .toLowerCase();
     return v || null;
   };
   const isStrongPassword = (password) => {
@@ -118,10 +125,16 @@ const createAuthSupport = ({
     return code;
   };
   const hashOpaqueToken = (value) =>
-    crypto.createHash('sha256').update(String(value || '')).digest('hex');
+    crypto
+      .createHash('sha256')
+      .update(String(value || ''))
+      .digest('hex');
   const generateEmailVerificationToken = () => crypto.randomBytes(24).toString('hex');
   const hashVerificationToken = (token) =>
-    crypto.createHash('sha256').update(String(token || '')).digest('hex');
+    crypto
+      .createHash('sha256')
+      .update(String(token || ''))
+      .digest('hex');
 
   const base64UrlEncode = (value) => Buffer.from(value).toString('base64url');
   const base64UrlDecode = (value) => Buffer.from(value, 'base64url').toString('utf8');
@@ -148,7 +161,10 @@ const createAuthSupport = ({
     const expected = signTokenPayload(encoded);
     const sigBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expected);
-    if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+    if (
+      sigBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    ) {
       return null;
     }
     try {
@@ -158,7 +174,7 @@ const createAuthSupport = ({
       if (payload.exp) {
         if (now > Number(payload.exp)) return null;
       } else if (payload.iat) {
-        if ((now - Number(payload.iat)) > tokenTtlMs) return null;
+        if (now - Number(payload.iat) > tokenTtlMs) return null;
       } else {
         return null;
       }

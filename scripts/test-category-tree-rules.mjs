@@ -42,7 +42,10 @@ const terminateServer = async (server, timeoutMs = 2000) => {
   } catch (_) {
     // ignore kill errors
   }
-  const timedOut = await Promise.race([exited.then(() => false), delay(timeoutMs).then(() => true)]);
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    delay(timeoutMs).then(() => true),
+  ]);
   if (timedOut && !server.killed) {
     try {
       server.kill('SIGKILL');
@@ -93,8 +96,12 @@ const spawnTestServer = async (port, authSecret) => {
         ...buildTestEnv(port, authSecret),
       },
     });
-    server.stdout.on('data', (chunk) => { stdout += String(chunk); });
-    server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    server.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    server.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
     return {
       server,
       app: null,
@@ -119,15 +126,17 @@ const toJson = async (res) => {
   }
 };
 
-const makeRequest = (baseUrl, token = '') => async (pathname, init = {}) =>
-  fetch(`${baseUrl}${pathname}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers || {}),
-    },
-  });
+const makeRequest =
+  (baseUrl, token = '') =>
+  async (pathname, init = {}) =>
+    fetch(`${baseUrl}${pathname}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers || {}),
+      },
+    });
 
 const randomSuffix = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -137,10 +146,11 @@ const signToken = ({ uid, role = 'admin' }, secret) => {
     uid: Number(uid || 0),
     role: String(role || 'admin'),
     iat: now,
-    exp: now + (7 * 24 * 60 * 60 * 1000),
+    exp: now + 7 * 24 * 60 * 60 * 1000,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', String(secret || 'barman-store-local-secret'))
+  const signature = crypto
+    .createHmac('sha256', String(secret || 'barman-store-local-secret'))
     .update(encoded)
     .digest('base64url');
   return `${encoded}.${signature}`;
@@ -172,7 +182,9 @@ const main = async () => {
       return;
     }
     if (!hasDbEnv) {
-      throw new Error('Category tree smoke test requires SMOKE_TEST_DB_URL. Set SMOKE_TEST_ALLOW_PRIMARY_DB=1 only if you intentionally want to reuse the primary app DB.');
+      throw new Error(
+        'Category tree smoke test requires SMOKE_TEST_DB_URL. Set SMOKE_TEST_ALLOW_PRIMARY_DB=1 only if you intentionally want to reuse the primary app DB.'
+      );
     }
 
     const boot = await spawnTestServer(port, authSecret);
@@ -202,15 +214,21 @@ const main = async () => {
     }
     if (!ready) {
       const logs = readLogs();
-      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(logs.stderr);
-      if (allowSkipIfNoDb && dbBootFailed) {
-        logSmokeSkipInfo(
-          'Category tree smoke test skipped because the database is unavailable.',
-          ['Set SMOKE_TEST_DB_URL to run the test safely.']
+      const dbBootFailed =
+        /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(
+          logs.stderr
         );
+      if (allowSkipIfNoDb && dbBootFailed) {
+        logSmokeSkipInfo('Category tree smoke test skipped because the database is unavailable.', [
+          'Set SMOKE_TEST_DB_URL to run the test safely.',
+        ]);
         return;
       }
-      assert.equal(ready, true, `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`);
+      assert.equal(
+        ready,
+        true,
+        `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`
+      );
     }
 
     const dbUrl = String(smokeDbConfig.dbUrl || '').trim();
@@ -219,23 +237,34 @@ const main = async () => {
       await pool.query('SELECT 1 AS ok');
     } catch (error) {
       if (allowSkipIfNoDb) {
-        logSmokeSkipInfo(
-          'Category tree smoke test skipped because the database is unavailable.',
-          ['Set SMOKE_TEST_DB_URL to run the test safely.']
-        );
+        logSmokeSkipInfo('Category tree smoke test skipped because the database is unavailable.', [
+          'Set SMOKE_TEST_DB_URL to run the test safely.',
+        ]);
         return;
       }
       throw error;
     }
 
-    const adminRow = await pool.query(`SELECT id, role FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`);
+    const adminRow = await pool.query(
+      `SELECT id, role FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`
+    );
     let adminId = Number(adminRow.rows?.[0]?.id || 0);
     if (!adminId) {
       const createdAdmin = await pool.query(
         `INSERT INTO users (role, name, email, email_verified, phone, phone_verified, address, password_hash, must_change_password)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
-        ['admin', 'Category Smoke Admin', `category-admin-${randomSuffix()}@example.com`, 1, null, 0, null, 'smoke-hash', 0]
+        [
+          'admin',
+          'Category Smoke Admin',
+          `category-admin-${randomSuffix()}@example.com`,
+          1,
+          null,
+          0,
+          null,
+          'smoke-hash',
+          0,
+        ]
       );
       adminId = Number(createdAdmin.rows?.[0]?.id || 0);
     }
@@ -269,7 +298,11 @@ const main = async () => {
       body: JSON.stringify({ name: 'SharedName', parent_id: parentAId }),
     });
     const childAJson = await toJson(childARes);
-    assert.equal(childARes.status, 201, `create child under parent A failed: ${JSON.stringify(childAJson)}`);
+    assert.equal(
+      childARes.status,
+      201,
+      `create child under parent A failed: ${JSON.stringify(childAJson)}`
+    );
     const childAId = Number(childAJson?.id || 0);
     createdCategoryIds.push(childAId);
 
@@ -278,7 +311,11 @@ const main = async () => {
       body: JSON.stringify({ name: 'SharedName', parent_id: parentBId }),
     });
     const childBJson = await toJson(childBRes);
-    assert.equal(childBRes.status, 201, `create child under parent B failed: ${JSON.stringify(childBJson)}`);
+    assert.equal(
+      childBRes.status,
+      201,
+      `create child under parent B failed: ${JSON.stringify(childBJson)}`
+    );
     const childBId = Number(childBJson?.id || 0);
     createdCategoryIds.push(childBId);
 
@@ -288,7 +325,11 @@ const main = async () => {
       body: JSON.stringify({ name: 'SharedName', parent_id: parentAId }),
     });
     const duplicateSiblingJson = await toJson(duplicateSiblingRes);
-    assert.equal(duplicateSiblingRes.status, 409, `duplicate sibling should fail: ${JSON.stringify(duplicateSiblingJson)}`);
+    assert.equal(
+      duplicateSiblingRes.status,
+      409,
+      `duplicate sibling should fail: ${JSON.stringify(duplicateSiblingJson)}`
+    );
 
     // Rule 3: Move that would create same-name sibling in target parent must fail.
     const moveConflictRes = await adminRequest(`/api/categories/${childBId}/move`, {
@@ -296,7 +337,11 @@ const main = async () => {
       body: JSON.stringify({ parent_id: parentAId }),
     });
     const moveConflictJson = await toJson(moveConflictRes);
-    assert.equal(moveConflictRes.status, 409, `move conflict should fail: ${JSON.stringify(moveConflictJson)}`);
+    assert.equal(
+      moveConflictRes.status,
+      409,
+      `move conflict should fail: ${JSON.stringify(moveConflictJson)}`
+    );
 
     // Rule 4: Product category_id should remain stable after PUT edit.
     const rootRes = await adminRequest('/api/categories', {
@@ -354,8 +399,16 @@ const main = async () => {
       body: JSON.stringify({ category_id: leafId }),
     });
     const patchCategoryJson = await toJson(patchCategoryRes);
-    assert.equal(patchCategoryRes.status, 200, `patch category failed: ${JSON.stringify(patchCategoryJson)}`);
-    assert.equal(Number(patchCategoryJson?.category_id || 0), leafId, 'patched category_id mismatch');
+    assert.equal(
+      patchCategoryRes.status,
+      200,
+      `patch category failed: ${JSON.stringify(patchCategoryJson)}`
+    );
+    assert.equal(
+      Number(patchCategoryJson?.category_id || 0),
+      leafId,
+      'patched category_id mismatch'
+    );
 
     const putProductRes = await adminRequest(`/api/products/${createdProductId}`, {
       method: 'PUT',
@@ -385,8 +438,16 @@ const main = async () => {
       }),
     });
     const putProductJson = await toJson(putProductRes);
-    assert.equal(putProductRes.status, 200, `put product failed: ${JSON.stringify(putProductJson)}`);
-    assert.equal(Number(putProductJson?.category_id || 0), leafId, 'category_id drifted after product PUT');
+    assert.equal(
+      putProductRes.status,
+      200,
+      `put product failed: ${JSON.stringify(putProductJson)}`
+    );
+    assert.equal(
+      Number(putProductJson?.category_id || 0),
+      leafId,
+      'category_id drifted after product PUT'
+    );
 
     console.log('Category tree rules smoke test passed.');
   } finally {
@@ -398,7 +459,9 @@ const main = async () => {
       }
     }
 
-    const uniqueCategoryIds = Array.from(new Set(createdCategoryIds.filter((id) => Number(id) > 0)));
+    const uniqueCategoryIds = Array.from(
+      new Set(createdCategoryIds.filter((id) => Number(id) > 0))
+    );
     for (const id of uniqueCategoryIds.reverse()) {
       try {
         await request(`/api/categories/${id}`, { method: 'DELETE' });

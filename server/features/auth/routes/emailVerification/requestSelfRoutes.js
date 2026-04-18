@@ -13,7 +13,10 @@ const registerEmailVerificationRequestSelfRoutes = (deps) => {
 
   app.post('/api/auth/email/verification/request-self', requireAuth, async (req, res) => {
     try {
-      const user = await dbGetAsync('SELECT id, name, email, email_verified FROM users WHERE id = ?', [req.authUser.id]);
+      const user = await dbGetAsync(
+        'SELECT id, name, email, email_verified FROM users WHERE id = ?',
+        [req.authUser.id]
+      );
       if (!user) return res.status(404).json({ error: 'User not found' });
       const normalizedEmail = normalizeEmail(user.email);
       if (!normalizedEmail) {
@@ -33,7 +36,9 @@ const registerEmailVerificationRequestSelfRoutes = (deps) => {
           });
         } catch (error) {
           if (isSupabaseAuthStrictMode()) {
-            return res.status(400).json({ error: error.message || 'Failed to send verification email' });
+            return res
+              .status(400)
+              .json({ error: error.message || 'Failed to send verification email' });
           }
         }
       }

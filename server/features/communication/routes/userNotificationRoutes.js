@@ -43,9 +43,13 @@ const registerUserNotificationRoutes = (deps) => {
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
       const unreadOnly = parseBooleanEnv(req.query?.unread_only, false);
       const rawBeforeId = Number(req.query?.before_id || 0);
-      const beforeId = Number.isFinite(rawBeforeId) && rawBeforeId > 0 ? Math.floor(rawBeforeId) : 0;
+      const beforeId =
+        Number.isFinite(rawBeforeId) && rawBeforeId > 0 ? Math.floor(rawBeforeId) : 0;
       const requestedLimit = Number(req.query?.limit || 20);
-      const limit = Math.max(1, Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20));
+      const limit = Math.max(
+        1,
+        Math.min(50, Number.isFinite(requestedLimit) ? requestedLimit : 20)
+      );
       const params = [userId];
       let sql = `SELECT *
         FROM app_notifications
@@ -66,9 +70,8 @@ const registerUserNotificationRoutes = (deps) => {
         is_read: Number(row?.is_read || 0) === 1,
         metadata: parseJsonText(row?.metadata, null),
       }));
-      const nextBeforeId = items.length === limit
-        ? Number(items[items.length - 1]?.id || 0) || null
-        : null;
+      const nextBeforeId =
+        items.length === limit ? Number(items[items.length - 1]?.id || 0) || null : null;
       return res.json({
         items,
         paging: {
@@ -94,7 +97,9 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ count: Number(row?.count || 0) });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load unread notification count' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to load unread notification count' });
     }
   });
 
@@ -102,10 +107,10 @@ const registerUserNotificationRoutes = (deps) => {
     try {
       const notificationId = Number(req.params.id || 0);
       if (!notificationId) return res.status(400).json({ error: 'Invalid notification id' });
-      const row = await dbGetAsync(
-        `SELECT * FROM app_notifications WHERE id = ? AND user_id = ?`,
-        [notificationId, Number(req.authUser?.id || 0)]
-      );
+      const row = await dbGetAsync(`SELECT * FROM app_notifications WHERE id = ? AND user_id = ?`, [
+        notificationId,
+        Number(req.authUser?.id || 0),
+      ]);
       if (!row) return res.status(404).json({ error: 'Notification not found' });
       await dbRunAsync(
         `UPDATE app_notifications
@@ -115,7 +120,9 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ success: true, id: notificationId, is_read: true });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to mark notification as read' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to mark notification as read' });
     }
   });
 
@@ -129,10 +136,11 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ success: true });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to mark notifications as read' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to mark notifications as read' });
     }
   });
-
 };
 
 module.exports = { registerUserNotificationRoutes };

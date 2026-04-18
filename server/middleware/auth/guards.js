@@ -12,7 +12,10 @@ const createAuthGuards = ({
       req.authUser = user;
       return { user, error: null };
     } catch (error) {
-      return { user: null, error: { status: 500, payload: { error: error.message || errorMessage } } };
+      return {
+        user: null,
+        error: { status: 500, payload: { error: error.message || errorMessage } },
+      };
     }
   };
 
@@ -25,20 +28,26 @@ const createAuthGuards = ({
   const requireAdmin = async (req, res, next) => {
     const { user, error } = await loadAuthUser(req, 'Admin authentication failed');
     if (error) return res.status(error.status).json(error.payload);
-    if (String(user?.role || '').trim().toLowerCase() !== 'admin') {
+    if (
+      String(user?.role || '')
+        .trim()
+        .toLowerCase() !== 'admin'
+    ) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     return next();
   };
 
-  const requireCapability = (capability, message = 'Forbidden') => async (req, res, next) => {
-    const { user, error } = await loadAuthUser(req, 'Capability authentication failed');
-    if (error) return res.status(error.status).json(error.payload);
-    if (!userHasCapability(user, capability)) {
-      return res.status(403).json({ error: message });
-    }
-    return next();
-  };
+  const requireCapability =
+    (capability, message = 'Forbidden') =>
+    async (req, res, next) => {
+      const { user, error } = await loadAuthUser(req, 'Capability authentication failed');
+      if (error) return res.status(error.status).json(error.payload);
+      if (!userHasCapability(user, capability)) {
+        return res.status(403).json({ error: message });
+      }
+      return next();
+    };
 
   const requireCronSecret = (req, res, next) => {
     if (!PHONE_CHANGE_CRON_SECRET) {
@@ -46,7 +55,9 @@ const createAuthGuards = ({
     }
     const headerSecret = String(req.headers['x-cron-secret'] || '').trim();
     const authHeader = String(req.headers.authorization || '').trim();
-    const bearerSecret = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : '';
+    const bearerSecret = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : '';
     const provided = headerSecret || bearerSecret;
     if (!provided || provided !== PHONE_CHANGE_CRON_SECRET) {
       return res.status(401).json({ error: 'Unauthorized cron request' });

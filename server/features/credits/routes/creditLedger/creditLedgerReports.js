@@ -19,7 +19,9 @@ const registerCreditLedgerReportsRoutes = (deps) => {
       const customerId = req.body?.customer_id;
       const additionalAmount = Number(req.body?.additional_amount || 0);
       if (!customerId) return res.status(400).json({ error: 'customer_id is required' });
-      const user = await dbGetAsync(`SELECT id, name, credit_limit FROM users WHERE id = ?`, [customerId]);
+      const user = await dbGetAsync(`SELECT id, name, credit_limit FROM users WHERE id = ?`, [
+        customerId,
+      ]);
       if (!user) return res.status(404).json({ error: 'Customer not found' });
       const last = await getLatestCreditEntryAsync(customerId);
       const currentBalance = Number(last?.balance || 0);
@@ -42,8 +44,9 @@ const registerCreditLedgerReportsRoutes = (deps) => {
 
   app.get('/api/credit/aging', requireAdmin, async (_, res) => {
     try {
-      const loadCustomers = async () => dbAllAsync(
-        `SELECT
+      const loadCustomers = async () =>
+        dbAllAsync(
+          `SELECT
            u.id as customer_id,
            u.name as customer_name,
            u.email,
@@ -87,7 +90,7 @@ const registerCreditLedgerReportsRoutes = (deps) => {
          LEFT JOIN customer_credit_aging_snapshots cas ON cas.user_id = u.id
          WHERE u.role = 'customer'
          ORDER BY u.name ASC`
-      );
+        );
 
       let customers = await loadCustomers();
 
@@ -119,30 +122,35 @@ const registerCreditLedgerReportsRoutes = (deps) => {
         });
       }
 
-      let hasSnapshotData = customers.some((row) => (
-        row?.current_balance !== null
-        || row?.total_periods !== null
-      ));
-      let hasStaleSnapshotData = customers.some((row) => (
-        (row?.current_balance !== null || row?.total_periods !== null)
-        && Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
-      ));
+      let hasSnapshotData = customers.some(
+        (row) => row?.current_balance !== null || row?.total_periods !== null
+      );
+      let hasStaleSnapshotData = customers.some(
+        (row) =>
+          (row?.current_balance !== null || row?.total_periods !== null) &&
+          Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
+      );
 
-      if ((hasStaleSnapshotData || !hasSnapshotData) && typeof rebuildAllCustomerPaymentIntelligence === 'function') {
+      if (
+        (hasStaleSnapshotData || !hasSnapshotData) &&
+        typeof rebuildAllCustomerPaymentIntelligence === 'function'
+      ) {
         await rebuildAllCustomerPaymentIntelligence({ nowMs: Date.now() });
         customers = await loadCustomers();
-        hasSnapshotData = customers.some((row) => (
-          row?.current_balance !== null
-          || row?.total_periods !== null
-        ));
-        hasStaleSnapshotData = customers.some((row) => (
-          (row?.current_balance !== null || row?.total_periods !== null)
-          && Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
-        ));
+        hasSnapshotData = customers.some(
+          (row) => row?.current_balance !== null || row?.total_periods !== null
+        );
+        hasStaleSnapshotData = customers.some(
+          (row) =>
+            (row?.current_balance !== null || row?.total_periods !== null) &&
+            Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION
+        );
       }
 
       if (!hasSnapshotData || hasStaleSnapshotData) {
-        console.warn(`[AGING] Snapshot table not ready (hasData=${hasSnapshotData}, stale=${hasStaleSnapshotData})`);
+        console.warn(
+          `[AGING] Snapshot table not ready (hasData=${hasSnapshotData}, stale=${hasStaleSnapshotData})`
+        );
         return res.status(503).json({ status: 'initializing' });
       }
 
@@ -174,9 +182,10 @@ const registerCreditLedgerReportsRoutes = (deps) => {
             payment_status_description: customer?.payment_status_description || null,
             payment_status_tag: customer?.payment_status_tag || null,
             is_defaulter: Boolean(Number(customer?.is_defaulter || 0)),
-            is_active: customer?.snapshot_active === null || customer?.snapshot_active === undefined
-              ? Boolean(Number(customer?.is_active ?? 1))
-              : Boolean(Number(customer?.snapshot_active)),
+            is_active:
+              customer?.snapshot_active === null || customer?.snapshot_active === undefined
+                ? Boolean(Number(customer?.is_active ?? 1))
+                : Boolean(Number(customer?.snapshot_active)),
             customer_tag: customer?.customer_tag || null,
             limit_status: customer?.limit_status || null,
             limit_status_label: customer?.limit_status_label || null,
@@ -200,24 +209,25 @@ const registerCreditLedgerReportsRoutes = (deps) => {
             summary_line: customer?.summary_line || '',
           };
         })
-        .filter((row) => (
-          Number(row.total_periods || 0) > 0
-          || Number(row.current_balance || 0) > 0
-        ));
+        .filter(
+          (row) => Number(row.total_periods || 0) > 0 || Number(row.current_balance || 0) > 0
+        );
 
       const report = evaluatedCustomers
-        .filter((row) => (
-          Number(row.current_balance || 0) > 0
-          || Number(row.days_0_30 || 0) > 0
-          || Number(row.days_31_60 || 0) > 0
-          || Number(row.days_61_90 || 0) > 0
-          || Number(row.days_over_90 || 0) > 0
-        ))
-        .sort((a, b) => (
-          Number(b.current_balance || 0) - Number(a.current_balance || 0)
-          || Number(a.payment_score ?? 101) - Number(b.payment_score ?? 101)
-          || String(a.customer_name || '').localeCompare(String(b.customer_name || ''))
-        ));
+        .filter(
+          (row) =>
+            Number(row.current_balance || 0) > 0 ||
+            Number(row.days_0_30 || 0) > 0 ||
+            Number(row.days_31_60 || 0) > 0 ||
+            Number(row.days_61_90 || 0) > 0 ||
+            Number(row.days_over_90 || 0) > 0
+        )
+        .sort(
+          (a, b) =>
+            Number(b.current_balance || 0) - Number(a.current_balance || 0) ||
+            Number(a.payment_score ?? 101) - Number(b.payment_score ?? 101) ||
+            String(a.customer_name || '').localeCompare(String(b.customer_name || ''))
+        );
 
       const summary = report.reduce(
         (acc, r) => {
@@ -226,10 +236,18 @@ const registerCreditLedgerReportsRoutes = (deps) => {
           acc.aging_31_60 += Number(r.days_31_60 || 0);
           acc.aging_61_90 += Number(r.days_61_90 || 0);
           acc.aging_over_90 += Number(r.days_over_90 || 0);
-          if (Number(r.days_31_60 || 0) > 0 || Number(r.days_61_90 || 0) > 0 || Number(r.days_over_90 || 0) > 0) {
+          if (
+            Number(r.days_31_60 || 0) > 0 ||
+            Number(r.days_61_90 || 0) > 0 ||
+            Number(r.days_over_90 || 0) > 0
+          ) {
             acc.customers_overdue += 1;
           }
-          if (String(r.limit_status || '').trim().toLowerCase() === 'over_limit') {
+          if (
+            String(r.limit_status || '')
+              .trim()
+              .toLowerCase() === 'over_limit'
+          ) {
             acc.customers_over_limit += 1;
           }
           return acc;
@@ -247,9 +265,13 @@ const registerCreditLedgerReportsRoutes = (deps) => {
 
       const customerBreakdown = evaluatedCustomers.reduce(
         (acc, row) => {
-          const normalizedStatus = String(row.payment_status || '').trim().toLowerCase();
-          const isNew = String(row.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-            || normalizedStatus === 'new';
+          const normalizedStatus = String(row.payment_status || '')
+            .trim()
+            .toLowerCase();
+          const isNew =
+            String(row.customer_tag || '')
+              .trim()
+              .toLowerCase() === 'insufficient_history' || normalizedStatus === 'new';
           if (!isNew && normalizedStatus && acc.badge_counts[normalizedStatus] !== undefined) {
             acc.badge_counts[normalizedStatus] += 1;
           }
@@ -264,14 +286,14 @@ const registerCreditLedgerReportsRoutes = (deps) => {
             acc.customers_defaulters += 1;
           }
           if (
-            row.is_defaulter
-            || Number(row.missed_periods || 0) > 0
-            || Number(row.days_31_60 || 0) > 0
-            || Number(row.days_61_90 || 0) > 0
-            || Number(row.days_over_90 || 0) > 0
-            || normalizedStatus === 'needs_attention'
-            || normalizedStatus === 'problem'
-            || normalizedStatus === 'defaulter'
+            row.is_defaulter ||
+            Number(row.missed_periods || 0) > 0 ||
+            Number(row.days_31_60 || 0) > 0 ||
+            Number(row.days_61_90 || 0) > 0 ||
+            Number(row.days_over_90 || 0) > 0 ||
+            normalizedStatus === 'needs_attention' ||
+            normalizedStatus === 'problem' ||
+            normalizedStatus === 'defaulter'
           ) {
             acc.customers_need_follow_up += 1;
           }
@@ -300,9 +322,13 @@ const registerCreditLedgerReportsRoutes = (deps) => {
           total_outstanding: summary.total_outstanding,
           customers_overdue: summary.customers_overdue,
           customers_over_limit: summary.customers_over_limit,
-          average_payment_score: customerBreakdown.payment_score_count > 0
-            ? Math.round((customerBreakdown.payment_score_total / customerBreakdown.payment_score_count) * 10) / 10
-            : 0,
+          average_payment_score:
+            customerBreakdown.payment_score_count > 0
+              ? Math.round(
+                  (customerBreakdown.payment_score_total / customerBreakdown.payment_score_count) *
+                    10
+                ) / 10
+              : 0,
           customers_need_follow_up: customerBreakdown.customers_need_follow_up,
           customers_defaulters: customerBreakdown.customers_defaulters,
           customers_new: customerBreakdown.customers_new,

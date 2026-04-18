@@ -38,18 +38,21 @@ const BRAND_LOGO_DOMAIN_HINTS = {
   nivea: 'nivea.in',
   vaseline: 'vaseline.com',
   gillette: 'gillette.com',
-  pantene: 'pantene.com'
+  pantene: 'pantene.com',
 };
 
 const resolveBrandLogoUrl = (brandName = '') => {
-  const normalized = normalizeText(brandName).replace(/[^a-z0-9&\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = normalizeText(brandName)
+    .replace(/[^a-z0-9&\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized || !LOGO_DEV_TOKEN) return '';
 
   let domain = BRAND_LOGO_DOMAIN_HINTS[normalized] || '';
   if (!domain) {
-    const matchEntry = Object.entries(BRAND_LOGO_DOMAIN_HINTS).find(([key]) => (
-      normalized.includes(key) || key.includes(normalized)
-    ));
+    const matchEntry = Object.entries(BRAND_LOGO_DOMAIN_HINTS).find(
+      ([key]) => normalized.includes(key) || key.includes(normalized)
+    );
     domain = matchEntry?.[1] || '';
   }
 
@@ -77,9 +80,4 @@ const getDefaultCategoryIcon = (categoryName = '') => {
   return '??';
 };
 
-export {
-  LOGO_DEV_TOKEN,
-  BRAND_LOGO_DOMAIN_HINTS,
-  resolveBrandLogoUrl,
-  getDefaultCategoryIcon,
-};
+export { LOGO_DEV_TOKEN, BRAND_LOGO_DOMAIN_HINTS, resolveBrandLogoUrl, getDefaultCategoryIcon };

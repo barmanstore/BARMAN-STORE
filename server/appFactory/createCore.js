@@ -29,11 +29,12 @@ const {
 } = require('../db/postgresScaffold');
 const { normalizeExecutionMode } = require('../db/executionAdapter');
 const { createQueryAdapter } = require('../db/queryAdapter');
+const { applyPostgresMigrations, ensurePostgresBootstrapData } = require('../db/postgresBootstrap');
 const {
-  applyPostgresMigrations,
-  ensurePostgresBootstrapData,
-} = require('../db/postgresBootstrap');
-const { createAuthSupport, createProfileImageUtils, createProfileImageStorage } = require('../features/auth');
+  createAuthSupport,
+  createProfileImageUtils,
+  createProfileImageStorage,
+} = require('../features/auth');
 const { createValidateCustomerProfile } = require('../utils/customerValidation');
 const { createProductHelpers } = require('../utils/productUtils');
 const { generateSku } = require('../utils/skuUtils');

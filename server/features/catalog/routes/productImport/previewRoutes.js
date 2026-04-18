@@ -23,10 +23,16 @@ const registerProductImportPreviewRoutes = (deps) => {
   app.post('/api/products/import/preview', requireAdmin, async (req, res) => {
     try {
       cleanupExpiredImportBatches();
-      const mode = String(req.body?.mode || 'upsert').trim().toLowerCase();
-      const stockMode = String(req.body?.stock_mode || 'replace').trim().toLowerCase();
+      const mode = String(req.body?.mode || 'upsert')
+        .trim()
+        .toLowerCase();
+      const stockMode = String(req.body?.stock_mode || 'replace')
+        .trim()
+        .toLowerCase();
       if (!['create_only', 'update_only', 'upsert'].includes(mode)) {
-        return res.status(400).json({ error: 'Invalid mode. Use create_only, update_only or upsert' });
+        return res
+          .status(400)
+          .json({ error: 'Invalid mode. Use create_only, update_only or upsert' });
       }
       if (!['replace', 'delta'].includes(stockMode)) {
         return res.status(400).json({ error: 'Invalid stock_mode. Use replace or delta' });
@@ -59,17 +65,22 @@ const registerProductImportPreviewRoutes = (deps) => {
         const normalized = normalizeProductInput(
           {
             ...row,
-            stock: stockMode === 'delta' && existing
-              ? Number(existing.stock || 0) + Number(row.stock || 0)
-              : row.stock,
+            stock:
+              stockMode === 'delta' && existing
+                ? Number(existing.stock || 0) + Number(row.stock || 0)
+                : row.stock,
           },
           existing || null
         );
         const rowErrors = validateProductPayload(normalized);
 
-        if (mode === 'create_only' && existing) rowErrors.push('Row matches existing product but mode is create_only');
-        if (mode === 'update_only' && !existing) rowErrors.push('Row does not match an existing product but mode is update_only');
-        const duplicate = await findProductConflictAsync(normalized, { excludeId: existing?.id || null });
+        if (mode === 'create_only' && existing)
+          rowErrors.push('Row matches existing product but mode is create_only');
+        if (mode === 'update_only' && !existing)
+          rowErrors.push('Row does not match an existing product but mode is update_only');
+        const duplicate = await findProductConflictAsync(normalized, {
+          excludeId: existing?.id || null,
+        });
         let requiresIdenticalConfirmation = false;
         let warnings = [];
         if (duplicate) {
@@ -84,7 +95,8 @@ const registerProductImportPreviewRoutes = (deps) => {
         const matchedId = existing?.id ? Number(existing.id) : null;
         if (matchedId) {
           const seenProductRow = seenInBatch.productIds.get(matchedId);
-          if (seenProductRow) rowErrors.push(`Duplicate update target in import file (also row ${seenProductRow})`);
+          if (seenProductRow)
+            rowErrors.push(`Duplicate update target in import file (also row ${seenProductRow})`);
         }
         const skuKey = normalizeTextKey(normalized.sku);
         if (skuKey) {
@@ -94,17 +106,25 @@ const registerProductImportPreviewRoutes = (deps) => {
         const barcodeKey = normalizeTextKey(normalized.barcode);
         if (barcodeKey) {
           const seenBarcodeRow = seenInBatch.barcode.get(barcodeKey);
-          if (seenBarcodeRow) rowErrors.push(`Duplicate barcode in import file (also row ${seenBarcodeRow})`);
+          if (seenBarcodeRow)
+            rowErrors.push(`Duplicate barcode in import file (also row ${seenBarcodeRow})`);
         }
         const identityKey = buildProductExactKey(normalized);
         if (identityKey) {
           const seenIdentityRow = seenInBatch.identity.get(identityKey);
-          if (seenIdentityRow) rowErrors.push(`Exact duplicate in import file (also row ${seenIdentityRow})`);
+          if (seenIdentityRow)
+            rowErrors.push(`Exact duplicate in import file (also row ${seenIdentityRow})`);
         }
 
         if (rowErrors.length) {
           errors += 1;
-          preview.push({ row: rowNo, action, status: 'error', errors: rowErrors, matched_product_id: existing?.id || null });
+          preview.push({
+            row: rowNo,
+            action,
+            status: 'error',
+            errors: rowErrors,
+            matched_product_id: existing?.id || null,
+          });
           continue;
         }
 
@@ -135,7 +155,7 @@ const registerProductImportPreviewRoutes = (deps) => {
           status: requiresIdenticalConfirmation ? 'needs_confirmation' : 'ready',
           errors: [],
           warnings,
-          matched_product_id: existing?.id || null
+          matched_product_id: existing?.id || null,
         });
       }
 
@@ -188,7 +208,7 @@ const registerProductImportPreviewRoutes = (deps) => {
         preview,
       };
 
-      if (Boolean(req.body?.auto_confirm)) {
+      if (req.body?.auto_confirm) {
         const jobResult = await queueImportBulkJobFromBatchAsync({
           catalogBulkJobs,
           req,

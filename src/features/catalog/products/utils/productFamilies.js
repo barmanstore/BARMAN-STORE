@@ -56,7 +56,9 @@ const buildProductFamilies = (products = []) => {
     if (Number.isInteger(productCategoryId) && productCategoryId > 0) {
       family.categoryIds.add(productCategoryId);
     }
-    const existingVariation = family.variations.find((variation) => variation.signature === variationSignature);
+    const existingVariation = family.variations.find(
+      (variation) => variation.signature === variationSignature
+    );
     if (existingVariation) {
       existingVariation.stock = Number(existingVariation.stock || 0) + Number(product.stock || 0);
       if (!existingVariation.description && product.description) {
@@ -129,13 +131,21 @@ const buildProductFamilies = (products = []) => {
       family.subcategory,
       family.categoryPath,
       family.description,
-      ...sortedVariations.map((variation) => `${variation.content} ${variation.color} ${variation.sku}`),
+      ...sortedVariations.map(
+        (variation) => `${variation.content} ${variation.color} ${variation.sku}`
+      ),
     ]
       .map((value) => normalizeText(value))
       .join(' ');
     const searchTokens = Array.from(new Set(tokenizeSearchText(searchHaystack))).slice(0, 96);
-    const minPrice = sortedVariations.reduce((min, variation) => Math.min(min, Number(variation.price || 0)), Infinity);
-    const totalStock = sortedVariations.reduce((sum, variation) => sum + Number(variation.stock || 0), 0);
+    const minPrice = sortedVariations.reduce(
+      (min, variation) => Math.min(min, Number(variation.price || 0)),
+      Infinity
+    );
+    const totalStock = sortedVariations.reduce(
+      (sum, variation) => sum + Number(variation.stock || 0),
+      0
+    );
     const categoryIds = Array.from(family.categoryIds || [])
       .map((value) => Number(value || 0))
       .filter((value) => Number.isInteger(value) && value > 0);
@@ -152,4 +162,3 @@ const buildProductFamilies = (products = []) => {
 };
 
 export default buildProductFamilies;
-

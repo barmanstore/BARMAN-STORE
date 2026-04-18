@@ -1,9 +1,10 @@
 const createSummaryDataQueries = ({ dbAllAsync } = {}) => {
-  const fetchProducts = () => dbAllAsync(
-    `SELECT id, name, category, brand, uom, is_active
+  const fetchProducts = () =>
+    dbAllAsync(
+      `SELECT id, name, category, brand, uom, is_active
      FROM products
      ORDER BY name ASC`
-  );
+    );
 
   const fetchDistributors = (distributorIdFilter) => {
     const distributorWhereSql = distributorIdFilter ? ` WHERE id = ?` : '';
@@ -37,8 +38,9 @@ const createSummaryDataQueries = ({ dbAllAsync } = {}) => {
     );
   };
 
-  const fetchPayments = (distributorIdFilter) => dbAllAsync(
-    `SELECT pop.*, po.po_number, po.payment_due_date, po.bill_number, po.invoice_number,
+  const fetchPayments = (distributorIdFilter) =>
+    dbAllAsync(
+      `SELECT pop.*, po.po_number, po.payment_due_date, po.bill_number, po.invoice_number,
             po.supplier_id, po.planned_order_date, po.po_status,
             d.name AS distributor_name, s.name AS supplier_name
      FROM purchase_order_payments pop
@@ -47,24 +49,26 @@ const createSummaryDataQueries = ({ dbAllAsync } = {}) => {
      LEFT JOIN suppliers s ON s.id = po.supplier_id
      ${distributorIdFilter ? `WHERE pop.distributor_id = ?` : ''}
      ORDER BY COALESCE(pop.transaction_date, pop.created_at) DESC, pop.id DESC`,
-    distributorIdFilter ? [distributorIdFilter] : []
-  );
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
 
-  const fetchItems = (distributorIdFilter) => dbAllAsync(
-    `SELECT poi.order_id, poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, poi.gst_rate, poi.discount_type, poi.discount_value
+  const fetchItems = (distributorIdFilter) =>
+    dbAllAsync(
+      `SELECT poi.order_id, poi.product_id, poi.product_name, poi.quantity, poi.uom, poi.rate, poi.unit_price, poi.gst_rate, poi.discount_type, poi.discount_value
      FROM purchase_order_items poi
      INNER JOIN purchase_orders po ON po.id = poi.order_id
      ${distributorIdFilter ? `WHERE po.distributor_id = ?` : ''}`,
-    distributorIdFilter ? [distributorIdFilter] : []
-  );
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
 
-  const fetchLedgerBalances = (distributorIdFilter) => dbAllAsync(
-    `SELECT distributor_id, balance, transaction_date, created_at, id
+  const fetchLedgerBalances = (distributorIdFilter) =>
+    dbAllAsync(
+      `SELECT distributor_id, balance, transaction_date, created_at, id
      FROM distributor_ledger
      ${distributorIdFilter ? `WHERE distributor_id = ?` : ''}
      ORDER BY distributor_id ASC, COALESCE(transaction_date, created_at) DESC, id DESC`,
-    distributorIdFilter ? [distributorIdFilter] : []
-  );
+      distributorIdFilter ? [distributorIdFilter] : []
+    );
 
   const fetchSupplierVisits = ({ distributorIdFilter, startDate, endDate } = {}) => {
     const params = [];

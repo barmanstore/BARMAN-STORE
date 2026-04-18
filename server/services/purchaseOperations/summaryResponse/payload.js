@@ -1,13 +1,5 @@
-const buildSummaryPayload = ({
-  baseData,
-  insights,
-  actionRollups,
-  notificationsEnabled,
-} = {}) => {
-  const {
-    todayKey,
-    tomorrowKey,
-  } = baseData;
+const buildSummaryPayload = ({ baseData, insights, actionRollups, notificationsEnabled } = {}) => {
+  const { todayKey, tomorrowKey } = baseData;
   const {
     cards,
     todayDistributors,

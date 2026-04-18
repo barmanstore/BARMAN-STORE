@@ -2,7 +2,10 @@ import { useCallback } from 'react';
 import { sendWhatsAppSmart } from '../../../../shared/utils/whatsapp';
 import { createEmptyItem } from '../utils/billingLineItemUtils';
 
-const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
+const normalizeLookupKey = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const mergeCustomersById = (currentList = [], nextList = []) => {
   const byId = new Map();
@@ -33,7 +36,6 @@ const useBillingCheckoutHandlers = ({
   customersList,
   totalBill,
   paidAmount,
-  selectedPaymentMethod,
   lastShareText,
   lastSharePhone,
   isOrderLinked,
@@ -62,9 +64,6 @@ const useBillingCheckoutHandlers = ({
   clearSearchState,
   focusEntryField,
   createBillConfirmationSignatureRef,
-  setLastShareText,
-  setLastShareNumber,
-  setLastSharePhone,
 }) => {
   const handleSelectCashPayment = useCallback(() => {
     setClearBillConfirmationOpen(false);
@@ -83,53 +82,56 @@ const useBillingCheckoutHandlers = ({
     setPaidAmount(0);
   }, [setClearBillConfirmationOpen, setPaidAmount]);
 
-  const handleCustomerChange = useCallback((event) => {
-    const { value } = event.target;
-    setClearBillConfirmationOpen(false);
+  const handleCustomerChange = useCallback(
+    (event) => {
+      const { value } = event.target;
+      setClearBillConfirmationOpen(false);
 
-    if (!billingApi) return;
+      if (!billingApi) return;
 
-    if (customerSearchTimeoutRef?.current) {
-      clearTimeout(customerSearchTimeoutRef.current);
-    }
+      if (customerSearchTimeoutRef?.current) {
+        clearTimeout(customerSearchTimeoutRef.current);
+      }
 
-    const exactMatch = customersList.find((entry) =>
-      normalizeLookupKey(entry?.name) === normalizeLookupKey(value)
-    );
-    if (exactMatch) {
-      setCustomer({ ...exactMatch });
-      return;
-    }
+      const exactMatch = customersList.find(
+        (entry) => normalizeLookupKey(entry?.name) === normalizeLookupKey(value)
+      );
+      if (exactMatch) {
+        setCustomer({ ...exactMatch });
+        return;
+      }
 
-    setCustomer(createBlankCustomer(value));
+      setCustomer(createBlankCustomer(value));
 
-    if (String(value || '').trim().length >= 2) {
-      customerSearchTimeoutRef.current = setTimeout(async () => {
-        try {
-          const searchResults = await billingApi.searchCustomers(value);
-          const list = Array.isArray(searchResults) ? searchResults : [];
-          if (list.length > 0) {
-            setCustomersList((prev) => mergeCustomersById(prev, list));
-            const matched = list.find(
-              (entry) => normalizeLookupKey(entry?.name) === normalizeLookupKey(value)
-            );
-            if (matched) {
-              setCustomer({ ...matched });
+      if (String(value || '').trim().length >= 2) {
+        customerSearchTimeoutRef.current = setTimeout(async () => {
+          try {
+            const searchResults = await billingApi.searchCustomers(value);
+            const list = Array.isArray(searchResults) ? searchResults : [];
+            if (list.length > 0) {
+              setCustomersList((prev) => mergeCustomersById(prev, list));
+              const matched = list.find(
+                (entry) => normalizeLookupKey(entry?.name) === normalizeLookupKey(value)
+              );
+              if (matched) {
+                setCustomer({ ...matched });
+              }
             }
+          } catch (err) {
+            console.error('Error searching customers:', err);
           }
-        } catch (err) {
-          console.error('Error searching customers:', err);
-        }
-      }, 250);
-    }
-  }, [
-    billingApi,
-    customersList,
-    customerSearchTimeoutRef,
-    setClearBillConfirmationOpen,
-    setCustomer,
-    setCustomersList,
-  ]);
+        }, 250);
+      }
+    },
+    [
+      billingApi,
+      customersList,
+      customerSearchTimeoutRef,
+      setClearBillConfirmationOpen,
+      setCustomer,
+      setCustomersList,
+    ]
+  );
 
   const handleAddCustomer = useCallback(() => {
     if (isOrderLinked) return;
@@ -145,39 +147,43 @@ const useBillingCheckoutHandlers = ({
     setShowCustomerCreateModal(true);
   }, [customer?.name, customersList, isOrderLinked, setCustomer, setShowCustomerCreateModal]);
 
-  const handleCustomerModalSave = useCallback(async (createdUser = null) => {
-    try {
-      const createdId = Number(createdUser?.id || createdUser?.user_id || 0);
-      const createdName = String(createdUser?.name || '').trim().toLowerCase();
-      let matched = createdUser && createdId > 0
-        ? {
-          id: createdId,
-          name: String(createdUser?.name || '').trim(),
-          email: String(createdUser?.email || '').trim(),
-          phone: String(createdUser?.phone || '').trim(),
-          address: String(createdUser?.address || '').trim(),
+  const handleCustomerModalSave = useCallback(
+    async (createdUser = null) => {
+      try {
+        const createdId = Number(createdUser?.id || createdUser?.user_id || 0);
+        const createdName = String(createdUser?.name || '')
+          .trim()
+          .toLowerCase();
+        let matched =
+          createdUser && createdId > 0
+            ? {
+                id: createdId,
+                name: String(createdUser?.name || '').trim(),
+                email: String(createdUser?.email || '').trim(),
+                phone: String(createdUser?.phone || '').trim(),
+                address: String(createdUser?.address || '').trim(),
+              }
+            : null;
+
+        if (!matched && createdName) {
+          const latestCustomers = await billingApi.searchCustomers(createdName);
+          const list = Array.isArray(latestCustomers) ? latestCustomers : [];
+          setCustomersList((prev) => mergeCustomersById(prev, list));
+          matched = list.find((entry) => normalizeLookupKey(entry?.name) === createdName) || null;
         }
-        : null;
 
-      if (!matched && createdName) {
-        const latestCustomers = await billingApi.searchCustomers(createdName);
-        const list = Array.isArray(latestCustomers) ? latestCustomers : [];
-        setCustomersList((prev) => mergeCustomersById(prev, list));
-        matched = list.find(
-          (entry) => normalizeLookupKey(entry?.name) === createdName
-        ) || null;
+        if (matched) {
+          setCustomersList((prev) => mergeCustomersById(prev, [matched]));
+          setCustomer({ ...matched });
+        }
+      } catch (err) {
+        alert(`Customer created, but refresh failed: ${err.message || 'Unknown error'}`);
+      } finally {
+        focusEntryField('search');
       }
-
-      if (matched) {
-        setCustomersList((prev) => mergeCustomersById(prev, [matched]));
-        setCustomer({ ...matched });
-      }
-    } catch (err) {
-      alert(`Customer created, but refresh failed: ${err.message || 'Unknown error'}`);
-    } finally {
-      focusEntryField('search');
-    }
-  }, [billingApi, focusEntryField, setCustomer, setCustomersList]);
+    },
+    [billingApi, focusEntryField, setCustomer, setCustomersList]
+  );
 
   const handleCopyShare = useCallback(async () => {
     if (!lastShareText) return;
@@ -210,16 +216,16 @@ const useBillingCheckoutHandlers = ({
 
   const handleClear = useCallback(() => {
     const hasDraftContent = Boolean(
-      billItems.length > 0
-      || String(customer?.name || '').trim()
-      || String(customer?.phone || '').trim()
-      || String(customer?.email || '').trim()
-      || String(customer?.address || '').trim()
-      || String(currentItem?.name || '').trim()
-      || Number(currentItem?.price || 0) > 0
-      || Number(currentItem?.disc || 0) > 0
-      || Math.max(1, Number(currentItem?.qty || 1)) !== 1
-      || String(paidAmount ?? '').trim()
+      billItems.length > 0 ||
+      String(customer?.name || '').trim() ||
+      String(customer?.phone || '').trim() ||
+      String(customer?.email || '').trim() ||
+      String(customer?.address || '').trim() ||
+      String(currentItem?.name || '').trim() ||
+      Number(currentItem?.price || 0) > 0 ||
+      Number(currentItem?.disc || 0) > 0 ||
+      Math.max(1, Number(currentItem?.qty || 1)) !== 1 ||
+      String(paidAmount ?? '').trim()
     );
 
     if (!hasDraftContent) {
@@ -264,6 +270,8 @@ const useBillingCheckoutHandlers = ({
     currentItem?.qty,
     customer?.name,
     customer?.phone,
+    customer?.address,
+    customer?.email,
     focusEntryField,
     paidAmount,
     createBillConfirmationSignatureRef,

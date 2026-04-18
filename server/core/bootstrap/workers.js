@@ -11,7 +11,10 @@ const createBootstrapWorkers = ({
   stopCatalogBulkJobWorker,
   env,
 } = {}) => {
-  const isTestEnv = String(env?.NODE_ENV || process.env.NODE_ENV || '').trim().toLowerCase() === 'test';
+  const isTestEnv =
+    String(env?.NODE_ENV || process.env.NODE_ENV || '')
+      .trim()
+      .toLowerCase() === 'test';
   const startWorkers = () => {
     if (isTestEnv) return;
     startPhoneChangeWorker();

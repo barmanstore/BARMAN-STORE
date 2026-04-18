@@ -17,15 +17,22 @@ const toFiniteNumber = (value, fallback = 0) => {
 };
 
 const normalizeProfileRow = (row) => ({
-  is_active: row?.is_active === undefined || row?.is_active === null
-    ? DEFAULT_PROFILE.is_active
-    : Boolean(Number(row.is_active)),
+  is_active:
+    row?.is_active === undefined || row?.is_active === null
+      ? DEFAULT_PROFILE.is_active
+      : Boolean(Number(row.is_active)),
   grace_days: (() => {
-    const parsed = Math.max(0, Math.floor(toFiniteNumber(row?.grace_days, DEFAULT_PROFILE.grace_days)));
+    const parsed = Math.max(
+      0,
+      Math.floor(toFiniteNumber(row?.grace_days, DEFAULT_PROFILE.grace_days))
+    );
     if (parsed === 60) return DEFAULT_PROFILE.grace_days;
     return parsed || DEFAULT_PROFILE.grace_days;
   })(),
-  credit_terms_days: Math.max(0, Math.floor(toFiniteNumber(row?.credit_terms_days, DEFAULT_PROFILE.credit_terms_days))),
+  credit_terms_days: Math.max(
+    0,
+    Math.floor(toFiniteNumber(row?.credit_terms_days, DEFAULT_PROFILE.credit_terms_days))
+  ),
 });
 
 const createPaymentIntelligenceUtils = ({
@@ -45,7 +52,12 @@ const createPaymentIntelligenceUtils = ({
            ELSE customer_credit_profiles.grace_days
          END
        RETURNING user_id`,
-      [userId, DEFAULT_PROFILE.is_active ? 1 : 0, DEFAULT_PROFILE.grace_days, DEFAULT_PROFILE.credit_terms_days]
+      [
+        userId,
+        DEFAULT_PROFILE.is_active ? 1 : 0,
+        DEFAULT_PROFILE.grace_days,
+        DEFAULT_PROFILE.credit_terms_days,
+      ]
     );
   };
 
@@ -73,8 +85,9 @@ const createPaymentIntelligenceUtils = ({
       };
     }
 
-    const loadSnapshotRow = async () => dbGetAsync(
-      `SELECT
+    const loadSnapshotRow = async () =>
+      dbGetAsync(
+        `SELECT
          score_100,
          badge_key,
          badge_label,
@@ -84,8 +97,8 @@ const createPaymentIntelligenceUtils = ({
          model_version
        FROM customer_payment_score_snapshots
        WHERE user_id = ?`,
-      [normalizedUserId]
-    );
+        [normalizedUserId]
+      );
 
     let row = await loadSnapshotRow();
     if (!row || Number(row?.model_version || 0) !== PAYMENT_INTELLIGENCE_MODEL_VERSION) {
@@ -105,9 +118,8 @@ const createPaymentIntelligenceUtils = ({
     }
 
     return {
-      payment_score: row?.score_100 === null || row?.score_100 === undefined
-        ? null
-        : Number(row.score_100),
+      payment_score:
+        row?.score_100 === null || row?.score_100 === undefined ? null : Number(row.score_100),
       payment_status: row?.badge_key || NEW_CUSTOMER_STATUS.key,
       payment_status_label: row?.badge_label || NEW_CUSTOMER_STATUS.label,
       payment_status_tone: row?.badge_tone || NEW_CUSTOMER_STATUS.tone,
@@ -116,10 +128,10 @@ const createPaymentIntelligenceUtils = ({
     };
   };
 
-  const rebuildCustomerPaymentIntelligence = async (userId, {
-    creditLimit = null,
-    nowMs = Date.now(),
-  } = {}) => {
+  const rebuildCustomerPaymentIntelligence = async (
+    userId,
+    { creditLimit = null, nowMs = Date.now() } = {}
+  ) => {
     const normalizedUserId = Number(userId || 0);
     if (!normalizedUserId) return null;
 
@@ -128,7 +140,9 @@ const createPaymentIntelligenceUtils = ({
     const [profileRow, userRow, ledgerRows] = await Promise.all([
       getCustomerCreditProfileAsync(normalizedUserId),
       creditLimit === null || creditLimit === undefined
-        ? dbGetAsync(`SELECT COALESCE(credit_limit, 0) AS credit_limit FROM users WHERE id = ?`, [normalizedUserId])
+        ? dbGetAsync(`SELECT COALESCE(credit_limit, 0) AS credit_limit FROM users WHERE id = ?`, [
+            normalizedUserId,
+          ])
         : Promise.resolve({ credit_limit: creditLimit }),
       dbAllAsync(
         `SELECT
@@ -152,9 +166,10 @@ const createPaymentIntelligenceUtils = ({
       ),
     ]);
 
-    const latestBalance = Array.isArray(ledgerRows) && ledgerRows.length > 0
-      ? Number(ledgerRows[ledgerRows.length - 1]?.balance || 0)
-      : 0;
+    const latestBalance =
+      Array.isArray(ledgerRows) && ledgerRows.length > 0
+        ? Number(ledgerRows[ledgerRows.length - 1]?.balance || 0)
+        : 0;
 
     const profile = buildCreditDisciplineProfile(ledgerRows, {
       balance: latestBalance,
@@ -303,9 +318,10 @@ const createPaymentIntelligenceUtils = ({
       ]
     );
 
-    const normalizedPaymentScore = summary.payment_score === null || summary.payment_score === undefined
-      ? null
-      : Math.round(Number(summary.payment_score));
+    const normalizedPaymentScore =
+      summary.payment_score === null || summary.payment_score === undefined
+        ? null
+        : Math.round(Number(summary.payment_score));
     const badgePayload = JSON.stringify(Array.isArray(profile?.badges) ? profile.badges : []);
 
     await dbRunAsync(

@@ -25,7 +25,9 @@ const useCategoryManagementProducts = ({
   const productCategoryInputRef = useRef(null);
 
   const filteredProductCategoryOptions = useMemo(() => {
-    const query = String(editingProductCategoryQuery || '').trim().toLowerCase();
+    const query = String(editingProductCategoryQuery || '')
+      .trim()
+      .toLowerCase();
     if (!query) return productCategoryOptions.slice(0, 40);
     return productCategoryOptions
       .filter((option) => {
@@ -36,29 +38,31 @@ const useCategoryManagementProducts = ({
       .slice(0, 40);
   }, [editingProductCategoryQuery, productCategoryOptions]);
 
-  const fetchCategoryProducts = useCallback(async (categoryId) => {
-    const id = toNumericId(categoryId);
-    if (!id) {
-      setCategoryProducts([]);
-      return;
-    }
-    setProductsLoading(true);
-    try {
-      const rows = await categoriesApi.getProducts(id, { include_inactive: 'true' });
-      setCategoryProducts(Array.isArray(rows) ? rows : []);
-    } catch (fetchError) {
-      setError(fetchError.message || 'Failed to fetch category products');
-      setCategoryProducts([]);
-    } finally {
-      setProductsLoading(false);
-    }
-  }, [categoriesApi, setError, setCategoryProducts, setProductsLoading]);
+  const fetchCategoryProducts = useCallback(
+    async (categoryId) => {
+      const id = toNumericId(categoryId);
+      if (!id) {
+        setCategoryProducts([]);
+        return;
+      }
+      setProductsLoading(true);
+      try {
+        const rows = await categoriesApi.getProducts(id, { include_inactive: 'true' });
+        setCategoryProducts(Array.isArray(rows) ? rows : []);
+      } catch (fetchError) {
+        setError(fetchError.message || 'Failed to fetch category products');
+        setCategoryProducts([]);
+      } finally {
+        setProductsLoading(false);
+      }
+    },
+    [categoriesApi, setError, setCategoryProducts, setProductsLoading]
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCategoryProducts(selectedCategoryId);
   }, [selectedCategoryId, fetchCategoryProducts]);
-
 
   const handleDropProductOnCategory = async (targetCategoryId) => {
     const productId = toNumericId(dragProductId);
@@ -81,16 +85,13 @@ const useCategoryManagementProducts = ({
     const productId = toNumericId(product?.id);
     if (!productId) return;
     const currentCategoryId = toNumericId(product?.category_id);
-    const matchedOption = productCategoryOptions.find((option) => Number(option.id) === Number(currentCategoryId));
+    const matchedOption = productCategoryOptions.find(
+      (option) => Number(option.id) === Number(currentCategoryId)
+    );
     setEditingProductId(productId);
     setEditingProductCategoryId(currentCategoryId ? String(currentCategoryId) : '');
     setEditingProductCategoryQuery(
-      String(
-        matchedOption?.path
-        || product?.category_path
-        || product?.category
-        || ''
-      ).trim()
+      String(matchedOption?.path || product?.category_path || product?.category || '').trim()
     );
     setEditingProductCategoryFocusIndex(-1);
     setTimeout(() => {
@@ -110,7 +111,10 @@ const useCategoryManagementProducts = ({
     if (!numericId) return;
     const matchedOption = productCategoryOptions.find((option) => Number(option.id) === numericId);
     setEditingProductCategoryId(String(numericId));
-    if (matchedOption) setEditingProductCategoryQuery(String(matchedOption.path || matchedOption.label || '').trim());
+    if (matchedOption)
+      setEditingProductCategoryQuery(
+        String(matchedOption.path || matchedOption.label || '').trim()
+      );
   };
 
   const handleEditingCategoryQueryChange = (event) => {
@@ -123,8 +127,12 @@ const useCategoryManagementProducts = ({
       return;
     }
     const exactMatch = productCategoryOptions.find((option) => {
-      const path = String(option.path || '').trim().toLowerCase();
-      const label = String(option.label || '').trim().toLowerCase();
+      const path = String(option.path || '')
+        .trim()
+        .toLowerCase();
+      const label = String(option.label || '')
+        .trim()
+        .toLowerCase();
       return normalized === path || normalized === label;
     });
     setEditingProductCategoryId(exactMatch ? String(exactMatch.id) : '');
@@ -158,9 +166,8 @@ const useCategoryManagementProducts = ({
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const safeIndex = editingProductCategoryFocusIndex >= 0
-        ? editingProductCategoryFocusIndex
-        : 0;
+      const safeIndex =
+        editingProductCategoryFocusIndex >= 0 ? editingProductCategoryFocusIndex : 0;
       const highlighted = options[safeIndex];
       if (highlighted) chooseEditingProductCategory(highlighted.id);
     }

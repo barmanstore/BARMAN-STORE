@@ -16,7 +16,8 @@ const createProductInputNormalizer = ({ generateSku, fieldNormalizers }) => {
     const hasCategoryInput = hasOwn(body, 'category');
     const hasBrandInput = hasOwn(body, 'brand');
     const hasSubcategoryInput = hasOwn(body, 'subcategory') || hasOwn(body, 'sub_category');
-    const hasSubBrandInput = hasOwn(body, 'sub_brand') || hasOwn(body, 'subBrand') || hasOwn(body, 'subbrand');
+    const hasSubBrandInput =
+      hasOwn(body, 'sub_brand') || hasOwn(body, 'subBrand') || hasOwn(body, 'subbrand');
 
     const name = body.name ?? existing.name ?? '';
     const rawCategoryInput = body.category ?? existing.category ?? 'Groceries';
@@ -24,8 +25,10 @@ const createProductInputNormalizer = ({ generateSku, fieldNormalizers }) => {
     const rawBrandInput = body.brand ?? existing.brand ?? null;
     const existingSubcategory = String(existing.subcategory || '').trim();
     const existingSubBrand = String(existing.sub_brand || '').trim();
-    const rawSubcategoryInput = body.subcategory ?? body.sub_category ?? (hasCategoryInput ? '' : existingSubcategory);
-    const rawSubBrandInput = body.sub_brand ?? body.subBrand ?? body.subbrand ?? (hasBrandInput ? '' : existingSubBrand);
+    const rawSubcategoryInput =
+      body.subcategory ?? body.sub_category ?? (hasCategoryInput ? '' : existingSubcategory);
+    const rawSubBrandInput =
+      body.sub_brand ?? body.subBrand ?? body.subbrand ?? (hasBrandInput ? '' : existingSubBrand);
 
     const parsedCategory = splitHierarchyInput(rawCategoryInput);
     const parsedBrand = splitHierarchyInput(rawBrandInput);
@@ -54,7 +57,8 @@ const createProductInputNormalizer = ({ generateSku, fieldNormalizers }) => {
     const color = body.color ?? existing.color ?? null;
     const priceRaw = body.price ?? existing.price ?? 0;
     const mrpRaw = body.mrp ?? existing.mrp ?? priceRaw;
-    const purchasePackSizeRaw = body.purchase_pack_size ?? body.purchasePackSize ?? existing.purchase_pack_size ?? null;
+    const purchasePackSizeRaw =
+      body.purchase_pack_size ?? body.purchasePackSize ?? existing.purchase_pack_size ?? null;
     const uom = body.uom ?? existing.uom ?? 'pcs';
     const baseUnitRaw = body.base_unit ?? existing.base_unit ?? uom ?? 'pcs';
     const uomTypeRaw = body.uom_type ?? existing.uom_type ?? 'selling';
@@ -64,8 +68,18 @@ const createProductInputNormalizer = ({ generateSku, fieldNormalizers }) => {
     const image = body.image ?? existing.image ?? null;
     const stockRaw = body.stock ?? existing.stock ?? 0;
     const expiryDate = body.expiry_date ?? existing.expiry_date ?? null;
-    const defaultDiscountRaw = body.defaultDiscount ?? body.default_discount ?? existing.default_discount ?? existing.defaultDiscount ?? 0;
-    const discountTypeRaw = body.discountType ?? body.discount_type ?? existing.discount_type ?? existing.discountType ?? 'fixed';
+    const defaultDiscountRaw =
+      body.defaultDiscount ??
+      body.default_discount ??
+      existing.default_discount ??
+      existing.defaultDiscount ??
+      0;
+    const discountTypeRaw =
+      body.discountType ??
+      body.discount_type ??
+      existing.discount_type ??
+      existing.discountType ??
+      'fixed';
     const isActiveRaw = body.is_active ?? existing.is_active ?? 1;
 
     const price = Number(priceRaw);
@@ -77,13 +91,21 @@ const createProductInputNormalizer = ({ generateSku, fieldNormalizers }) => {
     const purchasePackSize = toNumberOrNull(purchasePackSizeRaw);
     const normalizedUom = String(uom || 'pcs').trim() || 'pcs';
     const normalizedBaseUnit = String(baseUnitRaw || normalizedUom || 'pcs').trim() || 'pcs';
-    const normalizedUomType = ['selling', 'purchasing', 'both'].includes(String(uomTypeRaw || '').trim().toLowerCase())
-      ? String(uomTypeRaw || '').trim().toLowerCase()
+    const normalizedUomType = ['selling', 'purchasing', 'both'].includes(
+      String(uomTypeRaw || '')
+        .trim()
+        .toLowerCase()
+    )
+      ? String(uomTypeRaw || '')
+          .trim()
+          .toLowerCase()
       : 'selling';
     const conversionFactor = Number(conversionFactorRaw);
-    const normalizedConversionFactor = Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
-    const sku = String(skuCandidate || '').trim()
-      || generateSku(name, brandFromInput, content, price, mrp, purchasePackSize);
+    const normalizedConversionFactor =
+      Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
+    const sku =
+      String(skuCandidate || '').trim() ||
+      generateSku(name, brandFromInput, content, price, mrp, purchasePackSize);
     const barcode = String(barcodeCandidate || '').trim() || null;
 
     return {

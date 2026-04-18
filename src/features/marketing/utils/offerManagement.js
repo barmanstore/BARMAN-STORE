@@ -20,7 +20,8 @@ export const OFFER_TYPE_META = {
     description: 'Deduct a fixed rupee amount from the matching item.',
     valueLabel: 'Discount Amount',
     valueHint: 'Enter the rupee amount to subtract from each matching item.',
-    minQuantityHint: 'Set a higher quantity only if the discount should start after that threshold.',
+    minQuantityHint:
+      'Set a higher quantity only if the discount should start after that threshold.',
     scopeHint: 'Use ALL for storewide offers, or target a category or product.',
   },
   volume: {
@@ -70,7 +71,10 @@ export const createEmptyForm = () => ({
   first_order_only: false,
 });
 
-export const normalizeText = (value = '') => String(value || '').trim().toLowerCase();
+export const normalizeText = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const toFiniteNumber = (value, fallback = 0) => {
   const numeric = Number(value);
@@ -80,7 +84,9 @@ const toFiniteNumber = (value, fallback = 0) => {
 export const formatNumericValue = (value = 0) => {
   const numeric = toFiniteNumber(value, 0);
   if (Number.isInteger(numeric)) return String(numeric);
-  return String(Number(numeric.toFixed(2))).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+  return String(Number(numeric.toFixed(2)))
+    .replace(/\.0+$/, '')
+    .replace(/(\.\d*[1-9])0+$/, '$1');
 };
 
 export const normalizeDateTimeInputToIso = (value = '') => {
@@ -94,7 +100,7 @@ export const formatDateTimeForInput = (value = null) => {
   if (!value) return '';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '';
-  const localDate = new Date(parsed.getTime() - (parsed.getTimezoneOffset() * 60000));
+  const localDate = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);
   return localDate.toISOString().slice(0, 16);
 };
 
@@ -103,30 +109,39 @@ export const formatDateToken = (value = '') => {
   return raw ? raw.slice(0, 10) : '';
 };
 
-export const extractCategoryNames = (items = []) => [...new Set(
-  (Array.isArray(items) ? items : [])
-    .map((item) => String(item?.name || item?.category || item?.title || '').trim())
-    .filter(Boolean)
-)]
-  .sort((left, right) => left.localeCompare(right));
+export const extractCategoryNames = (items = []) =>
+  [
+    ...new Set(
+      (Array.isArray(items) ? items : [])
+        .map((item) => String(item?.name || item?.category || item?.title || '').trim())
+        .filter(Boolean)
+    ),
+  ].sort((left, right) => left.localeCompare(right));
 
 export const isSimpleScopeType = (type = '') => SIMPLE_SCOPE_TYPES.has(normalizeText(type));
-export const usesAdvancedProductRules = (type = '') => ADVANCED_PRODUCT_RULE_TYPES.has(normalizeText(type));
+export const usesAdvancedProductRules = (type = '') =>
+  ADVANCED_PRODUCT_RULE_TYPES.has(normalizeText(type));
 export const usesValueField = (type = '') => VALUE_TYPES.has(normalizeText(type));
 export const usesMinQuantity = (type = '') => MIN_QTY_TYPES.has(normalizeText(type));
 
 export const getScheduleMode = (source = {}) => {
   const explicitMode = normalizeText(source?.schedule_mode || '');
   if (SCHEDULE_MODES.includes(explicitMode)) return explicitMode;
-  if (String(source?.start_at || '').trim() || String(source?.end_at || '').trim()) return 'datetime';
-  if (String(source?.start_date || '').trim() || String(source?.end_date || '').trim()) return 'date';
+  if (String(source?.start_at || '').trim() || String(source?.end_at || '').trim())
+    return 'datetime';
+  if (String(source?.start_date || '').trim() || String(source?.end_date || '').trim())
+    return 'date';
   return 'none';
 };
 
 export const applyScheduleModeToForm = (form = {}, nextMode = 'none') => {
   if (nextMode === 'datetime') {
-    const derivedStart = String(form?.start_at || '').trim() || (formatDateToken(form?.start_date) ? `${formatDateToken(form.start_date)}T00:00` : '');
-    const derivedEnd = String(form?.end_at || '').trim() || (formatDateToken(form?.end_date) ? `${formatDateToken(form.end_date)}T23:59` : '');
+    const derivedStart =
+      String(form?.start_at || '').trim() ||
+      (formatDateToken(form?.start_date) ? `${formatDateToken(form.start_date)}T00:00` : '');
+    const derivedEnd =
+      String(form?.end_at || '').trim() ||
+      (formatDateToken(form?.end_date) ? `${formatDateToken(form.end_date)}T23:59` : '');
     return {
       ...form,
       schedule_mode: 'datetime',
@@ -169,16 +184,18 @@ export const normalizeOfferForm = (form = {}) => {
     description: String(form.description || '').trim(),
     type,
     value: usesValueField(type) ? Math.max(0, toFiniteNumber(form.value, 0)) : 0,
-    min_quantity: usesMinQuantity(type) ? Math.max(1, toFiniteNumber(form.min_quantity, 1) || 1) : 1,
-    apply_to_category: scopeType ? (String(form.apply_to_category || '').trim() || null) : null,
-    apply_to_product: scopeType ? (toFiniteNumber(form.apply_to_product, 0) || null) : null,
-    buy_product_id: advancedType ? (toFiniteNumber(form.buy_product_id, 0) || null) : null,
+    min_quantity: usesMinQuantity(type)
+      ? Math.max(1, toFiniteNumber(form.min_quantity, 1) || 1)
+      : 1,
+    apply_to_category: scopeType ? String(form.apply_to_category || '').trim() || null : null,
+    apply_to_product: scopeType ? toFiniteNumber(form.apply_to_product, 0) || null : null,
+    buy_product_id: advancedType ? toFiniteNumber(form.buy_product_id, 0) || null : null,
     buy_quantity: advancedType ? Math.max(1, toFiniteNumber(form.buy_quantity, 1) || 1) : 1,
-    get_product_id: advancedType ? (toFiniteNumber(form.get_product_id, 0) || null) : null,
+    get_product_id: advancedType ? toFiniteNumber(form.get_product_id, 0) || null : null,
     get_quantity: advancedType ? Math.max(1, toFiniteNumber(form.get_quantity, 1) || 1) : 1,
     schedule_mode: scheduleMode,
-    start_date: scheduleMode === 'date' ? (formatDateToken(form.start_date) || null) : null,
-    end_date: scheduleMode === 'date' ? (formatDateToken(form.end_date) || null) : null,
+    start_date: scheduleMode === 'date' ? formatDateToken(form.start_date) || null : null,
+    end_date: scheduleMode === 'date' ? formatDateToken(form.end_date) || null : null,
     start_at: scheduleMode === 'datetime' ? normalizeDateTimeInputToIso(form.start_at) : null,
     end_at: scheduleMode === 'datetime' ? normalizeDateTimeInputToIso(form.end_at) : null,
     status: normalizeText(form.status || 'active') || 'active',
@@ -236,7 +253,9 @@ export const buildScopeSummary = (offer = {}) => {
     return [
       buyProductId ? `Buy #${buyProductId} x${Number(offer.buy_quantity || 1) || 1}` : '',
       getProductId ? `Get #${getProductId} x${Number(offer.get_quantity || 1) || 1}` : '',
-    ].filter(Boolean).join(' | ');
+    ]
+      .filter(Boolean)
+      .join(' | ');
   }
   return 'Rule required';
 };
@@ -253,7 +272,9 @@ export const buildValueSummary = (offer = {}) => {
   } else if (type === 'fixed') {
     fragments.push(`Rs ${formatNumericValue(value)} OFF`);
   } else if (type === 'bogo') {
-    fragments.push(`Buy ${Number(offer.buy_quantity || 1) || 1} get ${Number(offer.get_quantity || 1) || 1}`);
+    fragments.push(
+      `Buy ${Number(offer.buy_quantity || 1) || 1} get ${Number(offer.get_quantity || 1) || 1}`
+    );
   }
 
   if (usesMinQuantity(type) && minQuantity > 1) fragments.push(`Min ${minQuantity}`);
@@ -268,8 +289,16 @@ export const getOfferScheduleRange = (offer = {}) => {
   const endDate = offer?.end_date ? Date.parse(`${offer.end_date}T23:59:59`) : Number.NaN;
 
   return {
-    start: Number.isFinite(startAt) ? startAt : (Number.isFinite(startDate) ? startDate : Number.NEGATIVE_INFINITY),
-    end: Number.isFinite(endAt) ? endAt : (Number.isFinite(endDate) ? endDate : Number.POSITIVE_INFINITY),
+    start: Number.isFinite(startAt)
+      ? startAt
+      : Number.isFinite(startDate)
+        ? startDate
+        : Number.NEGATIVE_INFINITY,
+    end: Number.isFinite(endAt)
+      ? endAt
+      : Number.isFinite(endDate)
+        ? endDate
+        : Number.POSITIVE_INFINITY,
   };
 };
 
@@ -332,7 +361,10 @@ export const getOfferValidationIssues = (source = {}) => {
   if (usesValueField(payload.type) && Number(payload.value || 0) <= 0) {
     issues.push('Value must be greater than zero.');
   }
-  if ((payload.type === 'percentage' || payload.type === 'volume' || payload.type === 'bundle') && Number(payload.value || 0) > 100) {
+  if (
+    (payload.type === 'percentage' || payload.type === 'volume' || payload.type === 'bundle') &&
+    Number(payload.value || 0) > 100
+  ) {
     issues.push('Percentage-based offers must stay between 1 and 100.');
   }
   if (payload.type === 'volume' && Number(payload.min_quantity || 1) <= 1) {
@@ -347,10 +379,20 @@ export const getOfferValidationIssues = (source = {}) => {
   if (payload.type === 'bundle' && (!payload.buy_product_id || !payload.get_product_id)) {
     issues.push('Bundle offers require both linked products.');
   }
-  if (payload.schedule_mode === 'date' && payload.start_date && payload.end_date && payload.end_date < payload.start_date) {
+  if (
+    payload.schedule_mode === 'date' &&
+    payload.start_date &&
+    payload.end_date &&
+    payload.end_date < payload.start_date
+  ) {
     issues.push('End date must be on or after the start date.');
   }
-  if (payload.schedule_mode === 'datetime' && payload.start_at && payload.end_at && payload.end_at < payload.start_at) {
+  if (
+    payload.schedule_mode === 'datetime' &&
+    payload.start_at &&
+    payload.end_at &&
+    payload.end_at < payload.start_at
+  ) {
     issues.push('End time must be on or after the start time.');
   }
 
@@ -361,9 +403,7 @@ export const buildOfferPreviewText = (source = {}) => {
   const payload = normalizeOfferForm(source);
   const humanScope = buildHumanScopeLabel(payload);
   const scheduleSummary = buildScheduleSummary(payload);
-  const scheduleText = scheduleSummary === 'No schedule restrictions'
-    ? ''
-    : `${scheduleSummary}.`;
+  const scheduleText = scheduleSummary === 'No schedule restrictions' ? '' : `${scheduleSummary}.`;
   const name = payload.name || 'This offer';
 
   if (payload.type === 'bogo') {
@@ -478,5 +518,7 @@ export const getPotentialConflictWarnings = (form = {}, offers = [], editingId =
 
 export const filterOffersByStatus = (offers = [], filter = 'all') => {
   if (filter === 'all') return Array.isArray(offers) ? offers : [];
-  return (Array.isArray(offers) ? offers : []).filter((offer) => getOfferLifecycleStatus(offer) === filter);
+  return (Array.isArray(offers) ? offers : []).filter(
+    (offer) => getOfferLifecycleStatus(offer) === filter
+  );
 };

@@ -9,7 +9,10 @@ const parseQuantityText = (rawValue) => {
   };
 };
 
-const normalizeSearchText = (value) => String(value || '').trim().toLowerCase();
+const normalizeSearchText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const getManualSearchScore = (product, query) => {
   const q = normalizeSearchText(query);
@@ -48,7 +51,7 @@ const getManualSearchScore = (product, query) => {
   return score;
 };
 
-const rankManualMatches = (rows, query) => (
+const rankManualMatches = (rows, query) =>
   (Array.isArray(rows) ? rows : [])
     .filter((product) => Number(product?.id || 0) > 0)
     .map((product) => ({ product, score: getManualSearchScore(product, query) }))
@@ -61,14 +64,8 @@ const rankManualMatches = (rows, query) => (
       return String(a.product?.name || '').localeCompare(String(b.product?.name || ''));
     })
     .slice(0, 8)
-    .map((row) => row.product)
-);
+    .map((row) => row.product);
 
 const QUICK_QTY_OPTIONS = ['1', '2', '5', '1kg', '500g'];
 
-export {
-  parseQuantityText,
-  getManualSearchScore,
-  rankManualMatches,
-  QUICK_QTY_OPTIONS,
-};
+export { parseQuantityText, getManualSearchScore, rankManualMatches, QUICK_QTY_OPTIONS };

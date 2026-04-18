@@ -35,7 +35,9 @@ const createProfileImageSupport = ({
   });
 
   const profileImagePublicBaseUrl = (() => {
-    const base = String(env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+    const base = String(env.SUPABASE_URL || '')
+      .trim()
+      .replace(/\/+$/, '');
     const bucket = String(env.SUPABASE_STORAGE_BUCKET || env.PROFILE_IMAGE_BUCKET || '').trim();
     if (!base || !bucket) return '';
     return `${base}/storage/v1/object/public/${bucket}`;

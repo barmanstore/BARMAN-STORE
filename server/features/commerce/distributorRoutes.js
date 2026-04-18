@@ -66,7 +66,8 @@ const registerDistributorRoutes = (deps) => {
   app.post('/api/distributors', requireAdmin, async (req, res) => {
     try {
       const b = req.body || {};
-      if (!b.name || !String(b.name).trim()) return res.status(400).json({ error: 'Distributor name is required' });
+      if (!b.name || !String(b.name).trim())
+        return res.status(400).json({ error: 'Distributor name is required' });
       const paymentPlan = getDistributorPaymentPlan(b, {
         payment_cycle_type: b.payment_cycle_type,
         payment_due_days: b.payment_due_days,
@@ -86,14 +87,20 @@ const registerDistributorRoutes = (deps) => {
           b.payment_terms || 'Net 30',
           paymentPlan.paymentCycleType,
           paymentPlan.paymentDueDays,
-          b.credit_limit === undefined || b.credit_limit === null || b.credit_limit === '' ? null : Number(b.credit_limit || 0),
+          b.credit_limit === undefined || b.credit_limit === null || b.credit_limit === ''
+            ? null
+            : Number(b.credit_limit || 0),
           b.inactive_reason || null,
           normalizeBooleanFlag(b.auto_suggest_items, true),
           normalizeBooleanFlag(b.auto_reminders_enabled, true),
           b.status || 'active',
         ]
       );
-      return res.status(201).json(await dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [result.lastInsertRowid]));
+      return res
+        .status(201)
+        .json(
+          await dbGetAsync(`SELECT * FROM distributors WHERE id = ?`, [result.lastInsertRowid])
+        );
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
@@ -123,7 +130,11 @@ const registerDistributorRoutes = (deps) => {
           b.payment_terms ?? cur.payment_terms,
           paymentPlan.paymentCycleType,
           paymentPlan.paymentDueDays,
-          b.credit_limit === undefined ? cur.credit_limit : (b.credit_limit === null || b.credit_limit === '' ? null : Number(b.credit_limit || 0)),
+          b.credit_limit === undefined
+            ? cur.credit_limit
+            : b.credit_limit === null || b.credit_limit === ''
+              ? null
+              : Number(b.credit_limit || 0),
           b.inactive_reason ?? cur.inactive_reason,
           normalizeBooleanFlag(b.auto_suggest_items, cur.auto_suggest_items !== false),
           normalizeBooleanFlag(b.auto_reminders_enabled, cur.auto_reminders_enabled !== false),
@@ -142,7 +153,9 @@ const registerDistributorRoutes = (deps) => {
       const distributorId = Number(req.params.id || 0);
       if (!distributorId) return res.status(400).json({ error: 'Invalid distributor id' });
 
-      const distributor = await dbGetAsync(`SELECT id, name FROM distributors WHERE id = ?`, [distributorId]);
+      const distributor = await dbGetAsync(`SELECT id, name FROM distributors WHERE id = ?`, [
+        distributorId,
+      ]);
       if (!distributor) return res.status(404).json({ error: 'Distributor not found' });
 
       const supplierCountRow = await dbGetAsync(
@@ -154,7 +167,8 @@ const registerDistributorRoutes = (deps) => {
       const supplierCount = Number(supplierCountRow?.count || 0);
       if (supplierCount > 0) {
         return res.status(400).json({
-          error: 'Distributor has supplier records. Mark it inactive instead or move/remove suppliers before delete.',
+          error:
+            'Distributor has supplier records. Mark it inactive instead or move/remove suppliers before delete.',
         });
       }
 

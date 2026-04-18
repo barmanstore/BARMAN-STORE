@@ -24,9 +24,7 @@ export const authApi = {
   confirmEmailVerification: (email, token, options = {}) =>
     apiFetch('/api/auth/email/verification/confirm', {
       method: 'POST',
-      body: options?.tokenHash
-        ? { email, token_hash: options.tokenHash }
-        : { email, token },
+      body: options?.tokenHash ? { email, token_hash: options.tokenHash } : { email, token },
     }),
   getEmailVerificationStatus: () => apiFetch('/api/auth/email/verification/status'),
   getMyPhoneChangeRequestStatus: () => apiFetch('/api/auth/phone-change-request/status'),

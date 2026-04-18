@@ -24,7 +24,8 @@ const collectDistributorOrderStats = ({
       paymentDateKeys.push(...orderPaymentDates);
       const anchorDate = getPurchaseOrderPaymentAnchorDateKey(order);
       const lastPaymentDate = pickLatestDateKey(orderPaymentDates);
-      const lagDays = anchorDate && lastPaymentDate ? getDaysBetweenDateKeys(anchorDate, lastPaymentDate) : null;
+      const lagDays =
+        anchorDate && lastPaymentDate ? getDaysBetweenDateKeys(anchorDate, lastPaymentDate) : null;
       if (Number.isFinite(lagDays) && lagDays >= 0) {
         paymentLagDays.push(lagDays);
       }
@@ -33,7 +34,8 @@ const collectDistributorOrderStats = ({
     if (deliveryDate) {
       deliveryDateKeys.push(deliveryDate);
       const anchorDate = getPurchaseOrderAnchorDateKey(order);
-      const leadDays = anchorDate && deliveryDate ? getDaysBetweenDateKeys(anchorDate, deliveryDate) : null;
+      const leadDays =
+        anchorDate && deliveryDate ? getDaysBetweenDateKeys(anchorDate, deliveryDate) : null;
       if (Number.isFinite(leadDays) && leadDays >= 0) {
         deliveryLagDays.push(leadDays);
       }
@@ -42,7 +44,9 @@ const collectDistributorOrderStats = ({
       const key = String(item.product_name || item.product_id || '').trim();
       if (!key) return;
       productCounts.set(key, (productCounts.get(key) || 0) + 1);
-      const suggestionKey = String(item.product_id || item.product_name || '').trim().toLowerCase();
+      const suggestionKey = String(item.product_id || item.product_name || '')
+        .trim()
+        .toLowerCase();
       const existing = suggestionMap.get(suggestionKey) || {
         product_id: item.product_id ? Number(item.product_id) : null,
         product_name: item.product_name || 'Unknown',
@@ -55,7 +59,9 @@ const collectDistributorOrderStats = ({
         discount_type: item.discount_type || 'percent',
         discount_value: Number(item.discount_value || 0),
       };
-      const orderCreatedAt = String(order.created_at || order.planned_order_date || order.expected_delivery || '');
+      const orderCreatedAt = String(
+        order.created_at || order.planned_order_date || order.expected_delivery || ''
+      );
       const currentQuantity = Math.max(0, Number(item.quantity || 0));
       const nextRecord = {
         ...existing,

@@ -54,12 +54,14 @@ const useCreditKhataLedgerForm = ({
       user_id: entry.user_id || '',
       type: entry.type || 'payment',
       amount: String(entry.amount || ''),
-      transactionDate: toDateInputValue(entry.transaction_date || entry.transaction_ts || entry.created_at),
+      transactionDate: toDateInputValue(
+        entry.transaction_date || entry.transaction_ts || entry.created_at
+      ),
       reference: entry.reference || '',
       description: entry.description || '',
       imageBase64: '',
       imagePath: entry.image_path || '',
-      attachmentName: ''
+      attachmentName: '',
     });
     resetLedgerAttachmentInput();
     ledgerSubmitLockRef.current = false;
@@ -149,7 +151,7 @@ const useCreditKhataLedgerForm = ({
           description: ledgerFormData.description,
           transactionDate: ledgerFormData.transactionDate,
           image_base64: String(ledgerFormData.imageBase64 || '').trim() || undefined,
-          edited_by: user?.id
+          edited_by: user?.id,
         });
       } else {
         const clientRequestId = ledgerRequestIdRef.current || createClientRequestId('credit');
@@ -162,7 +164,7 @@ const useCreditKhataLedgerForm = ({
           transactionDate: ledgerFormData.transactionDate,
           image_base64: String(ledgerFormData.imageBase64 || '').trim() || undefined,
           created_by: user?.id,
-          client_request_id: clientRequestId
+          client_request_id: clientRequestId,
         });
       }
       closeLedgerForm();
@@ -175,7 +177,12 @@ const useCreditKhataLedgerForm = ({
         window.location.href = '/login';
         return;
       }
-      setError(err.message || (editingLedgerEntryId ? 'Failed to edit ledger transaction' : 'Failed to add ledger transaction'));
+      setError(
+        err.message ||
+          (editingLedgerEntryId
+            ? 'Failed to edit ledger transaction'
+            : 'Failed to add ledger transaction')
+      );
     } finally {
       setLedgerSubmitting(false);
       ledgerSubmitLockRef.current = false;

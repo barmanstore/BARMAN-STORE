@@ -1,10 +1,7 @@
-const handlePurchaseOrderCancel = async (deps, {
-  req,
-  res,
-  order,
-  currentPoStatus,
-  billNumber,
-}) => {
+const handlePurchaseOrderCancel = async (
+  deps,
+  { req, res, order, currentPoStatus, billNumber }
+) => {
   const {
     dbRunAsync,
     isPoEditableLifecycle,

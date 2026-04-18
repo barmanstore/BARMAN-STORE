@@ -1,6 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { buildRepeatCartFromOrder } from '../features/orders/utils/orderHistoryUtils';
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../shared/utils/storage';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+  safeLocalStorageSet,
+} from '../shared/utils/storage';
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = 'barman_cart';
@@ -18,24 +22,32 @@ const safeParseCart = (value) => {
 const readStoredCart = () => safeParseCart(safeLocalStorageGet(CART_STORAGE_KEY) || '[]');
 
 const getCartMergeKey = (item) => {
-  const rawId = String(item?.id ?? '').trim().toLowerCase();
-  const manual = Number(item?.is_manual || 0) === 1
-    || String(item?.item_type || '').trim().toLowerCase() === 'manual'
-    || rawId.startsWith('manual:')
-    || !Number(item?.product_id || item?.id || 0);
-  const quantityLabel = String(item?.quantity_label || item?.qty_text || '').trim().toLowerCase();
+  const rawId = String(item?.id ?? '')
+    .trim()
+    .toLowerCase();
+  const manual =
+    Number(item?.is_manual || 0) === 1 ||
+    String(item?.item_type || '')
+      .trim()
+      .toLowerCase() === 'manual' ||
+    rawId.startsWith('manual:') ||
+    !Number(item?.product_id || item?.id || 0);
+  const quantityLabel = String(item?.quantity_label || item?.qty_text || '')
+    .trim()
+    .toLowerCase();
   if (manual) {
-    return `manual:${String(item?.name || '').trim().toLowerCase()}:${quantityLabel}`;
+    return `manual:${String(item?.name || '')
+      .trim()
+      .toLowerCase()}:${quantityLabel}`;
   }
   return `catalog:${Number(item?.product_id || item?.id || 0)}:${quantityLabel}`;
 };
 
-const getCartCount = (rows) => (
+const getCartCount = (rows) =>
   (Array.isArray(rows) ? rows : []).reduce(
     (sum, item) => sum + Math.max(0, Number(item?.quantity || 0)),
     0
-  )
-);
+  );
 
 const dispatchCartUpdated = () => {
   if (typeof window === 'undefined') return;
@@ -54,7 +66,10 @@ const mergeCartRows = (baseCart, additions) => {
       return;
     }
     const existing = nextCart[index];
-    const nextQuantity = Math.max(1, Number(existing?.quantity || 0) + Math.max(1, Number(incoming?.quantity || 0)));
+    const nextQuantity = Math.max(
+      1,
+      Number(existing?.quantity || 0) + Math.max(1, Number(incoming?.quantity || 0))
+    );
     nextCart[index] = {
       ...existing,
       ...incoming,
@@ -89,13 +104,16 @@ export function CartProvider({ children }) {
     return normalized;
   }, []);
 
-  const addItems = useCallback((items) => (
-    commitCart([...(Array.isArray(cart) ? cart : []), ...(Array.isArray(items) ? items : [])])
-  ), [cart, commitCart]);
+  const addItems = useCallback(
+    (items) =>
+      commitCart([...(Array.isArray(cart) ? cart : []), ...(Array.isArray(items) ? items : [])]),
+    [cart, commitCart]
+  );
 
-  const mergeCart = useCallback((items) => (
-    commitCart(mergeCartRows(cart, items))
-  ), [cart, commitCart]);
+  const mergeCart = useCallback(
+    (items) => commitCart(mergeCartRows(cart, items)),
+    [cart, commitCart]
+  );
 
   const replaceCart = useCallback((items) => commitCart(items), [commitCart]);
 
@@ -106,28 +124,30 @@ export function CartProvider({ children }) {
     return [];
   }, []);
 
-  const restoreFromOrder = useCallback((order) => {
-    const rebuiltCart = Array.isArray(order)
-      ? order
-      : buildRepeatCartFromOrder(order).filter((item) => String(item?.name || '').trim());
-    return commitCart(rebuiltCart);
-  }, [commitCart]);
-
-  const value = useMemo(() => ({
-    cart,
-    cartCount: getCartCount(cart),
-    addItems,
-    mergeCart,
-    replaceCart,
-    clearCart,
-    restoreFromOrder,
-  }), [addItems, cart, clearCart, mergeCart, replaceCart, restoreFromOrder]);
-
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
+  const restoreFromOrder = useCallback(
+    (order) => {
+      const rebuiltCart = Array.isArray(order)
+        ? order
+        : buildRepeatCartFromOrder(order).filter((item) => String(item?.name || '').trim());
+      return commitCart(rebuiltCart);
+    },
+    [commitCart]
   );
+
+  const value = useMemo(
+    () => ({
+      cart,
+      cartCount: getCartCount(cart),
+      addItems,
+      mergeCart,
+      replaceCart,
+      clearCart,
+      restoreFromOrder,
+    }),
+    [addItems, cart, clearCart, mergeCart, replaceCart, restoreFromOrder]
+  );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
 export const useCart = () => {

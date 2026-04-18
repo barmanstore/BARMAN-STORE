@@ -248,12 +248,22 @@ const PurchaseManagementPageLayout = ({
           <div className="po-saved-draft-list" role="list" aria-label="Saved purchase drafts">
             {savedOrderDrafts.map((draft) => (
               <article key={draft.id} className="po-saved-draft-card">
-                <button type="button" className="po-saved-draft-main" onClick={() => openSavedOrderDraft(draft.id)}>
+                <button
+                  type="button"
+                  className="po-saved-draft-main"
+                  onClick={() => openSavedOrderDraft(draft.id)}
+                >
                   <strong>{draft.title}</strong>
                   <small>{draft.supplierName || 'No supplier selected yet'}</small>
-                  <small>{draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}</small>
+                  <small>
+                    {draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}
+                  </small>
                 </button>
-                <button type="button" className="po-saved-draft-remove" onClick={() => deleteSavedOrderDraft(draft.id)}>
+                <button
+                  type="button"
+                  className="po-saved-draft-remove"
+                  onClick={() => deleteSavedOrderDraft(draft.id)}
+                >
                   Remove
                 </button>
               </article>
@@ -389,15 +399,29 @@ const PurchaseManagementPageLayout = ({
                       </div>
                       <span className="po-pos-status-chip neutral">{savedOrderDrafts.length}</span>
                     </div>
-                    <div className="po-saved-draft-list" role="list" aria-label="Saved purchase drafts">
+                    <div
+                      className="po-saved-draft-list"
+                      role="list"
+                      aria-label="Saved purchase drafts"
+                    >
                       {savedOrderDrafts.map((draft) => (
                         <article key={`popup-${draft.id}`} className="po-saved-draft-card">
-                          <button type="button" className="po-saved-draft-main" onClick={() => openSavedOrderDraft(draft.id)}>
+                          <button
+                            type="button"
+                            className="po-saved-draft-main"
+                            onClick={() => openSavedOrderDraft(draft.id)}
+                          >
                             <strong>{draft.title}</strong>
                             <small>{draft.supplierName || 'No supplier selected yet'}</small>
-                            <small>{draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}</small>
+                            <small>
+                              {draft.itemCount} item{draft.itemCount === 1 ? '' : 's'}
+                            </small>
                           </button>
-                          <button type="button" className="po-saved-draft-remove" onClick={() => deleteSavedOrderDraft(draft.id)}>
+                          <button
+                            type="button"
+                            className="po-saved-draft-remove"
+                            onClick={() => deleteSavedOrderDraft(draft.id)}
+                          >
                             Remove
                           </button>
                         </article>
@@ -407,11 +431,11 @@ const PurchaseManagementPageLayout = ({
                 ) : null}
               </section>
             ) : null}
-              <PurchaseModals
-                showOrderForm={showOrderForm}
-                closeOrderForm={closeOrderForm}
-                poModalRef={poModalRef}
-                isMobile={isMobile}
+            <PurchaseModals
+              showOrderForm={showOrderForm}
+              closeOrderForm={closeOrderForm}
+              poModalRef={poModalRef}
+              isMobile={isMobile}
               poModalSize={poModalSize}
               editingOrderId={editingOrderId}
               handleOrderSubmit={handleOrderSubmit}
@@ -425,10 +449,10 @@ const PurchaseManagementPageLayout = ({
               orderFormData={orderFormData}
               setOrderFormData={setOrderFormData}
               orderDraftProjection={orderDraftProjection}
-                handleDistributorInputChange={handleDistributorInputChange}
-                distributors={distributors}
-                suppliers={suppliers}
-                orderProductOptions={orderProductOptions}
+              handleDistributorInputChange={handleDistributorInputChange}
+              distributors={distributors}
+              suppliers={suppliers}
+              orderProductOptions={orderProductOptions}
               products={products}
               findProductForItem={findProductForItem}
               getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}
@@ -561,11 +585,11 @@ const PurchaseManagementPageLayout = ({
           />
         </div>
       ) : (
-          <PurchaseModals
-            showOrderForm={showOrderForm}
-            closeOrderForm={closeOrderForm}
-            poModalRef={poModalRef}
-            isMobile={isMobile}
+        <PurchaseModals
+          showOrderForm={showOrderForm}
+          closeOrderForm={closeOrderForm}
+          poModalRef={poModalRef}
+          isMobile={isMobile}
           poModalSize={poModalSize}
           editingOrderId={editingOrderId}
           handleOrderSubmit={handleOrderSubmit}
@@ -579,10 +603,10 @@ const PurchaseManagementPageLayout = ({
           orderFormData={orderFormData}
           setOrderFormData={setOrderFormData}
           orderDraftProjection={orderDraftProjection}
-            handleDistributorInputChange={handleDistributorInputChange}
-            distributors={distributors}
-            suppliers={suppliers}
-            orderProductOptions={orderProductOptions}
+          handleDistributorInputChange={handleDistributorInputChange}
+          distributors={distributors}
+          suppliers={suppliers}
+          orderProductOptions={orderProductOptions}
           products={products}
           findProductForItem={findProductForItem}
           getAllowedPurchaseUnitsForProduct={getAllowedPurchaseUnitsForProduct}

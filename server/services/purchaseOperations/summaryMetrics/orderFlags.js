@@ -5,11 +5,18 @@ const createOrderFlagUtils = ({
   PO_LIFECYCLE_CLOSED,
 } = {}) => {
   const hasOrderBeenReceived = (order = {}) => {
-    if (String(order?.status || '').trim().toLowerCase() === 'received') return true;
+    if (
+      String(order?.status || '')
+        .trim()
+        .toLowerCase() === 'received'
+    )
+      return true;
     if (order?.received_at) return true;
     const itemsForOrder = Array.isArray(order?.items) ? order.items : [];
     if (!itemsForOrder.length) return false;
-    return itemsForOrder.every((item) => Number(item?.received_quantity || 0) >= Number(item?.quantity || 0));
+    return itemsForOrder.every(
+      (item) => Number(item?.received_quantity || 0) >= Number(item?.quantity || 0)
+    );
   };
 
   const isOpenOrder = (order) => {

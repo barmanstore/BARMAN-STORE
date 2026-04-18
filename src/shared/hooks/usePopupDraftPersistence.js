@@ -14,11 +14,14 @@ function usePopupDraftPersistence({
   const restoredRef = useRef(false);
   const persistTimeoutRef = useRef(null);
   const stableKey = String(storageKey || '').trim();
-  const draftSnapshot = useMemo(() => ({
-    version: 1,
-    updatedAt: Date.now(),
-    draft,
-  }), [draft]);
+
+  const draftSnapshot = useMemo(
+    () => ({
+      version: 1,
+      draft,
+    }),
+    [draft]
+  );
 
   useEffect(() => {
     if (!enabled || !stableKey || restoredRef.current) return;
@@ -50,11 +53,15 @@ function usePopupDraftPersistence({
       return;
     }
     const persistDraft = () => {
-      safeLocalStorageSet(stableKey, JSON.stringify(draftSnapshot));
+      const snapshot = {
+        ...draftSnapshot,
+        updatedAt: Date.now(),
+      };
+      safeLocalStorageSet(stableKey, JSON.stringify(snapshot));
       broadcastBackofficePopupMessage({
         type: 'draft-updated',
         kind,
-        updatedAt: draftSnapshot.updatedAt,
+        updatedAt: snapshot.updatedAt,
       });
     };
     if (Number(debounceMs || 0) > 0) {
@@ -83,12 +90,15 @@ function usePopupDraftPersistence({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [enabled, isDirty]);
 
-  useEffect(() => () => {
-    if (persistTimeoutRef.current) {
-      clearTimeout(persistTimeoutRef.current);
-      persistTimeoutRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (persistTimeoutRef.current) {
+        clearTimeout(persistTimeoutRef.current);
+        persistTimeoutRef.current = null;
+      }
+    },
+    []
+  );
 }
 
 export default usePopupDraftPersistence;

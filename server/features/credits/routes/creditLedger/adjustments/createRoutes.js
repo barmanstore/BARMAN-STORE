@@ -9,7 +9,7 @@ const addDaysToDateKey = (dateKey, days) => {
   const [year, month, day] = dateKey.split('-').map((v) => Number(v));
   const baseMs = Date.UTC(year, month - 1, day);
   const safeDays = Math.max(0, Math.floor(Number(days || 0)));
-  const next = new Date(baseMs + (safeDays * DAY_MS));
+  const next = new Date(baseMs + safeDays * DAY_MS);
   return next.toISOString().slice(0, 10);
 };
 
@@ -79,7 +79,10 @@ const registerCreditLedgerCreateRoutes = (deps) => {
 
       const result = await dbTxAsync(async () => {
         if (clientRequestId) {
-          const existingByRequest = await dbGetAsync('SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1', [clientRequestId]);
+          const existingByRequest = await dbGetAsync(
+            'SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1',
+            [clientRequestId]
+          );
           if (existingByRequest) {
             return {
               status: 200,
@@ -88,7 +91,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
                 deduplicated: true,
                 balance: Number(existingByRequest.balance || 0),
                 transaction: existingByRequest,
-              }
+              },
             };
           }
         }
@@ -129,17 +132,18 @@ const registerCreditLedgerCreateRoutes = (deps) => {
           creditTermsDays: creditProfile?.credit_terms_days,
           paymentSummary,
         });
-        const normalizedDueDate = resolveDueDateKey({
-          dueDate: dueDate || dueDateAlt,
-          transactionDate,
-          transactionDateKey,
-          entryType: type,
-          creditTermsDays,
-          normalizeTransactionDate,
-        }) || transactionDateKey;
+        const normalizedDueDate =
+          resolveDueDateKey({
+            dueDate: dueDate || dueDateAlt,
+            transactionDate,
+            transactionDateKey,
+            entryType: type,
+            creditTermsDays,
+            normalizeTransactionDate,
+          }) || transactionDateKey;
 
         if (CREDIT_ENTRY_DEDUP_WINDOW_MS > 0) {
-          const transactionDateCompareSql = 'COALESCE(transaction_date::text, \'\')';
+          const transactionDateCompareSql = "COALESCE(transaction_date::text, '')";
           const maybeDuplicate = await dbGetAsync(
             `SELECT id, created_at, balance
              FROM credit_history
@@ -166,7 +170,9 @@ const registerCreditLedgerCreateRoutes = (deps) => {
             const createdAtMs = toTimestampMs(maybeDuplicate.created_at);
             const ageMs = createdAtMs > 0 ? Date.now() - createdAtMs : Number.POSITIVE_INFINITY;
             if (ageMs >= 0 && ageMs <= CREDIT_ENTRY_DEDUP_WINDOW_MS) {
-              const existing = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [maybeDuplicate.id]);
+              const existing = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [
+                maybeDuplicate.id,
+              ]);
               return {
                 status: 200,
                 payload: {
@@ -175,7 +181,7 @@ const registerCreditLedgerCreateRoutes = (deps) => {
                   message: 'Duplicate submit prevented',
                   balance: Number(maybeDuplicate.balance || current),
                   transaction: existing,
-                }
+                },
               };
             }
           }
@@ -224,20 +230,25 @@ const registerCreditLedgerCreateRoutes = (deps) => {
             userId: req.params.userId,
             entryId,
           });
-          await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ?', [nextImagePath, entryId]);
+          await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ?', [
+            nextImagePath,
+            entryId,
+          ]);
         }
 
         await recalculateCreditBalancesForUser(req.params.userId);
         await rebuildCustomerPaymentIntelligence(req.params.userId);
 
-        const transaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [insertResult.lastInsertRowid]);
+        const transaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [
+          insertResult.lastInsertRowid,
+        ]);
         return {
           status: 201,
           payload: {
             success: true,
             balance: Number(transaction?.balance || next),
             transaction,
-          }
+          },
         };
       });
 
@@ -259,7 +270,10 @@ const registerCreditLedgerCreateRoutes = (deps) => {
       return res.status(result.status).json(result.payload);
     } catch (error) {
       if (clientRequestId && isUniqueViolationError(error)) {
-        const existingByRequest = await dbGetAsync('SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1', [clientRequestId]);
+        const existingByRequest = await dbGetAsync(
+          'SELECT * FROM credit_history WHERE client_request_id = ? LIMIT 1',
+          [clientRequestId]
+        );
         if (existingByRequest) {
           return res.status(200).json({
             success: true,
@@ -270,7 +284,9 @@ const registerCreditLedgerCreateRoutes = (deps) => {
         }
       }
       const message = error.message || 'Failed to create credit entry';
-      const status = Number(error?.status || 0) || (message.includes('Invalid') || message.includes('positive') ? 400 : 500);
+      const status =
+        Number(error?.status || 0) ||
+        (message.includes('Invalid') || message.includes('positive') ? 400 : 500);
       return res.status(status).json({ error: message });
     }
   });

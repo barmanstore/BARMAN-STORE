@@ -1,4 +1,7 @@
-import { collectRepositoryShellRuntimeViolations, formatViolations } from './shell-runtime-contract-utils.mjs';
+import {
+  collectRepositoryShellRuntimeViolations,
+  formatViolations,
+} from './shell-runtime-contract-utils.mjs';
 
 const violations = collectRepositoryShellRuntimeViolations();
 

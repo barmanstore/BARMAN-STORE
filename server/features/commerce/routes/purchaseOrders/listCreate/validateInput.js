@@ -15,11 +15,7 @@ const validatePurchaseOrderInput = async ({
     if (!supplier) throw createInputError(404, 'Supplier not found');
   }
 
-  const resolvedDistributorId = Number(
-    distributorId
-    || supplier?.distributor_id
-    || 0
-  ) || null;
+  const resolvedDistributorId = Number(distributorId || supplier?.distributor_id || 0) || null;
   if (!resolvedDistributorId) throw createInputError(400, 'distributor_id is required');
   if (supplier && Number(supplier.distributor_id || 0) !== resolvedDistributorId) {
     throw createInputError(400, 'Supplier does not belong to distributor');

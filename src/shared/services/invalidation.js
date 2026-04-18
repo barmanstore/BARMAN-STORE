@@ -7,8 +7,14 @@ const DOMAINS = Object.freeze({
 
 const listenersByDomain = new Map();
 
-const normalizeDomain = (domain) => String(domain || '').trim().toLowerCase();
-const normalizeListenerId = (value) => String(value || '').trim().toLowerCase();
+const normalizeDomain = (domain) =>
+  String(domain || '')
+    .trim()
+    .toLowerCase();
+const normalizeListenerId = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const getListenersForDomain = (domain, createIfMissing = false) => {
   const normalizedDomain = normalizeDomain(domain);
@@ -38,11 +44,15 @@ const registerDomainListener = (domain, listener, { listenerId = '' } = {}) => {
 };
 
 const invalidateDomain = async (domain, payload = {}) => {
-  const sourceId = normalizeListenerId(payload?.sourceId || payload?.listenerId || payload?.source || '');
+  const sourceId = normalizeListenerId(
+    payload?.sourceId || payload?.listenerId || payload?.source || ''
+  );
   const listeners = Array.from(getListenersForDomain(domain, false) || []);
   if (!listeners.length) {
     if (process.env.NODE_ENV !== 'production' && typeof console.warn === 'function') {
-      console.warn(`[invalidation] No listeners registered for domain "${normalizeDomain(domain)}".`);
+      console.warn(
+        `[invalidation] No listeners registered for domain "${normalizeDomain(domain)}".`
+      );
     }
     return [];
   }
@@ -51,13 +61,15 @@ const invalidateDomain = async (domain, payload = {}) => {
     ? listeners.filter((entry) => normalizeListenerId(entry?.listenerId) !== sourceId)
     : listeners;
 
-  const results = await Promise.allSettled(targetListeners.map((entry) => {
-    try {
-      return entry.listener(payload);
-    } catch (error) {
-      return Promise.reject(error);
-    }
-  }));
+  const results = await Promise.allSettled(
+    targetListeners.map((entry) => {
+      try {
+        return entry.listener(payload);
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    })
+  );
 
   return results;
 };
@@ -79,12 +91,7 @@ const invalidateDomains = async (domains = [], payload = {}) => {
   return results;
 };
 
-export {
-  DOMAINS,
-  registerDomainListener,
-  invalidateDomain,
-  invalidateDomains,
-};
+export { DOMAINS, registerDomainListener, invalidateDomain, invalidateDomains };
 
 export default {
   DOMAINS,

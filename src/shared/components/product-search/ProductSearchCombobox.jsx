@@ -39,16 +39,15 @@ const ProductSearchCombobox = ({
   const trimmedValue = String(value || '').trim();
   const hasVisibleResults = !loading && results.length > 0;
   const showNoResults = Boolean(
-    isFocused
-    && trimmedValue
-    && !loading
-    && !selectedItem
-    && !showRecentItems
-    && results.length === 0
+    isFocused &&
+    trimmedValue &&
+    !loading &&
+    !selectedItem &&
+    !showRecentItems &&
+    results.length === 0
   );
   const showDropdown = Boolean(
-    isFocused
-    && (loading || hasVisibleResults || showNoResults || footerAction)
+    isFocused && (loading || hasVisibleResults || showNoResults || footerAction)
   );
   const activeDescendantId = useMemo(() => {
     if (showRecentItems || !results.length) return undefined;
@@ -96,24 +95,18 @@ const ProductSearchCombobox = ({
       />
 
       {showDropdown ? (
-        <div className={`product-search-dropdown${dropdownClassName ? ` ${dropdownClassName}` : ''}`}>
-          {hintContent ? (
-            <div className="product-search-hint">
-              {hintContent}
-            </div>
-          ) : null}
+        <div
+          className={`product-search-dropdown${dropdownClassName ? ` ${dropdownClassName}` : ''}`}
+        >
+          {hintContent ? <div className="product-search-hint">{hintContent}</div> : null}
 
           {resultsSummaryText ? (
-            <div className="product-search-summary">
-              {resultsSummaryText}
-            </div>
+            <div className="product-search-summary">{resultsSummaryText}</div>
           ) : null}
 
           {footerActionPosition === 'top' ? actionButton : null}
 
-          {loading ? (
-            <div className="product-search-state">Searching products...</div>
-          ) : null}
+          {loading ? <div className="product-search-state">Searching products...</div> : null}
 
           {!loading && results.length > 0 ? (
             <div
@@ -152,9 +145,7 @@ const ProductSearchCombobox = ({
             </div>
           ) : null}
 
-          {showNoResults ? (
-            <div className="product-search-state">{noResultsText}</div>
-          ) : null}
+          {showNoResults ? <div className="product-search-state">{noResultsText}</div> : null}
 
           {footerActionPosition === 'top' ? null : actionButton}
         </div>

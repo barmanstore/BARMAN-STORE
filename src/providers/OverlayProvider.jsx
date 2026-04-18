@@ -1,10 +1,15 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { createPortal } from 'react-dom';
 import useInertBackground from '../shared/hooks/useInertBackground';
-import {
-  selectTopEscapeEntry,
-  shouldLockOverlayBackground,
-} from './overlayStackUtils.mjs';
+import { selectTopEscapeEntry, shouldLockOverlayBackground } from './overlayStackUtils.mjs';
 
 const OverlayContext = createContext(null);
 let overlaySequence = 0;
@@ -13,20 +18,23 @@ export function OverlayProvider({ children }) {
   const [entries, setEntries] = useState([]);
   const [hostNode, setHostNode] = useState(null);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
     const node = document.createElement('div');
     node.setAttribute('data-overlay-root', 'true');
     document.body.appendChild(node);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHostNode(node);
     return () => {
       document.body.removeChild(node);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHostNode(null);
     };
   }, []);
 
   const registerEntry = useCallback((entry) => {
-    const sequence = overlaySequence += 1;
+    const sequence = (overlaySequence += 1);
     const token = `overlay-entry-${sequence}`;
     const nextEntry = { ...entry, token, sequence };
     setEntries((current) => [...current.filter((item) => item.id !== entry.id), nextEntry]);
@@ -52,16 +60,15 @@ export function OverlayProvider({ children }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [entries]);
 
-  const value = useMemo(() => ({
-    hostNode,
-    registerEntry,
-  }), [hostNode, registerEntry]);
-
-  return (
-    <OverlayContext.Provider value={value}>
-      {children}
-    </OverlayContext.Provider>
+  const value = useMemo(
+    () => ({
+      hostNode,
+      registerEntry,
+    }),
+    [hostNode, registerEntry]
   );
+
+  return <OverlayContext.Provider value={value}>{children}</OverlayContext.Provider>;
 }
 
 export const useOverlayStackEntry = ({
@@ -91,17 +98,17 @@ export const useOverlayStackEntry = ({
 
     const entryGetZIndex = hasDynamicZIndex
       ? () => {
-        const resolver = getZIndexRef.current;
-        return typeof resolver === 'function' ? resolver() : zIndex;
-      }
+          const resolver = getZIndexRef.current;
+          return typeof resolver === 'function' ? resolver() : zIndex;
+        }
       : null;
     const entryOnEscape = hasEscapeHandler
       ? () => {
-        const escapeHandler = onEscapeRef.current;
-        if (typeof escapeHandler === 'function') {
-          escapeHandler();
+          const escapeHandler = onEscapeRef.current;
+          if (typeof escapeHandler === 'function') {
+            escapeHandler();
+          }
         }
-      }
       : null;
 
     return context.registerEntry({

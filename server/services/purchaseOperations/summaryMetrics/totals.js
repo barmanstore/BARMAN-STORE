@@ -1,11 +1,9 @@
-const buildPaidTodayAmount = ({ payments, todayKey, normalizeTransactionDate } = {}) => (payments || []).reduce(
-  (sum, payment) => {
+const buildPaidTodayAmount = ({ payments, todayKey, normalizeTransactionDate } = {}) =>
+  (payments || []).reduce((sum, payment) => {
     const paymentDate = normalizeTransactionDate(payment.transaction_date || payment.created_at);
     if (paymentDate !== todayKey) return sum;
     return sum + Number(payment.amount || 0);
-  },
-  0
-);
+  }, 0);
 
 const buildOrdersByDistributor = (orders = []) => {
   const ordersByDistributor = new Map();

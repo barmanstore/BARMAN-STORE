@@ -9,10 +9,9 @@ function SafeProductImage({
   ...rest
 }) {
   const imageSource = product ?? src;
-  const resolvedFallback = fallbackProduct
-    || (product && typeof product === 'object' ? product : null)
-    || (src && typeof src === 'object' ? src : null)
-    || { name: alt || '', category: '' };
+  const resolvedFallback = fallbackProduct ||
+    (product && typeof product === 'object' ? product : null) ||
+    (src && typeof src === 'object' ? src : null) || { name: alt || '', category: '' };
 
   return (
     <img

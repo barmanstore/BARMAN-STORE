@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -77,7 +77,10 @@ const formatLedgerDate = (value) => {
   });
 };
 
-const normalizeNameKey = (value) => String(value || '').trim().toLowerCase();
+const normalizeNameKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const formatSupplierWithDistributor = (supplierName = '', distributorName = '') => {
   const supplier = String(supplierName || '').trim();
@@ -98,11 +101,12 @@ const buildSupplierOptionLabel = (supplierNames = [], fallbackName = '') => {
   });
 
   if (uniqueNames.length === 0) return String(fallbackName || '-').trim() || '-';
-  const supplierLabel = uniqueNames.length === 1
-    ? uniqueNames[0]
-    : uniqueNames.length === 2
-      ? `${uniqueNames[0]} / ${uniqueNames[1]}`
-      : `${uniqueNames[0]} +${uniqueNames.length - 1}`;
+  const supplierLabel =
+    uniqueNames.length === 1
+      ? uniqueNames[0]
+      : uniqueNames.length === 2
+        ? `${uniqueNames[0]} / ${uniqueNames[1]}`
+        : `${uniqueNames[0]} +${uniqueNames.length - 1}`;
   return formatSupplierWithDistributor(supplierLabel, fallbackName);
 };
 
@@ -110,17 +114,22 @@ const getLedgerModeMeta = (entry) => {
   const rawMode = String(entry?.payment_mode || entry?.method || '').trim();
   const mode = rawMode.toLowerCase();
 
-  if (mode.includes('upi') || mode.includes('gpay') || mode.includes('phonepe') || mode.includes('paytm')) {
+  if (
+    mode.includes('upi') ||
+    mode.includes('gpay') ||
+    mode.includes('phonepe') ||
+    mode.includes('paytm')
+  ) {
     return { Icon: Smartphone, label: rawMode || 'UPI', className: 'is-upi' };
   }
 
   if (
-    mode.includes('bank')
-    || mode.includes('transfer')
-    || mode.includes('neft')
-    || mode.includes('rtgs')
-    || mode.includes('imps')
-    || mode.includes('cheque')
+    mode.includes('bank') ||
+    mode.includes('transfer') ||
+    mode.includes('neft') ||
+    mode.includes('rtgs') ||
+    mode.includes('imps') ||
+    mode.includes('cheque')
   ) {
     return { Icon: Landmark, label: rawMode || 'Bank', className: 'is-bank' };
   }
@@ -134,12 +143,16 @@ const getLedgerModeMeta = (entry) => {
 
 const getLedgerSignedAmount = (entry, toNumber) => {
   const amount = Math.abs(toNumber(entry?.amount));
-  const typeKey = String(entry?.type || entry?.transaction_type || '').trim().toLowerCase();
+  const typeKey = String(entry?.type || entry?.transaction_type || '')
+    .trim()
+    .toLowerCase();
   return typeKey === 'payment' ? -amount : amount;
 };
 
 const getPurchaseLedgerTypeLabel = (entry, getLedgerTypeLabel) => {
-  const sourceKey = String(entry?.source || '').trim().toLowerCase();
+  const sourceKey = String(entry?.source || '')
+    .trim()
+    .toLowerCase();
   if (sourceKey === 'purchase_order') return 'PO Credit';
   if (sourceKey === 'po_payment') return 'PO Payment';
   if (sourceKey === 'po_correction') return 'PO Correction';
@@ -185,7 +198,10 @@ const buildDateRangePresets = () => {
   return [
     { label: 'Today', value: [todayToken, todayToken] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
@@ -222,7 +238,6 @@ const PurchasePaymentsSection = ({
   ledgerLoading = false,
   ledgerRecords = [],
   getLedgerRowStatusClass = () => '',
-  getDistributorName = () => '-',
   getLedgerTypeLabel = (entry) => String(entry?.transaction_type || entry?.type || ''),
   formatCurrency = (amount) => String(amount ?? 0),
   toNumber = (value) => Number(value) || 0,
@@ -236,7 +251,10 @@ const PurchasePaymentsSection = ({
   const advancedFiltersRef = useRef(null);
   const filterToggleRef = useRef(null);
   const dateRangePresets = useMemo(() => buildDateRangePresets(), []);
-  const distributorOptions = useMemo(() => (Array.isArray(distributors) ? distributors : []), [distributors]);
+  const distributorOptions = useMemo(
+    () => (Array.isArray(distributors) ? distributors : []),
+    [distributors]
+  );
   const supplierRecords = useMemo(() => (Array.isArray(suppliers) ? suppliers : []), [suppliers]);
   const supplierById = useMemo(
     () => new Map(supplierRecords.map((entry) => [String(entry?.id || ''), entry])),
@@ -258,23 +276,28 @@ const PurchasePaymentsSection = ({
     });
     return next;
   }, [supplierRecords]);
-  const supplierFilterOptions = useMemo(() => (
-    distributorOptions.map((entry) => {
-      const distributorId = String(entry?.id || '').trim();
-      return {
-        value: distributorId,
-        label: buildSupplierOptionLabel(
-          supplierNamesByDistributor.get(distributorId) || [],
-          entry?.name || ''
-        ),
-      };
-    })
-  ), [distributorOptions, supplierNamesByDistributor]);
+  const supplierFilterOptions = useMemo(
+    () =>
+      distributorOptions.map((entry) => {
+        const distributorId = String(entry?.id || '').trim();
+        return {
+          value: distributorId,
+          label: buildSupplierOptionLabel(
+            supplierNamesByDistributor.get(distributorId) || [],
+            entry?.name || ''
+          ),
+        };
+      }),
+    [distributorOptions, supplierNamesByDistributor]
+  );
   const supplierFilterLabelByDistributor = useMemo(
     () => new Map(supplierFilterOptions.map((entry) => [String(entry.value), entry.label])),
     [supplierFilterOptions]
   );
-  const ledgerEntries = useMemo(() => (Array.isArray(ledgerRecords) ? ledgerRecords : []), [ledgerRecords]);
+  const ledgerEntries = useMemo(
+    () => (Array.isArray(ledgerRecords) ? ledgerRecords : []),
+    [ledgerRecords]
+  );
   const payableEntries = useMemo(() => (Array.isArray(payables) ? payables : []), [payables]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
@@ -287,29 +310,39 @@ const PurchasePaymentsSection = ({
     [payableEntries, toNumber]
   );
   const activeDatePresetLabel = useMemo(() => {
-    const currentRange = [normalizeDateKey(filters.start_date), normalizeDateKey(filters.end_date)].join('|');
+    const currentRange = [
+      normalizeDateKey(filters.start_date),
+      normalizeDateKey(filters.end_date),
+    ].join('|');
     if (!currentRange.replace(/\|/g, '')) return '';
-    return dateRangePresets.find((preset) => {
-      const presetRange = [normalizeDateKey(preset?.value?.[0]), normalizeDateKey(preset?.value?.[1])].join('|');
-      return presetRange === currentRange;
-    })?.label || '';
+    return (
+      dateRangePresets.find((preset) => {
+        const presetRange = [
+          normalizeDateKey(preset?.value?.[0]),
+          normalizeDateKey(preset?.value?.[1]),
+        ].join('|');
+        return presetRange === currentRange;
+      })?.label || ''
+    );
   }, [dateRangePresets, filters.end_date, filters.start_date]);
-  const selectedSupplierFilterLabel = supplierFilterLabelByDistributor.get(String(filters.distributor_id || '').trim()) || '';
-  const getSupplierDisplayName = useMemo(() => (
-    (entry) => {
+  const selectedSupplierFilterLabel =
+    supplierFilterLabelByDistributor.get(String(filters.distributor_id || '').trim()) || '';
+  const getSupplierDisplayName = useMemo(
+    () => (entry) => {
       const directSupplierName = String(entry?.supplier_name || '').trim();
       const directDistributorName = String(entry?.distributor_name || '').trim();
-      if (directSupplierName) return formatSupplierWithDistributor(directSupplierName, directDistributorName);
+      if (directSupplierName)
+        return formatSupplierWithDistributor(directSupplierName, directDistributorName);
 
       const supplierId = String(entry?.supplier_id || '').trim();
       if (supplierId) {
         const supplier = supplierById.get(supplierId);
         const resolvedName = String(supplier?.name || '').trim();
         const distributorName = String(
-          distributorById.get(String(supplier?.distributor_id || ''))?.name
-          || supplier?.distributor_name
-          || directDistributorName
-          || ''
+          distributorById.get(String(supplier?.distributor_id || ''))?.name ||
+            supplier?.distributor_name ||
+            directDistributorName ||
+            ''
         ).trim();
         if (resolvedName) return formatSupplierWithDistributor(resolvedName, distributorName);
       }
@@ -321,8 +354,9 @@ const PurchasePaymentsSection = ({
       }
 
       return directDistributorName || '-';
-    }
-  ), [distributorById, supplierById, supplierFilterLabelByDistributor]);
+    },
+    [distributorById, supplierById, supplierFilterLabelByDistributor]
+  );
   const dueSupplierKeys = useMemo(() => {
     const next = new Set();
     payableEntries.forEach((entry) => {
@@ -334,32 +368,39 @@ const PurchasePaymentsSection = ({
     return next;
   }, [payableEntries]);
   const matchesSearch = useMemo(() => {
-    const text = (values = []) => values
-      .filter(Boolean)
-      .map((value) => String(value || '').toLowerCase())
-      .join(' ');
+    const text = (values = []) =>
+      values
+        .filter(Boolean)
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
 
     return (scope, valuesByScope) => {
       const scopeValues = valuesByScope[scope] || valuesByScope.all || [];
       return !normalizedSearchQuery || text(scopeValues).includes(normalizedSearchQuery);
     };
   }, [normalizedSearchQuery]);
-  const matchesDateRange = useCallback((value) => {
-    const startDate = normalizeDateKey(filters.start_date);
-    const endDate = normalizeDateKey(filters.end_date);
-    if (!startDate && !endDate) return true;
-    const dateKey = normalizeDateKey(value);
-    if (!dateKey) return false;
-    if (startDate && dateKey < startDate) return false;
-    if (endDate && dateKey > endDate) return false;
-    return true;
-  }, [filters.end_date, filters.start_date]);
+  const matchesDateRange = useCallback(
+    (value) => {
+      const startDate = normalizeDateKey(filters.start_date);
+      const endDate = normalizeDateKey(filters.end_date);
+      if (!startDate && !endDate) return true;
+      const dateKey = normalizeDateKey(value);
+      if (!dateKey) return false;
+      if (startDate && dateKey < startDate) return false;
+      if (endDate && dateKey > endDate) return false;
+      return true;
+    },
+    [filters.end_date, filters.start_date]
+  );
   const filteredPayableEntries = useMemo(() => {
     const nextEntries = payableEntries.filter((entry) => {
       const overdueDays = toNumber(entry?.overdue_days);
       const paymentDueDate = normalizeDateKey(entry?.payment_due_date);
       const supplierDisplayName = getSupplierDisplayName(entry);
-      if (filters.distributor_id && String(entry?.distributor_id || '').trim() !== String(filters.distributor_id || '').trim()) {
+      if (
+        filters.distributor_id &&
+        String(entry?.distributor_id || '').trim() !== String(filters.distributor_id || '').trim()
+      ) {
         return false;
       }
       if (quickView === 'due') {
@@ -367,7 +408,9 @@ const PurchasePaymentsSection = ({
         if (dueEntries.length && overdueDays <= 0) return false;
       }
       if (quickView === 'recent') {
-        const recentCutoff = normalizeDateKey(toDateToken(shiftDateByDays(new Date(), -(RECENT_LEDGER_DAY_WINDOW - 1))));
+        const recentCutoff = normalizeDateKey(
+          toDateToken(shiftDateByDays(new Date(), -(RECENT_LEDGER_DAY_WINDOW - 1)))
+        );
         if (paymentDueDate && recentCutoff && paymentDueDate < recentCutoff) return false;
       }
       if (!matchesDateRange(paymentDueDate)) return false;
@@ -392,31 +435,52 @@ const PurchasePaymentsSection = ({
     if (quickView !== 'due') return nextEntries;
     const overdueEntries = nextEntries.filter((entry) => toNumber(entry?.overdue_days) > 0);
     return overdueEntries.length ? overdueEntries : nextEntries;
-  }, [filters.distributor_id, getSupplierDisplayName, matchesDateRange, matchesSearch, payableEntries, quickView, searchScope, toNumber]);
+  }, [
+    filters.distributor_id,
+    getSupplierDisplayName,
+    matchesDateRange,
+    matchesSearch,
+    payableEntries,
+    quickView,
+    searchScope,
+    toNumber,
+  ]);
   const filteredLedgerEntries = useMemo(() => {
     const filtered = ledgerEntries.filter((entry) => {
       const supplierDisplayName = getSupplierDisplayName(entry);
       const dateKey = normalizeDateKey(entry.created_at || entry.transaction_date || entry.date);
-      if (filters.distributor_id && String(entry?.distributor_id || '').trim() !== String(filters.distributor_id || '').trim()) {
-        if (String(entry?.supplier_id || '').trim() !== String(filters.distributor_id || '').trim()) {
+      if (
+        filters.distributor_id &&
+        String(entry?.distributor_id || '').trim() !== String(filters.distributor_id || '').trim()
+      ) {
+        if (
+          String(entry?.supplier_id || '').trim() !== String(filters.distributor_id || '').trim()
+        ) {
           // fallback to distributor id match for compatibility rows
-          if (String(entry?.distributor_id || '').trim() !== String(filters.distributor_id || '').trim()) {
+          if (
+            String(entry?.distributor_id || '').trim() !==
+            String(filters.distributor_id || '').trim()
+          ) {
             return false;
           }
         }
       }
       if (!matchesDateRange(dateKey)) return false;
       if (quickView === 'recent') {
-        const cutoff = normalizeDateKey(toDateToken(shiftDateByDays(new Date(), -(RECENT_LEDGER_DAY_WINDOW - 1))));
+        const cutoff = normalizeDateKey(
+          toDateToken(shiftDateByDays(new Date(), -(RECENT_LEDGER_DAY_WINDOW - 1)))
+        );
         if (dateKey && cutoff && dateKey < cutoff) return false;
       }
       if (quickView === 'due') {
         const supplierId = String(entry?.supplier_id || '').trim();
         const distributorId = String(entry?.distributor_id || '').trim();
-        if (!(
-          (supplierId && dueSupplierKeys.has(`supplier:${supplierId}`))
-          || (distributorId && dueSupplierKeys.has(`distributor:${distributorId}`))
-        )) {
+        if (
+          !(
+            (supplierId && dueSupplierKeys.has(`supplier:${supplierId}`)) ||
+            (distributorId && dueSupplierKeys.has(`distributor:${distributorId}`))
+          )
+        ) {
           return false;
         }
       }
@@ -446,7 +510,18 @@ const PurchasePaymentsSection = ({
     if (quickView === 'recent') return filtered;
     if (quickView === 'due') return filtered;
     return filtered;
-  }, [dueSupplierKeys, filters.distributor_id, getLedgerBillNumber, getLedgerTypeLabel, getSupplierDisplayName, ledgerEntries, matchesDateRange, matchesSearch, quickView, searchScope]);
+  }, [
+    dueSupplierKeys,
+    filters.distributor_id,
+    getLedgerBillNumber,
+    getLedgerTypeLabel,
+    getSupplierDisplayName,
+    ledgerEntries,
+    matchesDateRange,
+    matchesSearch,
+    quickView,
+    searchScope,
+  ]);
   const visiblePayables = useMemo(
     () => filteredPayableEntries.slice(0, PAYABLE_CARD_LIMIT),
     [filteredPayableEntries]
@@ -456,7 +531,9 @@ const PurchasePaymentsSection = ({
     const groups = [];
 
     filteredLedgerEntries.forEach((entry) => {
-      const label = formatLedgerDate(entry.created_at || entry.transaction_date || entry.date || nowTimestamp);
+      const label = formatLedgerDate(
+        entry.created_at || entry.transaction_date || entry.date || nowTimestamp
+      );
       const lastGroup = groups[groups.length - 1];
       if (!lastGroup || lastGroup.label !== label) {
         groups.push({
@@ -473,23 +550,29 @@ const PurchasePaymentsSection = ({
   }, [filteredLedgerEntries, nowTimestamp]);
 
   const activeFilterPills = [
-    filters.distributor_id ? {
-      key: 'supplier',
-      label: selectedSupplierFilterLabel || 'Selected supplier',
-      onClear: () => onFilterChange({ distributor_id: '' }),
-    } : null,
-    quickView !== 'all' ? {
-      key: 'view',
-      label: `View: ${QUICK_VIEW_OPTIONS.find((option) => option.value === quickView)?.label || quickView}`,
-      onClear: () => setQuickView('all'),
-    } : null,
-    (filters.start_date || filters.end_date) ? {
-      key: 'date',
-      label: activeDatePresetLabel
-        ? `Date: ${activeDatePresetLabel}`
-        : `Date: ${formatDateDisplayToken(filters.start_date) || 'Start'} - ${formatDateDisplayToken(filters.end_date) || 'End'}`,
-      onClear: () => onFilterChange({ start_date: '', end_date: '' }),
-    } : null,
+    filters.distributor_id
+      ? {
+          key: 'supplier',
+          label: selectedSupplierFilterLabel || 'Selected supplier',
+          onClear: () => onFilterChange({ distributor_id: '' }),
+        }
+      : null,
+    quickView !== 'all'
+      ? {
+          key: 'view',
+          label: `View: ${QUICK_VIEW_OPTIONS.find((option) => option.value === quickView)?.label || quickView}`,
+          onClear: () => setQuickView('all'),
+        }
+      : null,
+    filters.start_date || filters.end_date
+      ? {
+          key: 'date',
+          label: activeDatePresetLabel
+            ? `Date: ${activeDatePresetLabel}`
+            : `Date: ${formatDateDisplayToken(filters.start_date) || 'Start'} - ${formatDateDisplayToken(filters.end_date) || 'End'}`,
+          onClear: () => onFilterChange({ start_date: '', end_date: '' }),
+        }
+      : null,
   ].filter(Boolean);
 
   const activeFilterCount = [
@@ -514,18 +597,26 @@ const PurchasePaymentsSection = ({
   };
 
   const handleSearchScopeChange = (nextScope) => {
-    const normalizedScope = SEARCH_SCOPE_OPTIONS.some((option) => option.value === nextScope) ? nextScope : 'all';
+    const normalizedScope = SEARCH_SCOPE_OPTIONS.some((option) => option.value === nextScope)
+      ? nextScope
+      : 'all';
     setSearchScope(normalizedScope);
     setSearchQuery(searchDraft);
   };
 
   const handleSupplierFilterChange = (nextItems) => {
-    const nextSupplierId = Array.isArray(nextItems) && nextItems.length ? String(nextItems[nextItems.length - 1] || '').trim() : '';
+    const nextSupplierId =
+      Array.isArray(nextItems) && nextItems.length
+        ? String(nextItems[nextItems.length - 1] || '').trim()
+        : '';
     onFilterChange({ distributor_id: nextSupplierId });
   };
 
   const handleViewFilterChange = (nextItems) => {
-    const nextView = Array.isArray(nextItems) && nextItems.length ? String(nextItems[nextItems.length - 1] || '').trim() : 'all';
+    const nextView =
+      Array.isArray(nextItems) && nextItems.length
+        ? String(nextItems[nextItems.length - 1] || '').trim()
+        : 'all';
     setQuickView(nextView || 'all');
   };
 
@@ -554,7 +645,10 @@ const PurchasePaymentsSection = ({
 
     const handlePointerDown = (event) => {
       const target = event.target;
-      if (advancedFiltersRef.current?.contains(target) || filterToggleRef.current?.contains(target)) {
+      if (
+        advancedFiltersRef.current?.contains(target) ||
+        filterToggleRef.current?.contains(target)
+      ) {
         return;
       }
       setShowAdvancedFilters(false);
@@ -583,7 +677,7 @@ const PurchasePaymentsSection = ({
         className="page-header purchase-payments-header"
         title="Payments & Ledger"
         subtitle="Track supplier payables, post payments, and scan running balances from one compact workspace."
-        actions={(
+        actions={
           <>
             <button type="button" className="admin-btn" onClick={onRefreshLedger}>
               <RefreshCw size={18} /> Refresh
@@ -597,7 +691,7 @@ const PurchasePaymentsSection = ({
               <Plus size={18} /> Add Entry
             </button>
           </>
-        )}
+        }
       />
 
       <div className="filters-bar stock-ledger-filters">
@@ -632,8 +726,12 @@ const PurchasePaymentsSection = ({
           {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
-        {(searchDraft || searchQuery || activeFilterCount) ? (
-          <button type="button" className="stock-ledger-filter-clear" onClick={handleClearAllFilters}>
+        {searchDraft || searchQuery || activeFilterCount ? (
+          <button
+            type="button"
+            className="stock-ledger-filter-clear"
+            onClick={handleClearAllFilters}
+          >
             Clear
           </button>
         ) : null}
@@ -642,7 +740,12 @@ const PurchasePaymentsSection = ({
       {activeFilterPills.length ? (
         <div className="stock-ledger-active-filters" aria-label="Active filters">
           {activeFilterPills.map((pill) => (
-            <button key={pill.key} type="button" className="stock-ledger-active-filter-pill" onClick={pill.onClear}>
+            <button
+              key={pill.key}
+              type="button"
+              className="stock-ledger-active-filter-pill"
+              onClick={pill.onClear}
+            >
               <span>{pill.label}</span>
               <X size={12} aria-hidden="true" />
             </button>
@@ -710,7 +813,9 @@ const PurchasePaymentsSection = ({
           <span className="stat-label">Total Payable</span>
         </div>
         <div className="stat-card sale">
-          <span className={`stat-value ${ledgerBalanceSummary.value >= 0 ? 'positive' : 'negative'}`}>
+          <span
+            className={`stat-value ${ledgerBalanceSummary.value >= 0 ? 'positive' : 'negative'}`}
+          >
             {formatCurrency(ledgerBalanceSummary.value)}
           </span>
           <span className="stat-label">{ledgerBalanceSummary.label}</span>
@@ -728,10 +833,12 @@ const PurchasePaymentsSection = ({
       <div className="ledger-table-container purchase-payments-ledger-container">
         {ledgerLoading ? (
           <div className="loading">Loading payments and ledger...</div>
-        ) : (filteredPayableEntries.length === 0 && ledgerGroups.length === 0) ? (
+        ) : filteredPayableEntries.length === 0 && ledgerGroups.length === 0 ? (
           <div className="empty-state">
             <p>No supplier payables or payment history match this view.</p>
-            <p>Adjust the filters, switch the view, or add a new payment entry to begin the ledger.</p>
+            <p>
+              Adjust the filters, switch the view, or add a new payment entry to begin the ledger.
+            </p>
           </div>
         ) : (
           <div className="purchase-payments-ledger-sheet">
@@ -744,7 +851,8 @@ const PurchasePaymentsSection = ({
                     const overdueDays = toNumber(entry?.overdue_days);
                     const isOverdue = overdueDays > 0;
                     const supplierDisplayName = getSupplierDisplayName(entry);
-                    const { label, title, ariaLabel, Icon, isConfirmAction } = getPayableActionMeta(entry);
+                    const { label, title, ariaLabel, Icon, isConfirmAction } =
+                      getPayableActionMeta(entry);
                     const handleRowAction = isConfirmAction
                       ? () => {
                           if (typeof onOpenProcessModal !== 'function') return;
@@ -770,13 +878,18 @@ const PurchasePaymentsSection = ({
                               {supplierDisplayName}
                             </span>
                             <div className="purchase-ledger-row-meta">
-                              <span title={entry.po_number}>{entry.po_number || 'Manual payable'}</span>
+                              <span title={entry.po_number}>
+                                {entry.po_number || 'Manual payable'}
+                              </span>
                               <span title={entry.payment_due_date || ''}>
                                 <Clock size={10} />
                                 {entry.payment_due_date || 'No due date'}
                               </span>
                               {isOverdue ? (
-                                <span className="purchase-ledger-row-note" title={`${overdueDays} days overdue`}>
+                                <span
+                                  className="purchase-ledger-row-note"
+                                  title={`${overdueDays} days overdue`}
+                                >
                                   <AlertTriangle size={11} />
                                   {overdueDays}d overdue
                                 </span>
@@ -785,7 +898,9 @@ const PurchasePaymentsSection = ({
                           </div>
 
                           <div className="purchase-ledger-row-side">
-                            <strong className={`purchase-ledger-amount ${isOverdue ? 'negative' : 'positive'}`}>
+                            <strong
+                              className={`purchase-ledger-amount ${isOverdue ? 'negative' : 'positive'}`}
+                            >
                               {formatCurrency(balanceDue)}
                             </strong>
                             <button
@@ -808,68 +923,82 @@ const PurchasePaymentsSection = ({
               </section>
             ) : null}
 
-            {ledgerGroups.length ? (
-              ledgerGroups.map((group) => (
-                <section key={group.key} className="purchase-ledger-group">
-                  <div className="purchase-ledger-group-head">{group.label}</div>
-                  <div className="purchase-ledger-group-items">
-                    {group.items.map((entry, index) => {
-                      const typeLabel = getPurchaseLedgerTypeLabel(entry, getLedgerTypeLabel);
-                      const { Icon: ModeIcon, label: modeLabel, className: modeClassName } = getLedgerModeMeta(entry);
-                      const signedAmount = getLedgerSignedAmount(entry, toNumber);
-                      const referenceValue = entry.reference || entry.po_number || '';
-                      const billNumber = getLedgerBillNumber(entry);
-                      const noteValue = entry.description || '';
-                      const metaValues = [];
+            {ledgerGroups.length
+              ? ledgerGroups.map((group) => (
+                  <section key={group.key} className="purchase-ledger-group">
+                    <div className="purchase-ledger-group-head">{group.label}</div>
+                    <div className="purchase-ledger-group-items">
+                      {group.items.map((entry, index) => {
+                        const typeLabel = getPurchaseLedgerTypeLabel(entry, getLedgerTypeLabel);
+                        const {
+                          Icon: ModeIcon,
+                          label: modeLabel,
+                          className: modeClassName,
+                        } = getLedgerModeMeta(entry);
+                        const signedAmount = getLedgerSignedAmount(entry, toNumber);
+                        const referenceValue = entry.reference || entry.po_number || '';
+                        const billNumber = getLedgerBillNumber(entry);
+                        const noteValue = entry.description || '';
+                        const metaValues = [];
 
-                      if (referenceValue) metaValues.push(referenceValue);
-                      if (billNumber && billNumber !== '-' && billNumber !== referenceValue) metaValues.push(billNumber);
+                        if (referenceValue) metaValues.push(referenceValue);
+                        if (billNumber && billNumber !== '-' && billNumber !== referenceValue)
+                          metaValues.push(billNumber);
 
-                      return (
-                        <div
-                          key={entry.id || `${group.key}-${index}`}
-                          className={`purchase-ledger-row ${getLedgerRowStatusClass(entry)}`}
-                        >
-                          <div className="purchase-ledger-row-main">
-                            <div className="purchase-ledger-row-copy">
-                              <span className="purchase-ledger-entity" title={getSupplierDisplayName(entry)}>
-                                {getSupplierDisplayName(entry)}
-                              </span>
-                              {metaValues.length || noteValue ? (
-                                <div className="purchase-ledger-row-meta">
-                                  {metaValues.map((value) => (
-                                    <span key={`${entry.id || index}-${value}`} title={value}>
-                                      {value}
-                                    </span>
-                                  ))}
-                                  {noteValue ? (
-                                    <span className="purchase-ledger-row-note" title={noteValue}>
-                                      <FileText size={11} />
-                                    </span>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <div className="purchase-ledger-row-side">
-                              <strong className={`purchase-ledger-amount ${signedAmount < 0 ? 'negative' : 'positive'}`}>
-                                {formatCurrency(signedAmount)}
-                              </strong>
-                              <div className="purchase-ledger-row-flags">
-                                <span className="purchase-ledger-type">{typeLabel}</span>
-                                <span className={`purchase-ledger-mode ${modeClassName}`} title={modeLabel} aria-label={modeLabel}>
-                                  <ModeIcon size={14} />
+                        return (
+                          <div
+                            key={entry.id || `${group.key}-${index}`}
+                            className={`purchase-ledger-row ${getLedgerRowStatusClass(entry)}`}
+                          >
+                            <div className="purchase-ledger-row-main">
+                              <div className="purchase-ledger-row-copy">
+                                <span
+                                  className="purchase-ledger-entity"
+                                  title={getSupplierDisplayName(entry)}
+                                >
+                                  {getSupplierDisplayName(entry)}
                                 </span>
+                                {metaValues.length || noteValue ? (
+                                  <div className="purchase-ledger-row-meta">
+                                    {metaValues.map((value) => (
+                                      <span key={`${entry.id || index}-${value}`} title={value}>
+                                        {value}
+                                      </span>
+                                    ))}
+                                    {noteValue ? (
+                                      <span className="purchase-ledger-row-note" title={noteValue}>
+                                        <FileText size={11} />
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </div>
+
+                              <div className="purchase-ledger-row-side">
+                                <strong
+                                  className={`purchase-ledger-amount ${signedAmount < 0 ? 'negative' : 'positive'}`}
+                                >
+                                  {formatCurrency(signedAmount)}
+                                </strong>
+                                <div className="purchase-ledger-row-flags">
+                                  <span className="purchase-ledger-type">{typeLabel}</span>
+                                  <span
+                                    className={`purchase-ledger-mode ${modeClassName}`}
+                                    title={modeLabel}
+                                    aria-label={modeLabel}
+                                  >
+                                    <ModeIcon size={14} />
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))
-            ) : null}
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))
+              : null}
           </div>
         )}
       </div>

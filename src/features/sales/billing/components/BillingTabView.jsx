@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { CreditCard, Search, ShoppingCart } from 'lucide-react';
 import UserEditModal from '../../../../shared/components/UserEditModal';
 import BillingItemSection from './BillingItemSection';
@@ -87,12 +87,6 @@ const BillingTabView = ({
 }) => {
   const [mobileView, setMobileView] = useState('search');
 
-  useEffect(() => {
-    if (!isMobile) {
-      setMobileView('search');
-    }
-  }, [isMobile]);
-
   const handleMobilePrimaryAction = () => {
     if (mobileView === 'search') {
       setMobileView('cart');
@@ -105,106 +99,116 @@ const BillingTabView = ({
     handleCreateBill();
   };
 
-  const customerSectionProps = useMemo(() => ({
-    isOrderLinked,
-    isSubmitting,
-    customer,
-    customersList,
-    handleCustomerChange,
-    handleAddCustomer,
-    fulfillmentMode,
-    setFulfillmentMode,
-  }), [
-    customer,
-    customersList,
-    fulfillmentMode,
-    handleAddCustomer,
-    handleCustomerChange,
-    isOrderLinked,
-    isSubmitting,
-    setFulfillmentMode,
-  ]);
+  const customerSectionProps = useMemo(
+    () => ({
+      isOrderLinked,
+      isSubmitting,
+      customer,
+      customersList,
+      handleCustomerChange,
+      handleAddCustomer,
+      fulfillmentMode,
+      setFulfillmentMode,
+    }),
+    [
+      customer,
+      customersList,
+      fulfillmentMode,
+      handleAddCustomer,
+      handleCustomerChange,
+      isOrderLinked,
+      isSubmitting,
+      setFulfillmentMode,
+    ]
+  );
 
-  const summaryProps = useMemo(() => ({
-    activeLineItemsCount,
-    subtotalAmount,
-    totalDiscount,
-    totalBill,
-    paidClamped,
-    creditAmount,
-    paymentStatusLabel,
-  }), [
-    activeLineItemsCount,
-    creditAmount,
-    paidClamped,
-    paymentStatusLabel,
-    subtotalAmount,
-    totalBill,
-    totalDiscount,
-  ]);
+  const summaryProps = useMemo(
+    () => ({
+      activeLineItemsCount,
+      subtotalAmount,
+      totalDiscount,
+      totalBill,
+      paidClamped,
+      creditAmount,
+      paymentStatusLabel,
+    }),
+    [
+      activeLineItemsCount,
+      creditAmount,
+      paidClamped,
+      paymentStatusLabel,
+      subtotalAmount,
+      totalBill,
+      totalDiscount,
+    ]
+  );
 
-  const paymentPanelProps = useMemo(() => ({
-    isSubmitting,
-    activeLineItemsCount,
-    totalBill,
-    paidClamped,
-    paidAmount,
-    setPaidAmount,
-    creditAmount,
-    paidAmountWarning,
-    selectedPaymentMethod,
-    effectivePaymentMethod,
-    setSelectedPaymentMethod,
-    createBillConfirmationOpen,
-    clearBillConfirmationOpen,
-    handleSelectCashPayment,
-    handleSelectUpiPayment,
-    handleSelectCreditPayment,
-    onClear,
-    onCancelCreateBill,
-    onCancelClearBill,
-    onCreateBill: handleCreateBill,
-    lastShareText,
-    onSendBill: handleSendWhatsApp,
-    customerName: String(customer?.name || '').trim(),
-  }), [
-    activeLineItemsCount,
-    clearBillConfirmationOpen,
-    creditAmount,
-    createBillConfirmationOpen,
-    customer?.name,
-    effectivePaymentMethod,
-    onCancelCreateBill,
-    handleSelectCashPayment,
-    handleSelectCreditPayment,
-    handleSelectUpiPayment,
-    handleSendWhatsApp,
-    handleCreateBill,
-    isSubmitting,
-    lastShareText,
-    onCancelClearBill,
-    onClear,
-    paidAmount,
-    paidAmountWarning,
-    paidClamped,
-    selectedPaymentMethod,
-    setPaidAmount,
-    setSelectedPaymentMethod,
-    totalBill,
-  ]);
+  const paymentPanelProps = useMemo(
+    () => ({
+      isSubmitting,
+      activeLineItemsCount,
+      totalBill,
+      paidClamped,
+      paidAmount,
+      setPaidAmount,
+      creditAmount,
+      paidAmountWarning,
+      selectedPaymentMethod,
+      effectivePaymentMethod,
+      setSelectedPaymentMethod,
+      createBillConfirmationOpen,
+      clearBillConfirmationOpen,
+      handleSelectCashPayment,
+      handleSelectUpiPayment,
+      handleSelectCreditPayment,
+      onClear,
+      onCancelCreateBill,
+      onCancelClearBill,
+      onCreateBill: handleCreateBill,
+      lastShareText,
+      onSendBill: handleSendWhatsApp,
+      customerName: String(customer?.name || '').trim(),
+    }),
+    [
+      activeLineItemsCount,
+      clearBillConfirmationOpen,
+      creditAmount,
+      createBillConfirmationOpen,
+      customer?.name,
+      effectivePaymentMethod,
+      onCancelCreateBill,
+      handleSelectCashPayment,
+      handleSelectCreditPayment,
+      handleSelectUpiPayment,
+      handleSendWhatsApp,
+      handleCreateBill,
+      isSubmitting,
+      lastShareText,
+      onCancelClearBill,
+      onClear,
+      paidAmount,
+      paidAmountWarning,
+      paidClamped,
+      selectedPaymentMethod,
+      setPaidAmount,
+      setSelectedPaymentMethod,
+      totalBill,
+    ]
+  );
 
-  const customerCreatePrefill = useMemo(() => ({
-    name: customerCreateName,
-  }), [customerCreateName]);
+  const customerCreatePrefill = useMemo(
+    () => ({
+      name: customerCreateName,
+    }),
+    [customerCreateName]
+  );
 
   return (
     <div className={`billing-content${isMobile ? ' billing-content-mobile' : ''}`}>
       <div className="billing-header">
         <div>
           <h1>Billing</h1>
-          <p className="billing-header-copy">
-            Add items and checkout.
-          </p>
+          <p className="billing-header-copy">Add items and checkout.</p>
         </div>
         <div className="billing-header-actions">
           <div className="billing-header-chip">
@@ -224,9 +228,7 @@ const BillingTabView = ({
 
       {prefillSummary ? <div className="billing-prefill-note">{prefillSummary}</div> : null}
       {isOrderLinked ? (
-        <div className="billing-prefill-note">
-          Linked order. Edit and bill here.
-        </div>
+        <div className="billing-prefill-note">Linked order. Edit and bill here.</div>
       ) : null}
       {pricingPreviewLoading ? (
         <div className="billing-prefill-note">Refreshing prices...</div>

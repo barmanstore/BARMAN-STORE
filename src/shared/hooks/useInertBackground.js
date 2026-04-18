@@ -15,12 +15,14 @@ const resolveBackgroundRoot = () => {
 
   const fallbackRoot = document.querySelector('.app') || document.getElementById('root');
   if (
-    import.meta.env.DEV
-    && fallbackRoot instanceof HTMLElement
-    && typeof console !== 'undefined'
-    && typeof console.error === 'function'
+    import.meta.env.DEV &&
+    fallbackRoot instanceof HTMLElement &&
+    typeof console !== 'undefined' &&
+    typeof console.error === 'function'
   ) {
-    console.error('Missing [data-window-background-root=\"true\"] shell marker. Falling back to legacy app root.');
+    console.error(
+      'Missing [data-window-background-root="true"] shell marker. Falling back to legacy app root.'
+    );
   }
 
   return fallbackRoot instanceof HTMLElement ? fallbackRoot : null;

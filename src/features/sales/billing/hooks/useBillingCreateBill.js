@@ -17,11 +17,18 @@ const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_C
 };
 
 const findCustomerByName = (list = [], customerName = '') => {
-  const nameKey = String(customerName || '').trim().toLowerCase();
+  const nameKey = String(customerName || '')
+    .trim()
+    .toLowerCase();
   if (!nameKey) return null;
-  return list.find(
-    (entry) => String(entry?.name || '').trim().toLowerCase() === nameKey
-  ) || null;
+  return (
+    list.find(
+      (entry) =>
+        String(entry?.name || '')
+          .trim()
+          .toLowerCase() === nameKey
+    ) || null
+  );
 };
 
 const findCustomerById = (list = [], customerId = null) => {
@@ -37,14 +44,24 @@ const findProductByItem = (list = [], item = {}) => {
     if (byId) return byId;
   }
 
-  const nameKey = String(item?.product_name || '').trim().toLowerCase();
+  const nameKey = String(item?.product_name || '')
+    .trim()
+    .toLowerCase();
   if (!nameKey) return null;
-  return list.find((product) => {
-    const productName = String(product?.name || '').trim().toLowerCase();
-    const sku = String(product?.sku || '').trim().toLowerCase();
-    const barcode = String(product?.barcode || '').trim().toLowerCase();
-    return productName === nameKey || sku === nameKey || barcode === nameKey;
-  }) || null;
+  return (
+    list.find((product) => {
+      const productName = String(product?.name || '')
+        .trim()
+        .toLowerCase();
+      const sku = String(product?.sku || '')
+        .trim()
+        .toLowerCase();
+      const barcode = String(product?.barcode || '')
+        .trim()
+        .toLowerCase();
+      return productName === nameKey || sku === nameKey || barcode === nameKey;
+    }) || null
+  );
 };
 
 const useBillingCreateBill = ({
@@ -101,9 +118,12 @@ const useBillingCreateBill = ({
       items: items
         .filter((it) => it.name && Number(it.amount) > 0)
         .map((it) => {
-          const itemType = String(it?.type || '').trim().toLowerCase() === 'custom' || Boolean(it?.isCustom)
-            ? 'custom'
-            : 'inventory';
+          const itemType =
+            String(it?.type || '')
+              .trim()
+              .toLowerCase() === 'custom' || Boolean(it?.isCustom)
+              ? 'custom'
+              : 'inventory';
           const product = getProductForLine(it);
           const normalizedUnit = resolveLineUnitForProduct(product, it.unit);
           return {
@@ -115,9 +135,9 @@ const useBillingCreateBill = ({
             qty: Number(it.qty) || 0,
             ...(normalizedUnit ? { unit: normalizedUnit } : {}),
             discount: Number(it.disc) || 0,
-            amount: Number(it.amount) || 0
+            amount: Number(it.amount) || 0,
           };
-        })
+        }),
     };
 
     try {
@@ -136,7 +156,9 @@ const useBillingCreateBill = ({
         }
 
         if (!resolvedCustomerId && String(payload.customer_name || '').trim()) {
-          const customerSearchResults = await billingApi.searchCustomers(String(payload.customer_name || '').trim());
+          const customerSearchResults = await billingApi.searchCustomers(
+            String(payload.customer_name || '').trim()
+          );
           const matchedCustomer = findCustomerByName(customerSearchResults, payload.customer_name);
           if (matchedCustomer) {
             resolvedCustomerId = Number(matchedCustomer.id || 0) || null;
@@ -150,7 +172,12 @@ const useBillingCreateBill = ({
 
         const productUpdates = [];
         itemsWithProducts = payload.items.map((it) => {
-          if (String(it?.item_type || '').trim().toLowerCase() === 'custom' || it?.is_custom) {
+          if (
+            String(it?.item_type || '')
+              .trim()
+              .toLowerCase() === 'custom' ||
+            it?.is_custom
+          ) {
             return { ...it, product_id: null };
           }
 
@@ -164,23 +191,25 @@ const useBillingCreateBill = ({
           }
 
           const nextItem = { ...it, product_id: null };
-          productUpdates.push((async () => {
-            if (!String(nextItem.product_name || '').trim()) {
+          productUpdates.push(
+            (async () => {
+              if (!String(nextItem.product_name || '').trim()) {
+                return nextItem;
+              }
+              const productSearchResults = await billingApi.searchProducts(
+                String(nextItem.product_name || '').trim(),
+                undefined,
+                { limit: 10, exactOnly: true }
+              );
+              const matchedProduct = findProductByItem(productSearchResults, nextItem);
+              if (matchedProduct?.id) {
+                nextItem.product_id = matchedProduct.id;
+                setProductsList((prev) => mergeProductsById(prev, [matchedProduct]));
+                return nextItem;
+              }
               return nextItem;
-            }
-            const productSearchResults = await billingApi.searchProducts(
-              String(nextItem.product_name || '').trim(),
-              undefined,
-              { limit: 10, exactOnly: true }
-            );
-            const matchedProduct = findProductByItem(productSearchResults, nextItem);
-            if (matchedProduct?.id) {
-              nextItem.product_id = matchedProduct.id;
-              setProductsList((prev) => mergeProductsById(prev, [matchedProduct]));
-              return nextItem;
-            }
-            return nextItem;
-          })());
+            })()
+          );
           return nextItem;
         });
 
@@ -190,12 +219,11 @@ const useBillingCreateBill = ({
       }
 
       const resolvedCustomer =
-        findCustomerById(customersList, resolvedCustomerId)
-        || resolvedCustomerRecord
-        || customer;
+        findCustomerById(customersList, resolvedCustomerId) || resolvedCustomerRecord || customer;
       payload.customer_id = resolvedCustomerId;
-      payload.customer_name = String(resolvedCustomer?.name || payload.customer_name || '').trim()
-        || (isOrderLinked ? 'Customer' : 'Walk-in');
+      payload.customer_name =
+        String(resolvedCustomer?.name || payload.customer_name || '').trim() ||
+        (isOrderLinked ? 'Customer' : 'Walk-in');
       payload.customer_email = resolvedCustomer?.email || payload.customer_email || null;
       payload.customer_phone = resolvedCustomer?.phone || payload.customer_phone || null;
       payload.customer_address = resolvedCustomer?.address || payload.customer_address || null;
@@ -212,22 +240,23 @@ const useBillingCreateBill = ({
         // Keep the success flow resilient; fall back to the local payload for sharing.
       }
 
-      const shareSource = persistedBill && typeof persistedBill === 'object'
-        ? persistedBill
-        : {
-          bill_number: result?.bill_number,
-          created_at: new Date().toISOString(),
-          customer_id: payload.customer_id,
-          customer_name: payload.customer_name,
-          customer_email: payload.customer_email,
-          customer_phone: payload.customer_phone,
-          customer_address: payload.customer_address,
-          items: payload.items,
-          total_amount: payload.total_amount,
-          paid_amount: payload.paid_amount,
-          credit_amount: payload.credit_amount,
-          payment_status: payload.payment_status,
-        };
+      const shareSource =
+        persistedBill && typeof persistedBill === 'object'
+          ? persistedBill
+          : {
+              bill_number: result?.bill_number,
+              created_at: new Date().toISOString(),
+              customer_id: payload.customer_id,
+              customer_name: payload.customer_name,
+              customer_email: payload.customer_email,
+              customer_phone: payload.customer_phone,
+              customer_address: payload.customer_address,
+              items: payload.items,
+              total_amount: payload.total_amount,
+              paid_amount: payload.paid_amount,
+              credit_amount: payload.credit_amount,
+              payment_status: payload.payment_status,
+            };
 
       const shareCustomerId = Number(shareSource?.customer_id || 0) || null;
       const shareTotalAmount = shareSource?.total_amount ?? payload.total_amount;
@@ -258,7 +287,7 @@ const useBillingCreateBill = ({
         currentTotalCredit,
         paymentStatus: shareSource?.payment_status || payload.payment_status,
         onlineStoreUrl: info.ONLINE_STORE_URL,
-        thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।'
+        thankYouLine: 'আমাৰ ওচৰত বজাৰ কৰাৰ বাবে ধন্যবাদ।',
       });
       setLastShareText(shareText);
       setLastShareNumber(shareSource?.bill_number || result?.bill_number || '');

@@ -1,19 +1,22 @@
-const updatePurchaseOrderWithItems = async (deps, {
-  req,
-  cur,
-  items,
-  updatedDistributorId,
-  updatedSupplierId,
-  updatedNotes,
-  updatedExpectedDelivery,
-  plannedOrderDate,
-  paymentDueDate,
-  strictDueDate,
-  strictDueNote,
-  currentPoStatus,
-  nextLifecycleStatus,
-  shouldIncrementRevision,
-}) => {
+const updatePurchaseOrderWithItems = async (
+  deps,
+  {
+    req,
+    cur,
+    items,
+    updatedDistributorId,
+    updatedSupplierId,
+    updatedNotes,
+    updatedExpectedDelivery,
+    plannedOrderDate,
+    paymentDueDate,
+    strictDueDate,
+    strictDueNote,
+    currentPoStatus,
+    nextLifecycleStatus,
+    shouldIncrementRevision,
+  }
+) => {
   const {
     dbAllAsync,
     dbGetAsync,
@@ -87,8 +90,12 @@ const updatePurchaseOrderWithItems = async (deps, {
         duplicateKey,
         nextLifecycleStatus === PO_LIFECYCLE_SENT ? 'sent' : 'pending',
         nextLifecycleStatus,
-        shouldIncrementRevision ? Number(cur.revision_count || 0) + 1 : Number(cur.revision_count || 0),
-        nextLifecycleStatus === PO_LIFECYCLE_REVISED ? 'Resend updated PO' : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
+        shouldIncrementRevision
+          ? Number(cur.revision_count || 0) + 1
+          : Number(cur.revision_count || 0),
+        nextLifecycleStatus === PO_LIFECYCLE_REVISED
+          ? 'Resend updated PO'
+          : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
         subtotal,
         taxAmount,
         totalAmount,
@@ -96,7 +103,7 @@ const updatePurchaseOrderWithItems = async (deps, {
         paymentSnapshot.paymentStatus,
         paymentSnapshot.paidAmount,
         paymentSnapshot.balanceDue,
-        req.params.id
+        req.params.id,
       ]
     );
     await dbRunAsync('DELETE FROM product_cost_history WHERE po_id = ?', [req.params.id]);

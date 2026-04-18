@@ -25,7 +25,7 @@
       .filter((value) => Number.isFinite(value));
     if (nums.length < 2) return 0;
     const mean = nums.reduce((sum, value) => sum + value, 0) / nums.length;
-    const variance = nums.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / (nums.length - 1);
+    const variance = nums.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (nums.length - 1);
     return Math.sqrt(variance);
   };
 

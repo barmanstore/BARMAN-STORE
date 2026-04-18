@@ -52,24 +52,35 @@ function CreditHistoryHeader({
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState('');
   const badgeTooltipRef = useRef(null);
-  const hasPaymentScore = paymentBadgeSummary?.payment_score !== null
-    && paymentBadgeSummary?.payment_score !== undefined
-    && Number.isFinite(Number(paymentBadgeSummary?.payment_score));
-  const paymentScore = hasPaymentScore ? Math.round(Number(paymentBadgeSummary.payment_score)) : null;
+  const hasPaymentScore =
+    paymentBadgeSummary?.payment_score !== null &&
+    paymentBadgeSummary?.payment_score !== undefined &&
+    Number.isFinite(Number(paymentBadgeSummary?.payment_score));
+  const paymentScore = hasPaymentScore
+    ? Math.round(Number(paymentBadgeSummary.payment_score))
+    : null;
   const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
   const paymentStatusTone = String(paymentBadgeSummary?.payment_status_tone || 'neutral').trim();
   const paymentHelperText = String(paymentBadgeSummary?.helper_text || '').trim();
-  const paymentHelperMode = String(paymentBadgeSummary?.helper_mode || '').trim().toLowerCase();
-  const isNewCustomer = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-    || String(paymentBadgeSummary?.payment_status || '').trim().toLowerCase() === 'new'
-    || paymentStatusLabel.toLowerCase() === 'new';
+  const paymentHelperMode = String(paymentBadgeSummary?.helper_mode || '')
+    .trim()
+    .toLowerCase();
+  const isNewCustomer =
+    String(paymentBadgeSummary?.customer_tag || '')
+      .trim()
+      .toLowerCase() === 'insufficient_history' ||
+    String(paymentBadgeSummary?.payment_status || '')
+      .trim()
+      .toLowerCase() === 'new' ||
+    paymentStatusLabel.toLowerCase() === 'new';
   const showScoreValue = hasPaymentScore && !isNewCustomer;
   const pageTitle = isAdminView ? 'Credit History' : 'My Credit History';
   const customerName = String(customer?.name || '').trim();
   const identityName = customerName || (isAdminView ? 'Customer' : 'My Account');
   const pageSubline = isAdminView ? 'Customer ledger overview' : 'Track every sale and payment';
-  const customerSubline = String(customer?.phone || customer?.email || '').trim()
-    || (isAdminView ? 'Customer account' : 'Your account');
+  const customerSubline =
+    String(customer?.phone || customer?.email || '').trim() ||
+    (isAdminView ? 'Customer account' : 'Your account');
 
   useEffect(() => {
     if (!showBadgeTooltip || typeof document === 'undefined') return undefined;
@@ -150,13 +161,11 @@ function CreditHistoryHeader({
           <div className="balance-card-identity">
             <div className="customer-identity-avatar" aria-hidden="true">
               {avatarSrc ? (
-                <img
-                  src={avatarSrc}
-                  alt={identityName}
-                  onError={() => setAvatarLoadFailed(true)}
-                />
+                <img src={avatarSrc} alt={identityName} onError={() => setAvatarLoadFailed(true)} />
               ) : customerName ? (
-                <span className="customer-identity-avatar-fallback">{getInitials(customerName)}</span>
+                <span className="customer-identity-avatar-fallback">
+                  {getInitials(customerName)}
+                </span>
               ) : (
                 <User size={24} />
               )}
@@ -200,7 +209,8 @@ function CreditHistoryHeader({
                     <div className="payment-badge-tooltip-title">How payment badges work</div>
                     <p className="payment-badge-tooltip-intro">
                       Every new credit entry gets a due window based on the current payment status.
-                      Clearing the oldest unpaid due on time improves the score, while late or missed cycles reduce it.
+                      Clearing the oldest unpaid due on time improves the score, while late or
+                      missed cycles reduce it.
                     </p>
                     <ul className="payment-badge-tooltip-list">
                       {PAYMENT_BADGE_RULES.map((rule) => (
@@ -217,15 +227,20 @@ function CreditHistoryHeader({
                       <li>Missing the extra 3-day grace causes a stronger downgrade</li>
                     </ul>
                     <p className="payment-badge-tooltip-note">
-                      New customers stay in the New state until the first payment cycle is fully judged.
+                      New customers stay in the New state until the first payment cycle is fully
+                      judged.
                     </p>
                   </div>
                 ) : null}
               </div>
               {paymentStatusLabel ? (
-                <div className={`payment-badge-single ${isNewCustomer ? 'new' : (paymentStatusTone || 'neutral')}`}>
+                <div
+                  className={`payment-badge-single ${isNewCustomer ? 'new' : paymentStatusTone || 'neutral'}`}
+                >
                   <span className="payment-badge-label">{paymentStatusLabel}</span>
-                  <strong className="payment-badge-score">{showScoreValue ? `${paymentScore}/100` : '—'}</strong>
+                  <strong className="payment-badge-score">
+                    {showScoreValue ? `${paymentScore}/100` : '—'}
+                  </strong>
                 </div>
               ) : null}
               {paymentHelperText ? (
@@ -252,21 +267,25 @@ function CreditHistoryHeader({
       <section className="ledger-summary-strip">
         <div className="ledger-summary-card">
           <span className="ledger-summary-label">Total Debits</span>
-          <strong className="ledger-summary-value debit">{formatCurrency(ledgerSummary?.totalDebit || 0)}</strong>
+          <strong className="ledger-summary-value debit">
+            {formatCurrency(ledgerSummary?.totalDebit || 0)}
+          </strong>
         </div>
         <div className="ledger-summary-card">
           <span className="ledger-summary-label">Total Credits</span>
-          <strong className="ledger-summary-value credit">{formatCurrency(ledgerSummary?.totalCredit || 0)}</strong>
+          <strong className="ledger-summary-value credit">
+            {formatCurrency(ledgerSummary?.totalCredit || 0)}
+          </strong>
         </div>
         <div className="ledger-summary-card">
           <span className="ledger-summary-label">Running Balance</span>
-          <strong className="ledger-summary-value">{formatCurrency(Math.abs(Number(balance || 0)))}</strong>
+          <strong className="ledger-summary-value">
+            {formatCurrency(Math.abs(Number(balance || 0)))}
+          </strong>
         </div>
       </section>
 
-      {inactivityHint && (
-        <div className="inactivity-hint">{inactivityHint}</div>
-      )}
+      {inactivityHint && <div className="inactivity-hint">{inactivityHint}</div>}
 
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
@@ -289,4 +308,3 @@ function CreditHistoryHeader({
 }
 
 export default CreditHistoryHeader;
-

@@ -8,7 +8,7 @@ export const getStatusBadge = (order, getPoLifecycleStatus) => {
     part_paid: { label: 'Part Paid', class: 'received' },
     fully_paid: { label: 'Fully Paid', class: 'received' },
     closed: { label: 'Closed', class: 'received' },
-    cancelled: { label: 'Cancelled', class: 'cancelled' }
+    cancelled: { label: 'Cancelled', class: 'cancelled' },
   };
   const config = statusConfig[lifecycleStatus] || { label: lifecycleStatus || '-', class: '' };
   return <span className={`status-badge ${config.class}`}>{config.label}</span>;
@@ -27,7 +27,12 @@ export const getPoPaymentBadge = (order, getPoPaymentStatus) => {
 
 export const getLedgerRowStatusClass = (entry, normalizePoPaymentStatus) => {
   const rawLinkedStatus = entry?.linked_po_payment_status ?? entry?.po_payment_status;
-  if (rawLinkedStatus === undefined || rawLinkedStatus === null || String(rawLinkedStatus).trim() === '') return '';
+  if (
+    rawLinkedStatus === undefined ||
+    rawLinkedStatus === null ||
+    String(rawLinkedStatus).trim() === ''
+  )
+    return '';
   const linkedStatus = normalizePoPaymentStatus(rawLinkedStatus);
   if (!linkedStatus) return '';
   if (linkedStatus === 'paid') return 'ledger-row-paid';
@@ -56,7 +61,13 @@ export const getOrderDistributorInfo = (order, distributors = []) => {
   const phoneFromContacts = getDistributorPhoneFromContacts(contacts);
   return {
     name: order.supplier_name || order.distributor_name || distributor?.name || '-',
-    phone: order.supplier_phone || order.supplier_alt_phone || order.distributor_phone || distributor?.phone || phoneFromContacts || '-',
+    phone:
+      order.supplier_phone ||
+      order.supplier_alt_phone ||
+      order.distributor_phone ||
+      distributor?.phone ||
+      phoneFromContacts ||
+      '-',
     address: order.distributor_address || distributor?.address || '-',
     contacts,
   };

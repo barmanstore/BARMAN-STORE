@@ -17,7 +17,9 @@ const registerEmailVerificationStatusRoutes = (deps) => {
 
   app.get('/api/auth/email/verification/status', requireAuth, async (req, res) => {
     try {
-      let user = await dbGetAsync('SELECT id, email, email_verified FROM users WHERE id = ?', [req.authUser.id]);
+      let user = await dbGetAsync('SELECT id, email, email_verified FROM users WHERE id = ?', [
+        req.authUser.id,
+      ]);
       if (!user) return res.status(404).json({ error: 'User not found' });
       if (isSupabaseEmailAuthUsable() && user.email) {
         const bearerToken = getBearerTokenFromRequest(req);
@@ -26,7 +28,10 @@ const registerEmailVerificationStatusRoutes = (deps) => {
             const supabaseUser = await supabaseAuthProvider.getUser({ accessToken: bearerToken });
             if (isSupabaseEmailVerified(supabaseUser) && Number(user.email_verified || 0) !== 1) {
               await syncLocalEmailVerifiedFromSupabase(user.email);
-              user = await dbGetAsync('SELECT id, email, email_verified FROM users WHERE id = ?', [req.authUser.id]) || user;
+              user =
+                (await dbGetAsync('SELECT id, email, email_verified FROM users WHERE id = ?', [
+                  req.authUser.id,
+                ])) || user;
               await completeContactVerificationRequests({ userId: user.id, requestType: 'email' });
             }
           } catch (_) {

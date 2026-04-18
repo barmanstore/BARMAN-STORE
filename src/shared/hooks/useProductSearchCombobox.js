@@ -14,7 +14,10 @@ const DEFAULT_POOL_LIMIT = 240;
 const DEFAULT_MIN_CHARS = 2;
 const DEFAULT_DEBOUNCE_MS = 90;
 
-const normalizeSearchKey = (value = '') => String(value || '').trim().toLowerCase();
+const normalizeSearchKey = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const getProductCacheKey = (product = {}) => {
   const id = Number(product?.id || 0);
@@ -23,14 +26,17 @@ const getProductCacheKey = (product = {}) => {
     normalizeSearchKey(product?.name),
     normalizeSearchKey(product?.sku),
     normalizeSearchKey(product?.barcode),
-  ].filter(Boolean).join('|');
+  ]
+    .filter(Boolean)
+    .join('|');
 };
 
-const getProductLookupKeys = (product = {}) => [
-  normalizeSearchKey(product?.name),
-  normalizeSearchKey(product?.sku),
-  normalizeSearchKey(product?.barcode),
-].filter(Boolean);
+const getProductLookupKeys = (product = {}) =>
+  [
+    normalizeSearchKey(product?.name),
+    normalizeSearchKey(product?.sku),
+    normalizeSearchKey(product?.barcode),
+  ].filter(Boolean);
 
 const rankProductForQuery = (product = {}, normalizedQuery = '') => {
   const name = normalizeSearchKey(product?.name);
@@ -41,14 +47,18 @@ const rankProductForQuery = (product = {}, normalizedQuery = '') => {
   let rank = Number.POSITIVE_INFINITY;
   if (sku === normalizedQuery || barcode === normalizedQuery) rank = 0;
   else if (name === normalizedQuery) rank = 1;
-  else if ((sku && sku.startsWith(normalizedQuery)) || (barcode && barcode.startsWith(normalizedQuery))) rank = 2;
+  else if (
+    (sku && sku.startsWith(normalizedQuery)) ||
+    (barcode && barcode.startsWith(normalizedQuery))
+  )
+    rank = 2;
   else if (name && name.startsWith(normalizedQuery)) rank = 3;
   else if (brand && brand.startsWith(normalizedQuery)) rank = 4;
   else if (
-    (name && name.includes(normalizedQuery))
-    || (brand && brand.includes(normalizedQuery))
-    || (sku && sku.includes(normalizedQuery))
-    || (barcode && barcode.includes(normalizedQuery))
+    (name && name.includes(normalizedQuery)) ||
+    (brand && brand.includes(normalizedQuery)) ||
+    (sku && sku.includes(normalizedQuery)) ||
+    (barcode && barcode.includes(normalizedQuery))
   ) {
     rank = 5;
   }
@@ -100,155 +110,179 @@ const useProductSearchCombobox = ({
     return { byKey };
   }, [localProducts]);
 
-  const rememberProducts = useCallback((rows = []) => {
-    if (!Array.isArray(rows) || rows.length === 0) return;
+  const rememberProducts = useCallback(
+    (rows = []) => {
+      if (!Array.isArray(rows) || rows.length === 0) return;
 
-    rows.forEach((product) => {
-      const cacheKey = getProductCacheKey(product);
-      if (!cacheKey) return;
+      rows.forEach((product) => {
+        const cacheKey = getProductCacheKey(product);
+        if (!cacheKey) return;
 
-      if (searchPoolRef.current.has(cacheKey)) {
-        searchPoolRef.current.delete(cacheKey);
+        if (searchPoolRef.current.has(cacheKey)) {
+          searchPoolRef.current.delete(cacheKey);
+        }
+        searchPoolRef.current.set(cacheKey, product);
+      });
+
+      while (searchPoolRef.current.size > poolLimit) {
+        const oldestKey = searchPoolRef.current.keys().next().value;
+        if (!oldestKey) break;
+        searchPoolRef.current.delete(oldestKey);
       }
-      searchPoolRef.current.set(cacheKey, product);
-    });
+    },
+    [poolLimit]
+  );
 
-    while (searchPoolRef.current.size > poolLimit) {
-      const oldestKey = searchPoolRef.current.keys().next().value;
-      if (!oldestKey) break;
-      searchPoolRef.current.delete(oldestKey);
-    }
-  }, [poolLimit]);
+  const findLocalMatches = useCallback(
+    (rawQuery, limit = suggestionLimit) => {
+      const normalizedQuery = normalizeSearchKey(rawQuery);
+      if (!normalizedQuery) return [];
 
-  const findLocalMatches = useCallback((rawQuery, limit = suggestionLimit) => {
-    const normalizedQuery = normalizeSearchKey(rawQuery);
-    if (!normalizedQuery) return [];
-
-    const candidateMap = new Map();
-    (Array.isArray(localProducts) ? localProducts : []).forEach((product) => {
-      const cacheKey = getProductCacheKey(product);
-      if (!cacheKey || candidateMap.has(cacheKey)) return;
-      candidateMap.set(cacheKey, product);
-    });
-    searchPoolRef.current.forEach((product, cacheKey) => {
-      if (!candidateMap.has(cacheKey)) {
+      const candidateMap = new Map();
+      (Array.isArray(localProducts) ? localProducts : []).forEach((product) => {
+        const cacheKey = getProductCacheKey(product);
+        if (!cacheKey || candidateMap.has(cacheKey)) return;
         candidateMap.set(cacheKey, product);
-      }
-    });
-
-    const rankedMatches = [];
-    candidateMap.forEach((product) => {
-      const ranked = rankProductForQuery(product, normalizedQuery);
-      if (ranked) {
-        rankedMatches.push(ranked);
-      }
-    });
-
-    rankedMatches.sort((left, right) =>
-      left.rank - right.rank
-      || left.nameLength - right.nameLength
-      || String(left.product?.name || '').localeCompare(String(right.product?.name || ''))
-    );
-
-    return rankedMatches.slice(0, limit).map((entry) => entry.product);
-  }, [localProducts, suggestionLimit]);
-
-  const resolveExactMatch = useCallback((rawQuery = '', preferredList = []) => {
-    const normalizedQuery = normalizeSearchKey(rawQuery);
-    if (!normalizedQuery) return null;
-
-    const preferredMatch = (Array.isArray(preferredList) ? preferredList : []).find((product) =>
-      getProductLookupKeys(product).includes(normalizedQuery)
-    );
-    if (preferredMatch) return preferredMatch;
-
-    return productLookup.byKey.get(normalizedQuery) || null;
-  }, [productLookup]);
-
-  const applySearchResults = useCallback((rows = [], options = {}) => {
-    const visibleRows = Array.isArray(rows) ? rows.slice(0, suggestionLimit) : [];
-    startTransition(() => {
-      setSearchResults(visibleRows);
-      setActiveIndex(Math.min(Number(options?.activeIndex || 0), Math.max(visibleRows.length - 1, 0)));
-    });
-    if (options.keepExplicitChoice !== true) {
-      setHasExplicitChoice(false);
-    }
-    return visibleRows;
-  }, [suggestionLimit]);
-
-  const cacheSearchResults = useCallback((rawQuery, rows, limit = suggestionLimit) => {
-    const normalizedQuery = normalizeSearchKey(rawQuery);
-    const visibleRows = Array.isArray(rows) ? rows.slice(0, limit) : [];
-
-    if (!normalizedQuery) return visibleRows;
-
-    if (searchCacheRef.current.has(normalizedQuery)) {
-      searchCacheRef.current.delete(normalizedQuery);
-    }
-    searchCacheRef.current.set(normalizedQuery, visibleRows);
-
-    while (searchCacheRef.current.size > cacheLimit) {
-      const oldestQuery = searchCacheRef.current.keys().next().value;
-      if (!oldestQuery) break;
-      searchCacheRef.current.delete(oldestQuery);
-    }
-
-    rememberProducts(visibleRows);
-    return visibleRows;
-  }, [cacheLimit, rememberProducts, suggestionLimit]);
-
-  const runRemoteSearch = useCallback(async (rawQuery, options = {}) => {
-    const normalizedQuery = normalizeSearchKey(rawQuery);
-    const requestedLimit = Math.max(
-      1,
-      Math.min(suggestionLimit, Number(options?.limit || suggestionLimit) || suggestionLimit)
-    );
-
-    if (!normalizedQuery || typeof searchProducts !== 'function') {
-      return [];
-    }
-
-    if (!options.forceRefresh) {
-      const cachedRows = searchCacheRef.current.get(normalizedQuery);
-      if (cachedRows) {
-        return cachedRows.slice(0, requestedLimit);
-      }
-    }
-
-    if (!options.forceRefresh) {
-      const inFlightRequest = searchInFlightRef.current.get(normalizedQuery);
-      if (inFlightRequest) {
-        return inFlightRequest;
-      }
-    }
-
-    const fetchOptions = { ...options };
-    delete fetchOptions.forceRefresh;
-    delete fetchOptions.limit;
-
-    const requestPromise = Promise.resolve(
-      searchProducts(rawQuery, {
-        ...fetchOptions,
-        limit: requestedLimit,
-      })
-    )
-      .then((rows) => cacheSearchResults(normalizedQuery, rows, requestedLimit))
-      .finally(() => {
-        if (searchInFlightRef.current.get(normalizedQuery) === requestPromise) {
-          searchInFlightRef.current.delete(normalizedQuery);
+      });
+      searchPoolRef.current.forEach((product, cacheKey) => {
+        if (!candidateMap.has(cacheKey)) {
+          candidateMap.set(cacheKey, product);
         }
       });
 
-    searchInFlightRef.current.set(normalizedQuery, requestPromise);
-    return requestPromise;
-  }, [cacheSearchResults, searchProducts, suggestionLimit]);
+      const rankedMatches = [];
+      candidateMap.forEach((product) => {
+        const ranked = rankProductForQuery(product, normalizedQuery);
+        if (ranked) {
+          rankedMatches.push(ranked);
+        }
+      });
 
-  const resolveHighlightedProduct = useCallback((rawQuery = query, preferredResults = searchResults) => {
-    const exactMatch = resolveExactMatch(rawQuery, preferredResults);
-    if (exactMatch) return exactMatch;
-    return preferredResults[activeIndex] || preferredResults[0] || null;
-  }, [activeIndex, query, resolveExactMatch, searchResults]);
+      rankedMatches.sort(
+        (left, right) =>
+          left.rank - right.rank ||
+          left.nameLength - right.nameLength ||
+          String(left.product?.name || '').localeCompare(String(right.product?.name || ''))
+      );
+
+      return rankedMatches.slice(0, limit).map((entry) => entry.product);
+    },
+    [localProducts, suggestionLimit]
+  );
+
+  const resolveExactMatch = useCallback(
+    (rawQuery = '', preferredList = []) => {
+      const normalizedQuery = normalizeSearchKey(rawQuery);
+      if (!normalizedQuery) return null;
+
+      const preferredMatch = (Array.isArray(preferredList) ? preferredList : []).find((product) =>
+        getProductLookupKeys(product).includes(normalizedQuery)
+      );
+      if (preferredMatch) return preferredMatch;
+
+      return productLookup.byKey.get(normalizedQuery) || null;
+    },
+    [productLookup]
+  );
+
+  const applySearchResults = useCallback(
+    (rows = [], options = {}) => {
+      const visibleRows = Array.isArray(rows) ? rows.slice(0, suggestionLimit) : [];
+      startTransition(() => {
+        setSearchResults(visibleRows);
+        setActiveIndex(
+          Math.min(Number(options?.activeIndex || 0), Math.max(visibleRows.length - 1, 0))
+        );
+      });
+      if (options.keepExplicitChoice !== true) {
+        setHasExplicitChoice(false);
+      }
+      return visibleRows;
+    },
+    [suggestionLimit]
+  );
+
+  const cacheSearchResults = useCallback(
+    (rawQuery, rows, limit = suggestionLimit) => {
+      const normalizedQuery = normalizeSearchKey(rawQuery);
+      const visibleRows = Array.isArray(rows) ? rows.slice(0, limit) : [];
+
+      if (!normalizedQuery) return visibleRows;
+
+      if (searchCacheRef.current.has(normalizedQuery)) {
+        searchCacheRef.current.delete(normalizedQuery);
+      }
+      searchCacheRef.current.set(normalizedQuery, visibleRows);
+
+      while (searchCacheRef.current.size > cacheLimit) {
+        const oldestQuery = searchCacheRef.current.keys().next().value;
+        if (!oldestQuery) break;
+        searchCacheRef.current.delete(oldestQuery);
+      }
+
+      rememberProducts(visibleRows);
+      return visibleRows;
+    },
+    [cacheLimit, rememberProducts, suggestionLimit]
+  );
+
+  const runRemoteSearch = useCallback(
+    async (rawQuery, options = {}) => {
+      const normalizedQuery = normalizeSearchKey(rawQuery);
+      const requestedLimit = Math.max(
+        1,
+        Math.min(suggestionLimit, Number(options?.limit || suggestionLimit) || suggestionLimit)
+      );
+
+      if (!normalizedQuery || typeof searchProducts !== 'function') {
+        return [];
+      }
+
+      if (!options.forceRefresh) {
+        const cachedRows = searchCacheRef.current.get(normalizedQuery);
+        if (cachedRows) {
+          return cachedRows.slice(0, requestedLimit);
+        }
+      }
+
+      if (!options.forceRefresh) {
+        const inFlightRequest = searchInFlightRef.current.get(normalizedQuery);
+        if (inFlightRequest) {
+          return inFlightRequest;
+        }
+      }
+
+      const fetchOptions = { ...options };
+      delete fetchOptions.forceRefresh;
+      delete fetchOptions.limit;
+
+      const requestPromise = Promise.resolve(
+        searchProducts(rawQuery, {
+          ...fetchOptions,
+          limit: requestedLimit,
+        })
+      )
+        .then((rows) => cacheSearchResults(normalizedQuery, rows, requestedLimit))
+        .finally(() => {
+          if (searchInFlightRef.current.get(normalizedQuery) === requestPromise) {
+            searchInFlightRef.current.delete(normalizedQuery);
+          }
+        });
+
+      searchInFlightRef.current.set(normalizedQuery, requestPromise);
+      return requestPromise;
+    },
+    [cacheSearchResults, searchProducts, suggestionLimit]
+  );
+
+  const resolveHighlightedProduct = useCallback(
+    (rawQuery = query, preferredResults = searchResults) => {
+      const exactMatch = resolveExactMatch(rawQuery, preferredResults);
+      if (exactMatch) return exactMatch;
+      return preferredResults[activeIndex] || preferredResults[0] || null;
+    },
+    [activeIndex, query, resolveExactMatch, searchResults]
+  );
 
   const clearSearchState = useCallback(() => {
     if (searchTimeoutRef.current) {
@@ -266,20 +300,36 @@ const useProductSearchCombobox = ({
     applySearchResults([]);
   }, [applySearchResults]);
 
-  const searchNow = useCallback(async (rawQuery, options = {}) => {
-    const remoteResults = await runRemoteSearch(rawQuery, options);
-    if (options.syncState !== false) {
-      applySearchResults(remoteResults);
-    }
-    return remoteResults;
-  }, [applySearchResults, runRemoteSearch]);
+  const searchNow = useCallback(
+    async (rawQuery, options = {}) => {
+      const remoteResults = await runRemoteSearch(rawQuery, options);
+      if (options.syncState !== false) {
+        applySearchResults(remoteResults);
+      }
+      return remoteResults;
+    },
+    [applySearchResults, runRemoteSearch]
+  );
 
-  useEffect(() => () => {
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    if (searchAbortRef.current?.controller) {
-      searchAbortRef.current.controller.abort();
+  useEffect(
+    () => () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+      if (searchAbortRef.current?.controller) {
+        searchAbortRef.current.controller.abort();
+      }
+    },
+    []
+  );
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    if (!deferredQuery || normalizedSelectedProductId || deferredQuery.length < minChars) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSearchLoading(false);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      applySearchResults([]);
     }
-  }, []);
+  }, [deferredQuery, normalizedSelectedProductId, minChars, applySearchResults]);
 
   useEffect(() => {
     const activeQuery = deferredQuery;
@@ -298,14 +348,14 @@ const useProductSearchCombobox = ({
       searchAbortRef.current = null;
     }
 
+    // Skip search if conditions aren't met (already handled by reset effect above)
     if (!activeQuery || normalizedSelectedProductId || activeQuery.length < minChars) {
-      setSearchLoading(false);
-      applySearchResults([]);
       return undefined;
     }
 
     const localResults = findLocalMatches(activeQuery, suggestionLimit);
     if (localResults.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       applySearchResults(localResults);
     }
 
@@ -318,10 +368,10 @@ const useProductSearchCombobox = ({
 
     const localExactMatch = resolveExactMatch(activeQuery, localResults);
     const shouldSkipRemoteSearch = Boolean(
-      typeof searchProducts !== 'function'
-      || localExactMatch
-      || localResults.length >= suggestionLimit
-      || (activeQuery.length <= minChars && localResults.length > 0)
+      typeof searchProducts !== 'function' ||
+      localExactMatch ||
+      localResults.length >= suggestionLimit ||
+      (activeQuery.length <= minChars && localResults.length > 0)
     );
     if (shouldSkipRemoteSearch) {
       setSearchLoading(false);
@@ -330,7 +380,10 @@ const useProductSearchCombobox = ({
 
     searchTimeoutRef.current = setTimeout(async () => {
       const searchAbortController = new AbortController();
-      searchAbortRef.current = { controller: searchAbortController, query: normalizeSearchKey(activeQuery) };
+      searchAbortRef.current = {
+        controller: searchAbortController,
+        query: normalizeSearchKey(activeQuery),
+      };
       setSearchLoading(true);
       try {
         const visibleResults = await runRemoteSearch(activeQuery, {

@@ -21,58 +21,83 @@ const usePurchasePrintOrder = ({
   findProductForItem,
   calculateOrderItem,
 }) => {
-  const getItemFinancials = useCallback((item) => {
-    const quantity = Math.max(0, toNumber(item?.quantity));
-    const product = findProductForItem(products, item);
-    const profile = getProductUomProfile(product);
-    const fallbackUom = resolvePurchaseUnitForProduct(product, item?.uom || profile.baseUnit);
-    const calculatedLine = typeof calculateOrderItem === 'function' ? calculateOrderItem(item) : null;
-    const uom = calculatedLine?.uom || fallbackUom;
-    const quantityInBase = Number(calculatedLine?.quantityInBase ?? toBaseQtyForProduct(quantity, uom, product)) || 0;
-    const rate = Math.max(0, toNumber(calculatedLine?.rate ?? item?.rate ?? item?.unit_price));
-    const grossAmount = Number(calculatedLine?.grossAmount ?? (quantityInBase * rate)) || 0;
-    const discountType = String(calculatedLine?.discountType || item?.discount_type || 'percent').trim().toLowerCase() === 'fixed'
-      ? 'fixed'
-      : 'percent';
-    const discountValue = Math.max(0, toNumber(calculatedLine?.discountValue ?? item?.discount_value));
-    const discountAmountFallback = discountType === 'fixed'
-      ? discountValue
-      : (grossAmount * discountValue) / 100;
-    const discountAmount = Number(calculatedLine?.discountAmount ?? Math.max(0, Math.min(discountAmountFallback, grossAmount))) || 0;
-    const taxableValue = Number(calculatedLine?.taxableValue ?? Math.max(0, grossAmount - discountAmount)) || 0;
-    const gstRate = Math.max(0, toNumber(calculatedLine?.gstRate ?? item?.gst_rate));
-    const taxAmount = Number(calculatedLine?.taxAmount ?? (taxableValue * gstRate) / 100) || 0;
-    const lineTotal = Number(calculatedLine?.totalAmount ?? (taxableValue + taxAmount)) || 0;
-    const grossPerDisplayUnit = quantity > 0 ? grossAmount / quantity : rate;
-    const taxablePerDisplayUnit = quantity > 0 ? taxableValue / quantity : taxableValue;
-    const effectivePerDisplayUnit = quantity > 0 ? lineTotal / quantity : lineTotal;
-    return {
-      quantity,
-      quantityInBase,
-      uom,
-      rate,
-      grossAmount,
-      discountType,
-      discountValue,
-      discountAmount,
-      taxableValue,
-      taxAmount,
-      lineTotal,
-      totalAmount: lineTotal,
-      gstRate,
-      baseUnit: profile.baseUnit,
-      grossPerDisplayUnit,
-      taxablePerDisplayUnit,
-      effectivePerDisplayUnit,
-    };
-  }, [products, findProductForItem, getProductUomProfile, toNumber, resolvePurchaseUnitForProduct, toBaseQtyForProduct, calculateOrderItem]);
+  const getItemFinancials = useCallback(
+    (item) => {
+      const quantity = Math.max(0, toNumber(item?.quantity));
+      const product = findProductForItem(products, item);
+      const profile = getProductUomProfile(product);
+      const fallbackUom = resolvePurchaseUnitForProduct(product, item?.uom || profile.baseUnit);
+      const calculatedLine =
+        typeof calculateOrderItem === 'function' ? calculateOrderItem(item) : null;
+      const uom = calculatedLine?.uom || fallbackUom;
+      const quantityInBase =
+        Number(calculatedLine?.quantityInBase ?? toBaseQtyForProduct(quantity, uom, product)) || 0;
+      const rate = Math.max(0, toNumber(calculatedLine?.rate ?? item?.rate ?? item?.unit_price));
+      const grossAmount = Number(calculatedLine?.grossAmount ?? quantityInBase * rate) || 0;
+      const discountType =
+        String(calculatedLine?.discountType || item?.discount_type || 'percent')
+          .trim()
+          .toLowerCase() === 'fixed'
+          ? 'fixed'
+          : 'percent';
+      const discountValue = Math.max(
+        0,
+        toNumber(calculatedLine?.discountValue ?? item?.discount_value)
+      );
+      const discountAmountFallback =
+        discountType === 'fixed' ? discountValue : (grossAmount * discountValue) / 100;
+      const discountAmount =
+        Number(
+          calculatedLine?.discountAmount ??
+            Math.max(0, Math.min(discountAmountFallback, grossAmount))
+        ) || 0;
+      const taxableValue =
+        Number(calculatedLine?.taxableValue ?? Math.max(0, grossAmount - discountAmount)) || 0;
+      const gstRate = Math.max(0, toNumber(calculatedLine?.gstRate ?? item?.gst_rate));
+      const taxAmount = Number(calculatedLine?.taxAmount ?? (taxableValue * gstRate) / 100) || 0;
+      const lineTotal = Number(calculatedLine?.totalAmount ?? taxableValue + taxAmount) || 0;
+      const grossPerDisplayUnit = quantity > 0 ? grossAmount / quantity : rate;
+      const taxablePerDisplayUnit = quantity > 0 ? taxableValue / quantity : taxableValue;
+      const effectivePerDisplayUnit = quantity > 0 ? lineTotal / quantity : lineTotal;
+      return {
+        quantity,
+        quantityInBase,
+        uom,
+        rate,
+        grossAmount,
+        discountType,
+        discountValue,
+        discountAmount,
+        taxableValue,
+        taxAmount,
+        lineTotal,
+        totalAmount: lineTotal,
+        gstRate,
+        baseUnit: profile.baseUnit,
+        grossPerDisplayUnit,
+        taxablePerDisplayUnit,
+        effectivePerDisplayUnit,
+      };
+    },
+    [
+      products,
+      findProductForItem,
+      getProductUomProfile,
+      toNumber,
+      resolvePurchaseUnitForProduct,
+      toBaseQtyForProduct,
+      calculateOrderItem,
+    ]
+  );
 
-  const buildPurchaseOrderPrintHtml = useCallback((order) => {
-    const items = Array.isArray(order?.items) ? order.items : [];
-    const supplier = getOrderDistributorInfo(order, distributors);
-    const rows = items.map((item, index) => {
-      const line = getItemFinancials(item);
-      return `
+  const buildPurchaseOrderPrintHtml = useCallback(
+    (order) => {
+      const items = Array.isArray(order?.items) ? order.items : [];
+      const supplier = getOrderDistributorInfo(order, distributors);
+      const rows = items
+        .map((item, index) => {
+          const line = getItemFinancials(item);
+          return `
         <tr>
           <td>${index + 1}</td>
           <td>${escapeHtml(item?.product_name || '-')}</td>
@@ -89,13 +114,14 @@ const usePurchasePrintOrder = ({
           <td>${formatCurrency(line.lineTotal)}</td>
         </tr>
       `;
-    }).join('');
+        })
+        .join('');
 
-    const taxable = toNumber(order?.taxable_value);
-    const tax = toNumber(order?.tax_amount);
-    const grand = toNumber(order?.total_amount || getOrderDisplayTotal(order));
+      const taxable = toNumber(order?.taxable_value);
+      const tax = toNumber(order?.tax_amount);
+      const grand = toNumber(order?.total_amount || getOrderDisplayTotal(order));
 
-    return `
+      return `
       <div class="po-print">
         <div class="po-print-header">
           <div>
@@ -150,28 +176,31 @@ const usePurchasePrintOrder = ({
         </div>
       </div>
     `;
-  }, [
-    distributors,
-    getOrderDistributorInfo,
-    getItemFinancials,
-    escapeHtml,
-    formatCurrency,
-    toNumber,
-    getOrderDisplayTotal,
-    getPoLifecycleStatus,
-    getPoPaymentStatus,
-    getPoPaidAmount,
-    getPoBalanceDue,
-    formatDate,
-  ]);
+    },
+    [
+      distributors,
+      getOrderDistributorInfo,
+      getItemFinancials,
+      escapeHtml,
+      formatCurrency,
+      toNumber,
+      getOrderDisplayTotal,
+      getPoLifecycleStatus,
+      getPoPaymentStatus,
+      getPoPaidAmount,
+      getPoBalanceDue,
+      formatDate,
+    ]
+  );
 
-  const handlePrintOrderDetail = useCallback((order) => {
-    if (!order) return;
-    const html = buildPurchaseOrderPrintHtml(order);
-    printHtmlDocument({
-      title: `PO ${order?.po_number || ''}`,
-      bodyHtml: html,
-      cssText: `
+  const handlePrintOrderDetail = useCallback(
+    (order) => {
+      if (!order) return;
+      const html = buildPurchaseOrderPrintHtml(order);
+      printHtmlDocument({
+        title: `PO ${order?.po_number || ''}`,
+        bodyHtml: html,
+        cssText: `
         .po-print { max-width: 980px; margin: 0 auto; }
         .po-print-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
         .po-print-header h1 { margin: 0 0 6px; font-size: 26px; }
@@ -191,9 +220,11 @@ const usePurchasePrintOrder = ({
           .po-print-table tr { page-break-inside: avoid; }
         }
       `,
-      onError: (message) => setError(message),
-    });
-  }, [buildPurchaseOrderPrintHtml, printHtmlDocument, setError]);
+        onError: (message) => setError(message),
+      });
+    },
+    [buildPurchaseOrderPrintHtml, printHtmlDocument, setError]
+  );
 
   return {
     handlePrintOrderDetail,

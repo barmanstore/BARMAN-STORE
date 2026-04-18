@@ -1,7 +1,8 @@
 const resolveProfileTarget = ({ req, targetUserId, userHasCapability } = {}) => {
-  const isAdmin = typeof userHasCapability === 'function'
-    ? userHasCapability(req.authUser, 'manage_users')
-    : req.authUser?.role === 'admin';
+  const isAdmin =
+    typeof userHasCapability === 'function'
+      ? userHasCapability(req.authUser, 'manage_users')
+      : req.authUser?.role === 'admin';
   const isSelf = Number(req.authUser?.id || 0) === Number(targetUserId || 0);
   return { isAdmin, isSelf };
 };

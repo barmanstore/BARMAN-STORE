@@ -1,6 +1,5 @@
-const buildSupplierVisitKey = (supplierId, dateKey) => (
-  `${Number(supplierId || 0)}@@${String(dateKey || '').trim()}`
-);
+const buildSupplierVisitKey = (supplierId, dateKey) =>
+  `${Number(supplierId || 0)}@@${String(dateKey || '').trim()}`;
 
 const buildSupplierVisitStates = ({
   baseData,
@@ -16,27 +15,26 @@ const buildSupplierVisitStates = ({
   PO_LIFECYCLE_FULLY_PAID,
   PO_LIFECYCLE_CLOSED,
 } = {}) => {
-  const {
-    todayKey,
-    boardEndKey,
-    distributors,
-    suppliers,
-    payments,
-    supplierVisits,
-  } = baseData || {};
+  const { todayKey, boardEndKey, distributors, suppliers, payments, supplierVisits } =
+    baseData || {};
   const { enrichedOrders } = metrics || {};
 
-  const doneLifecycleStatuses = new Set([
-    PO_LIFECYCLE_CONFIRMED,
-    PO_LIFECYCLE_PART_PAID,
-    PO_LIFECYCLE_FULLY_PAID,
-    PO_LIFECYCLE_CLOSED,
-  ].filter(Boolean));
+  const doneLifecycleStatuses = new Set(
+    [
+      PO_LIFECYCLE_CONFIRMED,
+      PO_LIFECYCLE_PART_PAID,
+      PO_LIFECYCLE_FULLY_PAID,
+      PO_LIFECYCLE_CLOSED,
+    ].filter(Boolean)
+  );
   const supplierById = new Map(
     (Array.isArray(suppliers) ? suppliers : []).map((entry) => [Number(entry?.id || 0), entry])
   );
   const distributorById = new Map(
-    (Array.isArray(distributors) ? distributors : []).map((entry) => [Number(entry?.id || 0), entry])
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [
+      Number(entry?.id || 0),
+      entry,
+    ])
   );
   const supplierVisitMap = new Map();
 
@@ -65,14 +63,20 @@ const buildSupplierVisitStates = ({
     .filter((supplier) => Boolean(supplier?.is_active ?? true))
     .filter((supplier) => {
       const distributor = distributorById.get(Number(supplier?.distributor_id || 0));
-      return distributor && String(distributor?.status || 'active').trim().toLowerCase() === 'active';
+      return (
+        distributor &&
+        String(distributor?.status || 'active')
+          .trim()
+          .toLowerCase() === 'active'
+      );
     });
 
   activeSuppliers.forEach((supplier) => {
     const distributor = distributorById.get(Number(supplier?.distributor_id || 0));
-    const schedule = typeof getSupplierScheduleConfig === 'function'
-      ? getSupplierScheduleConfig(supplier, distributor)
-      : { scheduleType: 'irregular', scheduleDay: null };
+    const schedule =
+      typeof getSupplierScheduleConfig === 'function'
+        ? getSupplierScheduleConfig(supplier, distributor)
+        : { scheduleType: 'irregular', scheduleDay: null };
     if (schedule?.scheduleType === 'daily') {
       for (let offset = 0; offset <= 6; offset += 1) {
         registerSupplierVisit(supplier.id, addDaysToDateKey(todayKey, offset), {
@@ -127,7 +131,9 @@ const buildSupplierVisitStates = ({
   const paymentDoneKeys = new Set();
   (Array.isArray(payments) ? payments : []).forEach((payment) => {
     const supplierId = Number(payment?.supplier_id || 0);
-    const dateKey = normalizeTransactionDate(payment?.transaction_date || payment?.created_at || null);
+    const dateKey = normalizeTransactionDate(
+      payment?.transaction_date || payment?.created_at || null
+    );
     if (!supplierId || !dateKey) return;
     if (Number(payment?.amount || 0) <= 0) return;
     paymentDoneKeys.add(buildSupplierVisitKey(supplierId, dateKey));
@@ -156,11 +162,12 @@ const buildSupplierVisitStates = ({
         isHandled: poDone || visitClosed,
       };
     })
-    .sort((left, right) => (
-      String(left.date || '').localeCompare(String(right.date || ''))
-      || String(left.distributor_name || '').localeCompare(String(right.distributor_name || ''))
-      || String(left.supplier_name || '').localeCompare(String(right.supplier_name || ''))
-    ));
+    .sort(
+      (left, right) =>
+        String(left.date || '').localeCompare(String(right.date || '')) ||
+        String(left.distributor_name || '').localeCompare(String(right.distributor_name || '')) ||
+        String(left.supplier_name || '').localeCompare(String(right.supplier_name || ''))
+    );
 };
 
 module.exports = { buildSupplierVisitStates };

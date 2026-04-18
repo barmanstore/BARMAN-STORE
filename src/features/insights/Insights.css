@@ -100,7 +100,9 @@
   border-radius: 999px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .product-insights .product-insights-search-filter .search-filter-shell:focus-within {
@@ -187,7 +189,10 @@
   background: #eff6ff;
   color: #0369a1;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .product-insights .product-insights-search-filter .search-filter-submit:hover,
@@ -363,7 +368,9 @@
   width: 100%;
 }
 
-.product-insights .product-insights-filter-row-control--date.date-range-filter--icon > .rounded-full {
+.product-insights
+  .product-insights-filter-row-control--date.date-range-filter--icon
+  > .rounded-full {
   width: 100%;
 }
 
@@ -645,8 +652,8 @@
   background-clip: padding-box;
 }
 
-.product-insights .product-insights-table thead th[aria-sort="ascending"],
-.product-insights .product-insights-table thead th[aria-sort="descending"] {
+.product-insights .product-insights-table thead th[aria-sort='ascending'],
+.product-insights .product-insights-table thead th[aria-sort='descending'] {
   background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
   color: #1d4ed8;
   box-shadow:
@@ -1051,13 +1058,17 @@
   color: #94a3b8;
   background: transparent;
   opacity: 1;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .product-insights .sort-header-btn:hover .sort-indicator,
 .product-insights .sort-header-btn:focus-visible .sort-indicator,
-.product-insights .product-insights-table thead th[aria-sort="ascending"] .sort-indicator,
-.product-insights .product-insights-table thead th[aria-sort="descending"] .sort-indicator {
+.product-insights .product-insights-table thead th[aria-sort='ascending'] .sort-indicator,
+.product-insights .product-insights-table thead th[aria-sort='descending'] .sort-indicator {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;

@@ -1,15 +1,16 @@
 let pgLib = null;
 
 const parseBooleanEnv = (value, fallback = false) => {
-  const raw = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
 
-const isVercelRuntime = () => (
-  parseBooleanEnv(process.env.VERCEL, false)
-  || Boolean(String(process.env.NOW_REGION || '').trim())
-);
+const isVercelRuntime = () =>
+  parseBooleanEnv(process.env.VERCEL, false) ||
+  Boolean(String(process.env.NOW_REGION || '').trim());
 
 const buildPostgresConfigFromEnv = () => {
   const vercelRuntime = isVercelRuntime();
@@ -18,18 +19,19 @@ const buildPostgresConfigFromEnv = () => {
   const defaultConnectionTimeoutMs = vercelRuntime ? 10000 : 10000;
   const poolLimitRaw = Number(process.env.PG_POOL_LIMIT || defaultPoolLimit);
   const connectionString = String(
-    process.env.SUPABASE_DB_URL
-    || process.env.DATABASE_URL
-    || process.env.POSTGRES_URL
-    || process.env.POSTGRES_PRISMA_URL
-    || process.env.PG_CONNECTION_STRING
-    || ''
+    process.env.SUPABASE_DB_URL ||
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.PG_CONNECTION_STRING ||
+      ''
   ).trim();
 
   const sslEnabledFromEnv = process.env.PG_SSL ?? process.env.SUPABASE_DB_SSL;
-  const sslEnabled = sslEnabledFromEnv === undefined
-    ? Boolean(connectionString && /supabase\.(co|com)/i.test(connectionString))
-    : parseBooleanEnv(sslEnabledFromEnv, false);
+  const sslEnabled =
+    sslEnabledFromEnv === undefined
+      ? Boolean(connectionString && /supabase\.(co|com)/i.test(connectionString))
+      : parseBooleanEnv(sslEnabledFromEnv, false);
   const rejectUnauthorized = parseBooleanEnv(
     process.env.PG_SSL_REJECT_UNAUTHORIZED ?? process.env.SUPABASE_DB_SSL_REJECT_UNAUTHORIZED,
     false
@@ -40,7 +42,9 @@ const buildPostgresConfigFromEnv = () => {
     // the shared Postgres connection budget during concurrent cold starts.
     max: Number.isFinite(poolLimitRaw) && poolLimitRaw > 0 ? poolLimitRaw : defaultPoolLimit,
     idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || defaultIdleTimeoutMs),
-    connectionTimeoutMillis: Number(process.env.PG_CONNECTION_TIMEOUT_MS || defaultConnectionTimeoutMs),
+    connectionTimeoutMillis: Number(
+      process.env.PG_CONNECTION_TIMEOUT_MS || defaultConnectionTimeoutMs
+    ),
   };
 
   if (connectionString) {
@@ -52,34 +56,19 @@ const buildPostgresConfigFromEnv = () => {
   }
 
   const host = String(
-    process.env.PGHOST
-    || process.env.PG_HOST
-    || process.env.POSTGRES_HOST
-    || ''
+    process.env.PGHOST || process.env.PG_HOST || process.env.POSTGRES_HOST || ''
   ).trim();
   const user = String(
-    process.env.PGUSER
-    || process.env.PG_USER
-    || process.env.POSTGRES_USER
-    || ''
+    process.env.PGUSER || process.env.PG_USER || process.env.POSTGRES_USER || ''
   ).trim();
   const password = String(
-    process.env.PGPASSWORD
-    || process.env.PG_PASSWORD
-    || process.env.POSTGRES_PASSWORD
-    || ''
+    process.env.PGPASSWORD || process.env.PG_PASSWORD || process.env.POSTGRES_PASSWORD || ''
   );
   const database = String(
-    process.env.PGDATABASE
-    || process.env.PG_DATABASE
-    || process.env.POSTGRES_DATABASE
-    || ''
+    process.env.PGDATABASE || process.env.PG_DATABASE || process.env.POSTGRES_DATABASE || ''
   ).trim();
   const portRaw = Number(
-    process.env.PGPORT
-    || process.env.PG_PORT
-    || process.env.POSTGRES_PORT
-    || 5432
+    process.env.PGPORT || process.env.PG_PORT || process.env.POSTGRES_PORT || 5432
   );
 
   if (vercelRuntime && !host) {
@@ -121,7 +110,9 @@ const loadPostgresLibrary = () => {
   try {
     pgLib = require('pg');
   } catch (_) {
-    throw new Error('pg package is not installed. Run "npm install pg" before enabling postgres/supabase mode.');
+    throw new Error(
+      'pg package is not installed. Run "npm install pg" before enabling postgres/supabase mode.'
+    );
   }
   return pgLib;
 };

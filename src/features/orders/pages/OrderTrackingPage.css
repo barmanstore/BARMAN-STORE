@@ -21,8 +21,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Search Section */
@@ -147,7 +151,7 @@
   border-radius: 16px;
   padding: 30px;
   margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .progress-bar {
@@ -191,7 +195,9 @@
 
 .status-icon {
   opacity: 0.3;
-  transition: opacity 0.3s, transform 0.3s;
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
 }
 
 .step.active .status-icon {
@@ -199,10 +205,18 @@
   transform: scale(1.1);
 }
 
-.status-icon.delivered { color: #48bb78; }
-.status-icon.shipped { color: #4299e1; }
-.status-icon.pending { color: #ed8936; }
-.status-icon.default { color: #a0aec0; }
+.status-icon.delivered {
+  color: #48bb78;
+}
+.status-icon.shipped {
+  color: #4299e1;
+}
+.status-icon.pending {
+  color: #ed8936;
+}
+.status-icon.default {
+  color: #a0aec0;
+}
 
 /* Tracking Content Grid */
 .tracking-content {
@@ -217,7 +231,7 @@
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .tracking-card h2 {
@@ -392,14 +406,20 @@
   gap: 20px;
 }
 
-.summary-card, .address-card, .contact-card, .payment-card, .shipping-card, .actions-card {
+.summary-card,
+.address-card,
+.contact-card,
+.payment-card,
+.shipping-card,
+.actions-card {
   background: white;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.summary-card h2, .summary-card h3 {
+.summary-card h2,
+.summary-card h3 {
   font-size: 1.1rem;
   color: #2d3748;
   margin-bottom: 16px;
@@ -436,12 +456,30 @@
   text-transform: capitalize;
 }
 
-.status-badge.pending { background: #fef3c7; color: #92400e; }
-.status-badge.confirmed { background: #d1fae5; color: #065f46; }
-.status-badge.processing { background: #dbeafe; color: #1e40af; }
-.status-badge.shipped { background: #e0e7ff; color: #3730a3; }
-.status-badge.delivered { background: #dcfce7; color: #166534; }
-.status-badge.cancelled { background: #fee2e2; color: #991b1b; }
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.status-badge.confirmed {
+  background: #d1fae5;
+  color: #065f46;
+}
+.status-badge.processing {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.status-badge.shipped {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.status-badge.delivered {
+  background: #dcfce7;
+  color: #166534;
+}
+.status-badge.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
 .payment-badge {
   display: inline-block;
@@ -452,10 +490,22 @@
   text-transform: capitalize;
 }
 
-.payment-badge.status-paid { background: #d1fae5; color: #065f46; }
-.payment-badge.status-pending { background: #fef3c7; color: #92400e; }
-.payment-badge.status-refunded { background: #e0e7ff; color: #3730a3; }
-.payment-badge.status-declined { background: #fee2e2; color: #991b1b; }
+.payment-badge.status-paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+.payment-badge.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.payment-badge.status-refunded {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.payment-badge.status-declined {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
 .fulfillment-badge {
   display: inline-block;
@@ -466,11 +516,26 @@
   text-transform: capitalize;
 }
 
-.fulfillment-badge.status-fulfilled { background: #d1fae5; color: #065f46; }
-.fulfillment-badge.status-shipped { background: #dbeafe; color: #1e40af; }
-.fulfillment-badge.status-label-created { background: #fef3c7; color: #92400e; }
-.fulfillment-badge.status-processing { background: #f3e8ff; color: #6b21a8; }
-.fulfillment-badge.status-unfulfilled { background: #f1f5f9; color: #64748b; }
+.fulfillment-badge.status-fulfilled {
+  background: #d1fae5;
+  color: #065f46;
+}
+.fulfillment-badge.status-shipped {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.fulfillment-badge.status-label-created {
+  background: #fef3c7;
+  color: #92400e;
+}
+.fulfillment-badge.status-processing {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+.fulfillment-badge.status-unfulfilled {
+  background: #f1f5f9;
+  color: #64748b;
+}
 
 .summary-divider {
   height: 1px;
@@ -487,7 +552,10 @@
 }
 
 /* Address Card */
-.address-card h3, .contact-card h3, .payment-card h3, .shipping-card h3 {
+.address-card h3,
+.contact-card h3,
+.payment-card h3,
+.shipping-card h3 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -560,9 +628,18 @@
   text-transform: capitalize;
 }
 
-.payment-status.paid { background: #d1fae5; color: #065f46; }
-.payment-status.refunded { background: #e0e7ff; color: #3730a3; }
-.payment-status.declined { background: #fee2e2; color: #991b1b; }
+.payment-status.paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+.payment-status.refunded {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.payment-status.declined {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
 .transaction-id {
   font-size: 0.75rem;
@@ -708,9 +785,18 @@
   font-weight: 500;
 }
 
-.notif-status.sent { background: #d1fae5; color: #065f46; }
-.notif-status.pending { background: #fef3c7; color: #92400e; }
-.notif-status.failed { background: #fee2e2; color: #991b1b; }
+.notif-status.sent {
+  background: #d1fae5;
+  color: #065f46;
+}
+.notif-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.notif-status.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
 .notif-date {
   color: #a0aec0;
@@ -1096,7 +1182,7 @@
   }
 
   .item-quantity,
-.item-price {
+  .item-price {
     font-size: 0.85rem;
   }
 
@@ -1138,21 +1224,21 @@
   }
 
   .summary-card,
-.address-card,
-.contact-card,
-.payment-card,
-.shipping-card,
-.actions-card {
+  .address-card,
+  .contact-card,
+  .payment-card,
+  .shipping-card,
+  .actions-card {
     border-radius: 16px;
     padding: 24px;
   }
 
   .summary-row,
-.address-content p,
-.contact-item,
-.payment-item,
-.tracking-number,
-.estimated-delivery {
+  .address-content p,
+  .contact-item,
+  .payment-item,
+  .tracking-number,
+  .estimated-delivery {
     font-size: 0.9rem;
   }
 
@@ -1165,8 +1251,8 @@
   }
 
   .track-package-btn,
-.print-receipt-btn,
-.continue-shopping-btn {
+  .print-receipt-btn,
+  .continue-shopping-btn {
     width: 100%;
     padding: 12px 14px;
   }

@@ -25,21 +25,25 @@ const usePurchaseManagementDerived = ({
   normalizePoPaymentStatus,
   toNumber,
 }) => {
-  const orderDraftProjection = useMemo(() => projectPurchaseOrderDraft({
-    items: showOrderForm ? orderFormData.items : [],
-    products,
-    findProductForItem,
-    calculateOrderItem,
-    calculateOrderTotals,
-    previousProjection: null,
-  }), [
-    showOrderForm,
-    orderFormData.items,
-    products,
-    findProductForItem,
-    calculateOrderItem,
-    calculateOrderTotals,
-  ]);
+  const orderDraftProjection = useMemo(
+    () =>
+      projectPurchaseOrderDraft({
+        items: showOrderForm ? orderFormData.items : [],
+        products,
+        findProductForItem,
+        calculateOrderItem,
+        calculateOrderTotals,
+        previousProjection: null,
+      }),
+    [
+      showOrderForm,
+      orderFormData.items,
+      products,
+      findProductForItem,
+      calculateOrderItem,
+      calculateOrderTotals,
+    ]
+  );
   const orderTotals = orderDraftProjection.totals;
   const ledgerBalanceSummary = getLedgerBalanceSummary(ledgerRecords, filters.distributor_id);
 
@@ -67,7 +71,8 @@ const usePurchaseManagementDerived = ({
 
   const getStatusBadgeForOrder = (order) => getStatusBadge(order, getPoLifecycleStatus);
   const getPoPaymentBadgeForOrder = (order) => getPoPaymentBadge(order, getPoPaymentStatus);
-  const getLedgerRowStatusClassForEntry = (entry) => getLedgerRowStatusClass(entry, normalizePoPaymentStatus);
+  const getLedgerRowStatusClassForEntry = (entry) =>
+    getLedgerRowStatusClass(entry, normalizePoPaymentStatus);
 
   const getDistributorName = (entry) => {
     if (entry?.supplier_name) return entry.supplier_name;
@@ -78,9 +83,13 @@ const usePurchaseManagementDerived = ({
     return distributor?.name || '-';
   };
 
-  const getLedgerBillNumber = (entry) => (
-    entry?.bill_number || entry?.linked_bill_number || entry?.po_bill_number || entry?.invoice_number || entry?.po_invoice_number || '-'
-  );
+  const getLedgerBillNumber = (entry) =>
+    entry?.bill_number ||
+    entry?.linked_bill_number ||
+    entry?.po_bill_number ||
+    entry?.invoice_number ||
+    entry?.po_invoice_number ||
+    '-';
 
   return {
     orderDraftProjection,

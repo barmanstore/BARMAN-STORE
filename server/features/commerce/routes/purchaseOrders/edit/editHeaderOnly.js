@@ -1,18 +1,21 @@
-const updatePurchaseOrderHeaderOnly = async (deps, {
-  req,
-  cur,
-  updatedDistributorId,
-  updatedSupplierId,
-  updatedNotes,
-  updatedExpectedDelivery,
-  plannedOrderDate,
-  paymentDueDate,
-  strictDueDate,
-  strictDueNote,
-  currentPoStatus,
-  nextLifecycleStatus,
-  shouldIncrementRevision,
-}) => {
+const updatePurchaseOrderHeaderOnly = async (
+  deps,
+  {
+    req,
+    cur,
+    updatedDistributorId,
+    updatedSupplierId,
+    updatedNotes,
+    updatedExpectedDelivery,
+    plannedOrderDate,
+    paymentDueDate,
+    strictDueDate,
+    strictDueNote,
+    currentPoStatus,
+    nextLifecycleStatus,
+    shouldIncrementRevision,
+  }
+) => {
   const {
     dbAllAsync,
     dbRunAsync,
@@ -28,11 +31,16 @@ const updatePurchaseOrderHeaderOnly = async (deps, {
   const nextTaxAmount = Number(req.body?.tax_amount ?? cur.tax_amount ?? 0);
   const nextTotalAmount = Number(req.body?.total_amount ?? cur.total_amount ?? cur.total ?? 0);
   const paymentSnapshot = calculatePoPaymentSnapshot(nextTotalAmount, Number(cur.paid_amount || 0));
-  const duplicateKey = cur.duplicate_key || buildPurchaseDuplicateKey({
-    distributorId: updatedDistributorId,
-    plannedOrderDate,
-    items: await dbAllAsync('SELECT product_id, product_name, quantity, uom FROM purchase_order_items WHERE order_id = ?', [req.params.id]),
-  });
+  const duplicateKey =
+    cur.duplicate_key ||
+    buildPurchaseDuplicateKey({
+      distributorId: updatedDistributorId,
+      plannedOrderDate,
+      items: await dbAllAsync(
+        'SELECT product_id, product_name, quantity, uom FROM purchase_order_items WHERE order_id = ?',
+        [req.params.id]
+      ),
+    });
 
   await dbRunAsync(
     `UPDATE purchase_orders
@@ -50,8 +58,12 @@ const updatePurchaseOrderHeaderOnly = async (deps, {
       duplicateKey,
       nextLifecycleStatus === PO_LIFECYCLE_SENT ? 'sent' : 'pending',
       nextLifecycleStatus,
-      shouldIncrementRevision ? Number(cur.revision_count || 0) + 1 : Number(cur.revision_count || 0),
-      nextLifecycleStatus === PO_LIFECYCLE_REVISED ? 'Resend updated PO' : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
+      shouldIncrementRevision
+        ? Number(cur.revision_count || 0) + 1
+        : Number(cur.revision_count || 0),
+      nextLifecycleStatus === PO_LIFECYCLE_REVISED
+        ? 'Resend updated PO'
+        : derivePurchaseNextAction({ ...cur, po_status: nextLifecycleStatus }),
       nextSubtotal,
       nextTaxAmount,
       nextTotalAmount,
@@ -59,7 +71,7 @@ const updatePurchaseOrderHeaderOnly = async (deps, {
       paymentSnapshot.paymentStatus,
       paymentSnapshot.paidAmount,
       paymentSnapshot.balanceDue,
-      req.params.id
+      req.params.id,
     ]
   );
 

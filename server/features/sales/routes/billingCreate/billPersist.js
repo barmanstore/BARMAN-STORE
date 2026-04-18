@@ -7,7 +7,7 @@ const addDaysToDateKey = (dateKey, days) => {
   const [year, month, day] = dateKey.split('-').map((v) => Number(v));
   const baseMs = Date.UTC(year, month - 1, day);
   const safeDays = Math.max(0, Math.floor(Number(days || 0)));
-  const next = new Date(baseMs + (safeDays * DAY_MS));
+  const next = new Date(baseMs + safeDays * DAY_MS);
   return next.toISOString().slice(0, 10);
 };
 
@@ -101,11 +101,18 @@ const persistBillDraft = async (deps, req, draft) => {
     }
     if (shouldApplySalesStock) {
       for (const [productId, neededQty] of salesQtyByProduct.entries()) {
-        const before = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
+        const before = Number(
+          (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0
+        );
         const deductionQty = Math.max(0, Number(neededQty || 0));
         if (deductionQty <= 0) continue;
-        await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [deductionQty, productId]);
-        const after = Number((await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0);
+        await dbRunAsync(`UPDATE products SET stock = stock - ? WHERE id = ?`, [
+          deductionQty,
+          productId,
+        ]);
+        const after = Number(
+          (await dbGetAsync(`SELECT stock FROM products WHERE id = ?`, [productId]))?.stock || 0
+        );
         await logStockLedgerAsync({
           productId,
           transactionType: 'out',

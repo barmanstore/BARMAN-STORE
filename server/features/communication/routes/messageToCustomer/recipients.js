@@ -11,8 +11,7 @@ const fetchMessageRecipients = async ({ dbAllAsync, recipientIds } = {}) => {
   return recipients || [];
 };
 
-const mapRecipientNames = (recipients = []) => recipients
-  .map((row) => String(row?.name || '').trim())
-  .filter(Boolean);
+const mapRecipientNames = (recipients = []) =>
+  recipients.map((row) => String(row?.name || '').trim()).filter(Boolean);
 
 module.exports = { fetchMessageRecipients, mapRecipientNames };

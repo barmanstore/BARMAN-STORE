@@ -25,9 +25,10 @@ const useProductsSearchParamsSync = ({
     const nextCategory = searchParams.get('category') || 'all';
     const nextQuery = String(searchParams.get('q') || '');
     const nextSortBy = normalizeSortBy(searchParams.get('sort'));
-    const nextGroupBy = searchParams.get('group') === GROUP_BY_OPTIONS.brand
-      ? GROUP_BY_OPTIONS.brand
-      : GROUP_BY_OPTIONS.category;
+    const nextGroupBy =
+      searchParams.get('group') === GROUP_BY_OPTIONS.brand
+        ? GROUP_BY_OPTIONS.brand
+        : GROUP_BY_OPTIONS.category;
     const nextInStockOnly = searchParams.get('stock') === '1';
 
     setSelectedCategory((prev) => (prev === nextCategory ? prev : nextCategory));

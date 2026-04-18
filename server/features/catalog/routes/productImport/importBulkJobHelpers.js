@@ -1,11 +1,15 @@
 const inferImportSource = (fileName = '') => {
-  const raw = String(fileName || '').trim().toLowerCase();
+  const raw = String(fileName || '')
+    .trim()
+    .toLowerCase();
   if (raw.endsWith('.xlsx') || raw.endsWith('.xls')) return 'xlsx';
   return 'csv';
 };
 
 const normalizeImportRowAction = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'update') return 'update';
   return 'create';
 };
@@ -25,14 +29,21 @@ const buildImportBulkJobItems = (batch = {}) => {
 const buildImportBulkJobPayload = ({ batchId, checksum, batch = {}, allowIdenticalRows = [] }) => ({
   batch_id: String(batchId || '').trim(),
   checksum: String(checksum || '').trim(),
-  mode: String(batch?.mode || 'upsert').trim().toLowerCase(),
-  stock_mode: String(batch?.stockMode || 'replace').trim().toLowerCase(),
+  mode: String(batch?.mode || 'upsert')
+    .trim()
+    .toLowerCase(),
+  stock_mode: String(batch?.stockMode || 'replace')
+    .trim()
+    .toLowerCase(),
   source: inferImportSource(batch?.fileName || ''),
   file_name: String(batch?.fileName || '').trim(),
   file_hash: String(checksum || '').trim(),
   row_count: Array.isArray(batch?.rows) ? batch.rows.length : 0,
   allow_identical_rows: Array.isArray(allowIdenticalRows)
-    ? allowIdenticalRows.map((value) => Number(value) || 0).filter(Boolean).sort((a, b) => a - b)
+    ? allowIdenticalRows
+        .map((value) => Number(value) || 0)
+        .filter(Boolean)
+        .sort((a, b) => a - b)
     : [],
 });
 
@@ -44,18 +55,19 @@ const queueImportBulkJobFromBatchAsync = async ({
   batch,
   allowIdenticalRows = [],
   authUser,
-}) => catalogBulkJobs.createBulkJobAsync({
-  req,
-  operation: 'import_products',
-  items: buildImportBulkJobItems(batch),
-  payload: buildImportBulkJobPayload({
-    batchId,
-    checksum,
-    batch,
-    allowIdenticalRows,
-  }),
-  createdBy: Number(authUser?.id || 0) || null,
-});
+}) =>
+  catalogBulkJobs.createBulkJobAsync({
+    req,
+    operation: 'import_products',
+    items: buildImportBulkJobItems(batch),
+    payload: buildImportBulkJobPayload({
+      batchId,
+      checksum,
+      batch,
+      allowIdenticalRows,
+    }),
+    createdBy: Number(authUser?.id || 0) || null,
+  });
 
 module.exports = {
   buildImportBulkJobItems,

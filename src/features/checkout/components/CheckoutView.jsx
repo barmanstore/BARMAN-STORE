@@ -7,7 +7,7 @@ import {
   Package,
   AlertCircle,
   Search,
-  Shield
+  Shield,
 } from 'lucide-react';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
@@ -73,7 +73,9 @@ const CheckoutView = ({
               Thank you for your order. Payment mode: Cash on delivery.
             </p>
             <div className="order-details">
-              <p>Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong></p>
+              <p>
+                Total Amount: <strong>{formatCurrency(orderResult.totalAmount)}</strong>
+              </p>
             </div>
             <div className="order-balance">
               <p className="order-balance-label">Your current due balance</p>
@@ -121,7 +123,9 @@ const CheckoutView = ({
               <h3>Profile Information Incomplete</h3>
               <p>Please fill in all required fields marked with * to complete your order.</p>
               {profileValidation?.issues?.map((issue, idx) => (
-                <p key={idx} className="issue-item">- {issue.message}</p>
+                <p key={idx} className="issue-item">
+                  - {issue.message}
+                </p>
               ))}
             </div>
             <button className="update-profile-btn" onClick={switchToProfile}>
@@ -142,7 +146,9 @@ const CheckoutView = ({
             <form onSubmit={handleSubmit} className="checkout-form">
               {adminMode && (
                 <div className="form-section">
-                  <h2><Search size={20} /> Select Customer</h2>
+                  <h2>
+                    <Search size={20} /> Select Customer
+                  </h2>
                   <div className="customer-search-container">
                     <input
                       id="checkout-customer-search"
@@ -175,7 +181,9 @@ const CheckoutView = ({
               )}
 
               <div className="form-section">
-                <h2><User size={20} /> Customer Information</h2>
+                <h2>
+                  <User size={20} /> Customer Information
+                </h2>
 
                 <div className="form-row">
                   <div className="form-group">
@@ -189,7 +197,11 @@ const CheckoutView = ({
                       required
                       placeholder="John Doe"
                       autoComplete="name"
-                      className={profileValidation?.issues?.find(i => i.field === 'name') ? 'error-field' : ''}
+                      className={
+                        profileValidation?.issues?.find((i) => i.field === 'name')
+                          ? 'error-field'
+                          : ''
+                      }
                     />
                   </div>
                 </div>
@@ -224,7 +236,9 @@ const CheckoutView = ({
               </div>
 
               <div className="form-section">
-                <h2><MapPin size={20} /> Shipping Address</h2>
+                <h2>
+                  <MapPin size={20} /> Shipping Address
+                </h2>
 
                 <div className="form-group">
                   <label htmlFor="street">Street Address *</label>
@@ -297,21 +311,19 @@ const CheckoutView = ({
               </div>
 
               <div className="form-section">
-                <h2><CreditCard size={20} /> Payment Method</h2>
+                <h2>
+                  <CreditCard size={20} /> Payment Method
+                </h2>
                 <p className="payment-note">
                   <CreditCard size={16} />
                   Cash on delivery only. No online payment step is required.
                 </p>
               </div>
 
-              <button
-                type="submit"
-                className="place-order-btn"
-                disabled={submitting}
-              >
+              <button type="submit" className="place-order-btn" disabled={submitting}>
                 {submitting
                   ? 'Processing...'
-                  : `Place Order - ${formatCurrency(Number(pricingPreview?.summary?.total || (getTotal() * 1.1)))}`}
+                  : `Place Order - ${formatCurrency(Number(pricingPreview?.summary?.total || getTotal() * 1.1))}`}
               </button>
             </form>
           </div>
@@ -320,15 +332,24 @@ const CheckoutView = ({
             <h2>Order Summary</h2>
             <div className="order-items">
               {cart.map((item) => {
-                const previewLine = pricingLineMap?.get(String(item?.id ?? item?.product_id ?? '')) || null;
-                const lineTotal = Number(previewLine?.line_total || (item.price * item.quantity) || 0);
-                const lineSubtotal = Number(previewLine?.line_subtotal || (item.price * item.quantity) || 0);
+                const previewLine =
+                  pricingLineMap?.get(String(item?.id ?? item?.product_id ?? '')) || null;
+                const lineTotal = Number(
+                  previewLine?.line_total || item.price * item.quantity || 0
+                );
+                const lineSubtotal = Number(
+                  previewLine?.line_subtotal || item.price * item.quantity || 0
+                );
                 const offerDiscount = Number(previewLine?.auto_offer_discount || 0);
                 const offerLabel = String(previewLine?.best_offer_label || '').trim();
                 return (
                   <div key={item.id} className="summary-item">
                     <div className="summary-item-image">
-                      {item.image ? <img src={item.image} alt={item.name} /> : <div className="placeholder-image">No Image</div>}
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} />
+                      ) : (
+                        <div className="placeholder-image">No Image</div>
+                      )}
                     </div>
                     <div className="summary-item-details">
                       <h4>{item.name}</h4>
@@ -351,17 +372,23 @@ const CheckoutView = ({
             <div className="summary-totals">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span>{formatCurrency(Number(pricingPreview?.summary?.base_subtotal || getTotal()))}</span>
+                <span>
+                  {formatCurrency(Number(pricingPreview?.summary?.base_subtotal || getTotal()))}
+                </span>
               </div>
               {Number(pricingPreview?.summary?.discount_total || 0) > 0 ? (
                 <div className="summary-row">
                   <span>Offer Savings</span>
-                  <span>-{formatCurrency(Number(pricingPreview?.summary?.discount_total || 0))}</span>
+                  <span>
+                    -{formatCurrency(Number(pricingPreview?.summary?.discount_total || 0))}
+                  </span>
                 </div>
               ) : null}
               <div className="summary-row">
                 <span>Net Subtotal</span>
-                <span>{formatCurrency(Number(pricingPreview?.summary?.net_subtotal || getTotal()))}</span>
+                <span>
+                  {formatCurrency(Number(pricingPreview?.summary?.net_subtotal || getTotal()))}
+                </span>
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
@@ -369,12 +396,16 @@ const CheckoutView = ({
               </div>
               <div className="summary-row">
                 <span>Tax (10%)</span>
-                <span>{formatCurrency(Number(pricingPreview?.summary?.tax_amount || (getTotal() * 0.1)))}</span>
+                <span>
+                  {formatCurrency(Number(pricingPreview?.summary?.tax_amount || getTotal() * 0.1))}
+                </span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-total">
                 <span>Total</span>
-                <span>{formatCurrency(Number(pricingPreview?.summary?.total || (getTotal() * 1.1)))}</span>
+                <span>
+                  {formatCurrency(Number(pricingPreview?.summary?.total || getTotal() * 1.1))}
+                </span>
               </div>
             </div>
             {pricingPreviewLoading ? (
@@ -384,7 +415,9 @@ const CheckoutView = ({
               <p className="unknown-price-note">{pricingPreviewError}</p>
             ) : null}
             {hasUnknownPriceItems ? (
-              <p className="unknown-price-note">Requested/manual items are submitted with price marked as Unknown.</p>
+              <p className="unknown-price-note">
+                Requested/manual items are submitted with price marked as Unknown.
+              </p>
             ) : null}
           </div>
         </div>
@@ -394,4 +427,3 @@ const CheckoutView = ({
 };
 
 export default CheckoutView;
-

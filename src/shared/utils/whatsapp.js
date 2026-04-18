@@ -19,7 +19,9 @@ export const isValidWhatsAppPhone = (phone) => {
 export const buildWhatsAppUrl = ({ phone, text } = {}) => {
   const normalized = normalizePhoneForWhatsApp(phone);
   const encoded = encodeURIComponent(normalizeMessageText(text));
-  return normalized ? `https://wa.me/${normalized}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  return normalized
+    ? `https://wa.me/${normalized}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
 };
 
 export const openWhatsApp = (params = {}) => {
@@ -61,5 +63,9 @@ export const sendWhatsAppSmart = async ({ phone, text, maxUrlLength = MAX_URL_LE
   if (typeof window !== 'undefined') {
     window.open(fallbackHref, '_blank', 'noopener,noreferrer');
   }
-  return { status: copied ? 'opened_with_copy' : 'opened_without_copy', href: fallbackHref, copied };
+  return {
+    status: copied ? 'opened_with_copy' : 'opened_without_copy',
+    href: fallbackHref,
+    copied,
+  };
 };

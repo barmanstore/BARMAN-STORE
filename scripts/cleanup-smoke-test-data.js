@@ -5,33 +5,35 @@ const {
   pingPostgresPool,
 } = require('../server/db/postgresScaffold');
 
-const explicitSmokeDbUrl = String(process.env.SMOKE_TEST_DB_URL || process.env.PHONE_TEST_DB_URL || '').trim();
+const explicitSmokeDbUrl = String(
+  process.env.SMOKE_TEST_DB_URL || process.env.PHONE_TEST_DB_URL || ''
+).trim();
 if (explicitSmokeDbUrl) {
   process.env.SUPABASE_DB_URL = explicitSmokeDbUrl;
   process.env.DATABASE_URL = explicitSmokeDbUrl;
 }
 
-const SMOKE_EMAIL_REGEX = '^(admin|customer|phone|po-admin)-smoke-[^@]*@example\\.com$|^category-admin-[^@]*@example\\.com$';
-const SMOKE_MESSAGE_REGEX = '(phone-smoke-|customer-smoke-|admin-smoke-|po-admin-smoke-|category-admin-|Smoke Customer|Smoke Product|Smoke PO Product|Smoke Distributor|Category Tree Product|Category tree smoke|Category Smoke Admin|SMOKE-PART-|SMOKE-FINAL-|Smoke lifecycle|SMK-)';
+const SMOKE_EMAIL_REGEX =
+  '^(admin|customer|phone|po-admin)-smoke-[^@]*@example\\.com$|^category-admin-[^@]*@example\\.com$';
+const SMOKE_MESSAGE_REGEX =
+  '(phone-smoke-|customer-smoke-|admin-smoke-|po-admin-smoke-|category-admin-|Smoke Customer|Smoke Product|Smoke PO Product|Smoke Distributor|Category Tree Product|Category tree smoke|Category Smoke Admin|SMOKE-PART-|SMOKE-FINAL-|Smoke lifecycle|SMK-)';
 
-const toNumberArray = (rows, key = 'id') => (
+const toNumberArray = (rows, key = 'id') =>
   Array.isArray(rows)
     ? rows
-      .map((row) => Number(row?.[key] || 0))
-      .filter((value) => Number.isFinite(value) && value > 0)
-    : []
-);
+        .map((row) => Number(row?.[key] || 0))
+        .filter((value) => Number.isFinite(value) && value > 0)
+    : [];
 
-const toTextArray = (rows, key = 'bill_number') => (
-  Array.isArray(rows)
-    ? rows
-      .map((row) => String(row?.[key] || '').trim())
-      .filter(Boolean)
-    : []
-);
+const toTextArray = (rows, key = 'bill_number') =>
+  Array.isArray(rows) ? rows.map((row) => String(row?.[key] || '').trim()).filter(Boolean) : [];
 
-const uniqueNumbers = (values) => [...new Set((values || []).filter((v) => Number.isFinite(v) && v > 0))];
-const uniqueTexts = (values) => [...new Set((values || []).map((v) => String(v || '').trim()).filter(Boolean))];
+const uniqueNumbers = (values) => [
+  ...new Set((values || []).filter((v) => Number.isFinite(v) && v > 0)),
+];
+const uniqueTexts = (values) => [
+  ...new Set((values || []).map((v) => String(v || '').trim()).filter(Boolean)),
+];
 
 const run = async () => {
   const apply = process.argv.includes('--apply');
@@ -250,37 +252,44 @@ const run = async () => {
       },
       {
         tableName: 'order_items',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND product_id = ANY($2::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND product_id = ANY($2::bigint[]))',
         params: [smokeOrderIds, smokeProductIds],
       },
       {
         tableName: 'order_status_history',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND created_by = ANY($2::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND created_by = ANY($2::bigint[]))',
         params: [smokeOrderIds, smokeUserIds],
       },
       {
         tableName: 'credit_entry_issues',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR (cardinality($2::bigint[]) > 0 AND reported_by = ANY($2::bigint[])) OR (cardinality($2::bigint[]) > 0 AND resolved_by = ANY($2::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR (cardinality($2::bigint[]) > 0 AND reported_by = ANY($2::bigint[])) OR (cardinality($2::bigint[]) > 0 AND resolved_by = ANY($2::bigint[]))',
         params: [smokeIssueIds, smokeUserIds],
       },
       {
         tableName: 'app_notifications',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND issue_id = ANY($2::bigint[])) OR COALESCE(title, \'\') ~* $3 OR COALESCE(message, \'\') ~* $3 OR COALESCE(metadata, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND issue_id = ANY($2::bigint[])) OR COALESCE(title, '') ~* $3 OR COALESCE(message, '') ~* $3 OR COALESCE(metadata, '') ~* $3",
         params: [smokeUserIds, smokeIssueIds, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'phone_change_requests',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND requested_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND reviewed_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND conflict_user_id = ANY($1::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND requested_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND reviewed_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND conflict_user_id = ANY($1::bigint[]))',
         params: [smokeUserIds],
       },
       {
         tableName: 'auth_login_otps',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, \'\') ~* $2',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, '') ~* $2",
         params: [smokeUserIds, SMOKE_EMAIL_REGEX],
       },
       {
         tableName: 'email_verification_tokens',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, \'\') ~* $2',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, '') ~* $2",
         params: [smokeUserIds, SMOKE_EMAIL_REGEX],
       },
       {
@@ -290,12 +299,14 @@ const run = async () => {
       },
       {
         tableName: 'contact_verification_requests',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND requested_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND processed_by = ANY($1::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND requested_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND processed_by = ANY($1::bigint[]))',
         params: [smokeUserIds],
       },
       {
         tableName: 'password_reset_requests',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, \'\') ~* $2',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR COALESCE(email, '') ~* $2",
         params: [smokeUserIds, SMOKE_EMAIL_REGEX],
       },
       {
@@ -310,17 +321,20 @@ const run = async () => {
       },
       {
         tableName: 'notification_events',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND recipient_user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND prepared_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND sent_by = ANY($1::bigint[])) OR COALESCE(recipient, \'\') ~* $2 OR COALESCE(subject, \'\') ~* $3 OR COALESCE(body, \'\') ~* $3 OR COALESCE(metadata, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND recipient_user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND prepared_by = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND sent_by = ANY($1::bigint[])) OR COALESCE(recipient, '') ~* $2 OR COALESCE(subject, '') ~* $3 OR COALESCE(body, '') ~* $3 OR COALESCE(metadata, '') ~* $3",
         params: [smokeUserIds, SMOKE_EMAIL_REGEX, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'notification_send_batches',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND sender_user_id = ANY($1::bigint[])) OR COALESCE(message, \'\') ~* $2 OR COALESCE(recipient_names, \'\') ~* $2',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND sender_user_id = ANY($1::bigint[])) OR COALESCE(message, '') ~* $2 OR COALESCE(recipient_names, '') ~* $2",
         params: [smokeUserIds, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'messages',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND sender_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND recipient_id = ANY($1::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND sender_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND recipient_id = ANY($1::bigint[]))',
         params: [smokeUserIds],
       },
       {
@@ -330,22 +344,26 @@ const run = async () => {
       },
       {
         tableName: 'credit_history',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(reference, \'\') = ANY($2::text[])) OR COALESCE(client_request_id, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND created_by = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(reference, '') = ANY($2::text[])) OR COALESCE(client_request_id, '') ~* $3",
         params: [smokeUserIds, smokeBillNumbers, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'stock_ledger',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND product_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR COALESCE(sku, \'\') LIKE \'SMK-%\' OR COALESCE(product_name, \'\') ILIKE \'Smoke Product%\' OR COALESCE(product_name, \'\') ILIKE \'Category Tree Product%\'',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND product_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR COALESCE(sku, '') LIKE 'SMK-%' OR COALESCE(product_name, '') ILIKE 'Smoke Product%' OR COALESCE(product_name, '') ILIKE 'Category Tree Product%'",
         params: [smokeProductIds, smokeUserIds],
       },
       {
         tableName: 'bills',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND customer_id = ANY($2::bigint[])) OR COALESCE(customer_email, \'\') ~* $3 OR COALESCE(customer_name, \'\') ILIKE \'Smoke Customer%\' OR COALESCE(client_request_id, \'\') ~* $4',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND customer_id = ANY($2::bigint[])) OR COALESCE(customer_email, '') ~* $3 OR COALESCE(customer_name, '') ILIKE 'Smoke Customer%' OR COALESCE(client_request_id, '') ~* $4",
         params: [smokeBillIds, smokeUserIds, SMOKE_EMAIL_REGEX, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'orders',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR COALESCE(customer_email, \'\') ~* $3 OR COALESCE(customer_name, \'\') ILIKE \'Smoke Customer%\'',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND user_id = ANY($2::bigint[])) OR COALESCE(customer_email, '') ~* $3 OR COALESCE(customer_name, '') ILIKE 'Smoke Customer%'",
         params: [smokeOrderIds, smokeUserIds, SMOKE_EMAIL_REGEX],
       },
       {
@@ -355,17 +373,25 @@ const run = async () => {
       },
       {
         tableName: 'purchase_order_items',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND product_id = ANY($2::bigint[])) OR COALESCE(product_name, \'\') ILIKE \'Smoke Product%\' OR COALESCE(product_name, \'\') ILIKE \'Smoke PO Product%\'',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND order_id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND product_id = ANY($2::bigint[])) OR COALESCE(product_name, '') ILIKE 'Smoke Product%' OR COALESCE(product_name, '') ILIKE 'Smoke PO Product%'",
         params: [smokePurchaseOrderIds, smokeProductIds],
       },
       {
         tableName: 'purchase_order_payments',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND purchase_order_id = ANY($2::bigint[])) OR (cardinality($3::bigint[]) > 0 AND distributor_id = ANY($3::bigint[])) OR COALESCE(reference, \'\') ~* $4 OR COALESCE(notes, \'\') ~* $4 OR COALESCE(client_request_id, \'\') ~* $4',
-        params: [smokePurchaseOrderPaymentIds, smokePurchaseOrderIds, smokeDistributorIds, SMOKE_MESSAGE_REGEX],
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND purchase_order_id = ANY($2::bigint[])) OR (cardinality($3::bigint[]) > 0 AND distributor_id = ANY($3::bigint[])) OR COALESCE(reference, '') ~* $4 OR COALESCE(notes, '') ~* $4 OR COALESCE(client_request_id, '') ~* $4",
+        params: [
+          smokePurchaseOrderPaymentIds,
+          smokePurchaseOrderIds,
+          smokeDistributorIds,
+          SMOKE_MESSAGE_REGEX,
+        ],
       },
       {
         tableName: 'distributor_ledger',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND distributor_id = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(source_id, \'\') = ANY($2::text[])) OR COALESCE(reference, \'\') ~* $3 OR COALESCE(description, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND distributor_id = ANY($1::bigint[])) OR (cardinality($2::text[]) > 0 AND COALESCE(source_id, '') = ANY($2::text[])) OR COALESCE(reference, '') ~* $3 OR COALESCE(description, '') ~* $3",
         params: [
           smokeDistributorIds,
           uniqueTexts([
@@ -377,37 +403,44 @@ const run = async () => {
       },
       {
         tableName: 'purchase_orders',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND distributor_id = ANY($2::bigint[])) OR COALESCE(notes, \'\') ~* $3 OR COALESCE(po_number, \'\') ~* $3 OR COALESCE(bill_number, \'\') ~* $3 OR COALESCE(invoice_number, \'\') ~* $3 OR COALESCE(client_request_id, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR (cardinality($2::bigint[]) > 0 AND distributor_id = ANY($2::bigint[])) OR COALESCE(notes, '') ~* $3 OR COALESCE(po_number, '') ~* $3 OR COALESCE(bill_number, '') ~* $3 OR COALESCE(invoice_number, '') ~* $3 OR COALESCE(client_request_id, '') ~* $3",
         params: [smokePurchaseOrderIds, smokeDistributorIds, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'offers',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND apply_to_product = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND buy_product_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND get_product_id = ANY($1::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND apply_to_product = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND buy_product_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND get_product_id = ANY($1::bigint[]))',
         params: [smokeProductIds],
       },
       {
         tableName: 'product_recommendations',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND resolved_by = ANY($1::bigint[]))',
+        whereClause:
+          '(cardinality($1::bigint[]) > 0 AND user_id = ANY($1::bigint[])) OR (cardinality($1::bigint[]) > 0 AND resolved_by = ANY($1::bigint[]))',
         params: [smokeUserIds],
       },
       {
         tableName: 'admin_audit_logs',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND actor_user_id = ANY($1::bigint[])) OR COALESCE(request_id, \'\') ~* $2 OR COALESCE(details_json::text, \'\') ~* $2 OR COALESCE(details_json::text, \'\') ~* $3',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND actor_user_id = ANY($1::bigint[])) OR COALESCE(request_id, '') ~* $2 OR COALESCE(details_json::text, '') ~* $2 OR COALESCE(details_json::text, '') ~* $3",
         params: [smokeUserIds, SMOKE_MESSAGE_REGEX, SMOKE_EMAIL_REGEX],
       },
       {
         tableName: 'products',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(sku, \'\') LIKE \'SMK-%\' OR COALESCE(name, \'\') ILIKE \'Smoke Product%\' OR COALESCE(name, \'\') ILIKE \'Smoke PO Product%\' OR COALESCE(name, \'\') ILIKE \'Category Tree Product%\' OR COALESCE(description, \'\') ILIKE \'%category tree smoke%\'',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(sku, '') LIKE 'SMK-%' OR COALESCE(name, '') ILIKE 'Smoke Product%' OR COALESCE(name, '') ILIKE 'Smoke PO Product%' OR COALESCE(name, '') ILIKE 'Category Tree Product%' OR COALESCE(description, '') ILIKE '%category tree smoke%'",
         params: [smokeProductIds],
       },
       {
         tableName: 'distributors',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(name, \'\') ILIKE \'Smoke Distributor%\' OR COALESCE(contacts, \'\') ~* $2',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(name, '') ILIKE 'Smoke Distributor%' OR COALESCE(contacts, '') ~* $2",
         params: [smokeDistributorIds, SMOKE_MESSAGE_REGEX],
       },
       {
         tableName: 'users',
-        whereClause: '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(email, \'\') ~* $2 OR (COALESCE(name, \'\') ~* \'^Smoke (Admin|Customer)\' AND COALESCE(email, \'\') ILIKE \'%@example.com\') OR (COALESCE(name, \'\') ~* \'^Category Smoke Admin\' AND COALESCE(email, \'\') ILIKE \'%@example.com\') OR (password_hash = \'smoke-hash\' AND COALESCE(email, \'\') ILIKE \'%@example.com\')',
+        whereClause:
+          "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(email, '') ~* $2 OR (COALESCE(name, '') ~* '^Smoke (Admin|Customer)' AND COALESCE(email, '') ILIKE '%@example.com') OR (COALESCE(name, '') ~* '^Category Smoke Admin' AND COALESCE(email, '') ILIKE '%@example.com') OR (password_hash = 'smoke-hash' AND COALESCE(email, '') ILIKE '%@example.com')",
         params: [smokeUserIds, SMOKE_EMAIL_REGEX],
       },
     ];
@@ -419,8 +452,11 @@ const run = async () => {
       results.push(row);
     }
 
-    const categoriesWhereClause = '(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(name, \'\') ILIKE \'CAT_PARENT_A_%\' OR COALESCE(name, \'\') ILIKE \'CAT_PARENT_B_%\' OR COALESCE(name, \'\') ILIKE \'CAT_ROOT_%\' OR COALESCE(name, \'\') ILIKE \'CAT_MID_%\' OR COALESCE(name, \'\') ILIKE \'CAT_LEAF_%\' OR COALESCE(name, \'\') ILIKE \'Category Smoke %\' OR COALESCE(description, \'\') ILIKE \'%category tree smoke%\'';
-    const categoriesResult = await summarizeAndDeleteCategoriesLeafFirst(categoriesWhereClause, [smokeCategoryIds]);
+    const categoriesWhereClause =
+      "(cardinality($1::bigint[]) > 0 AND id = ANY($1::bigint[])) OR COALESCE(name, '') ILIKE 'CAT_PARENT_A_%' OR COALESCE(name, '') ILIKE 'CAT_PARENT_B_%' OR COALESCE(name, '') ILIKE 'CAT_ROOT_%' OR COALESCE(name, '') ILIKE 'CAT_MID_%' OR COALESCE(name, '') ILIKE 'CAT_LEAF_%' OR COALESCE(name, '') ILIKE 'Category Smoke %' OR COALESCE(description, '') ILIKE '%category tree smoke%'";
+    const categoriesResult = await summarizeAndDeleteCategoriesLeafFirst(categoriesWhereClause, [
+      smokeCategoryIds,
+    ]);
     results.push(categoriesResult);
 
     if (dryRun) {
@@ -439,11 +475,15 @@ const run = async () => {
     console.log(`[SMOKE-CLEANUP] Smoke categories found: ${smokeCategoryIds.length}`);
     console.log(`[SMOKE-CLEANUP] Smoke distributors found: ${smokeDistributorIds.length}`);
     console.log(`[SMOKE-CLEANUP] Smoke purchase orders found: ${smokePurchaseOrderIds.length}`);
-    console.log(`[SMOKE-CLEANUP] Smoke purchase order payments found: ${smokePurchaseOrderPaymentIds.length}`);
+    console.log(
+      `[SMOKE-CLEANUP] Smoke purchase order payments found: ${smokePurchaseOrderPaymentIds.length}`
+    );
     console.log(`[SMOKE-CLEANUP] Smoke orders found: ${smokeOrderIds.length}`);
     console.log(`[SMOKE-CLEANUP] Smoke bills found: ${smokeBillIds.length}`);
     console.log(`[SMOKE-CLEANUP] Rows matched across tables: ${matchedTotal}`);
-    console.log(`[SMOKE-CLEANUP] Rows ${dryRun ? 'would be deleted' : 'deleted'}: ${dryRun ? matchedTotal : deletedTotal}`);
+    console.log(
+      `[SMOKE-CLEANUP] Rows ${dryRun ? 'would be deleted' : 'deleted'}: ${dryRun ? matchedTotal : deletedTotal}`
+    );
 
     for (const row of existingRows) {
       if (row.matched > 0) {
@@ -454,7 +494,9 @@ const run = async () => {
     }
 
     if (failOnMatches && matchedTotal > 0) {
-      throw new Error(`Smoke residue detected after cleanup verification: ${matchedTotal} rows still matched`);
+      throw new Error(
+        `Smoke residue detected after cleanup verification: ${matchedTotal} rows still matched`
+      );
     }
   } catch (error) {
     await pool.query('ROLLBACK').catch(() => {});

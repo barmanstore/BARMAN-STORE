@@ -16,7 +16,9 @@ const normalizeRoutePath = (value) => {
 };
 
 const normalizeRouteKey = (method, routePath) => {
-  const verb = String(method || '').trim().toUpperCase();
+  const verb = String(method || '')
+    .trim()
+    .toUpperCase();
   return `${verb} ${normalizeRoutePath(routePath)}`;
 };
 
@@ -29,7 +31,10 @@ const parseRoutesMarkdown = (content) => {
     const pathToken = match[2];
     if (!methodsToken || !pathToken) continue;
     if (!String(pathToken).trim().startsWith('/')) continue;
-    const methods = methodsToken.split('|').map((method) => method.trim()).filter(Boolean);
+    const methods = methodsToken
+      .split('|')
+      .map((method) => method.trim())
+      .filter(Boolean);
     const normalizedPath = normalizeRoutePath(pathToken);
     methods.forEach((method) => routes.add(normalizeRouteKey(method, normalizedPath)));
   }

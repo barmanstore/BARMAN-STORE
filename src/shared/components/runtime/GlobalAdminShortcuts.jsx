@@ -48,15 +48,10 @@ function GlobalAdminShortcuts() {
       if (hasActiveModalDialog()) return;
 
       const key = String(event.key || '').toLowerCase();
-      const isBillingShortcut = key === 'b'
-        && event.altKey
-        && !event.ctrlKey
-        && !event.metaKey
-        && !event.shiftKey;
-      const isPurchaseShortcut = key === 'p'
-        && (event.altKey || event.ctrlKey)
-        && !event.metaKey
-        && !event.shiftKey;
+      const isBillingShortcut =
+        key === 'b' && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+      const isPurchaseShortcut =
+        key === 'p' && (event.altKey || event.ctrlKey) && !event.metaKey && !event.shiftKey;
 
       if (!isBillingShortcut && !isPurchaseShortcut) {
         return;

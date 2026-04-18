@@ -46,27 +46,35 @@ const clampInt = (value, fallback, min, max) => {
   return Math.max(min, Math.min(max, Math.round(parsed)));
 };
 
-const normalizeBulkOperation = (value) => String(value || '').trim().toLowerCase();
+const normalizeBulkOperation = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const normalizeImportJobMode = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'create_only' || raw === 'update_only' || raw === 'upsert') return raw;
   return 'upsert';
 };
 
 const normalizeImportStockMode = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'delta' || raw === 'replace') return raw;
   return 'replace';
 };
 
-const normalizeBulkProductIds = (values = []) => Array.from(
-  new Set(
-    (Array.isArray(values) ? values : [])
-      .map((value) => Number(value) || 0)
-      .filter((value) => Number.isInteger(value) && value > 0)
-  )
-).sort((a, b) => a - b);
+const normalizeBulkProductIds = (values = []) =>
+  Array.from(
+    new Set(
+      (Array.isArray(values) ? values : [])
+        .map((value) => Number(value) || 0)
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )
+  ).sort((a, b) => a - b);
 
 const normalizeBulkPayload = (payload = {}) => {
   const normalized = {};
@@ -112,30 +120,36 @@ const normalizeImportBulkPayloadForHash = (payload = {}) => ({
   file_hash: String(payload?.file_hash || '').trim(),
   mode: normalizeImportJobMode(payload?.mode),
   stock_mode: normalizeImportStockMode(payload?.stock_mode),
-  source: String(payload?.source || '').trim().toLowerCase(),
+  source: String(payload?.source || '')
+    .trim()
+    .toLowerCase(),
   allow_identical_rows: Array.isArray(payload?.allow_identical_rows)
-    ? payload.allow_identical_rows.map((value) => Number(value) || 0).filter(Boolean).sort((a, b) => a - b)
+    ? payload.allow_identical_rows
+        .map((value) => Number(value) || 0)
+        .filter(Boolean)
+        .sort((a, b) => a - b)
     : [],
   row_count: Math.max(0, Number(payload?.row_count || 0)),
 });
 
-const normalizeImportBulkItemsForHash = (items = []) => (
+const normalizeImportBulkItemsForHash = (items = []) =>
   (Array.isArray(items) ? items : [])
     .map((item) => ({
       source_row_id: Number(item?.source_row_id || item?.row || 0),
       product_id: item?.product_id == null ? null : Number(item.product_id) || null,
-      row_action: String(item?.row_action || '').trim().toLowerCase(),
+      row_action: String(item?.row_action || '')
+        .trim()
+        .toLowerCase(),
       before_updated_at: String(item?.before_state?.updated_at || '').trim(),
-      raw_payload: item?.raw_payload && typeof item.raw_payload === 'object'
-        ? item.raw_payload
-        : {},
-      normalized_payload: item?.normalized_payload && typeof item.normalized_payload === 'object'
-        ? item.normalized_payload
-        : {},
+      raw_payload:
+        item?.raw_payload && typeof item.raw_payload === 'object' ? item.raw_payload : {},
+      normalized_payload:
+        item?.normalized_payload && typeof item.normalized_payload === 'object'
+          ? item.normalized_payload
+          : {},
       allow_identical_confirmation: Boolean(item?.allow_identical_confirmation),
     }))
-    .sort((a, b) => a.source_row_id - b.source_row_id)
-);
+    .sort((a, b) => a.source_row_id - b.source_row_id);
 
 const buildRequestHash = (operation, productIds, payload) => {
   const normalizedOperation = normalizeBulkOperation(operation);
@@ -230,7 +244,8 @@ const buildJobItemRecord = (row = {}) => ({
   updated_at: row?.updated_at || null,
 });
 
-const encodeCursorToken = (payload) => Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+const encodeCursorToken = (payload) =>
+  Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 
 const decodeCursorToken = (token) => {
   const raw = String(token || '').trim();
@@ -272,15 +287,19 @@ const createCatalogBulkJobsService = ({
     return crypto.createHash('sha256').update(JSON.stringify(stable)).digest('hex');
   };
 
-  const buildRequestFingerprint = (operation, productIds, payload, items = []) => crypto
-    .createHash('sha256')
-    .update(JSON.stringify({
-      ...buildRequestHash(operation, productIds, payload),
-      items: normalizeBulkOperation(operation) === BULK_JOB_IMPORT_OPERATION
-        ? normalizeImportBulkItemsForHash(items)
-        : undefined,
-    }))
-    .digest('hex');
+  const buildRequestFingerprint = (operation, productIds, payload, items = []) =>
+    crypto
+      .createHash('sha256')
+      .update(
+        JSON.stringify({
+          ...buildRequestHash(operation, productIds, payload),
+          items:
+            normalizeBulkOperation(operation) === BULK_JOB_IMPORT_OPERATION
+              ? normalizeImportBulkItemsForHash(items)
+              : undefined,
+        })
+      )
+      .digest('hex');
 
   const normalizeJobSummary = (job = {}) => {
     const summary = parseJsonMaybe(job?.result_summary, {});
@@ -297,17 +316,21 @@ const createCatalogBulkJobsService = ({
 
   const buildJobResultSummary = (job = {}) => normalizeJobSummary(job);
 
-  const buildItemCursor = (item) => encodeCursorToken({
-    v: BULK_JOB_CURSOR_VERSION,
-    last_id: Number(item?.id || 0),
-  });
+  const buildItemCursor = (item) =>
+    encodeCursorToken({
+      v: BULK_JOB_CURSOR_VERSION,
+      last_id: Number(item?.id || 0),
+    });
 
   const getBulkJobByIdAsync = async (jobId) => {
     const row = await dbGetAsync('SELECT * FROM bulk_jobs WHERE id = ? LIMIT 1', [jobId]);
     return row ? buildJobRecord(row) : null;
   };
 
-  const getBulkJobItemsPageAsync = async (jobId, { cursor = '', limit = BULK_JOB_BATCH_SIZE } = {}) => {
+  const getBulkJobItemsPageAsync = async (
+    jobId,
+    { cursor = '', limit = BULK_JOB_BATCH_SIZE } = {}
+  ) => {
     const pageSize = clampInt(limit, BULK_JOB_BATCH_SIZE, 1, 200);
     const cursorToken = String(cursor || '').trim();
     let cursorId = 0;
@@ -316,7 +339,10 @@ const createCatalogBulkJobsService = ({
       try {
         decoded = decodeCursorToken(cursorToken);
       } catch (error) {
-        throw Object.assign(new Error('Invalid cursor token'), { status: 400, details: error.message });
+        throw Object.assign(new Error('Invalid cursor token'), {
+          status: 400,
+          details: error.message,
+        });
       }
       if (!decoded || Number(decoded?.v || 0) !== BULK_JOB_CURSOR_VERSION) {
         throw Object.assign(new Error('Invalid cursor token'), { status: 400 });
@@ -345,7 +371,8 @@ const createCatalogBulkJobsService = ({
       items: pageItems,
       page_info: {
         has_more: hasMore,
-        next_cursor: pageItems.length && hasMore ? buildItemCursor(pageItems[pageItems.length - 1]) : null,
+        next_cursor:
+          pageItems.length && hasMore ? buildItemCursor(pageItems[pageItems.length - 1]) : null,
         prev_cursor: pageItems.length && cursorId ? buildItemCursor(pageItems[0]) : null,
       },
       meta: {
@@ -362,9 +389,10 @@ const createCatalogBulkJobsService = ({
       errors.push('Unsupported bulk job operation');
     }
     const ids = normalizeBulkProductIds(productIds);
-    const normalizedPayload = normalizedOperation === BULK_JOB_IMPORT_OPERATION
-      ? normalizeImportBulkPayloadForHash(payload)
-      : normalizeBulkPayload(payload);
+    const normalizedPayload =
+      normalizedOperation === BULK_JOB_IMPORT_OPERATION
+        ? normalizeImportBulkPayloadForHash(payload)
+        : normalizeBulkPayload(payload);
     const normalizedItems = Array.isArray(items) ? items : [];
 
     if (normalizedOperation === BULK_JOB_IMPORT_OPERATION) {
@@ -395,40 +423,71 @@ const createCatalogBulkJobsService = ({
     payload,
     createdBy = null,
   } = {}) => {
-    const { errors, operation: normalizedOperation, ids, items: normalizedItems, normalizedPayload } = validateBulkJobRequest(
-      operation,
-      productIds,
-      items,
-      payload
-    );
+    const {
+      errors,
+      operation: normalizedOperation,
+      ids,
+      items: normalizedItems,
+      normalizedPayload,
+    } = validateBulkJobRequest(operation, productIds, items, payload);
     if (errors.length) {
       throw Object.assign(new Error(errors[0]), { status: 400, details: errors });
     }
 
-    const { value: clientRequestId, error: requestIdError } = resolveClientRequestId ? resolveClientRequestId(req) : { value: null, error: null };
+    const { value: clientRequestId, error: requestIdError } = resolveClientRequestId
+      ? resolveClientRequestId(req)
+      : { value: null, error: null };
     if (requestIdError) {
       throw Object.assign(new Error(requestIdError), { status: 400 });
     }
 
-    const requestHash = buildRequestFingerprint(normalizedOperation, ids, normalizedPayload, normalizedItems);
+    const requestHash = buildRequestFingerprint(
+      normalizedOperation,
+      ids,
+      normalizedPayload,
+      normalizedItems
+    );
     if (clientRequestId) {
-      const existing = await dbGetAsync('SELECT * FROM bulk_jobs WHERE idempotency_key = ? LIMIT 1', [clientRequestId]);
+      const existing = await dbGetAsync(
+        'SELECT * FROM bulk_jobs WHERE idempotency_key = ? LIMIT 1',
+        [clientRequestId]
+      );
       if (existing) {
         const existingJob = buildJobRecord(existing);
         if (String(existingJob.request_hash || '') !== requestHash) {
-          throw Object.assign(new Error('A bulk job already exists for this idempotency key with different content'), {
-            status: 409,
-            conflict_type: 'bulk_job_idempotency_conflict',
-          });
+          throw Object.assign(
+            new Error('A bulk job already exists for this idempotency key with different content'),
+            {
+              status: 409,
+              conflict_type: 'bulk_job_idempotency_conflict',
+            }
+          );
         }
         return { created: false, job: existingJob };
       }
     }
 
     const insertedJob = await dbTxAsync(async () => {
-      const initialSummary = normalizedOperation === BULK_JOB_IMPORT_OPERATION
-        ? { total: normalizedItems.length, succeeded: 0, created: 0, updated: 0, failed: 0, skipped: 0, conflicts: 0 }
-        : { total: ids.length, succeeded: 0, created: 0, updated: 0, failed: 0, skipped: 0, conflicts: 0 };
+      const initialSummary =
+        normalizedOperation === BULK_JOB_IMPORT_OPERATION
+          ? {
+              total: normalizedItems.length,
+              succeeded: 0,
+              created: 0,
+              updated: 0,
+              failed: 0,
+              skipped: 0,
+              conflicts: 0,
+            }
+          : {
+              total: ids.length,
+              succeeded: 0,
+              created: 0,
+              updated: 0,
+              failed: 0,
+              skipped: 0,
+              conflicts: 0,
+            };
       const header = await dbRunAsync(
         `INSERT INTO bulk_jobs
          (operation, status, total, processed, succeeded, failed, skipped, conflicts, payload, request_hash, result_summary, idempotency_key, created_by, created_at, updated_at, started_at, completed_at, cancel_requested_at, cancelled_at, locked_at, lease_expires_at, locked_by, error_message)
@@ -439,7 +498,8 @@ const createCatalogBulkJobsService = ({
           JSON.stringify(normalizedPayload),
           requestHash,
           JSON.stringify(initialSummary),
-          clientRequestId || `bulk_${crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`}`,
+          clientRequestId ||
+            `bulk_${crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`}`,
           createdBy,
         ]
       );
@@ -447,7 +507,9 @@ const createCatalogBulkJobsService = ({
       if (normalizedOperation === BULK_JOB_IMPORT_OPERATION) {
         for (const item of normalizedItems) {
           const beforeState = parseJsonMaybe(item.before_state, {});
-          const rowAction = String(item.row_action || '').trim().toLowerCase();
+          const rowAction = String(item.row_action || '')
+            .trim()
+            .toLowerCase();
           const rawPayload = parseJsonMaybe(item.raw_payload, {});
           const normalizedItemPayload = parseJsonMaybe(item.normalized_payload, {});
           await dbRunAsync(
@@ -461,7 +523,11 @@ const createCatalogBulkJobsService = ({
               rowAction || 'create',
               Number(item.source_row_id || 0) || null,
               JSON.stringify(rawPayload && Object.keys(rawPayload).length ? rawPayload : {}),
-              JSON.stringify(normalizedItemPayload && Object.keys(normalizedItemPayload).length ? normalizedItemPayload : {}),
+              JSON.stringify(
+                normalizedItemPayload && Object.keys(normalizedItemPayload).length
+                  ? normalizedItemPayload
+                  : {}
+              ),
             ]
           );
         }
@@ -473,10 +539,13 @@ const createCatalogBulkJobsService = ({
         const rowById = new Map(productRows.map((row) => [Number(row.id || 0), row]));
         const missingIds = ids.filter((id) => !rowById.has(id));
         if (missingIds.length > 0) {
-          throw Object.assign(new Error(`Selected products no longer exist: ${missingIds.join(', ')}`), {
-            status: 404,
-            details: { missing_ids: missingIds },
-          });
+          throw Object.assign(
+            new Error(`Selected products no longer exist: ${missingIds.join(', ')}`),
+            {
+              status: 404,
+              details: { missing_ids: missingIds },
+            }
+          );
         }
 
         for (const id of ids) {
@@ -497,7 +566,9 @@ const createCatalogBulkJobsService = ({
           );
         }
       }
-      return buildJobRecord(await dbGetAsync('SELECT * FROM bulk_jobs WHERE id = ? LIMIT 1', [jobId]));
+      return buildJobRecord(
+        await dbGetAsync('SELECT * FROM bulk_jobs WHERE id = ? LIMIT 1', [jobId])
+      );
     });
 
     if (clientRequestId && insertedJob) {
@@ -509,19 +580,19 @@ const createCatalogBulkJobsService = ({
       ).catch(() => {});
     }
 
-      if (typeof logAdminAuditAsync === 'function' && req) {
-        await logAdminAuditAsync(req, {
-          action: 'product.bulk_job.create',
-          entityType: 'bulk_job',
-          entityId: insertedJob.id,
-          requestId: clientRequestId || null,
-          details: {
-            operation: normalizedOperation,
-            total: insertedJob.total,
-            payload: normalizedPayload,
-          },
-        });
-      }
+    if (typeof logAdminAuditAsync === 'function' && req) {
+      await logAdminAuditAsync(req, {
+        action: 'product.bulk_job.create',
+        entityType: 'bulk_job',
+        entityId: insertedJob.id,
+        requestId: clientRequestId || null,
+        details: {
+          operation: normalizedOperation,
+          total: insertedJob.total,
+          payload: normalizedPayload,
+        },
+      });
+    }
 
     void wakeBulkJobRunner();
     return { created: true, job: insertedJob };
@@ -555,45 +626,48 @@ const createCatalogBulkJobsService = ({
     );
   };
 
-  const finalizeBulkJobAsync = async (jobId, status, details = {}) => dbRunAsync(
-    `UPDATE bulk_jobs
+  const finalizeBulkJobAsync = async (jobId, status, details = {}) =>
+    dbRunAsync(
+      `UPDATE bulk_jobs
      SET status = ?,
          completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
          cancelled_at = ?,
          error_message = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [
-      status,
-      status === 'cancelled' ? new Date().toISOString() : null,
-      details.error_message || null,
-      jobId,
-    ]
-  );
+      [
+        status,
+        status === 'cancelled' ? new Date().toISOString() : null,
+        details.error_message || null,
+        jobId,
+      ]
+    );
 
-  const updateBulkJobLeaseAsync = async (jobId, lockedBy = runnerId) => dbRunAsync(
-    `UPDATE bulk_jobs
+  const updateBulkJobLeaseAsync = async (jobId, lockedBy = runnerId) =>
+    dbRunAsync(
+      `UPDATE bulk_jobs
      SET locked_at = CURRENT_TIMESTAMP,
          lease_expires_at = CURRENT_TIMESTAMP + INTERVAL '${leaseWindowSeconds} seconds',
          locked_by = ?,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [lockedBy, jobId]
-  );
+      [lockedBy, jobId]
+    );
 
-  const claimNextJobAsync = async () => dbTxAsync(async () => {
-    const row = await dbGetAsync(
-      `SELECT *
+  const claimNextJobAsync = async () =>
+    dbTxAsync(async () => {
+      const row = await dbGetAsync(
+        `SELECT *
        FROM bulk_jobs
        WHERE status = 'queued'
          OR (status = 'running' AND lease_expires_at IS NOT NULL AND lease_expires_at < CURRENT_TIMESTAMP)
        ORDER BY created_at ASC, id ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED`
-    );
-    if (!row) return null;
-    await dbRunAsync(
-      `UPDATE bulk_jobs
+      );
+      if (!row) return null;
+      await dbRunAsync(
+        `UPDATE bulk_jobs
        SET status = 'running',
            started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
            locked_at = CURRENT_TIMESTAMP,
@@ -601,11 +675,11 @@ const createCatalogBulkJobsService = ({
            locked_by = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [runnerId, row.id]
-    );
-    const job = await dbGetAsync('SELECT * FROM bulk_jobs WHERE id = ? LIMIT 1', [row.id]);
-    return buildJobRecord(job);
-  });
+        [runnerId, row.id]
+      );
+      const job = await dbGetAsync('SELECT * FROM bulk_jobs WHERE id = ? LIMIT 1', [row.id]);
+      return buildJobRecord(job);
+    });
 
   const applyBulkUpdateToProductAsync = async ({ currentRow, payload }) => {
     const updates = [];
@@ -614,9 +688,9 @@ const createCatalogBulkJobsService = ({
     if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
       const categoryResult = resolveOrCreateCategoryHierarchyAsync
         ? await resolveOrCreateCategoryHierarchyAsync({
-          category: payload.category,
-          subcategory: currentRow?.subcategory || null,
-        })
+            category: payload.category,
+            subcategory: currentRow?.subcategory || null,
+          })
         : null;
       if (categoryResult) {
         updates.push('category = ?');
@@ -652,21 +726,19 @@ const createCatalogBulkJobsService = ({
       return { skipped: true };
     }
 
-    await dbRunAsync(
-      `UPDATE products SET ${updates.join(', ')} WHERE id = ?`,
-      [...values, currentRow.id]
-    );
-    const updatedRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [currentRow.id]);
+    await dbRunAsync(`UPDATE products SET ${updates.join(', ')} WHERE id = ?`, [
+      ...values,
+      currentRow.id,
+    ]);
+    const updatedRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [
+      currentRow.id,
+    ]);
     return { skipped: false, updatedRow };
   };
 
-  const markBulkJobItemAsync = async ({
-    itemId,
-    status,
-    errorMessage = null,
-    afterState = null,
-  }) => dbRunAsync(
-    `UPDATE bulk_job_items
+  const markBulkJobItemAsync = async ({ itemId, status, errorMessage = null, afterState = null }) =>
+    dbRunAsync(
+      `UPDATE bulk_job_items
      SET status = ?,
          error_message = ?,
          after_state = ?::jsonb,
@@ -674,8 +746,8 @@ const createCatalogBulkJobsService = ({
          last_attempt_at = CURRENT_TIMESTAMP,
          updated_at = CURRENT_TIMESTAMP
      WHERE id = ?`,
-    [status, errorMessage, JSON.stringify(afterState || {}), itemId]
-  );
+      [status, errorMessage, JSON.stringify(afterState || {}), itemId]
+    );
 
   const persistImportProductRowAsync = async ({ action, payload, matchedProductId }) => {
     if (action === 'create') {
@@ -749,12 +821,16 @@ const createCatalogBulkJobsService = ({
       ]
     );
     await dbRunAsync(SQL_INSERT_IGNORE_CATEGORY, [payload.category, 'Product category']);
-    const updatedRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [matchedProductId]);
+    const updatedRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [
+      matchedProductId,
+    ]);
     return { created: 0, updated: 1, updatedRow };
   };
 
   const processBulkUpdateJobItemAsync = async (job, item, payload) => {
-    const currentRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [item.product_id]);
+    const currentRow = await dbGetAsync('SELECT * FROM products WHERE id = ? LIMIT 1', [
+      item.product_id,
+    ]);
     if (!currentRow) {
       await markBulkJobItemAsync({
         itemId: item.id,
@@ -799,7 +875,9 @@ const createCatalogBulkJobsService = ({
 
   const processImportJobItemAsync = async (job, item, payload) => {
     const sourceRowId = Number(item.source_row_id || 0);
-    const rowAction = String(item.row_action || 'create').trim().toLowerCase();
+    const rowAction = String(item.row_action || 'create')
+      .trim()
+      .toLowerCase();
     const normalizedPayload = parseJsonMaybe(item.normalized_payload, {});
     const rawPayload = parseJsonMaybe(item.raw_payload, {});
     const allowIdenticalRows = new Set(
@@ -833,7 +911,11 @@ const createCatalogBulkJobsService = ({
 
     const beforeState = parseJsonMaybe(item.before_state, {});
     const expectedUpdatedAt = String(beforeState?.updated_at || '').trim();
-    if (expectedUpdatedAt && currentRow && String(currentRow.updated_at || '') !== expectedUpdatedAt) {
+    if (
+      expectedUpdatedAt &&
+      currentRow &&
+      String(currentRow.updated_at || '') !== expectedUpdatedAt
+    ) {
       await markBulkJobItemAsync({
         itemId: item.id,
         status: 'conflict',
@@ -842,9 +924,10 @@ const createCatalogBulkJobsService = ({
       return { status: 'conflict' };
     }
 
-    const payloadToPersist = Object.keys(normalizedPayload).length > 0
-      ? normalizedPayload
-      : normalizeProductInput(rawPayload, currentRow || null);
+    const payloadToPersist =
+      Object.keys(normalizedPayload).length > 0
+        ? normalizedPayload
+        : normalizeProductInput(rawPayload, currentRow || null);
     const validationErrors = validateProductPayload(payloadToPersist);
     if (validationErrors.length) {
       await markBulkJobItemAsync({
@@ -1020,9 +1103,8 @@ const createCatalogBulkJobsService = ({
     }
 
     const summary = normalizeJobSummary(latestJob);
-    const finalStatus = summary.failed > 0 || summary.conflicts > 0
-      ? 'completed_with_errors'
-      : 'completed';
+    const finalStatus =
+      summary.failed > 0 || summary.conflicts > 0 ? 'completed_with_errors' : 'completed';
     await dbRunAsync(
       `UPDATE bulk_jobs
        SET status = ?,
@@ -1041,7 +1123,7 @@ const createCatalogBulkJobsService = ({
     runnerBusy = true;
     try {
       // Drain the queue one job at a time with a single in-process runner.
-      while (true) {
+      for (;;) {
         const job = await claimNextJobAsync();
         if (!job) break;
 
@@ -1094,17 +1176,18 @@ const createCatalogBulkJobsService = ({
     }
 
     const nextStatus = job.status === 'queued' ? 'cancelled' : 'cancel_requested';
-    const nextSet = nextStatus === 'cancelled'
-      ? {
-        status: 'cancelled',
-        cancelledAtSql: 'CURRENT_TIMESTAMP',
-        cancelRequestedAtSql: 'CURRENT_TIMESTAMP',
-      }
-      : {
-        status: 'cancel_requested',
-        cancelledAtSql: 'NULL',
-        cancelRequestedAtSql: 'CURRENT_TIMESTAMP',
-      };
+    const nextSet =
+      nextStatus === 'cancelled'
+        ? {
+            status: 'cancelled',
+            cancelledAtSql: 'CURRENT_TIMESTAMP',
+            cancelRequestedAtSql: 'CURRENT_TIMESTAMP',
+          }
+        : {
+            status: 'cancel_requested',
+            cancelledAtSql: 'NULL',
+            cancelRequestedAtSql: 'CURRENT_TIMESTAMP',
+          };
 
     await dbRunAsync(
       `UPDATE bulk_jobs
@@ -1146,7 +1229,9 @@ const createCatalogBulkJobsService = ({
     const retryItems = items.map((item) => ({
       product_id: item.product_id == null ? null : Number(item.product_id),
       source_row_id: item.source_row_id == null ? null : Number(item.source_row_id),
-      row_action: String(item.row_action || '').trim().toLowerCase(),
+      row_action: String(item.row_action || '')
+        .trim()
+        .toLowerCase(),
       before_state: parseJsonMaybe(item.before_state, {}),
       raw_payload: parseJsonMaybe(item.raw_payload, {}),
       normalized_payload: parseJsonMaybe(item.normalized_payload, {}),

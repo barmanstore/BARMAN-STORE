@@ -44,7 +44,10 @@ const buildResponsiveImageSources = (src, preferredWidth = 480) => {
 
   let baseUrl;
   try {
-    baseUrl = new URL(raw, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    baseUrl = new URL(
+      raw,
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+    );
   } catch (_) {
     return { src: raw, srcSet: '', sizes: '' };
   }
@@ -56,11 +59,13 @@ const buildResponsiveImageSources = (src, preferredWidth = 480) => {
     return { src: baseUrl.toString(), srcSet: '', sizes: '' };
   }
 
-  const widths = Array.from(new Set([
-    Math.max(320, Math.round(preferredWidth * 0.75)),
-    Math.max(420, Math.round(preferredWidth)),
-    Math.max(640, Math.round(preferredWidth * 1.6))
-  ])).sort((a, b) => a - b);
+  const widths = Array.from(
+    new Set([
+      Math.max(320, Math.round(preferredWidth * 0.75)),
+      Math.max(420, Math.round(preferredWidth)),
+      Math.max(640, Math.round(preferredWidth * 1.6)),
+    ])
+  ).sort((a, b) => a - b);
 
   const toOptimizedUrl = (width) => {
     const next = new URL(baseUrl.toString());
@@ -83,9 +88,8 @@ const buildResponsiveImageSources = (src, preferredWidth = 480) => {
 
   const srcSet = widths.map((width) => `${toOptimizedUrl(width)} ${width}w`).join(', ');
   const srcUrl = toOptimizedUrl(widths[0]);
-  const sizes = preferredWidth >= 900
-    ? '(max-width: 767px) 92vw, 840px'
-    : '(max-width: 767px) 46vw, 280px';
+  const sizes =
+    preferredWidth >= 900 ? '(max-width: 767px) 92vw, 840px' : '(max-width: 767px) 46vw, 280px';
 
   return { src: srcUrl, srcSet, sizes };
 };
@@ -97,4 +101,3 @@ export {
   getSuggestionImageSrc,
   buildResponsiveImageSources,
 };
-

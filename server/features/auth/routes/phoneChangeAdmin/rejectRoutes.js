@@ -15,10 +15,16 @@ const registerPhoneChangeAdminRejectRoutes = (deps) => {
     try {
       const requestId = Number(req.params.id || 0);
       if (!requestId) return res.status(400).json({ error: 'Invalid request id' });
-      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [requestId]);
+      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [
+        requestId,
+      ]);
       if (!requestRow) return res.status(404).json({ error: 'Phone change request not found' });
-      if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
-        return res.status(400).json({ error: `Cannot reject request in status "${requestRow.status}"` });
+      if (
+        normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING
+      ) {
+        return res
+          .status(400)
+          .json({ error: `Cannot reject request in status "${requestRow.status}"` });
       }
 
       const adminNote = String(req.body?.admin_note || '').trim() || null;
@@ -53,7 +59,9 @@ const registerPhoneChangeAdminRejectRoutes = (deps) => {
         request: serialized,
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to reject phone change request' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to reject phone change request' });
     }
   });
 };

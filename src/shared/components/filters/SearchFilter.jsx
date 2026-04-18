@@ -107,7 +107,10 @@ function SearchFilter({
                 aria-hidden="true"
               />
             </div>
-            <span className="h-5 w-px shrink-0 bg-slate-200 search-filter-divider" aria-hidden="true" />
+            <span
+              className="h-5 w-px shrink-0 bg-slate-200 search-filter-divider"
+              aria-hidden="true"
+            />
           </>
         ) : null}
 
@@ -115,7 +118,9 @@ function SearchFilter({
           {!hasSubmitButton ? (
             <Search
               size={15}
-              className={['pointer-events-none absolute left-3', getFilterIconClassName(tone)].join(' ')}
+              className={['pointer-events-none absolute left-3', getFilterIconClassName(tone)].join(
+                ' '
+              )}
               aria-hidden="true"
             />
           ) : null}
@@ -143,7 +148,10 @@ function SearchFilter({
 
         {hasSubmitButton ? (
           <>
-            <span className="h-5 w-px shrink-0 bg-slate-200 search-filter-divider" aria-hidden="true" />
+            <span
+              className="h-5 w-px shrink-0 bg-slate-200 search-filter-divider"
+              aria-hidden="true"
+            />
             <button
               type="button"
               className={`${getSearchButtonClassName(tone)} search-filter-submit`}

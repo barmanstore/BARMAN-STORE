@@ -20,18 +20,14 @@ const getInitials = (name) => {
 function MobileAccountHeader({ headerRef = null }) {
   const navigate = useNavigate();
   const { user, clearUser } = useSession();
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [failedAvatarSrc, setFailedAvatarSrc] = useState('');
   const [avatarSrc, setAvatarSrc] = useState('');
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [user?.profile_image]);
 
   useEffect(() => {
     let cancelled = false;
     let revokeUrl = null;
     const run = async () => {
-      if (avatarLoadFailed || !user?.profile_image) {
+      if (failedAvatarSrc === user?.profile_image || !user?.profile_image) {
         setAvatarSrc('');
         return;
       }
@@ -48,7 +44,7 @@ function MobileAccountHeader({ headerRef = null }) {
       cancelled = true;
       if (revokeUrl) URL.revokeObjectURL(revokeUrl);
     };
-  }, [user?.profile_image, avatarLoadFailed]);
+  }, [user?.profile_image, failedAvatarSrc]);
 
   const handleLogin = () => navigate('/login');
   const handleLogout = () => {
@@ -63,11 +59,11 @@ function MobileAccountHeader({ headerRef = null }) {
     <header className="mobile-account-header" ref={headerRef}>
       <div className="mobile-account-card">
         <div className="mobile-account-avatar" aria-hidden="true">
-          {avatarSrc ? (
+          {failedAvatarSrc === user?.profile_image ? null : avatarSrc ? (
             <img
               src={avatarSrc}
               alt={displayName}
-              onError={() => setAvatarLoadFailed(true)}
+              onError={() => setFailedAvatarSrc(user?.profile_image || '')}
             />
           ) : displayName ? (
             <span>{getInitials(displayName)}</span>

@@ -11,12 +11,15 @@ const createPhoneChangeQueue = (deps = {}) => {
   } = deps;
 
   const normalizePhoneChangeRequestStatus = (value, fallback = PHONE_CHANGE_STATUS_PENDING) => {
-    const normalized = String(value || '').trim().toUpperCase();
+    const normalized = String(value || '')
+      .trim()
+      .toUpperCase();
     if (
-      normalized === PHONE_CHANGE_STATUS_PENDING
-      || normalized === PHONE_CHANGE_STATUS_APPROVED
-      || normalized === PHONE_CHANGE_STATUS_REJECTED
-    ) return normalized;
+      normalized === PHONE_CHANGE_STATUS_PENDING ||
+      normalized === PHONE_CHANGE_STATUS_APPROVED ||
+      normalized === PHONE_CHANGE_STATUS_REJECTED
+    )
+      return normalized;
     return fallback;
   };
 
@@ -45,23 +48,25 @@ const createPhoneChangeQueue = (deps = {}) => {
     };
   };
 
-  const getOpenPhoneChangeRequestForUser = async (userId) => dbGetAsync(
-    `SELECT *
+  const getOpenPhoneChangeRequestForUser = async (userId) =>
+    dbGetAsync(
+      `SELECT *
      FROM phone_change_requests
      WHERE user_id = ? AND status = ?
      ORDER BY id DESC
      LIMIT 1`,
-    [Number(userId || 0), PHONE_CHANGE_STATUS_PENDING]
-  );
+      [Number(userId || 0), PHONE_CHANGE_STATUS_PENDING]
+    );
 
-  const getLatestPhoneChangeRequestForUser = async (userId) => dbGetAsync(
-    `SELECT *
+  const getLatestPhoneChangeRequestForUser = async (userId) =>
+    dbGetAsync(
+      `SELECT *
      FROM phone_change_requests
      WHERE user_id = ?
      ORDER BY id DESC
      LIMIT 1`,
-    [Number(userId || 0)]
-  );
+      [Number(userId || 0)]
+    );
 
   const queuePhoneChangeRequest = async ({
     userId,
@@ -80,7 +85,7 @@ const createPhoneChangeQueue = (deps = {}) => {
     const now = Date.now();
     const autoCheckAt = new Date(now + PHONE_CHANGE_AUTO_APPROVE_DELAY_MS).toISOString();
     const finalDueAt = new Date(
-      now + (PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+      now + PHONE_CHANGE_ADMIN_REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
     const existing = await getOpenPhoneChangeRequestForUser(normalizedUserId);
     if (existing) {
@@ -114,7 +119,10 @@ const createPhoneChangeQueue = (deps = {}) => {
           existing.id,
         ]
       );
-      return (await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [existing.id])) || null;
+      return (
+        (await dbGetAsync(`SELECT * FROM phone_change_requests WHERE id = ?`, [existing.id])) ||
+        null
+      );
     }
 
     const inserted = await dbRunAsync(

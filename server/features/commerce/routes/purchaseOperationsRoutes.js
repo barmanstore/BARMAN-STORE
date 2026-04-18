@@ -9,8 +9,7 @@ const registerPurchaseOperationsRoutes = (deps) => {
     handlePurchaseOperationsSummary,
   } = deps;
 
-  const respondPurchaseOperationsSummary = (req, res) =>
-    handlePurchaseOperationsSummary(req, res);
+  const respondPurchaseOperationsSummary = (req, res) => handlePurchaseOperationsSummary(req, res);
 
   const runPurchaseOperationsAnalytics = (req, res) =>
     handlePurchaseOperationsSummary(req, res, { persistSnapshots: true });
@@ -49,12 +48,15 @@ const registerPurchaseOperationsRoutes = (deps) => {
       if (!supplierId) {
         return res.status(400).json({ error: 'supplier_id is required' });
       }
-      const supplier = await dbGetAsync('SELECT id, distributor_id, name FROM suppliers WHERE id = ?', [supplierId]);
+      const supplier = await dbGetAsync(
+        'SELECT id, distributor_id, name FROM suppliers WHERE id = ?',
+        [supplierId]
+      );
       if (!supplier) {
         return res.status(404).json({ error: 'Supplier not found' });
       }
-      const todayKey = normalizeTransactionDate(new Date().toISOString())
-        || new Date().toISOString().slice(0, 10);
+      const todayKey =
+        normalizeTransactionDate(new Date().toISOString()) || new Date().toISOString().slice(0, 10);
       const visitDate = normalizeTransactionDate(req.body?.date || todayKey) || todayKey;
       if (visitDate !== todayKey) {
         return res.status(400).json({ error: 'Visit can only be changed for today' });
@@ -77,10 +79,22 @@ const registerPurchaseOperationsRoutes = (deps) => {
   };
 
   app.get('/api/purchase-operations/summary', requireAdmin, respondPurchaseOperationsSummary);
-  app.post('/api/purchase-operations/visit/close', requireAdmin, (req, res) => mutateSupplierVisit(req, res, true));
-  app.post('/api/purchase-operations/visit/reopen', requireAdmin, (req, res) => mutateSupplierVisit(req, res, false));
-  app.get('/api/internal/purchase-operations/analytics/run', requireCronSecret, runPurchaseOperationsAnalytics);
-  app.post('/api/internal/purchase-operations/analytics/run', requireCronSecret, runPurchaseOperationsAnalytics);
+  app.post('/api/purchase-operations/visit/close', requireAdmin, (req, res) =>
+    mutateSupplierVisit(req, res, true)
+  );
+  app.post('/api/purchase-operations/visit/reopen', requireAdmin, (req, res) =>
+    mutateSupplierVisit(req, res, false)
+  );
+  app.get(
+    '/api/internal/purchase-operations/analytics/run',
+    requireCronSecret,
+    runPurchaseOperationsAnalytics
+  );
+  app.post(
+    '/api/internal/purchase-operations/analytics/run',
+    requireCronSecret,
+    runPurchaseOperationsAnalytics
+  );
 };
 
 module.exports = { registerPurchaseOperationsRoutes };

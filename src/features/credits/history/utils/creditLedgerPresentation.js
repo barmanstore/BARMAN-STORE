@@ -1,6 +1,9 @@
 const BILL_CREDIT_PREFIX = 'bill credit |';
 
-const toTrimmedLower = (value) => String(value || '').trim().toLowerCase();
+const toTrimmedLower = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 export const getCreditEntrySourceType = (entry = {}) => {
   const explicit = toTrimmedLower(entry?.source_type);
@@ -44,7 +47,9 @@ export const getCreditEntrySourceLabel = (entry = {}) => {
   const linkedBillNumber = String(entry?.linked_bill_number || entry?.bill_number || '').trim();
   if (linkedBillNumber) return linkedBillNumber;
 
-  const resolvedSourceLabel = String(entry?.resolved_source_label || entry?.source_label || '').trim();
+  const resolvedSourceLabel = String(
+    entry?.resolved_source_label || entry?.source_label || ''
+  ).trim();
   if (resolvedSourceLabel) return resolvedSourceLabel;
 
   const reference = String(entry?.reference || '').trim();

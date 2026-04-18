@@ -9,7 +9,7 @@ const parseJsonArray = (value) => {
   }
 };
 
-const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
+const mapProductInsightsRows = (rows, deriveStockoutRisk) =>
   (rows || []).map((row) => {
     const latestCost = Number(row.latest_cost || 0);
     const previousCost = Number(row.previous_cost || 0);
@@ -17,9 +17,9 @@ const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
     const costDeltaPct = previousCost ? (costDelta / previousCost) * 100 : null;
     const rawSeries = Array.isArray(row.cost_series)
       ? row.cost_series
-      : (typeof row.cost_series === 'string' && row.cost_series.startsWith('{')
+      : typeof row.cost_series === 'string' && row.cost_series.startsWith('{')
         ? row.cost_series.slice(1, -1).split(',')
-        : []);
+        : [];
     const costSeries = rawSeries
       .map((value) => Number(value))
       .filter((value) => Number.isFinite(value))
@@ -34,12 +34,18 @@ const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
     const avgDaysBetween = row.avg_days_between === null ? null : Number(row.avg_days_between || 0);
     const sellingPrice = row.price == null ? null : Number(row.price || 0);
     const mrpPrice = row.mrp == null ? null : Number(row.mrp || 0);
-    const effectivePrice = sellingPrice != null && sellingPrice > 0
-      ? sellingPrice
-      : (mrpPrice != null && mrpPrice > 0 ? mrpPrice : null);
-    const marginAmount = effectivePrice != null && latestCost > 0 ? (effectivePrice - latestCost) : null;
-    const marginPct = marginAmount != null && latestCost > 0 ? (marginAmount / latestCost) * 100 : null;
-    const stockLevel = row.stock === null || row.stock === undefined ? null : Number(row.stock || 0);
+    const effectivePrice =
+      sellingPrice != null && sellingPrice > 0
+        ? sellingPrice
+        : mrpPrice != null && mrpPrice > 0
+          ? mrpPrice
+          : null;
+    const marginAmount =
+      effectivePrice != null && latestCost > 0 ? effectivePrice - latestCost : null;
+    const marginPct =
+      marginAmount != null && latestCost > 0 ? (marginAmount / latestCost) * 100 : null;
+    const stockLevel =
+      row.stock === null || row.stock === undefined ? null : Number(row.stock || 0);
     return {
       product_id: Number(row.product_id || 0),
       product_name: row.product_name,
@@ -67,12 +73,12 @@ const mapProductInsightsRows = (rows, deriveStockoutRisk) => (
       on_time_rate: row.on_time_rate === null ? null : Number(row.on_time_rate || 0),
       best_distributor_id: row.best_distributor_id ? Number(row.best_distributor_id) : null,
       best_distributor_name: row.best_distributor_name || null,
-      best_distributor_avg_cost: row.best_distributor_avg_cost === null ? null : Number(row.best_distributor_avg_cost || 0),
+      best_distributor_avg_cost:
+        row.best_distributor_avg_cost === null ? null : Number(row.best_distributor_avg_cost || 0),
       available_distributors: availableDistributors,
       stockout_risk: deriveStockoutRisk(avgDaysBetween, stockLevel),
       cost_series: costSeries,
     };
-  })
-);
+  });
 
 module.exports = { mapProductInsightsRows };

@@ -33,27 +33,27 @@ This review covers the shared modal stack used by the React app:
 ## Fix Progress
 
 - [x] 1. Stop modal size and position reset on normal rerenders.
-  Implemented in `src/shared/hooks/useWindowDragResize.js` and `src/shared/components/window/WindowModal.jsx` by treating `initialSize` as an open-time snapshot and resetting only when a window opens or its `windowId` changes.
+     Implemented in `src/shared/hooks/useWindowDragResize.js` and `src/shared/components/window/WindowModal.jsx` by treating `initialSize` as an open-time snapshot and resetting only when a window opens or its `windowId` changes.
 - [x] 2. Remove extra manager churn by stabilizing registration and activation paths.
-  Implemented in `src/shared/components/window/WindowModal.jsx` and `src/shared/components/window/WindowManagerProvider.jsx` by keeping window registration lifecycle stable, avoiding redundant provider updates for unchanged payloads, and skipping re-activation work for already-top windows.
+     Implemented in `src/shared/components/window/WindowModal.jsx` and `src/shared/components/window/WindowManagerProvider.jsx` by keeping window registration lifecycle stable, avoiding redundant provider updates for unchanged payloads, and skipping re-activation work for already-top windows.
 - [x] 3. Move drag and resize updates off the full React render path.
-  Implemented in `src/shared/hooks/useWindowDragResize.js` by moving pointer-driven geometry updates onto a ref plus `requestAnimationFrame` path and only committing React state at stable points such as open, resize clamp, maximize/restore, and interaction end.
+     Implemented in `src/shared/hooks/useWindowDragResize.js` by moving pointer-driven geometry updates onto a ref plus `requestAnimationFrame` path and only committing React state at stable points such as open, resize clamp, maximize/restore, and interaction end.
 - [x] 4. Clean up the CSS contract so feature styles stop redefining core frame behavior.
-  Implemented by consolidating shared frame overflow ownership into the shared window shell, stripping stale frame scroll rules from feature modal themes, and splitting inline category layout styling from the desktop dialog class in `src/features/catalog/categories/CategoryManagement.css`.
+     Implemented by consolidating shared frame overflow ownership into the shared window shell, stripping stale frame scroll rules from feature modal themes, and splitting inline category layout styling from the desktop dialog class in `src/features/catalog/categories/CategoryManagement.css`.
 - [x] 5. Scope remaining generic `.close-btn` styles.
-  Implemented by replacing the remaining generic close-button selectors with feature-scoped classes across purchase, distributor, category, credit, product, and user modal themes.
+     Implemented by replacing the remaining generic close-button selectors with feature-scoped classes across purchase, distributor, category, credit, product, and user modal themes.
 - [x] 6. Make accessibility reflect the topmost-window model.
-  Implemented in `src/shared/components/window/WindowModal.jsx` by exposing `role="dialog"` and `aria-modal="true"` only on the active top window, hiding inactive stacked windows from assistive technology, and limiting the focus trap to the accessible dialog.
+     Implemented in `src/shared/components/window/WindowModal.jsx` by exposing `role="dialog"` and `aria-modal="true"` only on the active top window, hiding inactive stacked windows from assistive technology, and limiting the focus trap to the accessible dialog.
 - [x] 7. Delete dead overlay CSS after each feature is confirmed on the shared runtime.
-  Implemented by removing legacy overlay selectors from `src/shared/components/AppModal.css`, purchase, distributor, category, credit-history, product-form, and user-edit modal styles after confirming those flows now render through `WindowModal` or `MobileBottomSheet`.
+     Implemented by removing legacy overlay selectors from `src/shared/components/AppModal.css`, purchase, distributor, category, credit-history, product-form, and user-edit modal styles after confirming those flows now render through `WindowModal` or `MobileBottomSheet`.
 - [x] 8. Add `prefers-reduced-motion` handling and review blur usage.
-  Implemented in the shared modal and mobile sheet CSS, plus the remaining modal-specific animation files, by disabling modal motion under `prefers-reduced-motion` and dropping backdrop blur on the heaviest modal-adjacent surfaces in reduced-motion mode.
+     Implemented in the shared modal and mobile sheet CSS, plus the remaining modal-specific animation files, by disabling modal motion under `prefers-reduced-motion` and dropping backdrop blur on the heaviest modal-adjacent surfaces in reduced-motion mode.
 - [x] 9. Bring `MobileBottomSheet` to the same portal, focus, and background-isolation standard as `WindowModal`.
-  Implemented in `src/shared/components/mobile/MobileBottomSheet.jsx` and `src/shared/hooks/useInertBackground.js` by portaling the sheet to `document.body`, trapping focus inside the dialog, and making background inertness safe for stacked shared surfaces.
+     Implemented in `src/shared/components/mobile/MobileBottomSheet.jsx` and `src/shared/hooks/useInertBackground.js` by portaling the sheet to `document.body`, trapping focus inside the dialog, and making background inertness safe for stacked shared surfaces.
 - [x] 10. Consolidate the duplicated `.fade-in-up` animation contract.
-  Implemented by keeping the shared utility in `src/App.css`, removing modal-specific redefinitions from category, credit-history, and user-edit styles, and renaming the user-menu-specific dropdown animation so it no longer competes on the same selector.
+      Implemented by keeping the shared utility in `src/App.css`, removing modal-specific redefinitions from category, credit-history, and user-edit styles, and renaming the user-menu-specific dropdown animation so it no longer competes on the same selector.
 - [x] 11. Convert the shared desktop window shell from `WindowModal.css` to inline Tailwind utilities.
-  Implemented in `src/shared/components/window/WindowManagerProvider.jsx`, `src/shared/components/window/WindowModal.jsx`, and `src/features/credits/khata/CreditKhata.jsx` by moving the shared backdrop, dock, frame, header, control, body, and resize-handle styling into inline utility classes while keeping the existing structural class hooks for feature overrides and print rules.
+      Implemented in `src/shared/components/window/WindowManagerProvider.jsx`, `src/shared/components/window/WindowModal.jsx`, and `src/features/credits/khata/CreditKhata.jsx` by moving the shared backdrop, dock, frame, header, control, body, and resize-handle styling into inline utility classes while keeping the existing structural class hooks for feature overrides and print rules.
 
 ## Post-Fix Review
 

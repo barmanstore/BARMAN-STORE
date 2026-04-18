@@ -15,7 +15,8 @@ const registerProductCreateRoutes = (deps) => {
     try {
       const body = normalizeProductInput(req.body || {});
       const errors = validateProductPayload(body);
-      if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
+      if (errors.length)
+        return res.status(400).json({ error: 'Validation failed', details: errors });
       const duplicate = await findProductConflictAsync(body);
       if (duplicate) {
         const allowIdentical = Boolean(req.body?.allow_identical);
@@ -26,7 +27,7 @@ const registerProductCreateRoutes = (deps) => {
             error: duplicate.message,
             field: duplicate.field,
             conflict_type: duplicate.conflict_type,
-            conflict: duplicate
+            conflict: duplicate,
           });
         }
       }
@@ -65,7 +66,13 @@ const registerProductCreateRoutes = (deps) => {
           Number(body.is_active ?? 1),
         ]
       );
-      return res.status(201).json(normalizeProductRecord(await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [result.lastInsertRowid])));
+      return res
+        .status(201)
+        .json(
+          normalizeProductRecord(
+            await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [result.lastInsertRowid])
+          )
+        );
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }

@@ -13,12 +13,16 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
       const requestedPageSize = Number(req.query?.page_size || req.query?.limit || 0);
       const isPaginated = Number.isFinite(requestedPageSize) && requestedPageSize > 0;
       const pageSize = isPaginated ? Math.max(1, Math.min(100, Math.floor(requestedPageSize))) : 0;
-      const page = isPaginated
-        ? Math.max(1, Math.floor(Number(req.query?.page || 1) || 1))
-        : 1;
+      const page = isPaginated ? Math.max(1, Math.floor(Number(req.query?.page || 1) || 1)) : 1;
       const offset = isPaginated ? (page - 1) * pageSize : 0;
-      const includeItems = String(req.query?.include_items || '').trim().toLowerCase() === 'true'
-        || (!isPaginated && String(req.query?.include_items || '').trim().toLowerCase() !== 'false');
+      const includeItems =
+        String(req.query?.include_items || '')
+          .trim()
+          .toLowerCase() === 'true' ||
+        (!isPaginated &&
+          String(req.query?.include_items || '')
+            .trim()
+            .toLowerCase() !== 'false');
 
       let whereSql = ' WHERE 1=1';
       let countSql = `
@@ -35,8 +39,8 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
       if (req.query.status) {
         const lifecycleStatus = normalizePoLifecycleStatus(req.query.status, '');
         if (lifecycleStatus) {
-          whereSql += ' AND LOWER(COALESCE(po.po_status, po.status, \'\')) = LOWER(?)';
-          countSql += ' AND LOWER(COALESCE(po.po_status, po.status, \'\')) = LOWER(?)';
+          whereSql += " AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)";
+          countSql += " AND LOWER(COALESCE(po.po_status, po.status, '')) = LOWER(?)";
           params.push(lifecycleStatus);
         } else {
           whereSql += ' AND po.status = ?';
@@ -45,8 +49,8 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
         }
       }
       if (req.query.payment_status) {
-        whereSql += ' AND LOWER(COALESCE(po.payment_status, \'unpaid\')) = LOWER(?)';
-        countSql += ' AND LOWER(COALESCE(po.payment_status, \'unpaid\')) = LOWER(?)';
+        whereSql += " AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)";
+        countSql += " AND LOWER(COALESCE(po.payment_status, 'unpaid')) = LOWER(?)";
         params.push(normalizePoPaymentStatus(req.query.payment_status));
       }
       if (req.query.start_date) {
@@ -85,15 +89,20 @@ const registerPurchaseOrdersListReadRoutes = (deps) => {
       }
 
       const rows = includeItems
-        ? await Promise.all(baseRows.map(async (row) => {
-          try {
-            const items = await dbAllAsync('SELECT * FROM purchase_order_items WHERE order_id = ?', [row.id]);
-            return { ...row, item_count: Number(row?.item_count || items.length || 0), items };
-          } catch (_) {
-            // Keep the list response usable even if one order's item expansion fails.
-            return { ...row, item_count: Number(row?.item_count || 0), items: [] };
-          }
-        }))
+        ? await Promise.all(
+            baseRows.map(async (row) => {
+              try {
+                const items = await dbAllAsync(
+                  'SELECT * FROM purchase_order_items WHERE order_id = ?',
+                  [row.id]
+                );
+                return { ...row, item_count: Number(row?.item_count || items.length || 0), items };
+              } catch (_) {
+                // Keep the list response usable even if one order's item expansion fails.
+                return { ...row, item_count: Number(row?.item_count || 0), items: [] };
+              }
+            })
+          )
         : baseRows.map((row) => ({ ...row, item_count: Number(row?.item_count || 0) }));
 
       if (isPaginated) {

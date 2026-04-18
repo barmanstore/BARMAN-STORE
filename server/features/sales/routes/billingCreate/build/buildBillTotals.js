@@ -1,17 +1,37 @@
 const buildBillTotals = (deps, context, itemResult, createHttpError) => {
   const { generateBillNumber } = deps;
-  const { requestBody, linkedOrderId, linkedOrderItems, customer, customerName, customerEmail, customerPhone, customerAddress, billType, fulfillmentMode } = context;
+  const {
+    requestBody,
+    linkedOrderId,
+    linkedOrderItems,
+    customer,
+    customerName,
+    customerEmail,
+    customerPhone,
+    customerAddress,
+    billType,
+    fulfillmentMode,
+  } = context;
   const { itemFulfillmentRows, shouldApplySalesStock, salesQtyByProduct } = itemResult;
 
   if (linkedOrderId && fulfillmentMode === 'available_now') {
-    const fulfilledQtyTotal = itemFulfillmentRows.reduce((sum, it) => sum + Math.max(0, Number(it.fulfilled_qty || 0)), 0);
+    const fulfilledQtyTotal = itemFulfillmentRows.reduce(
+      (sum, it) => sum + Math.max(0, Number(it.fulfilled_qty || 0)),
+      0
+    );
     if (fulfilledQtyTotal <= 0) {
       throw createHttpError(400, 'No fulfilled quantity is currently available to bill');
     }
   }
 
-  const subtotal = itemFulfillmentRows.reduce((sum, it) => sum + Number(it.line_subtotal || it.amount || 0), 0);
-  const billDiscount = itemFulfillmentRows.reduce((sum, it) => sum + Math.max(0, Number(it.discount || 0)), 0);
+  const subtotal = itemFulfillmentRows.reduce(
+    (sum, it) => sum + Number(it.line_subtotal || it.amount || 0),
+    0
+  );
+  const billDiscount = itemFulfillmentRows.reduce(
+    (sum, it) => sum + Math.max(0, Number(it.discount || 0)),
+    0
+  );
   const totalAmount = Math.max(0, subtotal - billDiscount);
   const paidAmount = Math.max(0, Math.min(totalAmount, Number(requestBody.paid_amount || 0)));
   const creditAmount = Math.max(0, totalAmount - paidAmount);

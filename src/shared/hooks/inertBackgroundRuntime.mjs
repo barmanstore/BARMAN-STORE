@@ -45,13 +45,7 @@ export const applyInertBackgroundSnapshot = (snapshot) => {
 
 export const restoreInertBackgroundSnapshot = (snapshot) => {
   if (!snapshot?.element) return;
-  const {
-    element,
-    supportsInert,
-    inert,
-    pointerEvents,
-    ariaHidden,
-  } = snapshot;
+  const { element, supportsInert, inert, pointerEvents, ariaHidden } = snapshot;
   if (supportsInert) {
     element.inert = inert;
   } else if (element?.style) {

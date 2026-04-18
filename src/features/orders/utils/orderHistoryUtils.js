@@ -1,13 +1,12 @@
 import { Package, Clock, CheckCircle } from 'lucide-react';
 import { formatDate as formatDateValue } from '../../../shared/utils/formatters';
 
-const formatDate = (dateString) => (
+const formatDate = (dateString) =>
   formatDateValue(dateString, 'en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
-  })
-);
+    day: 'numeric',
+  });
 
 const getStatusConfig = (status) => {
   const configs = {
@@ -23,7 +22,7 @@ const sortOptions = [
   { value: 'date_desc', label: 'Newest First' },
   { value: 'date_asc', label: 'Oldest First' },
   { value: 'amount_desc', label: 'Highest Amount' },
-  { value: 'amount_asc', label: 'Lowest Amount' }
+  { value: 'amount_asc', label: 'Lowest Amount' },
 ];
 
 const extractQtyLabelFromName = (value) => {
@@ -40,7 +39,9 @@ const buildCartItemFromOrderItem = (item, index) => {
   const productId = Number(item?.product_id || item?.id || 0);
   const isManual = !(productId > 0);
   const quantity = Math.max(1, Number(item?.quantity || 1));
-  const qtyLabel = String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim() || String(quantity);
+  const qtyLabel =
+    String(item?.quantity_label || item?.qty_text || item?.quantity_text || '').trim() ||
+    String(quantity);
   const price = Math.max(0, Number(item?.price || item?.mrp || 0));
   const name = String(item?.product_name || item?.name || 'Item').trim() || 'Item';
   return {
@@ -76,4 +77,3 @@ export {
   buildCartItemFromOrderItem,
   buildRepeatCartFromOrder,
 };
-

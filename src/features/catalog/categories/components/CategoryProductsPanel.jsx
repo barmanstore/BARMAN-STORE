@@ -20,9 +20,7 @@ const CategoryProductsPanel = ({
   onDragEnd,
 }) => (
   <div className="category-products-panel">
-    <h3>
-      {selectedCategory ? `Products in ${selectedCategory.name}` : 'Category Products'}
-    </h3>
+    <h3>{selectedCategory ? `Products in ${selectedCategory.name}` : 'Category Products'}</h3>
     <p className="panel-help">
       Drag a product and drop it on another category node to reassign category directly.
     </p>
@@ -46,13 +44,11 @@ const CategoryProductsPanel = ({
           >
             <span className="product-name">{product.name}</span>
             <span className="product-meta">
-              #{product.id} | Stock {Number(product.stock || 0)} | {String(product.category_path || product.category || '').trim() || '-'}
+              #{product.id} | Stock {Number(product.stock || 0)} |{' '}
+              {String(product.category_path || product.category || '').trim() || '-'}
             </span>
             {Number(editingProductId) === Number(product.id) ? (
-              <div
-                className="product-inline-editor"
-                onClick={(event) => event.stopPropagation()}
-              >
+              <div className="product-inline-editor" onClick={(event) => event.stopPropagation()}>
                 <input
                   type="text"
                   id="product-category-search"

@@ -40,7 +40,12 @@
 .credit-khata .credit-khata-filter-clear,
 .credit-khata .credit-khata-active-filter-pill,
 .credit-khata .credit-khata-action-icon {
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .credit-khata .admin-btn {
@@ -127,7 +132,9 @@
   border-radius: 999px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .credit-khata .credit-khata-search-filter .search-filter-shell:focus-within {
@@ -214,7 +221,10 @@
   background: #eff6ff;
   color: #0369a1;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .credit-khata .credit-khata-search-filter .search-filter-submit:hover,
@@ -479,11 +489,21 @@
   background: #cbd5e1;
 }
 
-.credit-khata .credit-khata-stat-card--due::before { background: #ef4444; }
-.credit-khata .credit-khata-stat-card--advance::before { background: #10b981; }
-.credit-khata .credit-khata-stat-card--payments::before { background: #3b82f6; }
-.credit-khata .credit-khata-stat-card--sales::before { background: #8b5cf6; }
-.credit-khata .credit-khata-stat-card--edited::before { background: #f59e0b; }
+.credit-khata .credit-khata-stat-card--due::before {
+  background: #ef4444;
+}
+.credit-khata .credit-khata-stat-card--advance::before {
+  background: #10b981;
+}
+.credit-khata .credit-khata-stat-card--payments::before {
+  background: #3b82f6;
+}
+.credit-khata .credit-khata-stat-card--sales::before {
+  background: #8b5cf6;
+}
+.credit-khata .credit-khata-stat-card--edited::before {
+  background: #f59e0b;
+}
 
 .credit-khata .credit-khata-stat-value {
   font-size: 28px;
@@ -492,8 +512,12 @@
   color: #0f172a;
 }
 
-.credit-khata .credit-khata-stat-value.positive { color: #b91c1c; }
-.credit-khata .credit-khata-stat-value.negative { color: #166534; }
+.credit-khata .credit-khata-stat-value.positive {
+  color: #b91c1c;
+}
+.credit-khata .credit-khata-stat-value.negative {
+  color: #166534;
+}
 
 .credit-khata .credit-khata-stat-label {
   color: #64748b;
@@ -598,12 +622,36 @@
   white-space: nowrap;
 }
 
-.credit-khata .credit-khata-type-pill.payment { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.credit-khata .credit-khata-type-pill.manual-sale { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-.credit-khata .credit-khata-type-pill.bill { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.credit-khata .credit-khata-type-pill.reversal { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.credit-khata .credit-khata-type-pill.correction { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
-.credit-khata .credit-khata-type-pill.entry { background: #f1f5f9; color: #334155; border-color: #e2e8f0; }
+.credit-khata .credit-khata-type-pill.payment {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+.credit-khata .credit-khata-type-pill.manual-sale {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+.credit-khata .credit-khata-type-pill.bill {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.credit-khata .credit-khata-type-pill.reversal {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.credit-khata .credit-khata-type-pill.correction {
+  background: #ede9fe;
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+.credit-khata .credit-khata-type-pill.entry {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #e2e8f0;
+}
 
 .credit-khata .credit-khata-amount-cell,
 .credit-khata .credit-khata-balance-cell {
@@ -679,9 +727,21 @@
   border: 1px solid transparent;
 }
 
-.credit-khata .credit-khata-status-chip.edited { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.credit-khata .credit-khata-status-chip.attachment { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
-.credit-khata .credit-khata-status-chip.bill { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.credit-khata .credit-khata-status-chip.edited {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+.credit-khata .credit-khata-status-chip.attachment {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+.credit-khata .credit-khata-status-chip.bill {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
 
 .credit-khata .credit-khata-actions-cell {
   white-space: nowrap;
@@ -819,12 +879,26 @@
   border-radius: 8px;
 }
 
-.credit-khata .credit-khata-skeleton-cell--customer { width: 78%; }
-.credit-khata .credit-khata-skeleton-cell--type { width: 72%; }
-.credit-khata .credit-khata-skeleton-cell--amount { width: 80%; justify-self: end; }
-.credit-khata .credit-khata-skeleton-cell--balance { width: 74%; justify-self: end; }
-.credit-khata .credit-khata-skeleton-cell--details { width: 92%; }
-.credit-khata .credit-khata-skeleton-cell--actions { width: 64%; }
+.credit-khata .credit-khata-skeleton-cell--customer {
+  width: 78%;
+}
+.credit-khata .credit-khata-skeleton-cell--type {
+  width: 72%;
+}
+.credit-khata .credit-khata-skeleton-cell--amount {
+  width: 80%;
+  justify-self: end;
+}
+.credit-khata .credit-khata-skeleton-cell--balance {
+  width: 74%;
+  justify-self: end;
+}
+.credit-khata .credit-khata-skeleton-cell--details {
+  width: 92%;
+}
+.credit-khata .credit-khata-skeleton-cell--actions {
+  width: 64%;
+}
 
 .credit-khata .window-modal-frame {
   border: 1px solid #dbe4ef;

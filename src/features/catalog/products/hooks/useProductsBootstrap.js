@@ -19,9 +19,10 @@ const useProductsBootstrap = ({
 }) => {
   const fetchCategories = useCallback(async () => {
     const cached = safeReadSessionJson(PRODUCTS_CATEGORIES_CACHE_KEY, null);
-    const hasFreshCache = Number(cached?.at || 0) > 0
-      && (Date.now() - Number(cached?.at || 0)) < PRODUCTS_CATEGORIES_CACHE_TTL_MS
-      && Array.isArray(cached?.items);
+    const hasFreshCache =
+      Number(cached?.at || 0) > 0 &&
+      Date.now() - Number(cached?.at || 0) < PRODUCTS_CATEGORIES_CACHE_TTL_MS &&
+      Array.isArray(cached?.items);
     if (hasFreshCache) {
       setCategories(cached.items);
     }
@@ -76,4 +77,3 @@ const useProductsBootstrap = ({
 };
 
 export default useProductsBootstrap;
-

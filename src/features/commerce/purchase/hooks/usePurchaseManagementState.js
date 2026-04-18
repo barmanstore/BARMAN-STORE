@@ -22,7 +22,9 @@ const usePurchaseManagementState = ({
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderReviewMode, setOrderReviewMode] = useState(false);
   const [lastSavedOrderSummary, setLastSavedOrderSummary] = useState(null);
-  const [orderFormClientRequestId, setOrderFormClientRequestId] = useState(() => createClientRequestId('po'));
+  const [orderFormClientRequestId, setOrderFormClientRequestId] = useState(() =>
+    createClientRequestId('po')
+  );
   const orderSubmitLockRef = useRef(false);
   const [filters, setFilters] = useState({
     distributor_id: '',
@@ -66,9 +68,13 @@ const usePurchaseManagementState = ({
     start_date: '',
     end_date: '',
   });
-  const [operationsSummary, setOperationsSummary] = useState(() => createDefaultOperationsSummary());
+  const [operationsSummary, setOperationsSummary] = useState(() =>
+    createDefaultOperationsSummary()
+  );
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultLedgerFormData());
-  const [poCorrectionFormData, setPoCorrectionFormData] = useState(getDefaultPoCorrectionFormData());
+  const [poCorrectionFormData, setPoCorrectionFormData] = useState(
+    getDefaultPoCorrectionFormData()
+  );
   const [poCorrectionContext, setPoCorrectionContext] = useState({
     expectedAmount: 0,
     currentImpact: 0,

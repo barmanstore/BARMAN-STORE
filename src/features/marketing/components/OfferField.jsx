@@ -1,13 +1,6 @@
 import { memo } from 'react';
 
-function OfferField({
-  label,
-  htmlFor,
-  hint = '',
-  required = false,
-  wide = false,
-  children,
-}) {
+function OfferField({ label, htmlFor, hint = '', required = false, wide = false, children }) {
   return (
     <div className={`offer-field${wide ? ' offer-field--wide' : ''}`}>
       <label className="form-label offer-field-label" htmlFor={htmlFor}>

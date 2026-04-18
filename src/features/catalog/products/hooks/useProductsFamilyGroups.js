@@ -40,9 +40,19 @@ const useProductsFamilyGroups = ({
     const categoryPathScopes = Array.from(categoryPathScopeSet);
     const queryTokens = tokenizeSearchText(query);
     const queryTokenGroups = queryTokens.map((token) => {
-      const directVariants = Array.isArray(PRODUCTS_SYNONYMS[token]) ? PRODUCTS_SYNONYMS[token] : [];
-      const reverseVariants = Array.isArray(PRODUCTS_SYNONYM_REVERSE[token]) ? PRODUCTS_SYNONYM_REVERSE[token] : [];
-      return Array.from(new Set([token, ...directVariants, ...reverseVariants].map((value) => normalizeText(value)).filter(Boolean)));
+      const directVariants = Array.isArray(PRODUCTS_SYNONYMS[token])
+        ? PRODUCTS_SYNONYMS[token]
+        : [];
+      const reverseVariants = Array.isArray(PRODUCTS_SYNONYM_REVERSE[token])
+        ? PRODUCTS_SYNONYM_REVERSE[token]
+        : [];
+      return Array.from(
+        new Set(
+          [token, ...directVariants, ...reverseVariants]
+            .map((value) => normalizeText(value))
+            .filter(Boolean)
+        )
+      );
     });
 
     const getQueryMatchScore = (family) => {
@@ -55,7 +65,9 @@ const useProductsFamilyGroups = ({
       else if (name.includes(query)) score += 10;
       const tokens = Array.isArray(family.searchTokens) ? family.searchTokens : [];
       queryTokenGroups.forEach((group) => {
-        const matched = group.some((candidate) => tokens.some((token) => tokenFuzzyMatch(candidate, token)));
+        const matched = group.some((candidate) =>
+          tokens.some((token) => tokenFuzzyMatch(candidate, token))
+        );
         if (matched) score += 9;
       });
       return score;
@@ -65,44 +77,66 @@ const useProductsFamilyGroups = ({
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
       if (selected !== 'all') {
         if (groupBy === GROUP_BY_OPTIONS.brand) {
-          const familyBrandPath = normalizePathValue(family.brandPath || family.brandRoot || family.brand);
-          const familyBrandRoot = normalizeText(family.brandRoot || splitHierarchyValue(family.brandPath || '').parent || family.brand);
-          const matchesBrandPath = brandPathScopes.some((scopePath) => (
-            familyBrandPath === scopePath || familyBrandPath.startsWith(`${scopePath} ->`)
-          ));
+          const familyBrandPath = normalizePathValue(
+            family.brandPath || family.brandRoot || family.brand
+          );
+          const familyBrandRoot = normalizeText(
+            family.brandRoot || splitHierarchyValue(family.brandPath || '').parent || family.brand
+          );
+          const matchesBrandPath = brandPathScopes.some(
+            (scopePath) =>
+              familyBrandPath === scopePath || familyBrandPath.startsWith(`${scopePath} ->`)
+          );
           const matchesBrandRoot = familyBrandRoot === selected;
           if (!matchesBrandPath && !matchesBrandRoot) return false;
         } else {
           const familyCategoryIds = Array.isArray(family.categoryIds) ? family.categoryIds : [];
           const hasCategoryIds = familyCategoryIds.length > 0;
-          const matchesCategoryIdTree = categoryIdScopeSet.size > 0
-            && familyCategoryIds.some((id) => categoryIdScopeSet.has(Number(id)));
+          const matchesCategoryIdTree =
+            categoryIdScopeSet.size > 0 &&
+            familyCategoryIds.some((id) => categoryIdScopeSet.has(Number(id)));
           if (hasCategoryIds) {
             if (!matchesCategoryIdTree) return false;
           } else if (categoryIdScopeSet.size > 0) {
-            const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
-            const matchesCategoryPath = categoryPathScopes.some((scopePath) => (
-              familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
-            ));
-            const familyCategoryTokens = new Set([
-              ...normalizePathTokens(familyCategoryPath),
-              normalizeText(family.category),
-              normalizeText(family.subcategory),
-            ].filter(Boolean));
-            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) => categoryNameScopeSet.has(token));
+            const familyCategoryPath = normalizePathValue(
+              family.categoryPath || composeHierarchyLabel(family.category, family.subcategory)
+            );
+            const matchesCategoryPath = categoryPathScopes.some(
+              (scopePath) =>
+                familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
+            );
+            const familyCategoryTokens = new Set(
+              [
+                ...normalizePathTokens(familyCategoryPath),
+                normalizeText(family.category),
+                normalizeText(family.subcategory),
+              ].filter(Boolean)
+            );
+            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) =>
+              categoryNameScopeSet.has(token)
+            );
             if (!matchesCategoryPath && !matchesCategoryNameScope) return false;
           } else {
-            const familyCategoryPath = normalizePathValue(family.categoryPath || composeHierarchyLabel(family.category, family.subcategory));
-            const matchesCategoryPath = categoryPathScopes.some((scopePath) => (
-              familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
-            ));
-            const familyCategoryRoot = normalizeText(family.category || splitHierarchyValue(family.categoryPath || '').parent);
-            const familyCategoryTokens = new Set([
-              ...normalizePathTokens(familyCategoryPath),
-              familyCategoryRoot,
-              normalizeText(family.subcategory),
-            ].filter(Boolean));
-            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) => categoryNameScopeSet.has(token));
+            const familyCategoryPath = normalizePathValue(
+              family.categoryPath || composeHierarchyLabel(family.category, family.subcategory)
+            );
+            const matchesCategoryPath = categoryPathScopes.some(
+              (scopePath) =>
+                familyCategoryPath === scopePath || familyCategoryPath.startsWith(`${scopePath} ->`)
+            );
+            const familyCategoryRoot = normalizeText(
+              family.category || splitHierarchyValue(family.categoryPath || '').parent
+            );
+            const familyCategoryTokens = new Set(
+              [
+                ...normalizePathTokens(familyCategoryPath),
+                familyCategoryRoot,
+                normalizeText(family.subcategory),
+              ].filter(Boolean)
+            );
+            const matchesCategoryNameScope = Array.from(familyCategoryTokens).some((token) =>
+              categoryNameScopeSet.has(token)
+            );
             if (!matchesCategoryPath && !matchesCategoryNameScope) return false;
           }
         }
@@ -112,9 +146,9 @@ const useProductsFamilyGroups = ({
       if (String(family.searchHaystack || '').includes(query)) return true;
       if (queryTokenGroups.length === 0) return false;
       const tokens = Array.isArray(family.searchTokens) ? family.searchTokens : [];
-      return queryTokenGroups.every((group) => (
+      return queryTokenGroups.every((group) =>
         group.some((candidate) => tokens.some((token) => tokenFuzzyMatch(candidate, token)))
-      ));
+      );
     });
 
     const getPopularityScore = (family) => {
@@ -125,10 +159,12 @@ const useProductsFamilyGroups = ({
       const daysSince = Number.isFinite(lastAddedAt)
         ? Math.max(0, (now - lastAddedAt) / 86400000)
         : 999;
-      const hasDiscount = family.variations.some((variation) => Number(variation.mrp || variation.price || 0) > Number(variation.price || 0));
+      const hasDiscount = family.variations.some(
+        (variation) => Number(variation.mrp || variation.price || 0) > Number(variation.price || 0)
+      );
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
       const stockScore = inStock ? Math.min(18, Number(family.totalStock || 0) * 0.35) : -24;
-      const recencyScore = Number.isFinite(lastAddedAt) ? Math.max(0, 22 - (daysSince * 2.6)) : 0;
+      const recencyScore = Number.isFinite(lastAddedAt) ? Math.max(0, 22 - daysSince * 2.6) : 0;
       const discountScore = hasDiscount ? 6 : 0;
       const frequencyScore = Math.min(36, addCount * 8);
       return stockScore + recencyScore + discountScore + frequencyScore;
@@ -156,8 +192,9 @@ const useProductsFamilyGroups = ({
         return Number(a.minPrice || 0) - Number(b.minPrice || 0);
       },
       'stock-desc': (a, b) => Number(b.totalStock || 0) - Number(a.totalStock || 0),
-      newest: (a, b) => Number(Math.max(...b.variations.map((variation) => Number(variation.id || 0))))
-        - Number(Math.max(...a.variations.map((variation) => Number(variation.id || 0)))),
+      newest: (a, b) =>
+        Number(Math.max(...b.variations.map((variation) => Number(variation.id || 0)))) -
+        Number(Math.max(...a.variations.map((variation) => Number(variation.id || 0)))),
       popular: (a, b) => {
         const aScore = getPopularityScore(a);
         const bScore = getPopularityScore(b);
@@ -226,7 +263,9 @@ const useProductsFamilyGroups = ({
 
   useEffect(() => {
     if (selectedCategory === 'all') return;
-    const exists = activeFilterOptions.some((option) => normalizeText(option.name) === normalizeText(selectedCategory));
+    const exists = activeFilterOptions.some(
+      (option) => normalizeText(option.name) === normalizeText(selectedCategory)
+    );
     if (!exists) setSelectedCategory('all');
   }, [selectedCategory, activeFilterOptions, normalizeText, setSelectedCategory]);
 
@@ -265,12 +304,14 @@ const useProductsFamilyGroups = ({
     const topGroupMap = new Map();
 
     visibleFamilies.forEach((family) => {
-      const topName = groupBy === GROUP_BY_OPTIONS.brand
-        ? (String(family.brandRoot || '').trim() || 'Unbranded')
-        : (String(family.category || '').trim() || 'General');
-      const subName = groupBy === GROUP_BY_OPTIONS.brand
-        ? (String(family.subBrand || '').trim() || 'General')
-        : (String(family.subcategory || '').trim() || 'General');
+      const topName =
+        groupBy === GROUP_BY_OPTIONS.brand
+          ? String(family.brandRoot || '').trim() || 'Unbranded'
+          : String(family.category || '').trim() || 'General';
+      const subName =
+        groupBy === GROUP_BY_OPTIONS.brand
+          ? String(family.subBrand || '').trim() || 'General'
+          : String(family.subcategory || '').trim() || 'General';
       const topKey = normalizeText(topName) || '__group__';
       if (!topGroupMap.has(topKey)) {
         topGroupMap.set(topKey, {

@@ -34,7 +34,10 @@ function CreditIssuesAdminInbox({
           const isFocused = focusIssueId > 0 && issueId === focusIssueId;
           const entryId = Number(issue?.credit_entry_id || 0) || null;
           return (
-            <article key={issueId || `issue-${issue.created_at || ''}`} className={`admin-issue-card ${isFocused ? 'focused' : ''}`}>
+            <article
+              key={issueId || `issue-${issue.created_at || ''}`}
+              className={`admin-issue-card ${isFocused ? 'focused' : ''}`}
+            >
               <div className="admin-issue-top">
                 <strong>Issue #{issueId}</strong>
                 <span className={`status-chip ${issue.status}`}>{issue.status}</span>
@@ -47,8 +50,10 @@ function CreditIssuesAdminInbox({
                 ) : null}
               </div>
               <p>{issue.message}</p>
-              {(issue.admin_reason || issue.resolution_note) ? (
-                <p><strong>Reason:</strong> {issue.admin_reason || issue.resolution_note}</p>
+              {issue.admin_reason || issue.resolution_note ? (
+                <p>
+                  <strong>Reason:</strong> {issue.admin_reason || issue.resolution_note}
+                </p>
               ) : null}
               {entryId ? (
                 <button
@@ -75,7 +80,9 @@ function CreditIssuesAdminInbox({
                       id={`issue-admin-reason-${issueId}`}
                       name={`issue_admin_reason_${issueId}`}
                       value={draft.admin_reason}
-                      onChange={(e) => setAdminIssueDraft(issueId, { admin_reason: e.target.value })}
+                      onChange={(e) =>
+                        setAdminIssueDraft(issueId, { admin_reason: e.target.value })
+                      }
                       rows={2}
                       placeholder="Reason visible to customer"
                     />
@@ -87,7 +94,9 @@ function CreditIssuesAdminInbox({
                         id={`issue-correction-type-${issueId}`}
                         name={`issue_correction_type_${issueId}`}
                         value={draft.correction_type}
-                        onChange={(e) => setAdminIssueDraft(issueId, { correction_type: e.target.value })}
+                        onChange={(e) =>
+                          setAdminIssueDraft(issueId, { correction_type: e.target.value })
+                        }
                       >
                         <option value="">None</option>
                         <option value="given">Credit</option>
@@ -101,7 +110,9 @@ function CreditIssuesAdminInbox({
                         name={`issue_correction_amount_${issueId}`}
                         min="0"
                         value={draft.correction_amount}
-                        onValueChange={(nextValue) => setAdminIssueDraft(issueId, { correction_amount: nextValue })}
+                        onValueChange={(nextValue) =>
+                          setAdminIssueDraft(issueId, { correction_amount: nextValue })
+                        }
                         placeholder="0 or expression"
                       />
                     </label>
@@ -113,7 +124,9 @@ function CreditIssuesAdminInbox({
                       name={`issue_correction_description_${issueId}`}
                       type="text"
                       value={draft.correction_description}
-                      onChange={(e) => setAdminIssueDraft(issueId, { correction_description: e.target.value })}
+                      onChange={(e) =>
+                        setAdminIssueDraft(issueId, { correction_description: e.target.value })
+                      }
                       placeholder="Optional"
                     />
                   </label>

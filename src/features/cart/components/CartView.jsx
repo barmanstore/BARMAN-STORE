@@ -47,7 +47,9 @@ const CartView = ({
       <div className="cart-page">
         <div className="cart-header fade-in-up">
           <h1>Shopping Cart</h1>
-          <p>{cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart</p>
+          <p>
+            {cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart
+          </p>
         </div>
 
         <div className="cart-content">
@@ -67,9 +69,13 @@ const CartView = ({
               const pendingQty = requestedCatalog
                 ? Math.max(0, requestedQtyNumeric - availableNowQty)
                 : 0;
-              const effectiveUnitPrice = Number(previewLine?.effective_unit_price || item?.price || 0);
-              const lineSubtotal = Number(previewLine?.line_subtotal || (item.price * item.quantity) || 0);
-              const lineTotal = Number(previewLine?.line_total || (item.price * item.quantity) || 0);
+              const effectiveUnitPrice = Number(
+                previewLine?.effective_unit_price || item?.price || 0
+              );
+              const lineSubtotal = Number(
+                previewLine?.line_subtotal || item.price * item.quantity || 0
+              );
+              const lineTotal = Number(previewLine?.line_total || item.price * item.quantity || 0);
               const offerDiscount = Number(previewLine?.auto_offer_discount || 0);
               const offerLabel = String(previewLine?.best_offer_label || '').trim();
               return (
@@ -80,7 +86,11 @@ const CartView = ({
                 >
                   <div className="cart-item-image">
                     {manual || !item.image ? (
-                      <div className="manual-item-placeholder">{String(item?.name || 'M').slice(0, 1).toUpperCase()}</div>
+                      <div className="manual-item-placeholder">
+                        {String(item?.name || 'M')
+                          .slice(0, 1)
+                          .toUpperCase()}
+                      </div>
                     ) : (
                       <img src={item.image} alt={item.name} />
                     )}
@@ -88,7 +98,11 @@ const CartView = ({
                   <div className="cart-item-details">
                     <h3>{item.name}</h3>
                     <p className="cart-item-category">
-                      {manual ? 'Requested / Manual' : requestedCatalog ? 'Requested / Out of Stock' : item.category}
+                      {manual
+                        ? 'Requested / Manual'
+                        : requestedCatalog
+                          ? 'Requested / Out of Stock'
+                          : item.category}
                     </p>
                     <p className="cart-item-quantity-text">Qty: {quantityLabel}</p>
                     {requestedCatalog ? (
@@ -100,10 +114,13 @@ const CartView = ({
                       <p className="cart-item-price-unknown">Price: Unknown (set at billing)</p>
                     ) : (
                       <>
-                        <p className="cart-item-price"><SignedCurrency amount={effectiveUnitPrice} /> each</p>
+                        <p className="cart-item-price">
+                          <SignedCurrency amount={effectiveUnitPrice} /> each
+                        </p>
                         {offerDiscount > 0 ? (
                           <p className="cart-item-request-note">
-                            {offerLabel || 'Offer applied'}: save <SignedCurrency amount={offerDiscount} /> on this line.
+                            {offerLabel || 'Offer applied'}: save{' '}
+                            <SignedCurrency amount={offerDiscount} /> on this line.
                           </p>
                         ) : null}
                       </>
@@ -139,9 +156,13 @@ const CartView = ({
                       ) : (
                         <div className="total-value">
                           {offerDiscount > 0 ? (
-                            <small className="product-price-mrp"><SignedCurrency amount={lineSubtotal} /></small>
+                            <small className="product-price-mrp">
+                              <SignedCurrency amount={lineSubtotal} />
+                            </small>
                           ) : null}
-                          <span><SignedCurrency amount={lineTotal} /></span>
+                          <span>
+                            <SignedCurrency amount={lineTotal} />
+                          </span>
                         </div>
                       )}
                     </div>
@@ -164,17 +185,28 @@ const CartView = ({
             <div className="summary-details">
               <div className="summary-row">
                 <span>Subtotal</span>
-                <span><SignedCurrency amount={Number(pricingPreview?.summary?.base_subtotal || getTotal())} /></span>
+                <span>
+                  <SignedCurrency
+                    amount={Number(pricingPreview?.summary?.base_subtotal || getTotal())}
+                  />
+                </span>
               </div>
               {Number(pricingPreview?.summary?.discount_total || 0) > 0 ? (
                 <div className="summary-row">
                   <span>Offer Savings</span>
-                  <span>-<SignedCurrency amount={Number(pricingPreview?.summary?.discount_total || 0)} /></span>
+                  <span>
+                    -
+                    <SignedCurrency amount={Number(pricingPreview?.summary?.discount_total || 0)} />
+                  </span>
                 </div>
               ) : null}
               <div className="summary-row">
                 <span>Net Subtotal</span>
-                <span><SignedCurrency amount={Number(pricingPreview?.summary?.net_subtotal || getTotal())} /></span>
+                <span>
+                  <SignedCurrency
+                    amount={Number(pricingPreview?.summary?.net_subtotal || getTotal())}
+                  />
+                </span>
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
@@ -182,12 +214,20 @@ const CartView = ({
               </div>
               <div className="summary-row">
                 <span>Tax (estimated)</span>
-                <span><SignedCurrency amount={Number(pricingPreview?.summary?.tax_amount || (getTotal() * 0.1))} /></span>
+                <span>
+                  <SignedCurrency
+                    amount={Number(pricingPreview?.summary?.tax_amount || getTotal() * 0.1)}
+                  />
+                </span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-total">
                 <span>Total</span>
-                <span><SignedCurrency amount={Number(pricingPreview?.summary?.total || (getTotal() * 1.1))} /></span>
+                <span>
+                  <SignedCurrency
+                    amount={Number(pricingPreview?.summary?.total || getTotal() * 1.1)}
+                  />
+                </span>
               </div>
             </div>
             {pricingPreviewLoading ? (
@@ -197,7 +237,9 @@ const CartView = ({
               <p className="unknown-price-note">{pricingPreviewError}</p>
             ) : null}
             {hasUnknownPriceItems ? (
-              <p className="unknown-price-note">Requested/manual items are sent with price as Unknown and finalized at confirmation.</p>
+              <p className="unknown-price-note">
+                Requested/manual items are sent with price as Unknown and finalized at confirmation.
+              </p>
             ) : null}
             <button className="checkout-btn" onClick={handleCheckout}>
               Proceed to Checkout
@@ -213,4 +255,3 @@ const CartView = ({
 };
 
 export default CartView;
-

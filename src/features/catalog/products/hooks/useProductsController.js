@@ -35,9 +35,10 @@ export default function useProductsController() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const initialSearchQuery = String(searchParams.get('q') || '');
-  const initialGroupBy = searchParams.get('group') === productHelpers.GROUP_BY_OPTIONS.brand
-    ? productHelpers.GROUP_BY_OPTIONS.brand
-    : productHelpers.GROUP_BY_OPTIONS.category;
+  const initialGroupBy =
+    searchParams.get('group') === productHelpers.GROUP_BY_OPTIONS.brand
+      ? productHelpers.GROUP_BY_OPTIONS.brand
+      : productHelpers.GROUP_BY_OPTIONS.category;
   const [snackbar, setSnackbar] = useState({ show: false, message: '', undo: null });
   const productsState = useProductsState({
     initialSearchQuery,
@@ -130,7 +131,8 @@ export default function useProductsController() {
     swipeAddedFamilyId,
     setSwipeAddedFamilyId,
   } = productsState;
-  const serverCategoryFilter = groupBy === productHelpers.GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
+  const serverCategoryFilter =
+    groupBy === productHelpers.GROUP_BY_OPTIONS.category ? selectedCategory : 'all';
   const { getLocalSuggestions } = useProductsLocalSuggestions({
     products,
     normalizeText: productHelpers.normalizeText,
@@ -206,9 +208,13 @@ export default function useProductsController() {
     serverCategoryFilter,
   ]);
 
-  useEffect(() => registerDomainListener(DOMAINS.Products, refreshProductsCatalog, {
-    listenerId: 'catalog-products',
-  }), [refreshProductsCatalog]);
+  useEffect(
+    () =>
+      registerDomainListener(DOMAINS.Products, refreshProductsCatalog, {
+        listenerId: 'catalog-products',
+      }),
+    [refreshProductsCatalog]
+  );
 
   useEffect(() => {
     setCart(Array.isArray(sharedCart) ? sharedCart : []);
@@ -297,10 +303,14 @@ export default function useProductsController() {
   });
 
   useEffect(() => {
-    trackProductsEvent('products_search_changed', {
-      query_length: String(appliedSearchQuery || '').trim().length,
-      has_query: appliedSearchQuery ? 1 : 0
-    }, { throttleMs: 1200, throttleKey: 'products_search_changed' });
+    trackProductsEvent(
+      'products_search_changed',
+      {
+        query_length: String(appliedSearchQuery || '').trim().length,
+        has_query: appliedSearchQuery ? 1 : 0,
+      },
+      { throttleMs: 1200, throttleKey: 'products_search_changed' }
+    );
   }, [appliedSearchQuery, trackProductsEvent]);
 
   const productFamilies = useMemo(() => buildProductFamilies(products), [products]);
@@ -361,10 +371,14 @@ export default function useProductsController() {
   useEffect(() => {
     loadMoreProductsRef.current = () => {
       if (loading || isLoadingMore || productsLoadingMoreRef.current || !productsHasMore) return;
-      trackProductsEvent('products_load_more', {
-        current_page: Number(productsPage || 0),
-        next_page: Number(productsPage || 0) + 1
-      }, { throttleMs: 600, throttleKey: 'products_load_more' });
+      trackProductsEvent(
+        'products_load_more',
+        {
+          current_page: Number(productsPage || 0),
+          next_page: Number(productsPage || 0) + 1,
+        },
+        { throttleMs: 600, throttleKey: 'products_load_more' }
+      );
       const nextRequestId = latestProductsRequestRef.current;
       productsLoadingMoreRef.current = true;
       setIsLoadingMore(true);
@@ -374,18 +388,41 @@ export default function useProductsController() {
         requestId: nextRequestId,
       });
     };
-  }, [loading, isLoadingMore, productsLoadingMoreRef, productsHasMore, trackProductsEvent, productsPage, latestProductsRequestRef, setIsLoadingMore, fetchProductsPage, loadMoreProductsRef]);
+  }, [
+    loading,
+    isLoadingMore,
+    productsLoadingMoreRef,
+    productsHasMore,
+    trackProductsEvent,
+    productsPage,
+    latestProductsRequestRef,
+    setIsLoadingMore,
+    fetchProductsPage,
+    loadMoreProductsRef,
+  ]);
 
   useEffect(() => {
     if (loading) return;
     if (familyGroups.filteredFamilies.length !== 0) return;
-    trackProductsEvent('products_no_results', {
-      query_length: String(appliedSearchQuery || '').trim().length,
-      category: selectedCategory,
-      sort_by: sortBy,
-      stock_only: inStockOnly ? 1 : 0
-    }, { throttleMs: 1600, throttleKey: 'products_no_results' });
-  }, [loading, familyGroups.filteredFamilies.length, appliedSearchQuery, selectedCategory, sortBy, inStockOnly, trackProductsEvent]);
+    trackProductsEvent(
+      'products_no_results',
+      {
+        query_length: String(appliedSearchQuery || '').trim().length,
+        category: selectedCategory,
+        sort_by: sortBy,
+        stock_only: inStockOnly ? 1 : 0,
+      },
+      { throttleMs: 1600, throttleKey: 'products_no_results' }
+    );
+  }, [
+    loading,
+    familyGroups.filteredFamilies.length,
+    appliedSearchQuery,
+    selectedCategory,
+    sortBy,
+    inStockOnly,
+    trackProductsEvent,
+  ]);
 
   useProductsLoadMore({
     loading: loading,
@@ -394,7 +431,14 @@ export default function useProductsController() {
     productsLoadTriggerRef: productsLoadTriggerRef,
     loadMoreProductsRef: loadMoreProductsRef,
     rootMargin: productHelpers.PRODUCTS_AUTOLOAD_ROOT_MARGIN,
-    deps: [productsPage, serverCategoryFilter, appliedSearchQuery, sortBy, inStockOnly, productPageSize],
+    deps: [
+      productsPage,
+      serverCategoryFilter,
+      appliedSearchQuery,
+      sortBy,
+      inStockOnly,
+      productPageSize,
+    ],
   });
 
   const cartActions = useProductsCartActions({
@@ -419,15 +463,19 @@ export default function useProductsController() {
   });
 
   const activeMobileFamily = useMemo(
-    () => familyGroups.filteredFamilies.find((family) => family.id === activeMobileFamilyId) || null,
+    () =>
+      familyGroups.filteredFamilies.find((family) => family.id === activeMobileFamilyId) || null,
     [familyGroups.filteredFamilies, activeMobileFamilyId]
   );
 
   const { addFamilyPackToCart } = cartActions;
-  const handleAddCombo = useCallback((combo) => {
-    if (!combo?.items?.length) return;
-    addFamilyPackToCart(combo.items, { source: `combo_${String(combo.id || 'unknown')}` });
-  }, [addFamilyPackToCart]);
+  const handleAddCombo = useCallback(
+    (combo) => {
+      if (!combo?.items?.length) return;
+      addFamilyPackToCart(combo.items, { source: `combo_${String(combo.id || 'unknown')}` });
+    },
+    [addFamilyPackToCart]
+  );
 
   const {
     handleMobileCategorySelect,
@@ -469,9 +517,7 @@ export default function useProductsController() {
     const skippedCount = recommendations.repeatOrderFamilies.length - availableFamilies.length;
     cartActions.addFamilyPackToCart(availableFamilies, { source: 'repeat_order' });
     if (skippedCount > 0) {
-      // Show toast or notification
       console.log(`${skippedCount} items unavailable and skipped`);
-      // TODO: Integrate with toast system
     }
   };
 
@@ -489,13 +535,15 @@ export default function useProductsController() {
     const entries = recommendations.smartRestockItems.map((item) => ({
       family: item.family,
       variation: item.variation,
-      quantity: 1
+      quantity: 1,
     }));
     cartActions.addEntriesToCart(entries, { source: 'restock_all' });
   };
 
   const estimatedGridColumns = isMobile ? 2 : 4;
-  const eagerImageBudget = isMobile ? productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.mobile : productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.desktop;
+  const eagerImageBudget = isMobile
+    ? productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.mobile
+    : productHelpers.ABOVE_FOLD_EAGER_IMAGE_COUNT.desktop;
   const renderers = useProductsRenderers({
     isMobile,
     activeDesktopFamilyId: activeDesktopFamilyId,
@@ -648,4 +696,3 @@ export default function useProductsController() {
     dismissSnackbar: () => setSnackbar({ show: false, message: '', undo: null }),
   });
 }
-

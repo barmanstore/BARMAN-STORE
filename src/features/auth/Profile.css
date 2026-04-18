@@ -22,8 +22,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Header */
@@ -142,7 +146,8 @@
 }
 
 /* Alerts */
-.success-alert, .error-alert {
+.success-alert,
+.error-alert {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -176,7 +181,7 @@
   background: white;
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .form-section {
@@ -224,7 +229,9 @@
   border: 2px solid #e2e8f0;
   border-radius: 10px;
   font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .form-group input:focus {
@@ -510,7 +517,7 @@
   background: white;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .quick-actions h3 {
@@ -582,7 +589,8 @@
     flex-direction: column-reverse;
   }
 
-  .cancel-btn, .save-btn {
+  .cancel-btn,
+  .save-btn {
     width: 100%;
     justify-content: center;
   }

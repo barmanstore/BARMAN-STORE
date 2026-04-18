@@ -105,7 +105,10 @@
   cursor: pointer;
   text-decoration: none;
   font-weight: 400;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
   position: relative;
 }
 
@@ -117,7 +120,9 @@
 .rail-item.active {
   color: var(--admin-sidebar-accent-strong);
   background: linear-gradient(180deg, rgba(238, 242, 255, 0.98) 0%, rgba(224, 231, 255, 0.98) 100%);
-  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.14), 0 4px 12px rgba(79, 70, 229, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 102, 241, 0.14),
+    0 4px 12px rgba(79, 70, 229, 0.08);
   font-weight: 700;
 }
 
@@ -210,7 +215,10 @@
   font-size: 13.5px;
   font-weight: 400;
   letter-spacing: -0.01em;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .sidebar-panel-nav .panel-item:hover {
@@ -277,7 +285,10 @@
   border: 1px solid var(--admin-sidebar-border);
   color: var(--admin-sidebar-text);
   font-weight: 400;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .admin-sidebar .sidebar-group-toggle.expanded {
@@ -338,7 +349,10 @@
   cursor: pointer;
   text-decoration: none;
   border-radius: 8px;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .admin-sidebar .panel-item:hover,
@@ -376,7 +390,10 @@
   cursor: pointer;
   text-decoration: none;
   border-radius: 8px;
-  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
   margin-top: 0.3rem;
 }
 
@@ -1589,7 +1606,10 @@ table {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
   color: var(--color-primary);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .products-icon-btn:hover:not(:disabled) {
@@ -1653,7 +1673,10 @@ table {
   align-items: center;
   gap: 0.45rem;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .products-toolbar-action:hover:not(:disabled) {
@@ -1980,7 +2003,10 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
 }
 
 .products-table-undo-btn:hover:not(:disabled) {
@@ -2128,7 +2154,10 @@ table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease;
 }
 
 .products-bulk-link-btn:hover:not(:disabled) {
@@ -2199,7 +2228,9 @@ table {
 .row-pick-btn.active {
   border-color: #2563eb;
   background: linear-gradient(180deg, rgba(219, 234, 254, 0.98) 0%, rgba(191, 219, 254, 0.98) 100%);
-  box-shadow: inset 0 0 0 4px #2563eb, 0 0 0 2px rgba(37, 99, 235, 0.08);
+  box-shadow:
+    inset 0 0 0 4px #2563eb,
+    0 0 0 2px rgba(37, 99, 235, 0.08);
 }
 
 .products-table tr.product-row-selected td {
@@ -2213,7 +2244,9 @@ table {
 .product-admin-card.is-selected {
   border-color: rgba(37, 99, 235, 0.42);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(239, 246, 255, 0.98) 100%);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.14), 0 10px 24px rgba(37, 99, 235, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(37, 99, 235, 0.14),
+    0 10px 24px rgba(37, 99, 235, 0.08);
 }
 
 .product-card-title-copy {
@@ -2235,7 +2268,11 @@ table {
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .product-card-select:hover:not(:disabled) {
@@ -2248,7 +2285,9 @@ table {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: rgba(212, 175, 55, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.14), 0 0 0 2px rgba(212, 175, 55, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 175, 55, 0.14),
+    0 0 0 2px rgba(212, 175, 55, 0.08);
 }
 
 .products-import-export-card {
@@ -2349,7 +2388,9 @@ table {
   font-size: 0.95rem;
   font-weight: 500;
   outline: none;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .command-palette-search:focus {
@@ -2384,7 +2425,11 @@ table {
   padding: 0.85rem 0.9rem;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .command-palette-item:hover:not(:disabled),
@@ -2520,7 +2565,10 @@ table {
   grid-template-columns: 1fr 1fr;
   align-items: center;
   overflow: hidden;
-  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
   background: linear-gradient(180deg, #f2f3f5 0%, #e5e7eb 100%);
   box-shadow: inset 0 2px 5px rgba(15, 23, 42, 0.16);
 }
@@ -2571,7 +2619,10 @@ table {
   align-items: center;
   justify-content: center;
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.22);
-  transition: transform 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
   pointer-events: none;
 }
 
@@ -2797,7 +2848,8 @@ table {
   background: rgba(255, 255, 255, 0.16);
 }
 
-.admin-page th, .admin-page td {
+.admin-page th,
+.admin-page td {
   padding: 1rem;
   text-align: left;
 }
@@ -3517,7 +3569,8 @@ table {
     font-size: 0.85rem;
   }
 
-  .admin-page th, .admin-page td {
+  .admin-page th,
+  .admin-page td {
     padding: 0.75rem 0.5rem;
   }
 }
@@ -3639,10 +3692,18 @@ table {
   text-overflow: ellipsis;
 }
 
-.products-table .cell-name { max-width: 120px; }
-.products-table .cell-brand { max-width: 90px; }
-.products-table .cell-category { max-width: 90px; }
-.products-table .cell-code { max-width: 90px; }
+.products-table .cell-name {
+  max-width: 120px;
+}
+.products-table .cell-brand {
+  max-width: 90px;
+}
+.products-table .cell-category {
+  max-width: 90px;
+}
+.products-table .cell-code {
+  max-width: 90px;
+}
 
 .products-table td.cell-editable {
   cursor: pointer;
@@ -3653,26 +3714,66 @@ table {
 }
 
 /* Product table column width guards */
-.products-table .col-name { min-width: 130px; }
-.products-table .col-brand { min-width: 95px; }
-.products-table .col-category { min-width: 95px; }
-.products-table .col-price { min-width: 78px; }
-.products-table .col-mrp { min-width: 78px; }
-.products-table .col-stock { min-width: 60px; }
-.products-table .col-sku { min-width: 90px; }
-.products-table .col-barcode { min-width: 90px; }
-.products-table .col-status { min-width: 70px; }
-.products-table .col-description { min-width: 150px; }
-.products-table .col-content { min-width: 80px; }
-.products-table .col-pack { min-width: 90px; }
-.products-table .col-color { min-width: 70px; }
-.products-table .col-uom { min-width: 55px; }
-.products-table .col-expiry { min-width: 90px; }
-.products-table .col-discount { min-width: 60px; }
-.products-table .col-discountType { min-width: 65px; }
-.products-table .col-id { min-width: 50px; }
-.products-table .col-created { min-width: 85px; }
-.products-table .col-src { min-width: 120px; }
+.products-table .col-name {
+  min-width: 130px;
+}
+.products-table .col-brand {
+  min-width: 95px;
+}
+.products-table .col-category {
+  min-width: 95px;
+}
+.products-table .col-price {
+  min-width: 78px;
+}
+.products-table .col-mrp {
+  min-width: 78px;
+}
+.products-table .col-stock {
+  min-width: 60px;
+}
+.products-table .col-sku {
+  min-width: 90px;
+}
+.products-table .col-barcode {
+  min-width: 90px;
+}
+.products-table .col-status {
+  min-width: 70px;
+}
+.products-table .col-description {
+  min-width: 150px;
+}
+.products-table .col-content {
+  min-width: 80px;
+}
+.products-table .col-pack {
+  min-width: 90px;
+}
+.products-table .col-color {
+  min-width: 70px;
+}
+.products-table .col-uom {
+  min-width: 55px;
+}
+.products-table .col-expiry {
+  min-width: 90px;
+}
+.products-table .col-discount {
+  min-width: 60px;
+}
+.products-table .col-discountType {
+  min-width: 65px;
+}
+.products-table .col-id {
+  min-width: 50px;
+}
+.products-table .col-created {
+  min-width: 85px;
+}
+.products-table .col-src {
+  min-width: 120px;
+}
 
 /* Safari iOS sticky support */
 .admin-sidebar-shell {

@@ -21,7 +21,7 @@ const registerUserVerificationAdminRoutes = (deps) => {
       if (!normalizedEmail) {
         return res.status(400).json({ error: 'User does not have an email to verify' });
       }
-  
+
       if (Number(user.email_verified || 0) !== 1) {
         await dbRunAsync(`UPDATE users SET email_verified = 1 WHERE id = ?`, [targetUserId]);
       }
@@ -46,13 +46,19 @@ const registerUserVerificationAdminRoutes = (deps) => {
         preparedBy: Number(req.authUser?.id || 0) || null,
         sentBy: Number(req.authUser?.id || 0) || null,
       });
-      const updated = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [targetUserId]));
-      return res.json({ success: true, user: updated, message: 'Email marked as verified by admin' });
+      const updated = sanitizeUser(
+        await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [targetUserId])
+      );
+      return res.json({
+        success: true,
+        user: updated,
+        message: 'Email marked as verified by admin',
+      });
     } catch (error) {
       return res.status(500).json({ error: error.message || 'Failed to verify email' });
     }
   });
-  
+
   app.post('/api/admin/users/:id/phone/verify', requireAdmin, async (req, res) => {
     try {
       const targetUserId = Number(req.params.id || 0);
@@ -87,18 +93,28 @@ const registerUserVerificationAdminRoutes = (deps) => {
         preparedBy: Number(req.authUser?.id || 0) || null,
         sentBy: Number(req.authUser?.id || 0) || null,
       });
-      const updated = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [targetUserId]));
-      return res.json({ success: true, user: updated, message: 'Phone marked as verified by admin' });
+      const updated = sanitizeUser(
+        await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [targetUserId])
+      );
+      return res.json({
+        success: true,
+        user: updated,
+        message: 'Phone marked as verified by admin',
+      });
     } catch (error) {
       return res.status(500).json({ error: error.message || 'Failed to verify phone' });
     }
   });
 
   app.get('/api/admin/password-reset-requests', requireAdmin, async (_, res) =>
-    res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
+    res
+      .status(410)
+      .json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
   );
   app.put('/api/admin/password-reset-requests/:id', requireAdmin, async (_, res) =>
-    res.status(410).json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
+    res
+      .status(410)
+      .json({ error: 'Password-based authentication is disabled. Use OTP or OAuth login.' })
   );
 };
 

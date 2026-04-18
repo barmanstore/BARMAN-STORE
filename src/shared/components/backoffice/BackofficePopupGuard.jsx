@@ -40,7 +40,9 @@ function BackofficePopupGuard() {
         <button
           type="button"
           className="backoffice-popup-guard__scrim"
-          aria-label={singlePopup ? `Focus ${primaryPopup.label} window` : 'Popup workspace is open'}
+          aria-label={
+            singlePopup ? `Focus ${primaryPopup.label} window` : 'Popup workspace is open'
+          }
           onClick={handleBackdropClick}
         />
         <div
@@ -51,7 +53,9 @@ function BackofficePopupGuard() {
           aria-describedby="backoffice-popup-guard-copy"
         >
           <h2 id="backoffice-popup-guard-title">
-            {singlePopup ? `${primaryPopup.label} is open in another window` : 'Backoffice popup windows are open'}
+            {singlePopup
+              ? `${primaryPopup.label} is open in another window`
+              : 'Backoffice popup windows are open'}
           </h2>
           <p id="backoffice-popup-guard-copy">
             {singlePopup

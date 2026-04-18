@@ -1,11 +1,8 @@
 const createRangeUtils = ({ normalizeTransactionDate, addDaysToDateKey }) => {
-  const resolveRollupRange = ({
-    startDate,
-    endDate,
-    days = 30,
-  } = {}) => {
-    const normalizedEnd = normalizeTransactionDate(endDate || new Date().toISOString())
-      || new Date().toISOString().slice(0, 10);
+  const resolveRollupRange = ({ startDate, endDate, days = 30 } = {}) => {
+    const normalizedEnd =
+      normalizeTransactionDate(endDate || new Date().toISOString()) ||
+      new Date().toISOString().slice(0, 10);
     let normalizedStart = normalizeTransactionDate(startDate || null);
     const normalizedDays = Math.max(1, Number(days || 30));
     if (!normalizedStart) {

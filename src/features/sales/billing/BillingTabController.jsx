@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { productsApi, billingApi, creditApi } from '../../../shared/services/api';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import { buildBillShareText } from '../../../shared/utils/messageTemplates';
@@ -13,15 +8,9 @@ import useProductSearchCombobox from '../../../shared/hooks/useProductSearchComb
 import usePopupDraftPersistence from '../../../shared/hooks/usePopupDraftPersistence';
 import * as info from '../../../shared/info';
 import BillingTabView from './components/BillingTabView';
-import {
-  createEmptyItem,
-  getProductOptionLabel,
-} from './utils/billingLineItemUtils';
+import { createEmptyItem, getProductOptionLabel } from './utils/billingLineItemUtils';
 import { calculateLineAmount } from './utils/billingAmountUtils';
-import {
-  getAllowedUnitsForProduct,
-  resolveLineUnitForProduct,
-} from './utils/billingUnitUtils';
+import { getAllowedUnitsForProduct, resolveLineUnitForProduct } from './utils/billingUnitUtils';
 import useBillingCreateBill from './hooks/useBillingCreateBill';
 import useBillingCheckoutHandlers from './hooks/useBillingCheckoutHandlers';
 import useBillingItemHandlers from './hooks/useBillingItemHandlers';
@@ -52,26 +41,13 @@ const mergeProductsById = (currentList = [], nextList = [], maxItems = PRODUCT_C
   return merged.slice(0, maxItems);
 };
 
-const mergeCustomersById = (currentList = [], nextList = []) => {
-  const byId = new Map();
-  currentList.forEach((customer) => {
-    const id = Number(customer?.id || 0);
-    if (id > 0) byId.set(id, customer);
-  });
-  nextList.forEach((customer) => {
-    const id = Number(customer?.id || 0);
-    if (id > 0) byId.set(id, customer);
-  });
-  return Array.from(byId.values());
-};
-
 const readCachedBillingLookups = () => {
   try {
     const raw = safeSessionStorageGet(BILLING_LOOKUP_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const updatedAt = Number(parsed?.updatedAt || 0);
-    if (!updatedAt || (Date.now() - updatedAt) > LOOKUP_CACHE_TTL_MS) {
+    if (!updatedAt || Date.now() - updatedAt > LOOKUP_CACHE_TTL_MS) {
       return null;
     }
     const customers = Array.isArray(parsed?.customers) ? parsed.customers : null;
@@ -84,11 +60,14 @@ const readCachedBillingLookups = () => {
 };
 
 const writeCachedBillingLookups = ({ customers, products }) => {
-  safeSessionStorageSet(BILLING_LOOKUP_CACHE_KEY, JSON.stringify({
-    updatedAt: Date.now(),
-    customers: Array.isArray(customers) ? customers : [],
-    products: Array.isArray(products) ? products : [],
-  }));
+  safeSessionStorageSet(
+    BILLING_LOOKUP_CACHE_KEY,
+    JSON.stringify({
+      updatedAt: Date.now(),
+      customers: Array.isArray(customers) ? customers : [],
+      products: Array.isArray(products) ? products : [],
+    })
+  );
 };
 
 const isEditableElement = (target) => {
@@ -99,20 +78,31 @@ const isEditableElement = (target) => {
 
 const isInteractiveElement = (target) => {
   if (!(target instanceof HTMLElement)) return false;
-  return Boolean(target.closest(
-    'button, a, summary, [role="button"], [role="link"], [role="menuitem"], [tabindex]:not([tabindex="-1"])'
-  ));
+  return Boolean(
+    target.closest(
+      'button, a, summary, [role="button"], [role="link"], [role="menuitem"], [tabindex]:not([tabindex="-1"])'
+    )
+  );
 };
 
-const normalizeLookupKey = (value = '') => String(value || '').trim().toLowerCase();
-const normalizeCustomItemName = (value = '') => String(value || '')
-  .trim()
-  .replace(/\s+/g, ' ')
-  .toLowerCase();
+const normalizeLookupKey = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
+const normalizeCustomItemName = (value = '') =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 const getBillingItemType = (item = {}) => {
   const productId = Number(item?.productId || item?.product_id || 0);
   if (productId > 0) return 'inventory';
-  if (String(item?.type || '').trim().toLowerCase() === 'custom' || Boolean(item?.isCustom)) {
+  if (
+    String(item?.type || '')
+      .trim()
+      .toLowerCase() === 'custom' ||
+    Boolean(item?.isCustom)
+  ) {
     return 'custom';
   }
   return 'inventory';
@@ -199,10 +189,9 @@ const BillingTabController = ({
 
     if (cachedLookups) {
       setCustomersList(Array.isArray(cachedLookups.customers) ? cachedLookups.customers : []);
-      setProductsList((prev) => mergeProductsById(
-        prev,
-        Array.isArray(cachedLookups.products) ? cachedLookups.products : []
-      ));
+      setProductsList((prev) =>
+        mergeProductsById(prev, Array.isArray(cachedLookups.products) ? cachedLookups.products : [])
+      );
       setLoading(false);
     } else {
       setLoading(true);
@@ -239,10 +228,13 @@ const BillingTabController = ({
     };
   }, []);
 
-  useEffect(() => () => {
-    if (customerSearchTimeout.current) clearTimeout(customerSearchTimeout.current);
-    if (entryActionLockTimeoutRef.current) clearTimeout(entryActionLockTimeoutRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (customerSearchTimeout.current) clearTimeout(customerSearchTimeout.current);
+      if (entryActionLockTimeoutRef.current) clearTimeout(entryActionLockTimeoutRef.current);
+    },
+    []
+  );
 
   const focusEntryField = useCallback((field = 'search', options = {}) => {
     const refsByField = {
@@ -296,22 +288,25 @@ const BillingTabController = ({
     return { byId, byKey };
   }, [productsList]);
 
-  const getProductForLine = useCallback((line = {}) => {
-    if (getBillingItemType(line) === 'custom') {
-      return null;
-    }
+  const getProductForLine = useCallback(
+    (line = {}) => {
+      if (getBillingItemType(line) === 'custom') {
+        return null;
+      }
 
-    const productId = Number(line?.productId || line?.product_id || 0);
-    if (productId > 0) {
-      const byId = productLookup.byId.get(productId);
-      if (byId) return byId;
-    }
+      const productId = Number(line?.productId || line?.product_id || 0);
+      if (productId > 0) {
+        const byId = productLookup.byId.get(productId);
+        if (byId) return byId;
+      }
 
-    const nameKey = normalizeLookupKey(line?.name || line?.product_name);
-    if (!nameKey) return null;
+      const nameKey = normalizeLookupKey(line?.name || line?.product_name);
+      if (!nameKey) return null;
 
-    return productLookup.byKey.get(nameKey) || null;
-  }, [productLookup]);
+      return productLookup.byKey.get(nameKey) || null;
+    },
+    [productLookup]
+  );
 
   const calculateAmount = useCallback(
     (price, qty, disc, discType, unit = 'pcs', product = null) =>
@@ -319,71 +314,79 @@ const BillingTabController = ({
     []
   );
 
-  const normalizeBillingItem = useCallback((item = {}) => {
-    const product = getProductForLine(item);
-    const fallback = createEmptyItem();
-    const qty = Math.max(1, Number(item?.qty || 1) || 1);
-    const price = Math.max(0, Number(item?.price || 0) || 0);
-    const discType = 'fixed';
-    const disc = Math.max(0, Number(item?.disc ?? item?.discount ?? 0) || 0);
-    const type = getBillingItemType(item);
-    const isCustom = type === 'custom';
-    const unit = product
-      ? resolveLineUnitForProduct(product, item?.unit || 'pcs')
-      : (String(item?.unit || fallback.unit || 'pcs').trim() || 'pcs');
-    const amount = calculateAmount(price, qty, disc, discType, unit, product).amount;
+  const normalizeBillingItem = useCallback(
+    (item = {}) => {
+      const product = getProductForLine(item);
+      const fallback = createEmptyItem();
+      const qty = Math.max(1, Number(item?.qty || 1) || 1);
+      const price = Math.max(0, Number(item?.price || 0) || 0);
+      const discType = 'fixed';
+      const disc = Math.max(0, Number(item?.disc ?? item?.discount ?? 0) || 0);
+      const type = getBillingItemType(item);
+      const isCustom = type === 'custom';
+      const unit = product
+        ? resolveLineUnitForProduct(product, item?.unit || 'pcs')
+        : String(item?.unit || fallback.unit || 'pcs').trim() || 'pcs';
+      const amount = calculateAmount(price, qty, disc, discType, unit, product).amount;
 
-    return {
-      ...fallback,
-      ...item,
-      id: item?.id || fallback.id,
-      type,
-      productId: Number(item?.productId || 0) || null,
-      isCustom,
-      name: isCustom
-        ? normalizeCustomItemName(item?.name || '')
-        : String(item?.name || '').trimStart(),
-      price,
-      qty,
-      unit,
-      disc,
-      discount: disc,
-      discType,
-      amount,
-      total: amount,
-    };
-  }, [calculateAmount, getProductForLine]);
+      return {
+        ...fallback,
+        ...item,
+        id: item?.id || fallback.id,
+        type,
+        productId: Number(item?.productId || 0) || null,
+        isCustom,
+        name: isCustom
+          ? normalizeCustomItemName(item?.name || '')
+          : String(item?.name || '').trimStart(),
+        price,
+        qty,
+        unit,
+        disc,
+        discount: disc,
+        discType,
+        amount,
+        total: amount,
+      };
+    },
+    [calculateAmount, getProductForLine]
+  );
 
-  const buildBillingItemFromProduct = useCallback((product, baseItem = null) => {
-    const nextQty = Math.max(1, Number(baseItem?.qty || 1) || 1);
-    const nextDisc = Math.max(0, Number(baseItem?.disc || 0) || 0);
-    const nextDiscType = 'fixed';
-    const resolvedUnit = resolveLineUnitForProduct(
-      product,
-      baseItem?.unit || product?.base_unit || product?.uom || product?.unit || 'pcs'
-    );
-    const draft = {
-      ...(baseItem || createEmptyItem()),
-      type: 'inventory',
-      name: String(product?.name || '').trim(),
-      productId: Number(product?.id || 0) || null,
-      isCustom: false,
-      price: Number(product?.price ?? product?.mrp ?? 0) || 0,
-      qty: nextQty,
-      unit: resolvedUnit,
-      disc: nextDisc,
-      discType: nextDiscType,
-    };
-    return normalizeBillingItem(draft);
-  }, [normalizeBillingItem]);
+  const buildBillingItemFromProduct = useCallback(
+    (product, baseItem = null) => {
+      const nextQty = Math.max(1, Number(baseItem?.qty || 1) || 1);
+      const nextDisc = Math.max(0, Number(baseItem?.disc || 0) || 0);
+      const nextDiscType = 'fixed';
+      const resolvedUnit = resolveLineUnitForProduct(
+        product,
+        baseItem?.unit || product?.base_unit || product?.uom || product?.unit || 'pcs'
+      );
+      const draft = {
+        ...(baseItem || createEmptyItem()),
+        type: 'inventory',
+        name: String(product?.name || '').trim(),
+        productId: Number(product?.id || 0) || null,
+        isCustom: false,
+        price: Number(product?.price ?? product?.mrp ?? 0) || 0,
+        qty: nextQty,
+        unit: resolvedUnit,
+        disc: nextDisc,
+        discType: nextDiscType,
+      };
+      return normalizeBillingItem(draft);
+    },
+    [normalizeBillingItem]
+  );
 
   const recentProducts = useMemo(
     () => productsList.slice(0, PRODUCT_SEARCH_SUGGESTION_LIMIT),
     [productsList]
   );
 
-  const searchBillingProducts = useCallback((rawQuery, options = {}) =>
-    billingApi.searchProducts(rawQuery, undefined, options), []);
+  const searchBillingProducts = useCallback(
+    (rawQuery, options = {}) => billingApi.searchProducts(rawQuery, undefined, options),
+    []
+  );
 
   const {
     searchResults: productSearchResults,
@@ -440,7 +443,10 @@ const BillingTabController = ({
   const currentUnitOptions = useMemo(() => {
     if (currentProduct) return getAllowedUnitsForProduct(currentProduct);
     const currentUnit = String(currentItem?.unit || 'pcs').trim() || 'pcs';
-    return [currentUnit, ...DEFAULT_UNIT_OPTIONS.filter((unitOption) => unitOption !== currentUnit)];
+    return [
+      currentUnit,
+      ...DEFAULT_UNIT_OPTIONS.filter((unitOption) => unitOption !== currentUnit),
+    ];
   }, [currentItem?.unit, currentProduct]);
 
   const {
@@ -563,11 +569,7 @@ const BillingTabController = ({
       }
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [
-    onShortcutFocusHandled,
-    shortcutFocusRequest,
-    showCustomerCreateModal,
-  ]);
+  }, [onShortcutFocusHandled, shortcutFocusRequest, showCustomerCreateModal]);
 
   useEffect(() => {
     const prefillKey = String(initialPrefill?.key || '').trim();
@@ -575,32 +577,64 @@ const BillingTabController = ({
     if (appliedPrefillKeyRef.current === prefillKey) return;
     appliedPrefillKeyRef.current = prefillKey;
 
-    const prefillCustomer = initialPrefill?.customer && typeof initialPrefill.customer === 'object'
-      ? initialPrefill.customer
-      : {};
+    const prefillCustomer =
+      initialPrefill?.customer && typeof initialPrefill.customer === 'object'
+        ? initialPrefill.customer
+        : {};
     const prefillItemsRaw = Array.isArray(initialPrefill?.items) ? initialPrefill.items : [];
     const prefillItems = prefillItemsRaw.length
-      ? prefillItemsRaw.map((item, index) => normalizeBillingItem({
-        id: item?.id || `prefill_item_${index}_${Date.now()}`,
-        type: Number(item?.productId || item?.product_id || 0) > 0 ? 'inventory' : 'custom',
-        name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
-        productId: Number(item?.productId || item?.product_id || 0) || null,
-        price: Math.max(0, Number(item?.price || item?.mrp || 0)),
-        qty: Math.max(1, Number(item?.qty || item?.quantity || 1)),
-        unit: String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
-        disc: Math.max(0, Number(item?.disc || item?.discount || 0)),
-        discType: 'fixed',
-        linkedOrderItemId: Number(item?.linkedOrderItemId || item?.linked_order_item_id || item?.order_item_id || 0) || null,
-        linkedOrderRequestedQty: Math.max(0, Number(item?.linkedOrderRequestedQty || item?.requested_qty || 0)),
-        linkedOrderAvailableNowQty: Math.max(0, Number(item?.linkedOrderAvailableNowQty || item?.available_now_qty || 0)),
-        linkedOrderFulfilledQty: Math.max(0, Number(item?.linkedOrderFulfilledQty || item?.fulfilled_qty || 0)),
-        linkedOrderPendingQty: Math.max(0, Number(item?.linkedOrderPendingQty || item?.pending_qty || 0)),
-        prefilledLineSubtotal: Math.max(0, Number(item?.prefilledLineSubtotal || item?.line_subtotal || 0)),
-        prefilledOfferDiscount: Math.max(0, Number(item?.prefilledOfferDiscount || item?.offer_discount || 0)),
-        prefilledManualDiscount: Math.max(0, Number(item?.prefilledManualDiscount || item?.manual_discount || 0)),
-        prefilledTotalDiscount: Math.max(0, Number(item?.prefilledTotalDiscount || item?.discount || 0)),
-        prefilledOfferLabel: String(item?.prefilledOfferLabel || item?.offer_label || '').trim(),
-      }))
+      ? prefillItemsRaw.map((item, index) =>
+          normalizeBillingItem({
+            id: item?.id || `prefill_item_${index}_${Date.now()}`,
+            type: Number(item?.productId || item?.product_id || 0) > 0 ? 'inventory' : 'custom',
+            name: String(item?.name || item?.product_name || 'Item').trim() || 'Item',
+            productId: Number(item?.productId || item?.product_id || 0) || null,
+            price: Math.max(0, Number(item?.price || item?.mrp || 0)),
+            qty: Math.max(1, Number(item?.qty || item?.quantity || 1)),
+            unit: String(item?.unit || item?.uom || 'pcs').trim() || 'pcs',
+            disc: Math.max(0, Number(item?.disc || item?.discount || 0)),
+            discType: 'fixed',
+            linkedOrderItemId:
+              Number(
+                item?.linkedOrderItemId || item?.linked_order_item_id || item?.order_item_id || 0
+              ) || null,
+            linkedOrderRequestedQty: Math.max(
+              0,
+              Number(item?.linkedOrderRequestedQty || item?.requested_qty || 0)
+            ),
+            linkedOrderAvailableNowQty: Math.max(
+              0,
+              Number(item?.linkedOrderAvailableNowQty || item?.available_now_qty || 0)
+            ),
+            linkedOrderFulfilledQty: Math.max(
+              0,
+              Number(item?.linkedOrderFulfilledQty || item?.fulfilled_qty || 0)
+            ),
+            linkedOrderPendingQty: Math.max(
+              0,
+              Number(item?.linkedOrderPendingQty || item?.pending_qty || 0)
+            ),
+            prefilledLineSubtotal: Math.max(
+              0,
+              Number(item?.prefilledLineSubtotal || item?.line_subtotal || 0)
+            ),
+            prefilledOfferDiscount: Math.max(
+              0,
+              Number(item?.prefilledOfferDiscount || item?.offer_discount || 0)
+            ),
+            prefilledManualDiscount: Math.max(
+              0,
+              Number(item?.prefilledManualDiscount || item?.manual_discount || 0)
+            ),
+            prefilledTotalDiscount: Math.max(
+              0,
+              Number(item?.prefilledTotalDiscount || item?.discount || 0)
+            ),
+            prefilledOfferLabel: String(
+              item?.prefilledOfferLabel || item?.offer_label || ''
+            ).trim(),
+          })
+        )
       : [];
 
     setCustomer({
@@ -627,11 +661,16 @@ const BillingTabController = ({
     setLastShareNumber('');
     setLastSharePhone('');
     setLinkedOrderId(Number(initialPrefill?.source?.order_id || 0) || 0);
-    setFulfillmentMode(Number(initialPrefill?.source?.order_id || 0) ? 'available_now' : 'full_now');
+    setFulfillmentMode(
+      Number(initialPrefill?.source?.order_id || 0) ? 'available_now' : 'full_now'
+    );
     setSelectedPaymentMethod('cash');
 
-    const sourceOrderLabel = String(initialPrefill?.source?.order_number || '').trim()
-      || (Number(initialPrefill?.source?.order_id || 0) ? `#${Number(initialPrefill.source.order_id)}` : '');
+    const sourceOrderLabel =
+      String(initialPrefill?.source?.order_number || '').trim() ||
+      (Number(initialPrefill?.source?.order_id || 0)
+        ? `#${Number(initialPrefill.source.order_id)}`
+        : '');
     setPrefillSummary(
       sourceOrderLabel
         ? `Order ${sourceOrderLabel} linked. Customer and items are auto-loaded.`
@@ -643,7 +682,12 @@ const BillingTabController = ({
 
   useEffect(() => {
     const handleWindowKeyDown = (event) => {
-      if (showCustomerCreateModal || createBillConfirmationOpen || clearBillConfirmationOpen || isSubmitting) {
+      if (
+        showCustomerCreateModal ||
+        createBillConfirmationOpen ||
+        clearBillConfirmationOpen ||
+        isSubmitting
+      ) {
         return;
       }
       const editableTarget = isEditableElement(event.target);
@@ -838,14 +882,18 @@ const BillingTabController = ({
       setSelectedBillIndex(
         Number.isInteger(draft?.selectedBillIndex) && draft.selectedBillIndex >= 0
           ? Math.min(draft.selectedBillIndex, Math.max(restoredBillItems.length - 1, 0))
-          : (restoredBillItems.length > 0 ? 0 : null)
+          : restoredBillItems.length > 0
+            ? 0
+            : null
       );
       setLastAddedItemId(null);
       setLastRemovedItem(null);
       setPaidAmount(draft?.paidAmount ?? 0);
       setPrefillSummary(String(draft?.prefillSummary || '').trim());
       setLinkedOrderId(Number(draft?.linkedOrderId || 0) || 0);
-      setFulfillmentMode(String(draft?.fulfillmentMode || 'available_now').trim() || 'available_now');
+      setFulfillmentMode(
+        String(draft?.fulfillmentMode || 'available_now').trim() || 'available_now'
+      );
       setSelectedPaymentMethod(String(draft?.selectedPaymentMethod || 'cash').trim() || 'cash');
       clearSearchState();
       setPendingProductSelectionReview(false);

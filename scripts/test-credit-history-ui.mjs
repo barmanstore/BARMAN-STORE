@@ -71,7 +71,10 @@ const run = () => {
     nowTimestamp: NOW,
     getTimestamp,
   });
-  assert.deepEqual(recentOnly.map((item) => item.id), [1, 2]);
+  assert.deepEqual(
+    recentOnly.map((item) => item.id),
+    [1, 2]
+  );
 
   const thisMonth = applyCreditQuickFilters(transactions, {
     typeFilter: 'all',
@@ -79,16 +82,16 @@ const run = () => {
     nowTimestamp: NOW,
     getTimestamp,
   });
-  assert.deepEqual(thisMonth.map((item) => item.id), [1, 2]);
+  assert.deepEqual(
+    thisMonth.map((item) => item.id),
+    [1, 2]
+  );
 
   const reminder = getRecentActivityHint(new Date('2025-12-01T00:00:00Z').getTime(), {
     nowTimestamp: NOW,
     idleDays: 30,
   });
-  assert.equal(
-    reminder,
-    'No activity in last 30 days. Consider sending a reminder.'
-  );
+  assert.equal(reminder, 'No activity in last 30 days. Consider sending a reminder.');
 
   const noReminder = getRecentActivityHint(new Date('2026-02-20T00:00:00Z').getTime(), {
     nowTimestamp: NOW,
@@ -102,123 +105,130 @@ const run = () => {
     'this descriptio...'
   );
 
-  assert.equal(
-    buildMessagePreview(`A👨‍👩‍👧‍👦B`, 2),
-    `A👨‍👩‍👧‍👦`
-  );
+  assert.equal(buildMessagePreview(`A👨‍👩‍👧‍👦B`, 2), `A👨‍👩‍👧‍👦`);
 
   const { buildCreditDisciplineProfile } = createCreditBadgeUtils({
-    resolveCreditEntryTimestampMs: (entry) => new Date(entry.transaction_ts || entry.created_at).getTime(),
+    resolveCreditEntryTimestampMs: (entry) =>
+      new Date(entry.transaction_ts || entry.created_at).getTime(),
   });
-  const profile = buildCreditDisciplineProfile([
+  const profile = buildCreditDisciplineProfile(
+    [
+      {
+        id: 1,
+        type: 'given',
+        amount: 100,
+        due_date: '2026-02-08',
+        transaction_ts: '2026-02-01T10:00:00Z',
+        created_at: '2026-02-01T10:00:00Z',
+      },
+      {
+        id: 2,
+        type: 'given',
+        amount: 50,
+        due_date: '2026-02-17',
+        transaction_ts: '2026-02-10T10:00:00Z',
+        created_at: '2026-02-10T10:00:00Z',
+      },
+      {
+        id: 3,
+        type: 'payment',
+        amount: 40,
+        transaction_ts: '2026-02-12T10:00:00Z',
+        created_at: '2026-02-12T10:00:00Z',
+      },
+    ],
     {
-      id: 1,
-      type: 'given',
-      amount: 100,
-      due_date: '2026-02-08',
-      transaction_ts: '2026-02-01T10:00:00Z',
-      created_at: '2026-02-01T10:00:00Z',
-    },
-    {
-      id: 2,
-      type: 'given',
-      amount: 50,
-      due_date: '2026-02-17',
-      transaction_ts: '2026-02-10T10:00:00Z',
-      created_at: '2026-02-10T10:00:00Z',
-    },
-    {
-      id: 3,
-      type: 'payment',
-      amount: 40,
-      transaction_ts: '2026-02-12T10:00:00Z',
-      created_at: '2026-02-12T10:00:00Z',
-    },
-  ], {
-    balance: 110,
-    nowMs: new Date('2026-02-15T00:00:00Z').getTime(),
-  });
+      balance: 110,
+      nowMs: new Date('2026-02-15T00:00:00Z').getTime(),
+    }
+  );
   assert.equal(profile.summary.maintain_score_by_date, '2026-02-16');
   assert.equal(profile.summary.grace_days, 3);
   assert.equal(profile.summary.payment_status_label, 'Very Good');
   assert.equal(profile.summary.helper_mode, 'improve');
 
-  const fifoShiftProfile = buildCreditDisciplineProfile([
+  const fifoShiftProfile = buildCreditDisciplineProfile(
+    [
+      {
+        id: 10,
+        type: 'given',
+        amount: 10,
+        due_date: '2026-03-08',
+        transaction_date: '2026-03-01',
+        transaction_ts: '2026-03-01T10:00:00Z',
+        created_at: '2026-03-01T10:00:00Z',
+      },
+      {
+        id: 11,
+        type: 'given',
+        amount: 12,
+        due_date: '2026-03-09',
+        transaction_date: '2026-03-02',
+        transaction_ts: '2026-03-02T10:00:00Z',
+        created_at: '2026-03-02T10:00:00Z',
+      },
+      {
+        id: 12,
+        type: 'given',
+        amount: 22,
+        due_date: '2026-03-10',
+        transaction_date: '2026-03-03',
+        transaction_ts: '2026-03-03T10:00:00Z',
+        created_at: '2026-03-03T10:00:00Z',
+      },
+      {
+        id: 13,
+        type: 'given',
+        amount: 32,
+        due_date: '2026-03-14',
+        transaction_date: '2026-03-07',
+        transaction_ts: '2026-03-07T09:00:00Z',
+        created_at: '2026-03-07T09:00:00Z',
+      },
+      {
+        id: 14,
+        type: 'payment',
+        amount: 30,
+        transaction_date: '2026-03-07',
+        transaction_ts: '2026-03-07T18:00:00Z',
+        created_at: '2026-03-07T18:00:00Z',
+      },
+    ],
     {
-      id: 10,
-      type: 'given',
-      amount: 10,
-      due_date: '2026-03-08',
-      transaction_date: '2026-03-01',
-      transaction_ts: '2026-03-01T10:00:00Z',
-      created_at: '2026-03-01T10:00:00Z',
-    },
-    {
-      id: 11,
-      type: 'given',
-      amount: 12,
-      due_date: '2026-03-09',
-      transaction_date: '2026-03-02',
-      transaction_ts: '2026-03-02T10:00:00Z',
-      created_at: '2026-03-02T10:00:00Z',
-    },
-    {
-      id: 12,
-      type: 'given',
-      amount: 22,
-      due_date: '2026-03-10',
-      transaction_date: '2026-03-03',
-      transaction_ts: '2026-03-03T10:00:00Z',
-      created_at: '2026-03-03T10:00:00Z',
-    },
-    {
-      id: 13,
-      type: 'given',
-      amount: 32,
-      due_date: '2026-03-14',
-      transaction_date: '2026-03-07',
-      transaction_ts: '2026-03-07T09:00:00Z',
-      created_at: '2026-03-07T09:00:00Z',
-    },
-    {
-      id: 14,
-      type: 'payment',
-      amount: 30,
-      transaction_date: '2026-03-07',
-      transaction_ts: '2026-03-07T18:00:00Z',
-      created_at: '2026-03-07T18:00:00Z',
-    },
-  ], {
-    balance: 46,
-    nowMs: new Date('2026-03-07T20:00:00Z').getTime(),
-  });
+      balance: 46,
+      nowMs: new Date('2026-03-07T20:00:00Z').getTime(),
+    }
+  );
   assert.equal(fifoShiftProfile.summary.payment_status_label, 'Excellent');
   assert.equal(fifoShiftProfile.summary.maintain_score_by_date, '2026-03-10');
   assert.equal(fifoShiftProfile.summary.helper_mode, 'maintain');
 
-  const stagedDowngradeProfile = buildCreditDisciplineProfile([
+  const stagedDowngradeProfile = buildCreditDisciplineProfile(
+    [
+      {
+        id: 21,
+        type: 'given',
+        amount: 10,
+        due_date: '2026-03-08',
+        transaction_date: '2026-03-01',
+        transaction_ts: '2026-03-01T10:00:00Z',
+        created_at: '2026-03-01T10:00:00Z',
+      },
+      {
+        id: 22,
+        type: 'given',
+        amount: 12,
+        due_date: '2026-03-09',
+        transaction_date: '2026-03-02',
+        transaction_ts: '2026-03-02T10:00:00Z',
+        created_at: '2026-03-02T10:00:00Z',
+      },
+    ],
     {
-      id: 21,
-      type: 'given',
-      amount: 10,
-      due_date: '2026-03-08',
-      transaction_date: '2026-03-01',
-      transaction_ts: '2026-03-01T10:00:00Z',
-      created_at: '2026-03-01T10:00:00Z',
-    },
-    {
-      id: 22,
-      type: 'given',
-      amount: 12,
-      due_date: '2026-03-09',
-      transaction_date: '2026-03-02',
-      transaction_ts: '2026-03-02T10:00:00Z',
-      created_at: '2026-03-02T10:00:00Z',
-    },
-  ], {
-    balance: 22,
-    nowMs: new Date('2026-03-30T00:00:00Z').getTime(),
-  });
+      balance: 22,
+      nowMs: new Date('2026-03-30T00:00:00Z').getTime(),
+    }
+  );
   assert.equal(stagedDowngradeProfile.summary.payment_status_label, 'Good');
   assert.equal(stagedDowngradeProfile.summary.maintain_score_by_date, '2026-03-31');
   assert.equal(stagedDowngradeProfile.summary.is_defaulter, false);
@@ -252,7 +262,10 @@ const run = () => {
   ]);
   assert.equal(dayGroups.length, 2);
   assert.equal(dayGroups[0].dateLabel, '28/03/2026');
-  assert.deepEqual(dayGroups[0].transactions.map((item) => item.id), [10, 11]);
+  assert.deepEqual(
+    dayGroups[0].transactions.map((item) => item.id),
+    [10, 11]
+  );
 
   const transactionText = buildCreditTransactionText({
     companyTitle: "বৰ্মন ষ্ট'ৰ",
@@ -286,7 +299,9 @@ const run = () => {
     'customer-facing transaction text should not repeat the score after the header'
   );
   assert.ok(
-    /আপোনাৰ Excellent স্কোৰ বজাই ৰাখিবলৈ অনুগ্ৰহ কৰি .*2026 ৰ আগতে পৰিশোধ কৰক।/.test(transactionText),
+    /আপোনাৰ Excellent স্কোৰ বজাই ৰাখিবলৈ অনুগ্ৰহ কৰি .*2026 ৰ আগতে পৰিশোধ কৰক।/.test(
+      transactionText
+    ),
     'customer-facing transaction text should keep maintenance wording only for Excellent customers before the due date'
   );
   assert.ok(
@@ -327,21 +342,25 @@ const run = () => {
     'transaction WhatsApp trimming should drop the store URL before forcing the launcher fallback for routine notices'
   );
   assert.ok(
-    trimmedTransactionText.includes('স্কোৰ: 86/100 | Excellent')
-      && trimmedTransactionText.includes('তাৰিখ: 27/3/2026')
-      && trimmedTransactionText.includes('বেলেঞ্চ: ₹1,264.00 -> ₹1,299.00'),
+    trimmedTransactionText.includes('স্কোৰ: 86/100 | Excellent') &&
+      trimmedTransactionText.includes('তাৰিখ: 27/3/2026') &&
+      trimmedTransactionText.includes('বেলেঞ্চ: ₹1,264.00 -> ₹1,299.00'),
     'transaction WhatsApp trimming must keep the score, date, and balance lines intact'
   );
 
-  const monthlyStatements = buildMonthlyCreditStatements([
-    { id: 1, type: 'given', amount: 100, balance: 100, created_at: '2026-02-01T10:00:00Z' },
-    { id: 2, type: 'payment', amount: 30, balance: 70, created_at: '2026-02-12T10:00:00Z' },
-    { id: 3, type: 'given', amount: 50, balance: 120, created_at: '2026-03-05T10:00:00Z' },
-  ], {
-    getTimestamp,
-    getDelta: (transaction) => (transaction.type === 'payment' ? -transaction.amount : transaction.amount),
-    maxStatements: 6,
-  });
+  const monthlyStatements = buildMonthlyCreditStatements(
+    [
+      { id: 1, type: 'given', amount: 100, balance: 100, created_at: '2026-02-01T10:00:00Z' },
+      { id: 2, type: 'payment', amount: 30, balance: 70, created_at: '2026-02-12T10:00:00Z' },
+      { id: 3, type: 'given', amount: 50, balance: 120, created_at: '2026-03-05T10:00:00Z' },
+    ],
+    {
+      getTimestamp,
+      getDelta: (transaction) =>
+        transaction.type === 'payment' ? -transaction.amount : transaction.amount,
+      maxStatements: 6,
+    }
+  );
   assert.equal(monthlyStatements.length, 2);
   assert.equal(monthlyStatements[0].monthKey, '2026-03');
   assert.equal(monthlyStatements[0].openingBalance, 70);
@@ -393,7 +412,9 @@ const run = () => {
     onlineStoreUrl: 'https://barman-store.vercel.app',
   });
   assert.ok(
-    improvingStatusText.includes('সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ উন্নত হৈ Very Good status পাব পাৰে।'),
+    improvingStatusText.includes(
+      'সময়মতে পৰিশোধ কৰিলে আপোনাৰ পেমেন্ট স্কোৰ উন্নত হৈ Very Good status পাব পাৰে।'
+    ),
     'customers below Excellent should get motivational upgrade copy that points to the next status'
   );
   assert.ok(
@@ -449,7 +470,9 @@ const run = () => {
     onlineStoreUrl: 'https://barman-store.vercel.app',
   });
   assert.ok(
-    overdueAfterGraceText.includes('আপোনাৰ পৰিশোধৰ গ্ৰেচ পিৰিয়ড শেষ হৈছে। অনুগ্ৰহ কৰি তৎক্ষণাত পৰিশোধ কৰক, নহ’লে পেমেন্ট স্কোৰ বেয়া হ’ব পাৰে।'),
+    overdueAfterGraceText.includes(
+      'আপোনাৰ পৰিশোধৰ গ্ৰেচ পিৰিয়ড শেষ হৈছে। অনুগ্ৰহ কৰি তৎক্ষণাত পৰিশোধ কৰক, নহ’লে পেমেন্ট স্কোৰ বেয়া হ’ব পাৰে।'
+    ),
     'overdue reminders after grace should use the urgent post-grace wording'
   );
 

@@ -7,17 +7,25 @@ const RECENTLY_BOUGHT_LIMIT = 12;
 const VIRTUALIZE_GROUP_THRESHOLD = 28;
 const GROUP_BY_OPTIONS = {
   category: 'category',
-  brand: 'brand'
+  brand: 'brand',
 };
 const PRODUCTS_AUTOLOAD_ROOT_MARGIN = '720px 0px';
 const ABOVE_FOLD_EAGER_IMAGE_COUNT = {
   mobile: 4,
-  desktop: 8
+  desktop: 8,
 };
 const DEFAULT_SORT_BY = 'popular';
-const SORT_OPTIONS = ['popular', 'relevance', 'newest', 'price-asc', 'price-desc', 'discount-desc', 'stock-desc'];
+const SORT_OPTIONS = [
+  'popular',
+  'relevance',
+  'newest',
+  'price-asc',
+  'price-desc',
+  'discount-desc',
+  'stock-desc',
+];
 const SORT_API_FALLBACK = {
-  popular: 'relevance'
+  popular: 'relevance',
 };
 const MOBILE_TAB_OPTIONS = [
   { key: 'order-again', label: 'Order Again' },

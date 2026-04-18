@@ -1,4 +1,5 @@
-export const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
+export const PHONE_POLICY_MESSAGE =
+  'Phone number must be 10 digits (India format, optional +91 prefix).';
 
 export const normalizeIndianPhone = (phone) => {
   const raw = String(phone ?? '').trim();

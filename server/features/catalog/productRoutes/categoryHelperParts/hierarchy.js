@@ -1,9 +1,5 @@
 const createCategoryHierarchy = (deps = {}) => {
-  const {
-    normalizeCategoryName,
-    splitHierarchySegments,
-    ensureCategoryNodeAsync,
-  } = deps;
+  const { normalizeCategoryName, splitHierarchySegments, ensureCategoryNodeAsync } = deps;
 
   const resolveOrCreateCategoryHierarchyAsync = async ({ category, subcategory }) => {
     const categorySegments = splitHierarchySegments(category);

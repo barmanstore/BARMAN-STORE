@@ -152,7 +152,9 @@ const normalizePoNoticeDate = (value) => {
 };
 
 const buildPurchaseOrderDistributorNoticeTemplate = (payload = {}) => {
-  const orderDate = normalizePoNoticeDate(payload.orderDate || payload.order_date || payload.date || payload.messageDate);
+  const orderDate = normalizePoNoticeDate(
+    payload.orderDate || payload.order_date || payload.date || payload.messageDate
+  );
   return {
     text: buildPurchaseOrderDistributorNoticeText({
       companyTitle: payload.businessName,
@@ -166,7 +168,9 @@ const buildPurchaseOrderDistributorNoticeTemplate = (payload = {}) => {
 };
 
 const buildNotificationTemplate = (type, payload = {}) => {
-  const normalizedType = String(type || '').trim().toLowerCase();
+  const normalizedType = String(type || '')
+    .trim()
+    .toLowerCase();
   if (normalizedType === 'email_verification') {
     return buildEmailVerificationTemplate(payload);
   }

@@ -12,7 +12,10 @@ function AccountShell({ children }) {
 
     const updateHeaderHeight = () => {
       const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
-      document.documentElement.style.setProperty('--app-header-height', `${Math.max(0, nextHeight)}px`);
+      document.documentElement.style.setProperty(
+        '--app-header-height',
+        `${Math.max(0, nextHeight)}px`
+      );
     };
 
     updateHeaderHeight();
@@ -32,9 +35,7 @@ function AccountShell({ children }) {
   return (
     <div className="app app-account-shell" data-window-background-root="true">
       <MobileAccountHeader headerRef={headerRef} />
-      <main className="main-content main-content-account">
-        {children}
-      </main>
+      <main className="main-content main-content-account">{children}</main>
       <MobileFooter />
     </div>
   );

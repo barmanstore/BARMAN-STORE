@@ -41,13 +41,7 @@ function RootShell() {
   const whatsappText = encodeURIComponent(
     String(info.WHATSAPP_DEFAULT_TEXT || 'Hello Barman Store, I need help with my order.')
   );
-  const whatsappHref = whatsappDigits
-    ? `https://wa.me/${whatsappDigits}?text=${whatsappText}`
-    : '';
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname, location.search, routePolicy.variant]);
+  const whatsappHref = whatsappDigits ? `https://wa.me/${whatsappDigits}?text=${whatsappText}` : '';
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -62,23 +56,28 @@ function RootShell() {
   useEffect(() => {
     if (!import.meta.env.DEV || typeof document === 'undefined') return;
     if (document.querySelector('[data-window-background-root="true"]')) return;
-    throw new Error('RootShell expected an active shell root with data-window-background-root="true".');
+    throw new Error(
+      'RootShell expected an active shell root with data-window-background-root="true".'
+    );
   }, [routePolicy.variant]);
 
-  const routesElement = useMemo(() => (
-    <Suspense
-      fallback={(
-        <div className="route-loading" role="status" aria-live="polite">
-          <span className="route-loading__spinner" aria-hidden="true" />
-          <span className="route-loading__text">
-            {routePolicy.variant === 'none' ? 'Loading workspace...' : 'Loading Barman Store...'}
-          </span>
-        </div>
-      )}
-    >
-      <AppRoutes />
-    </Suspense>
-  ), [routePolicy.variant]);
+  const routesElement = useMemo(
+    () => (
+      <Suspense
+        fallback={
+          <div className="route-loading" role="status" aria-live="polite">
+            <span className="route-loading__spinner" aria-hidden="true" />
+            <span className="route-loading__text">
+              {routePolicy.variant === 'none' ? 'Loading workspace...' : 'Loading Barman Store...'}
+            </span>
+          </div>
+        }
+      >
+        <AppRoutes />
+      </Suspense>
+    ),
+    [routePolicy.variant]
+  );
 
   let shell = null;
   if (routePolicy.variant === 'account') {
@@ -90,6 +89,7 @@ function RootShell() {
   } else {
     shell = (
       <DefaultShell
+        key={`${location.pathname}|${location.search}|${routePolicy.variant}`}
         mobileMenuOpen={mobileMenuOpen}
         onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
         onCloseMobileMenu={() => setMobileMenuOpen(false)}

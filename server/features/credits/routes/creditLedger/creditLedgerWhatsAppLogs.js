@@ -1,11 +1,7 @@
 const { buildMessagePreview } = require('../../../../../shared/textPreview.cjs');
 
 const registerCreditLedgerWhatsAppLogRoutes = (deps) => {
-  const {
-    app,
-    requireAuth,
-    logAdminAuditAsync,
-  } = deps;
+  const { app, requireAuth, logAdminAuditAsync } = deps;
 
   app.post('/api/credit/whatsapp/launch-log', requireAuth, async (req, res) => {
     try {
@@ -24,7 +20,9 @@ const registerCreditLedgerWhatsAppLogRoutes = (deps) => {
       if (!normalizedCustomerId) {
         return res.status(400).json({ error: 'customer_id is required' });
       }
-      const normalizedType = String(type || '').trim().toLowerCase();
+      const normalizedType = String(type || '')
+        .trim()
+        .toLowerCase();
       if (!normalizedType) {
         return res.status(400).json({ error: 'type is required' });
       }
@@ -47,7 +45,8 @@ const registerCreditLedgerWhatsAppLogRoutes = (deps) => {
           phone: normalizedPhone,
           message_preview: preview,
           context_type: contextType ? String(contextType).trim() : null,
-          context_id: contextId !== undefined && contextId !== null ? String(contextId).trim() : null,
+          context_id:
+            contextId !== undefined && contextId !== null ? String(contextId).trim() : null,
           trigger_source: triggerSource ? String(triggerSource).trim() : null,
         },
       });

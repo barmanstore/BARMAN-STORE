@@ -1,12 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Truck, AlertCircle, MapPin, Phone, Mail, CreditCard, Printer, RefreshCw } from 'lucide-react';
+import {
+  Truck,
+  AlertCircle,
+  MapPin,
+  Phone,
+  Mail,
+  CreditCard,
+  Printer,
+  RefreshCw,
+} from 'lucide-react';
 import { ordersApi } from '../api/index.js';
 import { printHtmlDocument, escapeHtml } from '../../../shared/utils/printService';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import { useSession } from '../../../providers/SessionProvider';
-import { formatDate, getStatusIcon, getStatusStep, extractQtyLabelFromName, getOrderItemDisplay } from '../components/orderTrackingRenderers.jsx';
+import {
+  formatDate,
+  getStatusIcon,
+  getStatusStep,
+  getOrderItemDisplay,
+} from '../components/orderTrackingRenderers.jsx';
 import './OrderTrackingPage.css';
 
 function OrderTrackingPage() {
@@ -55,36 +69,48 @@ function OrderTrackingPage() {
 
   const getPaymentStatusColor = (status) => {
     switch (status) {
-      case 'paid': return 'status-paid';
-      case 'pending': return 'status-pending';
-      case 'refunded': return 'status-refunded';
-      case 'declined': return 'status-declined';
-      default: return '';
+      case 'paid':
+        return 'status-paid';
+      case 'pending':
+        return 'status-pending';
+      case 'refunded':
+        return 'status-refunded';
+      case 'declined':
+        return 'status-declined';
+      default:
+        return '';
     }
   };
 
   const getFulfillmentStatusColor = (status) => {
     switch (status) {
-      case 'fulfilled': return 'status-fulfilled';
-      case 'shipped': return 'status-shipped';
-      case 'label_created': return 'status-label-created';
-      case 'processing': return 'status-processing';
-      default: return '';
+      case 'fulfilled':
+        return 'status-fulfilled';
+      case 'shipped':
+        return 'status-shipped';
+      case 'label_created':
+        return 'status-label-created';
+      case 'processing':
+        return 'status-processing';
+      default:
+        return '';
     }
   };
 
   const buildOrderReceiptHtml = (orderData) => {
     const items = Array.isArray(orderData?.items) ? orderData.items : [];
-    const rows = items.map((item) => {
-      const display = getOrderItemDisplay(item);
-      const pricingNote = display.totalDiscount > 0
-        ? `<div class="receipt-item-note">${escapeHtml(
-          display.offerLabel
-            ? `${display.offerLabel} | Saved ${formatCurrency(display.totalDiscount)}`
-            : `Saved ${formatCurrency(display.totalDiscount)}`
-        )}</div>`
-        : '';
-      return `
+    const rows = items
+      .map((item) => {
+        const display = getOrderItemDisplay(item);
+        const pricingNote =
+          display.totalDiscount > 0
+            ? `<div class="receipt-item-note">${escapeHtml(
+                display.offerLabel
+                  ? `${display.offerLabel} | Saved ${formatCurrency(display.totalDiscount)}`
+                  : `Saved ${formatCurrency(display.totalDiscount)}`
+              )}</div>`
+            : '';
+        return `
         <tr>
           <td>${escapeHtml(display.name)}${pricingNote}</td>
           <td>${escapeHtml(display.quantityText)}</td>
@@ -92,10 +118,14 @@ function OrderTrackingPage() {
           <td>${escapeHtml(display.unknownPrice ? 'Unknown' : formatCurrency(display.total))}</td>
         </tr>
       `;
-    }).join('');
+      })
+      .join('');
 
     const shipping = orderData?.shipping_address || {};
-    const subtotal = Number(orderData?.total_amount || 0) - Number(orderData?.tax_amount || 0) - Number(orderData?.shipping_amount || 0);
+    const subtotal =
+      Number(orderData?.total_amount || 0) -
+      Number(orderData?.tax_amount || 0) -
+      Number(orderData?.shipping_amount || 0);
 
     return `
       <div class="order-receipt">
@@ -188,7 +218,7 @@ function OrderTrackingPage() {
           <div className="error-container fade-in-up">
             <AlertCircle size={60} />
             <h2>Order Not Found</h2>
-            <p>We couldn't find an order with that number. Please check and try again.</p>
+            <p>We could not find an order with that number. Please check and try again.</p>
             <button onClick={() => navigate('/products')}>Continue Shopping</button>
           </div>
         </div>
@@ -233,247 +263,274 @@ function OrderTrackingPage() {
           </p>
         </div>
 
-      {/* Order Status Progress */}
-      <div className="status-progress-section fade-in-up">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progressPercentage}%` }}></div>
-        </div>
-        <div className="progress-steps">
-          <div className={`step ${currentStep >= 0 ? 'active' : ''}`}>
-            {getStatusIcon('ordered')}
-            <span>Ordered</span>
+        {/* Order Status Progress */}
+        <div className="status-progress-section fade-in-up">
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${progressPercentage}%` }}></div>
           </div>
-          <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>
-            {getStatusIcon('received')}
-            <span>Received</span>
+          <div className="progress-steps">
+            <div className={`step ${currentStep >= 0 ? 'active' : ''}`}>
+              {getStatusIcon('ordered')}
+              <span>Ordered</span>
+            </div>
+            <div className={`step ${currentStep >= 1 ? 'active' : ''}`}>
+              {getStatusIcon('received')}
+              <span>Received</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Order Info Grid */}
-      <div className="tracking-content">
-        {/* Left Column - Order Details */}
-        <div className="tracking-main slide-in-left">
-          {/* Order Items */}
-          <div className="tracking-card">
-            <h2>Order Items</h2>
-            <div className="order-items-list">
-              {order.items?.map((item, index) => {
-                const display = getOrderItemDisplay(item);
-                return (
-                  <div key={item.id} className="tracking-item" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <div className="item-image">
-                      {item.product_image ? (
-                        <img src={item.product_image} alt={item.product_name} />
-                      ) : (
-                        <div className="placeholder-image">No Image</div>
+        {/* Order Info Grid */}
+        <div className="tracking-content">
+          {/* Left Column - Order Details */}
+          <div className="tracking-main slide-in-left">
+            {/* Order Items */}
+            <div className="tracking-card">
+              <h2>Order Items</h2>
+              <div className="order-items-list">
+                {order.items?.map((item, index) => {
+                  const display = getOrderItemDisplay(item);
+                  return (
+                    <div
+                      key={item.id}
+                      className="tracking-item"
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <div className="item-image">
+                        {item.product_image ? (
+                          <img src={item.product_image} alt={item.product_name} />
+                        ) : (
+                          <div className="placeholder-image">No Image</div>
+                        )}
+                      </div>
+                      <div className="item-details">
+                        <h4>{display.name}</h4>
+                        <p className="item-quantity">Quantity: {display.quantityText}</p>
+                        <p className="item-price">
+                          {display.unknownPrice
+                            ? 'Price: Unknown'
+                            : `${formatCurrency(display.unitPrice)} each`}
+                        </p>
+                        {!display.unknownPrice && display.totalDiscount > 0 ? (
+                          <p className="item-price">
+                            {display.offerLabel ? `${display.offerLabel} | ` : ''}
+                            {`${formatCurrency(display.lineSubtotal)} -> ${formatCurrency(display.total)}`}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="item-total">
+                        {display.unknownPrice ? 'Unknown' : formatCurrency(display.total)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Order Timeline */}
+            <div className="tracking-card">
+              <h2>Order Timeline</h2>
+              <div className="timeline">
+                {order.status_history?.map((history, index) => (
+                  <div
+                    key={history.id}
+                    className="timeline-item"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <div className="timeline-marker"></div>
+                    <div className="timeline-content">
+                      <span className="timeline-date">{formatDate(history.created_at)}</span>
+                      <p className="timeline-status">{history.status}</p>
+                      {history.description && (
+                        <p className="timeline-description">{history.description}</p>
                       )}
                     </div>
-                    <div className="item-details">
-                      <h4>{display.name}</h4>
-                      <p className="item-quantity">Quantity: {display.quantityText}</p>
-                      <p className="item-price">
-                        {display.unknownPrice ? 'Price: Unknown' : `${formatCurrency(display.unitPrice)} each`}
-                      </p>
-                      {!display.unknownPrice && display.totalDiscount > 0 ? (
-                        <p className="item-price">
-                          {display.offerLabel ? `${display.offerLabel} | ` : ''}{`${formatCurrency(display.lineSubtotal)} -> ${formatCurrency(display.total)}`}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div className="item-total">
-                      {display.unknownPrice ? 'Unknown' : formatCurrency(display.total)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Order Timeline */}
-          <div className="tracking-card">
-            <h2>Order Timeline</h2>
-            <div className="timeline">
-              {order.status_history?.map((history, index) => (
-                <div key={history.id} className="timeline-item" style={{ animationDelay: `${index * 0.1}s` }}>
-                  <div className="timeline-marker"></div>
-                  <div className="timeline-content">
-                    <span className="timeline-date">{formatDate(history.created_at)}</span>
-                    <p className="timeline-status">{history.status}</p>
-                    {history.description && <p className="timeline-description">{history.description}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Notifications */}
-          {order.notifications?.length > 0 && (
-            <div className="tracking-card">
-              <h2>Notifications Sent</h2>
-              <div className="notifications-list">
-                {order.notifications?.map((notif) => (
-                  <div key={notif.id} className="notification-item">
-                    <span className="notif-type">{notif.type.toUpperCase()}</span>
-                    <span className="notif-sent-to">{notif.recipient}</span>
-                    <span className={`notif-status ${notif.status}`}>{notif.status}</span>
-                    <span className="notif-date">{formatDate(notif.created_at)}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Right Column - Summary & Actions */}
-        <div className="tracking-sidebar slide-in-right">
-          {/* Order Summary */}
-          <div className="summary-card">
-            <h2>Order Summary</h2>
-            <div className="summary-rows">
-              <div className="summary-row">
-                <span>Order Number</span>
-                <span className="mono">{order.order_number}</span>
-              </div>
-              <div className="summary-row">
-                <span>Order Date</span>
-                <span>{formatDate(order.created_at)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Status</span>
-                <span className={`status-badge ${order.status}`}>{order.status}</span>
-              </div>
-              <div className="summary-row">
-                <span>Payment Status</span>
-                <span className={`payment-badge ${getPaymentStatusColor(order.payment_status)}`}>
-                  {order.payment_status}
-                </span>
-              </div>
-              <div className="summary-row">
-                <span>Fulfillment</span>
-                <span className={`fulfillment-badge ${getFulfillmentStatusColor(order.fulfillment_status)}`}>
-                  {order.fulfillment_status}
-                </span>
-              </div>
-            </div>
-
-            <div className="summary-totals">
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span>{formatCurrency(order.total_amount - (order.tax_amount || 0) - (order.shipping_amount || 0))}</span>
-              </div>
-              <div className="summary-row">
-                <span>Tax</span>
-                <span>{formatCurrency(order.tax_amount || 0)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Shipping</span>
-                <span>{formatCurrency(order.shipping_amount || 0)}</span>
-              </div>
-              <div className="summary-divider"></div>
-              <div className="summary-total">
-                <span>Total</span>
-                <span>{formatCurrency(order.total_amount)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Shipping Address */}
-          {order.shipping_address && (
-            <div className="address-card">
-              <h3><MapPin size={18} /> Shipping Address</h3>
-              <div className="address-content">
-                <p className="recipient-name">{order.customer_name}</p>
-                <p>{order.shipping_address.street}</p>
-                <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zip}</p>
-                {order.shipping_address.country && <p>{order.shipping_address.country}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* Contact Info */}
-          <div className="contact-card">
-            <h3>Contact Information</h3>
-            <div className="contact-item">
-              <Mail size={16} />
-              <span>{order.customer_email}</span>
-            </div>
-            {order.customer_phone && (
-              <div className="contact-item">
-                <Phone size={16} />
-                <span>{order.customer_phone}</span>
+            {/* Notifications */}
+            {order.notifications?.length > 0 && (
+              <div className="tracking-card">
+                <h2>Notifications Sent</h2>
+                <div className="notifications-list">
+                  {order.notifications?.map((notif) => (
+                    <div key={notif.id} className="notification-item">
+                      <span className="notif-type">{notif.type.toUpperCase()}</span>
+                      <span className="notif-sent-to">{notif.recipient}</span>
+                      <span className={`notif-status ${notif.status}`}>{notif.status}</span>
+                      <span className="notif-date">{formatDate(notif.created_at)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Payment Info */}
-          {order.payments?.length > 0 && (
-            <div className="payment-card">
-              <h3><CreditCard size={18} /> Payment Details</h3>
-              <div className="payment-content">
-                {order.payments.map((payment) => (
-                  <div key={payment.id} className="payment-item">
-                    <p className="payment-method">{payment.payment_method}</p>
-                    {payment.card_last4 && (
-                      <p className="card-info">Card ending in {payment.card_last4}</p>
+          {/* Right Column - Summary & Actions */}
+          <div className="tracking-sidebar slide-in-right">
+            {/* Order Summary */}
+            <div className="summary-card">
+              <h2>Order Summary</h2>
+              <div className="summary-rows">
+                <div className="summary-row">
+                  <span>Order Number</span>
+                  <span className="mono">{order.order_number}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Order Date</span>
+                  <span>{formatDate(order.created_at)}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Status</span>
+                  <span className={`status-badge ${order.status}`}>{order.status}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Payment Status</span>
+                  <span className={`payment-badge ${getPaymentStatusColor(order.payment_status)}`}>
+                    {order.payment_status}
+                  </span>
+                </div>
+                <div className="summary-row">
+                  <span>Fulfillment</span>
+                  <span
+                    className={`fulfillment-badge ${getFulfillmentStatusColor(order.fulfillment_status)}`}
+                  >
+                    {order.fulfillment_status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="summary-totals">
+                <div className="summary-row">
+                  <span>Subtotal</span>
+                  <span>
+                    {formatCurrency(
+                      order.total_amount - (order.tax_amount || 0) - (order.shipping_amount || 0)
                     )}
-                    <p className="payment-amount">{formatCurrency(payment.amount)}</p>
-                    <p className={`payment-status ${payment.status}`}>{payment.status}</p>
-                    {payment.transaction_id && (
-                      <p className="transaction-id">TXN: {payment.transaction_id}</p>
-                    )}
-                  </div>
-                ))}
+                  </span>
+                </div>
+                <div className="summary-row">
+                  <span>Tax</span>
+                  <span>{formatCurrency(order.tax_amount || 0)}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Shipping</span>
+                  <span>{formatCurrency(order.shipping_amount || 0)}</span>
+                </div>
+                <div className="summary-divider"></div>
+                <div className="summary-total">
+                  <span>Total</span>
+                  <span>{formatCurrency(order.total_amount)}</span>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Shipping Info */}
-          {order.shipping_tracking_number && (
-            <div className="shipping-card">
-              <h3><Truck size={18} /> Shipping Information</h3>
-              <div className="shipping-content">
-                <p className="carrier">{order.shipping_carrier}</p>
-                <p className="tracking-number">
-                  Tracking: <strong>{order.shipping_tracking_number}</strong>
-                </p>
-                {order.estimated_delivery && (
-                  <p className="estimated-delivery">
-                    Est. Delivery: {formatDate(order.estimated_delivery)}
+            {/* Shipping Address */}
+            {order.shipping_address && (
+              <div className="address-card">
+                <h3>
+                  <MapPin size={18} /> Shipping Address
+                </h3>
+                <div className="address-content">
+                  <p className="recipient-name">{order.customer_name}</p>
+                  <p>{order.shipping_address.street}</p>
+                  <p>
+                    {order.shipping_address.city}, {order.shipping_address.state}{' '}
+                    {order.shipping_address.zip}
                   </p>
-                )}
-                {order.shipping_records?.length > 0 && (
-                  <div className="shipping-history">
-                    {order.shipping_records.map((record) => (
-                      <div key={record.id} className="shipping-record">
-                        <span className="record-status">{record.status}</span>
-                        <span className="record-date">{formatDate(record.created_at)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  {order.shipping_address.country && <p>{order.shipping_address.country}</p>}
+                </div>
               </div>
-              <button className="track-package-btn">
-                Track Package on {order.shipping_carrier}
+            )}
+
+            {/* Contact Info */}
+            <div className="contact-card">
+              <h3>Contact Information</h3>
+              <div className="contact-item">
+                <Mail size={16} />
+                <span>{order.customer_email}</span>
+              </div>
+              {order.customer_phone && (
+                <div className="contact-item">
+                  <Phone size={16} />
+                  <span>{order.customer_phone}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Info */}
+            {order.payments?.length > 0 && (
+              <div className="payment-card">
+                <h3>
+                  <CreditCard size={18} /> Payment Details
+                </h3>
+                <div className="payment-content">
+                  {order.payments.map((payment) => (
+                    <div key={payment.id} className="payment-item">
+                      <p className="payment-method">{payment.payment_method}</p>
+                      {payment.card_last4 && (
+                        <p className="card-info">Card ending in {payment.card_last4}</p>
+                      )}
+                      <p className="payment-amount">{formatCurrency(payment.amount)}</p>
+                      <p className={`payment-status ${payment.status}`}>{payment.status}</p>
+                      {payment.transaction_id && (
+                        <p className="transaction-id">TXN: {payment.transaction_id}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Shipping Info */}
+            {order.shipping_tracking_number && (
+              <div className="shipping-card">
+                <h3>
+                  <Truck size={18} /> Shipping Information
+                </h3>
+                <div className="shipping-content">
+                  <p className="carrier">{order.shipping_carrier}</p>
+                  <p className="tracking-number">
+                    Tracking: <strong>{order.shipping_tracking_number}</strong>
+                  </p>
+                  {order.estimated_delivery && (
+                    <p className="estimated-delivery">
+                      Est. Delivery: {formatDate(order.estimated_delivery)}
+                    </p>
+                  )}
+                  {order.shipping_records?.length > 0 && (
+                    <div className="shipping-history">
+                      {order.shipping_records.map((record) => (
+                        <div key={record.id} className="shipping-record">
+                          <span className="record-status">{record.status}</span>
+                          <span className="record-date">{formatDate(record.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button className="track-package-btn">
+                  Track Package on {order.shipping_carrier}
+                </button>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="actions-card">
+              <button className="print-receipt-btn" onClick={handlePrintReceipt}>
+                <Printer size={18} /> Print Receipt
+              </button>
+              <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
+                Continue Shopping
               </button>
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="actions-card">
-            <button className="print-receipt-btn" onClick={handlePrintReceipt}>
-              <Printer size={18} /> Print Receipt
-            </button>
-            <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
-              Continue Shopping
-            </button>
           </div>
         </div>
-      </div>
       </div>
     </MobileAccountLayout>
   );
 }
 
 export default OrderTrackingPage;
-

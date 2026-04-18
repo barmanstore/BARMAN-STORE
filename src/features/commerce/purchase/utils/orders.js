@@ -8,7 +8,9 @@ const normalizeGstRateOption = (value) => {
 };
 
 const getPurchaseRequestErrorMessage = (err, fallbackMessage) => {
-  const conflictType = String(err?.payload?.conflict_type || '').trim().toLowerCase();
+  const conflictType = String(err?.payload?.conflict_type || '')
+    .trim()
+    .toLowerCase();
   if (Number(err?.status || 0) === 409 && conflictType === 'purchase_order_duplicate') {
     const conflictPo = String(err?.payload?.conflict?.po_number || '').trim();
     return conflictPo
@@ -19,12 +21,16 @@ const getPurchaseRequestErrorMessage = (err, fallbackMessage) => {
 };
 
 const normalizePoLifecycleStatus = (status) => {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return 'prepared';
-  if (raw === 'prepared' || raw === 'registered' || raw === 'pending' || raw === 'draft') return 'prepared';
+  if (raw === 'prepared' || raw === 'registered' || raw === 'pending' || raw === 'draft')
+    return 'prepared';
   if (raw === 'sent') return 'sent';
   if (raw === 'revised' || raw === 'edited') return 'revised';
-  if (raw === 'confirmed' || raw === 'processed' || raw === 'received' || raw === 'shipped') return 'confirmed';
+  if (raw === 'confirmed' || raw === 'processed' || raw === 'received' || raw === 'shipped')
+    return 'confirmed';
   if (raw === 'part_paid' || raw === 'partial_paid') return 'part_paid';
   if (raw === 'fully_paid' || raw === 'full_paid' || raw === 'paid') return 'fully_paid';
   if (raw === 'closed') return 'closed';
@@ -33,7 +39,9 @@ const normalizePoLifecycleStatus = (status) => {
 };
 
 const normalizePoPaymentStatus = (status) => {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return 'unpaid';
   if (raw === 'paid') return 'paid';
   if (raw === 'part_paid' || raw === 'partpaid' || raw === 'partial') return 'part_paid';
@@ -43,11 +51,7 @@ const normalizePoPaymentStatus = (status) => {
 };
 
 const calculateOrderBalanceAmount = (order) => {
-  const explicitTotal = toNumber(
-    order?.total_amount ??
-    order?.grand_total ??
-    order?.line_total
-  );
+  const explicitTotal = toNumber(order?.total_amount ?? order?.grand_total ?? order?.line_total);
   if (explicitTotal > 0) return explicitTotal;
 
   const items = Array.isArray(order?.items) ? order.items : [];
@@ -59,7 +63,7 @@ const calculateOrderBalanceAmount = (order) => {
     if (lineTaxable > 0 || lineTax > 0) return sum + lineTaxable + lineTax;
     const qty = toNumber(item?.quantity);
     const rate = toNumber(item?.rate ?? item?.unit_price);
-    return sum + (qty * rate);
+    return sum + qty * rate;
   }, 0);
   if (itemsTotal > 0) return itemsTotal;
 
@@ -74,7 +78,8 @@ const getOrderDisplayTotal = (order) => {
   return calculateOrderBalanceAmount(order);
 };
 
-const getPoLifecycleStatus = (order) => normalizePoLifecycleStatus(order?.po_status || order?.status);
+const getPoLifecycleStatus = (order) =>
+  normalizePoLifecycleStatus(order?.po_status || order?.status);
 const getPoPaymentStatus = (order) => normalizePoPaymentStatus(order?.payment_status);
 const getPoPaidAmount = (order) => Math.max(0, toNumber(order?.paid_amount));
 const getPoBalanceDue = (order) => {
@@ -87,22 +92,35 @@ const getPoBalanceDue = (order) => {
 
 const isPoEditable = (order) => {
   const lifecycleStatus = getPoLifecycleStatus(order);
-  return lifecycleStatus === 'prepared' || lifecycleStatus === 'sent' || lifecycleStatus === 'revised';
+  return (
+    lifecycleStatus === 'prepared' || lifecycleStatus === 'sent' || lifecycleStatus === 'revised'
+  );
 };
 
 const canReceivePo = (order) => {
   const lifecycleStatus = getPoLifecycleStatus(order);
-  return ['confirmed', 'part_paid', 'fully_paid'].includes(lifecycleStatus)
-    && String(order?.status || '').trim().toLowerCase() !== 'received';
+  return (
+    ['confirmed', 'part_paid', 'fully_paid'].includes(lifecycleStatus) &&
+    String(order?.status || '')
+      .trim()
+      .toLowerCase() !== 'received'
+  );
 };
 
-const canAddPaymentToPo = (order) => ['confirmed', 'part_paid'].includes(getPoLifecycleStatus(order));
-const canClosePo = (order) => getPoLifecycleStatus(order) === 'fully_paid' && getPoBalanceDue(order) <= 0;
+const canAddPaymentToPo = (order) =>
+  ['confirmed', 'part_paid'].includes(getPoLifecycleStatus(order));
+const canClosePo = (order) =>
+  getPoLifecycleStatus(order) === 'fully_paid' && getPoBalanceDue(order) <= 0;
 const getPoNextAction = (order) => {
   const lifecycleStatus = getPoLifecycleStatus(order);
   const paymentStatus = getPoPaymentStatus(order);
-  const hasReceived = String(order?.status || '').trim().toLowerCase() === 'received'
-    || (Array.isArray(order?.items) && order.items.length > 0 && order.items.every((item) => toNumber(item?.received_quantity) >= toNumber(item?.quantity)));
+  const hasReceived =
+    String(order?.status || '')
+      .trim()
+      .toLowerCase() === 'received' ||
+    (Array.isArray(order?.items) &&
+      order.items.length > 0 &&
+      order.items.every((item) => toNumber(item?.received_quantity) >= toNumber(item?.quantity)));
   if (lifecycleStatus === 'cancelled') return 'Cancelled';
   if (lifecycleStatus === 'closed') return 'Closed';
   if (lifecycleStatus === 'prepared') return 'Send to distributor';
@@ -130,4 +148,3 @@ export {
   normalizeGstRateOption,
   normalizePoPaymentStatus,
 };
-

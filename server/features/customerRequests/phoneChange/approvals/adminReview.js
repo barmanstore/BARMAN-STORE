@@ -1,17 +1,14 @@
 const createPhoneChangeAdminReview = (deps = {}) => {
-  const {
-    dbGetAsync,
-    dbRunAsync,
-    normalizePhoneChangeRequestStatus,
-    PHONE_CHANGE_STATUS_PENDING,
-  } = deps;
+  const { dbGetAsync, dbRunAsync, normalizePhoneChangeRequestStatus, PHONE_CHANGE_STATUS_PENDING } =
+    deps;
 
   const movePhoneChangeRequestToAdminReview = async ({ requestId, conflictUserId = null }) => {
     const id = Number(requestId || 0);
     if (!id) return null;
     const current = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [id]);
     if (!current) return null;
-    if (normalizePhoneChangeRequestStatus(current.status, '') !== PHONE_CHANGE_STATUS_PENDING) return current;
+    if (normalizePhoneChangeRequestStatus(current.status, '') !== PHONE_CHANGE_STATUS_PENDING)
+      return current;
 
     const shouldStampAdminNotification = !current.admin_notified_at;
     await dbRunAsync(

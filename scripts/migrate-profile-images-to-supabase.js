@@ -49,7 +49,8 @@ const listBuckets = async () => {
     },
   });
   if (!response.ok) {
-    const message = payload?.message || payload?.error || `Supabase bucket list failed (${response.status})`;
+    const message =
+      payload?.message || payload?.error || `Supabase bucket list failed (${response.status})`;
     throw new Error(message);
   }
   return Array.isArray(payload) ? payload : [];
@@ -66,7 +67,8 @@ const createBucket = async (name) => {
     body: JSON.stringify({ name, public: true }),
   });
   if (!response.ok) {
-    const message = payload?.message || payload?.error || `Bucket create failed (${response.status})`;
+    const message =
+      payload?.message || payload?.error || `Bucket create failed (${response.status})`;
     throw new Error(message);
   }
   return payload || { name };
@@ -110,19 +112,27 @@ const main = async () => {
     throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
   }
 
-  let bucket = String(process.env.SUPABASE_STORAGE_BUCKET || process.env.PROFILE_IMAGE_BUCKET || '').trim();
+  let bucket = String(
+    process.env.SUPABASE_STORAGE_BUCKET || process.env.PROFILE_IMAGE_BUCKET || ''
+  ).trim();
   if (!bucket) {
     const buckets = await listBuckets();
     bucket = pickBucket(buckets);
     if (!bucket) {
       if (buckets.length === 0) {
-        const fallbackName = String(process.env.SUPABASE_STORAGE_BUCKET_DEFAULT || 'profile-images').trim();
+        const fallbackName = String(
+          process.env.SUPABASE_STORAGE_BUCKET_DEFAULT || 'profile-images'
+        ).trim();
         const created = await createBucket(fallbackName);
         bucket = created?.name || fallbackName;
         console.log(`[Profile Images] Created public bucket "${bucket}".`);
       } else {
-        const available = buckets.map((entry) => `${entry.name}${entry.public ? ' (public)' : ''}`).join(', ');
-        throw new Error(`SUPABASE_STORAGE_BUCKET not set and no suitable bucket found. Available: ${available}`);
+        const available = buckets
+          .map((entry) => `${entry.name}${entry.public ? ' (public)' : ''}`)
+          .join(', ');
+        throw new Error(
+          `SUPABASE_STORAGE_BUCKET not set and no suitable bucket found. Available: ${available}`
+        );
       }
     }
   }
@@ -145,7 +155,9 @@ const main = async () => {
     );
 
     const targetRows = limit > 0 ? rows.slice(0, limit) : rows;
-    console.log(`[Profile Images] Found ${rows.length} local profile images${limit ? ` (processing ${targetRows.length})` : ''}.`);
+    console.log(
+      `[Profile Images] Found ${rows.length} local profile images${limit ? ` (processing ${targetRows.length})` : ''}.`
+    );
     console.log(`[Profile Images] Bucket: ${bucket}. Dry run: ${dryRun ? 'yes' : 'no'}.`);
 
     for (const row of targetRows) {
@@ -171,10 +183,15 @@ const main = async () => {
           : await uploadToSupabase({ bucket, fileName, buffer, contentType });
 
         if (!dryRun) {
-          await pool.query('UPDATE users SET profile_image = $1 WHERE id = $2', [publicUrl, row.id]);
+          await pool.query('UPDATE users SET profile_image = $1 WHERE id = $2', [
+            publicUrl,
+            row.id,
+          ]);
         }
         migrated.push({ id: row.id, profile_image: publicUrl });
-        console.log(`[Profile Images] ${dryRun ? 'Would migrate' : 'Migrated'} user ${row.id} -> ${publicUrl}`);
+        console.log(
+          `[Profile Images] ${dryRun ? 'Would migrate' : 'Migrated'} user ${row.id} -> ${publicUrl}`
+        );
       } catch (error) {
         failed.push({ id: row.id, profile_image: rawPath, error: error.message });
         console.log(`[Profile Images] Failed user ${row.id}: ${error.message}`);

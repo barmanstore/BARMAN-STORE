@@ -117,16 +117,36 @@ const Header = memo(function Header({
               role="menu"
               aria-label="Orders submenu"
             >
-              <Link to="/order-history" className="orders-submenu-item" role="menuitem" onClick={onCloseMobileMenu}>
+              <Link
+                to="/order-history"
+                className="orders-submenu-item"
+                role="menuitem"
+                onClick={onCloseMobileMenu}
+              >
                 <ClipboardList size={18} /> Order History
               </Link>
-              <Link to="/order-tracking" className="orders-submenu-item" role="menuitem" onClick={onCloseMobileMenu}>
+              <Link
+                to="/order-tracking"
+                className="orders-submenu-item"
+                role="menuitem"
+                onClick={onCloseMobileMenu}
+              >
                 <Package size={18} /> Track
               </Link>
-              <Link to="/my-bills" className="orders-submenu-item" role="menuitem" onClick={onCloseMobileMenu}>
+              <Link
+                to="/my-bills"
+                className="orders-submenu-item"
+                role="menuitem"
+                onClick={onCloseMobileMenu}
+              >
                 <FileText size={18} /> Bills
               </Link>
-              <Link to="/product-requests" className="orders-submenu-item" role="menuitem" onClick={onCloseMobileMenu}>
+              <Link
+                to="/product-requests"
+                className="orders-submenu-item"
+                role="menuitem"
+                onClick={onCloseMobileMenu}
+              >
                 <Lightbulb size={18} /> Request Product
               </Link>
             </div>
@@ -162,7 +182,10 @@ const Header = memo(function Header({
           <HeaderSearchBar />
           <HeaderCartIcon count={cartCount} onClick={onCloseMobileMenu} />
           {user?.id ? (
-            <div className={`notification-inbox ${notificationPanelOpen ? 'open' : ''}`} ref={notificationInboxRef}>
+            <div
+              className={`notification-inbox ${notificationPanelOpen ? 'open' : ''}`}
+              ref={notificationInboxRef}
+            >
               <button
                 type="button"
                 className="notification-inbox-toggle"
@@ -176,7 +199,9 @@ const Header = memo(function Header({
                 )}
               </button>
               {notificationPanelOpen ? (
-                <div className={`notification-inbox-panel ${isSimpleInbox ? 'notification-inbox-panel-simple' : ''}`}>
+                <div
+                  className={`notification-inbox-panel ${isSimpleInbox ? 'notification-inbox-panel-simple' : ''}`}
+                >
                   <div className="notification-inbox-head">
                     <strong>Notification Inbox</strong>
                   </div>
@@ -205,10 +230,7 @@ const Header = memo(function Header({
                           {selectedRecipientIds.length > 0 ? (
                             <div className="notification-selected-strip">
                               <span>{selectedRecipientIds.length} selected</span>
-                              <button
-                                type="button"
-                                onClick={onClearRecipientSelection}
-                              >
+                              <button type="button" onClick={onClearRecipientSelection}>
                                 Clear
                               </button>
                             </div>
@@ -230,7 +252,10 @@ const Header = memo(function Header({
                                       onChange={() => onToggleRecipientSelection(recipientId)}
                                     />
                                     <span>
-                                      {truncateUserName(recipient?.name || `Customer #${recipientId}`, 15)}
+                                      {truncateUserName(
+                                        recipient?.name || `Customer #${recipientId}`,
+                                        15
+                                      )}
                                       {recipient?.phone ? ` (${recipient.phone})` : ''}
                                     </span>
                                   </label>
@@ -249,7 +274,11 @@ const Header = memo(function Header({
                         className="notification-compose-input notification-compose-message-input"
                         value={messageDraft}
                         onChange={(e) => onMessageDraftChange(e.target.value)}
-                        placeholder={isAdminUser ? 'Write message to selected customers...' : 'Write message for admin...'}
+                        placeholder={
+                          isAdminUser
+                            ? 'Write message to selected customers...'
+                            : 'Write message for admin...'
+                        }
                         maxLength={1000}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -282,84 +311,104 @@ const Header = memo(function Header({
                     <p className="notification-inbox-empty">No notifications yet.</p>
                   ) : (
                     <ul className={`notification-inbox-list ${isSimpleInbox ? 'simple' : ''}`}>
-                      {notifications.slice(0, isSimpleInbox ? 6 : notifications.length).map((notice) => {
-                        const href = onResolveNotificationHref(notice);
-                        const isExpanded = Number(expandedNotificationId || 0) === Number(notice?.id || 0);
-                        return (
-                          <li key={notice.id}>
-                            {isSimpleInbox ? (
-                              <Link
-                                to={href}
-                                className={`notification-inbox-item ${isSimpleInbox ? 'simple' : ''} ${notice?.is_read ? 'is-read' : 'is-unread'}`}
-                                onClick={() => {
-                                  onToggleNotificationPanel();
-                                  if (!notice?.is_read) onMarkNotificationRead(notice.id);
-                                }}
-                              >
-                                <div className="notification-item-head">
-                                  <strong>{notice.title}</strong>
-                                  <div className="notification-item-head-right">
-                                    <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
-                                  </div>
-                                </div>
-                                <p className="notification-item-message collapsed">{notice.message}</p>
-                                <span className="notification-item-link">Open</span>
-                              </Link>
-                            ) : (
-                              <div
-                                className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
-                              >
-                                <button
-                                  type="button"
-                                  className="notification-item-trigger"
-                                  aria-expanded={isExpanded}
-                                  aria-controls={`notification-message-${notice.id}`}
-                                  onClick={() => { void onToggleNotificationExpanded(notice); }}
+                      {notifications
+                        .slice(0, isSimpleInbox ? 6 : notifications.length)
+                        .map((notice) => {
+                          const href = onResolveNotificationHref(notice);
+                          const isExpanded =
+                            Number(expandedNotificationId || 0) === Number(notice?.id || 0);
+                          return (
+                            <li key={notice.id}>
+                              {isSimpleInbox ? (
+                                <Link
+                                  to={href}
+                                  className={`notification-inbox-item ${isSimpleInbox ? 'simple' : ''} ${notice?.is_read ? 'is-read' : 'is-unread'}`}
+                                  onClick={() => {
+                                    onToggleNotificationPanel();
+                                    if (!notice?.is_read) onMarkNotificationRead(notice.id);
+                                  }}
                                 >
                                   <div className="notification-item-head">
                                     <strong>{notice.title}</strong>
                                     <div className="notification-item-head-right">
-                                      <small>{new Date(notice.created_at || Date.now()).toLocaleString()}</small>
-                                      <ChevronDown size={14} className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`} />
+                                      <small>
+                                        {new Date(notice.created_at || Date.now()).toLocaleString()}
+                                      </small>
                                     </div>
                                   </div>
-                                </button>
-                                <p
-                                  id={`notification-message-${notice.id}`}
-                                  className={`notification-item-message ${isExpanded ? 'expanded' : 'collapsed'}`}
+                                  <p className="notification-item-message collapsed">
+                                    {notice.message}
+                                  </p>
+                                  <span className="notification-item-link">Open</span>
+                                </Link>
+                              ) : (
+                                <div
+                                  className={`notification-inbox-item ${notice?.is_read ? 'is-read' : 'is-unread'} ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}
                                 >
-                                  {notice.message}
-                                </p>
-                                <div className="notification-item-actions">
-                                  <Link
-                                    to={href}
+                                  <button
+                                    type="button"
+                                    className="notification-item-trigger"
+                                    aria-expanded={isExpanded}
+                                    aria-controls={`notification-message-${notice.id}`}
                                     onClick={() => {
-                                      onToggleNotificationPanel();
-                                      if (!notice?.is_read) onMarkNotificationRead(notice.id);
+                                      void onToggleNotificationExpanded(notice);
                                     }}
                                   >
-                                    Open
-                                  </Link>
+                                    <div className="notification-item-head">
+                                      <strong>{notice.title}</strong>
+                                      <div className="notification-item-head-right">
+                                        <small>
+                                          {new Date(
+                                            notice.created_at || Date.now()
+                                          ).toLocaleString()}
+                                        </small>
+                                        <ChevronDown
+                                          size={14}
+                                          className={`notification-expand-icon ${isExpanded ? 'expanded' : ''}`}
+                                        />
+                                      </div>
+                                    </div>
+                                  </button>
+                                  <p
+                                    id={`notification-message-${notice.id}`}
+                                    className={`notification-item-message ${isExpanded ? 'expanded' : 'collapsed'}`}
+                                  >
+                                    {notice.message}
+                                  </p>
+                                  <div className="notification-item-actions">
+                                    <Link
+                                      to={href}
+                                      onClick={() => {
+                                        onToggleNotificationPanel();
+                                        if (!notice?.is_read) onMarkNotificationRead(notice.id);
+                                      }}
+                                    >
+                                      Open
+                                    </Link>
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                      {isSimpleInbox ? null : (notificationsHasMore ? (
+                              )}
+                            </li>
+                          );
+                        })}
+                      {isSimpleInbox ? null : notificationsHasMore ? (
                         <li>
                           <button
                             type="button"
                             className="notification-load-more"
-                            onClick={() => { void onLoadOlderNotifications(); }}
+                            onClick={() => {
+                              void onLoadOlderNotifications();
+                            }}
                           >
                             Load older
                           </button>
                         </li>
-                      ) : null)}
+                      ) : null}
                       {isSimpleInbox && notifications.length > 6 ? (
                         <li>
-                          <p className="notification-simple-hint">Showing latest 6 notifications.</p>
+                          <p className="notification-simple-hint">
+                            Showing latest 6 notifications.
+                          </p>
                         </li>
                       ) : null}
                     </ul>
@@ -378,4 +427,3 @@ const Header = memo(function Header({
 });
 
 export default Header;
-

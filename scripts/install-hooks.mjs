@@ -4,11 +4,12 @@ import { join } from 'node:path';
 import { platform } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
-const run = (cmd, args, options = {}) => spawnSync(cmd, args, {
-  stdio: 'pipe',
-  encoding: 'utf8',
-  ...options,
-});
+const run = (cmd, args, options = {}) =>
+  spawnSync(cmd, args, {
+    stdio: 'pipe',
+    encoding: 'utf8',
+    ...options,
+  });
 
 const ensureGitRepo = () => {
   const check = run('git', ['rev-parse', '--is-inside-work-tree']);

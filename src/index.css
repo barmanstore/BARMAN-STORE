@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 * {
   margin: 0;
@@ -136,4 +136,3 @@ body {
 .amount-negative {
   color: #000000 !important;
 }
-

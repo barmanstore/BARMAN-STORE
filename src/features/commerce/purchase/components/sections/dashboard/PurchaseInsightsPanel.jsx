@@ -15,29 +15,30 @@ const PurchaseInsightsPanel = ({
   const [rollupChartMode, setRollupChartMode] = useState('total');
 
   const actionRollups = operationsSummary?.action_rollups || {};
-  const rollupActions = useMemo(
-    () => actionRollups.actions || [],
-    [actionRollups.actions]
-  );
+  const rollupActions = useMemo(() => actionRollups.actions || [], [actionRollups.actions]);
   const rollupWeekdays = actionRollups.by_weekday || [];
   const rollupDays = actionRollups.by_day || [];
   const rollupTotals = actionRollups.totals || {};
   const rollupRecentDays = rollupDays.slice(-10);
 
-  const chartSeries = useMemo(() => (rollupChartMode === 'total'
-    ? [
-        {
-          key: 'total',
-          label: 'Total Actions',
-          getValue: (entry) => rollupActions.reduce((sum, action) => sum + toNumber(entry[action.key]), 0),
-        },
-      ]
-    : rollupActions.map((action) => ({
-      key: action.key,
-      label: action.label,
-      getValue: (entry) => toNumber(entry[action.key]),
-    }))
-  ), [rollupChartMode, rollupActions, toNumber]);
+  const chartSeries = useMemo(
+    () =>
+      rollupChartMode === 'total'
+        ? [
+            {
+              key: 'total',
+              label: 'Total Actions',
+              getValue: (entry) =>
+                rollupActions.reduce((sum, action) => sum + toNumber(entry[action.key]), 0),
+            },
+          ]
+        : rollupActions.map((action) => ({
+            key: action.key,
+            label: action.label,
+            getValue: (entry) => toNumber(entry[action.key]),
+          })),
+    [rollupChartMode, rollupActions, toNumber]
+  );
 
   const maxChartValue = Math.max(
     1,
@@ -77,11 +78,11 @@ const PurchaseInsightsPanel = ({
     const headers = ['date', 'weekday', ...rollupActions.map((action) => action.key)];
     const lines = [
       headers.join(','),
-      ...rollupDays.map((row) => [
-        row.date,
-        row.weekday,
-        ...rollupActions.map((action) => toNumber(row[action.key])),
-      ].join(',')),
+      ...rollupDays.map((row) =>
+        [row.date, row.weekday, ...rollupActions.map((action) => toNumber(row[action.key]))].join(
+          ','
+        )
+      ),
     ];
     const csv = lines.join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -107,14 +108,16 @@ const PurchaseInsightsPanel = ({
           </tr>
         </thead>
         <tbody>
-          {rows.length ? rows.map((row) => (
-            <tr key={`${labelKey}-${row[labelKey]}`}>
-              <td>{row[labelKey] || '-'}</td>
-              {rollupActions.map((action) => (
-                <td key={`${row[labelKey]}-${action.key}`}>{toNumber(row[action.key])}</td>
-              ))}
-            </tr>
-          )) : (
+          {rows.length ? (
+            rows.map((row) => (
+              <tr key={`${labelKey}-${row[labelKey]}`}>
+                <td>{row[labelKey] || '-'}</td>
+                {rollupActions.map((action) => (
+                  <td key={`${row[labelKey]}-${action.key}`}>{toNumber(row[action.key])}</td>
+                ))}
+              </tr>
+            ))
+          ) : (
             <tr>
               <td colSpan={1 + rollupActions.length}>No rollup data for this range.</td>
             </tr>
@@ -152,12 +155,19 @@ const PurchaseInsightsPanel = ({
           </label>
           <label>
             Chart
-            <select value={rollupChartMode} onChange={(event) => setRollupChartMode(event.target.value)}>
+            <select
+              value={rollupChartMode}
+              onChange={(event) => setRollupChartMode(event.target.value)}
+            >
               <option value="total">Total actions</option>
               <option value="actions">By action</option>
             </select>
           </label>
-          <button type="button" className="admin-btn secondary small" onClick={handleDownloadRollupCsv}>
+          <button
+            type="button"
+            className="admin-btn secondary small"
+            onClick={handleDownloadRollupCsv}
+          >
             Download CSV
           </button>
           {rollupParams?.mode === 'custom' ? (
@@ -167,7 +177,9 @@ const PurchaseInsightsPanel = ({
                 <input
                   type="date"
                   value={pendingRollupRange.start_date}
-                  onChange={(event) => setPendingRollupRange((prev) => ({ ...prev, start_date: event.target.value }))}
+                  onChange={(event) =>
+                    setPendingRollupRange((prev) => ({ ...prev, start_date: event.target.value }))
+                  }
                 />
               </label>
               <label>
@@ -175,16 +187,24 @@ const PurchaseInsightsPanel = ({
                 <input
                   type="date"
                   value={pendingRollupRange.end_date}
-                  onChange={(event) => setPendingRollupRange((prev) => ({ ...prev, end_date: event.target.value }))}
+                  onChange={(event) =>
+                    setPendingRollupRange((prev) => ({ ...prev, end_date: event.target.value }))
+                  }
                 />
               </label>
-              <button type="button" className="admin-btn secondary small" onClick={handleApplyCustomRange}>
+              <button
+                type="button"
+                className="admin-btn secondary small"
+                onClick={handleApplyCustomRange}
+              >
                 Apply
               </button>
             </div>
           ) : null}
         </div>
-        <div className={`purchase-ops-rollup-chart ${rollupChartMode === 'actions' ? 'stacked' : ''}`}>
+        <div
+          className={`purchase-ops-rollup-chart ${rollupChartMode === 'actions' ? 'stacked' : ''}`}
+        >
           {rollupWeekdays.map((entry) => (
             <div key={entry.weekday} className="purchase-ops-rollup-bar">
               <span>{entry.weekday.slice(0, 3)}</span>
@@ -202,7 +222,9 @@ const PurchaseInsightsPanel = ({
                   );
                 })}
               </div>
-              <strong>{chartSeries.reduce((sum, series) => sum + series.getValue(entry), 0)}</strong>
+              <strong>
+                {chartSeries.reduce((sum, series) => sum + series.getValue(entry), 0)}
+              </strong>
             </div>
           ))}
         </div>

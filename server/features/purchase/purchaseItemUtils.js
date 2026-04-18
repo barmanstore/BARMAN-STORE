@@ -9,7 +9,10 @@ const {
   getAllowedPurchaseUnitsForProductRow,
   toPurchaseBaseQty,
 } = require('./purchaseItems/productUomProfile');
-const { createPurchaseValidationError, createPurchaseConflictError } = require('./purchaseItems/itemErrors');
+const {
+  createPurchaseValidationError,
+  createPurchaseConflictError,
+} = require('./purchaseItems/itemErrors');
 const { createPurchaseItemNormalizer } = require('./purchaseItems/normalizeItems');
 
 const createPurchaseItemUtils = (deps = {}) => {

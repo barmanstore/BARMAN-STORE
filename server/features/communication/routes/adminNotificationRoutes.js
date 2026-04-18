@@ -39,7 +39,9 @@ const registerAdminNotificationRoutes = (deps) => {
 
   app.post('/api/admin/notifications/email/prepare', requireAdmin, async (req, res) => {
     try {
-      const type = String(req.body?.type || '').trim().toLowerCase();
+      const type = String(req.body?.type || '')
+        .trim()
+        .toLowerCase();
       if (type !== 'email_verification') {
         return res.status(400).json({ error: 'Unsupported notification type' });
       }
@@ -49,9 +51,14 @@ const registerAdminNotificationRoutes = (deps) => {
       let user = null;
 
       if (targetUserId) {
-        user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE id = ?`, [targetUserId]);
+        user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE id = ?`, [
+          targetUserId,
+        ]);
       } else if (targetEmail) {
-        user = await dbGetAsync(`SELECT id, name, email, email_verified FROM users WHERE email = ?`, [targetEmail]);
+        user = await dbGetAsync(
+          `SELECT id, name, email, email_verified FROM users WHERE email = ?`,
+          [targetEmail]
+        );
       } else {
         return res.status(400).json({ error: 'user_id or email is required' });
       }
@@ -91,7 +98,9 @@ const registerAdminNotificationRoutes = (deps) => {
 
   app.post('/api/admin/notifications/whatsapp/prepare', requireAdmin, async (req, res) => {
     try {
-      const type = String(req.body?.type || '').trim().toLowerCase();
+      const type = String(req.body?.type || '')
+        .trim()
+        .toLowerCase();
       if (type !== 'phone_verification') {
         return res.status(400).json({ error: 'Unsupported notification type' });
       }
@@ -103,9 +112,14 @@ const registerAdminNotificationRoutes = (deps) => {
       let user = null;
 
       if (targetUserId) {
-        user = await dbGetAsync(`SELECT id, name, phone, phone_verified FROM users WHERE id = ?`, [targetUserId]);
+        user = await dbGetAsync(`SELECT id, name, phone, phone_verified FROM users WHERE id = ?`, [
+          targetUserId,
+        ]);
       } else if (targetPhone) {
-        user = await dbGetAsync(`SELECT id, name, phone, phone_verified FROM users WHERE phone = ?`, [targetPhone]);
+        user = await dbGetAsync(
+          `SELECT id, name, phone, phone_verified FROM users WHERE phone = ?`,
+          [targetPhone]
+        );
       } else {
         return res.status(400).json({ error: 'user_id or phone is required' });
       }
@@ -155,10 +169,11 @@ const registerAdminNotificationRoutes = (deps) => {
       });
       return res.json({ success: true, id: eventId, status: 'sent' });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to update notification status' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to update notification status' });
     }
   });
-
 };
 
 module.exports = { registerAdminNotificationRoutes };

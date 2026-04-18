@@ -3,7 +3,9 @@ const registerContactVerificationAdminListRoutes = (deps) => {
 
   app.get('/api/admin/contact-verification-requests', requireAdmin, async (req, res) => {
     try {
-      const statusFilter = String(req.query?.status || 'open').trim().toLowerCase();
+      const statusFilter = String(req.query?.status || 'open')
+        .trim()
+        .toLowerCase();
       const allowedStatuses = new Set(['pending', 'sent', 'rejected', 'completed']);
       const params = [];
       let whereClause = '';
@@ -44,7 +46,9 @@ const registerContactVerificationAdminListRoutes = (deps) => {
       );
       return res.json(rows);
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load verification requests' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to load verification requests' });
     }
   });
 };

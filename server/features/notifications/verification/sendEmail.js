@@ -19,7 +19,10 @@ const createEmailVerificationSender = (deps = {}) => {
     deliveryModeOverride = null,
   }) => {
     if (!email) return { queued: false, reason: 'missing_email' };
-    await dbRunAsync('UPDATE email_verification_tokens SET used = 1 WHERE user_id = ? AND email = ? AND used = 0', [userId, email]);
+    await dbRunAsync(
+      'UPDATE email_verification_tokens SET used = 1 WHERE user_id = ? AND email = ? AND used = 0',
+      [userId, email]
+    );
     const { token, expiresAt } = await createEmailVerificationRecord({ userId, email });
     const link = buildEmailVerificationLink({ email, token });
     const preparedEmail = notificationService.prepareEmail({
@@ -42,9 +45,12 @@ const createEmailVerificationSender = (deps = {}) => {
       status: 'prepared',
       preparedBy: requestedBy,
     });
-    const effectiveMode = String(deliveryModeOverride || EMAIL_DELIVERY_MODE).trim().toLowerCase() === 'auto'
-      ? 'auto'
-      : 'manual';
+    const effectiveMode =
+      String(deliveryModeOverride || EMAIL_DELIVERY_MODE)
+        .trim()
+        .toLowerCase() === 'auto'
+        ? 'auto'
+        : 'manual';
 
     if (effectiveMode === 'manual') {
       const response = {

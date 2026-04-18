@@ -1,5 +1,7 @@
 const isCustomBillItem = (item = {}) =>
-  String(item?.item_type || '').trim().toLowerCase() === 'custom' || Boolean(item?.is_custom);
+  String(item?.item_type || '')
+    .trim()
+    .toLowerCase() === 'custom' || Boolean(item?.is_custom);
 
 const sanitizeBillItems = async ({
   deps,
@@ -50,15 +52,14 @@ const sanitizeBillItems = async ({
     const submittedMrp = Math.max(0, Number(it.mrp || 0));
     const productPrice = Math.max(0, Number(product?.price || 0));
     const pricingQty = toPricingQty(qty, it.unit, product);
-    const skipOffers = Boolean(it?.skip_offers)
-      || (product && submittedMrp > 0 && Math.abs(submittedMrp - productPrice) > 0.009);
-    const baseMrp = skipOffers ? submittedMrp : (product ? productPrice : submittedMrp);
+    const skipOffers =
+      Boolean(it?.skip_offers) ||
+      (product && submittedMrp > 0 && Math.abs(submittedMrp - productPrice) > 0.009);
+    const baseMrp = skipOffers ? submittedMrp : product ? productPrice : submittedMrp;
     const lineSubtotal = baseMrp * pricingQty;
     const manualDiscount = Math.min(lineSubtotal, Math.max(0, Number(it.discount || 0)));
     const productName =
-      String(it.product_name || '').trim()
-      || String(product?.name || '').trim()
-      || 'Unknown';
+      String(it.product_name || '').trim() || String(product?.name || '').trim() || 'Unknown';
     if (!productName) {
       itemErrors.push(`Item ${rowNo}: product_name is required`);
       continue;

@@ -9,7 +9,12 @@
   formatCurrency,
   maxItems,
 }) => (
-  <div id={searchSuggestionsListId} className="search-suggestions" role="listbox" aria-label="Search suggestions">
+  <div
+    id={searchSuggestionsListId}
+    className="search-suggestions"
+    role="listbox"
+    aria-label="Search suggestions"
+  >
     {searchSuggestions.slice(0, maxItems).map((item, index) => (
       <button
         type="button"
@@ -50,4 +55,3 @@
 );
 
 export default SearchSuggestionsList;
-

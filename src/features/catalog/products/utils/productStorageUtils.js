@@ -88,7 +88,7 @@ const buildProductsListSessionCacheKey = ({
   query,
   sortBy,
   inStockOnly,
-  pageSize
+  pageSize,
 }) => {
   return [
     PRODUCTS_LIST_CACHE_PREFIX,
@@ -96,7 +96,7 @@ const buildProductsListSessionCacheKey = ({
     normalizeText(query || ''),
     normalizeSortBy(sortBy),
     inStockOnly ? '1' : '0',
-    String(Number(pageSize || 0))
+    String(Number(pageSize || 0)),
   ].join('|');
 };
 

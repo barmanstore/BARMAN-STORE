@@ -2,20 +2,18 @@ import { formatCurrency } from './formatters.js';
 
 const isOperator = (token) => token === '+' || token === '-' || token === '*' || token === '/';
 
-const isValidWesternGrouping = (segments) => (
-  segments.length > 1
-  && segments[0].length >= 1
-  && segments[0].length <= 3
-  && segments.slice(1).every((segment) => segment.length === 3)
-);
+const isValidWesternGrouping = (segments) =>
+  segments.length > 1 &&
+  segments[0].length >= 1 &&
+  segments[0].length <= 3 &&
+  segments.slice(1).every((segment) => segment.length === 3);
 
-const isValidIndianGrouping = (segments) => (
-  segments.length > 1
-  && segments[segments.length - 1].length === 3
-  && segments[0].length >= 1
-  && segments[0].length <= 3
-  && segments.slice(1, -1).every((segment) => segment.length === 2)
-);
+const isValidIndianGrouping = (segments) =>
+  segments.length > 1 &&
+  segments[segments.length - 1].length === 3 &&
+  segments[0].length >= 1 &&
+  segments[0].length <= 3 &&
+  segments.slice(1, -1).every((segment) => segment.length === 2);
 
 const normalizeGroupedIntegerPart = (raw) => {
   const value = String(raw ?? '');
@@ -74,8 +72,9 @@ const tokenizeAmountExpression = (raw) => {
   while (i < compact.length) {
     const ch = compact[i];
     const previousToken = tokens[tokens.length - 1];
-    const unaryContext = (ch === '+' || ch === '-')
-      && (tokens.length === 0 || previousToken === '(' || isOperator(previousToken));
+    const unaryContext =
+      (ch === '+' || ch === '-') &&
+      (tokens.length === 0 || previousToken === '(' || isOperator(previousToken));
 
     if (unaryContext && compact[i + 1] === '(') {
       tokens.push(0);
@@ -134,10 +133,7 @@ export const evaluateAmountExpression = (raw) => {
         if (operators.pop() !== '(') throw new Error('Mismatched parentheses');
         return;
       }
-      while (
-        operators.length
-        && precedence[operators[operators.length - 1]] >= precedence[token]
-      ) {
+      while (operators.length && precedence[operators[operators.length - 1]] >= precedence[token]) {
         output.push(operators.pop());
       }
       operators.push(token);
@@ -186,14 +182,7 @@ export const evaluateAmountExpression = (raw) => {
   }
 };
 
-export const validateAmountInput = (
-  raw,
-  {
-    min = 0.01,
-    max = null,
-    precision = 2,
-  } = {}
-) => {
+export const validateAmountInput = (raw, { min = 0.01, max = null, precision = 2 } = {}) => {
   const evaluation = evaluateAmountExpression(raw);
   if (!evaluation.valid) return evaluation;
 

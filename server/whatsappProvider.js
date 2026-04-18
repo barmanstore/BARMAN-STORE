@@ -1,11 +1,18 @@
-const normalizeProvider = (name) => String(name || '').trim().toLowerCase();
+const normalizeProvider = (name) =>
+  String(name || '')
+    .trim()
+    .toLowerCase();
 
 const requiredConfig = (config = {}, keys = []) => {
   const missing = keys.filter((key) => !String(config[key] || '').trim());
   return { ok: missing.length === 0, missing };
 };
 
-const createManualOnlyProvider = ({ providerName = 'meta', missing = [], reason = 'provider_send_not_implemented' } = {}) => ({
+const createManualOnlyProvider = ({
+  providerName = 'meta',
+  missing = [],
+  reason = 'provider_send_not_implemented',
+} = {}) => ({
   provider: providerName,
   deliveryScope: 'manual_prepare',
   supportsSend: false,
@@ -13,7 +20,9 @@ const createManualOnlyProvider = ({ providerName = 'meta', missing = [], reason 
   missing,
   reason,
   async sendMessage() {
-    throw new Error('WhatsApp provider delivery is not implemented yet. Use the manual prepared-message flow.');
+    throw new Error(
+      'WhatsApp provider delivery is not implemented yet. Use the manual prepared-message flow.'
+    );
   },
 });
 
@@ -26,11 +35,12 @@ const createMetaProvider = (config = {}) => {
   });
 };
 
-const createUnsupportedProvider = (providerName) => createManualOnlyProvider({
-  providerName: normalizeProvider(providerName || 'unknown'),
-  missing: ['WHATSAPP_PROVIDER'],
-  reason: 'unsupported_provider',
-});
+const createUnsupportedProvider = (providerName) =>
+  createManualOnlyProvider({
+    providerName: normalizeProvider(providerName || 'unknown'),
+    missing: ['WHATSAPP_PROVIDER'],
+    reason: 'unsupported_provider',
+  });
 
 const createWhatsappProvider = (config = {}) => {
   const providerName = normalizeProvider(config.WHATSAPP_PROVIDER || 'meta');

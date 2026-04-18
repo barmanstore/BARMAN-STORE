@@ -1,16 +1,21 @@
-const formatReviewAmount = (value) => Number(value || 0).toLocaleString(undefined, {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const formatReviewAmount = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-const formatReviewTotalAmount = (value) => Number(value || 0).toLocaleString(undefined, {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+const formatReviewTotalAmount = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
-const normalizeDiscountType = (value) => (
-  String(value || '').trim().toLowerCase() === 'fixed' ? 'fixed' : 'percent'
-);
+const normalizeDiscountType = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase() === 'fixed'
+    ? 'fixed'
+    : 'percent';
 
 const PurchaseOrderReviewSheet = ({
   kicker = 'Purchase Order',
@@ -56,16 +61,15 @@ const PurchaseOrderReviewSheet = ({
       {rows.map((row) => {
         const discountType = normalizeDiscountType(row.discountType);
         const discountValue = Number(row.discountValue || 0) || 0;
-        const discountLabel = discountValue > 0
-          ? `${formatReviewAmount(discountValue)}${discountType === 'fixed' ? '₹' : '%'}`
-          : '-';
+        const discountLabel =
+          discountValue > 0
+            ? `${formatReviewAmount(discountValue)}${discountType === 'fixed' ? '₹' : '%'}`
+            : '-';
         return (
           <div key={row.key} className="po-review-bill-row">
             <span>{row.name}</span>
             <span>
-              {row.quantity}
-              {' '}
-              {row.uom}
+              {row.quantity} {row.uom}
             </span>
             <span>{formatReviewAmount(row.rate)}</span>
             <span>{formatReviewAmount(row.gstRate)}%</span>
@@ -77,9 +81,18 @@ const PurchaseOrderReviewSheet = ({
     </div>
 
     <div className="po-review-bill-totals">
-      <div><span>Subtotal</span><strong>{formatReviewAmount(totals.taxableValue || 0)}</strong></div>
-      <div><span>GST</span><strong>{formatReviewAmount(totals.taxAmount || 0)}</strong></div>
-      <div className="grand"><span>Total</span><strong>{formatReviewTotalAmount(totals.totalAmount || 0)}</strong></div>
+      <div>
+        <span>Subtotal</span>
+        <strong>{formatReviewAmount(totals.taxableValue || 0)}</strong>
+      </div>
+      <div>
+        <span>GST</span>
+        <strong>{formatReviewAmount(totals.taxAmount || 0)}</strong>
+      </div>
+      <div className="grand">
+        <span>Total</span>
+        <strong>{formatReviewTotalAmount(totals.totalAmount || 0)}</strong>
+      </div>
     </div>
 
     {notes.length ? (

@@ -18,9 +18,7 @@ const BillingCustomerSection = ({
         <h2>Checkout context</h2>
         <p className="billing-panel-copy">Pick a customer only when due matters.</p>
       </div>
-      <span className="billing-panel-badge neutral">
-        {isOrderLinked ? 'Linked' : 'Walk-in'}
-      </span>
+      <span className="billing-panel-badge neutral">{isOrderLinked ? 'Linked' : 'Walk-in'}</span>
     </div>
 
     <div className="billing-customer-block">
@@ -55,7 +53,7 @@ const BillingCustomerSection = ({
         </button>
       ) : null}
 
-      {(customer.phone || customer.email) ? (
+      {customer.phone || customer.email ? (
         <div className="billing-customer-meta">
           <div>
             <span>Phone</span>

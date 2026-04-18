@@ -34,18 +34,13 @@ const useCategoryManagementController = ({ onClose }) => {
   const formSectionRef = useRef(null);
   const nameInputRef = useRef(null);
 
-  const {
-    selectedCategory,
-    isDescendantOf,
-    parentOptions,
-    productCategoryOptions,
-    diagram,
-  } = useCategoryManagementComputed({
-    categories,
-    categoryTree,
-    selectedCategoryId,
-    editingId,
-  });
+  const { selectedCategory, isDescendantOf, parentOptions, productCategoryOptions, diagram } =
+    useCategoryManagementComputed({
+      categories,
+      categoryTree,
+      selectedCategoryId,
+      editingId,
+    });
 
   const clearStatusAfterDelay = () => {
     setTimeout(() => {
@@ -63,45 +58,49 @@ const useCategoryManagementController = ({ onClose }) => {
     }, 80);
   };
 
-  const fetchCategories = useCallback(async ({ keepSelection = true } = {}) => {
-    try {
-      const [flatRows, treeRows] = await Promise.all([
-        categoriesApi.getAll({ scope: 'all' }),
-        categoriesApi.getTree(),
-      ]);
-      const nextFlat = Array.isArray(flatRows) ? flatRows : [];
-      const nextTree = Array.isArray(treeRows) ? treeRows : [];
-      setCategories(nextFlat);
-      setCategoryTree(nextTree);
-      setError('');
+  const fetchCategories = useCallback(
+    async ({ keepSelection = true } = {}) => {
+      try {
+        const [flatRows, treeRows] = await Promise.all([
+          categoriesApi.getAll({ scope: 'all' }),
+          categoriesApi.getTree(),
+        ]);
+        const nextFlat = Array.isArray(flatRows) ? flatRows : [];
+        const nextTree = Array.isArray(treeRows) ? treeRows : [];
+        setCategories(nextFlat);
+        setCategoryTree(nextTree);
+        setError('');
 
-      setExpandedMap((prev) => {
-        const next = { ...prev };
-        const walk = (nodes) => {
-          nodes.forEach((node) => {
-            if (!Object.prototype.hasOwnProperty.call(next, node.id)) next[node.id] = true;
-            if (Array.isArray(node.children) && node.children.length) walk(node.children);
-          });
-        };
-        walk(nextTree);
-        return next;
-      });
+        setExpandedMap((prev) => {
+          const next = { ...prev };
+          const walk = (nodes) => {
+            nodes.forEach((node) => {
+              if (!Object.prototype.hasOwnProperty.call(next, node.id)) next[node.id] = true;
+              if (Array.isArray(node.children) && node.children.length) walk(node.children);
+            });
+          };
+          walk(nextTree);
+          return next;
+        });
 
-      const existingSelection = keepSelection ? toNumericId(selectedCategoryId) : null;
-      const selectedStillExists = existingSelection && nextFlat.some((row) => Number(row.id) === existingSelection);
-      if (selectedStillExists) {
-        setSelectedCategoryId(existingSelection);
-      } else if (nextFlat.length > 0) {
-        setSelectedCategoryId(Number(nextFlat[0].id));
-      } else {
-        setSelectedCategoryId(null);
+        const existingSelection = keepSelection ? toNumericId(selectedCategoryId) : null;
+        const selectedStillExists =
+          existingSelection && nextFlat.some((row) => Number(row.id) === existingSelection);
+        if (selectedStillExists) {
+          setSelectedCategoryId(existingSelection);
+        } else if (nextFlat.length > 0) {
+          setSelectedCategoryId(Number(nextFlat[0].id));
+        } else {
+          setSelectedCategoryId(null);
+        }
+      } catch (fetchError) {
+        setError(`Failed to fetch categories: ${fetchError.message || 'Unknown error'}`);
+      } finally {
+        setLoading(false);
       }
-    } catch (fetchError) {
-      setError(`Failed to fetch categories: ${fetchError.message || 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCategoryId]);
+    },
+    [selectedCategoryId]
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -191,8 +190,12 @@ const useCategoryManagementController = ({ onClose }) => {
         parent_id: toNumericId(formData.parent_id),
         icon: String(formData.icon || '').trim() || null,
         image: String(formData.image || '').trim() || null,
-        image_width: String(formData.image_width || '').trim() ? Number(formData.image_width) : null,
-        image_height: String(formData.image_height || '').trim() ? Number(formData.image_height) : null,
+        image_width: String(formData.image_width || '').trim()
+          ? Number(formData.image_width)
+          : null,
+        image_height: String(formData.image_height || '').trim()
+          ? Number(formData.image_height)
+          : null,
       };
       if (isEditing && editingId) {
         await categoriesApi.update(editingId, payload);
@@ -230,7 +233,9 @@ const useCategoryManagementController = ({ onClose }) => {
   const handleDelete = async (id) => {
     const category = categories.find((entry) => Number(entry.id) === Number(id));
     const name = String(category?.name || 'this category');
-    if (!window.confirm(`Delete "${name}"? This is blocked if it has children or linked products.`)) {
+    if (
+      !window.confirm(`Delete "${name}"? This is blocked if it has children or linked products.`)
+    ) {
       return;
     }
     setLoading(true);
@@ -334,4 +339,3 @@ const useCategoryManagementController = ({ onClose }) => {
 };
 
 export default useCategoryManagementController;
-

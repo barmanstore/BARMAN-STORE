@@ -9,7 +9,7 @@ const normalizeHttpUrl = (value) => {
   if (!raw) return '';
   try {
     const url = new URL(raw);
-    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
   } catch (_) {
     return '';
   }
@@ -31,7 +31,9 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
       String(productMeta?.content || '').trim(),
       String(productMeta?.category || '').trim(),
       'product packshot',
-    ].filter(Boolean).join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
   }, [productMeta]);
 
   const handleInputChange = (event) => {
@@ -103,9 +105,13 @@ function ImageUrlPicker({ value, onChange, productMeta = {}, disabled = false })
       </div>
 
       <small className="field-help">
-        {queryUsed ? `Search used: ${queryUsed}` : `Auto query preview: ${autoQueryPreview || 'product packshot'}`}
+        {queryUsed
+          ? `Search used: ${queryUsed}`
+          : `Auto query preview: ${autoQueryPreview || 'product packshot'}`}
       </small>
-      {providerLabel && <small className="field-help image-source-help">Image source: {providerLabel}</small>}
+      {providerLabel && (
+        <small className="field-help image-source-help">Image source: {providerLabel}</small>
+      )}
       {error && <span className="field-error">{error}</span>}
 
       {choices.length > 0 && (

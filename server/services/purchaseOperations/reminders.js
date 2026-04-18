@@ -7,10 +7,7 @@ const createPurchaseOperationsReminders = (deps) => {
   const builders = createPurchaseOperationsReminderBuilders(deps);
   const dispatch = createPurchaseOperationsReminderDispatch(deps);
 
-  const loadPurchaseOperationAlertsAsync = async ({
-    date = null,
-    distributorId = null,
-  } = {}) => {
+  const loadPurchaseOperationAlertsAsync = async ({ date = null, distributorId = null } = {}) => {
     const data = await queries.loadPurchaseOperationReminderDataAsync({
       date,
       distributorId,
@@ -37,7 +34,10 @@ const createPurchaseOperationsReminders = (deps) => {
       today: alertState.todayKey,
       tomorrow: alertState.tomorrowKey,
       reminders_scanned: Number(alertState.reminders?.length || 0),
-      payables_scanned: Number(alertState.payables?.filter((entry) => entry.payment_due_date <= alertState.todayKey).length || 0),
+      payables_scanned: Number(
+        alertState.payables?.filter((entry) => entry.payment_due_date <= alertState.todayKey)
+          .length || 0
+      ),
       ...emitted,
     };
   };

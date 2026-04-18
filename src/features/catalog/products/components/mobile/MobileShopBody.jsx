@@ -61,7 +61,10 @@ const MobileShopBody = ({
         <div className="products-skeleton-controls shimmer-skeleton" aria-hidden="true" />
         <div className="products-skeleton-grid" aria-hidden="true">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={`mobile-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
+            <div
+              key={`mobile-skeleton-${index}`}
+              className="product-skeleton-card shimmer-skeleton"
+            />
           ))}
         </div>
       </div>
@@ -82,7 +85,7 @@ const MobileShopBody = ({
           />
         ) : null}
 
-        {(repeatOrderFamilies.length > 0 || recentlyBoughtFamilies.length > 0) ? (
+        {repeatOrderFamilies.length > 0 || recentlyBoughtFamilies.length > 0 ? (
           <MobileRepeatOrderSection
             repeatOrderFamilies={repeatOrderFamilies}
             recentlyBoughtFamilies={recentlyBoughtFamilies}
@@ -129,4 +132,3 @@ const MobileShopBody = ({
 );
 
 export default MobileShopBody;
-

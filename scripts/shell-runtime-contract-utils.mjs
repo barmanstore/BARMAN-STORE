@@ -12,17 +12,24 @@ const __dirname = path.dirname(__filename);
 export const REPO_ROOT = path.resolve(__dirname, '..');
 export const SRC_ROOT = path.join(REPO_ROOT, 'src');
 const SOURCE_FILE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs']);
-const PATHNAME_PREDICATE_METHODS = new Set(['startsWith', 'endsWith', 'includes', 'match', 'search']);
+const PATHNAME_PREDICATE_METHODS = new Set([
+  'startsWith',
+  'endsWith',
+  'includes',
+  'match',
+  'search',
+]);
 const PATHNAME_COMPARISON_OPERATORS = new Set(['===', '!==', '<', '>', '<=', '>=']);
 
 export const OVERLAY_PROVIDER_FILE = 'src/providers/OverlayProvider.jsx';
 export const ROOT_SHELL_FILE = 'src/RootShell.jsx';
-export const BODY_STYLE_ALLOWLIST = new Set([
-  'src/shared/hooks/useLockBodyScroll.js',
-]);
+export const BODY_STYLE_ALLOWLIST = new Set(['src/shared/hooks/useLockBodyScroll.js']);
 export const BODY_CLASSLIST_ALLOWLIST = new Map([
   [ROOT_SHELL_FILE, { allowedClasses: null }],
-  ['src/features/commerce/purchase/hooks/usePoModalSizing.js', { allowedClasses: new Set(['po-modal-resizing']) }],
+  [
+    'src/features/commerce/purchase/hooks/usePoModalSizing.js',
+    { allowedClasses: new Set(['po-modal-resizing']) },
+  ],
 ]);
 export const HEADER_HEIGHT_ALLOWLIST = new Set([
   'src/shells/DefaultShell.jsx',
@@ -30,9 +37,7 @@ export const HEADER_HEIGHT_ALLOWLIST = new Set([
   'src/shells/ImmersiveShell.jsx',
   'src/shells/NoShell.jsx',
 ]);
-export const INERT_OWNER_ALLOWLIST = new Set([
-  OVERLAY_PROVIDER_FILE,
-]);
+export const INERT_OWNER_ALLOWLIST = new Set([OVERLAY_PROVIDER_FILE]);
 export const PATHNAME_BLOCKLIST_FILES = new Set([
   ROOT_SHELL_FILE,
   'src/shared/components/window/WindowManagerProvider.jsx',
@@ -124,9 +129,11 @@ const isUseLocationPathname = (node) => {
   if (!target || target.type !== 'MemberExpression') return false;
   if (getPropertyName(target.property) !== 'pathname') return false;
   const objectNode = unwrapNode(target.object);
-  return objectNode?.type === 'CallExpression'
-    && objectNode.callee?.type === 'Identifier'
-    && objectNode.callee.name === 'useLocation';
+  return (
+    objectNode?.type === 'CallExpression' &&
+    objectNode.callee?.type === 'Identifier' &&
+    objectNode.callee.name === 'useLocation'
+  );
 };
 
 const isPathnameRead = (node) => {
@@ -233,11 +240,17 @@ export const collectPathnamePredicateViolations = ({
     },
     CallExpression(pathRef) {
       if (!isPathnamePredicateCall(pathRef.node)) return;
-      pushViolation(pathRef.node, 'Pathname predicate heuristic detected in a shell/runtime owner file.');
+      pushViolation(
+        pathRef.node,
+        'Pathname predicate heuristic detected in a shell/runtime owner file.'
+      );
     },
     SwitchStatement(pathRef) {
       if (!containsPathnameRead(pathRef.node.discriminant)) return;
-      pushViolation(pathRef.node, 'Pathname switch heuristic detected in a shell/runtime owner file.');
+      pushViolation(
+        pathRef.node,
+        'Pathname switch heuristic detected in a shell/runtime owner file.'
+      );
     },
   });
 
@@ -254,12 +267,32 @@ export const collectShellRuntimeViolationsForFile = (absolutePath) => {
   traverse(ast, {
     CallExpression(pathRef) {
       const { node } = pathRef;
-      if (node.callee?.type === 'Identifier' && node.callee.name === 'createPortal' && relativePath !== OVERLAY_PROVIDER_FILE) {
-        push(makeViolation(relativePath, node, 'ReactDOM.createPortal is only allowed in OverlayProvider.'));
+      if (
+        node.callee?.type === 'Identifier' &&
+        node.callee.name === 'createPortal' &&
+        relativePath !== OVERLAY_PROVIDER_FILE
+      ) {
+        push(
+          makeViolation(
+            relativePath,
+            node,
+            'ReactDOM.createPortal is only allowed in OverlayProvider.'
+          )
+        );
       }
 
-      if (node.callee?.type === 'Identifier' && node.callee.name === 'useInertBackground' && !INERT_OWNER_ALLOWLIST.has(relativePath)) {
-        push(makeViolation(relativePath, node, 'useInertBackground is only allowed in OverlayProvider.'));
+      if (
+        node.callee?.type === 'Identifier' &&
+        node.callee.name === 'useInertBackground' &&
+        !INERT_OWNER_ALLOWLIST.has(relativePath)
+      ) {
+        push(
+          makeViolation(
+            relativePath,
+            node,
+            'useInertBackground is only allowed in OverlayProvider.'
+          )
+        );
       }
 
       if (node.callee?.type !== 'MemberExpression') return;
@@ -267,30 +300,58 @@ export const collectShellRuntimeViolationsForFile = (absolutePath) => {
       if (isMemberChain(node.callee.object, ['document', 'body', 'classList'])) {
         const methodName = getPropertyName(node.callee.property);
         if (!['add', 'remove'].includes(methodName)) {
-          push(makeViolation(relativePath, node, 'document.body.classList may only use add/remove in the allowlisted runtime owners.'));
+          push(
+            makeViolation(
+              relativePath,
+              node,
+              'document.body.classList may only use add/remove in the allowlisted runtime owners.'
+            )
+          );
           return;
         }
         const allowlistEntry = BODY_CLASSLIST_ALLOWLIST.get(relativePath);
         if (!allowlistEntry) {
-          push(makeViolation(relativePath, node, 'document.body.classList is only allowed in RootShell and the PO resize hook.'));
+          push(
+            makeViolation(
+              relativePath,
+              node,
+              'document.body.classList is only allowed in RootShell and the PO resize hook.'
+            )
+          );
           return;
         }
         if (allowlistEntry.allowedClasses instanceof Set) {
           const classLiteral = node.arguments[0];
           const className = classLiteral?.type === 'StringLiteral' ? classLiteral.value : '';
           if (!allowlistEntry.allowedClasses.has(className)) {
-            push(makeViolation(relativePath, node, 'This body class mutation is not part of the allowlisted shell/runtime contract.'));
+            push(
+              makeViolation(
+                relativePath,
+                node,
+                'This body class mutation is not part of the allowlisted shell/runtime contract.'
+              )
+            );
           }
         }
       }
 
       if (
-        isMemberChain(node.callee.object, ['document', 'documentElement', 'style'])
-        && getPropertyName(node.callee.property) === 'setProperty'
+        isMemberChain(node.callee.object, ['document', 'documentElement', 'style']) &&
+        getPropertyName(node.callee.property) === 'setProperty'
       ) {
         const firstArg = node.arguments[0];
-        if (firstArg?.type === 'StringLiteral' && firstArg.value === '--app-header-height' && !HEADER_HEIGHT_ALLOWLIST.has(relativePath)) {
-          push(makeViolation(relativePath, node, '--app-header-height may only be written by shell variant owners.'));
+        if (
+          firstArg?.type === 'StringLiteral' &&
+          firstArg.value === '--app-header-height' &&
+          !HEADER_HEIGHT_ALLOWLIST.has(relativePath)
+        ) {
+          push(
+            makeViolation(
+              relativePath,
+              node,
+              '--app-header-height may only be written by shell variant owners.'
+            )
+          );
         }
       }
     },
@@ -298,25 +359,34 @@ export const collectShellRuntimeViolationsForFile = (absolutePath) => {
 
   collectTextMatches(source, /\b(?:document\.body\.style|body\.style)\./g).forEach(({ index }) => {
     if (BODY_STYLE_ALLOWLIST.has(relativePath)) return;
-    push(makeTextViolation(relativePath, source, index, 'document.body.style writes are only allowed in useLockBodyScroll.'));
+    push(
+      makeTextViolation(
+        relativePath,
+        source,
+        index,
+        'document.body.style writes are only allowed in useLockBodyScroll.'
+      )
+    );
   });
 
-  return [
-    ...violations,
-    ...collectPathnamePredicateViolations({ source, relativePath }),
-  ];
+  return [...violations, ...collectPathnamePredicateViolations({ source, relativePath })];
 };
 
-export const collectRepositoryShellRuntimeViolations = () => listSourceFiles()
-  .flatMap((absolutePath) => collectShellRuntimeViolationsForFile(absolutePath))
-  .sort((left, right) => {
-    const fileDelta = left.file.localeCompare(right.file);
-    if (fileDelta !== 0) return fileDelta;
-    const lineDelta = left.line - right.line;
-    if (lineDelta !== 0) return lineDelta;
-    return left.column - right.column;
-  });
+export const collectRepositoryShellRuntimeViolations = () =>
+  listSourceFiles()
+    .flatMap((absolutePath) => collectShellRuntimeViolationsForFile(absolutePath))
+    .sort((left, right) => {
+      const fileDelta = left.file.localeCompare(right.file);
+      if (fileDelta !== 0) return fileDelta;
+      const lineDelta = left.line - right.line;
+      if (lineDelta !== 0) return lineDelta;
+      return left.column - right.column;
+    });
 
-export const formatViolations = (violations) => violations
-  .map((violation) => `- ${violation.file}:${violation.line}:${violation.column} ${violation.message}`)
-  .join('\n');
+export const formatViolations = (violations) =>
+  violations
+    .map(
+      (violation) =>
+        `- ${violation.file}:${violation.line}:${violation.column} ${violation.message}`
+    )
+    .join('\n');

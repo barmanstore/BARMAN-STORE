@@ -17,9 +17,11 @@ function ProductDetailView({
   onDecreaseQty,
   cartQtyById,
   buttonStatus,
-  showImage = false
+  showImage = false,
 }) {
-  const selectedVariation = family.variations.find((v) => v.id === selectedVariationId) || getFirstAvailableVariation(family);
+  const selectedVariation =
+    family.variations.find((v) => v.id === selectedVariationId) ||
+    getFirstAvailableVariation(family);
   if (!selectedVariation) return null;
   const hasMultipleVariations = family.variations.length > 1;
   const labelSeen = new Set();
@@ -40,14 +42,18 @@ function ProductDetailView({
   const canIncreaseQty = true;
   const added = buttonStatus[selectedVariation.id] === 'added';
   const offerLabel = String(
-    selectedVariation?.offerLabel
-    || selectedVariation?.offerBadges?.[0]
-    || selectedVariation?.offerDisplay?.display_offer_label
-    || ''
+    selectedVariation?.offerLabel ||
+      selectedVariation?.offerBadges?.[0] ||
+      selectedVariation?.offerDisplay?.display_offer_label ||
+      ''
   ).trim();
 
   return (
-    <div className="product-detail-view" onClick={(event) => event.stopPropagation()} role="presentation">
+    <div
+      className="product-detail-view"
+      onClick={(event) => event.stopPropagation()}
+      role="presentation"
+    >
       {showImage && (
         <div className="detail-mobile-image-wrap">
           <SafeProductImage
@@ -58,7 +64,9 @@ function ProductDetailView({
           />
         </div>
       )}
-      <p className="detail-description">{family.description || 'No additional description available.'}</p>
+      <p className="detail-description">
+        {family.description || 'No additional description available.'}
+      </p>
       {hasMultipleVariations ? (
         <div className="variation-list">
           {variationChoices.map(({ variation, label }) => {
@@ -88,12 +96,17 @@ function ProductDetailView({
           <SignedCurrency amount={Number(selectedVariation.price || 0)} />
           <small>/ {selectedVariation.uom || 'pcs'}</small>
         </div>
-        {selectedVariation.mrp && Number(selectedVariation.mrp) > Number(selectedVariation.price) && (
-          <small className="mrp-price">MRP: {formatCurrency(selectedVariation.mrp)}</small>
-        )}
+        {selectedVariation.mrp &&
+          Number(selectedVariation.mrp) > Number(selectedVariation.price) && (
+            <small className="mrp-price">MRP: {formatCurrency(selectedVariation.mrp)}</small>
+          )}
         {offerLabel ? <small className="mrp-price">{offerLabel}</small> : null}
         <div className="detail-stock-line">
-          <span className={selectedStock > 0 ? (isSpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'}>
+          <span
+            className={
+              selectedStock > 0 ? (isSpecialOrder ? 'special-order' : 'in-stock') : 'out-of-stock'
+            }
+          >
             {selectedStock > 0 ? (isSpecialOrder ? 'Special Order' : 'In stock') : 'Out of stock'}
           </span>
           {isSpecialOrder ? <small>Limited stock. May take longer.</small> : null}
@@ -108,7 +121,9 @@ function ProductDetailView({
       >
         <Plus size={14} />
         {selectedStock === 0
-          ? (added ? 'Requested!' : 'Request item')
+          ? added
+            ? 'Requested!'
+            : 'Request item'
           : isMaxed
             ? 'Max in cart'
             : added
@@ -139,5 +154,3 @@ function ProductDetailView({
 }
 
 export default ProductDetailView;
-
-

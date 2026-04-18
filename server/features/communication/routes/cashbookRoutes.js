@@ -50,7 +50,9 @@ const normalizeWindowDays = (value) => {
 };
 
 const normalizeCashbookType = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   return ALL_ENTRY_TYPES.has(raw) ? raw : '';
 };
 
@@ -150,14 +152,19 @@ const getEntrySignedAmount = ({ type, amount, adjustmentDirection = '' } = {}) =
 };
 
 const normalizeCreditHistoryType = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
-  if (raw === 'payment' || raw === 'given' || raw === 'reversal' || raw === 'issue_correction') return raw;
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (raw === 'payment' || raw === 'given' || raw === 'reversal' || raw === 'issue_correction')
+    return raw;
   return raw;
 };
 
 const getCreditHistoryEntryLabel = (entry = {}) => {
   const type = normalizeCreditHistoryType(entry.type);
-  const sourceType = String(entry.source_type || '').trim().toLowerCase();
+  const sourceType = String(entry.source_type || '')
+    .trim()
+    .toLowerCase();
 
   if (type === 'payment') return 'Credit Payment';
   if (type === 'given') return sourceType === 'bill' ? 'Credit Sale' : 'Manual Sale';
@@ -183,7 +190,9 @@ const getCreditHistoryEntryBadgeLabel = (entry = {}, signedAmount = 0) => {
 
 const buildCreditHistoryEntryNote = (entry = {}) => {
   const parts = [];
-  const sourceType = String(entry.source_type || '').trim().toLowerCase();
+  const sourceType = String(entry.source_type || '')
+    .trim()
+    .toLowerCase();
   const sourceLabel = String(entry.source_label || entry.reference || '').trim();
   const customerName = String(entry.customer_name || '').trim();
   const description = String(entry.description || '').trim();
@@ -254,7 +263,9 @@ const serializeCashbookEntry = (entry) => {
   return {
     id: String(entry.id || '').trim() || null,
     source_id: Number(entry.source_id || entry.id || 0) || null,
-    source_type: String(entry.source_type || (AUTOMATIC_ENTRY_TYPES.has(type) ? type : 'manual')).trim() || 'manual',
+    source_type:
+      String(entry.source_type || (AUTOMATIC_ENTRY_TYPES.has(type) ? type : 'manual')).trim() ||
+      'manual',
     date,
     time: formatTimeLabel(entry.time || entry.entry_time || ''),
     type,
@@ -296,7 +307,11 @@ const serializeOpeningBalance = (row) => {
   };
 };
 
-const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHBOOK_WINDOW_DAYS_DEFAULT, endDateKey = '' } = {}) => {
+const loadCashbookSnapshot = async (
+  dbGetAsync,
+  dbAllAsync,
+  { windowDays = CASHBOOK_WINDOW_DAYS_DEFAULT, endDateKey = '' } = {}
+) => {
   const clockRow = await dbGetAsync('SELECT CURRENT_DATE::text AS today_date');
   const todayDateKey = parseDateKey(endDateKey) || parseDateKey(clockRow?.today_date) || '';
   if (!todayDateKey) {
@@ -336,7 +351,8 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
 
   const baseOpeningDate = parseDateKey(latestOpeningRow?.balance_date);
   const baseOpeningBalance = asNumber(latestOpeningRow?.opening_balance, 0);
-  const lowerBoundForPriorRows = baseOpeningDate && baseOpeningDate < startDateKey ? baseOpeningDate : '';
+  const lowerBoundForPriorRows =
+    baseOpeningDate && baseOpeningDate < startDateKey ? baseOpeningDate : '';
 
   const salesPriorQuery = lowerBoundForPriorRows
     ? {
@@ -435,11 +451,12 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
     dbGetAsync(creditPriorQuery.sql, creditPriorQuery.params),
   ]);
 
-  const startingBalance = baseOpeningBalance
-    + asNumber(salesPriorRow?.net, 0)
-    - asNumber(purchasePriorRow?.net, 0)
-    + asNumber(manualPriorRow?.net, 0)
-    + asNumber(creditPriorRow?.net, 0);
+  const startingBalance =
+    baseOpeningBalance +
+    asNumber(salesPriorRow?.net, 0) -
+    asNumber(purchasePriorRow?.net, 0) +
+    asNumber(manualPriorRow?.net, 0) +
+    asNumber(creditPriorRow?.net, 0);
 
   const [salesRows, purchaseRows, manualRows, creditRows, openingRows] = await Promise.all([
     dbAllAsync(
@@ -558,7 +575,9 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
     ),
   ]);
 
-  const entriesByDate = new Map(listDateKeys(startDateKey, todayDateKey).map((dateKey) => [dateKey, []]));
+  const entriesByDate = new Map(
+    listDateKeys(startDateKey, todayDateKey).map((dateKey) => [dateKey, []])
+  );
   const openingByDate = new Map();
 
   openingRows.forEach((row) => {
@@ -582,10 +601,16 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
         });
     const entryAmount = Number.isFinite(extra.amountOverride)
       ? Math.abs(Number(extra.amountOverride))
-      : (normalizedType === 'task' ? 0 : Math.abs(asNumber(amount, 0)));
-    const direction = extra.directionOverride || getEntryDirection(Number.isFinite(signedAmount) ? signedAmount : 0);
+      : normalizedType === 'task'
+        ? 0
+        : Math.abs(asNumber(amount, 0));
+    const direction =
+      extra.directionOverride ||
+      getEntryDirection(Number.isFinite(signedAmount) ? signedAmount : 0);
     const label = extra.labelOverride || getEntryLabel(normalizedType);
-    const badgeLabel = extra.badgeLabelOverride || getEntryBadgeLabel(normalizedType, Number.isFinite(signedAmount) ? signedAmount : 0);
+    const badgeLabel =
+      extra.badgeLabelOverride ||
+      getEntryBadgeLabel(normalizedType, Number.isFinite(signedAmount) ? signedAmount : 0);
 
     entriesByDate.get(date).push({
       id: `${extra.idPrefix || normalizedType}-${row.id}`,
@@ -730,14 +755,18 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
       closing_balance: closingBalance,
       entry_count: normalizedEntries.length,
       auto_count: normalizedEntries.filter((entry) => entry.is_auto).length,
-      manual_count: normalizedEntries.filter((entry) => !entry.is_auto && entry.type !== 'task').length,
+      manual_count: normalizedEntries.filter((entry) => !entry.is_auto && entry.type !== 'task')
+        .length,
       task_count: normalizedEntries.filter((entry) => entry.type === 'task').length,
       entries: normalizedEntries,
     });
   });
 
   const groupsDesc = groupsAsc.slice().reverse();
-  const todaySummary = groupsAsc.find((group) => group.date === todayDateKey) || groupsAsc[groupsAsc.length - 1] || null;
+  const todaySummary =
+    groupsAsc.find((group) => group.date === todayDateKey) ||
+    groupsAsc[groupsAsc.length - 1] ||
+    null;
 
   return {
     range: {
@@ -745,21 +774,23 @@ const loadCashbookSnapshot = async (dbGetAsync, dbAllAsync, { windowDays = CASHB
       end_date: todayDateKey,
       window_days: normalizedDays,
     },
-    today_summary: todaySummary ? {
-      date: todaySummary.date,
-      label: todaySummary.label,
-      opening_balance: todaySummary.opening_balance,
-      in_total: todaySummary.in_total,
-      out_total: todaySummary.out_total,
-      closing_balance: todaySummary.closing_balance,
-      entry_count: todaySummary.entry_count,
-      auto_count: todaySummary.auto_count,
-      manual_count: todaySummary.manual_count,
-      task_count: todaySummary.task_count,
-      has_saved_opening_balance: todaySummary.has_saved_opening_balance,
-      opening_balance_updated_at: todaySummary.opening_balance_updated_at,
-      entries: todaySummary.entries,
-    } : null,
+    today_summary: todaySummary
+      ? {
+          date: todaySummary.date,
+          label: todaySummary.label,
+          opening_balance: todaySummary.opening_balance,
+          in_total: todaySummary.in_total,
+          out_total: todaySummary.out_total,
+          closing_balance: todaySummary.closing_balance,
+          entry_count: todaySummary.entry_count,
+          auto_count: todaySummary.auto_count,
+          manual_count: todaySummary.manual_count,
+          task_count: todaySummary.task_count,
+          has_saved_opening_balance: todaySummary.has_saved_opening_balance,
+          opening_balance_updated_at: todaySummary.opening_balance_updated_at,
+          entries: todaySummary.entries,
+        }
+      : null,
     groups: groupsDesc,
   };
 };
@@ -772,7 +803,9 @@ const normalizeDateKeyInput = (value) => parseDateKey(value) || '';
 const normalizeEntryTypeInput = (value) => normalizeManualEntryType(value) || '';
 
 const normalizeAdjustmentDirection = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'add' || raw === 'reduce') return raw;
   return '';
 };
@@ -814,8 +847,9 @@ const readExistingEntryForIdempotency = async (dbGetAsync, clientRequestId) => {
   );
 };
 
-const readOpeningBalanceRow = async (dbGetAsync, dateKey) => dbGetAsync(
-  `SELECT
+const readOpeningBalanceRow = async (dbGetAsync, dateKey) =>
+  dbGetAsync(
+    `SELECT
      ob.balance_date::text AS balance_date,
      ob.opening_balance,
      ob.note,
@@ -829,8 +863,8 @@ const readOpeningBalanceRow = async (dbGetAsync, dateKey) => dbGetAsync(
    LEFT JOIN users creator ON creator.id = ob.created_by
    LEFT JOIN users updater ON updater.id = ob.updated_by
    WHERE ob.balance_date = DATE(?)`,
-  [dateKey]
-);
+    [dateKey]
+  );
 
 const registerCashbookRoutes = (deps) => {
   const {
@@ -845,28 +879,38 @@ const registerCashbookRoutes = (deps) => {
     isUniqueViolationError,
   } = deps;
 
-  app.get('/api/admin/cashbook', requireCapability('view_backoffice', 'Backoffice access required'), async (req, res) => {
-    try {
-      const windowDays = normalizeWindowDays(req.query?.window_days || req.query?.windowDays);
-      const endDateKey = parseDateKey(req.query?.date || req.query?.end_date || req.query?.endDate || '');
-      const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, {
-        windowDays,
-        endDateKey,
-      });
-      return res.json(snapshot);
-    } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load cashbook snapshot' });
+  app.get(
+    '/api/admin/cashbook',
+    requireCapability('view_backoffice', 'Backoffice access required'),
+    async (req, res) => {
+      try {
+        const windowDays = normalizeWindowDays(req.query?.window_days || req.query?.windowDays);
+        const endDateKey = parseDateKey(
+          req.query?.date || req.query?.end_date || req.query?.endDate || ''
+        );
+        const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, {
+          windowDays,
+          endDateKey,
+        });
+        return res.json(snapshot);
+      } catch (error) {
+        return res.status(500).json({ error: error.message || 'Failed to load cashbook snapshot' });
+      }
     }
-  });
+  );
 
   app.put('/api/admin/cashbook/opening-balance', requireAdmin, async (req, res) => {
     try {
-      const dateKey = normalizeDateKeyInput(req.body?.date || req.body?.balance_date || req.body?.day);
+      const dateKey = normalizeDateKeyInput(
+        req.body?.date || req.body?.balance_date || req.body?.day
+      );
       if (!dateKey) {
         return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
       }
 
-      const openingBalance = parseAmountInput(req.body?.opening_balance ?? req.body?.openingBalance);
+      const openingBalance = parseAmountInput(
+        req.body?.opening_balance ?? req.body?.openingBalance
+      );
       if (openingBalance === null) {
         return res.status(400).json({ error: 'opening_balance must be a valid number' });
       }
@@ -920,7 +964,10 @@ const registerCashbookRoutes = (deps) => {
         return res.status(400).json({ error: 'type must be a valid manual cashbook entry' });
       }
 
-      const { value: clientRequestId, error: requestIdError } = resolveIdempotency(req, resolveClientRequestId);
+      const { value: clientRequestId, error: requestIdError } = resolveIdempotency(
+        req,
+        resolveClientRequestId
+      );
       if (requestIdError) {
         return res.status(400).json({ error: requestIdError });
       }
@@ -946,7 +993,9 @@ const registerCashbookRoutes = (deps) => {
       const actorId = Number(req.authUser?.id || req.user?.id || 0) || null;
 
       const amountValue = parseAmountInput(req.body?.amount);
-      const adjustmentDirection = normalizeAdjustmentDirection(req.body?.adjustment_direction || req.body?.adjustmentDirection);
+      const adjustmentDirection = normalizeAdjustmentDirection(
+        req.body?.adjustment_direction || req.body?.adjustmentDirection
+      );
 
       if (type === 'task') {
         if (!note) {
@@ -1021,7 +1070,9 @@ const registerCashbookRoutes = (deps) => {
           [result?.lastInsertRowid]
         );
 
-        const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, { endDateKey: entryDate });
+        const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, {
+          endDateKey: entryDate,
+        });
 
         return res.status(201).json({
           success: true,
@@ -1128,16 +1179,22 @@ const registerCashbookRoutes = (deps) => {
         return res.status(400).json({ error: 'type must be a valid manual cashbook entry' });
       }
 
-      const entryDate = normalizeDateKeyInput(req.body?.date || req.body?.entry_date || existing.entry_date);
+      const entryDate = normalizeDateKeyInput(
+        req.body?.date || req.body?.entry_date || existing.entry_date
+      );
       if (!entryDate) {
         return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
       }
 
-      const entryTime = resolveOptionalTime(req.body?.time || req.body?.entry_time || existing.entry_time || '');
+      const entryTime = resolveOptionalTime(
+        req.body?.time || req.body?.entry_time || existing.entry_time || ''
+      );
       const note = sanitizeNote(sanitizeShortText, req.body?.note || req.body?.notes, 500);
       const actorId = Number(req.authUser?.id || req.user?.id || 0) || null;
       const amountValue = parseAmountInput(req.body?.amount);
-      const adjustmentDirection = normalizeAdjustmentDirection(req.body?.adjustment_direction || req.body?.adjustmentDirection);
+      const adjustmentDirection = normalizeAdjustmentDirection(
+        req.body?.adjustment_direction || req.body?.adjustmentDirection
+      );
 
       if (type === 'task') {
         if (!note) {
@@ -1209,7 +1266,9 @@ const registerCashbookRoutes = (deps) => {
         [entryId]
       );
 
-      const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, { endDateKey: entryDate });
+      const snapshot = await loadCashbookSnapshot(dbGetAsync, dbAllAsync, {
+        endDateKey: entryDate,
+      });
 
       return res.json({
         success: true,

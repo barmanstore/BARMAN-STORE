@@ -26,11 +26,15 @@ const createDateKeyUtils = ({ PURCHASE_WEEKDAYS = [] } = {}) => {
   };
 
   const normalizeWeekdayLabel = (value) => {
-    const raw = String(value || '').trim().toLowerCase();
+    const raw = String(value || '')
+      .trim()
+      .toLowerCase();
     if (!raw) return '';
     const exactMatch = PURCHASE_WEEKDAYS.find((day) => day.toLowerCase() === raw);
     if (exactMatch) return exactMatch;
-    const prefixMatch = PURCHASE_WEEKDAYS.find((day) => day.toLowerCase().startsWith(raw.slice(0, 3)));
+    const prefixMatch = PURCHASE_WEEKDAYS.find((day) =>
+      day.toLowerCase().startsWith(raw.slice(0, 3))
+    );
     return prefixMatch || '';
   };
 

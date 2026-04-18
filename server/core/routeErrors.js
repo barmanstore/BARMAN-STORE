@@ -11,7 +11,11 @@ const buildErrorPayload = (error, fallbackMessage = 'Request failed') => {
   return payload;
 };
 
-const sendRouteError = (res, error, { fallbackStatus = 500, fallbackMessage = 'Request failed' } = {}) => {
+const sendRouteError = (
+  res,
+  error,
+  { fallbackStatus = 500, fallbackMessage = 'Request failed' } = {}
+) => {
   const status = getErrorStatus(error, fallbackStatus);
   return res.status(status).json(buildErrorPayload(error, fallbackMessage));
 };

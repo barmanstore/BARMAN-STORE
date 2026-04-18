@@ -1,6 +1,9 @@
 import { DEFAULT_SORT_BY, SORT_OPTIONS } from './productConstants';
 
-const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const PRODUCTS_SYNONYMS = {
   milk: ['doodh'],
@@ -12,7 +15,7 @@ const PRODUCTS_SYNONYMS = {
   rice: ['chawal'],
   detergent: ['washing', 'powder'],
   soap: ['bodywash'],
-  tea: ['chai']
+  tea: ['chai'],
 };
 
 const PRODUCTS_SYNONYM_REVERSE = Object.entries(PRODUCTS_SYNONYMS).reduce((acc, [key, values]) => {
@@ -27,7 +30,9 @@ const PRODUCTS_SYNONYM_REVERSE = Object.entries(PRODUCTS_SYNONYMS).reduce((acc, 
 }, {});
 
 const normalizeSortBy = (value = '') => {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
   return SORT_OPTIONS.includes(normalized) ? normalized : DEFAULT_SORT_BY;
 };
 
@@ -45,7 +50,8 @@ const tokenFuzzyMatch = (queryToken, targetToken) => {
   if (!query || !target) return false;
   if (target === query) return true;
   if (target.startsWith(query) || query.startsWith(target)) return true;
-  if (Math.abs(query.length - target.length) > 1 || query.length < 4 || target.length < 4) return false;
+  if (Math.abs(query.length - target.length) > 1 || query.length < 4 || target.length < 4)
+    return false;
   let mismatch = 0;
   const limit = Math.min(query.length, target.length);
   for (let index = 0; index < limit; index += 1) {

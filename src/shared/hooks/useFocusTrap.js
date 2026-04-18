@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -22,7 +22,11 @@ const isVisible = (element) => {
 function useFocusTrap(containerRef, active, options = {}) {
   const { open = active, restoreOnDeactivate = true } = options;
   const latestStateRef = useRef({ active, open, restoreOnDeactivate });
-  latestStateRef.current = { active, open, restoreOnDeactivate };
+
+  // Update ref after render but before effects run
+  useLayoutEffect(() => {
+    latestStateRef.current = { active, open, restoreOnDeactivate };
+  }, [active, open, restoreOnDeactivate]);
 
   useEffect(() => {
     if (!active || typeof document === 'undefined') return undefined;
@@ -30,13 +34,16 @@ function useFocusTrap(containerRef, active, options = {}) {
     const container = containerRef.current;
     if (!(container instanceof HTMLElement)) return undefined;
 
-    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     const getFocusableNodes = () =>
       Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(isVisible);
 
     const focusInitialNode = () => {
-      const initialTarget = container.querySelector('[data-window-initial-focus="true"], [autofocus]');
+      const initialTarget = container.querySelector(
+        '[data-window-initial-focus="true"], [autofocus]'
+      );
       if (initialTarget instanceof HTMLElement && isVisible(initialTarget)) {
         initialTarget.focus({ preventScroll: true });
         return;
@@ -90,13 +97,14 @@ function useFocusTrap(containerRef, active, options = {}) {
       window.cancelAnimationFrame(focusFrame);
       container.removeEventListener('keydown', handleKeyDown);
       const latestState = latestStateRef.current;
-      const deactivatedButStillOpen = latestState.restoreOnDeactivate === false
-        && latestState.active === false
-        && latestState.open !== false;
+      const deactivatedButStillOpen =
+        latestState.restoreOnDeactivate === false &&
+        latestState.active === false &&
+        latestState.open !== false;
       if (
-        !deactivatedButStillOpen
-        && previouslyFocused instanceof HTMLElement
-        && typeof previouslyFocused.focus === 'function'
+        !deactivatedButStillOpen &&
+        previouslyFocused instanceof HTMLElement &&
+        typeof previouslyFocused.focus === 'function'
       ) {
         previouslyFocused.focus({ preventScroll: true });
       }

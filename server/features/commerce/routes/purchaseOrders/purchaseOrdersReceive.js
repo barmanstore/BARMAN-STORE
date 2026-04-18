@@ -22,7 +22,9 @@ const registerPurchaseOrdersReceiveRoutes = (deps) => {
       if (!order) return res.status(404).json({ error: 'Purchase order not found' });
       const poStatus = getPurchaseOrderLifecycleStatus(order);
       if (!canPoReceiveInventory(poStatus)) {
-        return res.status(400).json({ error: 'Only confirmed purchase orders can receive inventory' });
+        return res
+          .status(400)
+          .json({ error: 'Only confirmed purchase orders can receive inventory' });
       }
       const b = req.body || {};
       const items = Array.isArray(b.items) ? b.items : [];
@@ -31,7 +33,10 @@ const registerPurchaseOrdersReceiveRoutes = (deps) => {
       let nextAction = derivePurchaseNextAction(order);
       let supplierUpdates = [];
       const historyTransactionTs = buildPurchaseTransactionTimestamp(
-        order.planned_order_date || order.expected_delivery || order.created_at || new Date().toISOString(),
+        order.planned_order_date ||
+          order.expected_delivery ||
+          order.created_at ||
+          new Date().toISOString(),
         new Date()
       );
 

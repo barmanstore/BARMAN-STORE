@@ -35,7 +35,10 @@ const ProductFormView = ({
     <>
       {error && <div className="error-message">{error}</div>}
 
-      <form onSubmit={onSubmit} className={`product-form${isQuickMode ? ' compact-product-form' : ''}`}>
+      <form
+        onSubmit={onSubmit}
+        className={`product-form${isQuickMode ? ' compact-product-form' : ''}`}
+      >
         {!isEditing && !isQuickMode && (
           <ProductFormBatchSection
             loading={loading}
@@ -88,11 +91,7 @@ const ProductFormView = ({
         )}
 
         {visibleAdvancedFields && (
-          <ProductFormSkuSection
-            formData={formData}
-            onChange={onChange}
-            isEditing={isEditing}
-          />
+          <ProductFormSkuSection formData={formData} onChange={onChange} isEditing={isEditing} />
         )}
 
         {!isQuickMode && (
@@ -145,4 +144,3 @@ const ProductFormView = ({
 };
 
 export default ProductFormView;
-

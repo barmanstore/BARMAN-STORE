@@ -24,9 +24,12 @@ const registerOtpRequestRoutes = (deps) => {
 
   app.post('/api/auth/otp/request', authIpLimiter, async (req, res) => {
     try {
-      const authMode = String(req.body?.mode || req.body?.purpose || 'login').trim().toLowerCase() === 'register'
-        ? 'register'
-        : 'login';
+      const authMode =
+        String(req.body?.mode || req.body?.purpose || 'login')
+          .trim()
+          .toLowerCase() === 'register'
+          ? 'register'
+          : 'login';
       const normalizedEmail = normalizeEmail(req.body?.email);
       const phoneParsed = parsePhoneInput(req.body?.phone);
       if (phoneParsed.error) return res.status(400).json({ error: phoneParsed.error });
@@ -38,7 +41,9 @@ const registerOtpRequestRoutes = (deps) => {
         return res.status(400).json({ error: 'Provide either email or phone, not both' });
       }
       if (normalizedPhone) {
-        return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
+        return res
+          .status(400)
+          .json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
       }
 
       if (isSupabaseEmailAuthUsable()) {
@@ -106,7 +111,9 @@ const registerOtpRequestRoutes = (deps) => {
       const otpCode = generateOtpCode(6);
       const otpHash = hashPassword(otpCode);
       const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000).toISOString();
-      await dbRunAsync('UPDATE auth_login_otps SET used = 1 WHERE email = ? AND used = 0', [normalizedEmail]);
+      await dbRunAsync('UPDATE auth_login_otps SET used = 1 WHERE email = ? AND used = 0', [
+        normalizedEmail,
+      ]);
       await dbRunAsync(
         `INSERT INTO auth_login_otps (user_id, email, phone, otp_hash, expires_at, attempts, max_attempts, used)
          VALUES (?, ?, ?, ?, ?, 0, ?, 0)`,

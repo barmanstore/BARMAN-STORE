@@ -1,11 +1,6 @@
 const { persistProductRow } = require('./persistProduct');
 
-const processImportRow = async ({
-  row,
-  deps,
-  seenInBatch,
-  allowIdenticalSet,
-}) => {
+const processImportRow = async ({ row, deps, seenInBatch, allowIdenticalSet }) => {
   const {
     dbGetAsync,
     normalizeProductInput,
@@ -17,9 +12,10 @@ const processImportRow = async ({
     SQL_INSERT_IGNORE_CATEGORY,
   } = deps;
 
-  const existing = row.action === 'update'
-    ? await dbGetAsync('SELECT * FROM products WHERE id = ?', [row.matched_product_id])
-    : null;
+  const existing =
+    row.action === 'update'
+      ? await dbGetAsync('SELECT * FROM products WHERE id = ?', [row.matched_product_id])
+      : null;
   if (row.action === 'update' && !existing) {
     throw new Error('Matched product no longer exists');
   }
@@ -46,25 +42,31 @@ const processImportRow = async ({
   const matchedId = row.action === 'update' ? Number(row.matched_product_id) : null;
   if (matchedId) {
     const seenProductRow = seenInBatch.productIds.get(matchedId);
-    if (seenProductRow) throw new Error(`Duplicate update target in import batch (also seen at row ${seenProductRow})`);
+    if (seenProductRow)
+      throw new Error(
+        `Duplicate update target in import batch (also seen at row ${seenProductRow})`
+      );
     seenInBatch.productIds.set(matchedId, row.row);
   }
   const skuKey = normalizeTextKey(payload.sku);
   if (skuKey) {
     const seenSkuRow = seenInBatch.sku.get(skuKey);
-    if (seenSkuRow) throw new Error(`Duplicate SKU in import batch (also seen at row ${seenSkuRow})`);
+    if (seenSkuRow)
+      throw new Error(`Duplicate SKU in import batch (also seen at row ${seenSkuRow})`);
     seenInBatch.sku.set(skuKey, row.row);
   }
   const barcodeKey = normalizeTextKey(payload.barcode);
   if (barcodeKey) {
     const seenBarcodeRow = seenInBatch.barcode.get(barcodeKey);
-    if (seenBarcodeRow) throw new Error(`Duplicate barcode in import batch (also seen at row ${seenBarcodeRow})`);
+    if (seenBarcodeRow)
+      throw new Error(`Duplicate barcode in import batch (also seen at row ${seenBarcodeRow})`);
     seenInBatch.barcode.set(barcodeKey, row.row);
   }
   const identityKey = buildProductExactKey(payload);
   if (identityKey) {
     const seenIdentityRow = seenInBatch.identity.get(identityKey);
-    if (seenIdentityRow) throw new Error(`Exact duplicate in import batch (also seen at row ${seenIdentityRow})`);
+    if (seenIdentityRow)
+      throw new Error(`Exact duplicate in import batch (also seen at row ${seenIdentityRow})`);
     seenInBatch.identity.set(identityKey, row.row);
   }
 

@@ -26,11 +26,13 @@
         onClick={() => setSelectedCategory(category.name)}
         aria-label={category.name}
       >
-        {renderCategoryChipLabel(category, groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category')}
+        {renderCategoryChipLabel(
+          category,
+          groupBy === GROUP_BY_OPTIONS.brand ? 'brand' : 'category'
+        )}
       </button>
     ))}
   </div>
 );
 
 export default ProductsCategoryStrip;
-

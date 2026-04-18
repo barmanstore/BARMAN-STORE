@@ -1,20 +1,19 @@
-const splitCommaValues = (value) => String(value ?? '')
-  .split(',')
-  .map((part) => String(part || '').trim())
-  .filter(Boolean);
+const splitCommaValues = (value) =>
+  String(value ?? '')
+    .split(',')
+    .map((part) => String(part || '').trim())
+    .filter(Boolean);
 
 const firstCommaValue = (value) => splitCommaValues(value)[0] || '';
 
-const joinCommaValues = (values = []) => values
-  .map((value) => String(value ?? '').trim())
-  .filter(Boolean)
-  .join(',');
+const joinCommaValues = (values = []) =>
+  values
+    .map((value) => String(value ?? '').trim())
+    .filter(Boolean)
+    .join(',');
 
-const getPricingVariantCount = (data) => Math.max(
-  1,
-  splitCommaValues(data?.price).length,
-  splitCommaValues(data?.mrp).length
-);
+const getPricingVariantCount = (data) =>
+  Math.max(1, splitCommaValues(data?.price).length, splitCommaValues(data?.mrp).length);
 
 const pickVariantValueLoose = (values, index, variantCount) => {
   if (!values.length) return '';
@@ -43,10 +42,13 @@ const createInitialFormData = () => ({
   expiry_date: '',
   category: '',
   defaultDiscount: '',
-  discountType: 'fixed'
+  discountType: 'fixed',
 });
 
-const normalizeSkuToken = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+const normalizeSkuToken = (value) =>
+  String(value || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
 const toSkuFixed = (value, length, fallback = 'X') => {
   const clean = normalizeSkuToken(value);
   if (!clean) return fallback.repeat(length);
@@ -55,7 +57,12 @@ const toSkuFixed = (value, length, fallback = 'X') => {
 const normalizeSkuContent = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return 'NA';
-  return raw.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'NA';
+  return (
+    raw
+      .replace(/\s+/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase() || 'NA'
+  );
 };
 const normalizeSkuPrice = (value) => {
   const raw = String(value ?? '').replace(/,/g, '');
@@ -103,7 +110,8 @@ const prepareFormDataForSubmit = (data, { isQuickMode = false } = {}) => {
   if (!isQuickMode) return data;
   const prepared = { ...data };
   if (!String(prepared.description || '').trim()) {
-    prepared.description = generateDescriptionSuggestion(prepared) || String(prepared.name || '').trim();
+    prepared.description =
+      generateDescriptionSuggestion(prepared) || String(prepared.name || '').trim();
   }
   if (!String(prepared.stock || '').trim()) {
     prepared.stock = '0';
@@ -122,7 +130,10 @@ const buildProductData = (data) => ({
   description: data.description.trim(),
   brand: data.brand.trim(),
   content: data.content.trim(),
-  purchase_pack_size: String(data.purchase_pack_size || '').trim() === '' ? null : parseFloat(data.purchase_pack_size),
+  purchase_pack_size:
+    String(data.purchase_pack_size || '').trim() === ''
+      ? null
+      : parseFloat(data.purchase_pack_size),
   color: data.color.trim(),
   price: parseFloat(data.price),
   mrp: parseFloat(data.mrp) || parseFloat(data.price),
@@ -137,7 +148,7 @@ const buildProductData = (data) => ({
   expiry_date: data.expiry_date || null,
   category: String(data.category || '').trim(),
   defaultDiscount: parseFloat(data.defaultDiscount) || 0,
-  discountType: data.discountType
+  discountType: data.discountType,
 });
 
 const buildVariantFormRows = (data) => {
@@ -168,7 +179,9 @@ const buildVariantFormRows = (data) => {
     if (!values.length) return '';
     if (values.length === 1) return values[0];
     if (values.length === variantCount) return values[index];
-    throw new Error(`Field "${name}" must have either 1 value or ${variantCount} comma-separated values.`);
+    throw new Error(
+      `Field "${name}" must have either 1 value or ${variantCount} comma-separated values.`
+    );
   };
 
   const rows = [];
@@ -195,19 +208,25 @@ const buildVariantFormRows = (data) => {
     rows.push(row);
   }
 
-  const distinctPrices = new Set(
-    rows.map((row) => String(row.price || '').trim()).filter(Boolean)
-  );
+  const distinctPrices = new Set(rows.map((row) => String(row.price || '').trim()).filter(Boolean));
   if (variantCount > 1 && distinctPrices.size > 1) {
     const contents = rows.map((row) => String(row.content || '').trim());
     const allContentPresent = contents.every(Boolean);
     const uniqueContents = new Set(contents.map((value) => value.toLowerCase()));
     if (!allContentPresent || uniqueContents.size !== rows.length) {
-      throw new Error('When multiple prices are provided, each variant must have a different non-empty content/size value.');
+      throw new Error(
+        'When multiple prices are provided, each variant must have a different non-empty content/size value.'
+      );
     }
   }
 
-  const normalizedSkus = rows.map((row) => String(row.sku || '').trim().toLowerCase()).filter(Boolean);
+  const normalizedSkus = rows
+    .map((row) =>
+      String(row.sku || '')
+        .trim()
+        .toLowerCase()
+    )
+    .filter(Boolean);
   if (normalizedSkus.length !== new Set(normalizedSkus).size) {
     throw new Error('Each variant must have a unique SKU.');
   }
@@ -215,10 +234,24 @@ const buildVariantFormRows = (data) => {
   return rows;
 };
 
-const hasFormDraft = (data) => (
-  ['name', 'description', 'brand', 'content', 'purchase_pack_size', 'color', 'price', 'mrp', 'barcode', 'sku', 'image', 'stock', 'expiry_date', 'category', 'defaultDiscount']
-    .some((field) => String(data[field] || '').trim() !== '')
-);
+const hasFormDraft = (data) =>
+  [
+    'name',
+    'description',
+    'brand',
+    'content',
+    'purchase_pack_size',
+    'color',
+    'price',
+    'mrp',
+    'barcode',
+    'sku',
+    'image',
+    'stock',
+    'expiry_date',
+    'category',
+    'defaultDiscount',
+  ].some((field) => String(data[field] || '').trim() !== '');
 
 export {
   splitCommaValues,

@@ -15,12 +15,17 @@ const createRequestAuth = ({
     if (!token) return null;
     const payload = verifyToken(token);
     if (payload) {
-      const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [payload.uid]));
+      const user = sanitizeUser(
+        await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [payload.uid])
+      );
       return user || null;
     }
 
     if (!isSupabaseEmailAuthUsable()) return null;
-    if (!supabaseAuthProvider.shouldUseClientAuth() && supabaseAuthProvider.shouldUseAccessTokenDecodeFallback()) {
+    if (
+      !supabaseAuthProvider.shouldUseClientAuth() &&
+      supabaseAuthProvider.shouldUseAccessTokenDecodeFallback()
+    ) {
       const decoded = supabaseAuthProvider.decodeAccessTokenUnsafe({ accessToken: token });
       const normalizedEmail = normalizeEmail(decoded?.email);
       if (!normalizedEmail) return null;

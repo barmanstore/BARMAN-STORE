@@ -31,7 +31,9 @@ const registerOtpVerifyRoutes = (deps) => {
         return res.status(400).json({ error: 'Provide either email or phone, not both' });
       }
       if (normalizedPhone) {
-        return res.status(400).json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
+        return res
+          .status(400)
+          .json({ error: 'Phone OTP login is not enabled. Use email OTP or OAuth login.' });
       }
       if (!otpCode) return res.status(400).json({ error: 'OTP is required' });
 
@@ -92,10 +94,11 @@ const registerOtpVerifyRoutes = (deps) => {
       if (!otpOk) {
         const nextAttempts = Number(otpRow.attempts || 0) + 1;
         const exhausted = nextAttempts >= Number(otpRow.max_attempts || OTP_MAX_ATTEMPTS);
-        await dbRunAsync(
-          'UPDATE auth_login_otps SET attempts = ?, used = ? WHERE id = ?',
-          [nextAttempts, exhausted ? 1 : Number(otpRow.used || 0), otpRow.id]
-        );
+        await dbRunAsync('UPDATE auth_login_otps SET attempts = ?, used = ? WHERE id = ?', [
+          nextAttempts,
+          exhausted ? 1 : Number(otpRow.used || 0),
+          otpRow.id,
+        ]);
         return res.status(400).json({ error: 'Invalid or expired OTP' });
       }
 

@@ -23,11 +23,7 @@ const ROOT_EXACT_TARGETS = [
   'tmp.workbench.input.txt',
 ];
 
-const NESTED_EXACT_TARGETS = [
-  'node_modules/.vite',
-  'node_modules/.cache',
-  '.vercel/output',
-];
+const NESTED_EXACT_TARGETS = ['node_modules/.vite', 'node_modules/.cache', '.vercel/output'];
 
 const ROOT_PREFIX_PATTERNS = [
   /^tmp\..+$/,
@@ -37,12 +33,7 @@ const ROOT_PREFIX_PATTERNS = [
   /^pnpm-debug\.log.*$/i,
 ];
 
-const {
-  targets,
-  collectTargets,
-  formatTargetType,
-  removeTarget,
-} = createCleanupEngine({
+const { targets, collectTargets, formatTargetType, removeTarget } = createCleanupEngine({
   repoRoot,
   exactTargets: ROOT_EXACT_TARGETS,
   nestedTargets: NESTED_EXACT_TARGETS,

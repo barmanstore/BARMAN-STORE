@@ -1,9 +1,4 @@
-const applyImportBatchRows = async ({
-  batch,
-  dbTxAsync,
-  processRow,
-  result,
-}) => {
+const applyImportBatchRows = async ({ batch, dbTxAsync, processRow, result }) => {
   await dbTxAsync(async () => {
     for (const row of batch.rows) {
       try {

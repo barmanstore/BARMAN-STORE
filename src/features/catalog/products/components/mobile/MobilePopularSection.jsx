@@ -10,11 +10,12 @@
       <p className="mobile-empty">No products matched this category.</p>
     ) : (
       <div className="mobile-products-grid">
-        {popularFamilies.map((family, index) => renderMobileProductCard(family, { prioritizeImage: index < 4 }))}
+        {popularFamilies.map((family, index) =>
+          renderMobileProductCard(family, { prioritizeImage: index < 4 })
+        )}
       </div>
     )}
   </section>
 );
 
 export default MobilePopularSection;
-

@@ -27,7 +27,9 @@ const normalizeDateTimeToken = (value = null) => {
 
 const toBooleanFlag = (value = false) => {
   if (value === true || value === 1) return true;
-  const token = String(value || '').trim().toLowerCase();
+  const token = String(value || '')
+    .trim()
+    .toLowerCase();
   return token === 'true' || token === '1' || token === 'yes' || token === 'on';
 };
 
@@ -43,9 +45,13 @@ const validateOfferPayload = async ({
   const body = payload && typeof payload === 'object' ? payload : {};
   const name = String(body.name || '').trim();
   const description = String(body.description || '').trim();
-  const rawType = String(body.type || '').trim().toLowerCase();
+  const rawType = String(body.type || '')
+    .trim()
+    .toLowerCase();
   const type = normalizeOfferType(body.type);
-  const rawStatus = String(body.status || 'active').trim().toLowerCase();
+  const rawStatus = String(body.status || 'active')
+    .trim()
+    .toLowerCase();
   const status = normalizeOfferStatus(body.status || 'active');
   const value = toMoney(body.value, 0);
   const minQuantity = toPositiveInteger(body.min_quantity, 1) || 1;
@@ -85,22 +91,27 @@ const validateOfferPayload = async ({
 
   if (type === 'percentage') {
     if (value <= 0 || value > 100) errors.push('percentage offers require value between 0 and 100');
-    if (!applyToCategory && !applyToProduct) errors.push('percentage offers require apply_to_category or apply_to_product');
+    if (!applyToCategory && !applyToProduct)
+      errors.push('percentage offers require apply_to_category or apply_to_product');
   }
   if (type === 'fixed') {
     if (value <= 0) errors.push('fixed offers require a value greater than zero');
-    if (!applyToCategory && !applyToProduct) errors.push('fixed offers require apply_to_category or apply_to_product');
+    if (!applyToCategory && !applyToProduct)
+      errors.push('fixed offers require apply_to_category or apply_to_product');
   }
   if (type === 'volume') {
     if (value <= 0 || value > 100) errors.push('volume offers require value between 0 and 100');
     if (minQuantity <= 1) errors.push('volume offers require min_quantity greater than 1');
-    if (!applyToCategory && !applyToProduct) errors.push('volume offers require apply_to_category or apply_to_product');
+    if (!applyToCategory && !applyToProduct)
+      errors.push('volume offers require apply_to_category or apply_to_product');
   }
   if (type === 'bogo') {
-    if (!buyProductId || !getProductId) errors.push('bogo offers require buy_product_id and get_product_id');
+    if (!buyProductId || !getProductId)
+      errors.push('bogo offers require buy_product_id and get_product_id');
   }
   if (type === 'bundle') {
-    if (!buyProductId || !getProductId) errors.push('bundle offers require buy_product_id and get_product_id');
+    if (!buyProductId || !getProductId)
+      errors.push('bundle offers require buy_product_id and get_product_id');
     if (value <= 0 || value > 100) errors.push('bundle offers require value between 0 and 100');
   }
 
@@ -119,7 +130,9 @@ const validateOfferPayload = async ({
     );
     const existingIds = new Set(
       Array.isArray(existingProducts?.ids)
-        ? existingProducts.ids.map((productId) => Number(productId || 0)).filter((productId) => productId > 0)
+        ? existingProducts.ids
+            .map((productId) => Number(productId || 0))
+            .filter((productId) => productId > 0)
         : []
     );
     uniqueReferencedProductIds.forEach((productId) => {

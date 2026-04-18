@@ -19,7 +19,9 @@ const registerPurchaseReturnsListRoutes = (deps) => {
       const rows = await Promise.all(
         baseRows.map(async (row) => ({
           ...row,
-          items: await dbAllAsync('SELECT * FROM purchase_return_items WHERE return_id = ?', [row.id])
+          items: await dbAllAsync('SELECT * FROM purchase_return_items WHERE return_id = ?', [
+            row.id,
+          ]),
         }))
       );
       return res.json(rows);

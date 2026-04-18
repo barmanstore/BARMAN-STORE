@@ -40,20 +40,16 @@ const BillingBillItemRow = ({
                 Edit
               </span>
             ) : null}
-            {item.isCustomItem ? (
-              <span className="billing-line-tag custom">Custom</span>
-            ) : null}
+            {item.isCustomItem ? <span className="billing-line-tag custom">Custom</span> : null}
             {item.stockWarning ? (
-              <span className={`billing-line-tag ${item.stockWarning.tone === 'danger' ? 'danger' : 'warning'}`}>
+              <span
+                className={`billing-line-tag ${item.stockWarning.tone === 'danger' ? 'danger' : 'warning'}`}
+              >
                 {item.stockWarning.text}
               </span>
             ) : null}
-            {item.appliedOfferLabel ? (
-              <span className="billing-line-tag good">Offer</span>
-            ) : null}
-            {item.isManualPrice ? (
-              <span className="billing-line-tag manual">Manual</span>
-            ) : null}
+            {item.appliedOfferLabel ? <span className="billing-line-tag good">Offer</span> : null}
+            {item.isManualPrice ? <span className="billing-line-tag manual">Manual</span> : null}
           </div>
         </div>
         <button
@@ -76,22 +72,20 @@ const BillingBillItemRow = ({
         <strong>{formatCurrency(item.amount)}</strong>
       </div>
 
-      {(Number(item.totalDiscount || item.disc || 0) > 0 || item.isPartialLinkedBilling) ? (
+      {Number(item.totalDiscount || item.disc || 0) > 0 || item.isPartialLinkedBilling ? (
         <div className="billing-bill-item-meta">
           {Number(item.offerDiscount || 0) > 0 ? (
-            <span>
-              Offer {formatCurrency(item.offerDiscount)}
-            </span>
+            <span>Offer {formatCurrency(item.offerDiscount)}</span>
           ) : null}
           {Number(item.manualDiscount || 0) > 0 ? (
-            <span>
-              Disc {formatCurrency(item.manualDiscount)}
-            </span>
+            <span>Disc {formatCurrency(item.manualDiscount)}</span>
           ) : null}
           {item.isPartialLinkedBilling ? (
             <span>
               Now {displayQty}/{Number(item.requestedQty || item.qty || 0)} {item.unit}
-              {Number(item.linkedPendingQty || 0) > 0 ? ` | Left ${Number(item.linkedPendingQty || 0)}` : ''}
+              {Number(item.linkedPendingQty || 0) > 0
+                ? ` | Left ${Number(item.linkedPendingQty || 0)}`
+                : ''}
             </span>
           ) : null}
         </div>

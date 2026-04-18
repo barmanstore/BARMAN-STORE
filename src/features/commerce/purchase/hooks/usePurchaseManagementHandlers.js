@@ -189,8 +189,10 @@ const usePurchaseManagementHandlers = ({
 
   const {
     handleFilterChange,
-    openCreateOrderForm, openCreateOrderFormForDistributor,
-    closeOrderForm, handlePurchaseSectionChange,
+    openCreateOrderForm,
+    openCreateOrderFormForDistributor,
+    closeOrderForm,
+    handlePurchaseSectionChange,
     handleOpenOrderReview,
     handleOrderSubmit,
     handleEditOrder,
@@ -241,24 +243,23 @@ const usePurchaseManagementHandlers = ({
     refreshSupplierRegisteredProducts,
   });
 
-  const {
-    handleOrderItemChange, handleOrderProductInputChange, handleApplyCatalogProducts,
-  } = usePurchaseOrderItemHandlers({
-    setOrderFormData,
-    products,
-    createEmptyOrderItem,
-    loadLastPurchaseSuggestion,
-    distributorId: orderFormData?.distributor_id,
-    getDistributorProductHistoryEntry,
-    getLatestProductHistoryEntry,
-    resolveProductByInput,
-    getProductSearchLabel,
-    resolvePurchaseUnitForProduct,
-    normalizeGstRateOption,
-    toNumber,
-    findProductForItem,
-    activePoProductField,
-  });
+  const { handleOrderItemChange, handleOrderProductInputChange, handleApplyCatalogProducts } =
+    usePurchaseOrderItemHandlers({
+      setOrderFormData,
+      products,
+      createEmptyOrderItem,
+      loadLastPurchaseSuggestion,
+      distributorId: orderFormData?.distributor_id,
+      getDistributorProductHistoryEntry,
+      getLatestProductHistoryEntry,
+      resolveProductByInput,
+      getProductSearchLabel,
+      resolvePurchaseUnitForProduct,
+      normalizeGstRateOption,
+      toNumber,
+      findProductForItem,
+      activePoProductField,
+    });
 
   const {
     handleUpdateStatus: handleUpdateStatusInternal,
@@ -273,46 +274,39 @@ const usePurchaseManagementHandlers = ({
     setSendingWhatsAppOrderId,
   });
 
-  const {
-    handleReceiveClick,
-    handleReceiveItemChange,
-    handleReceiveQtyStep,
-    handleReceiveSubmit,
-  } = usePurchaseReceiveHandlers({
-    receiveData,
-    setReceiveData,
-    selectedOrder,
-    setSelectedOrder,
-    setShowReceiveModal,
-    setReceiveSubmitting,
-    receiveSubmitLockRef,
-    purchaseOrdersApi,
-    user,
-    fetchOrders,
-    setError,
-    toNumber,
-  });
+  const { handleReceiveClick, handleReceiveItemChange, handleReceiveQtyStep, handleReceiveSubmit } =
+    usePurchaseReceiveHandlers({
+      receiveData,
+      setReceiveData,
+      selectedOrder,
+      setSelectedOrder,
+      setShowReceiveModal,
+      setReceiveSubmitting,
+      receiveSubmitLockRef,
+      purchaseOrdersApi,
+      user,
+      fetchOrders,
+      setError,
+      toNumber,
+    });
 
-  const {
-    handleOpenProcessModal,
-    closeProcessModal,
-    handleProcessSubmit,
-  } = usePurchaseProcessHandlers({
-    getDefaultProcessFormData,
-    setProcessingOrder,
-    setProcessFormData,
-    setShowProcessModal,
-    setProcessSubmitting,
-    processSubmitLockRef,
-    handleUpdateStatus: handleUpdateStatusInternal,
-    getTodayDate,
-    toNumber,
-    getOrderDisplayTotal,
-    user,
-    processingOrder,
-    processFormData,
-    setError,
-  });
+  const { handleOpenProcessModal, closeProcessModal, handleProcessSubmit } =
+    usePurchaseProcessHandlers({
+      getDefaultProcessFormData,
+      setProcessingOrder,
+      setProcessFormData,
+      setShowProcessModal,
+      setProcessSubmitting,
+      processSubmitLockRef,
+      handleUpdateStatus: handleUpdateStatusInternal,
+      getTodayDate,
+      toNumber,
+      getOrderDisplayTotal,
+      user,
+      processingOrder,
+      processFormData,
+      setError,
+    });
 
   const {
     handleOpenPoPaymentModal,
@@ -344,9 +338,12 @@ const usePurchaseManagementHandlers = ({
   });
 
   const {
-    closeOrderDetail, handleOrderDetailFieldChange,
-    handleOrderDetailItemChange, handleOrderDetailProductInputChange,
-    handleOrderDetailItemAdd, handleOrderDetailItemRemove,
+    closeOrderDetail,
+    handleOrderDetailFieldChange,
+    handleOrderDetailItemChange,
+    handleOrderDetailProductInputChange,
+    handleOrderDetailItemAdd,
+    handleOrderDetailItemRemove,
     openOrderDetailEditMode,
     handleOrderDetailSave,
     handleViewOrder,
@@ -467,7 +464,9 @@ const usePurchaseManagementHandlers = ({
     getDistributorProductOptions,
     getDistributorHistoryProducts,
     handleDistributorInputChange,
-    handleOrderItemAdd, handleOrderItemRemove, handleOrderProductFieldFocus,
+    handleOrderItemAdd,
+    handleOrderItemRemove,
+    handleOrderProductFieldFocus,
     handleLoadDistributorItems,
     handleApplySupplierHistoryItem,
     handleFilterChange,
@@ -484,11 +483,17 @@ const usePurchaseManagementHandlers = ({
     handleUpdateStatus: handleUpdateStatusInternal,
     handleSendDistributorWhatsApp,
     handleDeleteOrder,
-    handleReceiveClick, handleReceiveItemChange, handleReceiveQtyStep, handleReceiveSubmit,
+    handleReceiveClick,
+    handleReceiveItemChange,
+    handleReceiveQtyStep,
+    handleReceiveSubmit,
     handleOpenProcessModal,
     closeProcessModal,
     handleProcessSubmit,
-    handleOpenPoPaymentModal, handleOpenPoPaymentById, closePoPaymentModal, handlePoPaymentSubmit,
+    handleOpenPoPaymentModal,
+    handleOpenPoPaymentById,
+    closePoPaymentModal,
+    handlePoPaymentSubmit,
     closeOrderDetail,
     handleOrderDetailFieldChange,
     handleOrderDetailItemChange,
@@ -498,8 +503,12 @@ const usePurchaseManagementHandlers = ({
     openOrderDetailEditMode,
     handleOrderDetailSave,
     handleViewOrder,
-    handleReturnFormOpen, closeReturnForm, handleReturnItemAdd,
-    handleReturnItemChange, handleReturnItemRemove, handleReturnSubmit,
+    handleReturnFormOpen,
+    closeReturnForm,
+    handleReturnItemAdd,
+    handleReturnItemChange,
+    handleReturnItemRemove,
+    handleReturnSubmit,
     closePoCorrectionForm,
     handleOpenPoCorrectionForm,
     handlePoCorrectionSubmit,

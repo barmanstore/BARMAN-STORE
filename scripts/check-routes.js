@@ -46,7 +46,9 @@ const extractRoutesFromStack = (stack, basePath = '', routes = new Set()) => {
   stack.forEach((layer) => {
     if (layer?.route && layer.route.path) {
       const routePaths = Array.isArray(layer.route.path) ? layer.route.path : [layer.route.path];
-      const methods = Object.keys(layer.route.methods || {}).filter((method) => layer.route.methods[method]);
+      const methods = Object.keys(layer.route.methods || {}).filter(
+        (method) => layer.route.methods[method]
+      );
       routePaths.forEach((routePath) => {
         const fullPath = joinPaths(basePath, routePath);
         methods.forEach((method) => {
@@ -76,19 +78,21 @@ const loadMountedRoutes = () => {
   const { app } = createAppContext();
   const stack = app?._router?.stack || [];
   const routes = extractRoutesFromStack(stack);
-  return new Set([...routes].filter((route) => {
-    const [method, path] = route.split(' ');
-    if (!METHOD_KEYS.includes(method.toLowerCase())) return false;
-    const normalizedPath = normalizeRoutePath(path);
-    if (!normalizedPath) return false;
-    if (method.toUpperCase() === 'OPTIONS' && normalizedPath === '*') return false;
-    if (method.toUpperCase() === 'GET' || method.toUpperCase() === 'HEAD') {
-      if (normalizedPath.startsWith('/uploads') || normalizedPath.startsWith('/api/uploads')) {
-        return false;
+  return new Set(
+    [...routes].filter((route) => {
+      const [method, path] = route.split(' ');
+      if (!METHOD_KEYS.includes(method.toLowerCase())) return false;
+      const normalizedPath = normalizeRoutePath(path);
+      if (!normalizedPath) return false;
+      if (method.toUpperCase() === 'OPTIONS' && normalizedPath === '*') return false;
+      if (method.toUpperCase() === 'GET' || method.toUpperCase() === 'HEAD') {
+        if (normalizedPath.startsWith('/uploads') || normalizedPath.startsWith('/api/uploads')) {
+          return false;
+        }
       }
-    }
-    return true;
-  }));
+      return true;
+    })
+  );
 };
 
 const main = () => {
@@ -103,7 +107,9 @@ const main = () => {
   ]);
 
   const missingInDocs = [...mountedRoutes].filter((route) => !documentedRoutes.has(route));
-  const missingInApp = [...documentedRoutes].filter((route) => !mountedRoutes.has(route) && !optionalDocRoutes.has(route));
+  const missingInApp = [...documentedRoutes].filter(
+    (route) => !mountedRoutes.has(route) && !optionalDocRoutes.has(route)
+  );
 
   if (missingInDocs.length || missingInApp.length) {
     console.error('Route drift detected.');

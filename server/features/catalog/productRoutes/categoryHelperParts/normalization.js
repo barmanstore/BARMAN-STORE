@@ -46,12 +46,11 @@ const createCategoryNormalization = () => {
     total_product_count: Number(row?.total_product_count || 0),
   });
 
-  const splitHierarchySegments = (value) => (
+  const splitHierarchySegments = (value) =>
     String(value || '')
       .split('->')
       .map((part) => normalizeCategoryName(part))
-      .filter(Boolean)
-  );
+      .filter(Boolean);
 
   return {
     hasOwn,

@@ -8,11 +8,13 @@ import {
 } from './smokeDbConfig.mjs';
 
 const PHONE_POLICY_MESSAGE = 'Phone number must be 10 digits (India format, optional +91 prefix).';
-const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
+const PASSWORD_AUTH_DISABLED_ERROR =
+  'Password-based authentication is disabled. Use OTP or OAuth login.';
 const CRON_SECRET = 'phone-change-cron-secret';
-const allowSkipIfNoDb = parseBooleanEnv(String(
-  process.env.PHONE_TEST_ALLOW_NO_DB || process.env.SMOKE_ALLOW_NO_DB || ''
-), false);
+const allowSkipIfNoDb = parseBooleanEnv(
+  String(process.env.PHONE_TEST_ALLOW_NO_DB || process.env.SMOKE_ALLOW_NO_DB || ''),
+  false
+);
 const smokeDbConfig = resolveSmokeDbConfig({
   testName: 'Phone workflow smoke test',
   explicitEnvKeys: ['PHONE_TEST_DB_URL', 'SMOKE_TEST_DB_URL'],
@@ -45,7 +47,10 @@ const terminateServer = async (server, timeoutMs = 2000) => {
   } catch (_) {
     // ignore kill errors
   }
-  const timedOut = await Promise.race([exited.then(() => false), delay(timeoutMs).then(() => true)]);
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    delay(timeoutMs).then(() => true),
+  ]);
   if (timedOut && !server.killed) {
     try {
       server.kill('SIGKILL');
@@ -62,7 +67,8 @@ const randomIndianMobile = () => {
   return `${first}${rest}`;
 };
 
-const randomEmail = () => `phone-smoke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+const randomEmail = () =>
+  `phone-smoke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
 const toJson = async (res) => {
   try {
@@ -72,16 +78,18 @@ const toJson = async (res) => {
   }
 };
 
-const makeRequest = (baseUrl, token = '') => async (pathname, init = {}, extraHeaders = {}) =>
-  fetch(`${baseUrl}${pathname}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...extraHeaders,
-      ...(init.headers || {}),
-    },
-  });
+const makeRequest =
+  (baseUrl, token = '') =>
+  async (pathname, init = {}, extraHeaders = {}) =>
+    fetch(`${baseUrl}${pathname}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extraHeaders,
+        ...(init.headers || {}),
+      },
+    });
 
 const registerOtpUser = async (request) => {
   const email = randomEmail();
@@ -94,7 +102,11 @@ const registerOtpUser = async (request) => {
   });
   const otpRequestJson = await toJson(otpRequestRes);
   assert.equal(otpRequestRes.status, 201, `otp request failed: ${JSON.stringify(otpRequestJson)}`);
-  assert.equal(Boolean(otpRequestJson?.dev_otp_code), true, 'otp response should expose dev_otp_code in test mode');
+  assert.equal(
+    Boolean(otpRequestJson?.dev_otp_code),
+    true,
+    'otp response should expose dev_otp_code in test mode'
+  );
 
   const otpVerifyRes = await request('/api/auth/otp/verify', {
     method: 'POST',
@@ -169,8 +181,12 @@ const spawnPhoneTestServer = async (port) => {
       },
     });
 
-    server.stdout.on('data', (chunk) => { stdout += String(chunk); });
-    server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    server.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    server.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
 
     return {
       server,
@@ -251,12 +267,14 @@ const main = async () => {
       }
     }
     if (!ready) {
-      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(bootDiagnostics);
-      if (allowSkipIfNoDb && dbBootFailed) {
-        logSmokeSkipInfo(
-          'Phone workflow smoke test skipped because the database is unavailable.',
-          ['Set PHONE_TEST_DB_URL or SMOKE_TEST_DB_URL to run the test safely.']
+      const dbBootFailed =
+        /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(
+          bootDiagnostics
         );
+      if (allowSkipIfNoDb && dbBootFailed) {
+        logSmokeSkipInfo('Phone workflow smoke test skipped because the database is unavailable.', [
+          'Set PHONE_TEST_DB_URL or SMOKE_TEST_DB_URL to run the test safely.',
+        ]);
         return;
       }
       assert.equal(
@@ -274,7 +292,11 @@ const main = async () => {
       }),
     });
     const disabledRegisterJson = await toJson(disabledRegisterRes);
-    assert.equal(disabledRegisterRes.status, 410, `register expected 410: ${JSON.stringify(disabledRegisterJson)}`);
+    assert.equal(
+      disabledRegisterRes.status,
+      410,
+      `register expected 410: ${JSON.stringify(disabledRegisterJson)}`
+    );
     assert.equal(disabledRegisterJson?.error, PASSWORD_AUTH_DISABLED_ERROR);
 
     const badOtpRequestRes = await request('/api/auth/otp/request', {
@@ -282,7 +304,11 @@ const main = async () => {
       body: JSON.stringify({ phone: '12345' }),
     });
     const badOtpRequestJson = await toJson(badOtpRequestRes);
-    assert.equal(badOtpRequestRes.status, 400, `invalid phone otp request should fail: ${JSON.stringify(badOtpRequestJson)}`);
+    assert.equal(
+      badOtpRequestRes.status,
+      400,
+      `invalid phone otp request should fail: ${JSON.stringify(badOtpRequestJson)}`
+    );
     assert.equal(badOtpRequestJson?.error, PHONE_POLICY_MESSAGE);
 
     const userOne = await registerOtpUser(request);
@@ -295,7 +321,11 @@ const main = async () => {
       body: JSON.stringify({ phone: '1111' }),
     });
     const invalidPhoneUpdateJson = await toJson(invalidPhoneUpdateRes);
-    assert.equal(invalidPhoneUpdateRes.status, 400, `invalid phone update should fail: ${JSON.stringify(invalidPhoneUpdateJson)}`);
+    assert.equal(
+      invalidPhoneUpdateRes.status,
+      400,
+      `invalid phone update should fail: ${JSON.stringify(invalidPhoneUpdateJson)}`
+    );
     assert.equal(invalidPhoneUpdateJson?.error, PHONE_POLICY_MESSAGE);
 
     const sharedPhone = randomIndianMobile();
@@ -304,22 +334,38 @@ const main = async () => {
       body: JSON.stringify({ phone: `+91 ${sharedPhone}` }),
     });
     const firstPhoneUpdateJson = await toJson(firstPhoneUpdateRes);
-    assert.equal(firstPhoneUpdateRes.status, 200, `phone update request should succeed: ${JSON.stringify(firstPhoneUpdateJson)}`);
+    assert.equal(
+      firstPhoneUpdateRes.status,
+      200,
+      `phone update request should succeed: ${JSON.stringify(firstPhoneUpdateJson)}`
+    );
     assert.equal(firstPhoneUpdateJson?.phone, null, 'phone should remain unchanged until approval');
     assert.equal(firstPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
     assert.equal(firstPhoneUpdateJson?.phone_change_request?.new_phone, sharedPhone);
 
-    const unauthorizedCronRes = await request('/api/internal/phone-change/process', { method: 'POST' });
+    const unauthorizedCronRes = await request('/api/internal/phone-change/process', {
+      method: 'POST',
+    });
     const unauthorizedCronJson = await toJson(unauthorizedCronRes);
-    assert.equal(unauthorizedCronRes.status, 401, `internal processor should require secret: ${JSON.stringify(unauthorizedCronJson)}`);
+    assert.equal(
+      unauthorizedCronRes.status,
+      401,
+      `internal processor should require secret: ${JSON.stringify(unauthorizedCronJson)}`
+    );
 
     await delay(1400);
     const firstProcessRun = await runInternalProcessor(request);
     assert.equal(Boolean(firstProcessRun?.result), true, 'processor should return stats');
 
-    const userOneProfileRes = await userOneRequest(`/api/users/${userOne.userId}`, { method: 'GET' });
+    const userOneProfileRes = await userOneRequest(`/api/users/${userOne.userId}`, {
+      method: 'GET',
+    });
     const userOneProfileJson = await toJson(userOneProfileRes);
-    assert.equal(userOneProfileRes.status, 200, `user one profile fetch failed: ${JSON.stringify(userOneProfileJson)}`);
+    assert.equal(
+      userOneProfileRes.status,
+      200,
+      `user one profile fetch failed: ${JSON.stringify(userOneProfileJson)}`
+    );
     assert.equal(userOneProfileJson?.phone, sharedPhone, 'user one phone should be auto-approved');
 
     const userTwo = await registerOtpUser(request);
@@ -329,43 +375,74 @@ const main = async () => {
       body: JSON.stringify({ phone: sharedPhone }),
     });
     const userTwoPhoneUpdateJson = await toJson(userTwoPhoneUpdateRes);
-    assert.equal(userTwoPhoneUpdateRes.status, 200, `second user phone update should queue: ${JSON.stringify(userTwoPhoneUpdateJson)}`);
+    assert.equal(
+      userTwoPhoneUpdateRes.status,
+      200,
+      `second user phone update should queue: ${JSON.stringify(userTwoPhoneUpdateJson)}`
+    );
     assert.equal(userTwoPhoneUpdateJson?.phone_change_request?.status, 'PENDING_VALIDATION');
 
     await delay(1400);
     const secondProcessRun = await runInternalProcessor(request);
     const secondEscalations = Number(secondProcessRun?.result?.escalated_admin_review || 0);
 
-    const userTwoStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', { method: 'GET' });
+    const userTwoStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', {
+      method: 'GET',
+    });
     const userTwoStatusJson = await toJson(userTwoStatusRes);
-    assert.equal(userTwoStatusRes.status, 200, `user two status fetch failed: ${JSON.stringify(userTwoStatusJson)}`);
-    const secondStatus = String(userTwoStatusJson?.request?.status || '').trim().toUpperCase();
+    assert.equal(
+      userTwoStatusRes.status,
+      200,
+      `user two status fetch failed: ${JSON.stringify(userTwoStatusJson)}`
+    );
+    const secondStatus = String(userTwoStatusJson?.request?.status || '')
+      .trim()
+      .toUpperCase();
     const secondNeedsReview = Boolean(userTwoStatusJson?.request?.needs_admin_review);
     assert.equal(
       Boolean(secondEscalations >= 1 || secondNeedsReview || secondStatus === 'REJECTED'),
       true,
       `second run should escalate conflict to admin review (or already be escalated/rejected): ${JSON.stringify(secondProcessRun)}`
     );
-    assert.equal(['PENDING_VALIDATION', 'REJECTED'].includes(secondStatus), true, 'status should be pending review or auto-rejected');
+    assert.equal(
+      ['PENDING_VALIDATION', 'REJECTED'].includes(secondStatus),
+      true,
+      'status should be pending review or auto-rejected'
+    );
     if (secondStatus === 'PENDING_VALIDATION') {
       assert.equal(secondNeedsReview, true, 'request should require admin review');
 
       await delay(6500);
       const thirdProcessRun = await runInternalProcessor(request);
-      assert.equal(Boolean(thirdProcessRun?.result?.expired_rejected >= 1), true, 'third run should auto-reject overdue admin review');
+      assert.equal(
+        Boolean(thirdProcessRun?.result?.expired_rejected >= 1),
+        true,
+        'third run should auto-reject overdue admin review'
+      );
 
-      const userTwoExpiredStatusRes = await userTwoRequest('/api/auth/phone-change-request/status', { method: 'GET' });
+      const userTwoExpiredStatusRes = await userTwoRequest(
+        '/api/auth/phone-change-request/status',
+        { method: 'GET' }
+      );
       const userTwoExpiredStatusJson = await toJson(userTwoExpiredStatusRes);
-      assert.equal(userTwoExpiredStatusRes.status, 200, `user two expired status fetch failed: ${JSON.stringify(userTwoExpiredStatusJson)}`);
+      assert.equal(
+        userTwoExpiredStatusRes.status,
+        200,
+        `user two expired status fetch failed: ${JSON.stringify(userTwoExpiredStatusJson)}`
+      );
       assert.equal(userTwoExpiredStatusJson?.request?.status, 'REJECTED');
       assert.equal(
-        String(userTwoExpiredStatusJson?.request?.rejection_reason || '').toLowerCase().includes('expired'),
+        String(userTwoExpiredStatusJson?.request?.rejection_reason || '')
+          .toLowerCase()
+          .includes('expired'),
         true,
         'rejection reason should indicate expiry'
       );
     } else {
       assert.equal(
-        String(userTwoStatusJson?.request?.rejection_reason || '').toLowerCase().includes('expired'),
+        String(userTwoStatusJson?.request?.rejection_reason || '')
+          .toLowerCase()
+          .includes('expired'),
         true,
         'immediate rejection should indicate expiry'
       );
@@ -377,16 +454,24 @@ const main = async () => {
       body: JSON.stringify({ phone: secondRequestedPhone }),
     });
     const secondRequestJson = await toJson(secondRequestRes);
-    assert.equal(secondRequestRes.status, 200, `second pending request should succeed: ${JSON.stringify(secondRequestJson)}`);
+    assert.equal(
+      secondRequestRes.status,
+      200,
+      `second pending request should succeed: ${JSON.stringify(secondRequestJson)}`
+    );
     assert.equal(secondRequestJson?.phone_change_request?.status, 'PENDING_VALIDATION');
     assert.equal(secondRequestJson?.phone_change_request?.new_phone, secondRequestedPhone);
 
-    const cancelRes = await userTwoRequest('/api/auth/phone-change-request/cancel', { method: 'POST' });
+    const cancelRes = await userTwoRequest('/api/auth/phone-change-request/cancel', {
+      method: 'POST',
+    });
     const cancelJson = await toJson(cancelRes);
     assert.equal(cancelRes.status, 200, `cancel request failed: ${JSON.stringify(cancelJson)}`);
     assert.equal(cancelJson?.request?.status, 'REJECTED');
     assert.equal(
-      String(cancelJson?.request?.rejection_reason || '').toLowerCase().includes('cancelled'),
+      String(cancelJson?.request?.rejection_reason || '')
+        .toLowerCase()
+        .includes('cancelled'),
       true,
       'cancel request should mark rejection reason'
     );

@@ -36,7 +36,9 @@ function CalculatedAmountInput({
         'calculated-amount-input',
         showFeedback && !evaluation.valid ? 'has-error' : '',
         className,
-      ].filter(Boolean).join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <input
         id={id}
@@ -62,9 +64,13 @@ function CalculatedAmountInput({
             'calculated-amount-input-preview',
             evaluation.valid ? 'ok' : 'error',
             previewClassName,
-          ].filter(Boolean).join(' ')}
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
-          {evaluation.valid ? `Calculated: ${formatCurrency(evaluation.value)}` : evaluation.message}
+          {evaluation.valid
+            ? `Calculated: ${formatCurrency(evaluation.value)}`
+            : evaluation.message}
         </div>
       ) : null}
     </div>

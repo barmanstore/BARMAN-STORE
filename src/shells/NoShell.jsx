@@ -11,9 +11,7 @@ function NoShell({ children }) {
 
   return (
     <div className="app app-popup" data-window-background-root="true">
-      <main className="main-content main-content-popup">
-        {children}
-      </main>
+      <main className="main-content main-content-popup">{children}</main>
     </div>
   );
 }

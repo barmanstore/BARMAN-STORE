@@ -34,13 +34,27 @@ const BACKOFFICE_POPUP_PRELOADERS = {
   purchase: () => import('../../features/commerce/purchase/pages/PurchasePopupPage'),
 };
 
-const getBackofficePopupConfig = (kind) => BACKOFFICE_POPUP_CONFIG[String(kind || '').trim().toLowerCase()] || null;
+const getBackofficePopupConfig = (kind) =>
+  BACKOFFICE_POPUP_CONFIG[
+    String(kind || '')
+      .trim()
+      .toLowerCase()
+  ] || null;
 
-const getBackofficePopupStatusKey = (kind) => `backoffice_popup_status_${String(kind || '').trim().toLowerCase()}`;
+const getBackofficePopupStatusKey = (kind) =>
+  `backoffice_popup_status_${String(kind || '')
+    .trim()
+    .toLowerCase()}`;
 
-const getBackofficePopupDraftKey = (kind) => `backoffice_popup_draft_${String(kind || '').trim().toLowerCase()}`;
+const getBackofficePopupDraftKey = (kind) =>
+  `backoffice_popup_draft_${String(kind || '')
+    .trim()
+    .toLowerCase()}`;
 
-const getBackofficePopupHandoffKey = (kind) => `backoffice_popup_handoff_${String(kind || '').trim().toLowerCase()}`;
+const getBackofficePopupHandoffKey = (kind) =>
+  `backoffice_popup_handoff_${String(kind || '')
+    .trim()
+    .toLowerCase()}`;
 
 const buildBackofficePopupPath = (kind, params = null) => {
   const config = getBackofficePopupConfig(kind);
@@ -101,7 +115,7 @@ const normalizePopupStatus = (kind, value) => {
     };
   }
   const updatedAt = Number(value.updatedAt || 0);
-  const isFresh = updatedAt > 0 && (Date.now() - updatedAt) < BACKOFFICE_POPUP_STATUS_TTL_MS;
+  const isFresh = updatedAt > 0 && Date.now() - updatedAt < BACKOFFICE_POPUP_STATUS_TTL_MS;
   return {
     kind,
     isOpen: Boolean(value.isOpen) && isFresh,
@@ -121,7 +135,7 @@ const normalizePopupHandoff = (kind, value) => {
     };
   }
   const updatedAt = Number(value.updatedAt || 0);
-  const isFresh = updatedAt > 0 && (Date.now() - updatedAt) < BACKOFFICE_POPUP_HANDOFF_TTL_MS;
+  const isFresh = updatedAt > 0 && Date.now() - updatedAt < BACKOFFICE_POPUP_HANDOFF_TTL_MS;
   const payload = value?.payload && typeof value.payload === 'object' ? value.payload : null;
   return {
     kind,
@@ -212,7 +226,12 @@ const clearBackofficePopupHandoff = (kind, handoffId = '') => {
 };
 
 const preloadBackofficePopup = (kind) => {
-  const loader = BACKOFFICE_POPUP_PRELOADERS[String(kind || '').trim().toLowerCase()];
+  const loader =
+    BACKOFFICE_POPUP_PRELOADERS[
+      String(kind || '')
+        .trim()
+        .toLowerCase()
+    ];
   if (!loader) return;
   try {
     void loader();

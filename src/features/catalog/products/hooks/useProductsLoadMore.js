@@ -9,10 +9,16 @@ export default function useProductsLoadMore({
   rootMargin,
   deps = [],
 }) {
+  const depsKey = JSON.stringify(deps);
+
   useEffect(() => {
     if (loading || isLoadingMore || !productsHasMore) return undefined;
     const node = productsLoadTriggerRef.current;
-    if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+    if (
+      !node ||
+      typeof window === 'undefined' ||
+      typeof window.IntersectionObserver !== 'function'
+    ) {
       return undefined;
     }
     const observer = new IntersectionObserver(
@@ -26,5 +32,13 @@ export default function useProductsLoadMore({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [loading, isLoadingMore, productsHasMore, productsLoadTriggerRef, loadMoreProductsRef, rootMargin, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    loading,
+    isLoadingMore,
+    productsHasMore,
+    productsLoadTriggerRef,
+    loadMoreProductsRef,
+    rootMargin,
+    depsKey,
+  ]);
 }

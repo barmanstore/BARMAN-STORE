@@ -7,9 +7,13 @@ const {
 } = require('../server/db/postgresScaffold');
 
 const main = async () => {
-  const mode = normalizeExecutionMode(process.env.DB_EXECUTION_MODE || process.env.DB_CLIENT || 'postgres');
+  const mode = normalizeExecutionMode(
+    process.env.DB_EXECUTION_MODE || process.env.DB_CLIENT || 'postgres'
+  );
   if (mode !== 'postgres') {
-    console.log(`[DB] DB_EXECUTION_MODE=${mode}. Set DB_EXECUTION_MODE=postgres for Supabase/Postgres checks.`);
+    console.log(
+      `[DB] DB_EXECUTION_MODE=${mode}. Set DB_EXECUTION_MODE=postgres for Supabase/Postgres checks.`
+    );
     return;
   }
 

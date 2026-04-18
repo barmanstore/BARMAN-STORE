@@ -67,7 +67,11 @@ export const productsApi = {
     const params = {
       format,
     };
-    if (includeInactiveOrParams && typeof includeInactiveOrParams === 'object' && !Array.isArray(includeInactiveOrParams)) {
+    if (
+      includeInactiveOrParams &&
+      typeof includeInactiveOrParams === 'object' &&
+      !Array.isArray(includeInactiveOrParams)
+    ) {
       Object.entries(includeInactiveOrParams).forEach(([key, value]) => {
         if (value === undefined || value === null || value === '') return;
         params[key] = value;

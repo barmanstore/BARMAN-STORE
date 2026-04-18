@@ -53,7 +53,8 @@ const useAdminProductTable = ({
     return Array.isArray(products) ? [...products] : [];
   }, [products]);
 
-  const productTableAllColumnsSelected = productTableVisibleColumns.length === PRODUCT_TABLE_ALL_COLUMN_KEYS.length;
+  const productTableAllColumnsSelected =
+    productTableVisibleColumns.length === PRODUCT_TABLE_ALL_COLUMN_KEYS.length;
   const isProductTableColumnVisible = (key) => productTableVisibleColumns.includes(key);
 
   const toggleProductTableColumn = (key) => {
@@ -83,11 +84,13 @@ const useAdminProductTable = ({
     return Math.max(420, visibleTotal + 80);
   }, [productTableVisibleColumns, PRODUCT_TABLE_COLUMN_MIN_WIDTH]);
 
-  const visibleEditableFields = useMemo(() => (
-    PRODUCT_TABLE_EDITABLE_COLUMN_SEQUENCE
-      .filter((column) => productTableVisibleColumns.includes(column.columnKey))
-      .map((column) => column.field)
-  ), [productTableVisibleColumns]);
+  const visibleEditableFields = useMemo(
+    () =>
+      PRODUCT_TABLE_EDITABLE_COLUMN_SEQUENCE.filter((column) =>
+        productTableVisibleColumns.includes(column.columnKey)
+      ).map((column) => column.field),
+    [productTableVisibleColumns]
+  );
 
   const selectedVisibleProduct = useMemo(() => {
     const id = Number(selectedProductId || 0);
@@ -101,7 +104,11 @@ const useAdminProductTable = ({
       return;
     }
     setProductTableSortField(field);
-    setProductTableSortDir(field === 'name' || field === 'brand' || field === 'category' || field === 'sku' ? 'asc' : 'desc');
+    setProductTableSortDir(
+      field === 'name' || field === 'brand' || field === 'category' || field === 'sku'
+        ? 'asc'
+        : 'desc'
+    );
   };
 
   const getSortIndicator = (field) => {
@@ -139,7 +146,7 @@ const useAdminProductTable = ({
       defaultDiscount: String(product.defaultDiscount ?? 0),
       discountType: product.discountType || 'fixed',
       is_active: Number(product.is_active ?? 1) === 1,
-      image: product.image || ''
+      image: product.image || '',
     });
     setQuickEditId(null);
   };
@@ -167,7 +174,10 @@ const useAdminProductTable = ({
   const handleTableEditKeyDown = async (event, product, field) => {
     if (!event || (event.key !== 'Enter' && event.key !== 'Tab')) return;
     if (event.isComposing) return;
-    if (event.key === 'Enter' && String(event.currentTarget?.tagName || '').toUpperCase() === 'SELECT') {
+    if (
+      event.key === 'Enter' &&
+      String(event.currentTarget?.tagName || '').toUpperCase() === 'SELECT'
+    ) {
       return;
     }
 
@@ -177,7 +187,9 @@ const useAdminProductTable = ({
     event.preventDefault();
 
     const currentProductId = Number(product?.id || 0);
-    const currentRowIndex = visibleProducts.findIndex((row) => Number(row.id || 0) === currentProductId);
+    const currentRowIndex = visibleProducts.findIndex(
+      (row) => Number(row.id || 0) === currentProductId
+    );
     if (currentRowIndex === -1) return;
 
     const movingBackward = Boolean(event.shiftKey);
@@ -240,10 +252,10 @@ const useAdminProductTable = ({
       defaultDiscount: asNumber(tableEditForm.defaultDiscount, 0),
       discountType: tableEditForm.discountType === 'percentage' ? 'percentage' : 'fixed',
       image: String(tableEditForm.image || '').trim(),
-      is_active: Number(product.is_active ?? 1) === 0 ? 1 : (tableEditForm.is_active ? 1 : 0),
+      is_active: Number(product.is_active ?? 1) === 0 ? 1 : tableEditForm.is_active ? 1 : 0,
       base_unit: product.base_unit || 'pcs',
       uom_type: product.uom_type || 'selling',
-      conversion_factor: asNumber(product.conversion_factor, 1) || 1
+      conversion_factor: asNumber(product.conversion_factor, 1) || 1,
     };
 
     if (!payload.name) {

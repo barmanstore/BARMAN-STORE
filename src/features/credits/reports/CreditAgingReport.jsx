@@ -4,10 +4,11 @@ import { RefreshCw, AlertTriangle, CheckCircle, Clock, AlertCircle } from 'lucid
 import { creditApi } from '../../../shared/services/api';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
+import EmptyState from '../../../shared/components/EmptyState';
 import scoreBands from '../../../../shared/creditScoreBands.json';
 import './CreditAgingReport.css';
 
-function CreditAgingReport({ user }) {
+function CreditAgingReport() {
   const [report, setReport] = useState([]);
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(true);
@@ -36,7 +37,12 @@ function CreditAgingReport({ user }) {
       setReport(data.report || []);
       setSummary(data.summary || {});
     } catch (err) {
-      if (Number(err?.status || 0) === 503 && String(err?.payload?.status || '').trim().toLowerCase() === 'initializing') {
+      if (
+        Number(err?.status || 0) === 503 &&
+        String(err?.payload?.status || '')
+          .trim()
+          .toLowerCase() === 'initializing'
+      ) {
         setReport([]);
         setSummary({});
         setSyncState('initializing');
@@ -50,7 +56,9 @@ function CreditAgingReport({ user }) {
   };
 
   const getPaymentStatus = (customer) => {
-    const status = String(customer?.payment_status || '').trim().toLowerCase();
+    const status = String(customer?.payment_status || '')
+      .trim()
+      .toLowerCase();
     if (status === 'new') {
       return { label: 'New', icon: Clock, className: 'new' };
     }
@@ -133,15 +141,19 @@ function CreditAgingReport({ user }) {
   };
 
   const matchesFollowUp = (row) => {
-    const status = String(row.payment_status || '').trim().toLowerCase();
-    return Boolean(row.is_defaulter)
-      || Number(row.missed_periods || 0) > 0
-      || Number(row.days_31_60 || 0) > 0
-      || Number(row.days_61_90 || 0) > 0
-      || Number(row.days_over_90 || 0) > 0
-      || status === 'needs_attention'
-      || status === 'problem'
-      || status === 'defaulter';
+    const status = String(row.payment_status || '')
+      .trim()
+      .toLowerCase();
+    return (
+      Boolean(row.is_defaulter) ||
+      Number(row.missed_periods || 0) > 0 ||
+      Number(row.days_31_60 || 0) > 0 ||
+      Number(row.days_61_90 || 0) > 0 ||
+      Number(row.days_over_90 || 0) > 0 ||
+      status === 'needs_attention' ||
+      status === 'problem' ||
+      status === 'defaulter'
+    );
   };
 
   const matchesRisk = (row, risk) => {
@@ -161,9 +173,13 @@ function CreditAgingReport({ user }) {
   };
 
   const filteredReport = report.filter((row) => {
-    const status = String(row.payment_status || '').trim().toLowerCase();
-    const isNew = String(row.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-      || status === 'new';
+    const status = String(row.payment_status || '')
+      .trim()
+      .toLowerCase();
+    const isNew =
+      String(row.customer_tag || '')
+        .trim()
+        .toLowerCase() === 'insufficient_history' || status === 'new';
     if (filters.badge) {
       if (filters.badge === 'new' && !isNew) return false;
       if (filters.badge !== 'new' && status !== filters.badge) return false;
@@ -185,7 +201,9 @@ function CreditAgingReport({ user }) {
   };
 
   const getBadgeRank = (row) => {
-    const status = String(row.payment_status || '').trim().toLowerCase();
+    const status = String(row.payment_status || '')
+      .trim()
+      .toLowerCase();
     if (status === 'new') return -1;
     const score = Number(row.payment_score || 0);
     return Number.isFinite(score) ? score : 0;
@@ -209,7 +227,9 @@ function CreditAgingReport({ user }) {
       .sort((a, b) => {
         let value = 0;
         if (sort.key === 'customer') {
-          value = String(a.row.customer_name || '').localeCompare(String(b.row.customer_name || ''));
+          value = String(a.row.customer_name || '').localeCompare(
+            String(b.row.customer_name || '')
+          );
         } else if (sort.key === 'outstanding') {
           value = Number(a.row.current_balance || 0) - Number(b.row.current_balance || 0);
         } else if (sort.key === 'aging') {
@@ -224,28 +244,95 @@ function CreditAgingReport({ user }) {
   })();
 
   const agingSeries = [
-    { key: 'aging_0_30', label: '0-30 Days', className: 'days-0-30', value: Number(summary.aging_0_30 || 0) },
-    { key: 'aging_31_60', label: '31-60 Days', className: 'days-31-60', value: Number(summary.aging_31_60 || 0) },
-    { key: 'aging_61_90', label: '61-90 Days', className: 'days-61-90', value: Number(summary.aging_61_90 || 0) },
-    { key: 'aging_over_90', label: '90+ Days', className: 'days-over-90', value: Number(summary.aging_over_90 || 0) },
+    {
+      key: 'aging_0_30',
+      label: '0-30 Days',
+      className: 'days-0-30',
+      value: Number(summary.aging_0_30 || 0),
+    },
+    {
+      key: 'aging_31_60',
+      label: '31-60 Days',
+      className: 'days-31-60',
+      value: Number(summary.aging_31_60 || 0),
+    },
+    {
+      key: 'aging_61_90',
+      label: '61-90 Days',
+      className: 'days-61-90',
+      value: Number(summary.aging_61_90 || 0),
+    },
+    {
+      key: 'aging_over_90',
+      label: '90+ Days',
+      className: 'days-over-90',
+      value: Number(summary.aging_over_90 || 0),
+    },
   ];
   const maxAgingAmount = Math.max(1, ...agingSeries.map((entry) => entry.value));
   const paymentHealth = getPaymentHealth();
-  const hasFilters = Boolean(filters.badge || filters.agingBucket || filters.risk || filters.defaulter || filters.followUp);
+  const hasFilters = Boolean(
+    filters.badge || filters.agingBucket || filters.risk || filters.defaulter || filters.followUp
+  );
   const badgeBreakdown = [
-    { key: 'excellent', label: 'Excellent', tone: 'excellent', count: Number(summary?.badge_counts?.excellent || 0) },
-    { key: 'very_good', label: 'Very Good', tone: 'very-good', count: Number(summary?.badge_counts?.very_good || 0) },
+    {
+      key: 'excellent',
+      label: 'Excellent',
+      tone: 'excellent',
+      count: Number(summary?.badge_counts?.excellent || 0),
+    },
+    {
+      key: 'very_good',
+      label: 'Very Good',
+      tone: 'very-good',
+      count: Number(summary?.badge_counts?.very_good || 0),
+    },
     { key: 'good', label: 'Good', tone: 'good', count: Number(summary?.badge_counts?.good || 0) },
-    { key: 'average', label: 'Average', tone: 'good', count: Number(summary?.badge_counts?.average || 0) },
-    { key: 'needs_attention', label: 'Needs Attention', tone: 'attention', count: Number(summary?.badge_counts?.needs_attention || 0) },
-    { key: 'problem', label: 'Problem', tone: 'problem', count: Number(summary?.badge_counts?.problem || 0) },
-    { key: 'defaulter', label: 'Defaulter', tone: 'problem', count: Number(summary?.badge_counts?.defaulter || 0) },
+    {
+      key: 'average',
+      label: 'Average',
+      tone: 'good',
+      count: Number(summary?.badge_counts?.average || 0),
+    },
+    {
+      key: 'needs_attention',
+      label: 'Needs Attention',
+      tone: 'attention',
+      count: Number(summary?.badge_counts?.needs_attention || 0),
+    },
+    {
+      key: 'problem',
+      label: 'Problem',
+      tone: 'problem',
+      count: Number(summary?.badge_counts?.problem || 0),
+    },
+    {
+      key: 'defaulter',
+      label: 'Defaulter',
+      tone: 'problem',
+      count: Number(summary?.badge_counts?.defaulter || 0),
+    },
     { key: 'new', label: 'New', tone: 'new', count: Number(summary?.customers_new || 0) },
   ];
   const activeFilters = [
-    filters.badge ? { key: 'badge', label: `Badge: ${badgeBreakdown.find((b) => b.key === filters.badge)?.label || filters.badge}` } : null,
-    filters.risk ? { key: 'risk', label: `Risk: ${filters.risk === 'low' ? 'Low' : (filters.risk === 'medium' ? 'Medium' : 'High')}` } : null,
-    filters.agingBucket ? { key: 'agingBucket', label: `Aging: ${agingSeries.find((b) => b.key === filters.agingBucket)?.label || filters.agingBucket}` } : null,
+    filters.badge
+      ? {
+          key: 'badge',
+          label: `Badge: ${badgeBreakdown.find((b) => b.key === filters.badge)?.label || filters.badge}`,
+        }
+      : null,
+    filters.risk
+      ? {
+          key: 'risk',
+          label: `Risk: ${filters.risk === 'low' ? 'Low' : filters.risk === 'medium' ? 'Medium' : 'High'}`,
+        }
+      : null,
+    filters.agingBucket
+      ? {
+          key: 'agingBucket',
+          label: `Aging: ${agingSeries.find((b) => b.key === filters.agingBucket)?.label || filters.agingBucket}`,
+        }
+      : null,
     filters.defaulter ? { key: 'defaulter', label: 'Defaulter' } : null,
     filters.followUp ? { key: 'followUp', label: 'Follow Up' } : null,
   ].filter(Boolean);
@@ -263,7 +350,7 @@ function CreditAgingReport({ user }) {
       <BackofficePageHeader
         className="page-header"
         title="Credit Aging Report"
-        actions={(
+        actions={
           <div className="page-header-actions">
             <button className="refresh-btn" onClick={fetchAgingReport}>
               <RefreshCw size={18} /> Refresh
@@ -276,12 +363,14 @@ function CreditAgingReport({ user }) {
               Reset Filters
             </button>
           </div>
-        )}
+        }
       />
 
       {error && <div className="error-message">{error}</div>}
       {!error && syncState === 'initializing' ? (
-        <div className="success-message">Credit aging is updating. Refresh after the snapshot rebuild completes.</div>
+        <div className="success-message">
+          Credit aging is updating. Refresh after the snapshot rebuild completes.
+        </div>
       ) : null}
 
       {/* Summary Cards */}
@@ -297,7 +386,9 @@ function CreditAgingReport({ user }) {
         >
           <span className="card-value">{paymentHealth.label}</span>
           <span className="card-label">
-            {Number.isFinite(paymentHealth.score) ? `${paymentHealth.score.toFixed(1)} / 100` : 'Payment Health'}
+            {Number.isFinite(paymentHealth.score)
+              ? `${paymentHealth.score.toFixed(1)} / 100`
+              : 'Payment Health'}
           </span>
         </button>
         <button
@@ -332,13 +423,19 @@ function CreditAgingReport({ user }) {
             {activeFilters.map((filter) => (
               <span key={filter.key} className="filter-chip">
                 {filter.label}
-                <button type="button" className="chip-remove" onClick={() => removeFilter(filter.key)}>
+                <button
+                  type="button"
+                  className="chip-remove"
+                  onClick={() => removeFilter(filter.key)}
+                >
                   ✖
                 </button>
               </span>
             ))}
           </div>
-          <button type="button" className="clear-filters" onClick={clearFilters}>Clear</button>
+          <button type="button" className="clear-filters" onClick={clearFilters}>
+            Clear
+          </button>
         </div>
       ) : null}
 
@@ -346,7 +443,9 @@ function CreditAgingReport({ user }) {
         <div className="health-header">
           <h3>Customer Health</h3>
           {hasFilters ? (
-            <button type="button" className="clear-filters" onClick={clearFilters}>Clear filters</button>
+            <button type="button" className="clear-filters" onClick={clearFilters}>
+              Clear filters
+            </button>
           ) : null}
         </div>
         <div className="health-grid">
@@ -355,7 +454,9 @@ function CreditAgingReport({ user }) {
               key={entry.key}
               type="button"
               className={`health-card ${entry.tone} ${filters.badge === entry.key ? 'active' : ''}`}
-              onClick={() => handleFilterToggle({ badge: entry.key, defaulter: false, followUp: false })}
+              onClick={() =>
+                handleFilterToggle({ badge: entry.key, defaulter: false, followUp: false })
+              }
             >
               <span className="health-count">{entry.count}</span>
               <span className="health-label">{entry.label}</span>
@@ -372,21 +473,24 @@ function CreditAgingReport({ user }) {
             const risk = getRiskLabel(entry.key);
             const isActive = filters.agingBucket === entry.key || filters.risk === risk.tone;
             return (
-            <button
-              type="button"
-              className={`chart-bar card-action ${isActive ? 'active' : ''}`}
-              key={entry.key}
-              onClick={() => handleFilterToggle({ agingBucket: entry.key, risk: risk.tone })}
-            >
-              <div
-                className={`bar-fill ${entry.className}`}
-                style={{ width: `${entry.value > 0 ? Math.max((entry.value / maxAgingAmount) * 100, 10) : 0}%` }}
-              />
-              <span className="bar-label">{entry.label}</span>
-              <span className={`bar-risk ${risk.tone}`}>{risk.label}</span>
-              <span className="bar-value">{formatCurrency(entry.value)}</span>
-            </button>
-          );})}
+              <button
+                type="button"
+                className={`chart-bar card-action ${isActive ? 'active' : ''}`}
+                key={entry.key}
+                onClick={() => handleFilterToggle({ agingBucket: entry.key, risk: risk.tone })}
+              >
+                <div
+                  className={`bar-fill ${entry.className}`}
+                  style={{
+                    width: `${entry.value > 0 ? Math.max((entry.value / maxAgingAmount) * 100, 10) : 0}%`,
+                  }}
+                />
+                <span className="bar-label">{entry.label}</span>
+                <span className={`bar-risk ${risk.tone}`}>{risk.label}</span>
+                <span className="bar-value">{formatCurrency(entry.value)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -394,13 +498,16 @@ function CreditAgingReport({ user }) {
       <div className="report-table-container">
         <h3>Customer Credit Details</h3>
         {filteredReport.length === 0 ? (
-          <div className="empty-state">
-            <p>
-              {syncState === 'initializing'
+          <EmptyState
+            title="No customer rows"
+            description={
+              syncState === 'initializing'
                 ? 'Credit aging is updating from the latest ledger activity.'
-                : (hasFilters ? 'No customers match the current filters.' : 'No customers with outstanding credit balance.')}
-            </p>
-          </div>
+                : hasFilters
+                  ? 'No customers match the current filters.'
+                  : 'No customers with outstanding credit balance.'
+            }
+          />
         ) : (
           <table className="report-table">
             <thead>
@@ -414,9 +521,15 @@ function CreditAgingReport({ user }) {
                   </button>
                 </th>
                 <th>
-                  <button type="button" className="sort-btn" onClick={() => toggleSort('outstanding')}>
+                  <button
+                    type="button"
+                    className="sort-btn"
+                    onClick={() => toggleSort('outstanding')}
+                  >
                     Outstanding
-                    <span className={`sort-indicator ${sort.key === 'outstanding' ? 'active' : ''}`}>
+                    <span
+                      className={`sort-indicator ${sort.key === 'outstanding' ? 'active' : ''}`}
+                    >
                       {sort.key === 'outstanding' && sort.direction === 'desc' ? '▼' : '▲'}
                     </span>
                   </button>
@@ -441,41 +554,59 @@ function CreditAgingReport({ user }) {
               </tr>
             </thead>
             <tbody>
-              {sortedReport.map(customer => {
+              {sortedReport.map((customer) => {
                 const paymentStatus = getPaymentStatus(customer);
                 const limitStatus = getLimitStatus(customer);
                 const limit = Number(customer.credit_limit || 0);
                 const balance = Number(customer.current_balance || 0);
                 const utilization = limit > 0 ? Math.min((balance / limit) * 100, 100) : 0;
-                const isNew = String(customer.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-                  || String(customer.payment_status || '').trim().toLowerCase() === 'new';
-                const hasPaymentScore = !isNew && customer.payment_score !== null
-                  && customer.payment_score !== undefined
-                  && Number.isFinite(Number(customer.payment_score));
+                const isNew =
+                  String(customer.customer_tag || '')
+                    .trim()
+                    .toLowerCase() === 'insufficient_history' ||
+                  String(customer.payment_status || '')
+                    .trim()
+                    .toLowerCase() === 'new';
+                const hasPaymentScore =
+                  !isNew &&
+                  customer.payment_score !== null &&
+                  customer.payment_score !== undefined &&
+                  Number.isFinite(Number(customer.payment_score));
                 const paymentScore = hasPaymentScore ? Number(customer.payment_score) : null;
                 const statusTag = String(customer.payment_status_tag || '').trim();
                 const hasStatusTag = Boolean(statusTag);
                 const showDefaulter = Boolean(customer.is_defaulter);
                 const showFollowUp = matchesFollowUp(customer);
                 const showInactive = !customer.is_active;
-                const showOverLimit = String(customer.limit_status || '').trim().toLowerCase() === 'over_limit';
-                const agingLabel = customer.days_over_90 > 0
-                  ? '90+ Days'
-                  : (customer.days_61_90 > 0
-                    ? '61-90 Days'
-                    : (customer.days_31_60 > 0
-                      ? '31-60 Days'
-                      : (customer.days_0_30 > 0 ? '0-30 Days' : 'Current')));
-                const agingRisk = customer.days_over_90 > 0 || customer.days_61_90 > 0
-                  ? 'High Risk'
-                  : (customer.days_31_60 > 0 ? 'Medium Risk' : 'Low Risk');
+                const showOverLimit =
+                  String(customer.limit_status || '')
+                    .trim()
+                    .toLowerCase() === 'over_limit';
+                const agingLabel =
+                  customer.days_over_90 > 0
+                    ? '90+ Days'
+                    : customer.days_61_90 > 0
+                      ? '61-90 Days'
+                      : customer.days_31_60 > 0
+                        ? '31-60 Days'
+                        : customer.days_0_30 > 0
+                          ? '0-30 Days'
+                          : 'Current';
+                const agingRisk =
+                  customer.days_over_90 > 0 || customer.days_61_90 > 0
+                    ? 'High Risk'
+                    : customer.days_31_60 > 0
+                      ? 'Medium Risk'
+                      : 'Low Risk';
 
                 return (
                   <tr key={customer.customer_id}>
                     <td>
                       <div className="customer-name-stack">
                         <span className="customer-name">{customer.customer_name}</span>
-                        {customer.summary_line ? <span className="customer-summary-note">{customer.summary_line}</span> : null}
+                        {customer.summary_line ? (
+                          <span className="customer-summary-note">{customer.summary_line}</span>
+                        ) : null}
                         <div className="contact-info">
                           <span>{customer.phone || '-'}</span>
                           <span className="email">{customer.email || '-'}</span>
@@ -484,13 +615,19 @@ function CreditAgingReport({ user }) {
                     </td>
                     <td className="balance">
                       <strong>{formatCurrency(balance)}</strong>
-                      <span className={`limit-pill ${limitStatus.className}`}>{limitStatus.label}</span>
-                      {limit > 0 ? <span className="utilization-note">{utilization.toFixed(1)}% used</span> : null}
+                      <span className={`limit-pill ${limitStatus.className}`}>
+                        {limitStatus.label}
+                      </span>
+                      {limit > 0 ? (
+                        <span className="utilization-note">{utilization.toFixed(1)}% used</span>
+                      ) : null}
                     </td>
                     <td>
                       <div className="aging-stack">
                         <strong>{agingLabel}</strong>
-                        <span className={`risk-pill ${agingRisk === 'High Risk' ? 'high' : (agingRisk === 'Medium Risk' ? 'medium' : 'low')}`}>
+                        <span
+                          className={`risk-pill ${agingRisk === 'High Risk' ? 'high' : agingRisk === 'Medium Risk' ? 'medium' : 'low'}`}
+                        >
                           {agingRisk}
                         </span>
                       </div>
@@ -505,9 +642,7 @@ function CreditAgingReport({ user }) {
                       ) : (
                         <span className="badge-score">{isNew ? 'Insufficient history' : '-'}</span>
                       )}
-                      {hasStatusTag ? (
-                        <span className="status-tag">{statusTag}</span>
-                      ) : null}
+                      {hasStatusTag ? <span className="status-tag">{statusTag}</span> : null}
                     </td>
                     <td>
                       <div className="action-flags">
@@ -521,7 +656,9 @@ function CreditAgingReport({ user }) {
                         <button
                           type="button"
                           className="row-action follow-up"
-                          onClick={() => navigate(`/admin/users/${customer.customer_id}/credit?follow_up=1`)}
+                          onClick={() =>
+                            navigate(`/admin/users/${customer.customer_id}/credit?follow_up=1`)
+                          }
                         >
                           Follow Up
                         </button>
@@ -543,4 +680,3 @@ function CreditAgingReport({ user }) {
 }
 
 export default CreditAgingReport;
-

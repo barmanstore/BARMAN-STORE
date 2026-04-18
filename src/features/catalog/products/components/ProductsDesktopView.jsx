@@ -122,9 +122,7 @@ function ProductsDesktopView({
       />
 
       <div className="result-summary" aria-live="polite">
-        <span>
-          {visibleFamilies.length} product groups
-        </span>
+        <span>{visibleFamilies.length} product groups</span>
       </div>
 
       <ProductsGroupedList
@@ -153,9 +151,7 @@ function ProductsDesktopView({
         GROUP_BY_OPTIONS={GROUP_BY_OPTIONS}
       />
 
-      {filteredFamilies.length > 0 ? (
-        <ProductsSmartSections {...smartSectionsProps} />
-      ) : null}
+      {filteredFamilies.length > 0 ? <ProductsSmartSections {...smartSectionsProps} /> : null}
 
       {isMobile && showMobileFilters ? (
         <ProductsMobileFilterSheet

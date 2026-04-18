@@ -24,7 +24,9 @@ const registerPurchaseOrdersWhatsAppRoutes = (deps) => {
 
       const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
       if (!isPoEditableLifecycle(lifecycleStatus)) {
-        return res.status(400).json({ error: 'WhatsApp action is available only before confirmation' });
+        return res
+          .status(400)
+          .json({ error: 'WhatsApp action is available only before confirmation' });
       }
 
       const items = await dbAllAsync(
@@ -36,7 +38,9 @@ const registerPurchaseOrdersWhatsAppRoutes = (deps) => {
         [req.params.id]
       );
 
-      const orderDate = normalizeTransactionDate(order.created_at || order.order_date) || new Date().toISOString().slice(0, 10);
+      const orderDate =
+        normalizeTransactionDate(order.created_at || order.order_date) ||
+        new Date().toISOString().slice(0, 10);
       const distributorNotice = await notifyDistributorPurchaseOrderAsync({
         purchaseOrderId: Number(req.params.id || 0),
         distributorId: Number(order.distributor_id || 0),
@@ -55,7 +59,8 @@ const registerPurchaseOrdersWhatsAppRoutes = (deps) => {
       });
 
       const whatsappUrl = distributorNotice?.whatsapp?.whatsapp_url || null;
-      const nextStatus = lifecycleStatus === PO_LIFECYCLE_REVISED ? PO_LIFECYCLE_SENT : PO_LIFECYCLE_SENT;
+      const nextStatus =
+        lifecycleStatus === PO_LIFECYCLE_REVISED ? PO_LIFECYCLE_SENT : PO_LIFECYCLE_SENT;
       await dbRunAsync(
         `UPDATE purchase_orders
          SET po_status = ?,
@@ -94,7 +99,9 @@ const registerPurchaseOrdersWhatsAppRoutes = (deps) => {
         po_status: nextStatus,
       });
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to prepare distributor WhatsApp message' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to prepare distributor WhatsApp message' });
     }
   });
 };

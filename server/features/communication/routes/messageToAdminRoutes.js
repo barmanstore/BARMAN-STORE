@@ -41,13 +41,16 @@ const registerMessageToAdminRoutes = (deps) => {
     try {
       const senderId = Number(req.authUser?.id || 0);
       if (!senderId) return res.status(401).json({ error: 'Unauthorized' });
-      const senderRole = String(req.authUser?.role || '').trim().toLowerCase();
+      const senderRole = String(req.authUser?.role || '')
+        .trim()
+        .toLowerCase();
       if (senderRole === 'admin') {
         return res.status(400).json({ error: 'Admins should use customer message endpoint' });
       }
       const message = String(req.body?.message || '').trim();
       if (!message) return res.status(400).json({ error: 'Message is required' });
-      if (message.length > 1000) return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
+      if (message.length > 1000)
+        return res.status(400).json({ error: 'Message is too long (max 1000 characters)' });
       const senderName = String(req.authUser?.name || '').trim() || `User #${senderId}`;
 
       await notifyAdmins({
@@ -84,7 +87,6 @@ const registerMessageToAdminRoutes = (deps) => {
       return res.status(500).json({ error: error.message || 'Failed to send message' });
     }
   });
-
 };
 
 module.exports = { registerMessageToAdminRoutes };

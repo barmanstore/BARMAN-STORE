@@ -11,9 +11,15 @@
     olderThanDays = CUSTOMER_REQUEST_RETENTION_DAYS,
     limit = CUSTOMER_REQUEST_PURGE_BATCH_LIMIT,
   } = {}) => {
-    const normalizedDays = Math.max(7, Math.min(365, Number(olderThanDays || CUSTOMER_REQUEST_RETENTION_DAYS)));
-    const normalizedLimit = Math.max(1, Math.min(20000, Number(limit || CUSTOMER_REQUEST_PURGE_BATCH_LIMIT)));
-    const cutoffDate = new Date(Date.now() - (normalizedDays * 24 * 60 * 60 * 1000));
+    const normalizedDays = Math.max(
+      7,
+      Math.min(365, Number(olderThanDays || CUSTOMER_REQUEST_RETENTION_DAYS))
+    );
+    const normalizedLimit = Math.max(
+      1,
+      Math.min(20000, Number(limit || CUSTOMER_REQUEST_PURGE_BATCH_LIMIT))
+    );
+    const cutoffDate = new Date(Date.now() - normalizedDays * 24 * 60 * 60 * 1000);
     const cutoffIso = cutoffDate.toISOString();
 
     const productResult = await dbRunAsync(

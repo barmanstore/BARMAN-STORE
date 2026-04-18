@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../providers/SessionProvider';
 import { authApi, usersApi, resolveMediaSourceForDisplay } from '../../shared/services/api';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
+import {
+  isValidIndianPhone,
+  normalizeIndianPhone,
+  PHONE_POLICY_MESSAGE,
+} from '../../shared/utils/phone';
 import { validateEmail } from '../../shared/utils/validation';
 import formatApiError from '../../shared/utils/formatApiError';
 import ProfileView from './components/ProfileView';
-import { getEmailRequestStatusClassName, getEmailRequestStatusMessage, getPhoneChangeStatusClassName, getPhoneChangeStatusMessage } from './utils/profileVerificationUtils';
+import {
+  getEmailRequestStatusClassName,
+  getEmailRequestStatusMessage,
+  getPhoneChangeStatusClassName,
+  getPhoneChangeStatusMessage,
+} from './utils/profileVerificationUtils';
 import useProfileVerificationActions from './hooks/useProfileVerificationActions';
 import './Profile.css';
 
@@ -18,7 +27,6 @@ function Profile() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);
-  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [displayProfileImageSrc, setDisplayProfileImageSrc] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [phoneVerified, setPhoneVerified] = useState(false);
@@ -26,21 +34,135 @@ function Profile() {
   const [emailVerificationTokenType, setEmailVerificationTokenType] = useState('token');
   const [verificationLoading, setVerificationLoading] = useState('');
   const [phoneCancelLoading, setPhoneCancelLoading] = useState(false);
-  const [verificationRequestStatus, setVerificationRequestStatus] = useState({ email: null, phone: null });
+  const [verificationRequestStatus, setVerificationRequestStatus] = useState({
+    email: null,
+    phone: null,
+  });
   const [phoneChangeRequest, setPhoneChangeRequest] = useState(null);
-  const [authModeInfo, setAuthModeInfo] = useState({ supabaseEnabled: false, supabaseMode: 'hybrid', supabaseClientReady: false, emailProvider: 'legacy' });
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', profile_image: '', street: '', city: '', state: '', zip: '', country: 'India' });
+  const [authModeInfo, setAuthModeInfo] = useState({
+    supabaseEnabled: false,
+    supabaseMode: 'hybrid',
+    supabaseClientReady: false,
+    emailProvider: 'legacy',
+  });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    profile_image: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'India',
+  });
   const [validationIssues, setValidationIssues] = useState([]);
+  const [failedProfileImageSrc, setFailedProfileImageSrc] = useState('');
 
-  useEffect(() => {
-    setImageLoadFailed(false);
-  }, [formData.profile_image]);
+  // Define handlers that will be used in effects
+  const applyVerificationRequestStatus = useCallback((payload = {}) => {
+    setVerificationRequestStatus({
+      email: payload?.email || null,
+      phone: payload?.phone || null,
+    });
+  }, []);
+
+  const validateProfile = useCallback((profile, address) => {
+    const issues = [];
+
+    if (profile.email && !validateEmail(profile.email)) {
+      issues.push({ field: 'email', message: 'Enter a valid email or keep it blank' });
+    }
+    if (!profile.phone || !isValidIndianPhone(profile.phone)) {
+      issues.push({ field: 'phone', message: PHONE_POLICY_MESSAGE });
+    }
+    if (!profile.email_verified && !profile.phone_verified) {
+      issues.push({
+        field: 'verification',
+        message: 'Verify at least one contact method (email or phone)',
+      });
+    }
+    if (!address.street) issues.push({ field: 'street', message: 'Street address is required' });
+    if (!address.city) issues.push({ field: 'city', message: 'City is required' });
+    if (!address.state) issues.push({ field: 'state', message: 'State is required' });
+    if (!address.zip) issues.push({ field: 'zip', message: 'Postal code is required' });
+
+    setValidationIssues(issues);
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      if (!user?.id) {
+        navigate('/login');
+        return;
+      }
+      const userData = user;
+
+      // Load full profile from server
+      const [
+        profile,
+        requestStatusPayload,
+        phoneChangeStatusPayload,
+        resetModePayload,
+        emailStatusPayload,
+      ] = await Promise.all([
+        usersApi.getById(userData.id),
+        authApi.getMyContactVerificationRequestStatus().catch(() => null),
+        authApi.getMyPhoneChangeRequestStatus().catch(() => null),
+        authApi.getResetMode().catch(() => null),
+        authApi.getEmailVerificationStatus().catch(() => null),
+      ]);
+      applyVerificationRequestStatus(requestStatusPayload || {});
+      setPhoneChangeRequest(phoneChangeStatusPayload?.request || null);
+      const emailProvider =
+        String(emailStatusPayload?.provider || '')
+          .trim()
+          .toLowerCase() || 'legacy';
+      setAuthModeInfo({
+        supabaseEnabled: Boolean(resetModePayload?.supabase_auth_enabled),
+        supabaseMode:
+          String(resetModePayload?.supabase_auth_mode || 'hybrid').toLowerCase() === 'strict'
+            ? 'strict'
+            : 'hybrid',
+        supabaseClientReady: Boolean(resetModePayload?.supabase_client_ready),
+        emailProvider,
+      });
+      setEmailVerificationTokenType(emailProvider === 'supabase' ? 'token_hash' : 'token');
+
+      let addressData = {};
+      if (profile.address) {
+        try {
+          addressData = JSON.parse(profile.address);
+        } catch (e) {
+          void e;
+        }
+      }
+
+      setFormData({
+        name: profile.name || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        profile_image: profile.profile_image || '',
+        ...addressData,
+      });
+      setEmailVerified(Boolean(profile.email_verified));
+      setPhoneVerified(Boolean(profile.phone_verified));
+
+      // Validate profile completeness
+      validateProfile(profile, addressData);
+    } catch (err) {
+      setError(formatApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [user, navigate, applyVerificationRequestStatus, validateProfile]);
 
   useEffect(() => {
     let cancelled = false;
     let revokeUrl = null;
+
     const run = async () => {
-      if (imageLoadFailed || !formData.profile_image) {
+      if (!formData.profile_image) {
         setDisplayProfileImageSrc('');
         return;
       }
@@ -57,18 +179,12 @@ function Profile() {
       cancelled = true;
       if (revokeUrl) URL.revokeObjectURL(revokeUrl);
     };
-  }, [formData.profile_image, imageLoadFailed]);
+  }, [formData.profile_image]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProfile();
-  }, [user]);
-
-  const applyVerificationRequestStatus = (payload = {}) => {
-    setVerificationRequestStatus({
-      email: payload?.email || null,
-      phone: payload?.phone || null,
-    });
-  };
+  }, [loadProfile]);
 
   const refreshVerificationRequestStatus = async () => {
     try {
@@ -88,94 +204,16 @@ function Profile() {
     }
   };
 
-
-
-
-
-  const loadProfile = async () => {
-    try {
-      if (!user?.id) {
-        navigate('/login');
-        return;
-      }
-      const userData = user;
-      
-      // Load full profile from server
-      const [profile, requestStatusPayload, phoneChangeStatusPayload, resetModePayload, emailStatusPayload] = await Promise.all([
-        usersApi.getById(userData.id),
-        authApi.getMyContactVerificationRequestStatus().catch(() => null),
-        authApi.getMyPhoneChangeRequestStatus().catch(() => null),
-        authApi.getResetMode().catch(() => null),
-        authApi.getEmailVerificationStatus().catch(() => null),
-      ]);
-      applyVerificationRequestStatus(requestStatusPayload || {});
-      setPhoneChangeRequest(phoneChangeStatusPayload?.request || null);
-      const emailProvider = String(emailStatusPayload?.provider || '').trim().toLowerCase() || 'legacy';
-      setAuthModeInfo({
-        supabaseEnabled: Boolean(resetModePayload?.supabase_auth_enabled),
-        supabaseMode: String(resetModePayload?.supabase_auth_mode || 'hybrid').toLowerCase() === 'strict' ? 'strict' : 'hybrid',
-        supabaseClientReady: Boolean(resetModePayload?.supabase_client_ready),
-        emailProvider,
-      });
-      setEmailVerificationTokenType(emailProvider === 'supabase' ? 'token_hash' : 'token');
-      
-      let addressData = {};
-      if (profile.address) {
-        try {
-          addressData = JSON.parse(profile.address);
-        } catch (e) {}
-      }
-      
-      setFormData({
-        name: profile.name || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        profile_image: profile.profile_image || '',
-        ...addressData
-      });
-      setEmailVerified(Boolean(profile.email_verified));
-      setPhoneVerified(Boolean(profile.phone_verified));
-      
-      // Validate profile completeness
-      validateProfile(profile, addressData);
-      
-    } catch (err) {
-      setError(formatApiError(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const validateProfile = (profile, address) => {
-    const issues = [];
-    
-    if (profile.email && !validateEmail(profile.email)) {
-      issues.push({ field: 'email', message: 'Enter a valid email or keep it blank' });
-    }
-    if (!profile.phone || !isValidIndianPhone(profile.phone)) {
-      issues.push({ field: 'phone', message: PHONE_POLICY_MESSAGE });
-    }
-    if (!profile.email_verified && !profile.phone_verified) {
-      issues.push({ field: 'verification', message: 'Verify at least one contact method (email or phone)' });
-    }
-    if (!address.street) issues.push({ field: 'street', message: 'Street address is required' });
-    if (!address.city) issues.push({ field: 'city', message: 'City is required' });
-    if (!address.state) issues.push({ field: 'state', message: 'State is required' });
-    if (!address.zip) issues.push({ field: 'zip', message: 'Postal code is required' });
-    
-    setValidationIssues(issues);
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
-    
+
     // Clear validation issues when user starts editing
-    if (validationIssues.find(i => i.field === name)) {
-      setValidationIssues(prev => prev.filter(i => i.field !== name));
+    if (validationIssues.find((i) => i.field === name)) {
+      setValidationIssues((prev) => prev.filter((i) => i.field !== name));
     }
   };
 
@@ -186,7 +224,9 @@ function Profile() {
     setSuccess(null);
 
     try {
-      const normalizedEmail = String(formData.email || '').trim().toLowerCase();
+      const normalizedEmail = String(formData.email || '')
+        .trim()
+        .toLowerCase();
       if (normalizedEmail && !validateEmail(normalizedEmail)) {
         setError('Enter a valid email or leave it blank');
         setSaving(false);
@@ -202,7 +242,7 @@ function Profile() {
         city: formData.city,
         state: formData.state,
         zip: formData.zip,
-        country: formData.country
+        country: formData.country,
       };
 
       const updateResponse = await usersApi.update(user.id, {
@@ -210,7 +250,7 @@ function Profile() {
         email: normalizedEmail || null,
         phone: normalizeIndianPhone(formData.phone),
         profile_image: formData.profile_image || null,
-        address: JSON.stringify(address)
+        address: JSON.stringify(address),
       });
       const {
         phone_change_request: nextPhoneChangeRequest = null,
@@ -222,7 +262,7 @@ function Profile() {
       const updatedUser = {
         ...user,
         ...updatedProfile,
-        token: user?.token
+        token: user?.token,
       };
       setUser(updatedUser);
       setFormData((prev) => ({
@@ -238,9 +278,9 @@ function Profile() {
       setEmailVerificationToken('');
       await refreshVerificationRequestStatus();
       await refreshPhoneChangeRequestStatus();
-      
+
       setSuccess(updateMessage || 'Profile updated successfully!');
-      
+
       // Re-validate
       validateProfile(
         {
@@ -251,7 +291,6 @@ function Profile() {
         },
         address
       );
-      
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -267,19 +306,20 @@ function Profile() {
     return Math.max(0, Math.floor((payload.length * 3) / 4) - pad);
   };
 
-  const loadImageElement = (file) => new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(img);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to read image file'));
-    };
-    img.src = objectUrl;
-  });
+  const loadImageElement = (file) =>
+    new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to read image file'));
+      };
+      img.src = objectUrl;
+    });
 
   const optimizeImageForProfile = async (file) => {
     const img = await loadImageElement(file);
@@ -353,13 +393,20 @@ function Profile() {
     }
   };
 
-  const normalizedDraftEmail = String(formData.email || '').trim().toLowerCase();
-  const normalizedSavedEmail = String(user?.email || '').trim().toLowerCase();
+  const normalizedDraftEmail = String(formData.email || '')
+    .trim()
+    .toLowerCase();
+  const normalizedSavedEmail = String(user?.email || '')
+    .trim()
+    .toLowerCase();
   const normalizedDraftPhone = normalizeIndianPhone(formData.phone || '');
   const normalizedSavedPhone = normalizeIndianPhone(user?.phone || '');
   const emailDraftChanged = normalizedDraftEmail !== normalizedSavedEmail;
   const phoneDraftChanged = normalizedDraftPhone !== normalizedSavedPhone;
-  const pendingPhoneChangeRequest = String(phoneChangeRequest?.status || '').trim().toUpperCase() === 'PENDING_VALIDATION';
+  const pendingPhoneChangeRequest =
+    String(phoneChangeRequest?.status || '')
+      .trim()
+      .toUpperCase() === 'PENDING_VALIDATION';
 
   const {
     handleRequestEmailVerification,
@@ -409,15 +456,16 @@ function Profile() {
   return (
     <ProfileView
       loading={loading}
-      user={user}
       success={success}
       error={error}
       validationIssues={validationIssues}
       formData={formData}
       displayProfileImageSrc={displayProfileImageSrc}
-      imageLoadFailed={imageLoadFailed}
+      imageLoadFailed={
+        failedProfileImageSrc === formData.profile_image && Boolean(failedProfileImageSrc)
+      }
       imageUploading={imageUploading}
-      onImageError={() => setImageLoadFailed(true)}
+      onImageError={() => setFailedProfileImageSrc(formData.profile_image)}
       handleProfileImageUpload={handleProfileImageUpload}
       handleRemoveProfileImage={handleRemoveProfileImage}
       handleInputChange={handleInputChange}
@@ -433,7 +481,9 @@ function Profile() {
       phoneVerified={phoneVerified}
       emailDraftChanged={emailDraftChanged}
       phoneDraftChanged={phoneDraftChanged}
-      getEmailRequestStatusClassName={() => getEmailRequestStatusClassName(verificationRequestStatus)}
+      getEmailRequestStatusClassName={() =>
+        getEmailRequestStatusClassName(verificationRequestStatus)
+      }
       getEmailRequestStatusMessage={() => getEmailRequestStatusMessage(verificationRequestStatus)}
       handleRequestEmailVerification={handleRequestEmailVerification}
       verificationLoading={verificationLoading}
@@ -455,4 +505,3 @@ function Profile() {
 }
 
 export default Profile;
-

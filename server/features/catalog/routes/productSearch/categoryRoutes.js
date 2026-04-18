@@ -1,14 +1,7 @@
-const {
-  loadActiveOffers,
-  decorateProductWithOffers,
-} = require('../../../offers/offerEngine');
+const { loadActiveOffers, decorateProductWithOffers } = require('../../../offers/offerEngine');
 
 const registerProductCategoryRoutes = (deps) => {
-  const {
-    app,
-    dbAllAsync,
-    normalizeProductRecord,
-  } = deps;
+  const { app, dbAllAsync, normalizeProductRecord } = deps;
 
   app.get('/api/products/category/:category', async (req, res) => {
     try {
@@ -21,7 +14,11 @@ const registerProductCategoryRoutes = (deps) => {
         loadActiveOffers(dbAllAsync),
       ]);
       return res.json(
-        rows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true }))
+        rows.map((row) =>
+          decorateProductWithOffers(normalizeProductRecord(row), activeOffers, {
+            offersArePrepared: true,
+          })
+        )
       );
     } catch (error) {
       return res.status(500).json({ error: error.message });

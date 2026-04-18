@@ -7,7 +7,7 @@ const addDaysToDateKey = (dateKey, days) => {
   const [year, month, day] = dateKey.split('-').map((v) => Number(v));
   const baseMs = Date.UTC(year, month - 1, day);
   const safeDays = Math.max(0, Math.floor(Number(days || 0)));
-  const next = new Date(baseMs + (safeDays * DAY_MS));
+  const next = new Date(baseMs + safeDays * DAY_MS);
   return next.toISOString().slice(0, 10);
 };
 
@@ -28,10 +28,16 @@ const resolveCreditIssue = async ({
   normalizeTransactionDate,
   buildCreditTransactionTimestamp,
 } = {}) => {
-  const requestedAction = String(req.body?.action || req.body?.status || '').trim().toLowerCase();
+  const requestedAction = String(req.body?.action || req.body?.status || '')
+    .trim()
+    .toLowerCase();
   let status = normalizeCreditIssueStatus(requestedAction, { fallback: '' });
   if (!status) {
-    if (requestedAction === 'correct' || requestedAction === 'mark_corrected' || requestedAction === 'resolved') {
+    if (
+      requestedAction === 'correct' ||
+      requestedAction === 'mark_corrected' ||
+      requestedAction === 'resolved'
+    ) {
       status = 'corrected';
     } else if (requestedAction === 'reject' || requestedAction === 'mark_rejected') {
       status = 'rejected';
@@ -40,24 +46,28 @@ const resolveCreditIssue = async ({
     }
   }
 
-  const adminReason = String(req.body?.admin_reason || req.body?.resolution_note || '').trim() || null;
+  const adminReason =
+    String(req.body?.admin_reason || req.body?.resolution_note || '').trim() || null;
 
-  const correctionType = String(req.body?.correction_type || '').trim().toLowerCase();
+  const correctionType = String(req.body?.correction_type || '')
+    .trim()
+    .toLowerCase();
   const correctionAmount = Number(req.body?.correction_amount || 0);
   const correctionDescription = String(req.body?.correction_description || '').trim();
   const correctionReference = String(req.body?.correction_reference || '').trim();
   const correctionDateRaw = String(req.body?.correction_date || '').trim();
-  const normalizedCorrectionDate = correctionDateRaw ? normalizeTransactionDate(correctionDateRaw) : null;
+  const normalizedCorrectionDate = correctionDateRaw
+    ? normalizeTransactionDate(correctionDateRaw)
+    : null;
   if (correctionDateRaw && !normalizedCorrectionDate) {
     const error = new Error('correction_date must be YYYY-MM-DD');
     error.status = 400;
     throw error;
   }
-  const shouldCreateCorrectionEntry = (
-    (correctionType === 'given' || correctionType === 'payment')
-    && Number.isFinite(correctionAmount)
-    && correctionAmount > 0
-  );
+  const shouldCreateCorrectionEntry =
+    (correctionType === 'given' || correctionType === 'payment') &&
+    Number.isFinite(correctionAmount) &&
+    correctionAmount > 0;
   if (!status) {
     if (shouldCreateCorrectionEntry) {
       status = 'corrected';
@@ -88,22 +98,24 @@ const resolveCreditIssue = async ({
       const latest = await getLatestCreditEntryAsync(userId);
       const currentBalance = Number(latest?.balance || 0);
       const amountAbs = Math.abs(correctionAmount);
-      const nextBalance = correctionType === 'payment'
-        ? (currentBalance - amountAbs)
-        : (currentBalance + amountAbs);
-      const derivedDescription = correctionDescription
-        || `Correction for issue #${issueId}${adminReason ? `: ${adminReason}` : ''}`;
+      const nextBalance =
+        correctionType === 'payment' ? currentBalance - amountAbs : currentBalance + amountAbs;
+      const derivedDescription =
+        correctionDescription ||
+        `Correction for issue #${issueId}${adminReason ? `: ${adminReason}` : ''}`;
       const transactionTs = buildCreditTransactionTimestamp(correctionDateRaw, new Date());
-      const transactionDateKey = normalizedCorrectionDate || String(transactionTs || '').slice(0, 10);
+      const transactionDateKey =
+        normalizedCorrectionDate || String(transactionTs || '').slice(0, 10);
       const creditProfile = await getCustomerCreditProfileAsync(userId);
       const paymentSummary = await getCustomerPaymentSummaryAsync(userId);
       const creditTermsDays = resolveCreditTermsDays({
         creditTermsDays: creditProfile?.credit_terms_days,
         paymentSummary,
       });
-      const dueDate = correctionType === 'payment'
-        ? transactionDateKey
-        : (addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey);
+      const dueDate =
+        correctionType === 'payment'
+          ? transactionDateKey
+          : addDaysToDateKey(transactionDateKey, creditTermsDays) || transactionDateKey;
       const insert = await dbRunAsync(
         `INSERT INTO credit_history
          (
@@ -191,7 +203,7 @@ const resolveCreditIssue = async ({
       userId: Number(updated.user_id),
       title: 'Credit issue updated',
       message: `Issue #${issueId} marked as ${status.replace(/_/g, ' ')}${adminReason ? `: ${adminReason}` : ''}`,
-      level: status === 'corrected' ? 'success' : (status === 'rejected' ? 'warning' : 'info'),
+      level: status === 'corrected' ? 'success' : status === 'rejected' ? 'warning' : 'info',
       entityType: 'credit_entry_issue',
       entityId: issueId,
       issueId,

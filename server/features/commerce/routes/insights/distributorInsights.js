@@ -1,10 +1,5 @@
 const registerDistributorInsightsRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbAllAsync,
-    resolveInsightDateRange,
-  } = deps;
+  const { app, requireAdmin, dbAllAsync, resolveInsightDateRange } = deps;
 
   app.get('/api/insights/distributors', requireAdmin, async (req, res) => {
     try {

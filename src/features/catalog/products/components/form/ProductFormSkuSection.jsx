@@ -1,10 +1,6 @@
 import { Package, QrCode } from 'lucide-react';
 
-const ProductFormSkuSection = ({
-  formData,
-  onChange,
-  isEditing,
-}) => (
+const ProductFormSkuSection = ({ formData, onChange, isEditing }) => (
   <div className="form-section">
     <h3 className="section-title">SKU & Barcode</h3>
 
@@ -23,7 +19,10 @@ const ProductFormSkuSection = ({
           className="input-field"
           readOnly={!isEditing}
         />
-        <small className="field-help">Format: Name[:4] + Brand[:4] + Content[:2] + Price[:4]. For multi-variant, comma SKUs are supported.</small>
+        <small className="field-help">
+          Format: Name[:4] + Brand[:4] + Content[:2] + Price[:4]. For multi-variant, comma SKUs are
+          supported.
+        </small>
       </div>
 
       <div className="form-group">

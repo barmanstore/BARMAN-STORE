@@ -19,10 +19,13 @@ const createProductRecordNormalizer = ({ fieldNormalizers }) => {
     const subBrand = explicitSubBrand || brandParsed.child || '';
     out.brand = brandParsed.parent || out.brand || null;
     out.sub_brand = subBrand || '';
-    const uomType = String(out.uom_type || 'selling').trim().toLowerCase();
+    const uomType = String(out.uom_type || 'selling')
+      .trim()
+      .toLowerCase();
     const conversionFactor = Number(out.conversion_factor ?? 1);
     out.uom_type = ['selling', 'purchasing', 'both'].includes(uomType) ? uomType : 'selling';
-    out.conversion_factor = Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
+    out.conversion_factor =
+      Number.isFinite(conversionFactor) && conversionFactor > 0 ? conversionFactor : 1;
     out.base_unit = String(out.base_unit || out.uom || 'pcs').trim() || 'pcs';
     out.uom = String(out.uom || 'pcs').trim() || 'pcs';
     out.default_discount = Number(out.default_discount ?? out.defaultDiscount ?? 0);

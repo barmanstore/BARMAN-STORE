@@ -1,5 +1,7 @@
 const parseBooleanEnv = (value, fallback = false) => {
-  const raw = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
@@ -12,7 +14,9 @@ const isPlaceholderValue = (value) => {
 };
 
 const normalizeBaseUrl = (value) => {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
+  const raw = String(value || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (!raw || isPlaceholderValue(raw)) return '';
   try {
     const parsed = new URL(raw);
@@ -40,11 +44,7 @@ const deriveSupabaseUrlFromDbUrl = (dbUrl) => {
 const parseErrorMessage = (payload, fallback = 'Supabase Auth request failed') => {
   if (!payload || typeof payload !== 'object') return fallback;
   return String(
-    payload.error_description
-    || payload.msg
-    || payload.error
-    || payload.message
-    || fallback
+    payload.error_description || payload.msg || payload.error || payload.message || fallback
   );
 };
 

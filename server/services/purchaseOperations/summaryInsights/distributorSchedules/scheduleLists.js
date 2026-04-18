@@ -21,46 +21,56 @@ const buildScheduleLists = ({
   PURCHASE_WEEKDAYS,
 } = {}) => {
   const distributorById = new Map(
-    (Array.isArray(distributors) ? distributors : []).map((entry) => [Number(entry?.id || 0), entry])
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [
+      Number(entry?.id || 0),
+      entry,
+    ])
   );
   const activeSuppliers = (Array.isArray(suppliers) ? suppliers : [])
     .filter((supplier) => Number(supplier?.distributor_id || 0))
     .filter((supplier) => Boolean(supplier?.is_active ?? true))
     .filter((supplier) => {
       const distributor = distributorById.get(Number(supplier.distributor_id || 0));
-      return distributor && String(distributor.status || 'active').trim().toLowerCase() === 'active';
+      return (
+        distributor &&
+        String(distributor.status || 'active')
+          .trim()
+          .toLowerCase() === 'active'
+      );
     });
 
   const todayWeekday = getWeekdayFromDateKey(todayKey);
   const tomorrowWeekday = getWeekdayFromDateKey(tomorrowKey);
 
-  const buildEntry = (supplier, distributor, scheduleDate, scheduleDay, scheduleType) => buildScheduledDistributorEntry({
-    distributor,
-    supplier,
-    scheduleDate,
-    scheduleDay,
-    scheduleType,
-    distributorInsightById,
-    ordersByDistributor,
-    ordersBySupplier,
-    payablesWithInsights,
-    todayKey,
-    getDistributorOrderScheduleDay,
-    parseDistributorProductsSupplied,
-    normalizeTransactionDate,
-    getPurchaseOrderLifecycleStatus,
-    isPoEditableLifecycle,
-  });
+  const buildEntry = (supplier, distributor, scheduleDate, scheduleDay, scheduleType) =>
+    buildScheduledDistributorEntry({
+      distributor,
+      supplier,
+      scheduleDate,
+      scheduleDay,
+      scheduleType,
+      distributorInsightById,
+      ordersByDistributor,
+      ordersBySupplier,
+      payablesWithInsights,
+      todayKey,
+      getDistributorOrderScheduleDay,
+      parseDistributorProductsSupplied,
+      normalizeTransactionDate,
+      getPurchaseOrderLifecycleStatus,
+      isPoEditableLifecycle,
+    });
 
-  const getIrregularScheduleDate = (supplier, distributor) => resolveIrregularScheduleDate({
-    todayKey,
-    supplier,
-    distributor,
-    distributorInsightById,
-    ordersByDistributor,
-    ordersBySupplier,
-    normalizeTransactionDate,
-  });
+  const getIrregularScheduleDate = (supplier, distributor) =>
+    resolveIrregularScheduleDate({
+      todayKey,
+      supplier,
+      distributor,
+      distributorInsightById,
+      ordersByDistributor,
+      ordersBySupplier,
+      normalizeTransactionDate,
+    });
 
   const todayDistributors = activeSuppliers
     .filter((supplier) => {
@@ -80,10 +90,13 @@ const buildScheduleLists = ({
       const scheduleDay = schedule.scheduleType === 'weekly' ? schedule.scheduleDay : null;
       return buildEntry(supplier, distributor, todayKey, scheduleDay, schedule.scheduleType);
     })
-    .sort((a, b) => Number(b.overdue_amount || 0) - Number(a.overdue_amount || 0)
-      || Number(b.due_today_amount || 0) - Number(a.due_today_amount || 0)
-      || String(a.distributor_name || '').localeCompare(String(b.distributor_name || ''))
-      || String(a.supplier_name || '').localeCompare(String(b.supplier_name || '')));
+    .sort(
+      (a, b) =>
+        Number(b.overdue_amount || 0) - Number(a.overdue_amount || 0) ||
+        Number(b.due_today_amount || 0) - Number(a.due_today_amount || 0) ||
+        String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')) ||
+        String(a.supplier_name || '').localeCompare(String(b.supplier_name || ''))
+    );
 
   const tomorrowDistributors = activeSuppliers
     .filter((supplier) => {
@@ -103,9 +116,12 @@ const buildScheduleLists = ({
       const scheduleDay = schedule.scheduleType === 'weekly' ? schedule.scheduleDay : null;
       return buildEntry(supplier, distributor, tomorrowKey, scheduleDay, schedule.scheduleType);
     })
-    .sort((a, b) => Number(b.po_balance_due || 0) - Number(a.po_balance_due || 0)
-      || String(a.distributor_name || '').localeCompare(String(b.distributor_name || ''))
-      || String(a.supplier_name || '').localeCompare(String(b.supplier_name || '')));
+    .sort(
+      (a, b) =>
+        Number(b.po_balance_due || 0) - Number(a.po_balance_due || 0) ||
+        String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')) ||
+        String(a.supplier_name || '').localeCompare(String(b.supplier_name || ''))
+    );
 
   const weeklyDistributors = activeSuppliers
     .map((supplier) => {
@@ -133,9 +149,12 @@ const buildScheduleLists = ({
       return null;
     })
     .filter(Boolean)
-    .sort((a, b) => String(a.schedule_date || '').localeCompare(String(b.schedule_date || ''))
-      || String(a.distributor_name || '').localeCompare(String(b.distributor_name || ''))
-      || String(a.supplier_name || '').localeCompare(String(b.supplier_name || '')));
+    .sort(
+      (a, b) =>
+        String(a.schedule_date || '').localeCompare(String(b.schedule_date || '')) ||
+        String(a.distributor_name || '').localeCompare(String(b.distributor_name || '')) ||
+        String(a.supplier_name || '').localeCompare(String(b.supplier_name || ''))
+    );
 
   return { todayDistributors, tomorrowDistributors, weeklyDistributors };
 };

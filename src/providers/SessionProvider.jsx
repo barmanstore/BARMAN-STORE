@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { safeLocalStorageGet, safeLocalStorageRemove, safeLocalStorageSet } from '../shared/utils/storage';
+import {
+  safeLocalStorageGet,
+  safeLocalStorageRemove,
+  safeLocalStorageSet,
+} from '../shared/utils/storage';
 import { registerSessionAccess } from '../shared/services/api/sessionAccess';
 
 const SessionContext = createContext(null);
@@ -84,13 +88,16 @@ export function SessionProvider({ children }) {
 
   const value = useMemo(() => {
     const isLoggedIn = Boolean(
-      user?.id
-      || String(user?.token || '').trim()
-      || String(user?.supabase_session?.access_token || '').trim()
-      || String(user?.email || '').trim()
-      || String(user?.phone || '').trim()
+      user?.id ||
+      String(user?.token || '').trim() ||
+      String(user?.supabase_session?.access_token || '').trim() ||
+      String(user?.email || '').trim() ||
+      String(user?.phone || '').trim()
     );
-    const isAdminUser = String(user?.role || '').trim().toLowerCase() === 'admin';
+    const isAdminUser =
+      String(user?.role || '')
+        .trim()
+        .toLowerCase() === 'admin';
     return {
       user,
       setUser,
@@ -101,11 +108,7 @@ export function SessionProvider({ children }) {
     };
   }, [clearUser, refreshUser, setUser, user]);
 
-  return (
-    <SessionContext.Provider value={value}>
-      {children}
-    </SessionContext.Provider>
-  );
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export const useSession = () => {

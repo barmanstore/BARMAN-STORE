@@ -4,13 +4,10 @@ const { applyConfirmLedgerEntries } = require('./confirm/confirmLedger');
 const { updatePurchaseOrderOnConfirm } = require('./confirm/confirmUpdate');
 const { buildConfirmResponse } = require('./confirm/confirmResponse');
 
-const handlePurchaseOrderConfirm = async (deps, {
-  req,
-  res,
-  order,
-  currentPoStatus,
-  billNumber,
-}) => {
+const handlePurchaseOrderConfirm = async (
+  deps,
+  { req, res, order, currentPoStatus, billNumber }
+) => {
   const {
     dbTxAsync,
     logAdminAuditAsync,
@@ -99,27 +96,29 @@ const handlePurchaseOrderConfirm = async (deps, {
     details: {
       status: 'confirmed',
       po_status: nextLifecycleStatus,
-        bill_number: billNumber || null,
-        initial_paid_amount: totalSnapshot.paidAmount,
-        balance_due: totalSnapshot.balanceDue,
-        payment_status: totalSnapshot.paymentStatus,
-        delivered,
-        stock_applied: !stockAlreadyApplied,
-        stock_already_applied: stockAlreadyApplied,
-        cap_applied_count: capAdjustments.length,
+      bill_number: billNumber || null,
+      initial_paid_amount: totalSnapshot.paidAmount,
+      balance_due: totalSnapshot.balanceDue,
+      payment_status: totalSnapshot.paymentStatus,
+      delivered,
+      stock_applied: !stockAlreadyApplied,
+      stock_already_applied: stockAlreadyApplied,
+      cap_applied_count: capAdjustments.length,
       process_payment_id: createdPaymentId,
     },
   });
 
-  return res.json(buildConfirmResponse({
-    nextLifecycleStatus,
-    totalSnapshot,
-    paymentDueDate,
-    stockAlreadyApplied,
-    capAdjustments,
-    PURCHASE_STOCK_CAP,
-    delivered,
-  }));
+  return res.json(
+    buildConfirmResponse({
+      nextLifecycleStatus,
+      totalSnapshot,
+      paymentDueDate,
+      stockAlreadyApplied,
+      capAdjustments,
+      PURCHASE_STOCK_CAP,
+      delivered,
+    })
+  );
 };
 
 module.exports = { handlePurchaseOrderConfirm };

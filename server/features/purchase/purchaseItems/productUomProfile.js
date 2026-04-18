@@ -8,9 +8,8 @@ const getPurchaseProductUomProfile = (product = null) => {
   const sellingUnit = normalizePurchaseUomToken(product?.uom, 'pcs');
   const baseUnit = normalizePurchaseUomToken(product?.base_unit, sellingUnit);
   const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-    ? conversionFactorRaw
-    : 1;
+  const conversionFactor =
+    Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0 ? conversionFactorRaw : 1;
   return {
     sellingUnit,
     baseUnit,

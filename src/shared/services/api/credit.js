@@ -12,9 +12,12 @@ export const creditApi = {
   getBalance: (userId) => apiFetch(`/api/users/${userId}/credit-balance`),
   getPaymentBadges: (userId) => apiFetch(`/api/users/${userId}/payment-badges`),
   getLedger: (params = {}) => {
-    const normalizedParams = params && typeof params === 'object' && !Array.isArray(params)
-      ? params
-      : (String(params || '').trim() ? { user_id: String(params).trim() } : {});
+    const normalizedParams =
+      params && typeof params === 'object' && !Array.isArray(params)
+        ? params
+        : String(params || '').trim()
+          ? { user_id: String(params).trim() }
+          : {};
     const query = new URLSearchParams(normalizedParams).toString();
     return apiFetch(`/api/credit/ledger${query ? `?${query}` : ''}`).catch((error) => {
       if (error?.status === 404) return [];

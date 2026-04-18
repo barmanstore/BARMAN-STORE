@@ -1,9 +1,4 @@
-const validateOrderPayload = async ({
-  payload,
-  dbGetAsync,
-  normalizeEmail,
-  parsePhoneInput,
-}) => {
+const validateOrderPayload = async ({ payload, dbGetAsync, normalizeEmail, parsePhoneInput }) => {
   const {
     user_id = null,
     customer_name,
@@ -31,7 +26,9 @@ const validateOrderPayload = async ({
     Number(account.email_verified || 0) !== 1 &&
     Number(account.phone_verified || 0) !== 1
   ) {
-    throw new Error('INCOMPLETE_PROFILE: Verify at least one contact method (email or phone) before placing orders');
+    throw new Error(
+      'INCOMPLETE_PROFILE: Verify at least one contact method (email or phone) before placing orders'
+    );
   }
   const phoneParsed = parsePhoneInput(customer_phone);
   if (phoneParsed.error) {

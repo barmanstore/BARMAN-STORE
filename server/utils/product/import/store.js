@@ -1,5 +1,7 @@
 const createProductImportStore = ({ crypto }) => {
-  const PRODUCT_IMPORT_BATCH_TTL_MS = Number(process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000);
+  const PRODUCT_IMPORT_BATCH_TTL_MS = Number(
+    process.env.PRODUCT_IMPORT_BATCH_TTL_MS || 30 * 60 * 1000
+  );
   const PRODUCT_IMPORT_HEADERS = [
     'id',
     'sku',
@@ -54,12 +56,8 @@ const createProductImportStore = ({ crypto }) => {
   };
   const productImportBatches = new Map();
 
-  const createImportBatchChecksum = (rows, mode, stockMode) => (
-    crypto
-      .createHash('sha256')
-      .update(JSON.stringify({ rows, mode, stockMode }))
-      .digest('hex')
-  );
+  const createImportBatchChecksum = (rows, mode, stockMode) =>
+    crypto.createHash('sha256').update(JSON.stringify({ rows, mode, stockMode })).digest('hex');
 
   const cleanupExpiredImportBatches = () => {
     const now = Date.now();

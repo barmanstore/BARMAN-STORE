@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { distributorsApi, suppliersApi } from '../../shared/services/api';
 import { validateAmountInput } from '../../shared/utils/amountExpression';
-import { isValidIndianPhone, normalizeIndianPhone, PHONE_POLICY_MESSAGE } from '../../shared/utils/phone';
+import {
+  isValidIndianPhone,
+  normalizeIndianPhone,
+  PHONE_POLICY_MESSAGE,
+} from '../../shared/utils/phone';
 import DistributorManagementView from './components/DistributorManagementView';
 import './DistributorManagement.css';
 
-function DistributorManagement({ user }) {
+function DistributorManagement() {
   const [distributors, setDistributors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -46,7 +50,7 @@ function DistributorManagement({ user }) {
     inactive_reason: '',
     auto_suggest_items: true,
     auto_reminders_enabled: true,
-    status: 'active'
+    status: 'active',
   });
 
   const parseContacts = (contacts) => {
@@ -102,18 +106,27 @@ function DistributorManagement({ user }) {
   };
 
   const buildDistributorGroupKey = (distributor) => {
-    const normalizedName = String(distributor?.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const normalizedName = String(distributor?.name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
     if (normalizedName) return normalizedName;
     return `distributor:${String(distributor?.id || '')}`;
   };
 
   const buildDistributorOptionLabel = (distributor, duplicateCount = 1) => {
-    const baseName = String(distributor?.name || '').trim() || `Distributor ${String(distributor?.id || '').trim()}`;
+    const baseName =
+      String(distributor?.name || '').trim() ||
+      `Distributor ${String(distributor?.id || '').trim()}`;
     const suffixes = [];
     if (duplicateCount > 1 && distributor?.id) {
       suffixes.push(`ID ${distributor.id}`);
     }
-    if (String(distributor?.status || 'active').trim().toLowerCase() !== 'active') {
+    if (
+      String(distributor?.status || 'active')
+        .trim()
+        .toLowerCase() !== 'active'
+    ) {
       suffixes.push('Inactive');
     }
     return suffixes.length ? `${baseName} (${suffixes.join(' • ')})` : baseName;
@@ -222,7 +235,7 @@ function DistributorManagement({ user }) {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -246,7 +259,7 @@ function DistributorManagement({ user }) {
         name: formData.name.trim(),
         contacts: JSON.stringify({
           phone: formData.phone ? normalizeIndianPhone(formData.phone) : '',
-          email: formData.email
+          email: formData.email,
         }),
         address: formData.address.trim(),
         order_cutoff_time: formData.order_cutoff_time,
@@ -258,7 +271,7 @@ function DistributorManagement({ user }) {
         inactive_reason: formData.inactive_reason.trim(),
         auto_suggest_items: formData.auto_suggest_items,
         auto_reminders_enabled: formData.auto_reminders_enabled,
-        status: formData.status
+        status: formData.status,
       };
 
       if (editingDistributor) {
@@ -278,7 +291,7 @@ function DistributorManagement({ user }) {
 
   const handleEdit = (distributor) => {
     const contacts = parseContacts(distributor.contacts);
-    
+
     setFormData({
       name: distributor.name || '',
       phone: contacts.phone || '',
@@ -293,7 +306,7 @@ function DistributorManagement({ user }) {
       inactive_reason: distributor.inactive_reason || '',
       auto_suggest_items: distributor.auto_suggest_items !== false,
       auto_reminders_enabled: distributor.auto_reminders_enabled !== false,
-      status: distributor.status || 'active'
+      status: distributor.status || 'active',
     });
     setEditingDistributor(distributor);
     setShowForm(true);
@@ -314,7 +327,7 @@ function DistributorManagement({ user }) {
       inactive_reason: '',
       auto_suggest_items: true,
       auto_reminders_enabled: true,
-      status: 'active'
+      status: 'active',
     });
   };
 
@@ -423,7 +436,10 @@ function DistributorManagement({ user }) {
         setError('Supplier name is required.');
         return;
       }
-      if (supplierFormData.schedule_type === 'weekly' && !String(supplierFormData.schedule_day || '').trim()) {
+      if (
+        supplierFormData.schedule_type === 'weekly' &&
+        !String(supplierFormData.schedule_day || '').trim()
+      ) {
         setError('Select a weekly schedule day.');
         return;
       }
@@ -436,7 +452,9 @@ function DistributorManagement({ user }) {
         distributor_id: distributorId,
         name: supplierName,
         phone: supplierFormData.phone ? normalizeIndianPhone(supplierFormData.phone) : '',
-        alt_phone: supplierFormData.alt_phone ? normalizeIndianPhone(supplierFormData.alt_phone) : '',
+        alt_phone: supplierFormData.alt_phone
+          ? normalizeIndianPhone(supplierFormData.alt_phone)
+          : '',
         products_supplied: productsSupplied,
         schedule_type: scheduleType,
         schedule_day: scheduleType === 'weekly' ? supplierFormData.schedule_day : null,
@@ -460,17 +478,17 @@ function DistributorManagement({ user }) {
     const distributorId = Number(distributor?.id || 0);
     if (!distributorId) return;
     const actionKey = `distributor-status:${distributorId}`;
-    const nextStatus = String(distributor?.status || 'active').toLowerCase() === 'inactive'
-      ? 'active'
-      : 'inactive';
+    const nextStatus =
+      String(distributor?.status || 'active').toLowerCase() === 'inactive' ? 'active' : 'inactive';
     setError('');
     setPendingActionKey(actionKey);
     try {
       await distributorsApi.update(distributorId, {
         status: nextStatus,
-        inactive_reason: nextStatus === 'inactive'
-          ? (distributor?.inactive_reason || 'Archived from distributor management')
-          : '',
+        inactive_reason:
+          nextStatus === 'inactive'
+            ? distributor?.inactive_reason || 'Archived from distributor management'
+            : '',
       });
       await fetchDistributors();
       handleCloseDistributorManager();
@@ -509,9 +527,10 @@ function DistributorManagement({ user }) {
       id: distributorId,
       label: String(distributor?.name || '').trim(),
       title: `Delete distributor record ${distributorId}`,
-      description: supplierCount > 0
-        ? `This record still has ${supplierCount} supplier${supplierCount === 1 ? '' : 's'}. Delete is expected to be blocked until those suppliers are moved or archived.`
-        : 'This permanently removes the distributor record. Delete is also blocked if purchase-order history exists.',
+      description:
+        supplierCount > 0
+          ? `This record still has ${supplierCount} supplier${supplierCount === 1 ? '' : 's'}. Delete is expected to be blocked until those suppliers are moved or archived.`
+          : 'This permanently removes the distributor record. Delete is also blocked if purchase-order history exists.',
     });
   };
 
@@ -614,9 +633,7 @@ function DistributorManagement({ user }) {
         const representativeDistributor = orderedDistributors[0] || null;
         const records = orderedDistributors.map((entry) => ({
           ...entry,
-          supplier_count: Number(
-            (supplierBuckets.get(String(entry?.id || '')) || []).length
-          ),
+          supplier_count: Number((supplierBuckets.get(String(entry?.id || '')) || []).length),
         }));
         return {
           key: group.key,
@@ -625,11 +642,15 @@ function DistributorManagement({ user }) {
           supplierCount: orderedSuppliers.length,
           hasDuplicateRecords: orderedDistributors.length > 1,
           distributorCount: orderedDistributors.length,
-          distributorIds: orderedDistributors.map((entry) => Number(entry?.id || 0)).filter(Boolean),
+          distributorIds: orderedDistributors
+            .map((entry) => Number(entry?.id || 0))
+            .filter(Boolean),
           records,
         };
       })
-      .sort((a, b) => String(a?.distributor?.name || '').localeCompare(String(b?.distributor?.name || '')));
+      .sort((a, b) =>
+        String(a?.distributor?.name || '').localeCompare(String(b?.distributor?.name || ''))
+      );
   }, [distributors, suppliers]);
 
   const supplierDistributorName = useMemo(() => {
@@ -666,20 +687,32 @@ function DistributorManagement({ user }) {
     const term = searchTerm.toLowerCase();
     const distributorName = String(card?.distributor?.name || '').toLowerCase();
     const supplierLabels = (Array.isArray(card?.suppliers) ? card.suppliers : [])
-      .map((supplier) => String(supplier?.name || '').trim().toLowerCase())
+      .map((supplier) =>
+        String(supplier?.name || '')
+          .trim()
+          .toLowerCase()
+      )
       .filter(Boolean);
     const supplierProductGroups = (Array.isArray(card?.suppliers) ? card.suppliers : [])
-      .map((supplier) => String(supplier?.products_supplied || '').trim().toLowerCase())
+      .map((supplier) =>
+        String(supplier?.products_supplied || '')
+          .trim()
+          .toLowerCase()
+      )
       .filter(Boolean);
-    return distributorName.includes(term)
-      || supplierLabels.some((name) => name.includes(term))
-      || supplierProductGroups.some((group) => group.includes(term));
+    return (
+      distributorName.includes(term) ||
+      supplierLabels.some((name) => name.includes(term)) ||
+      supplierProductGroups.some((group) => group.includes(term))
+    );
   });
 
   const getStatusBadge = (status) => {
-    return status === 'active' 
-      ? <span className="status-badge active">Active</span>
-      : <span className="status-badge inactive">Inactive</span>;
+    return status === 'active' ? (
+      <span className="status-badge active">Active</span>
+    ) : (
+      <span className="status-badge inactive">Inactive</span>
+    );
   };
 
   return (

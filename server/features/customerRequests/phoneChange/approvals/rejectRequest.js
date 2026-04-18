@@ -33,9 +33,12 @@ const createPhoneChangeReject = (deps = {}) => {
         PHONE_CHANGE_STATUS_PENDING,
       ]
     );
-    const updated = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [requestId]);
+    const updated = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [
+      requestId,
+    ]);
     if (!updated) return null;
-    if (normalizePhoneChangeRequestStatus(updated.status, '') !== PHONE_CHANGE_STATUS_REJECTED) return null;
+    if (normalizePhoneChangeRequestStatus(updated.status, '') !== PHONE_CHANGE_STATUS_REJECTED)
+      return null;
     return updated;
   };
 

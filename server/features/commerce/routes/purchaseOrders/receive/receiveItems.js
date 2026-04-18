@@ -1,10 +1,7 @@
-const applyReceivedItems = async (deps, {
-  req,
-  order,
-  items,
-  shouldApplyStockOnReceive,
-  historyTransactionTs,
-}) => {
+const applyReceivedItems = async (
+  deps,
+  { req, order, items, shouldApplyStockOnReceive, historyTransactionTs }
+) => {
   const {
     dbGetAsync,
     dbRunAsync,
@@ -16,36 +13,48 @@ const applyReceivedItems = async (deps, {
   const supplierUpdates = [];
 
   for (const it of items) {
-    const item = await dbGetAsync('SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?', [it.item_id, req.params.id]);
+    const item = await dbGetAsync(
+      'SELECT * FROM purchase_order_items WHERE id = ? AND order_id = ?',
+      [it.item_id, req.params.id]
+    );
     if (!item) continue;
     const receivedQty = Math.max(0, Number(it.received_quantity || 0));
     if (receivedQty <= 0) continue;
     const orderedQtyLimit = Math.max(0, Number(item.quantity || 0));
-    const newReceived = Math.min(orderedQtyLimit, Number(item.received_quantity || 0) + receivedQty);
+    const newReceived = Math.min(
+      orderedQtyLimit,
+      Number(item.received_quantity || 0) + receivedQty
+    );
     const appliedReceivedQty = Math.max(0, newReceived - Number(item.received_quantity || 0));
     if (appliedReceivedQty <= 0) continue;
     const product = item.product_id
       ? await dbGetAsync(
-        'SELECT id, stock, uom, base_unit, conversion_factor FROM products WHERE id = ?',
-        [item.product_id]
-      )
+          'SELECT id, stock, uom, base_unit, conversion_factor FROM products WHERE id = ?',
+          [item.product_id]
+        )
       : null;
-    const receivedQtyBase = product ? toPurchaseBaseQty(appliedReceivedQty, item.uom, product) : appliedReceivedQty;
+    const receivedQtyBase = product
+      ? toPurchaseBaseQty(appliedReceivedQty, item.uom, product)
+      : appliedReceivedQty;
     const unitPrice = Math.max(0, Number(it.unit_price || item.unit_price || item.rate || 0));
-    const orderedQtyBase = product ? toPurchaseBaseQty(Number(item.quantity || 0), item.uom, product) : Number(item.quantity || 0);
+    const orderedQtyBase = product
+      ? toPurchaseBaseQty(Number(item.quantity || 0), item.uom, product)
+      : Number(item.quantity || 0);
     const gross = orderedQtyBase * unitPrice;
-    const discountType = String(item.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
+    const discountType =
+      String(item.discount_type || 'percent').toLowerCase() === 'fixed' ? 'fixed' : 'percent';
     const discountValue = Math.max(0, Number(item.discount_value || 0));
-    const discountAmountRaw = discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
+    const discountAmountRaw =
+      discountType === 'percent' ? (gross * discountValue) / 100 : discountValue;
     const discountAmount = Math.max(0, Math.min(discountAmountRaw, gross));
     const taxableValue = Math.max(0, gross - discountAmount);
     const gstRate = Math.max(0, Number(item.gst_rate || 0));
     const taxAmount = (taxableValue * gstRate) / 100;
     const lineTotal = taxableValue + taxAmount;
-    const unitPriceBeforeDiscount = orderedQtyLimit > 0 ? (gross / orderedQtyLimit) : unitPrice;
-    const unitDiscountAmount = orderedQtyLimit > 0 ? (discountAmount / orderedQtyLimit) : 0;
-    const unitTaxAmount = orderedQtyLimit > 0 ? (taxAmount / orderedQtyLimit) : 0;
-    const unitCostInclTax = orderedQtyLimit > 0 ? (lineTotal / orderedQtyLimit) : 0;
+    const unitPriceBeforeDiscount = orderedQtyLimit > 0 ? gross / orderedQtyLimit : unitPrice;
+    const unitDiscountAmount = orderedQtyLimit > 0 ? discountAmount / orderedQtyLimit : 0;
+    const unitTaxAmount = orderedQtyLimit > 0 ? taxAmount / orderedQtyLimit : 0;
+    const unitCostInclTax = orderedQtyLimit > 0 ? lineTotal / orderedQtyLimit : 0;
     await dbRunAsync(
       `UPDATE purchase_order_items
        SET received_quantity = ?,
@@ -109,9 +118,16 @@ const applyReceivedItems = async (deps, {
       });
     }
     if (item.product_id && shouldApplyStockOnReceive && product) {
-      const before = (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock || 0;
-      await dbRunAsync('UPDATE products SET stock = stock + ? WHERE id = ?', [receivedQtyBase, item.product_id]);
-      const after = (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock || 0;
+      const before =
+        (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock ||
+        0;
+      await dbRunAsync('UPDATE products SET stock = stock + ? WHERE id = ?', [
+        receivedQtyBase,
+        item.product_id,
+      ]);
+      const after =
+        (await dbGetAsync('SELECT stock FROM products WHERE id = ?', [item.product_id]))?.stock ||
+        0;
       await logStockLedgerAsync({
         productId: item.product_id,
         transactionType: 'PURCHASE',

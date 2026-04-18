@@ -7,20 +7,19 @@ const roundMoney = (value = 0) => Math.round((Number(value || 0) + Number.EPSILO
 const getVariationOfferSnapshot = (variation = null) => {
   const offerDisplay = variation?.offerDisplay;
   const offerLabel = String(
-    variation?.offerLabel
-    || variation?.offerBadges?.[0]
-    || offerDisplay?.display_offer_label
-    || ''
+    variation?.offerLabel || variation?.offerBadges?.[0] || offerDisplay?.display_offer_label || ''
   ).trim();
   const hasOffer = Boolean(
-    offerLabel
-    || offerDisplay?.has_offer
-    || (Array.isArray(variation?.offerBadges) && variation.offerBadges.length > 0)
+    offerLabel ||
+    offerDisplay?.has_offer ||
+    (Array.isArray(variation?.offerBadges) && variation.offerBadges.length > 0)
   );
   const displayPrice = Math.max(0, Number(variation?.price || offerDisplay?.display_price || 0));
   const originalPrice = Math.max(
     displayPrice,
-    Number(offerDisplay?.original_price ?? variation?.mrp ?? variation?.basePrice ?? displayPrice) || displayPrice
+    Number(
+      offerDisplay?.original_price ?? variation?.mrp ?? variation?.basePrice ?? displayPrice
+    ) || displayPrice
   );
   const savings = roundMoney(Math.max(0, originalPrice - displayPrice));
 
@@ -108,9 +107,11 @@ const useProductsRecommendations = ({
       const history = usageHistory[family.id] || {};
       const addCount = Number(history.addCount || 0);
       const lastAddedAt = Date.parse(history.lastAddedAt || '');
-      const daysSince = Number.isFinite(lastAddedAt) ? Math.max(0, (now - lastAddedAt) / 86400000) : 30;
+      const daysSince = Number.isFinite(lastAddedAt)
+        ? Math.max(0, (now - lastAddedAt) / 86400000)
+        : 30;
       const inStock = family.variations.some((variation) => Number(variation.stock || 0) > 0);
-      const score = (addCount * 12) + (inStock ? 15 : 0) + (daysSince < 5 ? 6 : 0) - (index * 0.015);
+      const score = addCount * 12 + (inStock ? 15 : 0) + (daysSince < 5 ? 6 : 0) - index * 0.015;
       return { family, score };
     });
     return scored
@@ -146,7 +147,7 @@ const useProductsRecommendations = ({
           depletionPercent,
           usageWindowDays,
           daysSince: Number(daysSince.toFixed(1)),
-          tone: depletionPercent >= CRITICAL_RESTOCK_THRESHOLD ? 'critical' : 'warning'
+          tone: depletionPercent >= CRITICAL_RESTOCK_THRESHOLD ? 'critical' : 'warning',
         };
       })
       .filter(Boolean)
@@ -170,10 +171,10 @@ const useProductsRecommendations = ({
       const addCount = Number(history.addCount || 0);
       const lastAddedAt = Date.parse(history.lastAddedAt || '');
       const recencyScore = Number.isFinite(lastAddedAt)
-        ? Math.max(0, 22 - ((now - lastAddedAt) / 86400000))
+        ? Math.max(0, 22 - (now - lastAddedAt) / 86400000)
         : 0;
       const stockBoost = Number(family.totalStock || 0) > 0 ? 6 : 0;
-      const score = (addCount * 12) + recencyScore + stockBoost - (index * 0.02);
+      const score = addCount * 12 + recencyScore + stockBoost - index * 0.02;
       return { family, score };
     });
     return scored
@@ -195,7 +196,7 @@ const useProductsRecommendations = ({
     const scored = mobileFilteredFamilies.map((family, index) => {
       const history = usageHistory[family.id] || {};
       const addCount = Number(history.addCount || 0);
-      const score = (addCount * 9) + (Number(family.totalStock || 0) > 0 ? 5 : 0) - (index * 0.02);
+      const score = addCount * 9 + (Number(family.totalStock || 0) > 0 ? 5 : 0) - index * 0.02;
       return { family, score };
     });
     return scored
@@ -204,11 +205,14 @@ const useProductsRecommendations = ({
       .map((entry) => entry.family);
   }, [quickAddFamilies, mobileFilteredFamilies, usageHistory]);
 
-  const mobileTabFamilies = useMemo(() => ({
-    'order-again': repeatOrderFamilies,
-    'best-prices': bestPriceFamilies,
-    trending: trendingFamilies
-  }), [repeatOrderFamilies, bestPriceFamilies, trendingFamilies]);
+  const mobileTabFamilies = useMemo(
+    () => ({
+      'order-again': repeatOrderFamilies,
+      'best-prices': bestPriceFamilies,
+      trending: trendingFamilies,
+    }),
+    [repeatOrderFamilies, bestPriceFamilies, trendingFamilies]
+  );
 
   const comboSuggestions = useMemo(() => {
     const pickByKeywords = (keywords = []) => {
@@ -224,50 +228,60 @@ const useProductsRecommendations = ({
         id: 'breakfast-combo',
         title: 'Breakfast Combo',
         subtitle: 'Milk + Bread + Eggs',
-        matchers: [['milk', 'dairy'], ['bread'], ['egg']]
+        matchers: [['milk', 'dairy'], ['bread'], ['egg']],
       },
       {
         id: 'tea-time-pack',
         title: 'Tea Time Pack',
         subtitle: 'Tea + Biscuit + Sugar',
-        matchers: [['tea'], ['biscuit', 'cookie'], ['sugar']]
-      }
+        matchers: [['tea'], ['biscuit', 'cookie'], ['sugar']],
+      },
     ];
 
-    const combos = comboTemplates.map((template) => {
-      const items = template.matchers
-        .map((group) => pickByKeywords(group))
-        .filter(Boolean)
-        .filter((family, index, arr) => arr.findIndex((item) => item.id === family.id) === index)
-        .slice(0, 3);
-      if (items.length < 2) return null;
-      const subtotal = items.reduce((sum, family) => sum + Number(getSelectedVariation(family)?.price || 0), 0);
-      const saveAmount = Math.max(2, Math.round(subtotal * 0.08));
-      return {
-        id: template.id,
-        title: template.title,
-        subtitle: template.subtitle,
-        items,
-        subtotal,
-        saveAmount,
-        finalPrice: Math.max(0, subtotal - saveAmount)
-      };
-    }).filter(Boolean);
+    const combos = comboTemplates
+      .map((template) => {
+        const items = template.matchers
+          .map((group) => pickByKeywords(group))
+          .filter(Boolean)
+          .filter((family, index, arr) => arr.findIndex((item) => item.id === family.id) === index)
+          .slice(0, 3);
+        if (items.length < 2) return null;
+        const subtotal = items.reduce(
+          (sum, family) => sum + Number(getSelectedVariation(family)?.price || 0),
+          0
+        );
+        const saveAmount = Math.max(2, Math.round(subtotal * 0.08));
+        return {
+          id: template.id,
+          title: template.title,
+          subtitle: template.subtitle,
+          items,
+          subtotal,
+          saveAmount,
+          finalPrice: Math.max(0, subtotal - saveAmount),
+        };
+      })
+      .filter(Boolean);
 
     if (combos.length > 0) return combos;
 
     if (quickAddFamilies.length >= 3) {
       const fallbackItems = quickAddFamilies.slice(0, 3);
-      const subtotal = fallbackItems.reduce((sum, family) => sum + Number(getSelectedVariation(family)?.price || 0), 0);
-      return [{
-        id: 'smart-bundle',
-        title: 'Smart Basket',
-        subtitle: fallbackItems.map((family) => family.name).join(' + '),
-        items: fallbackItems,
-        subtotal,
-        saveAmount: Math.max(1, Math.round(subtotal * 0.05)),
-        finalPrice: Math.max(0, subtotal - Math.max(1, Math.round(subtotal * 0.05)))
-      }];
+      const subtotal = fallbackItems.reduce(
+        (sum, family) => sum + Number(getSelectedVariation(family)?.price || 0),
+        0
+      );
+      return [
+        {
+          id: 'smart-bundle',
+          title: 'Smart Basket',
+          subtitle: fallbackItems.map((family) => family.name).join(' + '),
+          items: fallbackItems,
+          subtotal,
+          saveAmount: Math.max(1, Math.round(subtotal * 0.05)),
+          finalPrice: Math.max(0, subtotal - Math.max(1, Math.round(subtotal * 0.05))),
+        },
+      ];
     }
 
     return [];
@@ -316,7 +330,7 @@ const useProductsRecommendations = ({
         subtitle: combo.subtitle,
         action: 'Add combo',
         tone: 'combo',
-        combo
+        combo,
       });
     }
 

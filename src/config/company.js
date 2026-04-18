@@ -1,11 +1,4 @@
-import {
-  TITLE,
-  SUB_TITLE,
-  SHOP_ADDRESS,
-  CONTACT,
-  EMAIL,
-  LOGO_URL,
-} from '../shared/info';
+import { TITLE, SUB_TITLE, SHOP_ADDRESS, CONTACT, EMAIL, LOGO_URL } from '../shared/info';
 
 const resolveLogoPath = () => {
   const base = String(import.meta.env.BASE_URL || '/');
@@ -21,7 +14,7 @@ const company = {
   address: SHOP_ADDRESS || '',
   phone: CONTACT || '',
   email: EMAIL || '',
-  logoPath: resolveLogoPath()
+  logoPath: resolveLogoPath(),
 };
 
 export default company;

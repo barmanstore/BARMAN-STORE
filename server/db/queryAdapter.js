@@ -1,19 +1,23 @@
-const createUnsupportedModeError = (mode) => new Error(
-  `[DB] DB_EXECUTION_MODE=${mode} is unsupported. Use DB_EXECUTION_MODE=postgres.`
-);
+const createUnsupportedModeError = (mode) =>
+  new Error(`[DB] DB_EXECUTION_MODE=${mode} is unsupported. Use DB_EXECUTION_MODE=postgres.`);
 
-const createPostgresSyncNotSupportedError = (operation) => new Error(
-  `[DB] Postgres adapter does not support synchronous "${operation}". Use async DB helpers.`
-);
+const createPostgresSyncNotSupportedError = (operation) =>
+  new Error(
+    `[DB] Postgres adapter does not support synchronous "${operation}". Use async DB helpers.`
+  );
 
-const createPostgresPoolNotReadyError = () => new Error(
-  '[DB] Postgres pool is not initialized. Check DB_EXECUTION_MODE/DB_CLIENT and SUPABASE/PG connection settings.'
-);
+const createPostgresPoolNotReadyError = () =>
+  new Error(
+    '[DB] Postgres pool is not initialized. Check DB_EXECUTION_MODE/DB_CLIENT and SUPABASE/PG connection settings.'
+  );
 
 const resolveMode = (value) => {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return 'postgres';
-  if (normalized === 'postgres' || normalized === 'pg' || normalized === 'supabase') return 'postgres';
+  if (normalized === 'postgres' || normalized === 'pg' || normalized === 'supabase')
+    return 'postgres';
   throw createUnsupportedModeError(normalized);
 };
 
@@ -65,9 +69,9 @@ const convertQuestionParamsToPostgres = (sql) => {
       }
     }
 
-    if (char === '\'' && !inDouble) {
+    if (char === "'" && !inDouble) {
       out += char;
-      if (inSingle && next === '\'') {
+      if (inSingle && next === "'") {
         out += next;
         i += 1;
       } else {
@@ -117,57 +121,71 @@ const createPostgresQueryAdapter = ({ getPostgresPool }) => {
 
   return {
     mode: 'postgres',
-    run: () => { throw createPostgresSyncNotSupportedError('run'); },
-    runAsync: async (sql, params = []) => withPool(async (pool) => {
-      const result = await execute(pool, sql, params, { forRun: true });
-      return normalizePostgresRunResult(result);
-    }),
-    get: () => { throw createPostgresSyncNotSupportedError('get'); },
-    getAsync: async (sql, params = []) => withPool(async (pool) => {
-      const result = await execute(pool, sql, params);
-      return result?.rows?.[0];
-    }),
-    all: () => { throw createPostgresSyncNotSupportedError('all'); },
-    allAsync: async (sql, params = []) => withPool(async (pool) => {
-      const result = await execute(pool, sql, params);
-      return result?.rows || [];
-    }),
-    prepare: () => { throw createPostgresSyncNotSupportedError('prepare'); },
-    transaction: () => (..._args) => {
-      throw createPostgresSyncNotSupportedError('transaction');
+    run: () => {
+      throw createPostgresSyncNotSupportedError('run');
     },
-    transactionAsync: async (handler, ...args) => withPool(async (pool) => {
-      const connection = await pool.connect();
-      const tx = {
-        runAsync: async (sql, params = []) => {
-          const result = await execute(connection, sql, params, { forRun: true });
-          return normalizePostgresRunResult(result);
-        },
-        getAsync: async (sql, params = []) => {
-          const result = await execute(connection, sql, params);
-          return result?.rows?.[0];
-        },
-        allAsync: async (sql, params = []) => {
-          const result = await execute(connection, sql, params);
-          return result?.rows || [];
-        },
-      };
-      try {
-        await connection.query('BEGIN');
-        const result = await handler(tx, ...args);
-        await connection.query('COMMIT');
-        return result;
-      } catch (error) {
+    runAsync: async (sql, params = []) =>
+      withPool(async (pool) => {
+        const result = await execute(pool, sql, params, { forRun: true });
+        return normalizePostgresRunResult(result);
+      }),
+    get: () => {
+      throw createPostgresSyncNotSupportedError('get');
+    },
+    getAsync: async (sql, params = []) =>
+      withPool(async (pool) => {
+        const result = await execute(pool, sql, params);
+        return result?.rows?.[0];
+      }),
+    all: () => {
+      throw createPostgresSyncNotSupportedError('all');
+    },
+    allAsync: async (sql, params = []) =>
+      withPool(async (pool) => {
+        const result = await execute(pool, sql, params);
+        return result?.rows || [];
+      }),
+    prepare: () => {
+      throw createPostgresSyncNotSupportedError('prepare');
+    },
+    transaction:
+      () =>
+      (..._args) => {
+        throw createPostgresSyncNotSupportedError('transaction');
+      },
+    transactionAsync: async (handler, ...args) =>
+      withPool(async (pool) => {
+        const connection = await pool.connect();
+        const tx = {
+          runAsync: async (sql, params = []) => {
+            const result = await execute(connection, sql, params, { forRun: true });
+            return normalizePostgresRunResult(result);
+          },
+          getAsync: async (sql, params = []) => {
+            const result = await execute(connection, sql, params);
+            return result?.rows?.[0];
+          },
+          allAsync: async (sql, params = []) => {
+            const result = await execute(connection, sql, params);
+            return result?.rows || [];
+          },
+        };
         try {
-          await connection.query('ROLLBACK');
-        } catch (_) {
-          // ignore rollback failures
+          await connection.query('BEGIN');
+          const result = await handler(tx, ...args);
+          await connection.query('COMMIT');
+          return result;
+        } catch (error) {
+          try {
+            await connection.query('ROLLBACK');
+          } catch (_) {
+            // ignore rollback failures
+          }
+          throw error;
+        } finally {
+          connection.release();
         }
-        throw error;
-      } finally {
-        connection.release();
-      }
-    }),
+      }),
   };
 };
 

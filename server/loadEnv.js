@@ -14,8 +14,8 @@ const parseEnvText = (content) => {
     let value = String(match[2] ?? '').trim();
 
     const isQuoted =
-      (value.startsWith('"') && value.endsWith('"'))
-      || (value.startsWith('\'') && value.endsWith('\''));
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"));
 
     if (isQuoted) {
       value = value.slice(1, -1);

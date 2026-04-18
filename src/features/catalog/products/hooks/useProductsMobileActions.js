@@ -10,35 +10,44 @@ export default function useProductsMobileActions({
   handleAddCombo,
   GROUP_BY_OPTIONS,
 }) {
-  const handleMobileCategorySelect = useCallback((categoryName) => {
-    const next = String(categoryName || '').trim() || 'all';
-    setSelectedCategory(next);
-    setSelectedSubcategory('all');
-    if (groupBy !== GROUP_BY_OPTIONS.category) {
-      setGroupBy(GROUP_BY_OPTIONS.category);
-    }
-  }, [groupBy, setSelectedCategory, setSelectedSubcategory, setGroupBy, GROUP_BY_OPTIONS]);
+  const handleMobileCategorySelect = useCallback(
+    (categoryName) => {
+      const next = String(categoryName || '').trim() || 'all';
+      setSelectedCategory(next);
+      setSelectedSubcategory('all');
+      if (groupBy !== GROUP_BY_OPTIONS.category) {
+        setGroupBy(GROUP_BY_OPTIONS.category);
+      }
+    },
+    [groupBy, setSelectedCategory, setSelectedSubcategory, setGroupBy, GROUP_BY_OPTIONS]
+  );
 
-  const handleMobileSubcategorySelect = useCallback((subcategoryName) => {
-    const next = String(subcategoryName || '').trim() || 'all';
-    setSelectedSubcategory(next);
-  }, [setSelectedSubcategory]);
+  const handleMobileSubcategorySelect = useCallback(
+    (subcategoryName) => {
+      const next = String(subcategoryName || '').trim() || 'all';
+      setSelectedSubcategory(next);
+    },
+    [setSelectedSubcategory]
+  );
 
-  const handleMobileOfferAction = useCallback((offer) => {
-    if (!offer) return;
-    if (offer.combo) {
-      handleAddCombo(offer.combo);
-      return;
-    }
-    if (offer.category) {
-      handleMobileCategorySelect(offer.category);
-      return;
-    }
-    if (typeof document !== 'undefined') {
-      const target = document.getElementById('mobile-popular-section');
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [handleMobileCategorySelect, handleAddCombo]);
+  const handleMobileOfferAction = useCallback(
+    (offer) => {
+      if (!offer) return;
+      if (offer.combo) {
+        handleAddCombo(offer.combo);
+        return;
+      }
+      if (offer.category) {
+        handleMobileCategorySelect(offer.category);
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        const target = document.getElementById('mobile-popular-section');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [handleMobileCategorySelect, handleAddCombo]
+  );
 
   const handleMobileScrollTo = useCallback((targetId) => {
     if (typeof document === 'undefined') return;

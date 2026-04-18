@@ -12,13 +12,14 @@ const resolveIrregularScheduleDate = ({
 
   const insight = distributorInsightById.get(distributorId) || null;
   const supplierId = Number(supplier?.id || 0);
-  const supplierOrders = supplierId ? (ordersBySupplier.get(supplierId) || []) : [];
+  const supplierOrders = supplierId ? ordersBySupplier.get(supplierId) || [] : [];
   const distributorOrders = ordersByDistributor.get(distributorId) || [];
   const ordersForEntry = supplierOrders.length ? supplierOrders : distributorOrders;
-  const strictDueDate = ordersForEntry
-    .map((order) => normalizeTransactionDate(order?.strict_due_date || null))
-    .filter(Boolean)
-    .sort()[0] || null;
+  const strictDueDate =
+    ordersForEntry
+      .map((order) => normalizeTransactionDate(order?.strict_due_date || null))
+      .filter(Boolean)
+      .sort()[0] || null;
 
   const candidateDates = [
     insight?.next_order_date,
@@ -35,9 +36,10 @@ const resolveIrregularScheduleDate = ({
     return candidateDates[0];
   }
 
-  const hasOutstandingPressure = Number(insight?.po_balance_due || 0) > 0
-    || Number(insight?.ledger_balance || 0) > 0
-    || Number(insight?.outstanding_amount || 0) > 0;
+  const hasOutstandingPressure =
+    Number(insight?.po_balance_due || 0) > 0 ||
+    Number(insight?.ledger_balance || 0) > 0 ||
+    Number(insight?.outstanding_amount || 0) > 0;
 
   return hasOutstandingPressure ? todayKey : null;
 };

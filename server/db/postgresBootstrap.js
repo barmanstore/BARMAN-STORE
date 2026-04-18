@@ -2,9 +2,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const canonicalizeSql = (content) => String(content || '')
-  .replace(/^\uFEFF/, '')
-  .replace(/\r\n/g, '\n');
+const canonicalizeSql = (content) =>
+  String(content || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n');
 
 const ensureMigrationTable = async (pool) => {
   await pool.query(`
@@ -19,7 +20,8 @@ const ensureMigrationTable = async (pool) => {
 
 const listMigrationFiles = (migrationsDir) => {
   if (!fs.existsSync(migrationsDir)) return [];
-  return fs.readdirSync(migrationsDir)
+  return fs
+    .readdirSync(migrationsDir)
     .filter((name) => name.toLowerCase().endsWith('.sql'))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 };
@@ -48,15 +50,15 @@ const applyPostgresMigrations = async (pool, migrationsDir) => {
       const matchesLegacy = existingChecksum === legacyChecksum;
       if (!matchesCanonical && !matchesLegacy) {
         throw new Error(
-          `Migration checksum mismatch for ${fileName}. Refuse to continue. `
-          + `stored=${existingChecksum} expected=${sqlChecksum}`
+          `Migration checksum mismatch for ${fileName}. Refuse to continue. ` +
+            `stored=${existingChecksum} expected=${sqlChecksum}`
         );
       }
       if (!matchesCanonical && matchesLegacy) {
-        await pool.query(
-          `UPDATE app_schema_migrations SET checksum = $1 WHERE id = $2`,
-          [sqlChecksum, existing.rows[0].id]
-        );
+        await pool.query(`UPDATE app_schema_migrations SET checksum = $1 WHERE id = $2`, [
+          sqlChecksum,
+          existing.rows[0].id,
+        ]);
       }
       skipped.push(fileName);
       continue;
@@ -66,10 +68,10 @@ const applyPostgresMigrations = async (pool, migrationsDir) => {
     try {
       await client.query('BEGIN');
       await client.query(sql);
-      await client.query(
-        `INSERT INTO app_schema_migrations (name, checksum) VALUES ($1, $2)`,
-        [fileName, sqlChecksum]
-      );
+      await client.query(`INSERT INTO app_schema_migrations (name, checksum) VALUES ($1, $2)`, [
+        fileName,
+        sqlChecksum,
+      ]);
       await client.query('COMMIT');
       applied.push(fileName);
     } catch (error) {
@@ -137,11 +139,24 @@ const ensurePostgresBootstrapData = async ({
       await pool.query(
         `INSERT INTO users (role, name, email, email_verified, phone, address, password_hash, must_change_password)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        ['admin', 'Administrator', bootstrapAdminEmail, 1, null, null, hashPassword(fallbackPassword), 0]
+        [
+          'admin',
+          'Administrator',
+          bootstrapAdminEmail,
+          1,
+          null,
+          null,
+          hashPassword(fallbackPassword),
+          0,
+        ]
       );
-      console.warn('Bootstrap admin account created (OTP/OAuth login only; password auth is disabled).');
+      console.warn(
+        'Bootstrap admin account created (OTP/OAuth login only; password auth is disabled).'
+      );
     } else {
-      console.warn('No admin user exists. Set BOOTSTRAP_ADMIN_EMAIL to create the initial admin account.');
+      console.warn(
+        'No admin user exists. Set BOOTSTRAP_ADMIN_EMAIL to create the initial admin account.'
+      );
     }
   }
 
@@ -149,10 +164,62 @@ const ensurePostgresBootstrapData = async ({
   const productCount = Number(productRows.rows?.[0]?.count || 0);
   if (productCount === 0) {
     const products = [
-      ['Premium Coffee Beans', 'Artisan roasted coffee beans from Colombia', 'CoffeeCo', '250g', 'Brown', 24.99, 29.99, 1, 'pcs', 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500', 50, 'Groceries'],
-      ['Barista Apron', 'Premium cotton barista apron', 'BarWear', 'L', 'Black', 34.99, 39.99, 1, 'pcs', 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=500', 30, 'Stationery'],
-      ['Corn Flakes', 'Crunchy breakfast cereal', 'CerealPro', '500g', 'Yellow', 119.0, 129.0, 1, 'box', 'https://images.unsplash.com/photo-1571748982800-fa51082c2224?w=500', 100, 'Cereals'],
-      ['Digestive Biscuits', 'Whole wheat digestive biscuits', 'WheatB', '250g', 'Brown', 49.0, 55.0, 1, 'pack', 'https://images.unsplash.com/photo-1612203985729-70726954388c?w=500', 150, 'Biscuits'],
+      [
+        'Premium Coffee Beans',
+        'Artisan roasted coffee beans from Colombia',
+        'CoffeeCo',
+        '250g',
+        'Brown',
+        24.99,
+        29.99,
+        1,
+        'pcs',
+        'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500',
+        50,
+        'Groceries',
+      ],
+      [
+        'Barista Apron',
+        'Premium cotton barista apron',
+        'BarWear',
+        'L',
+        'Black',
+        34.99,
+        39.99,
+        1,
+        'pcs',
+        'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=500',
+        30,
+        'Stationery',
+      ],
+      [
+        'Corn Flakes',
+        'Crunchy breakfast cereal',
+        'CerealPro',
+        '500g',
+        'Yellow',
+        119.0,
+        129.0,
+        1,
+        'box',
+        'https://images.unsplash.com/photo-1571748982800-fa51082c2224?w=500',
+        100,
+        'Cereals',
+      ],
+      [
+        'Digestive Biscuits',
+        'Whole wheat digestive biscuits',
+        'WheatB',
+        '250g',
+        'Brown',
+        49.0,
+        55.0,
+        1,
+        'pack',
+        'https://images.unsplash.com/photo-1612203985729-70726954388c?w=500',
+        150,
+        'Biscuits',
+      ],
     ];
 
     for (const p of products) {

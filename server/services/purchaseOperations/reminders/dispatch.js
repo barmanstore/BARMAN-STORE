@@ -1,10 +1,5 @@
 const createPurchaseOperationsReminderDispatch = (deps) => {
-  const {
-    dbGetAsync,
-    dbRunAsync,
-    normalizeTransactionDate,
-    notifyAdmins,
-  } = deps;
+  const { dbGetAsync, dbRunAsync, normalizeTransactionDate, notifyAdmins } = deps;
 
   const saveDistributorPurchaseReminderAsync = async ({
     distributorId,
@@ -46,7 +41,9 @@ const createPurchaseOperationsReminderDispatch = (deps) => {
         status,
       ]
     );
-    return dbGetAsync(`SELECT * FROM distributor_purchase_reminders WHERE id = ?`, [result.lastInsertRowid]);
+    return dbGetAsync(`SELECT * FROM distributor_purchase_reminders WHERE id = ?`, [
+      result.lastInsertRowid,
+    ]);
   };
 
   const emitPurchaseOperationNotificationsAsync = async ({
@@ -55,7 +52,9 @@ const createPurchaseOperationsReminderDispatch = (deps) => {
     payables = [],
     createdBy = null,
   } = {}) => {
-    const normalizedTodayKey = normalizeTransactionDate(todayKey || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const normalizedTodayKey =
+      normalizeTransactionDate(todayKey || new Date().toISOString()) ||
+      new Date().toISOString().slice(0, 10);
     let reminderNotifications = 0;
     let paymentNotifications = 0;
 
@@ -83,8 +82,11 @@ const createPurchaseOperationsReminderDispatch = (deps) => {
       reminderNotifications += Number(createdId || 0) > 0 ? 1 : 0;
     }
 
-    for (const payable of (Array.isArray(payables) ? payables : []).filter((entry) => entry.payment_due_date <= normalizedTodayKey)) {
-      const reminderType = payable.payment_due_date < normalizedTodayKey ? 'payment_overdue' : 'payment_due_today';
+    for (const payable of (Array.isArray(payables) ? payables : []).filter(
+      (entry) => entry.payment_due_date <= normalizedTodayKey
+    )) {
+      const reminderType =
+        payable.payment_due_date < normalizedTodayKey ? 'payment_overdue' : 'payment_due_today';
       await saveDistributorPurchaseReminderAsync({
         distributorId: payable.distributor_id,
         purchaseOrderId: payable.order_id,
@@ -96,18 +98,20 @@ const createPurchaseOperationsReminderDispatch = (deps) => {
         createdBy,
       });
       const createdId = await notifyAdmins({
-        title: payable.payment_due_date < normalizedTodayKey
-          ? `Overdue distributor payment: ${payable.distributor_name}`
-          : `Distributor payment due today: ${payable.distributor_name}`,
+        title:
+          payable.payment_due_date < normalizedTodayKey
+            ? `Overdue distributor payment: ${payable.distributor_name}`
+            : `Distributor payment due today: ${payable.distributor_name}`,
         message: `${payable.po_number} has ${payable.balance_due} pending. Due date: ${payable.payment_due_date}.`,
         level: payable.payment_due_date < normalizedTodayKey ? 'error' : 'warning',
         entityType: 'purchase_order',
         entityId: payable.order_id,
         metadata: payable,
         createdBy,
-        clientRequestIdPrefix: payable.payment_due_date < normalizedTodayKey
-          ? `purchase:payment-overdue:${payable.order_id}:${normalizedTodayKey}`
-          : `purchase:payment-due:${payable.order_id}:${normalizedTodayKey}`,
+        clientRequestIdPrefix:
+          payable.payment_due_date < normalizedTodayKey
+            ? `purchase:payment-overdue:${payable.order_id}:${normalizedTodayKey}`
+            : `purchase:payment-due:${payable.order_id}:${normalizedTodayKey}`,
       });
       paymentNotifications += Number(createdId || 0) > 0 ? 1 : 0;
     }

@@ -1,9 +1,4 @@
-const findExistingBatch = async ({
-  dbGetAsync,
-  clientRequestId,
-  senderId,
-  parseJsonText,
-} = {}) => {
+const findExistingBatch = async ({ dbGetAsync, clientRequestId, senderId, parseJsonText } = {}) => {
   if (!clientRequestId || !senderId) return null;
   const existingBatch = await dbGetAsync(
     `SELECT id, sent_count, recipient_names, recipient_count
@@ -49,11 +44,7 @@ const createSendBatch = async ({
   return Number(inserted.lastInsertRowid || 0) || null;
 };
 
-const finalizeSendBatch = async ({
-  dbRunAsync,
-  batchId,
-  sentCount,
-} = {}) => {
+const finalizeSendBatch = async ({ dbRunAsync, batchId, sentCount } = {}) => {
   if (!batchId) return;
   await dbRunAsync(
     `UPDATE notification_send_batches

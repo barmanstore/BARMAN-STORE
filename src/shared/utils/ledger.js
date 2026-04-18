@@ -3,7 +3,8 @@ export const toNumber = (value) => {
   return Number.isFinite(num) ? num : 0;
 };
 
-export const getLedgerTypeKey = (entry) => String(entry?.type || entry?.transaction_type || '').toLowerCase();
+export const getLedgerTypeKey = (entry) =>
+  String(entry?.type || entry?.transaction_type || '').toLowerCase();
 
 export const getSignedLedgerAmount = (entry, debitTypes = ['payment']) => {
   const amount = Math.abs(toNumber(entry?.amount));
@@ -17,7 +18,10 @@ export const getLedgerTypeLabel = (entry) => {
   return type ? type.charAt(0).toUpperCase() + type.slice(1) : '-';
 };
 
-export const getLedgerEntryTimestamp = (entry, fields = ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']) => {
+export const getLedgerEntryTimestamp = (
+  entry,
+  fields = ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']
+) => {
   for (const field of fields) {
     const value = entry?.[field];
     if (!value) continue;

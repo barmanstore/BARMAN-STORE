@@ -35,11 +35,14 @@ const registerOffersRoutes = (deps) => {
   app.post('/api/offers/preview', async (req, res) => {
     try {
       const body = req.body || {};
-      const previewContext = String(body.context || '').trim().toLowerCase();
+      const previewContext = String(body.context || '')
+        .trim()
+        .toLowerCase();
       const includeTax = previewContext !== 'billing';
       const items = Array.isArray(body.items) ? body.items : [];
       const rawOfferContext = body.offer_context || body.offerContext || {};
-      const offerContext = rawOfferContext && typeof rawOfferContext === 'object' ? { ...rawOfferContext } : {};
+      const offerContext =
+        rawOfferContext && typeof rawOfferContext === 'object' ? { ...rawOfferContext } : {};
       const resolveAuthUser = async () => {
         if (typeof getAuthUserFromRequest === 'function') {
           return getAuthUserFromRequest(req);
@@ -52,15 +55,19 @@ const registerOffersRoutes = (deps) => {
       };
       const resolvedAuthUser = await resolveAuthUser();
       const authUserId = Number(resolvedAuthUser?.id || 0) || 0;
-      const authUserRole = String(resolvedAuthUser?.role || '').trim().toLowerCase();
-      const requestedCustomerUserId = Number(
-        offerContext.customer_user_id
-        || offerContext.customerUserId
-        || offerContext.user_id
-        || offerContext.userId
-        || 0
-      ) || 0;
-      const allowAdminBillingCustomerPreview = previewContext === 'billing' && authUserRole === 'admin';
+      const authUserRole = String(resolvedAuthUser?.role || '')
+        .trim()
+        .toLowerCase();
+      const requestedCustomerUserId =
+        Number(
+          offerContext.customer_user_id ||
+            offerContext.customerUserId ||
+            offerContext.user_id ||
+            offerContext.userId ||
+            0
+        ) || 0;
+      const allowAdminBillingCustomerPreview =
+        previewContext === 'billing' && authUserRole === 'admin';
       if (allowAdminBillingCustomerPreview) {
         if (requestedCustomerUserId > 0) {
           offerContext.customer_user_id = requestedCustomerUserId;
@@ -107,7 +114,8 @@ const registerOffersRoutes = (deps) => {
           ...previewResult,
           debug: {
             auth_user_id: authUserId || null,
-            has_auth_resolver: typeof getAuthUserFromRequest === 'function' || typeof appResolver === 'function',
+            has_auth_resolver:
+              typeof getAuthUserFromRequest === 'function' || typeof appResolver === 'function',
             has_auth_header: Boolean(authHeader.trim()),
             auth_header_prefix: authHeader.slice(0, 12),
             eligibility_context: eligibilityContext || null,
@@ -158,7 +166,9 @@ const registerOffersRoutes = (deps) => {
           Boolean(b.first_order_only),
         ]
       );
-      const created = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [result.lastInsertRowid]);
+      const created = await dbGetAsync(`SELECT * FROM offers WHERE id = ?`, [
+        result.lastInsertRowid,
+      ]);
       invalidateActiveOfferCache();
       await logAdminAuditAsync(req, {
         action: 'offer.create',

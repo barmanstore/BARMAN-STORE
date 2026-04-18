@@ -21,9 +21,18 @@ export const PRODUCT_TABLE_COLUMN_OPTIONS = [
   { key: 'src', label: 'Src' },
 ];
 
-export const PRODUCT_TABLE_ALL_COLUMN_KEYS = PRODUCT_TABLE_COLUMN_OPTIONS.map((column) => column.key);
+export const PRODUCT_TABLE_ALL_COLUMN_KEYS = PRODUCT_TABLE_COLUMN_OPTIONS.map(
+  (column) => column.key
+);
 
-export const PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS = ['name', 'brand', 'category', 'price', 'stock', 'status'];
+export const PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS = [
+  'name',
+  'brand',
+  'category',
+  'price',
+  'stock',
+  'status',
+];
 
 export const PRODUCT_TABLE_COLUMN_MIN_WIDTH = {
   name: 130,

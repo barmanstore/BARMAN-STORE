@@ -17,4 +17,3 @@ const DesktopProductsHeader = ({ cartItemCount }) => (
 );
 
 export default DesktopProductsHeader;
-

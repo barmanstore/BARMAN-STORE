@@ -1,4 +1,1 @@
-export {
-  buildMessagePreview,
-  truncateGraphemeText,
-} from '../../../shared/textPreview.js';
+export { buildMessagePreview, truncateGraphemeText } from '../../../shared/textPreview.js';

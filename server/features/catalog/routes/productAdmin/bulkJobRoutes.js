@@ -1,16 +1,13 @@
 const registerProductBulkJobRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    resolveClientRequestId,
-    catalogBulkJobs,
-  } = deps;
+  const { app, requireAdmin, resolveClientRequestId, catalogBulkJobs } = deps;
 
   const resolveJobId = (value) => Number(value || 0);
 
   app.post('/api/admin/products/bulk-jobs', requireAdmin, async (req, res) => {
     try {
-      const operation = String(req.body?.operation || 'bulk_update').trim().toLowerCase();
+      const operation = String(req.body?.operation || 'bulk_update')
+        .trim()
+        .toLowerCase();
       const jobResult = await catalogBulkJobs.createBulkJobAsync({
         req,
         operation,
@@ -63,22 +60,28 @@ const registerProductBulkJobRoutes = (deps) => {
     }
   });
 
-  app.post('/api/admin/products/bulk-jobs/:id(\\d+)/retry-failed', requireAdmin, async (req, res) => {
-    try {
-      const idempotency = resolveClientRequestId ? resolveClientRequestId(req) : { value: null, error: null };
-      if (idempotency.error) {
-        return res.status(400).json({ error: idempotency.error });
+  app.post(
+    '/api/admin/products/bulk-jobs/:id(\\d+)/retry-failed',
+    requireAdmin,
+    async (req, res) => {
+      try {
+        const idempotency = resolveClientRequestId
+          ? resolveClientRequestId(req)
+          : { value: null, error: null };
+        if (idempotency.error) {
+          return res.status(400).json({ error: idempotency.error });
+        }
+        const result = await catalogBulkJobs.retryFailedBulkJobAsync({
+          jobId: resolveJobId(req.params.id),
+          req,
+          clientRequestId: idempotency.value || null,
+        });
+        return res.status(result.created ? 201 : 200).json({ success: true, job: result.job });
+      } catch (error) {
+        return res.status(Number(error?.status || 500) || 500).json({ error: error.message });
       }
-      const result = await catalogBulkJobs.retryFailedBulkJobAsync({
-        jobId: resolveJobId(req.params.id),
-        req,
-        clientRequestId: idempotency.value || null,
-      });
-      return res.status(result.created ? 201 : 200).json({ success: true, job: result.job });
-    } catch (error) {
-      return res.status(Number(error?.status || 500) || 500).json({ error: error.message });
     }
-  });
+  );
 };
 
 module.exports = { registerProductBulkJobRoutes };

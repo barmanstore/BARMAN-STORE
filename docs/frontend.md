@@ -10,6 +10,7 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [services.md](services.md), 
 - Global chrome is owned only by [src/RootShell.jsx](../src/RootShell.jsx) plus the shell renderers in `src/shells/*.jsx`.
 - Shared API access lives in `src/shared/services/api/*.js`, rooted at [src/shared/services/api/core.js](../src/shared/services/api/core.js).
 - Cart state is local-storage backed through [src/providers/CartProvider.jsx](../src/providers/CartProvider.jsx), not by a backend cart API.
+- Shared UI primitives and base tokens live in [src/App.css](../src/App.css) and [src/shared/components](../src/shared/components); prefer extending those before introducing feature-local duplicates for recurring surfaces like empty states, cards, and compact action rows.
 
 ## State And Orchestration Pattern
 

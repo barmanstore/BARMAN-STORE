@@ -1,11 +1,7 @@
 import ImageUrlPicker from '../../../../../shared/components/ImageUrlPicker';
 import SafeProductImage from '../../../../../shared/components/product/SafeProductImage';
 
-const ProductFormImageSection = ({
-  formData,
-  loading,
-  onImageChange,
-}) => (
+const ProductFormImageSection = ({ formData, loading, onImageChange }) => (
   <div className="form-section">
     <h3 className="section-title">Product Image</h3>
 
@@ -41,4 +37,3 @@ const ProductFormImageSection = ({
 );
 
 export default ProductFormImageSection;
-

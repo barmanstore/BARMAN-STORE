@@ -31,32 +31,38 @@ const useCategoryManagementComputed = ({
     [categories, selectedCategoryId]
   );
 
-  const isDescendantOf = useCallback((candidateId, ancestorId) => {
-    let cursor = categoryMap.get(Number(candidateId));
-    const visited = new Set();
-    while (cursor && cursor.parent_id && !visited.has(Number(cursor.id))) {
-      if (Number(cursor.parent_id) === Number(ancestorId)) return true;
-      visited.add(Number(cursor.id));
-      cursor = categoryMap.get(Number(cursor.parent_id));
-    }
-    return false;
-  }, [categoryMap]);
+  const isDescendantOf = useCallback(
+    (candidateId, ancestorId) => {
+      let cursor = categoryMap.get(Number(candidateId));
+      const visited = new Set();
+      while (cursor && cursor.parent_id && !visited.has(Number(cursor.id))) {
+        if (Number(cursor.parent_id) === Number(ancestorId)) return true;
+        visited.add(Number(cursor.id));
+        cursor = categoryMap.get(Number(cursor.parent_id));
+      }
+      return false;
+    },
+    [categoryMap]
+  );
 
-  const parentOptions = useMemo(() => (
-    flattenedTree.filter((node) => {
-      if (!editingId) return true;
-      if (Number(node.id) === Number(editingId)) return false;
-      if (isDescendantOf(node.id, editingId)) return false;
-      return true;
-    })
-  ), [flattenedTree, editingId, isDescendantOf]);
+  const parentOptions = useMemo(
+    () =>
+      flattenedTree.filter((node) => {
+        if (!editingId) return true;
+        if (Number(node.id) === Number(editingId)) return false;
+        if (isDescendantOf(node.id, editingId)) return false;
+        return true;
+      }),
+    [flattenedTree, editingId, isDescendantOf]
+  );
 
   const productCategoryOptions = useMemo(
-    () => flattenedTree.map((node) => ({
-      id: Number(node.id),
-      label: `${'  '.repeat(Math.max(0, Number(node.depth || 0)))}${node.name}`,
-      path: node.path || node.name,
-    })),
+    () =>
+      flattenedTree.map((node) => ({
+        id: Number(node.id),
+        label: `${'  '.repeat(Math.max(0, Number(node.depth || 0)))}${node.name}`,
+        path: node.path || node.name,
+      })),
     [flattenedTree]
   );
 
@@ -78,8 +84,8 @@ const useCategoryManagementComputed = ({
       level.forEach((node, index) => {
         positions.set(Number(node.id), {
           id: Number(node.id),
-          x: 80 + (depth * levelWidth),
-          y: 40 + (index * rowHeight),
+          x: 80 + depth * levelWidth,
+          y: 40 + index * rowHeight,
           name: node.name,
           count: Number(node.product_count || 0),
           total: Number(node.total_product_count || 0),
@@ -89,8 +95,8 @@ const useCategoryManagementComputed = ({
 
     const maxRows = Math.max(1, ...levels.map((level) => level.length));
     return {
-      width: Math.max(480, (levels.length * levelWidth) + 220),
-      height: Math.max(280, (maxRows * rowHeight) + 120),
+      width: Math.max(480, levels.length * levelWidth + 220),
+      height: Math.max(280, maxRows * rowHeight + 120),
       nodes: Array.from(positions.values()),
       edges: edges
         .map((edge) => ({

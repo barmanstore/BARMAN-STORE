@@ -25,7 +25,7 @@ const registerOrderStatusRoutes = (deps) => {
     createAppNotification,
     notifyAdmins,
     logAdminAuditAsync,
-    logStockLedgerAsync
+    logStockLedgerAsync,
   } = deps;
 
   app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
@@ -48,7 +48,11 @@ const registerOrderStatusRoutes = (deps) => {
       });
 
       if (prepared.alreadyReceived) {
-        return res.json({ success: true, applied: false, message: 'Order is already marked as received' });
+        return res.json({
+          success: true,
+          applied: false,
+          message: 'Order is already marked as received',
+        });
       }
 
       const createdBy = Number(req.authUser?.id || 0) || null;
@@ -89,9 +93,10 @@ const registerOrderStatusRoutes = (deps) => {
           await createAppNotification({
             userId: Number(prepared.order.user_id),
             title: 'Order received',
-            message: Number(result.totalPendingQty || 0) > 0
-              ? `Order ${prepared.order.order_number || `#${prepared.order.id}`} is received with pending quantity ${Number(result.totalPendingQty).toFixed(3)}.`
-              : `Order ${prepared.order.order_number || `#${prepared.order.id}`} has been marked as received.`,
+            message:
+              Number(result.totalPendingQty || 0) > 0
+                ? `Order ${prepared.order.order_number || `#${prepared.order.id}`} is received with pending quantity ${Number(result.totalPendingQty).toFixed(3)}.`
+                : `Order ${prepared.order.order_number || `#${prepared.order.id}`} has been marked as received.`,
             level: 'success',
             entityType: 'order',
             entityId: Number(prepared.order.id || req.params.id),
@@ -105,7 +110,10 @@ const registerOrderStatusRoutes = (deps) => {
           });
         }
       } catch (notifyError) {
-        console.warn('[NOTIFY] order status notification failed:', notifyError?.message || notifyError);
+        console.warn(
+          '[NOTIFY] order status notification failed:',
+          notifyError?.message || notifyError
+        );
       }
 
       return res.json({
@@ -121,7 +129,6 @@ const registerOrderStatusRoutes = (deps) => {
       return res.status(status).json({ error: error?.message || 'Failed to update order status' });
     }
   });
-
 };
 
 module.exports = { registerOrderStatusRoutes };

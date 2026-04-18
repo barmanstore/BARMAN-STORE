@@ -6,11 +6,7 @@ import { spawn } from 'node:child_process';
 import process from 'node:process';
 import pg from 'pg';
 import EmbeddedPostgres from 'embedded-postgres';
-import {
-  logSmokeSkipInfo,
-  parseBooleanEnv,
-  resolveSmokeDbConfig,
-} from './smokeDbConfig.mjs';
+import { logSmokeSkipInfo, parseBooleanEnv, resolveSmokeDbConfig } from './smokeDbConfig.mjs';
 
 const { Client } = pg;
 
@@ -22,38 +18,96 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const suiteDefinitions = {
   phone: [
-    { label: 'Phone workflow smoke test', command: process.execPath, args: [scriptPath('test-phone-validation.mjs')] },
+    {
+      label: 'Phone workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-phone-validation.mjs')],
+    },
   ],
   'order-flow': [
-    { label: 'Order+billing workflow smoke test', command: process.execPath, args: [scriptPath('test-order-billing-flow.mjs')] },
+    {
+      label: 'Order+billing workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-order-billing-flow.mjs')],
+    },
   ],
   'linked-order-billing': [
-    { label: 'Linked order billing regression smoke test', command: process.execPath, args: [scriptPath('test-linked-order-billing-regression.mjs')] },
+    {
+      label: 'Linked order billing regression smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-linked-order-billing-regression.mjs')],
+    },
   ],
   'po-lifecycle': [
-    { label: 'PO lifecycle smoke test', command: process.execPath, args: [scriptPath('test-po-lifecycle-flow.mjs')] },
+    {
+      label: 'PO lifecycle smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-po-lifecycle-flow.mjs')],
+    },
   ],
   'credit-ui': [
-    { label: 'Credit history UI smoke test', command: process.execPath, args: [scriptPath('test-credit-history-ui.mjs')] },
+    {
+      label: 'Credit history UI smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-credit-history-ui.mjs')],
+    },
   ],
   'category-tree': [
-    { label: 'Category tree smoke test', command: process.execPath, args: [scriptPath('test-category-tree-rules.mjs')] },
+    {
+      label: 'Category tree smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-category-tree-rules.mjs')],
+    },
   ],
   core: [
-    { label: 'Phone workflow smoke test', command: process.execPath, args: [scriptPath('test-phone-validation.mjs')] },
-    { label: 'Order+billing workflow smoke test', command: process.execPath, args: [scriptPath('test-order-billing-flow.mjs')] },
-    { label: 'Credit history UI smoke test', command: process.execPath, args: [scriptPath('test-credit-history-ui.mjs')] },
+    {
+      label: 'Phone workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-phone-validation.mjs')],
+    },
+    {
+      label: 'Order+billing workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-order-billing-flow.mjs')],
+    },
+    {
+      label: 'Credit history UI smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-credit-history-ui.mjs')],
+    },
   ],
   all: [
-    { label: 'Phone workflow smoke test', command: process.execPath, args: [scriptPath('test-phone-validation.mjs')] },
-    { label: 'Order+billing workflow smoke test', command: process.execPath, args: [scriptPath('test-order-billing-flow.mjs')] },
-    { label: 'PO lifecycle smoke test', command: process.execPath, args: [scriptPath('test-po-lifecycle-flow.mjs')] },
-    { label: 'Credit history UI smoke test', command: process.execPath, args: [scriptPath('test-credit-history-ui.mjs')] },
-    { label: 'Category tree smoke test', command: process.execPath, args: [scriptPath('test-category-tree-rules.mjs')] },
+    {
+      label: 'Phone workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-phone-validation.mjs')],
+    },
+    {
+      label: 'Order+billing workflow smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-order-billing-flow.mjs')],
+    },
+    {
+      label: 'PO lifecycle smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-po-lifecycle-flow.mjs')],
+    },
+    {
+      label: 'Credit history UI smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-credit-history-ui.mjs')],
+    },
+    {
+      label: 'Category tree smoke test',
+      command: process.execPath,
+      args: [scriptPath('test-category-tree-rules.mjs')],
+    },
   ],
 };
 
-const suiteName = String(process.argv[2] || 'all').trim().toLowerCase();
+const suiteName = String(process.argv[2] || 'all')
+  .trim()
+  .toLowerCase();
 const steps = suiteDefinitions[suiteName];
 
 if (!steps) {
@@ -64,13 +118,17 @@ if (!steps) {
 
 const dbUser = String(process.env.LOCAL_SMOKE_DB_USER || 'postgres').trim() || 'postgres';
 const dbPassword = String(process.env.LOCAL_SMOKE_DB_PASSWORD || 'postgres').trim() || 'postgres';
-const dbName = String(process.env.LOCAL_SMOKE_DB_NAME || 'barman_store_smoke').trim() || 'barman_store_smoke';
+const dbName =
+  String(process.env.LOCAL_SMOKE_DB_NAME || 'barman_store_smoke').trim() || 'barman_store_smoke';
 const preferredPort = Math.max(1025, Number(process.env.LOCAL_SMOKE_DB_PORT || 55432) || 55432);
 const preferEmbedded = parseBooleanEnv(process.env.LOCAL_SMOKE_DB_FORCE_EMBEDDED, false);
 const defaultLocalDbUrl = `postgresql://${dbUser}@127.0.0.1:55433/${dbName}`;
 const dbDir = path.join(repoRoot, '.local', 'embedded-postgres', 'smoke-utf8');
 const verbose = String(process.env.LOCAL_SMOKE_DB_VERBOSE || '').trim() === '1';
-const POSTGRES_READY_TIMEOUT_MS = Math.max(1000, Number(process.env.LOCAL_SMOKE_DB_READY_TIMEOUT_MS || 12000) || 12000);
+const POSTGRES_READY_TIMEOUT_MS = Math.max(
+  1000,
+  Number(process.env.LOCAL_SMOKE_DB_READY_TIMEOUT_MS || 12000) || 12000
+);
 const POSTGRES_READY_POLL_MS = 250;
 const EXPECTED_POSTGRES_SHUTDOWN_PATTERNS = [
   /read ECONNRESET/i,
@@ -80,14 +138,15 @@ const EXPECTED_POSTGRES_SHUTDOWN_PATTERNS = [
   /terminating connection due to administrator command/i,
 ];
 
-const isPortAvailable = (port) => new Promise((resolve) => {
-  const server = net.createServer();
-  server.once('error', () => resolve(false));
-  server.once('listening', () => {
-    server.close(() => resolve(true));
+const isPortAvailable = (port) =>
+  new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
   });
-  server.listen(port, '127.0.0.1');
-});
 
 const findAvailablePort = async (startPort) => {
   for (let port = startPort; port < startPort + 25; port += 1) {
@@ -95,33 +154,44 @@ const findAvailablePort = async (startPort) => {
       return port;
     }
   }
-  throw new Error(`No available local smoke DB port found between ${startPort} and ${startPort + 24}.`);
+  throw new Error(
+    `No available local smoke DB port found between ${startPort} and ${startPort + 24}.`
+  );
 };
 
-const runCommand = (label, command, args, env) => new Promise((resolve, reject) => {
-  console.log(`[LOCAL_SMOKE_DB] ${label}...`);
-  const child = spawn(command, args, {
-    cwd: repoRoot,
-    env,
-    stdio: 'inherit',
+const runCommand = (label, command, args, env) =>
+  new Promise((resolve, reject) => {
+    console.log(`[LOCAL_SMOKE_DB] ${label}...`);
+    const child = spawn(command, args, {
+      cwd: repoRoot,
+      env,
+      stdio: 'inherit',
+    });
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      if (signal) {
+        reject(new Error(`${label} terminated by signal ${signal}`));
+        return;
+      }
+      if (code !== 0) {
+        reject(new Error(`${label} failed with exit code ${code}`));
+        return;
+      }
+      resolve();
+    });
   });
-  child.once('error', reject);
-  child.once('exit', (code, signal) => {
-    if (signal) {
-      reject(new Error(`${label} terminated by signal ${signal}`));
-      return;
-    }
-    if (code !== 0) {
-      reject(new Error(`${label} failed with exit code ${code}`));
-      return;
-    }
-    resolve();
-  });
-});
 
-const cleanupSmokeData = async (env, { strict = true, label = 'Cleaning smoke-test data' } = {}) => {
+const cleanupSmokeData = async (
+  env,
+  { strict = true, label = 'Cleaning smoke-test data' } = {}
+) => {
   try {
-    await runCommand(label, process.execPath, [scriptPath('cleanup-smoke-test-data.js'), '--apply'], env);
+    await runCommand(
+      label,
+      process.execPath,
+      [scriptPath('cleanup-smoke-test-data.js'), '--apply'],
+      env
+    );
   } catch (error) {
     if (strict) throw error;
     console.warn(`[LOCAL_SMOKE_DB] ${label} failed: ${error.message}`);
@@ -208,7 +278,9 @@ const waitForPostgresReady = async ({ connectionString, startupErrors = [] }) =>
     .map((entry) => String(entry || '').trim())
     .filter(Boolean)
     .join('\n');
-  const windowsAdminRefusal = /administrative permissions|unprivileged user id/i.test(startupOutput);
+  const windowsAdminRefusal = /administrative permissions|unprivileged user id/i.test(
+    startupOutput
+  );
   if (windowsAdminRefusal) {
     throw new Error(
       'Embedded Postgres failed to start because PostgreSQL refuses to run under an administrative user. Run the local smoke suite from a non-admin shell.'
@@ -218,7 +290,9 @@ const waitForPostgresReady = async ({ connectionString, startupErrors = [] }) =>
   const suffix = [
     startupOutput ? `Startup output:\n${startupOutput}` : '',
     lastError ? `Last connection error:\n${formatError(lastError)}` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
   throw new Error(
     `Embedded Postgres did not become ready within ${POSTGRES_READY_TIMEOUT_MS}ms.${suffix ? `\n${suffix}` : ''}`
   );
@@ -251,8 +325,7 @@ const buildConnectionString = (databaseName, port) => {
   return url.toString();
 };
 
-const describeConnectionTarget = (databaseName, port) =>
-  `127.0.0.1:${port}/${databaseName}`;
+const describeConnectionTarget = (databaseName, port) => `127.0.0.1:${port}/${databaseName}`;
 
 const buildAdminUrlForExternal = (dbUrl) => {
   const parsed = new URL(dbUrl);
@@ -308,10 +381,17 @@ const runSuiteWithDb = async (dbUrl, label) => {
     DATABASE_URL: smokeDbUrl,
   };
 
-  console.log(`[LOCAL_SMOKE_DB] Using ${label} database: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}/${databaseName}`);
+  console.log(
+    `[LOCAL_SMOKE_DB] Using ${label} database: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}/${databaseName}`
+  );
   await ensureDatabaseExists(adminDbUrl, databaseName);
   await ensureLocalSupabaseRoles(adminDbUrl);
-  await runCommand('Applying Postgres migrations', process.execPath, [scriptPath('apply-supabase-migrations.js')], migrationEnv);
+  await runCommand(
+    'Applying Postgres migrations',
+    process.execPath,
+    [scriptPath('apply-supabase-migrations.js')],
+    migrationEnv
+  );
   await cleanupSmokeData(smokeTestEnv, {
     strict: true,
     label: 'Cleaning smoke-test data before suite',
@@ -376,7 +456,9 @@ const main = async () => {
     onError: (error) => {
       if (embeddedPostgresStopping && isExpectedPostgresShutdownError(error)) {
         if (verbose) {
-          console.log(`[LOCAL_SMOKE_DB] Ignoring expected embedded Postgres shutdown error: ${formatError(error)}`);
+          console.log(
+            `[LOCAL_SMOKE_DB] Ignoring expected embedded Postgres shutdown error: ${formatError(error)}`
+          );
         }
         return;
       }
@@ -419,7 +501,12 @@ const main = async () => {
     await waitForPostgresReady({ connectionString: adminDbUrl, startupErrors });
     await ensureDatabase(pg, dbName);
     await ensureLocalSupabaseRoles(adminDbUrl);
-    await runCommand('Applying Postgres migrations', process.execPath, [scriptPath('apply-supabase-migrations.js')], migrationEnv);
+    await runCommand(
+      'Applying Postgres migrations',
+      process.execPath,
+      [scriptPath('apply-supabase-migrations.js')],
+      migrationEnv
+    );
     await cleanupSmokeData(smokeTestEnv, {
       strict: true,
       label: 'Cleaning smoke-test data before suite',

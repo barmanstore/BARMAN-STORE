@@ -1,6 +1,10 @@
 import { lazy } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ADMIN_DEFAULT_TAB, getAdminTabHref, normalizeAdminTab } from '../features/admin/config/adminSidebarConfig';
+import {
+  ADMIN_DEFAULT_TAB,
+  getAdminTabHref,
+  normalizeAdminTab,
+} from '../features/admin/config/adminSidebarConfig';
 
 const Home = lazy(() => import('../features/storefront/Home'));
 const ProductsPage = lazy(() => import('../features/catalog/products/pages/ProductsPage'));
@@ -9,7 +13,9 @@ const Checkout = lazy(() => import('../features/checkout/Checkout'));
 const Login = lazy(() => import('../features/auth/Login'));
 const AdminPage = lazy(() => import('../features/admin/pages/AdminPage'));
 const BillingPopupPage = lazy(() => import('../features/sales/billing/pages/BillingPopupPage'));
-const PurchasePopupPage = lazy(() => import('../features/commerce/purchase/pages/PurchasePopupPage'));
+const PurchasePopupPage = lazy(
+  () => import('../features/commerce/purchase/pages/PurchasePopupPage')
+);
 const CreditHistory = lazy(() => import('../features/credits/history/CreditHistory'));
 const OrderHistoryPage = lazy(() => import('../features/orders/pages/OrderHistoryPage'));
 const OrderTrackingPage = lazy(() => import('../features/orders/pages/OrderTrackingPage'));
@@ -75,19 +81,64 @@ export const APP_ROUTE_DEFINITIONS = [
   { key: 'checkout', path: '/checkout', component: Checkout, policy: accountMobilePolicy },
   { key: 'login', path: '/login', component: Login, policy: accountMobilePolicy },
   { key: 'admin-redirect', path: '/admin', component: AdminRedirectRoute, policy: adminPolicy },
-  { key: 'billing-popup', path: '/popup/billing', component: BillingPopupPage, policy: popupPolicy },
-  { key: 'purchase-popup', path: '/popup/purchase', component: PurchasePopupPage, policy: popupPolicy },
-  { key: 'admin-user-credit', path: '/admin/users/:userId/credit', component: CreditHistory, policy: adminPolicy },
+  {
+    key: 'billing-popup',
+    path: '/popup/billing',
+    component: BillingPopupPage,
+    policy: popupPolicy,
+  },
+  {
+    key: 'purchase-popup',
+    path: '/popup/purchase',
+    component: PurchasePopupPage,
+    policy: popupPolicy,
+  },
+  {
+    key: 'admin-user-credit',
+    path: '/admin/users/:userId/credit',
+    component: CreditHistory,
+    policy: adminPolicy,
+  },
   { key: 'admin-tab', path: '/admin/:tab', component: AdminPage, policy: adminPolicy },
   { key: 'my-credit', path: '/my-credit', component: CreditHistory, policy: accountMobilePolicy },
-  { key: 'order-history', path: '/order-history', component: OrderHistoryPage, policy: accountMobilePolicy },
-  { key: 'my-orders', path: '/my-orders', component: MyOrdersRedirectRoute, policy: accountMobilePolicy },
-  { key: 'order-details', path: '/orders/:id', component: OrderDetailsPage, policy: accountMobilePolicy },
-  { key: 'order-tracking', path: '/order-tracking', component: OrderTrackingPage, policy: accountMobilePolicy },
-  { key: 'order-tracking-id', path: '/order-tracking/:orderId', component: OrderTrackingPage, policy: accountMobilePolicy },
+  {
+    key: 'order-history',
+    path: '/order-history',
+    component: OrderHistoryPage,
+    policy: accountMobilePolicy,
+  },
+  {
+    key: 'my-orders',
+    path: '/my-orders',
+    component: MyOrdersRedirectRoute,
+    policy: accountMobilePolicy,
+  },
+  {
+    key: 'order-details',
+    path: '/orders/:id',
+    component: OrderDetailsPage,
+    policy: accountMobilePolicy,
+  },
+  {
+    key: 'order-tracking',
+    path: '/order-tracking',
+    component: OrderTrackingPage,
+    policy: accountMobilePolicy,
+  },
+  {
+    key: 'order-tracking-id',
+    path: '/order-tracking/:orderId',
+    component: OrderTrackingPage,
+    policy: accountMobilePolicy,
+  },
   { key: 'profile', path: '/profile', component: Profile, policy: accountMobilePolicy },
   { key: 'my-bills', path: '/my-bills', component: MyBills, policy: accountMobilePolicy },
-  { key: 'product-requests', path: '/product-requests', component: ProductRecommendations, policy: accountMobilePolicy },
+  {
+    key: 'product-requests',
+    path: '/product-requests',
+    component: ProductRecommendations,
+    policy: accountMobilePolicy,
+  },
   { key: 'store-info', path: '/store-info', component: StoreInfo, policy: accountMobilePolicy },
   { key: 'store', path: '/store', component: StorePage, policy: accountMobilePolicy },
 ];

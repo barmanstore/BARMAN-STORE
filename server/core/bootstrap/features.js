@@ -1,5 +1,7 @@
 const { registerAuthFeatureBootstrap } = require('./featureRegistrars/authFeature');
-const { registerCommunicationFeatureBootstrap } = require('./featureRegistrars/communicationFeature');
+const {
+  registerCommunicationFeatureBootstrap,
+} = require('./featureRegistrars/communicationFeature');
 const { registerCatalogFeatureBootstrap } = require('./featureRegistrars/catalogFeature');
 const { registerSalesFeatureBootstrap } = require('./featureRegistrars/salesFeature');
 const { registerCreditFeatureBootstrap } = require('./featureRegistrars/creditFeature');

@@ -1,19 +1,18 @@
-const normalizeProductQuery = (rawValue) => String(rawValue || '')
-  .replace(/^\[(recent|all)\]\s*/i, '')
-  .trim();
+const normalizeProductQuery = (rawValue) =>
+  String(rawValue || '')
+    .replace(/^\[(recent|all)\]\s*/i, '')
+    .trim();
 
-const isActivePurchaseProduct = (product = null) => (
-  Boolean(product)
-  && product?.is_active !== false
-  && Number(product?.is_active ?? 1) !== 0
-);
+const isActivePurchaseProduct = (product = null) =>
+  Boolean(product) && product?.is_active !== false && Number(product?.is_active ?? 1) !== 0;
 
 const findActivePurchaseProduct = (products = [], productId = '') => {
   const selectedProductId = String(productId || '').trim();
   if (!selectedProductId) return null;
-  const product = (Array.isArray(products) ? products : []).find(
-    (entry) => String(entry?.id || '').trim() === selectedProductId
-  ) || null;
+  const product =
+    (Array.isArray(products) ? products : []).find(
+      (entry) => String(entry?.id || '').trim() === selectedProductId
+    ) || null;
   return isActivePurchaseProduct(product) ? product : null;
 };
 
@@ -29,12 +28,7 @@ const getProductSearchOptionLabel = (product, scope = 'all') => {
   return scope === 'recent' ? `[Recent] ${base}` : `[All] ${base}`;
 };
 
-const getProductSearchSuggestions = ({
-  query = '',
-  prioritized = [],
-  all = [],
-  limit = 12,
-}) => {
+const getProductSearchSuggestions = ({ query = '', prioritized = [], all = [], limit = 12 }) => {
   const normalizedQuery = normalizeProductQuery(query).toLowerCase();
   const seen = new Set();
   const corpus = [
@@ -64,14 +58,24 @@ const getProductSearchSuggestions = ({
 
   const scoreEntry = (entry) => {
     const product = entry?.product || {};
-    const name = String(product.name || '').trim().toLowerCase();
-    const sku = String(product.sku || '').trim().toLowerCase();
-    const barcode = String(product.barcode || '').trim().toLowerCase();
+    const name = String(product.name || '')
+      .trim()
+      .toLowerCase();
+    const sku = String(product.sku || '')
+      .trim()
+      .toLowerCase();
+    const barcode = String(product.barcode || '')
+      .trim()
+      .toLowerCase();
     const label = getProductSearchLabel(product).toLowerCase();
     const nameWords = name.split(/\s+/).filter(Boolean);
     let score = 0;
 
-    if ([String(product.id), name, sku, barcode, label].some((value) => String(value || '').toLowerCase() === normalizedQuery)) {
+    if (
+      [String(product.id), name, sku, barcode, label].some(
+        (value) => String(value || '').toLowerCase() === normalizedQuery
+      )
+    ) {
       score = 1000;
     } else if ([sku, barcode].some((value) => value.startsWith(normalizedQuery))) {
       score = 900;
@@ -109,18 +113,18 @@ const getProductSearchSuggestions = ({
 const resolveProductByInput = (value, products = []) => {
   const query = normalizeProductQuery(value).toLowerCase();
   if (!query) return null;
-  const product = (products || []).find((product) => {
-    if (!product) return false;
-    const name = String(product.name || '').trim().toLowerCase();
-    const sku = String(product.sku || '').trim().toLowerCase();
-    const label = getProductSearchLabel(product).toLowerCase();
-    return (
-      String(product.id) === query ||
-      name === query ||
-      sku === query ||
-      label === query
-    );
-  }) || null;
+  const product =
+    (products || []).find((product) => {
+      if (!product) return false;
+      const name = String(product.name || '')
+        .trim()
+        .toLowerCase();
+      const sku = String(product.sku || '')
+        .trim()
+        .toLowerCase();
+      const label = getProductSearchLabel(product).toLowerCase();
+      return String(product.id) === query || name === query || sku === query || label === query;
+    }) || null;
   return isActivePurchaseProduct(product) ? product : null;
 };
 
@@ -130,19 +134,19 @@ const getDistributorProductOptions = ({ distributorId, products = [], purchaseOr
   if (!selectedDistributorId) {
     return {
       prioritized: [],
-      all: activeProducts
+      all: activeProducts,
     };
   }
 
-  const productById = new Map(
-    activeProducts.map((product) => [String(product.id), product])
-  );
+  const productById = new Map(activeProducts.map((product) => [String(product.id), product]));
   const scoreByProductId = new Map();
 
   (purchaseOrders || []).forEach((order) => {
     if (String(order?.distributor_id || '') !== selectedDistributorId) return;
 
-    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const orderTime = new Date(
+      order?.created_at || order?.order_date || order?.expected_delivery || 0
+    ).getTime();
     const items = Array.isArray(order?.items) ? order.items : [];
 
     items.forEach((item) => {
@@ -152,7 +156,7 @@ const getDistributorProductOptions = ({ distributorId, products = [], purchaseOr
       const existing = scoreByProductId.get(productId) || { count: 0, latest: 0 };
       scoreByProductId.set(productId, {
         count: existing.count + 1,
-        latest: Math.max(existing.latest, Number.isFinite(orderTime) ? orderTime : 0)
+        latest: Math.max(existing.latest, Number.isFinite(orderTime) ? orderTime : 0),
       });
     });
   });
@@ -164,9 +168,7 @@ const getDistributorProductOptions = ({ distributorId, products = [], purchaseOr
     })
     .map(([productId]) => productId);
 
-  const prioritized = prioritizedIds
-    .map((productId) => productById.get(productId))
-    .filter(Boolean);
+  const prioritized = prioritizedIds.map((productId) => productById.get(productId)).filter(Boolean);
 
   const prioritizedIdSet = new Set(prioritized.map((product) => String(product.id)));
   const all = activeProducts.filter((product) => !prioritizedIdSet.has(String(product.id)));
@@ -192,7 +194,9 @@ const getDistributorProductHistoryEntry = ({
   (purchaseOrders || []).forEach((order) => {
     if (String(order?.distributor_id || '').trim() !== selectedDistributorId) return;
 
-    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const orderTime = new Date(
+      order?.created_at || order?.order_date || order?.expected_delivery || 0
+    ).getTime();
     const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
     const items = Array.isArray(order?.items) ? order.items : [];
 
@@ -213,11 +217,7 @@ const getDistributorProductHistoryEntry = ({
   return bestEntry;
 };
 
-const getLatestProductHistoryEntry = ({
-  productId,
-  products = [],
-  purchaseOrders = [],
-}) => {
+const getLatestProductHistoryEntry = ({ productId, products = [], purchaseOrders = [] }) => {
   const selectedProductId = String(productId || '').trim();
   if (!selectedProductId) return null;
 
@@ -226,7 +226,9 @@ const getLatestProductHistoryEntry = ({
   let bestEntry = null;
 
   (purchaseOrders || []).forEach((order) => {
-    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const orderTime = new Date(
+      order?.created_at || order?.order_date || order?.expected_delivery || 0
+    ).getTime();
     const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
     const items = Array.isArray(order?.items) ? order.items : [];
 
@@ -262,7 +264,9 @@ const getDistributorHistoryProducts = ({
 
   (purchaseOrders || []).forEach((order) => {
     if (String(order?.distributor_id || '') !== selectedDistributorId) return;
-    const orderTime = new Date(order?.created_at || order?.order_date || order?.expected_delivery || 0).getTime();
+    const orderTime = new Date(
+      order?.created_at || order?.order_date || order?.expected_delivery || 0
+    ).getTime();
     const normalizedOrderTime = Number.isFinite(orderTime) ? orderTime : 0;
     const items = Array.isArray(order?.items) ? order.items : [];
     items.forEach((item) => {
@@ -295,24 +299,33 @@ const getDistributorHistoryProducts = ({
       if (right.latest !== left.latest) return right.latest - left.latest;
       return right.count - left.count;
     })
-    .map((entry) => entry.product ? buildOrderDraftItem(entry.product, {
-      quantity: Math.max(1, Number(entry.item?.quantity || 1) || 1),
-      uom: entry.item?.uom || entry.product?.base_unit || entry.product?.uom || 'pcs',
-      rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
-      unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
-      reference_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
-      reference_rate_source: entry.order?.po_number ? `supplier history ${entry.order.po_number}` : 'supplier history',
-      gst_rate: entry.item?.gst_rate ?? 5,
-      discount_type: 'percent',
-      discount_value: 0,
-      last_purchase_hint: 'Loaded from supplier history',
-      last_purchase_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
-      last_purchase_distributor_name: String(entry.order?.distributor_name || '').trim(),
-      last_purchase_created_at: String(
-        entry.order?.created_at || entry.order?.order_date || entry.order?.expected_delivery || ''
-      ).trim(),
-      last_purchase_po_number: String(entry.order?.po_number || '').trim(),
-    }) : null)
+    .map((entry) =>
+      entry.product
+        ? buildOrderDraftItem(entry.product, {
+            quantity: Math.max(1, Number(entry.item?.quantity || 1) || 1),
+            uom: entry.item?.uom || entry.product?.base_unit || entry.product?.uom || 'pcs',
+            rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+            unit_price: entry.item?.unit_price ?? entry.item?.rate ?? entry.product?.price,
+            reference_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+            reference_rate_source: entry.order?.po_number
+              ? `supplier history ${entry.order.po_number}`
+              : 'supplier history',
+            gst_rate: entry.item?.gst_rate ?? 5,
+            discount_type: 'percent',
+            discount_value: 0,
+            last_purchase_hint: 'Loaded from supplier history',
+            last_purchase_rate: entry.item?.rate ?? entry.item?.unit_price ?? entry.product?.price,
+            last_purchase_distributor_name: String(entry.order?.distributor_name || '').trim(),
+            last_purchase_created_at: String(
+              entry.order?.created_at ||
+                entry.order?.order_date ||
+                entry.order?.expected_delivery ||
+                ''
+            ).trim(),
+            last_purchase_po_number: String(entry.order?.po_number || '').trim(),
+          })
+        : null
+    )
     .filter(Boolean);
 };
 

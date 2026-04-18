@@ -1,7 +1,12 @@
 import { useCallback, useEffect } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DollarSign, RefreshCw } from 'lucide-react';
-import { creditApi, usersApi, adminApi, createClientRequestId } from '../../../../shared/services/api';
+import {
+  creditApi,
+  usersApi,
+  adminApi,
+  createClientRequestId,
+} from '../../../../shared/services/api';
 import { sendWhatsAppSmart } from '../../../../shared/utils/whatsapp';
 import * as info from '../../../../shared/info';
 import { printHtmlDocument, escapeHtml } from '../../../../shared/utils/printService';
@@ -44,10 +49,7 @@ import useCreditHistoryLoaders from './useCreditHistoryLoaders';
 import useCreditHistoryReports from './useCreditHistoryReports';
 import useCreditHistoryState from './useCreditHistoryState';
 import useCreditHistoryTransactions from './useCreditHistoryTransactions';
-import {
-  getCreditEntryDelta,
-  getCreditEntryTypeLabel,
-} from '../utils/creditLedgerPresentation';
+import { getCreditEntryDelta, getCreditEntryTypeLabel } from '../utils/creditLedgerPresentation';
 import { DOMAINS, registerDomainListener } from '../../../../shared/services/invalidation';
 
 const useCreditHistoryController = ({ user }) => {
@@ -169,17 +171,27 @@ const useCreditHistoryController = ({ user }) => {
     effectiveUserId,
   });
 
-  useEffect(() => registerDomainListener(DOMAINS.Ledger, () => {
-    void fetchCreditData(effectiveUserId);
-  }, {
-    listenerId: 'credit-history',
-  }), [effectiveUserId, fetchCreditData]);
+  useEffect(
+    () =>
+      registerDomainListener(
+        DOMAINS.Ledger,
+        () => {
+          void fetchCreditData(effectiveUserId);
+        },
+        {
+          listenerId: 'credit-history',
+        }
+      ),
+    [effectiveUserId, fetchCreditData]
+  );
 
   const getTypeIcon = (type) => {
     const entry = type && typeof type === 'object' ? type : { type };
-    return getCreditEntryDelta(entry) < 0
-      ? <RefreshCw size={16} className="type-icon payment" />
-      : <DollarSign size={16} className="type-icon given" />;
+    return getCreditEntryDelta(entry) < 0 ? (
+      <RefreshCw size={16} className="type-icon payment" />
+    ) : (
+      <DollarSign size={16} className="type-icon given" />
+    );
   };
 
   const getTypeLabel = (type) => getCreditEntryTypeLabel(type);
@@ -193,24 +205,21 @@ const useCreditHistoryController = ({ user }) => {
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, []);
 
-  const getHistoryForReport = useCallback(async ({ fromDate } = {}) => {
-    if (!historyHasMore || !fromDate) return creditHistory;
-    const earliestLoaded = creditHistory.reduce((earliest, entry) => {
-      const dateKey = getEffectiveTransactionDateKey(entry);
-      if (!dateKey) return earliest;
-      if (!earliest || dateKey < earliest) return dateKey;
-      return earliest;
-    }, '');
-    if (!earliestLoaded || fromDate >= earliestLoaded) return creditHistory;
-    const fullHistory = await loadFullHistory(effectiveUserId);
-    return Array.isArray(fullHistory) && fullHistory.length > 0 ? fullHistory : creditHistory;
-  }, [
-    creditHistory,
-    historyHasMore,
-    loadFullHistory,
-    effectiveUserId,
-
-  ]);
+  const getHistoryForReport = useCallback(
+    async ({ fromDate } = {}) => {
+      if (!historyHasMore || !fromDate) return creditHistory;
+      const earliestLoaded = creditHistory.reduce((earliest, entry) => {
+        const dateKey = getEffectiveTransactionDateKey(entry);
+        if (!dateKey) return earliest;
+        if (!earliest || dateKey < earliest) return dateKey;
+        return earliest;
+      }, '');
+      if (!earliestLoaded || fromDate >= earliestLoaded) return creditHistory;
+      const fullHistory = await loadFullHistory(effectiveUserId);
+      return Array.isArray(fullHistory) && fullHistory.length > 0 ? fullHistory : creditHistory;
+    },
+    [creditHistory, historyHasMore, loadFullHistory, effectiveUserId]
+  );
 
   const reports = useCreditHistoryReports({
     creditHistory,
@@ -255,7 +264,9 @@ const useCreditHistoryController = ({ user }) => {
     }
 
     const adminPhone = String(info.WHATSAPP_NUMBER || '').replace(/\D/g, '');
-    const adminText = String(info.WHATSAPP_DEFAULT_TEXT || 'Hello, I need help with my credit history.').trim();
+    const adminText = String(
+      info.WHATSAPP_DEFAULT_TEXT || 'Hello, I need help with my credit history.'
+    ).trim();
 
     if (!adminPhone) {
       setError('Admin WhatsApp contact is unavailable.');
@@ -499,4 +510,3 @@ const useCreditHistoryController = ({ user }) => {
 };
 
 export default useCreditHistoryController;
-

@@ -5,10 +5,12 @@
 `storeDisplayName` is the single source of truth for branding.
 
 Used in:
+
 - UI (headers, cards, receipts)
 - WhatsApp messages (top + footer)
 
 Rules:
+
 - Must not be transformed inside templates.
 - No localization or formatting applied unless explicitly configured upstream.
 - In this repo, `storeDisplayName` maps to `info.TITLE` until a dedicated config field exists.
@@ -72,6 +74,7 @@ Online store: {STORE_URL}
 Templates MUST consume `paymentProfile` only.
 
 Templates MUST NOT:
+
 - Compute score
 - Derive badge label
 - Infer status
@@ -80,6 +83,7 @@ Templates MUST NOT:
 All scoring logic lives outside templates.
 
 For credit reminders:
+
 - Any “pay by” nudge must use the canonical `paymentProfile.maintain_score_by_date`, which represents the active oldest-unpaid FIFO cycle deadline.
 - Only render that nudge when both a real due date and an outstanding balance exist.
 - Never fabricate, estimate, or approximate a deadline; if the canonical date is absent, show no reminder line.
@@ -101,6 +105,7 @@ For credit reminders:
 - When credit-history shares are too long, trim low-priority lines such as the reference line and store link before relying on the clipboard fallback.
 
 Fallback:
+
 - Clipboard copy + open WhatsApp
 
 ## 8. Launcher Mode Definition

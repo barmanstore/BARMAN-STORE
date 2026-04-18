@@ -4,7 +4,9 @@ const loadOrderStockSnapshots = async ({ parsedItems, dbGetAsync }) => {
   const stockSnapshotByProductId = new Map();
   for (const it of parsedItems) {
     if (it.is_manual === 1) continue;
-    const p = await dbGetAsync('SELECT id, name, stock, uom FROM products WHERE id = ?', [it.product_id]);
+    const p = await dbGetAsync('SELECT id, name, stock, uom FROM products WHERE id = ?', [
+      it.product_id,
+    ]);
     if (!p) throw new Error(`Product ${it.product_id} not found`);
     stockSnapshotByProductId.set(Number(p.id), Math.max(0, Number(p.stock || 0)));
     if (!it.product_name) {

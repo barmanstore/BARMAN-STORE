@@ -25,9 +25,7 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
     }
 
     const columns = new Set(
-      rows
-        .map((row) => String(row?.column_name || row?.name || '').trim())
-        .filter(Boolean)
+      rows.map((row) => String(row?.column_name || row?.name || '').trim()).filter(Boolean)
     );
     tableColumnsCache.set(tableName, columns);
     return columns;
@@ -61,9 +59,7 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
       return rows;
     }
 
-    const productIds = rows
-      .map((row) => Number(row?.id || 0))
-      .filter((id) => id > 0);
+    const productIds = rows.map((row) => Number(row?.id || 0)).filter((id) => id > 0);
 
     if (productIds.length === 0) {
       return rows.map((row) => ({
@@ -79,10 +75,10 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
 
     const productCostHistoryColumns = await loadTableColumns('product_cost_history');
     if (
-      productCostHistoryColumns.has('product_id')
-      && productCostHistoryColumns.has('unit_cost_incl_tax')
-      && productCostHistoryColumns.has('transaction_ts')
-      && productCostHistoryColumns.has('id')
+      productCostHistoryColumns.has('product_id') &&
+      productCostHistoryColumns.has('unit_cost_incl_tax') &&
+      productCostHistoryColumns.has('transaction_ts') &&
+      productCostHistoryColumns.has('id')
     ) {
       try {
         const latestCostRows = await dbAllAsync(
@@ -107,7 +103,10 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
         latestCostRows.forEach((row) => {
           const productId = Number(row?.product_id || 0);
           if (productId > 0) {
-            costByProductId.set(productId, row?.unit_cost_incl_tax == null ? null : Number(row.unit_cost_incl_tax));
+            costByProductId.set(
+              productId,
+              row?.unit_cost_incl_tax == null ? null : Number(row.unit_cost_incl_tax)
+            );
           }
         });
       } catch (_) {
@@ -117,8 +116,8 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
 
     const supplierProductColumns = await loadTableColumns('supplier_products');
     if (
-      supplierProductColumns.has('product_id')
-      && supplierProductColumns.has('last_known_unit_cost_incl_tax')
+      supplierProductColumns.has('product_id') &&
+      supplierProductColumns.has('last_known_unit_cost_incl_tax')
     ) {
       try {
         const supplierRows = await dbAllAsync(
@@ -136,7 +135,9 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
           if (productId > 0 && !costByProductId.has(productId)) {
             costByProductId.set(
               productId,
-              row?.last_known_unit_cost_incl_tax == null ? null : Number(row.last_known_unit_cost_incl_tax)
+              row?.last_known_unit_cost_incl_tax == null
+                ? null
+                : Number(row.last_known_unit_cost_incl_tax)
             );
           }
         });
@@ -147,9 +148,8 @@ const createBillingSearchHelpers = ({ dbAllAsync, dbGetAsync } = {}) => {
 
     return rows.map((row) => {
       const productId = Number(row?.id || 0);
-      const purchaseCost = productId > 0 && costByProductId.has(productId)
-        ? costByProductId.get(productId)
-        : null;
+      const purchaseCost =
+        productId > 0 && costByProductId.has(productId) ? costByProductId.get(productId) : null;
 
       return {
         ...row,

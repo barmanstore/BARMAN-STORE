@@ -1,8 +1,16 @@
-const { buildItemsByOrderId, buildPaymentsByOrderId, buildLedgerBalanceByDistributor } = require('./summaryMetrics/maps');
+const {
+  buildItemsByOrderId,
+  buildPaymentsByOrderId,
+  buildLedgerBalanceByDistributor,
+} = require('./summaryMetrics/maps');
 const { buildEnrichedOrders } = require('./summaryMetrics/enrichOrders');
 const { createOrderFlagUtils } = require('./summaryMetrics/orderFlags');
 const { buildPayables, buildPayablesByDistributor } = require('./summaryMetrics/payables');
-const { buildPaidTodayAmount, buildOrdersByDistributor, buildOrdersBySupplier } = require('./summaryMetrics/totals');
+const {
+  buildPaidTodayAmount,
+  buildOrdersByDistributor,
+  buildOrdersBySupplier,
+} = require('./summaryMetrics/totals');
 
 const createPurchaseOperationsSummaryMetrics = (deps) => {
   const {
@@ -18,13 +26,7 @@ const createPurchaseOperationsSummaryMetrics = (deps) => {
   } = deps;
 
   const buildPurchaseOperationsMetrics = (baseData) => {
-    const {
-      todayKey,
-      orders,
-      payments,
-      items,
-      ledgerBalances,
-    } = baseData;
+    const { todayKey, orders, payments, items, ledgerBalances } = baseData;
 
     const itemsByOrderId = buildItemsByOrderId(items);
     const paymentsByOrderId = buildPaymentsByOrderId(payments);

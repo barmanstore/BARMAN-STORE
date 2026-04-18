@@ -135,9 +135,7 @@ const CategoryTreePanel = ({
   );
 
   return (
-    <div className="category-tree-list">
-      {categoryTree.map((node) => renderTreeNode(node))}
-    </div>
+    <div className="category-tree-list">{categoryTree.map((node) => renderTreeNode(node))}</div>
   );
 };
 

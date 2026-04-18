@@ -8,17 +8,16 @@ const {
 } = require('../../features');
 
 const buildBaseDeps = ({ core, domain }) => {
+  const { app, configValues, requestUtils, db, http, constants, libs, validateCustomerProfile } =
+    core;
   const {
-    app,
-    configValues,
-    requestUtils,
-    db,
-    http,
-    constants,
-    libs,
-    validateCustomerProfile,
-  } = core;
-  const { notificationRetention, purchaseOperations, authMiddleware, notificationUtils, catalogBulkJobs, categoryHelpers } = domain;
+    notificationRetention,
+    purchaseOperations,
+    authMiddleware,
+    notificationUtils,
+    catalogBulkJobs,
+    categoryHelpers,
+  } = domain;
 
   return {
     app,
@@ -61,8 +60,10 @@ const buildBaseDeps = ({ core, domain }) => {
     purgeOldAppNotificationsAsync: notificationRetention.purgeOldAppNotificationsAsync,
     APP_NOTIFICATION_RETENTION_DAYS: configValues.APP_NOTIFICATION_RETENTION_DAYS,
     APP_NOTIFICATION_PURGE_BATCH_LIMIT: configValues.APP_NOTIFICATION_PURGE_BATCH_LIMIT,
-    runPurchaseOperationNotificationsAsync: purchaseOperations.runPurchaseOperationNotificationsAsync,
-    PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED: configValues.PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
+    runPurchaseOperationNotificationsAsync:
+      purchaseOperations.runPurchaseOperationNotificationsAsync,
+    PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED:
+      configValues.PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED,
   };
 };
 

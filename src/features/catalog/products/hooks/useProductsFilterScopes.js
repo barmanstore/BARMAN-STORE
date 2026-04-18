@@ -100,7 +100,12 @@ const useProductsFilterScopes = ({
 
   const categoryIdScopeSet = useMemo(() => {
     const selected = normalizeText(selectedCategory);
-    if (selected === 'all' || groupBy !== GROUP_BY_OPTIONS.category || effectiveCategories.length === 0) return new Set();
+    if (
+      selected === 'all' ||
+      groupBy !== GROUP_BY_OPTIONS.category ||
+      effectiveCategories.length === 0
+    )
+      return new Set();
 
     const childIdsByParent = new Map();
     effectiveCategories.forEach((item) => {
@@ -142,7 +147,14 @@ const useProductsFilterScopes = ({
     });
     if (scope.size === 0) scope.add(selected);
     return scope;
-  }, [selectedCategory, groupBy, activeFilterOptions, normalizeText, normalizePathValue, GROUP_BY_OPTIONS]);
+  }, [
+    selectedCategory,
+    groupBy,
+    activeFilterOptions,
+    normalizeText,
+    normalizePathValue,
+    GROUP_BY_OPTIONS,
+  ]);
 
   return {
     categoryPathScopeSet,

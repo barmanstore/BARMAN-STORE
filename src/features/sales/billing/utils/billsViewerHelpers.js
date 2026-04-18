@@ -4,7 +4,7 @@ import {
   addAutoTable,
   addPdfFooterWithPagination,
   savePdf,
-  safeFileName
+  safeFileName,
 } from '../../../../shared/utils/pdfService';
 import { buildBillShareText } from '../../../../shared/utils/messageTemplates';
 import company from '../../../../config/company';
@@ -20,7 +20,7 @@ export const downloadBillPdf = (bill) => {
     String(item.unit || '-'),
     { content: `Rs ${Number(item.mrp || 0).toFixed(2)}`, styles: { halign: 'right' } },
     { content: `Rs ${Number(item.discount || 0).toFixed(2)}`, styles: { halign: 'right' } },
-    { content: `Rs ${Number(item.amount || 0).toFixed(2)}`, styles: { halign: 'right' } }
+    { content: `Rs ${Number(item.amount || 0).toFixed(2)}`, styles: { halign: 'right' } },
   ]);
 
   doc.setFillColor(...primaryColor);
@@ -57,11 +57,11 @@ export const downloadBillPdf = (bill) => {
       fillColor: primaryColor,
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 9
+      fontSize: 9,
     },
     bodyStyles: {
       fontSize: 8,
-      cellPadding: 3
+      cellPadding: 3,
     },
     columnStyles: {
       0: { cellWidth: 'auto' },
@@ -69,9 +69,9 @@ export const downloadBillPdf = (bill) => {
       2: { cellWidth: 16 },
       3: { cellWidth: 26, halign: 'right' },
       4: { cellWidth: 26, halign: 'right' },
-      5: { cellWidth: 28, halign: 'right' }
+      5: { cellWidth: 28, halign: 'right' },
     },
-    margin: { left: 14, right: 14 }
+    margin: { left: 14, right: 14 },
   });
 
   const finalY = (doc.lastAutoTable?.finalY || 96) + 8;
@@ -98,22 +98,23 @@ export const downloadBillPdf = (bill) => {
   savePdf(doc, `${safeFileName(bill.bill_number || 'Bill')}_Invoice`);
 };
 
-export const buildBillShareTextForBill = (bill) => buildBillShareText({
-  companyTitle: info.TITLE || 'BARMAN STORE',
-  billNumber: bill?.bill_number,
-  createdAt: bill?.created_at,
-  customerName: bill?.customer_name,
-  customerPhone: bill?.customer_phone,
-  customerEmail: bill?.customer_email,
-  customerAddress: bill?.customer_address,
-  items: bill?.items || [],
-  totalAmount: bill?.total_amount,
-  paidAmount: bill?.paid_amount,
-  creditAmount: bill?.credit_amount,
-  paymentStatus: bill?.payment_status,
-  onlineStoreUrl: info.ONLINE_STORE_URL,
-  thankYouLine: '???? ???? ???? ???? ???? ????????'
-});
+export const buildBillShareTextForBill = (bill) =>
+  buildBillShareText({
+    companyTitle: info.TITLE || 'BARMAN STORE',
+    billNumber: bill?.bill_number,
+    createdAt: bill?.created_at,
+    customerName: bill?.customer_name,
+    customerPhone: bill?.customer_phone,
+    customerEmail: bill?.customer_email,
+    customerAddress: bill?.customer_address,
+    items: bill?.items || [],
+    totalAmount: bill?.total_amount,
+    paidAmount: bill?.paid_amount,
+    creditAmount: bill?.credit_amount,
+    paymentStatus: bill?.payment_status,
+    onlineStoreUrl: info.ONLINE_STORE_URL,
+    thankYouLine: '???? ???? ???? ???? ???? ????????',
+  });
 
 export const buildBillSmsText = (bill) => {
   const text = `BILL ${bill.bill_number || ''} Total Rs ${Number(bill.total_amount || 0)} Paid Rs ${Number(bill.paid_amount || 0)} Credit Rs ${Number(bill.credit_amount || 0)}. ${company.name}`;
@@ -122,14 +123,15 @@ export const buildBillSmsText = (bill) => {
 
 export const buildBillInvoiceHtml = (bill) => {
   const items = Array.isArray(bill.items) ? bill.items : [];
-  const rows = items.map((it) => {
-    const name = escapeHtml(it.product_name || it.name || 'Item');
-    const qty = Number(it.qty || it.quantity || 0);
-    const unit = escapeHtml(it.unit || '');
-    const mrp = Number(it.mrp || 0);
-    const discount = Number(it.discount || 0);
-    const amount = Number(it.amount || 0);
-    return `
+  const rows = items
+    .map((it) => {
+      const name = escapeHtml(it.product_name || it.name || 'Item');
+      const qty = Number(it.qty || it.quantity || 0);
+      const unit = escapeHtml(it.unit || '');
+      const mrp = Number(it.mrp || 0);
+      const discount = Number(it.discount || 0);
+      const amount = Number(it.amount || 0);
+      return `
       <tr>
         <td>${name}</td>
         <td>${qty}${unit ? ' ' + unit : ''}</td>
@@ -138,7 +140,8 @@ export const buildBillInvoiceHtml = (bill) => {
         <td>Rs ${amount.toFixed(2)}</td>
       </tr>
     `;
-  }).join('');
+    })
+    .join('');
 
   return `
     <div class="invoice">
@@ -221,7 +224,6 @@ export const printBillInvoice = (bill, { onError } = {}) => {
       if (typeof onError === 'function') {
         onError(message);
       }
-    }
+    },
   });
 };
-

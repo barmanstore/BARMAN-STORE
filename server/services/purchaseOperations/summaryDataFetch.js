@@ -2,12 +2,7 @@ const { buildSummaryFilters } = require('./summaryDataFetch/filters');
 const { createSummaryDataQueries } = require('./summaryDataFetch/queries');
 
 const createPurchaseOperationsSummaryDataFetch = (deps) => {
-  const {
-    dbAllAsync,
-    normalizeTransactionDate,
-    addDaysToDateKey,
-    resolveRollupRange,
-  } = deps;
+  const { dbAllAsync, normalizeTransactionDate, addDaysToDateKey, resolveRollupRange } = deps;
 
   const queries = createSummaryDataQueries({ dbAllAsync });
 

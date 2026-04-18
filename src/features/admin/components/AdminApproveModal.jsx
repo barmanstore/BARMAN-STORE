@@ -26,7 +26,10 @@ const AdminApproveModal = ({
         <p>Loading...</p>
       ) : (
         <>
-          <p>Customer: {truncateUserName(modalOrder.customer_name || '-', 15)} ({modalOrder.customer_email})</p>
+          <p>
+            Customer: {truncateUserName(modalOrder.customer_name || '-', 15)} (
+            {modalOrder.customer_email})
+          </p>
           <div style={{ maxHeight: 300, overflow: 'auto', marginTop: 8 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -52,8 +55,13 @@ const AdminApproveModal = ({
             </table>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
-            <button className="admin-btn" onClick={onClose} disabled={controlsDisabled}>Close</button>
-            {!(Number(modalOrder?.bill_id || 0) || String(modalOrder?.linked_bill_number || '').trim()) ? (
+            <button className="admin-btn" onClick={onClose} disabled={controlsDisabled}>
+              Close
+            </button>
+            {!(
+              Number(modalOrder?.bill_id || 0) ||
+              String(modalOrder?.linked_bill_number || '').trim()
+            ) ? (
               <button
                 className="admin-btn"
                 onClick={() => handleProceedToBilling(modalOrder)}
@@ -70,7 +78,13 @@ const AdminApproveModal = ({
                 Bill: {modalOrder?.linked_bill_number || `#${modalOrder?.bill_id}`}
               </span>
             )}
-            <button className="admin-btn primary" onClick={confirmApprove} disabled={controlsDisabled}>Confirm Received</button>
+            <button
+              className="admin-btn primary"
+              onClick={confirmApprove}
+              disabled={controlsDisabled}
+            >
+              Confirm Received
+            </button>
           </div>
         </>
       )}

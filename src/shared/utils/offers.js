@@ -44,14 +44,14 @@ const getProductOfferBadges = (product = null) => {
     : Array.isArray(product?.active_offer_labels)
       ? product.active_offer_labels
       : [];
-  return labels
-    .map((label) => String(label || '').trim())
-    .filter(Boolean);
+  return labels.map((label) => String(label || '').trim()).filter(Boolean);
 };
 
 const getPreviewLineMap = (preview = null) => {
   const lines = Array.isArray(preview?.items) ? preview.items : [];
-  return new Map(lines.map((line) => [String(line?.client_item_id ?? line?.line_index ?? ''), line]));
+  return new Map(
+    lines.map((line) => [String(line?.client_item_id ?? line?.line_index ?? ''), line])
+  );
 };
 
 export {

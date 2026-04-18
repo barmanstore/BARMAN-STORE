@@ -150,8 +150,8 @@
   display: grid;
   grid-template-columns: minmax(360px, 1.14fr) minmax(360px, 0.86fr);
   grid-template-areas:
-    "entry bill"
-    "entry footer";
+    'entry bill'
+    'entry footer';
   gap: 0.85rem;
   align-items: start;
 }
@@ -256,7 +256,10 @@
   background: #fff;
   color: #0f172a;
   font-size: 0.86rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
 }
 
 .form-input:focus {
@@ -367,7 +370,10 @@
   font-size: 0.74rem;
   font-weight: 800;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.15s ease;
 }
 
 .billing-search-custom-action:hover {
@@ -498,7 +504,7 @@
 }
 
 .billing-entry-results.recent::before {
-  content: "Recent products";
+  content: 'Recent products';
   color: #64748b;
   font-size: 0.66rem;
   font-weight: 800;
@@ -519,7 +525,10 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .billing-entry-result:hover,
@@ -564,7 +573,10 @@
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .billing-primary-btn {
@@ -631,7 +643,10 @@
   border-radius: 15px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .billing-bill-item:hover,
@@ -938,9 +953,9 @@
   .billing-pos-layout {
     grid-template-columns: 1fr;
     grid-template-areas:
-      "entry"
-      "bill"
-      "footer";
+      'entry'
+      'bill'
+      'footer';
   }
 
   .billing-pos-footer {

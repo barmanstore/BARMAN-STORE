@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { ListPlus, SlidersHorizontal } from 'lucide-react';
 import ProductSearchCombobox from '../../../../shared/components/product-search/ProductSearchCombobox';
 import { formatCurrency } from '../../../../shared/utils/formatters';
@@ -53,7 +53,7 @@ const buildPrimaryRowStatus = ({
   }
   return null;
 };
-*/ 
+*/
 
 const PurchaseOrderPosEntry = ({
   activeItem,
@@ -102,36 +102,34 @@ const PurchaseOrderPosEntry = ({
   const discountAppliedAmount = Number(activeLine?.discountAmount || 0);
   const enteredQuantity = Math.max(0, Number(activeLine?.quantity || activeItem?.quantity || 0));
   const displayUom = String(activeLine?.uom || activeItem?.uom || 'pcs').trim() || 'pcs';
-  const effectivePerDisplayUnit = enteredQuantity > 0
-    ? Number(activeLine?.totalAmount || 0) / enteredQuantity
-    : 0;
-  const baseRateUnitLabel = String(activeProduct?.base_unit || activeProduct?.uom || 'pcs').trim() || 'pcs';
-  const defaultUom = String(activeUomOptions?.[0] || displayUom).trim().toLowerCase();
+  const effectivePerDisplayUnit =
+    enteredQuantity > 0 ? Number(activeLine?.totalAmount || 0) / enteredQuantity : 0;
+  const baseRateUnitLabel =
+    String(activeProduct?.base_unit || activeProduct?.uom || 'pcs').trim() || 'pcs';
+  const defaultUom = String(activeUomOptions?.[0] || displayUom)
+    .trim()
+    .toLowerCase();
   const currentUom = displayUom.toLowerCase();
   const currentGstRate = Number(activeItem?.gst_rate ?? activeLine?.gstRate ?? 5) || 0;
   const hasAdvancedAdjustments = Boolean(
-    discountAppliedAmount > 0
-    || currentGstRate !== 5
-    || currentUom !== defaultUom
+    discountAppliedAmount > 0 || currentGstRate !== 5 || currentUom !== defaultUom
   );
   const shouldExposeDiscountControls = Boolean(
-    Number(activeItem?.discount_value || 0) > 0
-    || discountAppliedAmount > 0
+    Number(activeItem?.discount_value || 0) > 0 || discountAppliedAmount > 0
   );
-  const shouldExposeMoreFields = Boolean(
-    hasAdvancedAdjustments
-    || shouldExposeDiscountControls
+  const shouldExposeMoreFields = Boolean(hasAdvancedAdjustments || shouldExposeDiscountControls);
+  const [showAdvancedAdjustmentsOverride, setShowAdvancedAdjustmentsOverride] =
+    useState(shouldExposeMoreFields);
+  const showAdvancedAdjustments = Boolean(
+    showAdvancedAdjustmentsOverride || shouldExposeMoreFields
   );
-  const [showAdvancedAdjustmentsOverride, setShowAdvancedAdjustmentsOverride] = useState(shouldExposeMoreFields);
-  const showAdvancedAdjustments = Boolean(showAdvancedAdjustmentsOverride || shouldExposeMoreFields);
   const rateFieldMeta = lastPurchaseMeta.hasValue
     ? `Auto-filled from ${lastPurchaseMeta.poNumber || 'last purchase'}.`
-    : (activeItem?.reference_rate_source
-        ? `Suggested from ${activeItem.reference_rate_source}.`
-        : 'Enter saves this row.');
-  const rateFieldInlineMeta = lastPurchaseMeta.hasValue || activeItem?.reference_rate_source
-    ? 'Auto-filled'
-    : 'Enter saves';
+    : activeItem?.reference_rate_source
+      ? `Suggested from ${activeItem.reference_rate_source}.`
+      : 'Enter saves this row.';
+  const rateFieldInlineMeta =
+    lastPurchaseMeta.hasValue || activeItem?.reference_rate_source ? 'Auto-filled' : 'Enter saves';
   const trimmedProductQuery = String(activeItem?.product_query || '').trim();
   const autocompleteCandidate = useMemo(() => {
     if (!trimmedProductQuery || showRecentProducts || !visibleProductResults.length) return null;
@@ -142,13 +140,17 @@ const PurchaseOrderPosEntry = ({
     trimmedProductQuery,
     visibleProductResults,
   ]);
-  const searchHint = autocompleteCandidate
-    ? (
-      requiresExplicitSuggestionChoice
-        ? <>Use <strong>arrows</strong> to choose.</>
-        : <>Use <strong>Tab</strong> or <strong>Enter</strong> for {autocompleteCandidate.name}.</>
+  const searchHint = autocompleteCandidate ? (
+    requiresExplicitSuggestionChoice ? (
+      <>
+        Use <strong>arrows</strong> to choose.
+      </>
+    ) : (
+      <>
+        Use <strong>Tab</strong> or <strong>Enter</strong> for {autocompleteCandidate.name}.
+      </>
     )
-    : null;
+  ) : null;
 
   if (!activeItem) {
     return (
@@ -196,7 +198,10 @@ const PurchaseOrderPosEntry = ({
           </div>
         ) : null}
         <div className="po-pos-entry-lane">
-          <label className="po-pos-field po-pos-field-search po-pos-field-primary po-pos-field-search-wide" htmlFor="po-pos-product-search">
+          <label
+            className="po-pos-field po-pos-field-search po-pos-field-primary po-pos-field-search-wide"
+            htmlFor="po-pos-product-search"
+          >
             <span>Product</span>
             <ProductSearchCombobox
               inputId="po-pos-product-search"
@@ -214,19 +219,21 @@ const PurchaseOrderPosEntry = ({
               selectedItem={activeProduct}
               hintContent={searchHint}
               resultsSummaryText={productResultSummary}
-              noResultsText={canInlineCreateProduct
-                ? 'No match. Add new if needed.'
-                : 'No match.'}
+              noResultsText={canInlineCreateProduct ? 'No match. Add new if needed.' : 'No match.'}
               getOptionKey={(product) => String(product?.id || '')}
               getOptionPrimaryText={(product) => product?.name || 'Product'}
               getOptionSecondaryText={(product) => getProductSearchMeta(product)}
               onSelect={(product) => onProductSuggestionPick(product, { focusQty: true })}
               onOptionHover={onProductSuggestionHover}
-              footerAction={!entryLocked && canInlineCreateProduct ? {
-                label: `Add new: ${trimmedProductQuery}`,
-                onClick: () => onCreateProductFromSearch(trimmedProductQuery),
-                disabled: orderSubmitting,
-              } : null}
+              footerAction={
+                !entryLocked && canInlineCreateProduct
+                  ? {
+                      label: `Add new: ${trimmedProductQuery}`,
+                      onClick: () => onCreateProductFromSearch(trimmedProductQuery),
+                      disabled: orderSubmitting,
+                    }
+                  : null
+              }
               footerActionPosition="top"
             />
           </label>
@@ -271,7 +278,10 @@ const PurchaseOrderPosEntry = ({
                   />
                 </label>
 
-                <label className="po-pos-field po-pos-field-secondary" htmlFor="po-pos-inline-price">
+                <label
+                  className="po-pos-field po-pos-field-secondary"
+                  htmlFor="po-pos-inline-price"
+                >
                   <span>Rate</span>
                   <input
                     ref={inlineCreatePriceRef}
@@ -286,7 +296,10 @@ const PurchaseOrderPosEntry = ({
                   />
                 </label>
 
-                <label className="po-pos-field po-pos-field-secondary po-pos-field-compact" htmlFor="po-pos-inline-uom">
+                <label
+                  className="po-pos-field po-pos-field-secondary po-pos-field-compact"
+                  htmlFor="po-pos-inline-uom"
+                >
                   <span>UOM</span>
                   <select
                     ref={inlineCreateUomRef}
@@ -296,11 +309,15 @@ const PurchaseOrderPosEntry = ({
                     onKeyDown={onInlineProductCreateKeyDown('uom')}
                     disabled={inlineProductCreate.submitting}
                   >
-                    {Array.from(new Set([
-                      ...(Array.isArray(activeUomOptions) ? activeUomOptions : []),
-                      inlineProductCreate.uom || 'pcs',
-                    ])).map((uomOption) => (
-                      <option key={uomOption} value={uomOption}>{uomOption}</option>
+                    {Array.from(
+                      new Set([
+                        ...(Array.isArray(activeUomOptions) ? activeUomOptions : []),
+                        inlineProductCreate.uom || 'pcs',
+                      ])
+                    ).map((uomOption) => (
+                      <option key={uomOption} value={uomOption}>
+                        {uomOption}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -309,15 +326,16 @@ const PurchaseOrderPosEntry = ({
               {inlineProductCreate.error ? (
                 <p className="po-pos-inline-create-error">{inlineProductCreate.error}</p>
               ) : (
-                <p className="po-pos-inline-create-note">
-                  Add here, then continue with qty.
-                </p>
+                <p className="po-pos-inline-create-note">Add here, then continue with qty.</p>
               )}
             </div>
           ) : null}
 
           <div className={`po-pos-primary-grid${orderFullMode ? ' full' : ''}`}>
-            <label className="po-pos-field po-pos-field-primary po-pos-field-qty" htmlFor="po-pos-qty">
+            <label
+              className="po-pos-field po-pos-field-primary po-pos-field-qty"
+              htmlFor="po-pos-qty"
+            >
               <span>Qty</span>
               <input
                 ref={qtyInputRef}
@@ -333,7 +351,10 @@ const PurchaseOrderPosEntry = ({
             </label>
 
             {orderFullMode ? (
-              <label className="po-pos-field po-pos-field-primary po-pos-field-rate" htmlFor="po-pos-rate">
+              <label
+                className="po-pos-field po-pos-field-primary po-pos-field-rate"
+                htmlFor="po-pos-rate"
+              >
                 <div className="po-pos-field-label-row">
                   <span>Rate / {baseRateUnitLabel}</span>
                   <small className="po-pos-field-inline-meta" title={rateFieldMeta}>
@@ -395,7 +416,10 @@ const PurchaseOrderPosEntry = ({
               </label>
             ) : null}
 
-            <label className="po-pos-field po-pos-field-secondary po-pos-field-compact" htmlFor="po-pos-uom">
+            <label
+              className="po-pos-field po-pos-field-secondary po-pos-field-compact"
+              htmlFor="po-pos-uom"
+            >
               <span>UOM</span>
               <select
                 ref={uomInputRef}
@@ -406,7 +430,9 @@ const PurchaseOrderPosEntry = ({
                 disabled={orderSubmitting || entryLocked}
               >
                 {activeUomOptions.map((uomOption) => (
-                  <option key={uomOption} value={uomOption}>{uomOption}</option>
+                  <option key={uomOption} value={uomOption}>
+                    {uomOption}
+                  </option>
                 ))}
               </select>
             </label>
@@ -422,7 +448,9 @@ const PurchaseOrderPosEntry = ({
                 disabled={orderSubmitting || entryLocked}
               >
                 {GST_RATE_OPTIONS.map((rate) => (
-                  <option key={rate} value={rate}>{rate}%</option>
+                  <option key={rate} value={rate}>
+                    {rate}%
+                  </option>
                 ))}
               </select>
             </label>
@@ -455,16 +483,18 @@ const PurchaseOrderPosEntry = ({
               />
             </label>
           </div>
-        ) : (
-          shouldExposeMoreFields ? (
-            <div className="po-pos-adjustments-preview" aria-live="polite">
-              {!orderFullMode ? <span>Rate: {formatCurrency(activeLine?.rate || 0)}</span> : null}
-              {currentUom !== defaultUom ? <span>UOM: {displayUom}</span> : null}
-              {currentGstRate !== 5 ? <span>GST: {Number(activeLine?.gstRate || 0).toFixed(0)}%</span> : null}
-              {discountAppliedAmount > 0 ? <span>Discount: {formatCurrency(discountAppliedAmount)}</span> : null}
-            </div>
-          ) : null
-        )}
+        ) : shouldExposeMoreFields ? (
+          <div className="po-pos-adjustments-preview" aria-live="polite">
+            {!orderFullMode ? <span>Rate: {formatCurrency(activeLine?.rate || 0)}</span> : null}
+            {currentUom !== defaultUom ? <span>UOM: {displayUom}</span> : null}
+            {currentGstRate !== 5 ? (
+              <span>GST: {Number(activeLine?.gstRate || 0).toFixed(0)}%</span>
+            ) : null}
+            {discountAppliedAmount > 0 ? (
+              <span>Discount: {formatCurrency(discountAppliedAmount)}</span>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="po-pos-summary-block" aria-live="polite">

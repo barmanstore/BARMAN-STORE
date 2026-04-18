@@ -22,9 +22,11 @@ const registerCategoryMoveRoutes = (deps) => {
       let nextParentId = null;
       if (rawParent !== null && rawParent !== '') {
         nextParentId = toNullablePositiveInt(rawParent);
-        if (!nextParentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+        if (!nextParentId)
+          return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
       }
-      if (nextParentId === categoryId) return res.status(400).json({ error: 'A category cannot be its own parent' });
+      if (nextParentId === categoryId)
+        return res.status(400).json({ error: 'A category cannot be its own parent' });
       if (nextParentId) {
         const parent = await getCategoryByIdAsync(nextParentId);
         if (!parent) return res.status(404).json({ error: 'Parent category not found' });
@@ -40,11 +42,16 @@ const registerCategoryMoveRoutes = (deps) => {
           excludeId: categoryId,
         });
         if (duplicate) {
-          return res.status(409).json({ error: 'A sibling category with this name already exists in the target parent' });
+          return res.status(409).json({
+            error: 'A sibling category with this name already exists in the target parent',
+          });
         }
       }
 
-      await dbRunAsync('UPDATE categories SET parent_id = ? WHERE id = ?', [nextParentId, categoryId]);
+      await dbRunAsync('UPDATE categories SET parent_id = ? WHERE id = ?', [
+        nextParentId,
+        categoryId,
+      ]);
       return res.json(await getCategoryByIdAsync(categoryId));
     } catch (error) {
       return res.status(500).json({ error: error.message });

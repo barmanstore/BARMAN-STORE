@@ -61,28 +61,30 @@ const registerAuthSessionRoutes = (deps) => {
     WHATSAPP_PROVIDER,
     SUPABASE_EMAIL_VERIFY_REDIRECT,
     PHONE_VERIFY_MAX_ATTEMPTS,
-    hashOpaqueToken
+    hashOpaqueToken,
   } = deps;
 
-app.get('/api/auth/session', requireAuth, async (req, res) => {
-  try {
-    const user = sanitizeUser(await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [req.authUser.id]));
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    return res.json({
-      success: true,
-      user,
-      token: generateToken(user),
-      auth_provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
-    });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to fetch session' });
-  }
-});
+  app.get('/api/auth/session', requireAuth, async (req, res) => {
+    try {
+      const user = sanitizeUser(
+        await dbGetAsync(`SELECT * FROM users WHERE id = ?`, [req.authUser.id])
+      );
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      return res.json({
+        success: true,
+        user,
+        token: generateToken(user),
+        auth_provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Failed to fetch session' });
+    }
+  });
 
-const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
-const respondPasswordAuthDisabled = (_, res) =>
-  res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
-
+  const PASSWORD_AUTH_DISABLED_ERROR =
+    'Password-based authentication is disabled. Use OTP or OAuth login.';
+  const respondPasswordAuthDisabled = (_, res) =>
+    res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
 };
 
 module.exports = { registerAuthSessionRoutes };

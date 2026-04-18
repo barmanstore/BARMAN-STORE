@@ -21,7 +21,9 @@ const applyProfileUpdate = async ({
       Number(payload.nextCreditLimit || 0),
       targetUserId,
     ]);
-    const updated = sanitizeUser(await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId]));
+    const updated = sanitizeUser(
+      await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId])
+    );
     return { updated, phoneChangeRequest: null };
   }
 
@@ -39,7 +41,8 @@ const applyProfileUpdate = async ({
   } = payload;
 
   const { name, email, phone, address, profile_image } = input;
-  const shouldQueuePhoneChangeRequest = isSelf && !isAdmin && phoneChangedRequested && Boolean(requestedPhone);
+  const shouldQueuePhoneChangeRequest =
+    isSelf && !isAdmin && phoneChangedRequested && Boolean(requestedPhone);
   const persistedPhone = shouldQueuePhoneChangeRequest ? currentPhone : requestedPhone;
   let emailVerifiedValue = Number(current.email_verified || 0) === 1 ? 1 : 0;
   let phoneVerifiedValue = Number(current.phone_verified || 0) === 1 ? 1 : 0;
@@ -69,12 +72,16 @@ const applyProfileUpdate = async ({
       persistedPhone,
       phoneVerifiedValue,
       address !== undefined ? address : current.address,
-      profile_image !== undefined ? (String(profile_image || '').trim() || null) : current.profile_image,
+      profile_image !== undefined
+        ? String(profile_image || '').trim() || null
+        : current.profile_image,
       current.role,
       targetUserId,
     ]
   );
-  const updated = sanitizeUser(await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId]));
+  const updated = sanitizeUser(
+    await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId])
+  );
   if (emailChanged && emailValue && emailVerifiedValue === 0) {
     sendEmailVerificationChallenge({
       userId: Number(targetUserId),

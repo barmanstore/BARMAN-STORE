@@ -14,7 +14,9 @@ const createVerificationRecords = (deps = {}) => {
   const createEmailVerificationRecord = async ({ userId, email }) => {
     const token = generateEmailVerificationToken();
     const tokenHash = hashVerificationToken(token);
-    const expiresAt = new Date(Date.now() + Number(EMAIL_VERIFY_TTL_SECONDS || 0) * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + Number(EMAIL_VERIFY_TTL_SECONDS || 0) * 1000
+    ).toISOString();
     await dbRunAsync(
       `INSERT INTO email_verification_tokens (user_id, email, token_hash, expires_at, attempts, max_attempts, used)
        VALUES (?, ?, ?, ?, 0, ?, 0)`,
@@ -26,7 +28,9 @@ const createVerificationRecords = (deps = {}) => {
   const createPhoneVerificationRecord = async ({ userId, phone }) => {
     const code = generatePhoneVerificationCode(6);
     const codeHash = hashOpaqueToken(code);
-    const expiresAt = new Date(Date.now() + Number(PHONE_VERIFY_TTL_SECONDS || 0) * 1000).toISOString();
+    const expiresAt = new Date(
+      Date.now() + Number(PHONE_VERIFY_TTL_SECONDS || 0) * 1000
+    ).toISOString();
     await dbRunAsync(
       `INSERT INTO phone_verification_tokens (user_id, phone, token_hash, expires_at, attempts, max_attempts, used)
        VALUES (?, ?, ?, ?, 0, ?, 0)`,

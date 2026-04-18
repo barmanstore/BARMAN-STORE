@@ -53,12 +53,13 @@ function DropdownFilter({
   };
 
   return (
-    <div className={`${getFilterFrameClassName(className)} dropdown-filter-frame`} style={{ width, maxWidth: '100%' }}>
+    <div
+      className={`${getFilterFrameClassName(className)} dropdown-filter-frame`}
+      style={{ width, maxWidth: '100%' }}
+    >
       {label ? (
         <div className="dropdown-filter-heading flex items-center justify-between gap-2">
-          <span className={getFilterLabelClassName(tone)}>
-            {label}
-          </span>
+          <span className={getFilterLabelClassName(tone)}>{label}</span>
           {showSelectedCount ? (
             <span className="dropdown-filter-selected-count rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-slate-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
               {selectedCountLabel}
@@ -158,7 +159,11 @@ function DropdownFilter({
                   aria-pressed={isActive}
                 >
                   {isActive ? (
-                    <Check size={12} className="dropdown-filter-pill-indicator" aria-hidden="true" />
+                    <Check
+                      size={12}
+                      className="dropdown-filter-pill-indicator"
+                      aria-hidden="true"
+                    />
                   ) : null}
                   {option.label}
                 </button>
@@ -181,7 +186,11 @@ function DropdownFilter({
               </option>
             ))}
           </select>
-          <ChevronDown size={15} className="pointer-events-none absolute right-3 text-slate-400" aria-hidden="true" />
+          <ChevronDown
+            size={15}
+            className="pointer-events-none absolute right-3 text-slate-400"
+            aria-hidden="true"
+          />
         </div>
       )}
     </div>

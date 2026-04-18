@@ -1,5 +1,13 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  X,
+} from 'lucide-react';
 import {
   getDateRangePopoverClassName,
   getFilterActionClassName,
@@ -133,23 +141,42 @@ function CompactCalendar({
 }) {
   const monthDate = fromDateToken(monthToken) || new Date();
   const monthLabel = `${MONTH_NAMES[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
-  const monthGrid = useMemo(() => buildMonthGrid(monthToken, weekStartsOn), [monthToken, weekStartsOn]);
+  const monthGrid = useMemo(
+    () => buildMonthGrid(monthToken, weekStartsOn),
+    [monthToken, weekStartsOn]
+  );
 
-  const previewStart = selectedStartDate && !selectedEndDate && hoverDate
-    ? (compareTokens(selectedStartDate, hoverDate) <= 0 ? selectedStartDate : hoverDate)
-    : '';
-  const previewEnd = selectedStartDate && !selectedEndDate && hoverDate
-    ? (compareTokens(selectedStartDate, hoverDate) <= 0 ? hoverDate : selectedStartDate)
-    : '';
+  const previewStart =
+    selectedStartDate && !selectedEndDate && hoverDate
+      ? compareTokens(selectedStartDate, hoverDate) <= 0
+        ? selectedStartDate
+        : hoverDate
+      : '';
+  const previewEnd =
+    selectedStartDate && !selectedEndDate && hoverDate
+      ? compareTokens(selectedStartDate, hoverDate) <= 0
+        ? hoverDate
+        : selectedStartDate
+      : '';
 
   return (
     <section className="date-calendar">
       <div className="date-calendar-header">
-        <button type="button" className="date-calendar-nav" onClick={() => onMonthChange(-1)} aria-label="Previous month">
+        <button
+          type="button"
+          className="date-calendar-nav"
+          onClick={() => onMonthChange(-1)}
+          aria-label="Previous month"
+        >
           <ChevronLeft size={14} />
         </button>
         <span className="date-calendar-title">{monthLabel}</span>
-        <button type="button" className="date-calendar-nav" onClick={() => onMonthChange(1)} aria-label="Next month">
+        <button
+          type="button"
+          className="date-calendar-nav"
+          onClick={() => onMonthChange(1)}
+          aria-label="Next month"
+        >
           <ChevronRight size={14} />
         </button>
       </div>
@@ -164,8 +191,14 @@ function CompactCalendar({
         {monthGrid.map((cell) => {
           const isStart = cell.token === selectedStartDate;
           const isEnd = cell.token === selectedEndDate;
-          const committedRange = Boolean(selectedStartDate && selectedEndDate && isBetweenInclusive(cell.token, selectedStartDate, selectedEndDate));
-          const previewRange = Boolean(previewStart && previewEnd && isBetweenInclusive(cell.token, previewStart, previewEnd));
+          const committedRange = Boolean(
+            selectedStartDate &&
+            selectedEndDate &&
+            isBetweenInclusive(cell.token, selectedStartDate, selectedEndDate)
+          );
+          const previewRange = Boolean(
+            previewStart && previewEnd && isBetweenInclusive(cell.token, previewStart, previewEnd)
+          );
           const inRange = committedRange || previewRange;
 
           return (
@@ -179,7 +212,9 @@ function CompactCalendar({
                 inRange ? 'is-range' : '',
                 isStart ? 'is-start' : '',
                 isEnd ? 'is-end' : '',
-              ].filter(Boolean).join(' ')}
+              ]
+                .filter(Boolean)
+                .join(' ')}
               onMouseEnter={() => onDateHover?.(cell.token)}
               onClick={() => onDateSelect?.(cell.token)}
               aria-label={cell.label}
@@ -220,37 +255,44 @@ function DateRangeFilter({
   const wrapperRef = useRef(null);
   const popoverId = useId();
   const safeValue = Array.isArray(value) ? value : [];
-  const safePresets = Array.isArray(presets) ? presets : [];
 
   const [committedStartDate, committedEndDate] = normalizeDateRange(safeValue[0], safeValue[1]);
 
   const committedPresetLabel = useMemo(() => {
+    const safePresets = Array.isArray(presets) ? presets : [];
     if (!committedStartDate && !committedEndDate) return '';
     const committedRange = [committedStartDate, committedEndDate].join('|');
-    return safePresets.find((preset) => {
-      const [presetStart, presetEnd] = normalizeDateRange(preset?.value?.[0], preset?.value?.[1]);
-      return [presetStart, presetEnd].join('|') === committedRange;
-    })?.label || '';
-  }, [committedEndDate, committedStartDate, safePresets]);
+    return (
+      safePresets.find((preset) => {
+        const [presetStart, presetEnd] = normalizeDateRange(preset?.value?.[0], preset?.value?.[1]);
+        return [presetStart, presetEnd].join('|') === committedRange;
+      })?.label || ''
+    );
+  }, [committedEndDate, committedStartDate, presets]);
 
-  const displayValue = committedPresetLabel || (
-    committedStartDate && committedEndDate
+  const displayValue =
+    committedPresetLabel ||
+    (committedStartDate && committedEndDate
       ? `${formatShortDate(committedStartDate)} – ${formatShortDate(committedEndDate)}`
-      : showPlaceholderText ? 'Select dates' : ''
-  );
+      : showPlaceholderText
+        ? 'Select dates'
+        : '');
 
   const activePresetLabel = selectedPreset || committedPresetLabel;
   const hasCommittedValue = Boolean(committedStartDate || committedEndDate);
   const hasCustomRange = Boolean((committedStartDate || committedEndDate) && !committedPresetLabel);
   const isPickerOpen = alwaysOpen || isOpen;
-  const calendarAnchorToken = startOfMonthToken(draftStartDate || draftEndDate || committedStartDate || committedEndDate || new Date());
+  const calendarAnchorToken = startOfMonthToken(
+    draftStartDate || draftEndDate || committedStartDate || committedEndDate || new Date()
+  );
   const customStartLabel = formatCompactDate(draftStartDate || committedStartDate);
   const customEndLabel = formatCompactDate(draftEndDate || committedEndDate);
-  const customChipLabel = (draftStartDate || draftEndDate || committedStartDate || committedEndDate)
-    ? customEndLabel
-      ? `${customStartLabel} - ${customEndLabel}`
-      : `${customStartLabel} -`
-    : 'Custom';
+  const customChipLabel =
+    draftStartDate || draftEndDate || committedStartDate || committedEndDate
+      ? customEndLabel
+        ? `${customStartLabel} - ${customEndLabel}`
+        : `${customStartLabel} -`
+      : 'Custom';
 
   const clearRange = () => {
     setSelectedPreset('');
@@ -277,15 +319,23 @@ function DateRangeFilter({
     setHoverDate('');
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!isPickerOpen) return undefined;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftStartDate(committedStartDate);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftEndDate(committedEndDate);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedPreset(committedPresetLabel);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowCustom(hasCustomRange);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowCalendar(hasCustomRange);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCalendarMonthToken(calendarAnchorToken);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHoverDate('');
 
     const handlePointerDown = (event) => {
@@ -317,7 +367,15 @@ function DateRangeFilter({
       document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [calendarAnchorToken, committedEndDate, committedPresetLabel, committedStartDate, hasCustomRange, isPickerOpen]);
+  }, [
+    calendarAnchorToken,
+    committedEndDate,
+    committedPresetLabel,
+    committedStartDate,
+    hasCustomRange,
+    isPickerOpen,
+    alwaysOpen,
+  ]);
 
   const commitRange = (nextStartDate, nextEndDate) => {
     const [normalizedStartDate, normalizedEndDate] = normalizeDateRange(nextStartDate, nextEndDate);
@@ -325,7 +383,11 @@ function DateRangeFilter({
   };
 
   const syncCustomRange = (nextStartDate, nextEndDate, changedField = null) => {
-    const [normalizedStartDate, normalizedEndDate] = normalizeDateRange(nextStartDate, nextEndDate, changedField);
+    const [normalizedStartDate, normalizedEndDate] = normalizeDateRange(
+      nextStartDate,
+      nextEndDate,
+      changedField
+    );
     setDraftStartDate(normalizedStartDate);
     setDraftEndDate(normalizedEndDate);
     setSelectedPreset('');
@@ -364,17 +426,17 @@ function DateRangeFilter({
     syncCustomRange(draftStartDate, token, 'end');
   };
 
-  const triggerLabel = displayValue ? `${label || 'Date range'}: ${displayValue}` : (label || 'Date range');
+  const triggerLabel = displayValue
+    ? `${label || 'Date range'}: ${displayValue}`
+    : label || 'Date range';
 
   if (alwaysOpen) {
     return (
       <div
         ref={wrapperRef}
-        className={getFilterFrameClassName([
-          'date-filter',
-          'relative',
-          className,
-        ].filter(Boolean).join(' '))}
+        className={getFilterFrameClassName(
+          ['date-filter', 'relative', className].filter(Boolean).join(' ')
+        )}
         style={{ width, maxWidth: '100%' }}
       >
         {label ? <span className={getFilterLabelClassName(tone)}>{label}</span> : null}
@@ -419,11 +481,13 @@ function DateRangeFilter({
                   onClick={() => handlePresetSelect(preset)}
                   aria-pressed={isActive}
                 >
-                  {isActive ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
+                  {isActive ? (
+                    <Check size={12} aria-hidden="true" className="date-range-pill-check" />
+                  ) : null}
                   {preset.label}
                 </button>
               );
-              })}
+            })}
           </div>
 
           {showCustom ? (
@@ -435,7 +499,11 @@ function DateRangeFilter({
                 hoverDate={hoverDate}
                 onDateHover={setHoverDate}
                 onDateSelect={handleDateSelect}
-                onMonthChange={(delta) => setCalendarMonthToken((current) => shiftMonthToken(current || calendarAnchorToken, delta))}
+                onMonthChange={(delta) =>
+                  setCalendarMonthToken((current) =>
+                    shiftMonthToken(current || calendarAnchorToken, delta)
+                  )
+                }
                 weekStartsOn={weekStartsOn}
               />
             </div>
@@ -448,12 +516,16 @@ function DateRangeFilter({
   return (
     <div
       ref={wrapperRef}
-      className={getFilterFrameClassName([
-        'date-filter',
-        'relative',
-        className,
-        triggerMode === 'icon' ? 'date-range-filter--icon' : '',
-      ].filter(Boolean).join(' '))}
+      className={getFilterFrameClassName(
+        [
+          'date-filter',
+          'relative',
+          className,
+          triggerMode === 'icon' ? 'date-range-filter--icon' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')
+      )}
       style={{ width, maxWidth: '100%' }}
     >
       {label ? <span className={getFilterLabelClassName(tone)}>{label}</span> : null}
@@ -470,7 +542,9 @@ function DateRangeFilter({
           title={triggerLabel}
         >
           <Calendar size={16} className={getFilterIconClassName(tone)} aria-hidden="true" />
-          {hasCommittedValue ? <span className="date-filter-trigger-dot" aria-hidden="true" /> : null}
+          {hasCommittedValue ? (
+            <span className="date-filter-trigger-dot" aria-hidden="true" />
+          ) : null}
           <span className="sr-only">{triggerLabel}</span>
         </button>
       ) : (
@@ -497,7 +571,11 @@ function DateRangeFilter({
             </span>
           ) : null}
           {!alwaysOpen ? (
-            isOpen ? <ChevronUp size={15} className="shrink-0 text-slate-400" /> : <ChevronDown size={15} className="shrink-0 text-slate-400" />
+            isOpen ? (
+              <ChevronUp size={15} className="shrink-0 text-slate-400" />
+            ) : (
+              <ChevronDown size={15} className="shrink-0 text-slate-400" />
+            )
           ) : null}
         </button>
       )}
@@ -536,7 +614,9 @@ function DateRangeFilter({
                   onClick={() => handlePresetSelect(preset)}
                   aria-pressed={isActive}
                 >
-                  {isActive ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
+                  {isActive ? (
+                    <Check size={12} aria-hidden="true" className="date-range-pill-check" />
+                  ) : null}
                   <span>{preset.label}</span>
                 </button>
               );
@@ -547,7 +627,9 @@ function DateRangeFilter({
               onClick={openCustomRange}
               aria-pressed={showCustom}
             >
-              {showCustom ? <Check size={12} aria-hidden="true" className="date-range-pill-check" /> : null}
+              {showCustom ? (
+                <Check size={12} aria-hidden="true" className="date-range-pill-check" />
+              ) : null}
               <span>Custom</span>
               <Calendar size={12} aria-hidden="true" />
             </button>
@@ -585,7 +667,11 @@ function DateRangeFilter({
                     hoverDate={hoverDate}
                     onDateHover={setHoverDate}
                     onDateSelect={handleDateSelect}
-                    onMonthChange={(delta) => setCalendarMonthToken((current) => shiftMonthToken(current || calendarAnchorToken, delta))}
+                    onMonthChange={(delta) =>
+                      setCalendarMonthToken((current) =>
+                        shiftMonthToken(current || calendarAnchorToken, delta)
+                      )
+                    }
                     weekStartsOn={weekStartsOn}
                   />
                 ) : null}

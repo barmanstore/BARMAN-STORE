@@ -6,18 +6,22 @@ const cleanupStaleBrowserCaches = () => {
   if (window.location.protocol !== 'https:') return;
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations()
+    navigator.serviceWorker
+      .getRegistrations()
       .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
       .catch(() => {});
   }
 
   if ('caches' in window) {
-    caches.keys()
-      .then((keys) => Promise.all(
-        keys
-          .filter((key) => /(workbox|vite|barman|vercel|precache)/i.test(String(key)))
-          .map((key) => caches.delete(key))
-      ))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((key) => /(workbox|vite|barman|vercel|precache)/i.test(String(key)))
+            .map((key) => caches.delete(key))
+        )
+      )
       .catch(() => {});
   }
 };

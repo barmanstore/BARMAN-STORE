@@ -23,7 +23,10 @@ const findScrollableAncestor = (node) => {
   while (current) {
     const styles = window.getComputedStyle(current);
     const overflowY = String(styles.overflowY || '').toLowerCase();
-    if (/(auto|scroll|overlay)/.test(overflowY) && current.scrollHeight > current.clientHeight + 1) {
+    if (
+      /(auto|scroll|overlay)/.test(overflowY) &&
+      current.scrollHeight > current.clientHeight + 1
+    ) {
       return current;
     }
     current = current.parentElement;
@@ -35,7 +38,12 @@ const findScrollableAncestor = (node) => {
 const getScrollMetrics = (hostNode, scrollNode) => {
   if (!hostNode) return null;
 
-  if (!scrollNode || scrollNode === window || scrollNode === document.scrollingElement || scrollNode === document.documentElement) {
+  if (
+    !scrollNode ||
+    scrollNode === window ||
+    scrollNode === document.scrollingElement ||
+    scrollNode === document.documentElement
+  ) {
     const hostRect = hostNode.getBoundingClientRect();
     return {
       componentTop: hostRect.top + window.scrollY,
@@ -84,12 +92,17 @@ function ProductsGridPanel({
   const scrollContainerRef = useRef(null);
   const [visibleRowRange, setVisibleRowRange] = useState({ start: 0, end: -1 });
 
-  const shouldVirtualize = !isMobile && !quickEditId && visibleProducts.length >= PRODUCT_GRID_MIN_ITEMS;
-  const productRows = useMemo(() => chunkProducts(visibleProducts, PRODUCT_GRID_COLUMNS), [visibleProducts]);
+  const shouldVirtualize =
+    !isMobile && !quickEditId && visibleProducts.length >= PRODUCT_GRID_MIN_ITEMS;
+  const productRows = useMemo(
+    () => chunkProducts(visibleProducts, PRODUCT_GRID_COLUMNS),
+    [visibleProducts]
+  );
   const rowCount = productRows.length;
   const totalHeight = Math.max(0, rowCount * PRODUCT_GRID_ROW_HEIGHT);
   const windowedRows = useMemo(
-    () => productRows.slice(Math.max(0, visibleRowRange.start), Math.max(0, visibleRowRange.end) + 1),
+    () =>
+      productRows.slice(Math.max(0, visibleRowRange.start), Math.max(0, visibleRowRange.end) + 1),
     [productRows, visibleRowRange.end, visibleRowRange.start]
   );
   const virtualWindowOffset = Math.max(0, visibleRowRange.start) * PRODUCT_GRID_ROW_HEIGHT;
@@ -115,11 +128,18 @@ function ProductsGridPanel({
 
       const { componentTop, scrollTop, viewportHeight } = metrics;
       const visibleTopPx = Math.max(0, scrollTop - componentTop);
-      const visibleBottomPx = Math.max(0, Math.min(totalHeight, scrollTop + viewportHeight - componentTop));
-      const nextStartRow = Math.max(0, Math.floor(visibleTopPx / PRODUCT_GRID_ROW_HEIGHT) - PRODUCT_GRID_OVERSCAN);
+      const visibleBottomPx = Math.max(
+        0,
+        Math.min(totalHeight, scrollTop + viewportHeight - componentTop)
+      );
+      const nextStartRow = Math.max(
+        0,
+        Math.floor(visibleTopPx / PRODUCT_GRID_ROW_HEIGHT) - PRODUCT_GRID_OVERSCAN
+      );
       const nextEndRow = Math.min(
         Math.max(0, rowCount - 1),
-        Math.floor(Math.max(0, visibleBottomPx - 1) / PRODUCT_GRID_ROW_HEIGHT) + PRODUCT_GRID_OVERSCAN
+        Math.floor(Math.max(0, visibleBottomPx - 1) / PRODUCT_GRID_ROW_HEIGHT) +
+          PRODUCT_GRID_OVERSCAN
       );
 
       setVisibleRowRange((current) => {
@@ -135,7 +155,7 @@ function ProductsGridPanel({
 
     setVisibleRowRange({
       start: 0,
-      end: Math.min(Math.max(0, rowCount - 1), (PRODUCT_GRID_OVERSCAN * 2) + 1),
+      end: Math.min(Math.max(0, rowCount - 1), PRODUCT_GRID_OVERSCAN * 2 + 1),
     });
     scheduleCompute();
 
@@ -196,7 +216,7 @@ function ProductsGridPanel({
               type="text"
               placeholder="Product name"
               value={quickEditForm.name}
-              onChange={(e) => setQuickEditForm(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setQuickEditForm((prev) => ({ ...prev, name: e.target.value }))}
             />
             <input
               id={`quick-edit-category-${product.id}`}
@@ -205,7 +225,7 @@ function ProductsGridPanel({
               list="admin-product-category-list"
               placeholder="Category"
               value={quickEditForm.category}
-              onChange={(e) => setQuickEditForm(prev => ({ ...prev, category: e.target.value }))}
+              onChange={(e) => setQuickEditForm((prev) => ({ ...prev, category: e.target.value }))}
             />
             <input
               id={`quick-edit-price-${product.id}`}
@@ -215,7 +235,7 @@ function ProductsGridPanel({
               min="0"
               step="0.01"
               value={quickEditForm.price}
-              onChange={(e) => setQuickEditForm(prev => ({ ...prev, price: e.target.value }))}
+              onChange={(e) => setQuickEditForm((prev) => ({ ...prev, price: e.target.value }))}
             />
             <input
               id={`quick-edit-stock-${product.id}`}
@@ -225,7 +245,7 @@ function ProductsGridPanel({
               min="0"
               step="1"
               value={quickEditForm.stock}
-              onChange={(e) => setQuickEditForm(prev => ({ ...prev, stock: e.target.value }))}
+              onChange={(e) => setQuickEditForm((prev) => ({ ...prev, stock: e.target.value }))}
             />
             <input
               id={`quick-edit-image-${product.id}`}
@@ -233,13 +253,17 @@ function ProductsGridPanel({
               type="text"
               placeholder="Image URL (optional)"
               value={quickEditForm.image}
-              onChange={(e) => setQuickEditForm(prev => ({ ...prev, image: e.target.value }))}
+              onChange={(e) => setQuickEditForm((prev) => ({ ...prev, image: e.target.value }))}
             />
             <div className="quick-form-actions">
               <button className="admin-btn" onClick={cancelQuickEdit} disabled={quickSaving}>
                 Cancel
               </button>
-              <button className="admin-btn primary" onClick={() => handleQuickEditSave(product)} disabled={quickSaving}>
+              <button
+                className="admin-btn primary"
+                onClick={() => handleQuickEditSave(product)}
+                disabled={quickSaving}
+              >
                 {quickSaving ? 'Saving...' : 'Update'}
               </button>
             </div>
@@ -267,23 +291,41 @@ function ProductsGridPanel({
             </div>
             <p className="product-meta">{getBrandPath(product) || 'Unbranded'}</p>
             <p className="product-meta">{getCategoryPath(product)}</p>
-            <p className="product-meta"><SignedCurrency amount={product.price} /></p>
-            <p className={product.stock < 10 ? 'product-stock-label low-stock' : 'product-stock-label'}>
+            <p className="product-meta">
+              <SignedCurrency amount={product.price} />
+            </p>
+            <p
+              className={
+                product.stock < 10 ? 'product-stock-label low-stock' : 'product-stock-label'
+              }
+            >
               Stock: {product.stock}
             </p>
             <div className="product-card-actions">
-              <button className="action-btn edit" onClick={() => startQuickEdit(product)} title="Quick edit">
+              <button
+                className="action-btn edit"
+                onClick={() => startQuickEdit(product)}
+                title="Quick edit"
+              >
                 <Edit size={16} />
               </button>
               <button
                 className="action-btn edit"
                 onClick={() => handleEditProduct(product)}
-                title={Number(productEditLoadingId || 0) === Number(product.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
+                title={
+                  Number(productEditLoadingId || 0) === Number(product.id || 0)
+                    ? 'Loading full product details...'
+                    : 'Advanced edit'
+                }
                 disabled={Number(productEditLoadingId || 0) === Number(product.id || 0)}
               >
                 <FolderOpen size={16} />
               </button>
-              <button className="action-btn delete" onClick={() => handleDeleteProduct(product.id)} title="Delete">
+              <button
+                className="action-btn delete"
+                onClick={() => handleDeleteProduct(product.id)}
+                title="Delete"
+              >
                 <Trash2 size={16} />
               </button>
             </div>
@@ -296,15 +338,15 @@ function ProductsGridPanel({
   const renderProductRow = (row, rowIndex) => (
     <div key={`row-${rowIndex}`} className="products-grid-admin-row">
       {row.map((product) => renderProductCard(product))}
-      {row.length < PRODUCT_GRID_COLUMNS ? (
-        Array.from({ length: PRODUCT_GRID_COLUMNS - row.length }, (_, emptyIndex) => (
-          <div
-            key={`placeholder-${rowIndex}-${emptyIndex}`}
-            className="product-admin-card products-grid-admin-card-placeholder"
-            aria-hidden="true"
-          />
-        ))
-      ) : null}
+      {row.length < PRODUCT_GRID_COLUMNS
+        ? Array.from({ length: PRODUCT_GRID_COLUMNS - row.length }, (_, emptyIndex) => (
+            <div
+              key={`placeholder-${rowIndex}-${emptyIndex}`}
+              className="product-admin-card products-grid-admin-card-placeholder"
+              aria-hidden="true"
+            />
+          ))
+        : null}
     </div>
   );
 
@@ -324,7 +366,7 @@ function ProductsGridPanel({
               type="text"
               placeholder="Product name"
               value={quickAddForm.name}
-              onChange={(e) => setQuickAddForm(prev => ({ ...prev, name: e.target.value }))}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, name: e.target.value }))}
             />
             <input
               id="quick-add-category"
@@ -333,7 +375,7 @@ function ProductsGridPanel({
               list="admin-product-category-list"
               placeholder="Category"
               value={quickAddForm.category}
-              onChange={(e) => setQuickAddForm(prev => ({ ...prev, category: e.target.value }))}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, category: e.target.value }))}
             />
             <input
               id="quick-add-price"
@@ -343,7 +385,7 @@ function ProductsGridPanel({
               min="0"
               step="0.01"
               value={quickAddForm.price}
-              onChange={(e) => setQuickAddForm(prev => ({ ...prev, price: e.target.value }))}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, price: e.target.value }))}
             />
             <input
               id="quick-add-stock"
@@ -353,7 +395,7 @@ function ProductsGridPanel({
               min="0"
               step="1"
               value={quickAddForm.stock}
-              onChange={(e) => setQuickAddForm(prev => ({ ...prev, stock: e.target.value }))}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, stock: e.target.value }))}
             />
             <input
               id="quick-add-image"
@@ -361,13 +403,24 @@ function ProductsGridPanel({
               type="text"
               placeholder="Image URL (optional)"
               value={quickAddForm.image}
-              onChange={(e) => setQuickAddForm(prev => ({ ...prev, image: e.target.value }))}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, image: e.target.value }))}
             />
             <div className="quick-form-actions">
-              <button className="admin-btn" onClick={() => { setShowQuickAdd(false); resetQuickAdd(); }} disabled={quickSaving}>
+              <button
+                className="admin-btn"
+                onClick={() => {
+                  setShowQuickAdd(false);
+                  resetQuickAdd();
+                }}
+                disabled={quickSaving}
+              >
                 Cancel
               </button>
-              <button className="admin-btn primary" onClick={handleQuickAddSave} disabled={quickSaving}>
+              <button
+                className="admin-btn primary"
+                onClick={handleQuickAddSave}
+                disabled={quickSaving}
+              >
                 {quickSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
@@ -377,12 +430,18 @@ function ProductsGridPanel({
 
       {shouldVirtualize ? (
         <div ref={hostRef} className="products-grid-admin-virtual-host">
-          <div className="products-grid-admin-virtual-spacer" style={{ height: `${totalHeight}px` }} aria-hidden="true" />
+          <div
+            className="products-grid-admin-virtual-spacer"
+            style={{ height: `${totalHeight}px` }}
+            aria-hidden="true"
+          />
           <div
             className="products-grid-admin-virtual-window"
             style={{ transform: `translateY(${virtualWindowOffset}px)` }}
           >
-            {windowedRows.map((row, rowOffset) => renderProductRow(row, visibleRowRange.start + rowOffset))}
+            {windowedRows.map((row, rowOffset) =>
+              renderProductRow(row, visibleRowRange.start + rowOffset)
+            )}
           </div>
         </div>
       ) : (

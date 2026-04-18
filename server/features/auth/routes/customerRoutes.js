@@ -52,19 +52,24 @@ const registerCustomerRoutes = (deps) => {
 
   app.get('/api/customers', requireAdmin, async (_, res) => {
     try {
-      const customers = await dbAllAsync(`SELECT id, name, email, phone, address, profile_image, created_at FROM users WHERE role = 'customer' ORDER BY name ASC`);
+      const customers = await dbAllAsync(
+        `SELECT id, name, email, phone, address, profile_image, created_at FROM users WHERE role = 'customer' ORDER BY name ASC`
+      );
       return res.json(customers);
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/customers/search', requireAdmin, async (req, res) => {
     try {
       const q = String(req.query.q || req.query.name || '').trim();
       const limit = Number(req.query.limit || 20);
       if (!q) {
-        const rows = await dbAllAsync(`SELECT id, name, email, phone, address, profile_image, created_at FROM users WHERE role='customer' ORDER BY name LIMIT ?`, [limit]);
+        const rows = await dbAllAsync(
+          `SELECT id, name, email, phone, address, profile_image, created_at FROM users WHERE role='customer' ORDER BY name LIMIT ?`,
+          [limit]
+        );
         return res.json(rows);
       }
       const like = `%${q}%`;
@@ -80,7 +85,7 @@ const registerCustomerRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/customers/:id/profile', requireAuth, async (req, res) => {
     try {
       const targetUserId = Number(req.params.id);
@@ -88,7 +93,10 @@ const registerCustomerRoutes = (deps) => {
       if (req.authUser.role !== 'admin' && Number(req.authUser.id) !== targetUserId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      const user = await dbGetAsync(`SELECT id, name, email, email_verified, phone, phone_verified, address, profile_image, role FROM users WHERE id = ?`, [req.params.id]);
+      const user = await dbGetAsync(
+        `SELECT id, name, email, email_verified, phone, phone_verified, address, profile_image, role FROM users WHERE id = ?`,
+        [req.params.id]
+      );
       if (!user) return res.status(404).json({ error: 'Customer not found' });
       let address = {};
       if (user.address) {
@@ -107,7 +115,6 @@ const registerCustomerRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
 };
 
 module.exports = { registerCustomerRoutes };

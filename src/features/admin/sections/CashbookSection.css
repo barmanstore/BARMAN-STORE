@@ -154,13 +154,17 @@
   border-radius: 14px;
   border: 1px solid rgba(203, 213, 225, 0.9);
   background: rgba(255, 255, 255, 0.34);
-  transition: background-color 0.14s ease, box-shadow 0.14s ease;
+  transition:
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .cashbook-composer.is-focused {
   background: rgba(255, 255, 255, 0.8);
   border-color: rgba(96, 165, 250, 0.95);
-  box-shadow: 0 0 0 3px rgba(191, 219, 254, 0.5), 0 12px 26px rgba(15, 23, 42, 0.08);
+  box-shadow:
+    0 0 0 3px rgba(191, 219, 254, 0.5),
+    0 12px 26px rgba(15, 23, 42, 0.08);
 }
 
 .cashbook-line-input {
@@ -174,7 +178,10 @@
   font-weight: 600;
   color: #0f172a;
   box-shadow: none;
-  transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
   cursor: text;
 }
 
@@ -206,7 +213,9 @@
   border-radius: 14px;
   background: rgba(236, 253, 245, 0.98);
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
 }
 
 .cashbook-undo-toast.is-visible {
@@ -269,7 +278,7 @@
   color: #0f172a;
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 .cashbook-summary-strip .is-out strong {
@@ -303,7 +312,10 @@
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
 }
 
 .cashbook-preset-chip.is-active {
@@ -602,7 +614,7 @@
   font-weight: 800;
   color: #0f172a;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 .cashbook-group-entries {
@@ -620,7 +632,9 @@
   border-bottom: 1px solid #edf2f7;
   background: transparent;
   border-radius: 0;
-  transition: background-color 0.12s ease, transform 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    transform 0.12s ease;
 }
 
 .cashbook-entry[role='button'] {
@@ -637,7 +651,7 @@
   color: #64748b;
   padding-top: 0.15rem;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 .cashbook-entry.is-recent {
@@ -744,7 +758,7 @@
   line-height: 1.1;
   color: #0f172a;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 .cashbook-entry-in strong {
@@ -764,7 +778,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: 'tnum' 1;
 }
 
 .cashbook-entry-saved {

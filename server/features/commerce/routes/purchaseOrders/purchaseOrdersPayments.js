@@ -44,18 +44,24 @@ const registerPurchaseOrdersPaymentsRoutes = (deps) => {
         canPoAcceptPayment,
         calculatePoPaymentSnapshot,
       });
-      const {
-        order,
-        poStatus,
-        amount,
-        distributorId,
-        totalSnapshotBefore,
-      } = validation;
+      const { order, poStatus, amount, distributorId, totalSnapshotBefore } = validation;
 
-      const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
-      const reference = String(req.body?.reference || req.body?.payment_reference || order.bill_number || order.po_number || '').trim() || null;
+      const paymentMode =
+        String(req.body?.payment_mode || 'cash')
+          .trim()
+          .toLowerCase() || 'cash';
+      const reference =
+        String(
+          req.body?.reference ||
+            req.body?.payment_reference ||
+            order.bill_number ||
+            order.po_number ||
+            ''
+        ).trim() || null;
       const notes = String(req.body?.notes || req.body?.description || '').trim() || null;
-      const transactionDate = normalizeTransactionDate(req.body?.transaction_date || req.body?.payment_date || null);
+      const transactionDate = normalizeTransactionDate(
+        req.body?.transaction_date || req.body?.payment_date || null
+      );
       const duplicatePayment = await checkDuplicatePurchasePayment({
         findDuplicatePurchasePaymentAsync,
         purchaseOrderId: Number(req.params.id || 0),
@@ -133,9 +139,10 @@ const registerPurchaseOrdersPaymentsRoutes = (deps) => {
         balance_due: record.nextSnapshot.balanceDue,
       });
     } catch (error) {
-      const uniqueViolation = clientRequestId
-        && typeof isUniqueViolationError === 'function'
-        && isUniqueViolationError(error);
+      const uniqueViolation =
+        clientRequestId &&
+        typeof isUniqueViolationError === 'function' &&
+        isUniqueViolationError(error);
       if (uniqueViolation) {
         const existing = await dbGetAsync(
           `SELECT id FROM purchase_order_payments WHERE client_request_id = ? LIMIT 1`,

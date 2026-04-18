@@ -10,7 +10,9 @@ const PRIMARY_DB_ENV_KEYS = [
 ];
 
 export const parseBooleanEnv = (value, fallback = false) => {
-  const raw = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
@@ -29,7 +31,9 @@ const describeDbTarget = (dbUrl) => {
   try {
     const parsed = new URL(raw);
     const host = parsed.hostname || 'localhost';
-    const port = parsed.port || (parsed.protocol === 'postgresql:' || parsed.protocol === 'postgres:' ? '5432' : '');
+    const port =
+      parsed.port ||
+      (parsed.protocol === 'postgresql:' || parsed.protocol === 'postgres:' ? '5432' : '');
     const database = parsed.pathname.replace(/^\/+/, '') || 'postgres';
     return `${host}${port ? `:${port}` : ''}/${database}`;
   } catch (_) {
@@ -44,8 +48,12 @@ const normalizeDbTarget = (dbUrl) => {
     const parsed = new URL(raw);
     const protocol = String(parsed.protocol || '').toLowerCase();
     const host = String(parsed.hostname || '').toLowerCase();
-    const port = String(parsed.port || (protocol === 'postgresql:' || protocol === 'postgres:' ? '5432' : '')).toLowerCase();
-    const database = String(parsed.pathname || '').replace(/^\/+/, '').toLowerCase();
+    const port = String(
+      parsed.port || (protocol === 'postgresql:' || protocol === 'postgres:' ? '5432' : '')
+    ).toLowerCase();
+    const database = String(parsed.pathname || '')
+      .replace(/^\/+/, '')
+      .toLowerCase();
     return `${protocol}//${host}:${port}/${database}`;
   } catch (_) {
     return raw;

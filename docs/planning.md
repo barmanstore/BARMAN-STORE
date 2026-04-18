@@ -9,6 +9,7 @@ Explain, in simple words, what the current app is, what the next version should 
 Right now, the app is like a digital notebook for shop records.
 
 It helps you:
+
 - Keep track of who bought and who paid
 - Record credit (udhar)
 - See customer balances
@@ -20,6 +21,7 @@ It is strong at record keeping, but it feels more like a system than a shop expe
 A full shop operating system — not just records.
 
 It should help with daily work:
+
 - Selling
 - Billing
 - Credit tracking
@@ -31,6 +33,7 @@ It should help with daily work:
 ### 1. Customer Side
 
 Simple and fast:
+
 - See products
 - Place order
 - Pick up from shop
@@ -39,6 +42,7 @@ Simple and fast:
 ### 2. Shop Owner Side
 
 Daily work made easy:
+
 - Make bills quickly
 - Mark cash or credit
 - Record payments
@@ -47,6 +51,7 @@ Daily work made easy:
 ### 3. Supplier Side
 
 Smarter purchasing:
+
 - Know which supplier comes when
 - Track what you owe them
 - Plan what to order next
@@ -60,6 +65,7 @@ New app helps you take action every day.
 
 Small shops don’t fail because of missing data.  
 They fail because of missed actions:
+
 - Forgetting who owes money
 - Ordering late
 - Missing stock

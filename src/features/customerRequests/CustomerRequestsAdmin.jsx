@@ -5,7 +5,12 @@ import BackofficePageHeader from '../../shared/components/backoffice/BackofficeP
 import useExpandableCards from './hooks/useExpandableCards';
 import useIssueDrafts from './hooks/useIssueDrafts';
 import useCustomerRequestActions from './hooks/useCustomerRequestActions';
-import { formatMergeImpact, issueStatuses, phoneStatuses, recommendationStatuses } from './utils/customerRequestsAdminUtils';
+import {
+  formatMergeImpact,
+  issueStatuses,
+  phoneStatuses,
+  recommendationStatuses,
+} from './utils/customerRequestsAdminUtils';
 import './CustomerRequestsAdmin.css';
 
 function CustomerRequestsAdmin() {
@@ -47,21 +52,17 @@ function CustomerRequestsAdmin() {
     load();
   }, [recommendationStatusFilter, issueStatusFilter, phoneStatusFilter]);
 
-  const {
-    updateRecommendation,
-    updateIssue,
-    approvePhoneRequest,
-    rejectPhoneRequest,
-  } = useCustomerRequestActions({
-    adminApi,
-    load,
-    setError,
-    setIssueSavingId,
-    setActiveIssueEditorId,
-    setPhoneSavingId,
-    getIssueDraft,
-    formatMergeImpact,
-  });
+  const { updateRecommendation, updateIssue, approvePhoneRequest, rejectPhoneRequest } =
+    useCustomerRequestActions({
+      adminApi,
+      load,
+      setError,
+      setIssueSavingId,
+      setActiveIssueEditorId,
+      setPhoneSavingId,
+      getIssueDraft,
+      formatMergeImpact,
+    });
 
   return (
     <div className="customer-requests-admin">
@@ -69,7 +70,7 @@ function CustomerRequestsAdmin() {
         className="customer-requests-header"
         title="Customer Requests"
         subtitle="Resolved and rejected requests are auto-deleted after retention period."
-        actions={(
+        actions={
           <div className="view-switch">
             <button
               type="button"
@@ -93,7 +94,7 @@ function CustomerRequestsAdmin() {
               Phone Updates
             </button>
           </div>
-        )}
+        }
       />
 
       {error ? <div className="customer-requests-error">{error}</div> : null}
@@ -103,9 +104,15 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Product Availability Requests</h2>
-            <select name="recommendation_status_filter" value={recommendationStatusFilter} onChange={(e) => setRecommendationStatusFilter(e.target.value)}>
+            <select
+              name="recommendation_status_filter"
+              value={recommendationStatusFilter}
+              onChange={(e) => setRecommendationStatusFilter(e.target.value)}
+            >
               {recommendationStatuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>
+                  {status}
+                </option>
               ))}
             </select>
           </div>
@@ -116,7 +123,10 @@ function CustomerRequestsAdmin() {
               {recommendations.map((item) => {
                 const expanded = isCardExpanded('recommendation', item.id);
                 return (
-                  <article key={item.id} className={`request-card compact${expanded ? ' expanded' : ''}`}>
+                  <article
+                    key={item.id}
+                    className={`request-card compact${expanded ? ' expanded' : ''}`}
+                  >
                     <div
                       className="request-compact-head"
                       role="button"
@@ -131,19 +141,28 @@ function CustomerRequestsAdmin() {
                       </div>
                       <div className="request-compact-meta">
                         <span className={`status ${item.status}`}>{item.status}</span>
-                        <small>{new Date(item.created_at || Date.now()).toLocaleDateString()}</small>
+                        <small>
+                          {new Date(item.created_at || Date.now()).toLocaleDateString()}
+                        </small>
                       </div>
                     </div>
                     {expanded ? (
                       <div className="request-expanded-body">
-                        <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
+                        <p>
+                          <strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})
+                        </p>
                         {item.notes ? <p>{item.notes}</p> : null}
                         {item.contact_phone ? <p>Phone: {item.contact_phone}</p> : null}
                         {item.admin_note ? <p>Admin note: {item.admin_note}</p> : null}
                         <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
                         <div className="request-actions">
                           {recommendationStatuses.map((status) => (
-                            <button key={status} type="button" onClick={() => updateRecommendation(item.id, status)} disabled={status === item.status}>
+                            <button
+                              key={status}
+                              type="button"
+                              onClick={() => updateRecommendation(item.id, status)}
+                              disabled={status === item.status}
+                            >
                               {status}
                             </button>
                           ))}
@@ -162,9 +181,15 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Credit Entry Issues</h2>
-            <select name="issue_status_filter" value={issueStatusFilter} onChange={(e) => setIssueStatusFilter(e.target.value)}>
+            <select
+              name="issue_status_filter"
+              value={issueStatusFilter}
+              onChange={(e) => setIssueStatusFilter(e.target.value)}
+            >
               {issueStatuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>
+                  {status}
+                </option>
               ))}
             </select>
           </div>
@@ -173,7 +198,10 @@ function CustomerRequestsAdmin() {
           ) : (
             <div className="request-grid">
               {issues.map((item) => (
-                <article key={item.id} className={`request-card compact${isCardExpanded('issue', item.id) ? ' expanded' : ''}`}>
+                <article
+                  key={item.id}
+                  className={`request-card compact${isCardExpanded('issue', item.id) ? ' expanded' : ''}`}
+                >
                   <div
                     className="request-compact-head"
                     role="button"
@@ -193,14 +221,19 @@ function CustomerRequestsAdmin() {
                   </div>
                   {isCardExpanded('issue', item.id) ? (
                     <div className="request-expanded-body">
-                      <p><strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})</p>
+                      <p>
+                        <strong>User:</strong> {item.user_name || '-'} ({item.user_email || '-'})
+                      </p>
                       <p>{item.message}</p>
                       {item.credit_entry_id ? (
                         <p>
-                          Entry #{item.credit_entry_id} | Ref: {item.credit_reference || '-'} | Amount: {item.credit_amount || 0}
+                          Entry #{item.credit_entry_id} | Ref: {item.credit_reference || '-'} |
+                          Amount: {item.credit_amount || 0}
                         </p>
                       ) : null}
-                      {(item.admin_reason || item.resolution_note) ? <p>Reason: {item.admin_reason || item.resolution_note}</p> : null}
+                      {item.admin_reason || item.resolution_note ? (
+                        <p>Reason: {item.admin_reason || item.resolution_note}</p>
+                      ) : null}
                       {item.correction_entry_id ? (
                         <p>
                           Correction: #{item.correction_entry_id}
@@ -216,7 +249,10 @@ function CustomerRequestsAdmin() {
                       ) : null}
                       <small>{new Date(item.created_at || Date.now()).toLocaleString()}</small>
                       <div className="request-actions request-actions-column">
-                        <a className="request-link" href={`/admin/users/${item.user_id}/credit?returnTab=customer-requests&focusIssue=${encodeURIComponent(String(item.id || ''))}${item.credit_entry_id ? `&focusEntry=${encodeURIComponent(String(item.credit_entry_id))}` : ''}`}>
+                        <a
+                          className="request-link"
+                          href={`/admin/users/${item.user_id}/credit?returnTab=customer-requests&focusIssue=${encodeURIComponent(String(item.id || ''))}${item.credit_entry_id ? `&focusEntry=${encodeURIComponent(String(item.credit_entry_id))}` : ''}`}
+                        >
                           Open Credit History
                         </a>
                         {activeIssueEditorId !== Number(item.id) ? (
@@ -235,7 +271,9 @@ function CustomerRequestsAdmin() {
                                 id={`admin-reason-${item.id}`}
                                 name="admin_reason"
                                 value={getIssueDraft(item).admin_reason}
-                                onChange={(e) => setIssueDraft(item.id, { admin_reason: e.target.value })}
+                                onChange={(e) =>
+                                  setIssueDraft(item.id, { admin_reason: e.target.value })
+                                }
                                 rows={2}
                                 placeholder="Reason shown to customer"
                               />
@@ -247,7 +285,9 @@ function CustomerRequestsAdmin() {
                                   id={`correction-type-${item.id}`}
                                   name="correction_type"
                                   value={getIssueDraft(item).correction_type}
-                                  onChange={(e) => setIssueDraft(item.id, { correction_type: e.target.value })}
+                                  onChange={(e) =>
+                                    setIssueDraft(item.id, { correction_type: e.target.value })
+                                  }
                                 >
                                   <option value="">None</option>
                                   <option value="given">Credit</option>
@@ -261,7 +301,9 @@ function CustomerRequestsAdmin() {
                                   name="correction_amount"
                                   min="0"
                                   value={getIssueDraft(item).correction_amount}
-                                  onValueChange={(nextValue) => setIssueDraft(item.id, { correction_amount: nextValue })}
+                                  onValueChange={(nextValue) =>
+                                    setIssueDraft(item.id, { correction_amount: nextValue })
+                                  }
                                   placeholder="0 or expression"
                                 />
                               </label>
@@ -273,7 +315,9 @@ function CustomerRequestsAdmin() {
                                 id={`correction-description-${item.id}`}
                                 name="correction_description"
                                 value={getIssueDraft(item).correction_description}
-                                onChange={(e) => setIssueDraft(item.id, { correction_description: e.target.value })}
+                                onChange={(e) =>
+                                  setIssueDraft(item.id, { correction_description: e.target.value })
+                                }
                                 placeholder="Optional"
                               />
                             </label>
@@ -297,7 +341,9 @@ function CustomerRequestsAdmin() {
                                 onClick={() => updateIssue(item, 'corrected')}
                                 disabled={issueSavingId === Number(item.id)}
                               >
-                                {issueSavingId === Number(item.id) ? 'Updating...' : 'Submit Correction'}
+                                {issueSavingId === Number(item.id)
+                                  ? 'Updating...'
+                                  : 'Submit Correction'}
                               </button>
                             </div>
                           </>
@@ -316,9 +362,15 @@ function CustomerRequestsAdmin() {
         <section className="customer-requests-panel">
           <div className="panel-head">
             <h2>Phone Update Requests</h2>
-            <select name="phone_status_filter" value={phoneStatusFilter} onChange={(e) => setPhoneStatusFilter(e.target.value)}>
+            <select
+              name="phone_status_filter"
+              value={phoneStatusFilter}
+              onChange={(e) => setPhoneStatusFilter(e.target.value)}
+            >
               {phoneStatuses.map((status) => (
-                <option key={status} value={status}>{status}</option>
+                <option key={status} value={status}>
+                  {status}
+                </option>
               ))}
             </select>
           </div>
@@ -327,10 +379,15 @@ function CustomerRequestsAdmin() {
           ) : (
             <div className="request-grid">
               {phoneRequests.map((item) => {
-                const status = String(item.status || '').trim().toLowerCase();
+                const status = String(item.status || '')
+                  .trim()
+                  .toLowerCase();
                 const isPending = status === 'pending_validation';
                 return (
-                  <article key={item.id} className={`request-card compact${isCardExpanded('phone', item.id) ? ' expanded' : ''}`}>
+                  <article
+                    key={item.id}
+                    className={`request-card compact${isCardExpanded('phone', item.id) ? ' expanded' : ''}`}
+                  >
                     <div
                       className="request-compact-head"
                       role="button"
@@ -345,26 +402,61 @@ function CustomerRequestsAdmin() {
                       </div>
                       <div className="request-compact-meta">
                         <span className={`status ${status}`}>{status.replace(/_/g, ' ')}</span>
-                        <small>{item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}</small>
+                        <small>
+                          {item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}
+                        </small>
                       </div>
                     </div>
                     {isCardExpanded('phone', item.id) ? (
                       <div className="request-expanded-body">
-                        <p><strong>User:</strong> {item.user_email || '-'}</p>
-                        <p><strong>Old phone:</strong> {item.old_phone || '-'}</p>
-                        <p><strong>Requested phone:</strong> {item.new_phone || '-'}</p>
-                        {item.needs_admin_review ? <p><strong>Review:</strong> Admin review required</p> : <p><strong>Review:</strong> Waiting auto-validation</p>}
-                        {item.final_due_at ? <p><strong>Review due:</strong> {new Date(item.final_due_at).toLocaleString()}</p> : null}
+                        <p>
+                          <strong>User:</strong> {item.user_email || '-'}
+                        </p>
+                        <p>
+                          <strong>Old phone:</strong> {item.old_phone || '-'}
+                        </p>
+                        <p>
+                          <strong>Requested phone:</strong> {item.new_phone || '-'}
+                        </p>
+                        {item.needs_admin_review ? (
+                          <p>
+                            <strong>Review:</strong> Admin review required
+                          </p>
+                        ) : (
+                          <p>
+                            <strong>Review:</strong> Waiting auto-validation
+                          </p>
+                        )}
+                        {item.final_due_at ? (
+                          <p>
+                            <strong>Review due:</strong>{' '}
+                            {new Date(item.final_due_at).toLocaleString()}
+                          </p>
+                        ) : null}
                         {item.conflict_user_name ? (
-                          <p><strong>Conflict user:</strong> {item.conflict_user_name} ({item.conflict_user_email || '-'})</p>
+                          <p>
+                            <strong>Conflict user:</strong> {item.conflict_user_name} (
+                            {item.conflict_user_email || '-'})
+                          </p>
                         ) : null}
                         {item.merge_impact ? (
-                          <p><strong>Merge impact:</strong> {formatMergeImpact(item.merge_impact)}</p>
+                          <p>
+                            <strong>Merge impact:</strong> {formatMergeImpact(item.merge_impact)}
+                          </p>
                         ) : null}
-                        {item.rejection_reason ? <p><strong>Rejection reason:</strong> {item.rejection_reason}</p> : null}
-                        {item.admin_note ? <p><strong>Admin note:</strong> {item.admin_note}</p> : null}
+                        {item.rejection_reason ? (
+                          <p>
+                            <strong>Rejection reason:</strong> {item.rejection_reason}
+                          </p>
+                        ) : null}
+                        {item.admin_note ? (
+                          <p>
+                            <strong>Admin note:</strong> {item.admin_note}
+                          </p>
+                        ) : null}
                         <small>
-                          Requested: {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                          Requested:{' '}
+                          {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
                         </small>
                         {isPending ? (
                           <div className="request-actions">
@@ -400,4 +492,3 @@ function CustomerRequestsAdmin() {
 }
 
 export default CustomerRequestsAdmin;
-

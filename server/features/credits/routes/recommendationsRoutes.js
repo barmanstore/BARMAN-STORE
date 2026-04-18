@@ -28,7 +28,9 @@ const registerRecommendationRoutes = (deps) => {
     try {
       const requestedName = String(req.body?.requested_name || req.body?.name || '').trim();
       const notes = String(req.body?.notes || '').trim();
-      const phoneParsed = parsePhoneInput(req.body?.contact_phone || req.body?.phone || req.authUser?.phone || null);
+      const phoneParsed = parsePhoneInput(
+        req.body?.contact_phone || req.body?.phone || req.authUser?.phone || null
+      );
       if (phoneParsed.error && (req.body?.contact_phone || req.body?.phone)) {
         return res.status(400).json({ error: phoneParsed.error });
       }
@@ -40,8 +42,11 @@ const registerRecommendationRoutes = (deps) => {
          VALUES (?, ?, ?, ?, ?)`,
         [req.authUser.id, requestedName, notes || null, phoneParsed.value || null, 'open']
       );
-      const created = await dbGetAsync(`SELECT * FROM product_recommendations WHERE id = ?`, [result.lastInsertRowid]);
-      const recommendationId = Number(created?.id || 0) || Number(result.lastInsertRowid || 0) || null;
+      const created = await dbGetAsync(`SELECT * FROM product_recommendations WHERE id = ?`, [
+        result.lastInsertRowid,
+      ]);
+      const recommendationId =
+        Number(created?.id || 0) || Number(result.lastInsertRowid || 0) || null;
       try {
         await createAppNotification({
           userId: Number(req.authUser?.id || 0),
@@ -73,14 +78,17 @@ const registerRecommendationRoutes = (deps) => {
           createdBy: Number(req.authUser?.id || 0) || null,
         });
       } catch (notifyError) {
-        console.warn('[NOTIFY] product recommendation notification failed:', notifyError?.message || notifyError);
+        console.warn(
+          '[NOTIFY] product recommendation notification failed:',
+          notifyError?.message || notifyError
+        );
       }
       return res.status(201).json({ success: true, recommendation: created });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/product-recommendations/mine', requireAuth, async (req, res) => {
     try {
       await runCustomerRequestPurge();
@@ -96,11 +104,13 @@ const registerRecommendationRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/admin/product-recommendations', requireAdmin, async (req, res) => {
     try {
       await runCustomerRequestPurge();
-      const status = String(req.query?.status || '').trim().toLowerCase();
+      const status = String(req.query?.status || '')
+        .trim()
+        .toLowerCase();
       const allowed = new Set(['open', 'reviewed', 'fulfilled', 'rejected']);
       const rows = await dbAllAsync(
         `SELECT pr.*,
@@ -118,12 +128,14 @@ const registerRecommendationRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.put('/api/admin/product-recommendations/:id', requireAdmin, async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (!id) return res.status(400).json({ error: 'Invalid recommendation id' });
-      const status = String(req.body?.status || '').trim().toLowerCase();
+      const status = String(req.body?.status || '')
+        .trim()
+        .toLowerCase();
       const allowed = new Set(['open', 'reviewed', 'fulfilled', 'rejected']);
       if (!allowed.has(status)) {
         return res.status(400).json({ error: 'Invalid status' });
@@ -156,7 +168,7 @@ const registerRecommendationRoutes = (deps) => {
             userId: Number(updated.user_id),
             title: 'Product request updated',
             message: `Your product request "${updated.requested_name || `#${id}`}" is now ${status.replace(/_/g, ' ')}${adminNote ? `: ${adminNote}` : ''}.`,
-            level: status === 'fulfilled' ? 'success' : (status === 'rejected' ? 'warning' : 'info'),
+            level: status === 'fulfilled' ? 'success' : status === 'rejected' ? 'warning' : 'info',
             entityType: 'product_recommendation',
             entityId: id,
             metadata: {
@@ -168,14 +180,16 @@ const registerRecommendationRoutes = (deps) => {
           });
         }
       } catch (notifyError) {
-        console.warn('[NOTIFY] product recommendation update notification failed:', notifyError?.message || notifyError);
+        console.warn(
+          '[NOTIFY] product recommendation update notification failed:',
+          notifyError?.message || notifyError
+        );
       }
       return res.json({ success: true, recommendation: updated });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });
-  
 };
 
 module.exports = { registerRecommendationRoutes };

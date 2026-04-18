@@ -28,6 +28,7 @@ Central log for production/local bugs, fixes, verification, and preventive actio
 
 ```md
 ## [BUG-YYYYMMDD-###] [Area] Short title
+
 - Date reported:
 - Reported by:
 - Environment: (prod/staging/local, browser/device)
@@ -71,6 +72,7 @@ Central log for production/local bugs, fixes, verification, and preventive actio
 ## Open / Active Issues
 
 ## [BUG-20260222-001] [CORS] GitHub Pages API calls blocked at ngrok preflight
+
 - Date reported: 2026-02-22
 - Reported by: User
 - Environment: prod (`https://narenbarman.github.io/BARMAN_STORE_REACT/`)
@@ -113,4 +115,3 @@ Central log for production/local bugs, fixes, verification, and preventive actio
 ## Closed Issues
 
 <!-- Move entries here only after status = Closed -->
-

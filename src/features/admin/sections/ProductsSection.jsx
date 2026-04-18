@@ -37,7 +37,9 @@ const BULK_JOB_FINAL_STATES = new Set([
 ]);
 
 const getBulkJobTitle = (job = {}) => {
-  const status = String(job?.status || '').trim().toLowerCase();
+  const status = String(job?.status || '')
+    .trim()
+    .toLowerCase();
   if (status === 'queued') return 'Queued';
   if (status === 'running') return 'Running';
   if (status === 'cancel_requested') return 'Cancelling';
@@ -72,15 +74,14 @@ const ProductsSelectionBar = ({
 }) => {
   if (selectedCount <= 0) return null;
   const isSingleSelection = selectedCount === 1 && Boolean(selectedVisibleProduct);
-  const selectVisibleDisabled = visibleProducts.length === 0 || selectedVisibleCount === visibleProducts.length;
+  const selectVisibleDisabled =
+    visibleProducts.length === 0 || selectedVisibleCount === visibleProducts.length;
 
   return (
     <div className="products-bulk-action-bar">
       <div className="products-bulk-summary-row">
         <div className="products-bulk-summary-copy">
-          <span className="products-bulk-summary-pill">
-            {selectedCount} selected
-          </span>
+          <span className="products-bulk-summary-pill">{selectedCount} selected</span>
           <span className="products-bulk-summary-text">
             {isSingleSelection
               ? `Selected ${selectedVisibleProduct.name || 'product'}`
@@ -96,11 +97,7 @@ const ProductsSelectionBar = ({
           >
             Select visible
           </button>
-          <button
-            type="button"
-            className="products-bulk-link-btn"
-            onClick={onClearSelection}
-          >
+          <button type="button" className="products-bulk-link-btn" onClick={onClearSelection}>
             Clear
           </button>
         </div>
@@ -109,35 +106,61 @@ const ProductsSelectionBar = ({
       {isSingleSelection ? (
         <div className="products-selected-actions">
           <div className="products-selected-meta">
-            Selected: <strong title={selectedVisibleProduct.name || '-'}>
+            Selected:{' '}
+            <strong title={selectedVisibleProduct.name || '-'}>
               {selectedVisibleProduct.name || '-'}
             </strong>
           </div>
           <div className="products-selected-buttons">
             {tableEditId === selectedVisibleProduct.id ? (
               <>
-                <button type="button" className="action-btn edit" onClick={() => handleTableEditSave(selectedVisibleProduct)} disabled={tableEditSaving}>
+                <button
+                  type="button"
+                  className="action-btn edit"
+                  onClick={() => handleTableEditSave(selectedVisibleProduct)}
+                  disabled={tableEditSaving}
+                >
                   {tableEditSaving ? '...' : 'Save'}
                 </button>
-                <button type="button" className="action-btn delete" onClick={cancelTableEdit} disabled={tableEditSaving}>
+                <button
+                  type="button"
+                  className="action-btn delete"
+                  onClick={cancelTableEdit}
+                  disabled={tableEditSaving}
+                >
                   Cancel
                 </button>
               </>
             ) : (
               <>
-                <button type="button" className="action-btn edit" onClick={() => openTableEdit(selectedVisibleProduct)} title="Inline edit">
+                <button
+                  type="button"
+                  className="action-btn edit"
+                  onClick={() => openTableEdit(selectedVisibleProduct)}
+                  title="Inline edit"
+                >
                   <Edit size={16} />
                 </button>
                 <button
                   type="button"
                   className="action-btn edit"
                   onClick={() => handleEditProduct(selectedVisibleProduct)}
-                  title={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0) ? 'Loading full product details...' : 'Advanced edit'}
-                  disabled={Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0)}
+                  title={
+                    Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0)
+                      ? 'Loading full product details...'
+                      : 'Advanced edit'
+                  }
+                  disabled={
+                    Number(productEditLoadingId || 0) === Number(selectedVisibleProduct.id || 0)
+                  }
                 >
                   <FolderOpen size={16} />
                 </button>
-                <button type="button" className="action-btn delete" onClick={() => handleDeleteProduct(selectedVisibleProduct.id)}>
+                <button
+                  type="button"
+                  className="action-btn delete"
+                  onClick={() => handleDeleteProduct(selectedVisibleProduct.id)}
+                >
                   <Trash2 size={16} />
                 </button>
                 {Number(selectedVisibleProduct.is_active ?? 1) === 0 ? (
@@ -217,33 +240,39 @@ const ProductsSelectionBar = ({
   );
 };
 
-const ProductsBulkJobStrip = ({
-  bulkJob,
-  onCancel,
-  onRetry,
-  onDismiss,
-}) => {
+const ProductsBulkJobStrip = ({ bulkJob, onCancel, onRetry, onDismiss }) => {
   if (!bulkJob) return null;
-  const status = String(bulkJob.status || '').trim().toLowerCase();
+  const status = String(bulkJob.status || '')
+    .trim()
+    .toLowerCase();
   const total = Number(bulkJob.total || 0);
   const succeeded = Number(bulkJob.succeeded || 0);
   const failed = Number(bulkJob.failed || 0);
   const skipped = Number(bulkJob.skipped || 0);
   const conflicts = Number(bulkJob.conflicts || 0);
-  const operation = String(bulkJob.operation || '').trim().toLowerCase();
-  const summary = bulkJob.result_summary && typeof bulkJob.result_summary === 'object' ? bulkJob.result_summary : {};
+  const operation = String(bulkJob.operation || '')
+    .trim()
+    .toLowerCase();
+  const summary =
+    bulkJob.result_summary && typeof bulkJob.result_summary === 'object'
+      ? bulkJob.result_summary
+      : {};
   const created = Number(summary.created || 0);
   const updated = Number(summary.updated || 0);
   const isFinal = BULK_JOB_FINAL_STATES.has(status);
   const isError = status === 'completed_with_errors' || status === 'failed';
 
   return (
-    <div className={`products-bulk-job-strip ${isError ? 'is-error' : ''} ${isFinal ? 'is-final' : ''}`}>
+    <div
+      className={`products-bulk-job-strip ${isError ? 'is-error' : ''} ${isFinal ? 'is-final' : ''}`}
+    >
       <div className="products-bulk-job-copy">
         <span className="products-bulk-job-title">{getBulkJobTitle(bulkJob)}</span>
         <span className="products-bulk-job-meta">
           {total} items · {succeeded} succeeded
-          {operation === 'import_products' && (created || updated) ? ` · ${created} created · ${updated} updated` : ''}
+          {operation === 'import_products' && (created || updated)
+            ? ` · ${created} created · ${updated} updated`
+            : ''}
           · {failed} failed · {conflicts} conflicted{skipped > 0 ? ` · ${skipped} skipped` : ''}
         </span>
       </div>
@@ -368,23 +397,32 @@ function ProductsSection({
   );
   const selectedCount = selectedProductIdSet.size;
   const selectedVisibleCount = useMemo(
-    () => visibleProducts.reduce(
-      (count, product) => count + (selectedProductIdSet.has(getNormalizedProductId(product.id)) ? 1 : 0),
-      0
-    ),
+    () =>
+      visibleProducts.reduce(
+        (count, product) =>
+          count + (selectedProductIdSet.has(getNormalizedProductId(product.id)) ? 1 : 0),
+        0
+      ),
     [visibleProducts, selectedProductIdSet]
   );
   const selectedSectionProduct = useMemo(() => {
     if (selectedCount !== 1) return null;
-    return visibleProducts.find((product) => selectedProductIdSet.has(getNormalizedProductId(product.id))) || selectedVisibleProduct || null;
+    return (
+      visibleProducts.find((product) =>
+        selectedProductIdSet.has(getNormalizedProductId(product.id))
+      ) ||
+      selectedVisibleProduct ||
+      null
+    );
   }, [selectedCount, selectedProductIdSet, selectedVisibleProduct, visibleProducts]);
   const hasBulkChanges = useMemo(
-    () => Boolean(
-      String(bulkEditForm.category || '').trim()
-      || String(bulkEditForm.price || '').trim()
-      || String(bulkEditForm.stock || '').trim()
-      || String(bulkEditForm.status || '').trim()
-    ),
+    () =>
+      Boolean(
+        String(bulkEditForm.category || '').trim() ||
+        String(bulkEditForm.price || '').trim() ||
+        String(bulkEditForm.stock || '').trim() ||
+        String(bulkEditForm.status || '').trim()
+      ),
     [bulkEditForm]
   );
 
@@ -411,31 +449,42 @@ function ProductsSection({
     setSelectionAnchorProductId(0);
   }, [setSelectedProductId]);
 
-  const toggleProductSelection = useCallback((productId, options = {}) => {
-    const id = getNormalizedProductId(productId);
-    if (!id) return;
-    const shiftKey = Boolean(options?.shiftKey);
-    if (shiftKey && selectionAnchorProductId) {
-      const anchorIndex = visibleProducts.findIndex((product) => getNormalizedProductId(product.id) === selectionAnchorProductId);
-      const targetIndex = visibleProducts.findIndex((product) => getNormalizedProductId(product.id) === id);
-      if (anchorIndex !== -1 && targetIndex !== -1) {
-        const [fromIndex, toIndex] = anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-        const rangeIds = visibleProducts.slice(fromIndex, toIndex + 1).map((product) => getNormalizedProductId(product.id)).filter(Boolean);
-        setSelectedProductIds((current) => Array.from(new Set([...current, ...rangeIds])));
-        setSelectedProductId(id);
-        setSelectionAnchorProductId(id);
-        return;
+  const toggleProductSelection = useCallback(
+    (productId, options = {}) => {
+      const id = getNormalizedProductId(productId);
+      if (!id) return;
+      const shiftKey = Boolean(options?.shiftKey);
+      if (shiftKey && selectionAnchorProductId) {
+        const anchorIndex = visibleProducts.findIndex(
+          (product) => getNormalizedProductId(product.id) === selectionAnchorProductId
+        );
+        const targetIndex = visibleProducts.findIndex(
+          (product) => getNormalizedProductId(product.id) === id
+        );
+        if (anchorIndex !== -1 && targetIndex !== -1) {
+          const [fromIndex, toIndex] =
+            anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+          const rangeIds = visibleProducts
+            .slice(fromIndex, toIndex + 1)
+            .map((product) => getNormalizedProductId(product.id))
+            .filter(Boolean);
+          setSelectedProductIds((current) => Array.from(new Set([...current, ...rangeIds])));
+          setSelectedProductId(id);
+          setSelectionAnchorProductId(id);
+          return;
+        }
       }
-    }
-    setSelectedProductIds((current) => {
-      const next = current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id];
-      return next;
-    });
-    setSelectedProductId(id);
-    setSelectionAnchorProductId(id);
-  }, [selectionAnchorProductId, setSelectedProductId, visibleProducts]);
+      setSelectedProductIds((current) => {
+        const next = current.includes(id)
+          ? current.filter((item) => item !== id)
+          : [...current, id];
+        return next;
+      });
+      setSelectedProductId(id);
+      setSelectionAnchorProductId(id);
+    },
+    [selectionAnchorProductId, setSelectedProductId, visibleProducts]
+  );
 
   const selectVisibleProducts = useCallback(() => {
     if (visibleProducts.length === 0) return;
@@ -455,49 +504,60 @@ function ProductsSection({
     setBulkEditForm((current) => ({ ...current, [field]: value }));
   }, []);
 
-  const handleTableEditSaveWithUndo = useCallback(async (product) => {
-    const snapshot = product && typeof product === 'object' ? { ...product } : null;
-    const success = await handleTableEditSave(product);
-    if (success && snapshot) {
-      setTableUndoAction({
-        kind: 'edit',
-        snapshot,
-        productName: String(snapshot.name || 'product').trim() || 'product',
-        undoLabel: 'Undo edit',
-      });
-    }
-    return success;
-  }, [handleTableEditSave]);
+  const handleTableEditSaveWithUndo = useCallback(
+    async (product) => {
+      const snapshot = product && typeof product === 'object' ? { ...product } : null;
+      const success = await handleTableEditSave(product);
+      if (success && snapshot) {
+        setTableUndoAction({
+          kind: 'edit',
+          snapshot,
+          productName: String(snapshot.name || 'product').trim() || 'product',
+          undoLabel: 'Undo edit',
+        });
+      }
+      return success;
+    },
+    [handleTableEditSave]
+  );
 
-  const handleDeleteProductWithUndo = useCallback(async (productId) => {
-    const snapshot = selectedSectionProduct && Number(selectedSectionProduct.id || 0) === Number(productId || 0)
-      ? { ...selectedSectionProduct }
-      : visibleProducts.find((product) => Number(product.id || 0) === Number(productId || 0)) || null;
-    const success = await handleDeleteProduct(productId);
-    if (success && snapshot) {
-      setTableUndoAction({
-        kind: 'delete',
-        snapshot,
-        productName: String(snapshot.name || 'product').trim() || 'product',
-        undoLabel: 'Undo delete',
-      });
-    }
-    return success;
-  }, [handleDeleteProduct, selectedSectionProduct, visibleProducts]);
+  const handleDeleteProductWithUndo = useCallback(
+    async (productId) => {
+      const snapshot =
+        selectedSectionProduct && Number(selectedSectionProduct.id || 0) === Number(productId || 0)
+          ? { ...selectedSectionProduct }
+          : visibleProducts.find((product) => Number(product.id || 0) === Number(productId || 0)) ||
+            null;
+      const success = await handleDeleteProduct(productId);
+      if (success && snapshot) {
+        setTableUndoAction({
+          kind: 'delete',
+          snapshot,
+          productName: String(snapshot.name || 'product').trim() || 'product',
+          undoLabel: 'Undo delete',
+        });
+      }
+      return success;
+    },
+    [handleDeleteProduct, selectedSectionProduct, visibleProducts]
+  );
 
-  const handlePermanentDeleteProductWithUndo = useCallback(async (product) => {
-    const snapshot = product && typeof product === 'object' ? { ...product } : null;
-    const success = await handlePermanentDeleteProduct(product);
-    if (success && snapshot) {
-      setTableUndoAction({
-        kind: 'permanent_delete',
-        snapshot,
-        productName: String(snapshot.name || 'product').trim() || 'product',
-        undoLabel: 'Restore product',
-      });
-    }
-    return success;
-  }, [handlePermanentDeleteProduct]);
+  const handlePermanentDeleteProductWithUndo = useCallback(
+    async (product) => {
+      const snapshot = product && typeof product === 'object' ? { ...product } : null;
+      const success = await handlePermanentDeleteProduct(product);
+      if (success && snapshot) {
+        setTableUndoAction({
+          kind: 'permanent_delete',
+          snapshot,
+          productName: String(snapshot.name || 'product').trim() || 'product',
+          undoLabel: 'Restore product',
+        });
+      }
+      return success;
+    },
+    [handlePermanentDeleteProduct]
+  );
 
   const handleUndoLastTableAction = useCallback(async () => {
     if (!tableUndoAction) return;
@@ -628,7 +688,10 @@ function ProductsSection({
       },
       {
         id: 'deactivate-selected',
-        label: canBulkDeactivate && selectedCount > 1 ? 'Deactivate selected rows' : 'Deactivate selected product',
+        label:
+          canBulkDeactivate && selectedCount > 1
+            ? 'Deactivate selected rows'
+            : 'Deactivate selected product',
         description: 'Mark the selected product rows inactive.',
         shortcut: 'Archive',
         icon: <Trash2 size={16} />,
@@ -728,54 +791,51 @@ function ProductsSection({
     }
   }, [selectedProductIds, selectedProductId, setSelectedProductId]);
 
-  const handleBulkEditSubmit = useCallback(async (event) => {
-    event.preventDefault();
-    const payload = {};
-    const category = String(bulkEditForm.category || '').trim();
-    const price = String(bulkEditForm.price || '').trim();
-    const stock = String(bulkEditForm.stock || '').trim();
-    const status = String(bulkEditForm.status || '').trim();
+  const handleBulkEditSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      const payload = {};
+      const category = String(bulkEditForm.category || '').trim();
+      const price = String(bulkEditForm.price || '').trim();
+      const stock = String(bulkEditForm.stock || '').trim();
+      const status = String(bulkEditForm.status || '').trim();
 
-    if (category) payload.category = category;
-    if (price !== '') {
-      const parsedPrice = Number(price);
-      if (Number.isFinite(parsedPrice)) payload.price = parsedPrice;
-    }
-    if (stock !== '') {
-      const parsedStock = Number(stock);
-      if (Number.isFinite(parsedStock)) payload.stock = parsedStock;
-    }
-    if (status !== '') {
-      payload.is_active = Number(status);
-    }
-
-    if (Object.keys(payload).length === 0 || selectedCount === 0) {
-      return;
-    }
-
-    try {
-      setBulkSaving(true);
-      const result = await handleBulkProductUpdate(Array.from(selectedProductIdSet), payload);
-      if (result?.success) {
-        clearBulkSelection();
+      if (category) payload.category = category;
+      if (price !== '') {
+        const parsedPrice = Number(price);
+        if (Number.isFinite(parsedPrice)) payload.price = parsedPrice;
       }
-    } finally {
-      setBulkSaving(false);
-    }
-  }, [
-    bulkEditForm,
-    clearBulkSelection,
-    handleBulkProductUpdate,
-    selectedCount,
-    selectedProductIdSet,
-  ]);
+      if (stock !== '') {
+        const parsedStock = Number(stock);
+        if (Number.isFinite(parsedStock)) payload.stock = parsedStock;
+      }
+      if (status !== '') {
+        payload.is_active = Number(status);
+      }
+
+      if (Object.keys(payload).length === 0 || selectedCount === 0) {
+        return;
+      }
+
+      try {
+        setBulkSaving(true);
+        const result = await handleBulkProductUpdate(Array.from(selectedProductIdSet), payload);
+        if (result?.success) {
+          clearBulkSelection();
+        }
+      } finally {
+        setBulkSaving(false);
+      }
+    },
+    [bulkEditForm, clearBulkSelection, handleBulkProductUpdate, selectedCount, selectedProductIdSet]
+  );
 
   return (
     <div className="products-management">
       <AdminPageHeader
         className="section-header"
         title="Products Management"
-        actions={(
+        actions={
           <div className="products-actions">
             <div className="products-actions-right">
               {!isMobile && (
@@ -788,7 +848,9 @@ function ProductsSection({
                       title="Add product"
                       aria-label="Add product"
                     >
-                      <span className="products-icon-plus" aria-hidden="true">+</span>
+                      <span className="products-icon-plus" aria-hidden="true">
+                        +
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -843,14 +905,18 @@ function ProductsSection({
                       Grid
                     </button>
                     <span className="products-view-switch-knob" aria-hidden="true">
-                      {effectiveProductViewMode === 'grid' ? <CheckCircle2 size={14} /> : <X size={14} />}
+                      {effectiveProductViewMode === 'grid' ? (
+                        <CheckCircle2 size={14} />
+                      ) : (
+                        <X size={14} />
+                      )}
                     </span>
                   </div>
                 </>
               )}
             </div>
           </div>
-        )}
+        }
       />
       <ProductsImportCard
         showProductsImportCard={showProductsImportCard}
@@ -883,7 +949,8 @@ function ProductsSection({
           <span>Commands</span>
         </button>
         <span className="products-table-count">
-          Rows: {visibleProducts.length}{productsTotal ? ` / ${productsTotal}` : ''}
+          Rows: {visibleProducts.length}
+          {productsTotal ? ` / ${productsTotal}` : ''}
         </span>
         <div className="products-pagination">
           <button
@@ -1009,4 +1076,3 @@ function ProductsSection({
 }
 
 export default ProductsSection;
-

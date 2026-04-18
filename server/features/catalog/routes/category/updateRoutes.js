@@ -34,7 +34,8 @@ const registerCategoryUpdateRoutes = (deps) => {
           nextParentId = null;
         } else {
           nextParentId = toNullablePositiveInt(rawParent);
-          if (!nextParentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+          if (!nextParentId)
+            return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
         }
       }
       if (nextParentId === categoryId) {
@@ -58,7 +59,9 @@ const registerCategoryUpdateRoutes = (deps) => {
       if (duplicate) return res.status(409).json({ error: 'Category name already exists' });
 
       const nextDescription = hasOwn(req.body, 'description')
-        ? (req.body?.description == null ? null : (String(req.body.description).trim() || null))
+        ? req.body?.description == null
+          ? null
+          : String(req.body.description).trim() || null
         : current.description;
       const nextIcon = hasOwn(req.body, 'icon')
         ? normalizeCategoryIcon(req.body?.icon)
@@ -66,12 +69,14 @@ const registerCategoryUpdateRoutes = (deps) => {
       const nextImage = hasOwn(req.body, 'image')
         ? normalizeCategoryImage(req.body?.image)
         : normalizeCategoryImage(current.image);
-      const nextImageWidthInput = hasOwn(req.body, 'image_width') || hasOwn(req.body, 'imageWidth')
-        ? req.body?.image_width ?? req.body?.imageWidth
-        : current.image_width;
-      const nextImageHeightInput = hasOwn(req.body, 'image_height') || hasOwn(req.body, 'imageHeight')
-        ? req.body?.image_height ?? req.body?.imageHeight
-        : current.image_height;
+      const nextImageWidthInput =
+        hasOwn(req.body, 'image_width') || hasOwn(req.body, 'imageWidth')
+          ? (req.body?.image_width ?? req.body?.imageWidth)
+          : current.image_width;
+      const nextImageHeightInput =
+        hasOwn(req.body, 'image_height') || hasOwn(req.body, 'imageHeight')
+          ? (req.body?.image_height ?? req.body?.imageHeight)
+          : current.image_height;
       const nextImageWidth = nextImage ? toNullableImageDimension(nextImageWidthInput) : null;
       const nextImageHeight = nextImage ? toNullableImageDimension(nextImageHeightInput) : null;
 
@@ -79,7 +84,16 @@ const registerCategoryUpdateRoutes = (deps) => {
         `UPDATE categories
          SET name = ?, description = ?, icon = ?, image = ?, image_width = ?, image_height = ?, parent_id = ?
          WHERE id = ?`,
-        [nextName, nextDescription, nextIcon, nextImage, nextImageWidth, nextImageHeight, nextParentId, categoryId]
+        [
+          nextName,
+          nextDescription,
+          nextIcon,
+          nextImage,
+          nextImageWidth,
+          nextImageHeight,
+          nextParentId,
+          categoryId,
+        ]
       );
       return res.json(await getCategoryByIdAsync(categoryId));
     } catch (error) {

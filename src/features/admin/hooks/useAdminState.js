@@ -20,15 +20,16 @@ const readStoredProductTableFilters = () => {
 
   try {
     const parsed = JSON.parse(raw);
-    const status = String(parsed?.status || '').trim().toLowerCase();
+    const status = String(parsed?.status || '')
+      .trim()
+      .toLowerCase();
     const search = typeof parsed?.search === 'string' ? parsed.search : fallback.search;
     const category = typeof parsed?.category === 'string' ? parsed.category : fallback.category;
-    const lowStockOnly = (
-      parsed?.lowStockOnly === true
-      || parsed?.lowStockOnly === 'true'
-      || parsed?.lowStockOnly === 1
-      || parsed?.lowStockOnly === '1'
-    );
+    const lowStockOnly =
+      parsed?.lowStockOnly === true ||
+      parsed?.lowStockOnly === 'true' ||
+      parsed?.lowStockOnly === 1 ||
+      parsed?.lowStockOnly === '1';
     return {
       search,
       category,
@@ -139,7 +140,9 @@ const useAdminState = ({
   const [expandedUsersMap, setExpandedUsersMap] = useState({});
   const [dashboardDensity, setDashboardDensity] = useState(() => {
     if (typeof window === 'undefined') return 'compact';
-    const saved = String(window.localStorage.getItem('admin-dashboard-density') || '').trim().toLowerCase();
+    const saved = String(window.localStorage.getItem('admin-dashboard-density') || '')
+      .trim()
+      .toLowerCase();
     if (saved === 'compact' || saved === 'standard') return saved;
     return window.innerWidth <= 768 ? 'compact' : 'standard';
   });
@@ -167,17 +170,26 @@ const useAdminState = ({
     image: '',
   });
   const [initialProductTableFilters] = useState(() => readStoredProductTableFilters());
-  const [productTableSearch, setProductTableSearch] = useState(() => initialProductTableFilters.search);
+  const [productTableSearch, setProductTableSearch] = useState(
+    () => initialProductTableFilters.search
+  );
   const [productTableSortField, setProductTableSortField] = useState('created_at');
   const [productTableSortDir, setProductTableSortDir] = useState('desc');
-  const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(() => initialProductTableFilters.category);
-  const [productTableStatusFilter, setProductTableStatusFilter] = useState(() => initialProductTableFilters.status);
-  const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(() => initialProductTableFilters.lowStockOnly);
+  const [productTableCategoryFilter, setProductTableCategoryFilter] = useState(
+    () => initialProductTableFilters.category
+  );
+  const [productTableStatusFilter, setProductTableStatusFilter] = useState(
+    () => initialProductTableFilters.status
+  );
+  const [productTableLowStockOnly, setProductTableLowStockOnly] = useState(
+    () => initialProductTableFilters.lowStockOnly
+  );
   const [productTableVisibleColumns, setProductTableVisibleColumns] = useState(() => {
     if (typeof window === 'undefined') return PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
-    const fallback = window.localStorage.getItem('admin-products-columns') === 'full'
-      ? PRODUCT_TABLE_ALL_COLUMN_KEYS
-      : PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
+    const fallback =
+      window.localStorage.getItem('admin-products-columns') === 'full'
+        ? PRODUCT_TABLE_ALL_COLUMN_KEYS
+        : PRODUCT_TABLE_DEFAULT_VISIBLE_COLUMNS;
     try {
       const savedRaw = window.localStorage.getItem('admin-products-visible-columns');
       if (!savedRaw) return fallback;

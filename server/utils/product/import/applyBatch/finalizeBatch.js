@@ -5,7 +5,9 @@ const finalizeImportBatch = async ({
   dbRunAsync,
 }) => {
   productImportBatches.delete(normalizedBatchId);
-  await dbRunAsync("UPDATE import_batches SET status = 'applied' WHERE batch_id = ?", [normalizedBatchId]);
+  await dbRunAsync("UPDATE import_batches SET status = 'applied' WHERE batch_id = ?", [
+    normalizedBatchId,
+  ]);
 
   return {
     batch_id: normalizedBatchId,

@@ -5,10 +5,11 @@ const createRollupState = ({
   PURCHASE_WEEKDAYS,
 } = {}) => {
   const actionKeys = PURCHASE_ACTION_ROLLUP_FIELDS.map((field) => field.key);
-  const buildEmptyCounts = () => actionKeys.reduce((acc, key) => {
-    acc[key] = 0;
-    return acc;
-  }, {});
+  const buildEmptyCounts = () =>
+    actionKeys.reduce((acc, key) => {
+      acc[key] = 0;
+      return acc;
+    }, {});
 
   const ensureDay = (byDayMap, dateKey) => {
     const normalized = normalizeTransactionDate(dateKey);
@@ -31,8 +32,8 @@ const createRollupState = ({
     entry[actionKey] = Number(entry[actionKey] || 0) + Number(amount || 0);
   };
 
-  const buildByDay = (byDayMap) => [...byDayMap.values()]
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const buildByDay = (byDayMap) =>
+    [...byDayMap.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   const weekdayOrder = [
     PURCHASE_WEEKDAYS[1],

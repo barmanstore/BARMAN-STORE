@@ -22,14 +22,18 @@ const getProductHierarchy = (product) => {
   const explicitSubcategory = String(product?.subcategory ?? product?.sub_category ?? '').trim();
   const category = explicitCategory || parsedCategory.parent || '';
   const subcategory = explicitSubcategory || parsedCategory.child || '';
-  const categoryPath = String(product?.category_path || '').trim() || composeHierarchyLabel(category, subcategory);
+  const categoryPath =
+    String(product?.category_path || '').trim() || composeHierarchyLabel(category, subcategory);
 
   const parsedBrand = splitHierarchyValue(product?.brand);
   const explicitBrand = String(product?.brand || '').trim();
-  const explicitSubBrand = String(product?.sub_brand ?? product?.subBrand ?? product?.subbrand ?? '').trim();
+  const explicitSubBrand = String(
+    product?.sub_brand ?? product?.subBrand ?? product?.subbrand ?? ''
+  ).trim();
   const brand = explicitBrand || parsedBrand.parent || '';
   const subBrand = explicitSubBrand || parsedBrand.child || '';
-  const brandPath = String(product?.brand_path || '').trim() || composeHierarchyLabel(brand, subBrand);
+  const brandPath =
+    String(product?.brand_path || '').trim() || composeHierarchyLabel(brand, subBrand);
 
   return { category, subcategory, categoryPath, brand, subBrand, brandPath };
 };
@@ -41,9 +45,4 @@ const getFamilyKey = (product, hierarchy = null) => {
   return `${name}|${brand}`;
 };
 
-export {
-  splitHierarchyValue,
-  composeHierarchyLabel,
-  getProductHierarchy,
-  getFamilyKey,
-};
+export { splitHierarchyValue, composeHierarchyLabel, getProductHierarchy, getFamilyKey };

@@ -27,7 +27,8 @@ const registerCategoryCreateRoutes = (deps) => {
         const rawParent = req.body?.parent_id;
         if (rawParent !== null && rawParent !== '') {
           parentId = toNullablePositiveInt(rawParent);
-          if (!parentId) return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
+          if (!parentId)
+            return res.status(400).json({ error: 'parent_id must be a positive integer or null' });
         }
       }
 
@@ -44,7 +45,7 @@ const registerCategoryCreateRoutes = (deps) => {
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           name,
-          req.body?.description == null ? null : (String(req.body.description).trim() || null),
+          req.body?.description == null ? null : String(req.body.description).trim() || null,
           icon,
           image,
           image ? imageWidth : null,

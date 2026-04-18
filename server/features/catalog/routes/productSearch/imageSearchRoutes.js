@@ -1,11 +1,5 @@
 const registerProductSearchImageRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    normalizeSearchText,
-    clampInt,
-    toSearchImage,
-  } = deps;
+  const { app, requireAdmin, normalizeSearchText, clampInt, toSearchImage } = deps;
 
   app.get('/api/products/image-search', requireAdmin, async (req, res) => {
     try {

@@ -93,7 +93,10 @@ function DefaultShell({
 
     const updateHeaderHeight = () => {
       const nextHeight = Math.ceil(node.getBoundingClientRect().height || 0);
-      document.documentElement.style.setProperty('--app-header-height', `${Math.max(0, nextHeight)}px`);
+      document.documentElement.style.setProperty(
+        '--app-header-height',
+        `${Math.max(0, nextHeight)}px`
+      );
     };
 
     updateHeaderHeight();
@@ -265,12 +268,14 @@ function DefaultShell({
         onClearRecipientSelection={onClearRecipientSelection}
       />
       {mobileMenuOpen ? (
-        <button className="mobile-nav-backdrop" aria-label="Close menu" onClick={onCloseMobileMenu} />
+        <button
+          className="mobile-nav-backdrop"
+          aria-label="Close menu"
+          onClick={onCloseMobileMenu}
+        />
       ) : null}
 
-      <main className="main-content">
-        {children}
-      </main>
+      <main className="main-content">{children}</main>
       <div
         className={`quick-contact-fab ${isDragging ? 'dragging' : ''}`}
         aria-label="Quick contact options"
@@ -286,7 +291,6 @@ function DefaultShell({
         onPointerCancel={handleQuickContactPointerUp}
         onClickCapture={handleQuickContactClickCapture}
       >
-
         <a href={callHref} className="quick-contact-btn call" aria-label="Call store">
           <Phone size={18} />
           <span>Call</span>

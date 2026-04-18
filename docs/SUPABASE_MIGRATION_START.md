@@ -25,6 +25,7 @@ PG_POOL_LIMIT=10
 ```
 
 Notes:
+
 - `SUPABASE_DB_URL` is preferred.
 - You can also use standard `PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE`.
 

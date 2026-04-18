@@ -66,7 +66,8 @@ const createOrderPlacement = (deps) => {
           product_name: item.product_name,
           quantity: Number(item.quantity || 0),
           unit: item.uom,
-          unit_price_override: Number(item.is_manual || 0) === 1 ? Number(item.price || 0) : undefined,
+          unit_price_override:
+            Number(item.is_manual || 0) === 1 ? Number(item.price || 0) : undefined,
           skip_offers: Number(item.is_manual || 0) === 1,
           item_type: Number(item.is_manual || 0) === 1 ? 'manual' : 'catalog',
           price_unknown: Number(item.is_manual || 0) === 1 && Number(item.price || 0) <= 0 ? 1 : 0,
@@ -78,8 +79,10 @@ const createOrderPlacement = (deps) => {
         includeTax: false,
       });
       const previewByIndex = new Map(
-        (Array.isArray(preview?.items) ? preview.items : [])
-          .map((line) => [Number(line?.client_item_id), line])
+        (Array.isArray(preview?.items) ? preview.items : []).map((line) => [
+          Number(line?.client_item_id),
+          line,
+        ])
       );
       return parsedItems.map((item) => {
         const line = previewByIndex.get(Number(item.line_index));
@@ -94,9 +97,8 @@ const createOrderPlacement = (deps) => {
           };
         }
         const quantity = Math.max(1, Number(item.quantity || 0) || 1);
-        const effectiveUnitPrice = quantity > 0
-          ? Math.round((Number(line.line_total || 0) / quantity) * 100) / 100
-          : 0;
+        const effectiveUnitPrice =
+          quantity > 0 ? Math.round((Number(line.line_total || 0) / quantity) * 100) / 100 : 0;
         return {
           ...item,
           price: effectiveUnitPrice,

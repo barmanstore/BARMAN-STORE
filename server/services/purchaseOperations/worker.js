@@ -57,7 +57,8 @@ const createPurchaseOperationsWorker = (deps) => {
     try {
       if (PURCHASE_OPERATIONS_NOTIFICATIONS_ENABLED) {
         result = await runPurchaseOperationNotificationsAsync();
-        const totalNotifications = Number(result?.reminder_notifications || 0) + Number(result?.payment_notifications || 0);
+        const totalNotifications =
+          Number(result?.reminder_notifications || 0) + Number(result?.payment_notifications || 0);
         if (totalNotifications > 0) {
           console.log(
             `[PURCHASE_OPS] Generated ${totalNotifications} purchase notifications for ${result.today}`
@@ -86,8 +87,6 @@ const createPurchaseOperationsWorker = (deps) => {
     clearInterval(purchaseOperationsNotificationTimer);
     purchaseOperationsNotificationTimer = null;
   };
-
-
 
   return {
     runPurchaseOperationsNotificationWorker,

@@ -2,11 +2,11 @@ const isTransientAnalyticsWriteError = (error) => {
   const code = String(error?.code || '').trim();
   const message = String(error?.message || '').toLowerCase();
   return (
-    code === '53300'
-    || code === '57P03'
-    || message.includes('timeout exceeded when trying to connect')
-    || message.includes('max client connections reached')
-    || message.includes('remaining connection slots are reserved')
+    code === '53300' ||
+    code === '57P03' ||
+    message.includes('timeout exceeded when trying to connect') ||
+    message.includes('max client connections reached') ||
+    message.includes('remaining connection slots are reserved')
   );
 };
 
@@ -85,8 +85,9 @@ const loadSalesBillSummary = async (dbGetAsync, { dateKey = '' } = {}) => {
   );
 };
 
-const loadDailyCashTally = async (dbGetAsync, dateKey) => dbGetAsync(
-  `SELECT
+const loadDailyCashTally = async (dbGetAsync, dateKey) =>
+  dbGetAsync(
+    `SELECT
      dct.tally_date,
      dct.counted_cash_total,
      dct.note,
@@ -98,11 +99,12 @@ const loadDailyCashTally = async (dbGetAsync, dateKey) => dbGetAsync(
    FROM daily_cash_tallies dct
    LEFT JOIN users updater ON updater.id = dct.updated_by
    WHERE dct.tally_date = DATE(?)`,
-  [dateKey]
-);
+    [dateKey]
+  );
 
-const loadTodayDailyCashTally = async (dbGetAsync) => dbGetAsync(
-  `SELECT
+const loadTodayDailyCashTally = async (dbGetAsync) =>
+  dbGetAsync(
+    `SELECT
      dct.tally_date,
      dct.counted_cash_total,
      dct.note,
@@ -114,7 +116,7 @@ const loadTodayDailyCashTally = async (dbGetAsync) => dbGetAsync(
    FROM daily_cash_tallies dct
    LEFT JOIN users updater ON updater.id = dct.updated_by
    WHERE dct.tally_date = CURRENT_DATE`
-);
+  );
 
 const registerAnalyticsRoutes = (deps) => {
   const {
@@ -167,7 +169,14 @@ const registerAnalyticsRoutes = (deps) => {
       const authUser = await getAuthUserFromRequest(req);
       const authUserId = Number(authUser?.id || 0) || null;
 
-      await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [sessionId, authUserId, trackedPath, referrer, userAgent, ipHash]);
+      await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [
+        sessionId,
+        authUserId,
+        trackedPath,
+        referrer,
+        userAgent,
+        ipHash,
+      ]);
 
       return res.status(201).json({ success: true, session_id: sessionId });
     } catch (error) {
@@ -192,7 +201,14 @@ const registerAnalyticsRoutes = (deps) => {
       const authUser = await getAuthUserFromRequest(req);
       const authUserId = Number(authUser?.id || 0) || null;
 
-      await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [sessionId, authUserId, trackedPath, referrer, userAgent, ipHash]);
+      await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [
+        sessionId,
+        authUserId,
+        trackedPath,
+        referrer,
+        userAgent,
+        ipHash,
+      ]);
 
       return res.json({ success: true });
     } catch (error) {
@@ -204,90 +220,98 @@ const registerAnalyticsRoutes = (deps) => {
     }
   });
 
-  app.get('/api/admin/analytics/summary', requireCapability('view_backoffice', 'Backoffice access required'), async (_, res) => {
-    try {
-      const windowArg = -VISITOR_ONLINE_WINDOW_MINUTES;
+  app.get(
+    '/api/admin/analytics/summary',
+    requireCapability('view_backoffice', 'Backoffice access required'),
+    async (_, res) => {
+      try {
+        const windowArg = -VISITOR_ONLINE_WINDOW_MINUTES;
 
-      const [
-        onlineVisitorsRow,
-        onlineLoggedInUsersRow,
-        uniqueSessionsTodayRow,
-        uniqueSessionsMonthRow,
-        uniqueSessionsYearRow,
-        todayBillSummary,
-        todayCashTally,
-      ] = await Promise.all([
-        dbGetAsync(
-          `SELECT COUNT(DISTINCT session_id) AS count
+        const [
+          onlineVisitorsRow,
+          onlineLoggedInUsersRow,
+          uniqueSessionsTodayRow,
+          uniqueSessionsMonthRow,
+          uniqueSessionsYearRow,
+          todayBillSummary,
+          todayCashTally,
+        ] = await Promise.all([
+          dbGetAsync(
+            `SELECT COUNT(DISTINCT session_id) AS count
            FROM visitor_sessions
            WHERE last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`,
-          [windowArg]
-        ),
-        dbGetAsync(
-          `SELECT COUNT(DISTINCT user_id) AS count
+            [windowArg]
+          ),
+          dbGetAsync(
+            `SELECT COUNT(DISTINCT user_id) AS count
            FROM visitor_sessions
            WHERE user_id IS NOT NULL
              AND last_seen_at >= (CURRENT_TIMESTAMP + (? * INTERVAL '1 minute'))`,
-          [windowArg]
-        ),
-        dbGetAsync(
-          `SELECT COUNT(DISTINCT session_id) AS count
+            [windowArg]
+          ),
+          dbGetAsync(
+            `SELECT COUNT(DISTINCT session_id) AS count
            FROM visitor_sessions
            WHERE DATE(started_at) = CURRENT_DATE`
-        ),
-        dbGetAsync(
-          `SELECT COUNT(DISTINCT session_id) AS count
+          ),
+          dbGetAsync(
+            `SELECT COUNT(DISTINCT session_id) AS count
            FROM visitor_sessions
            WHERE TO_CHAR(started_at, 'YYYY-MM') = TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MM')`
-        ),
-        dbGetAsync(
-          `SELECT COUNT(DISTINCT session_id) AS count
+          ),
+          dbGetAsync(
+            `SELECT COUNT(DISTINCT session_id) AS count
            FROM visitor_sessions
            WHERE EXTRACT(YEAR FROM started_at) = EXTRACT(YEAR FROM CURRENT_TIMESTAMP)`
-        ),
-        loadSalesBillSummary(dbGetAsync),
-        loadTodayDailyCashTally(dbGetAsync),
-      ]);
+          ),
+          loadSalesBillSummary(dbGetAsync),
+          loadTodayDailyCashTally(dbGetAsync),
+        ]);
 
-      const onlineVisitors = Number(onlineVisitorsRow?.count || 0);
-      const onlineLoggedInUsers = Number(onlineLoggedInUsersRow?.count || 0);
-      const uniqueSessionsToday = Number(uniqueSessionsTodayRow?.count || 0);
-      const uniqueSessionsMonth = Number(uniqueSessionsMonthRow?.count || 0);
-      const uniqueSessionsYear = Number(uniqueSessionsYearRow?.count || 0);
+        const onlineVisitors = Number(onlineVisitorsRow?.count || 0);
+        const onlineLoggedInUsers = Number(onlineLoggedInUsersRow?.count || 0);
+        const uniqueSessionsToday = Number(uniqueSessionsTodayRow?.count || 0);
+        const uniqueSessionsMonth = Number(uniqueSessionsMonthRow?.count || 0);
+        const uniqueSessionsYear = Number(uniqueSessionsYearRow?.count || 0);
 
-      return res.json({
-        online_visitors: onlineVisitors,
-        online_logged_in_users: onlineLoggedInUsers,
-        unique_sessions_today: uniqueSessionsToday,
-        unique_sessions_month: uniqueSessionsMonth,
-        unique_sessions_year: uniqueSessionsYear,
-        online_window_minutes: VISITOR_ONLINE_WINDOW_MINUTES,
-        today_cash_summary: buildCashPictureSummary({
-          billTotals: todayBillSummary,
-          tallyRow: todayCashTally,
-        }),
-      });
-    } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load analytics summary' });
-    }
-  });
-
-  app.get('/api/admin/analytics/daily-cash-tally', requireCapability('view_backoffice', 'Backoffice access required'), async (req, res) => {
-    try {
-      const dateKey = normalizeDateKey(req.query?.date || req.query?.day);
-      if (!dateKey) {
-        return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+        return res.json({
+          online_visitors: onlineVisitors,
+          online_logged_in_users: onlineLoggedInUsers,
+          unique_sessions_today: uniqueSessionsToday,
+          unique_sessions_month: uniqueSessionsMonth,
+          unique_sessions_year: uniqueSessionsYear,
+          online_window_minutes: VISITOR_ONLINE_WINDOW_MINUTES,
+          today_cash_summary: buildCashPictureSummary({
+            billTotals: todayBillSummary,
+            tallyRow: todayCashTally,
+          }),
+        });
+      } catch (error) {
+        return res.status(500).json({ error: error.message || 'Failed to load analytics summary' });
       }
-
-      const tallyRow = await loadDailyCashTally(dbGetAsync, dateKey);
-      return res.json({
-        date: dateKey,
-        entry: serializeDailyCashTally(tallyRow),
-      });
-    } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load daily cash tally' });
     }
-  });
+  );
+
+  app.get(
+    '/api/admin/analytics/daily-cash-tally',
+    requireCapability('view_backoffice', 'Backoffice access required'),
+    async (req, res) => {
+      try {
+        const dateKey = normalizeDateKey(req.query?.date || req.query?.day);
+        if (!dateKey) {
+          return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+        }
+
+        const tallyRow = await loadDailyCashTally(dbGetAsync, dateKey);
+        return res.json({
+          date: dateKey,
+          entry: serializeDailyCashTally(tallyRow),
+        });
+      } catch (error) {
+        return res.status(500).json({ error: error.message || 'Failed to load daily cash tally' });
+      }
+    }
+  );
 
   app.put('/api/admin/analytics/daily-cash-tally', requireAdmin, async (req, res) => {
     try {
@@ -298,7 +322,9 @@ const registerAnalyticsRoutes = (deps) => {
 
       const countedCashTotal = Number(req.body?.counted_cash_total ?? req.body?.countedCashTotal);
       if (!Number.isFinite(countedCashTotal) || countedCashTotal < 0) {
-        return res.status(400).json({ error: 'counted_cash_total must be a valid non-negative number' });
+        return res
+          .status(400)
+          .json({ error: 'counted_cash_total must be a valid non-negative number' });
       }
 
       const note = sanitizeShortText(req.body?.note || req.body?.notes || '', 1000) || null;
@@ -333,7 +359,6 @@ const registerAnalyticsRoutes = (deps) => {
       return res.status(500).json({ error: error.message || 'Failed to save daily cash tally' });
     }
   });
-
 };
 
 module.exports = { registerAnalyticsRoutes };

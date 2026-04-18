@@ -22,11 +22,7 @@ import {
   safeSessionStorageSet,
 } from '../../../shared/utils/storage';
 import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
-import {
-  insightsApi,
-  productsApi,
-  stockLedgerApi,
-} from '../../../shared/services/api';
+import { insightsApi, productsApi, stockLedgerApi } from '../../../shared/services/api';
 import '../../inventory/StockLedgerHistory.css';
 import { DropdownFilter, SearchFilter } from '../../../shared/components/filters';
 import './RestockDashboardSection.css';
@@ -82,7 +78,10 @@ const asNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const normalizeText = (value) => String(value || '').trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const formatQty = (value) => {
   const normalized = asNumber(value, 0);
@@ -99,23 +98,18 @@ const formatSignedQty = (value) => {
   return '0';
 };
 
-const getBrandLabel = (product) => (
-  String(product?.brand_path || product?.brand || '').trim() || 'Unbranded'
-);
+const getBrandLabel = (product) =>
+  String(product?.brand_path || product?.brand || '').trim() || 'Unbranded';
 
-const getCategoryLabel = (product) => (
-  String(product?.category_path || product?.category || '').trim() || 'Uncategorized'
-);
+const getCategoryLabel = (product) =>
+  String(product?.category_path || product?.category || '').trim() || 'Uncategorized';
 
-const getPoUnitLabel = (product = {}) => (
-  String(product?.base_unit || product?.uom || 'pcs').trim() || 'pcs'
-);
+const getPoUnitLabel = (product = {}) =>
+  String(product?.base_unit || product?.uom || 'pcs').trim() || 'pcs';
 
 const formatSupplierSummaryLabel = (distributors = []) => {
   const names = Array.isArray(distributors)
-    ? distributors
-        .map((entry) => String(entry?.name || '').trim())
-        .filter(Boolean)
+    ? distributors.map((entry) => String(entry?.name || '').trim()).filter(Boolean)
     : [];
 
   if (!names.length) return 'No supplier linked';
@@ -138,19 +132,21 @@ const readStoredRestockPoReview = () => {
     const selectedIds = Array.isArray(parsed?.selectedIds)
       ? parsed.selectedIds.map((value) => Number(value || 0)).filter((value) => value > 0)
       : [];
-    const poQuantities = parsed?.poQuantities && typeof parsed.poQuantities === 'object'
-      ? Object.fromEntries(
-          Object.entries(parsed.poQuantities)
-            .map(([key, value]) => [String(key), String(value || '').trim()])
-            .filter(([key, value]) => key && value)
-        )
-      : {};
-    const draft = parsed?.poReviewDraft && typeof parsed.poReviewDraft === 'object'
-      ? {
-          ...createDefaultPoReviewDraft(),
-          ...parsed.poReviewDraft,
-        }
-      : createDefaultPoReviewDraft();
+    const poQuantities =
+      parsed?.poQuantities && typeof parsed.poQuantities === 'object'
+        ? Object.fromEntries(
+            Object.entries(parsed.poQuantities)
+              .map(([key, value]) => [String(key), String(value || '').trim()])
+              .filter(([key, value]) => key && value)
+          )
+        : {};
+    const draft =
+      parsed?.poReviewDraft && typeof parsed.poReviewDraft === 'object'
+        ? {
+            ...createDefaultPoReviewDraft(),
+            ...parsed.poReviewDraft,
+          }
+        : createDefaultPoReviewDraft();
     if (!selectedIds.length) return null;
     return {
       selectedIds,
@@ -201,13 +197,13 @@ const compareValues = (left, right, direction = 'asc') => {
   if (typeof left === 'number' && typeof right === 'number') {
     return left > right ? order : -order;
   }
-  return String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base' }) * order;
+  return (
+    String(left || '').localeCompare(String(right || ''), undefined, { sensitivity: 'base' }) *
+    order
+  );
 };
 
-function RestockDashboardSection({
-  onTabChange,
-  onOpenPurchaseOrder,
-}) {
+function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
   const restoredReviewStateRef = useRef(false);
   const linkedRestockSelectionRef = useRef(false);
   const [products, setProducts] = useState([]);
@@ -266,13 +262,17 @@ function RestockDashboardSection({
     void fetchDashboard();
   }, [fetchDashboard]);
 
-  useEffect(() => registerDomainListener(
-    DOMAINS.Stock,
-    () => {
-      void fetchDashboard({ silent: true });
-    },
-    { listenerId: 'restock-dashboard' },
-  ), [fetchDashboard]);
+  useEffect(
+    () =>
+      registerDomainListener(
+        DOMAINS.Stock,
+        () => {
+          void fetchDashboard({ silent: true });
+        },
+        { listenerId: 'restock-dashboard' }
+      ),
+    [fetchDashboard]
+  );
 
   useEffect(() => {
     if (restoredReviewStateRef.current) return;
@@ -302,11 +302,14 @@ function RestockDashboardSection({
       return;
     }
     linkedRestockSelectionRef.current = true;
-    safeSessionStorageSet(RESTOCK_PO_REVIEW_STORAGE_KEY, JSON.stringify({
-      selectedIds,
-      poQuantities,
-      poReviewDraft,
-    }));
+    safeSessionStorageSet(
+      RESTOCK_PO_REVIEW_STORAGE_KEY,
+      JSON.stringify({
+        selectedIds,
+        poQuantities,
+        poReviewDraft,
+      })
+    );
   }, [poQuantities, poReviewDraft, selectedIds]);
 
   const insightByProductId = useMemo(() => {
@@ -319,36 +322,38 @@ function RestockDashboardSection({
     return map;
   }, [insights]);
 
-  const mergedProducts = useMemo(() => (
-    (Array.isArray(products) ? products : []).map((product) => {
-      const productId = Number(product?.id || 0);
-      const insight = insightByProductId.get(productId) || {};
-      const rawDraft = drafts[productId];
-      const draftText = String(rawDraft?.quantity ?? '').trim();
-      const currentStock = asNumber(product?.stock, 0);
-      const countedStock = draftText === '' ? currentStock : asNumber(draftText, currentStock);
-      const draftQty = draftText === '' ? null : countedStock;
-      const difference = countedStock - currentStock;
-      const availableDistributors = getKnownDistributors(insight);
-      const effectiveStock = draftQty === null ? currentStock : countedStock;
+  const mergedProducts = useMemo(
+    () =>
+      (Array.isArray(products) ? products : []).map((product) => {
+        const productId = Number(product?.id || 0);
+        const insight = insightByProductId.get(productId) || {};
+        const rawDraft = drafts[productId];
+        const draftText = String(rawDraft?.quantity ?? '').trim();
+        const currentStock = asNumber(product?.stock, 0);
+        const countedStock = draftText === '' ? currentStock : asNumber(draftText, currentStock);
+        const draftQty = draftText === '' ? null : countedStock;
+        const difference = countedStock - currentStock;
+        const availableDistributors = getKnownDistributors(insight);
+        const effectiveStock = draftQty === null ? currentStock : countedStock;
 
-      return {
-        ...product,
-        ...insight,
-        productId,
-        currentStock,
-        countedStock,
-        draftQty,
-        draftText,
-        difference,
-        stockMismatch: draftQty !== null && difference !== 0,
-        stockStatus: effectiveStock <= LOW_STOCK_THRESHOLD ? 'low_stock' : 'available',
-        categoryLabel: getCategoryLabel(product),
-        brandLabel: getBrandLabel(product),
-        availableDistributors,
-      };
-    })
-  ), [drafts, insightByProductId, products]);
+        return {
+          ...product,
+          ...insight,
+          productId,
+          currentStock,
+          countedStock,
+          draftQty,
+          draftText,
+          difference,
+          stockMismatch: draftQty !== null && difference !== 0,
+          stockStatus: effectiveStock <= LOW_STOCK_THRESHOLD ? 'low_stock' : 'available',
+          categoryLabel: getCategoryLabel(product),
+          brandLabel: getBrandLabel(product),
+          availableDistributors,
+        };
+      }),
+    [drafts, insightByProductId, products]
+  );
 
   const distributorOptions = useMemo(() => {
     const options = new Map();
@@ -363,21 +368,32 @@ function RestockDashboardSection({
     return Array.from(options.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [mergedProducts]);
 
-  const distributorFilterOptions = useMemo(() => ([
-    { value: '__missing__', label: 'No supplier linked' },
-    ...distributorOptions.map((entry) => ({
-      value: String(entry.id || ''),
-      label: entry.name,
-    })),
-  ]), [distributorOptions]);
+  const distributorFilterOptions = useMemo(
+    () => [
+      { value: '__missing__', label: 'No supplier linked' },
+      ...distributorOptions.map((entry) => ({
+        value: String(entry.id || ''),
+        label: entry.name,
+      })),
+    ],
+    [distributorOptions]
+  );
 
-  const categoryOptions = useMemo(() => (
-    Array.from(new Set(mergedProducts.map((row) => row.categoryLabel))).sort((a, b) => a.localeCompare(b))
-  ), [mergedProducts]);
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(new Set(mergedProducts.map((row) => row.categoryLabel))).sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [mergedProducts]
+  );
 
-  const brandOptions = useMemo(() => (
-    Array.from(new Set(mergedProducts.map((row) => row.brandLabel))).sort((a, b) => a.localeCompare(b))
-  ), [mergedProducts]);
+  const brandOptions = useMemo(
+    () =>
+      Array.from(new Set(mergedProducts.map((row) => row.brandLabel))).sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [mergedProducts]
+  );
 
   const sortedProducts = useMemo(() => {
     const rows = [...mergedProducts];
@@ -387,7 +403,11 @@ function RestockDashboardSection({
         return byName || compareValues(left.productId, right.productId, 'asc');
       }
       if (sortConfig.key === SORTABLE_COLUMNS.countedStock) {
-        const byCounted = compareValues(left.countedStock, right.countedStock, sortConfig.direction);
+        const byCounted = compareValues(
+          left.countedStock,
+          right.countedStock,
+          sortConfig.direction
+        );
         return byCounted || compareValues(left.name, right.name, 'asc');
       }
       if (sortConfig.key === SORTABLE_COLUMNS.difference) {
@@ -438,7 +458,9 @@ function RestockDashboardSection({
       }
 
       if (selectedDistributorId) {
-        const matchesKnownDistributor = row.availableDistributors.some((entry) => Number(entry.id || 0) === selectedDistributorId);
+        const matchesKnownDistributor = row.availableDistributors.some(
+          (entry) => Number(entry.id || 0) === selectedDistributorId
+        );
         if (!matchesKnownDistributor) {
           return false;
         }
@@ -448,38 +470,54 @@ function RestockDashboardSection({
       if (filters.brand && filters.brand !== row.brandLabel) return false;
       return true;
     });
-  }, [deferredSearch, filters.brand, filters.category, filters.distributorId, searchScope, sortedProducts]);
+  }, [
+    deferredSearch,
+    filters.brand,
+    filters.category,
+    filters.distributorId,
+    searchScope,
+    sortedProducts,
+  ]);
 
-  const summary = useMemo(() => ({
-    visibleCount: visibleProducts.length,
-    lowStockCount: visibleProducts.filter((row) => row.stockStatus === 'low_stock').length,
-    mismatchCount: visibleProducts.filter((row) => row.stockMismatch).length,
-    selectedCount: selectedIds.length,
-  }), [selectedIds.length, visibleProducts]);
+  const summary = useMemo(
+    () => ({
+      visibleCount: visibleProducts.length,
+      lowStockCount: visibleProducts.filter((row) => row.stockStatus === 'low_stock').length,
+      mismatchCount: visibleProducts.filter((row) => row.stockMismatch).length,
+      selectedCount: selectedIds.length,
+    }),
+    [selectedIds.length, visibleProducts]
+  );
 
-  const visibleProductIds = useMemo(() => (
-    visibleProducts.map((row) => row.productId)
-  ), [visibleProducts]);
+  const visibleProductIds = useMemo(
+    () => visibleProducts.map((row) => row.productId),
+    [visibleProducts]
+  );
 
-  const allVisibleSelected = visibleProductIds.length > 0
-    && visibleProductIds.every((id) => selectedIds.includes(id));
+  const allVisibleSelected =
+    visibleProductIds.length > 0 && visibleProductIds.every((id) => selectedIds.includes(id));
 
-  const selectedRows = useMemo(() => (
-    mergedProducts.filter((row) => selectedIds.includes(row.productId))
-  ), [mergedProducts, selectedIds]);
+  const selectedRows = useMemo(
+    () => mergedProducts.filter((row) => selectedIds.includes(row.productId)),
+    [mergedProducts, selectedIds]
+  );
 
-  const selectedVisibleRows = useMemo(() => (
-    visibleProducts.filter((row) => selectedIds.includes(row.productId))
-  ), [selectedIds, visibleProducts]);
+  const selectedVisibleRows = useMemo(
+    () => visibleProducts.filter((row) => selectedIds.includes(row.productId)),
+    [selectedIds, visibleProducts]
+  );
 
-  const selectedSyncRows = useMemo(() => (
-    selectedRows.filter((row) => row.stockMismatch)
-  ), [selectedRows]);
+  const selectedSyncRows = useMemo(
+    () => selectedRows.filter((row) => row.stockMismatch),
+    [selectedRows]
+  );
 
-  const effectivePoDistributorId = Number(poReviewDraft.distributorId || filters.distributorId || 0) || null;
+  const effectivePoDistributorId =
+    Number(poReviewDraft.distributorId || filters.distributorId || 0) || null;
   const effectivePoDistributorName = effectivePoDistributorId
     ? String(
-        distributorOptions.find((entry) => Number(entry.id || 0) === effectivePoDistributorId)?.name || ''
+        distributorOptions.find((entry) => Number(entry.id || 0) === effectivePoDistributorId)
+          ?.name || ''
       ).trim()
     : '';
   const selectedHiddenCount = Math.max(0, selectedRows.length - selectedVisibleRows.length);
@@ -530,11 +568,9 @@ function RestockDashboardSection({
 
   const toggleSelectedProduct = (productId) => {
     const isSelected = selectedIds.includes(productId);
-    setSelectedIds((current) => (
-      isSelected
-        ? current.filter((id) => id !== productId)
-        : [...current, productId]
-    ));
+    setSelectedIds((current) =>
+      isSelected ? current.filter((id) => id !== productId) : [...current, productId]
+    );
     setPoQuantities((current) => {
       if (isSelected) {
         const next = { ...current };
@@ -596,16 +632,15 @@ function RestockDashboardSection({
     setPoReviewDraft(createDefaultPoReviewDraft());
   };
 
-
   const handleSortChange = (columnKey) => {
-    setSortConfig((current) => (
+    setSortConfig((current) =>
       current.key === columnKey
         ? { key: columnKey, direction: current.direction === 'asc' ? 'desc' : 'asc' }
         : {
             key: columnKey,
             direction: columnKey === SORTABLE_COLUMNS.product ? 'asc' : 'asc',
           }
-    ));
+    );
   };
 
   const renderSortIcon = (columnKey) => {
@@ -623,11 +658,13 @@ function RestockDashboardSection({
   const activeFilterPills = useMemo(() => {
     const pills = [];
     if (filters.distributorId) {
-      const label = filters.distributorId === '__missing__'
-        ? 'Supplier: No link'
-        : `Supplier: ${
-          distributorOptions.find((entry) => String(entry.id || '') === filters.distributorId)?.name || 'Supplier'
-        }`;
+      const label =
+        filters.distributorId === '__missing__'
+          ? 'Supplier: No link'
+          : `Supplier: ${
+              distributorOptions.find((entry) => String(entry.id || '') === filters.distributorId)
+                ?.name || 'Supplier'
+            }`;
       pills.push({
         key: 'supplier',
         label,
@@ -652,12 +689,16 @@ function RestockDashboardSection({
   }, [distributorOptions, filters.brand, filters.category, filters.distributorId]);
 
   const syncDrafts = async (productIds) => {
-    const rows = mergedProducts.filter((row) => productIds.includes(row.productId) && row.stockMismatch);
+    const rows = mergedProducts.filter(
+      (row) => productIds.includes(row.productId) && row.stockMismatch
+    );
     if (!rows.length) return;
 
     setSyncError('');
     setSyncSuccess('');
-    setSyncingIds((current) => Array.from(new Set([...current, ...rows.map((row) => row.productId)])));
+    setSyncingIds((current) =>
+      Array.from(new Set([...current, ...rows.map((row) => row.productId)]))
+    );
 
     try {
       const response = await stockLedgerApi.applyAdjustments({
@@ -671,14 +712,16 @@ function RestockDashboardSection({
       const results = Array.isArray(response?.items) ? response.items : [];
       const resultByProductId = new Map(results.map((row) => [Number(row?.product_id || 0), row]));
 
-      setProducts((current) => current.map((product) => {
-        const update = resultByProductId.get(Number(product?.id || 0));
-        if (!update) return product;
-        return {
-          ...product,
-          stock: asNumber(update?.new_stock, asNumber(product?.stock, 0)),
-        };
-      }));
+      setProducts((current) =>
+        current.map((product) => {
+          const update = resultByProductId.get(Number(product?.id || 0));
+          if (!update) return product;
+          return {
+            ...product,
+            stock: asNumber(update?.new_stock, asNumber(product?.stock, 0)),
+          };
+        })
+      );
       setDrafts((current) => {
         const next = { ...current };
         for (const row of rows) {
@@ -686,7 +729,9 @@ function RestockDashboardSection({
         }
         return next;
       });
-      setSelectedIds((current) => current.filter((id) => !rows.some((row) => row.productId === id)));
+      setSelectedIds((current) =>
+        current.filter((id) => !rows.some((row) => row.productId === id))
+      );
       setPoQuantities((current) => {
         const next = { ...current };
         for (const row of rows) {
@@ -729,7 +774,9 @@ function RestockDashboardSection({
     const handoffNotes = [
       String(poReviewDraft.notes || '').trim(),
       'Review quantities from the restock dashboard selection.',
-    ].filter(Boolean).join('\n\n');
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     if (typeof onOpenPurchaseOrder === 'function') {
       const payload = {
@@ -770,12 +817,14 @@ function RestockDashboardSection({
         className="page-header"
         title="Restock Dashboard"
         subtitle="Review active products, update counted stock when needed, and move selected items into a supplier PO."
-        actions={(
+        actions={
           <div className="restock-header-actions">
             <button
               type="button"
               className="admin-btn restock-header-icon"
-              onClick={() => { void fetchDashboard({ silent: true }); }}
+              onClick={() => {
+                void fetchDashboard({ silent: true });
+              }}
               disabled={refreshing}
               title="Refresh restock data"
               aria-label="Refresh restock data"
@@ -784,7 +833,7 @@ function RestockDashboardSection({
               <span>Refresh</span>
             </button>
           </div>
-        )}
+        }
       />
 
       {error ? <div className="error-message">{error}</div> : null}
@@ -826,7 +875,7 @@ function RestockDashboardSection({
               {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
 
-            {(searchDraft || searchQuery || activeFilterCount) ? (
+            {searchDraft || searchQuery || activeFilterCount ? (
               <button type="button" className="stock-ledger-filter-clear" onClick={clearFilters}>
                 Clear
               </button>
@@ -836,7 +885,12 @@ function RestockDashboardSection({
           {activeFilterPills.length ? (
             <div className="stock-ledger-active-filters" aria-label="Active filters">
               {activeFilterPills.map((pill) => (
-                <button key={pill.key} type="button" className="stock-ledger-active-filter-pill" onClick={pill.onClear}>
+                <button
+                  key={pill.key}
+                  type="button"
+                  className="stock-ledger-active-filter-pill"
+                  onClick={pill.onClear}
+                >
                   <span>{pill.label}</span>
                   <X size={12} aria-hidden="true" />
                 </button>
@@ -889,9 +943,15 @@ function RestockDashboardSection({
         <div className="restock-workspace-toolbar">
           <div className="restock-workspace-summary" aria-live="polite">
             <span className="restock-workspace-pill strong">{selectedRows.length} selected</span>
-            {selectedSyncRows.length ? <span className="restock-workspace-pill pending">{selectedSyncRows.length} sync</span> : null}
-            {selectedHiddenCount ? <span className="restock-workspace-pill">{selectedHiddenCount} hidden</span> : null}
-            {!selectedRows.length ? <span className="restock-workspace-hint">Select rows, then review.</span> : null}
+            {selectedSyncRows.length ? (
+              <span className="restock-workspace-pill pending">{selectedSyncRows.length} sync</span>
+            ) : null}
+            {selectedHiddenCount ? (
+              <span className="restock-workspace-pill">{selectedHiddenCount} hidden</span>
+            ) : null}
+            {!selectedRows.length ? (
+              <span className="restock-workspace-hint">Select rows, then review.</span>
+            ) : null}
           </div>
 
           <div className="restock-workspace-actions">
@@ -929,8 +989,13 @@ function RestockDashboardSection({
             <button
               type="button"
               className="restock-mini-action"
-              onClick={() => { void syncDrafts(selectedSyncRows.map((row) => row.productId)); }}
-              disabled={!selectedSyncRows.length || selectedSyncRows.some((row) => syncingIds.includes(row.productId))}
+              onClick={() => {
+                void syncDrafts(selectedSyncRows.map((row) => row.productId));
+              }}
+              disabled={
+                !selectedSyncRows.length ||
+                selectedSyncRows.some((row) => syncingIds.includes(row.productId))
+              }
               title="Sync selected rows"
               aria-label="Sync selected rows"
             >
@@ -1000,7 +1065,16 @@ function RestockDashboardSection({
                     aria-label="Select visible rows"
                   />
                 </th>
-                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.product ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <th
+                  scope="col"
+                  aria-sort={
+                    sortConfig.key === SORTABLE_COLUMNS.product
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
                   <button
                     type="button"
                     className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.product ? ' is-active' : ''}`}
@@ -1009,10 +1083,21 @@ function RestockDashboardSection({
                     title="Sort by product"
                   >
                     <span className="ledger-sort-label">Product</span>
-                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.product)}</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">
+                      {renderSortIcon(SORTABLE_COLUMNS.product)}
+                    </span>
                   </button>
                 </th>
-                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.systemStock ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <th
+                  scope="col"
+                  aria-sort={
+                    sortConfig.key === SORTABLE_COLUMNS.systemStock
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
                   <button
                     type="button"
                     className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.systemStock ? ' is-active' : ''}`}
@@ -1021,10 +1106,21 @@ function RestockDashboardSection({
                     title="Sort by system stock"
                   >
                     <span className="ledger-sort-label">Stock</span>
-                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.systemStock)}</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">
+                      {renderSortIcon(SORTABLE_COLUMNS.systemStock)}
+                    </span>
                   </button>
                 </th>
-                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.countedStock ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <th
+                  scope="col"
+                  aria-sort={
+                    sortConfig.key === SORTABLE_COLUMNS.countedStock
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
                   <button
                     type="button"
                     className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.countedStock ? ' is-active' : ''}`}
@@ -1033,10 +1129,21 @@ function RestockDashboardSection({
                     title="Sort by counted stock"
                   >
                     <span className="ledger-sort-label">Counted</span>
-                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.countedStock)}</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">
+                      {renderSortIcon(SORTABLE_COLUMNS.countedStock)}
+                    </span>
                   </button>
                 </th>
-                <th scope="col" aria-sort={sortConfig.key === SORTABLE_COLUMNS.difference ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                <th
+                  scope="col"
+                  aria-sort={
+                    sortConfig.key === SORTABLE_COLUMNS.difference
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
                   <button
                     type="button"
                     className={`ledger-sort-btn${sortConfig.key === SORTABLE_COLUMNS.difference ? ' is-active' : ''}`}
@@ -1045,7 +1152,9 @@ function RestockDashboardSection({
                     title="Sort by difference"
                   >
                     <span className="ledger-sort-label">Diff</span>
-                    <span className="ledger-sort-indicator" aria-hidden="true">{renderSortIcon(SORTABLE_COLUMNS.difference)}</span>
+                    <span className="ledger-sort-indicator" aria-hidden="true">
+                      {renderSortIcon(SORTABLE_COLUMNS.difference)}
+                    </span>
                   </button>
                 </th>
                 <th scope="col">
@@ -1064,11 +1173,7 @@ function RestockDashboardSection({
                 const rowTitle = `${row.name} | ${row.sku || 'No SKU'} | ${row.brandLabel} | ${row.categoryLabel} | ${supplierTitle}`;
 
                 return (
-                  <tr
-                    key={row.productId}
-                    className="restock-row"
-                    title={rowTitle}
-                  >
+                  <tr key={row.productId} className="restock-row" title={rowTitle}>
                     <td className="select-cell" data-label="Select">
                       <div className="restock-select-cell">
                         <input
@@ -1087,13 +1192,24 @@ function RestockDashboardSection({
                         <SafeProductImage product={row} alt="" className="restock-product-image" />
                         <div className="restock-product-copy">
                           <span className="product-name">{row.name}</span>
-                          <span className="product-linked-number">{row.sku || 'No SKU'} · {row.brandLabel}</span>
+                          <span className="product-linked-number">
+                            {row.sku || 'No SKU'} · {row.brandLabel}
+                          </span>
                           <span className="product-linked-number">{supplierSummary}</span>
                         </div>
                       </div>
                     </td>
-                    <td className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'restock-stock-low qty-cell' : 'qty-cell'} data-label="Stock">
-                      <span className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'negative' : ''}>{formatQty(row.currentStock)}</span>
+                    <td
+                      className={
+                        row.currentStock <= LOW_STOCK_THRESHOLD
+                          ? 'restock-stock-low qty-cell'
+                          : 'qty-cell'
+                      }
+                      data-label="Stock"
+                    >
+                      <span className={row.currentStock <= LOW_STOCK_THRESHOLD ? 'negative' : ''}>
+                        {formatQty(row.currentStock)}
+                      </span>
                     </td>
                     <td data-label="Counted">
                       <input
@@ -1107,8 +1223,15 @@ function RestockDashboardSection({
                         aria-label={`Counted stock for ${row.name}`}
                       />
                     </td>
-                    <td className={`qty-cell restock-diff-cell${row.difference > 0 ? ' positive' : ''}${row.difference < 0 ? ' negative' : ''}`} data-label="Diff">
-                      <span className={row.draftQty === null ? '' : (row.difference >= 0 ? 'positive' : 'negative')}>
+                    <td
+                      className={`qty-cell restock-diff-cell${row.difference > 0 ? ' positive' : ''}${row.difference < 0 ? ' negative' : ''}`}
+                      data-label="Diff"
+                    >
+                      <span
+                        className={
+                          row.draftQty === null ? '' : row.difference >= 0 ? 'positive' : 'negative'
+                        }
+                      >
                         {row.draftQty === null ? '—' : formatSignedQty(row.difference)}
                       </span>
                     </td>
@@ -1117,7 +1240,9 @@ function RestockDashboardSection({
                         <button
                           type="button"
                           className="restock-icon-btn"
-                          onClick={() => { void syncDrafts([row.productId]); }}
+                          onClick={() => {
+                            void syncDrafts([row.productId]);
+                          }}
                           disabled={syncing}
                           title="Sync counted stock to system"
                           aria-label={`Sync ${row.name}`}

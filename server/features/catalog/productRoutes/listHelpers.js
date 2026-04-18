@@ -5,12 +5,11 @@ const createProductListHelpers = ({ zlib, env = process.env } = {}) => {
     return Math.max(min, Math.min(max, Math.round(parsed)));
   };
 
-  const normalizeSearchText = (value, maxLength = 160) => (
+  const normalizeSearchText = (value, maxLength = 160) =>
     String(value || '')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, maxLength)
-  );
+      .slice(0, maxLength);
 
   const PRODUCTS_LIST_PUBLIC_MAX_AGE_SEC = clampInt(
     env.PRODUCTS_LIST_PUBLIC_MAX_AGE_SEC,
@@ -45,7 +44,10 @@ const createProductListHelpers = ({ zlib, env = process.env } = {}) => {
       res.setHeader('Vary', key);
       return;
     }
-    const parts = existing.split(',').map((part) => part.trim().toLowerCase()).filter(Boolean);
+    const parts = existing
+      .split(',')
+      .map((part) => part.trim().toLowerCase())
+      .filter(Boolean);
     if (parts.includes(key.toLowerCase())) return;
     res.setHeader('Vary', `${existing}, ${key}`);
   };
@@ -57,12 +59,15 @@ const createProductListHelpers = ({ zlib, env = process.env } = {}) => {
       status = '',
       hasActiveOffers = false,
     } = options;
-    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const normalizedStatus = String(status || '')
+      .trim()
+      .toLowerCase();
     if (hasActiveOffers) {
       res.setHeader('Cache-Control', 'private, no-store');
       return;
     }
-    const cacheablePublicListing = isPaginated && !includeInactive && normalizedStatus !== 'inactive';
+    const cacheablePublicListing =
+      isPaginated && !includeInactive && normalizedStatus !== 'inactive';
     if (cacheablePublicListing) {
       res.setHeader(
         'Cache-Control',
@@ -110,28 +115,19 @@ const createProductListHelpers = ({ zlib, env = process.env } = {}) => {
 
   const toSearchImage = (row, index = 0) => {
     const thumbUrl = String(
-      row?.thumbnail
-      || row?.thumbnail_url
-      || row?.image
-      || row?.original
-      || row?.link
-      || ''
+      row?.thumbnail || row?.thumbnail_url || row?.image || row?.original || row?.link || ''
     ).trim();
-    const fullUrl = String(
-      row?.original
-      || row?.image
-      || row?.link
-      || row?.thumbnail
-      || ''
-    ).trim();
+    const fullUrl = String(row?.original || row?.image || row?.link || row?.thumbnail || '').trim();
     if (!fullUrl) return null;
-    const position = Number(row?.position || 0) || (index + 1);
+    const position = Number(row?.position || 0) || index + 1;
     return {
       id: `serpapi-bing-${position}`,
       thumbUrl: thumbUrl || fullUrl,
       fullUrl,
       source: 'serpapi-bing',
-      title: String(row?.title || row?.source || row?.source_name || `Suggestion ${index + 1}`).trim(),
+      title: String(
+        row?.title || row?.source || row?.source_name || `Suggestion ${index + 1}`
+      ).trim(),
     };
   };
 

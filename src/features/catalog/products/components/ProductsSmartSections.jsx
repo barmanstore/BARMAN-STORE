@@ -26,13 +26,17 @@ function ProductsSmartSections({
       {repeatOrderFamilies.length > 0 && (
         <section className="products-feature-block repeat-order-block">
           <div className="feature-block-header">
-            <h2><RotateCcw size={16} /> 1-Tap Repeat Order</h2>
+            <h2>
+              <RotateCcw size={16} /> 1-Tap Repeat Order
+            </h2>
             <button type="button" className="feature-action-btn" onClick={handleRepeatOrder}>
               Repeat Order
             </button>
           </div>
           <small className="repeat-order-caption">
-            {recentlyBoughtFamilies.length > 0 ? 'From your recently bought products' : 'From your quick-add history'}
+            {recentlyBoughtFamilies.length > 0
+              ? 'From your recently bought products'
+              : 'From your quick-add history'}
           </small>
           <div className="repeat-order-grid horizontal-group-row">
             {repeatOrderFamilies.map((family) => {
@@ -61,7 +65,9 @@ function ProductsSmartSections({
 
       <section className="products-feature-block restock-block">
         <div className="feature-block-header">
-          <h2><Sparkles size={16} /> Smart Restock</h2>
+          <h2>
+            <Sparkles size={16} /> Smart Restock
+          </h2>
           <button
             type="button"
             className="feature-action-btn"
@@ -72,9 +78,7 @@ function ProductsSmartSections({
           </button>
         </div>
         {smartRestockItems.length === 0 ? (
-          <p className="feature-empty">
-            Add a few items to unlock restock prediction.
-          </p>
+          <p className="feature-empty">Add a few items to unlock restock prediction.</p>
         ) : (
           <div className="restock-list horizontal-group-row">
             {smartRestockItems.map((item) => (
@@ -101,7 +105,9 @@ function ProductsSmartSections({
                 </div>
                 <div className="restock-item-footer">
                   <small>{item.daysSince}d ago</small>
-                  <button type="button" onClick={() => addToCart(item.family, item.variation)}>+ Restock</button>
+                  <button type="button" onClick={() => addToCart(item.family, item.variation)}>
+                    + Restock
+                  </button>
                 </div>
               </article>
             ))}
@@ -135,7 +141,9 @@ function ProductsSmartSections({
                   <strong>{formatCurrency(combo.finalPrice)}</strong>
                   <span>Save {formatCurrency(combo.saveAmount)}</span>
                 </div>
-                <button type="button" onClick={() => handleAddCombo(combo)}>Add Combo</button>
+                <button type="button" onClick={() => handleAddCombo(combo)}>
+                  Add Combo
+                </button>
               </article>
             ))}
           </div>
@@ -146,4 +154,3 @@ function ProductsSmartSections({
 }
 
 export default ProductsSmartSections;
-

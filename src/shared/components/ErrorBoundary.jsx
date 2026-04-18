@@ -23,16 +23,18 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          minHeight: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: '#f5f5f5'
-        }}>
+        <div
+          style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            minHeight: '100dvh',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5',
+          }}
+        >
           <h1 style={{ fontSize: '2em', color: '#333', marginBottom: '10px' }}>
             ⚠️ Something went wrong
           </h1>
@@ -40,7 +42,7 @@ class ErrorBoundary extends React.Component {
             Something went wrong. Please refresh the page or try again later.
           </p>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => (window.location.href = '/')}
             style={{
               padding: '10px 20px',
               fontSize: '1em',
@@ -49,10 +51,10 @@ class ErrorBoundary extends React.Component {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              transition: 'background-color 0.3s'
+              transition: 'background-color 0.3s',
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+            onMouseOver={(e) => (e.target.style.backgroundColor = '#0056b3')}
+            onMouseOut={(e) => (e.target.style.backgroundColor = '#007bff')}
           >
             Go Home
           </button>

@@ -20,21 +20,26 @@ const registerPurchaseOrdersStatusRoutes = (deps) => {
     try {
       const status = req.body?.status;
       const billNumberRaw = req.body?.bill_number ?? req.body?.invoice_number;
-      const billNumber = billNumberRaw === undefined || billNumberRaw === null ? null : String(billNumberRaw).trim();
+      const billNumber =
+        billNumberRaw === undefined || billNumberRaw === null ? null : String(billNumberRaw).trim();
       if (!status) return res.status(400).json({ error: 'status is required' });
       const order = await dbGetAsync(`SELECT * FROM purchase_orders WHERE id = ?`, [req.params.id]);
       if (!order) return res.status(404).json({ error: 'Purchase order not found' });
       const currentPoStatus = getPurchaseOrderLifecycleStatus(order);
       const normalizedRequestedPoStatus = normalizePoLifecycleStatus(status, currentPoStatus);
-      const requestedStatusRaw = String(status || '').trim().toLowerCase();
+      const requestedStatusRaw = String(status || '')
+        .trim()
+        .toLowerCase();
       const deliveredRaw = req.body?.delivered;
-      const delivered = deliveredRaw === undefined || deliveredRaw === null || deliveredRaw === ''
-        ? true
-        : !['false', '0', 'no', 'n', 'off'].includes(String(deliveredRaw).trim().toLowerCase());
-      const isConfirmRequest = normalizedRequestedPoStatus === PO_LIFECYCLE_CONFIRMED
-        || normalizedRequestedPoStatus === PO_LIFECYCLE_PART_PAID
-        || normalizedRequestedPoStatus === PO_LIFECYCLE_FULLY_PAID
-        || requestedStatusRaw === 'processed';
+      const delivered =
+        deliveredRaw === undefined || deliveredRaw === null || deliveredRaw === ''
+          ? true
+          : !['false', '0', 'no', 'n', 'off'].includes(String(deliveredRaw).trim().toLowerCase());
+      const isConfirmRequest =
+        normalizedRequestedPoStatus === PO_LIFECYCLE_CONFIRMED ||
+        normalizedRequestedPoStatus === PO_LIFECYCLE_PART_PAID ||
+        normalizedRequestedPoStatus === PO_LIFECYCLE_FULLY_PAID ||
+        requestedStatusRaw === 'processed';
 
       if (isConfirmRequest) {
         return handlePurchaseOrderConfirm(deps, {

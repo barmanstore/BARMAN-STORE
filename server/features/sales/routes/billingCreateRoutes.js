@@ -3,13 +3,7 @@ const { persistBillDraft } = require('./billingCreate/billPersist');
 const { notifyBillCreated } = require('./billingCreate/billNotifications');
 
 const registerBillingCreateRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbGetAsync,
-    isUniqueViolationError,
-    logAdminAuditAsync,
-  } = deps;
+  const { app, requireAdmin, dbGetAsync, isUniqueViolationError, logAdminAuditAsync } = deps;
 
   app.post('/api/bills/create', requireAdmin, async (req, res) => {
     let clientRequestId = null;
@@ -54,10 +48,19 @@ const registerBillingCreateRoutes = (deps) => {
           createdBy,
         });
       } catch (notifyError) {
-        console.warn('[NOTIFY] bill creation notification failed:', notifyError?.message || notifyError);
+        console.warn(
+          '[NOTIFY] bill creation notification failed:',
+          notifyError?.message || notifyError
+        );
       }
-      const pendingQtyTotal = draft.itemFulfillmentRows.reduce((sum, it) => sum + Math.max(0, Number(it.pending_qty || 0)), 0);
-      const fulfilledQtyTotal = draft.itemFulfillmentRows.reduce((sum, it) => sum + Math.max(0, Number(it.fulfilled_qty || 0)), 0);
+      const pendingQtyTotal = draft.itemFulfillmentRows.reduce(
+        (sum, it) => sum + Math.max(0, Number(it.pending_qty || 0)),
+        0
+      );
+      const fulfilledQtyTotal = draft.itemFulfillmentRows.reduce(
+        (sum, it) => sum + Math.max(0, Number(it.fulfilled_qty || 0)),
+        0
+      );
       return res.status(201).json({
         success: true,
         bill_id: billId,
@@ -70,7 +73,10 @@ const registerBillingCreateRoutes = (deps) => {
       });
     } catch (error) {
       if (clientRequestId && isUniqueViolationError(error)) {
-        const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`, [clientRequestId]);
+        const existing = await dbGetAsync(
+          `SELECT id, bill_number FROM bills WHERE client_request_id = ? LIMIT 1`,
+          [clientRequestId]
+        );
         if (existing) {
           return res.status(200).json({
             success: true,
@@ -81,7 +87,10 @@ const registerBillingCreateRoutes = (deps) => {
         }
       }
       if (linkedOrderId && isUniqueViolationError(error)) {
-        const existing = await dbGetAsync(`SELECT id, bill_number FROM bills WHERE order_id = ? LIMIT 1`, [linkedOrderId]);
+        const existing = await dbGetAsync(
+          `SELECT id, bill_number FROM bills WHERE order_id = ? LIMIT 1`,
+          [linkedOrderId]
+        );
         if (existing) {
           return res.status(200).json({
             success: true,

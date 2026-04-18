@@ -76,7 +76,9 @@ const parseDateInputValue = (value) => {
 };
 
 const normalizeDateInputDraft = (value) => {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  const digits = String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, 8);
   if (!digits) return '';
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
@@ -165,23 +167,42 @@ function MiniCalendar({
 }) {
   const monthDate = fromDateToken(monthToken) || new Date();
   const monthLabel = `${MONTH_NAMES[monthDate.getMonth()]} ${monthDate.getFullYear()}`;
-  const monthGrid = useMemo(() => buildMonthGrid(monthToken, weekStartsOn), [monthToken, weekStartsOn]);
+  const monthGrid = useMemo(
+    () => buildMonthGrid(monthToken, weekStartsOn),
+    [monthToken, weekStartsOn]
+  );
 
-  const previewStart = selectedStartDate && !selectedEndDate && hoverDate
-    ? (compareTokens(selectedStartDate, hoverDate) <= 0 ? selectedStartDate : hoverDate)
-    : '';
-  const previewEnd = selectedStartDate && !selectedEndDate && hoverDate
-    ? (compareTokens(selectedStartDate, hoverDate) <= 0 ? hoverDate : selectedStartDate)
-    : '';
+  const previewStart =
+    selectedStartDate && !selectedEndDate && hoverDate
+      ? compareTokens(selectedStartDate, hoverDate) <= 0
+        ? selectedStartDate
+        : hoverDate
+      : '';
+  const previewEnd =
+    selectedStartDate && !selectedEndDate && hoverDate
+      ? compareTokens(selectedStartDate, hoverDate) <= 0
+        ? hoverDate
+        : selectedStartDate
+      : '';
 
   return (
     <section className="cashbook-mini-calendar">
       <div className="cashbook-mini-calendar-header">
-        <button type="button" className="cashbook-mini-calendar-nav" onClick={() => onMonthChange(-1)} aria-label="Previous month">
+        <button
+          type="button"
+          className="cashbook-mini-calendar-nav"
+          onClick={() => onMonthChange(-1)}
+          aria-label="Previous month"
+        >
           <span aria-hidden="true">‹</span>
         </button>
         <span className="cashbook-mini-calendar-title">{monthLabel}</span>
-        <button type="button" className="cashbook-mini-calendar-nav" onClick={() => onMonthChange(1)} aria-label="Next month">
+        <button
+          type="button"
+          className="cashbook-mini-calendar-nav"
+          onClick={() => onMonthChange(1)}
+          aria-label="Next month"
+        >
           <span aria-hidden="true">›</span>
         </button>
       </div>
@@ -196,8 +217,14 @@ function MiniCalendar({
         {monthGrid.map((cell) => {
           const isStart = cell.token === selectedStartDate;
           const isEnd = cell.token === selectedEndDate;
-          const committedRange = Boolean(selectedStartDate && selectedEndDate && isBetweenInclusive(cell.token, selectedStartDate, selectedEndDate));
-          const previewRange = Boolean(previewStart && previewEnd && isBetweenInclusive(cell.token, previewStart, previewEnd));
+          const committedRange = Boolean(
+            selectedStartDate &&
+            selectedEndDate &&
+            isBetweenInclusive(cell.token, selectedStartDate, selectedEndDate)
+          );
+          const previewRange = Boolean(
+            previewStart && previewEnd && isBetweenInclusive(cell.token, previewStart, previewEnd)
+          );
           const inRange = committedRange || previewRange;
 
           return (
@@ -211,7 +238,9 @@ function MiniCalendar({
                 inRange ? 'is-range' : '',
                 isStart ? 'is-start' : '',
                 isEnd ? 'is-end' : '',
-              ].filter(Boolean).join(' ')}
+              ]
+                .filter(Boolean)
+                .join(' ')}
               onMouseEnter={() => onDateHover?.(cell.token)}
               onClick={() => onDateSelect?.(cell.token)}
               aria-label={cell.label}
@@ -225,7 +254,8 @@ function MiniCalendar({
   );
 }
 
-const formatShortDate = (dateKey) => formatDate(dateKey, 'en-IN', { month: 'short', day: '2-digit' });
+const formatShortDate = (dateKey) =>
+  formatDate(dateKey, 'en-IN', { month: 'short', day: '2-digit' });
 
 const getAmountTone = (entry) => {
   if (entry.type === 'task') return 'neutral';
@@ -244,17 +274,26 @@ const getSignedAmountLabel = (entry) => {
   return `${prefix}${formatCurrency(Math.abs(signedAmount))}`;
 };
 
-const isCreditHistoryEntry = (entry) => Boolean(
-  entry?.is_credit_history || String(entry?.source_type || '').trim().toLowerCase() === 'credit_history'
-);
+const isCreditHistoryEntry = (entry) =>
+  Boolean(
+    entry?.is_credit_history ||
+    String(entry?.source_type || '')
+      .trim()
+      .toLowerCase() === 'credit_history'
+  );
 
 const parseCashbookLine = (rawValue) => {
-  const value = String(rawValue || '').trim().replace(/\s+/g, ' ');
+  const value = String(rawValue || '')
+    .trim()
+    .replace(/\s+/g, ' ');
   if (!value) return null;
 
   const lowered = value.toLowerCase();
   if (/^(task|todo|note)\s*[:-]?\s*/.test(lowered) || value.startsWith('!')) {
-    const note = value.replace(/^(task|todo|note)\s*[:-]?\s*/i, '').replace(/^!\s*/, '').trim();
+    const note = value
+      .replace(/^(task|todo|note)\s*[:-]?\s*/i, '')
+      .replace(/^!\s*/, '')
+      .trim();
     return { type: 'task', amount: null, note };
   }
 
@@ -262,7 +301,9 @@ const parseCashbookLine = (rawValue) => {
   const hasLeadingPlus = /^\s*\+/.test(value);
   const hasLeadingMinus = /^\s*-/.test(value);
   const isExplicitIncome = /\b(income|received|in|cash in|add)\b/.test(lowered);
-  const isExplicitExpense = /\b(expense|spent|out|cash out|paid|payment|reduce|deduct)\b/.test(lowered);
+  const isExplicitExpense = /\b(expense|spent|out|cash out|paid|payment|reduce|deduct)\b/.test(
+    lowered
+  );
   const isAdjustment = /\b(adjust|adjustment|correction|rectify)\b/.test(lowered);
 
   let type = 'expense';
@@ -281,7 +322,10 @@ const parseCashbookLine = (rawValue) => {
   const cleanedNote = value
     .replace(amountMatch[0], ' ')
     .replace(/^[+-]/, ' ')
-    .replace(/\b(task|todo|note|income|received|in|cash in|add|expense|spent|out|cash out|paid|payment|reduce|deduct|adjust|adjustment|correction|rectify)\b/gi, ' ')
+    .replace(
+      /\b(task|todo|note|income|received|in|cash in|add|expense|spent|out|cash out|paid|payment|reduce|deduct|adjust|adjustment|correction|rectify)\b/gi,
+      ' '
+    )
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -289,13 +333,13 @@ const parseCashbookLine = (rawValue) => {
     type,
     amount,
     note: cleanedNote,
-    adjustment_direction: hasLeadingMinus || /\b(reduce|deduct|subtract)\b/.test(lowered) ? 'reduce' : 'add',
+    adjustment_direction:
+      hasLeadingMinus || /\b(reduce|deduct|subtract)\b/.test(lowered) ? 'reduce' : 'add',
   };
 };
 
-const isEditableCashbookEntry = (entry) => Boolean(
-  entry && !entry.is_credit_history && !entry.is_auto
-);
+const isEditableCashbookEntry = (entry) =>
+  Boolean(entry && !entry.is_credit_history && !entry.is_auto);
 
 const buildComposerLineFromEntry = (entry) => {
   if (!isEditableCashbookEntry(entry)) return '';
@@ -334,36 +378,53 @@ const CashbookEntryRow = memo(function CashbookEntryRow({
         ? 'Auto'
         : 'Manual';
   const rowFlowLabel = entry.is_credit_history
-    ? (entry.type === 'payment' ? 'Payment' : 'Sale')
+    ? entry.type === 'payment'
+      ? 'Payment'
+      : 'Sale'
     : entry.type === 'task'
       ? 'Reminder'
       : entry.type === 'adjustment'
         ? 'Adjustment'
-        : (tone === 'in' ? 'Cash in' : 'Cash out');
+        : tone === 'in'
+          ? 'Cash in'
+          : 'Cash out';
   const editPreview = parseCashbookLine(editDraft);
-  const editPreviewAmount = editPreview ? getSignedAmountLabel({
-    ...entry,
-    type: editPreview.type,
-    amount: editPreview.amount ?? entry.amount,
-    signed_amount: editPreview.type === 'task'
-      ? 0
-      : editPreview.type === 'adjustment'
-        ? (editPreview.adjustment_direction === 'reduce' ? -Math.abs(Number(editPreview.amount || 0)) : Math.abs(Number(editPreview.amount || 0)))
-        : (editPreview.type === 'expense' ? -Math.abs(Number(editPreview.amount || 0)) : Math.abs(Number(editPreview.amount || 0))),
-  }) : '';
+  const editPreviewAmount = editPreview
+    ? getSignedAmountLabel({
+        ...entry,
+        type: editPreview.type,
+        amount: editPreview.amount ?? entry.amount,
+        signed_amount:
+          editPreview.type === 'task'
+            ? 0
+            : editPreview.type === 'adjustment'
+              ? editPreview.adjustment_direction === 'reduce'
+                ? -Math.abs(Number(editPreview.amount || 0))
+                : Math.abs(Number(editPreview.amount || 0))
+              : editPreview.type === 'expense'
+                ? -Math.abs(Number(editPreview.amount || 0))
+                : Math.abs(Number(editPreview.amount || 0)),
+      })
+    : '';
 
   return (
     <div
       className={`cashbook-entry cashbook-entry-${tone}${entry.is_credit_history ? ' cashbook-entry-credit' : ''}${isEditing ? ' is-editing' : ''}${isRecent ? ' is-recent' : ''}${isRecent && recentEntryFlash ? ` ${recentEntryFlash}` : ''}`}
       role={isEditableCashbookEntry(entry) ? 'button' : undefined}
       tabIndex={isEditableCashbookEntry(entry) ? 0 : undefined}
-      onClick={!isEditing && isEditableCashbookEntry(entry) ? () => onStartEdit?.(entry) : undefined}
-      onKeyDown={!isEditing && isEditableCashbookEntry(entry) ? (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onStartEdit?.(entry);
-        }
-      } : undefined}
+      onClick={
+        !isEditing && isEditableCashbookEntry(entry) ? () => onStartEdit?.(entry) : undefined
+      }
+      onKeyDown={
+        !isEditing && isEditableCashbookEntry(entry)
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onStartEdit?.(entry);
+              }
+            }
+          : undefined
+      }
     >
       <div className="cashbook-entry-time">{timeLabel}</div>
       <div className="cashbook-entry-main">
@@ -372,7 +433,9 @@ const CashbookEntryRow = memo(function CashbookEntryRow({
             <div className="cashbook-entry-title">
               <span className="cashbook-entry-type">{entry.label}</span>
             </div>
-            <div className="cashbook-entry-meta cashbook-entry-meta-edit">Editing · {rowMetaLabel}</div>
+            <div className="cashbook-entry-meta cashbook-entry-meta-edit">
+              Editing · {rowMetaLabel}
+            </div>
             <input
               className="cashbook-entry-edit-input"
               type="text"
@@ -397,13 +460,9 @@ const CashbookEntryRow = memo(function CashbookEntryRow({
             <div className="cashbook-entry-meta">
               {rowMetaLabel} · {rowFlowLabel}
             </div>
-            {entry.note ? (
-              <div className="cashbook-entry-note">{entry.note}</div>
-            ) : null}
+            {entry.note ? <div className="cashbook-entry-note">{entry.note}</div> : null}
             {showRunningBalance && entry.type !== 'task' ? (
-              <div className="cashbook-entry-balance">
-                Balance {formatCurrency(runningBalance)}
-              </div>
+              <div className="cashbook-entry-balance">Balance {formatCurrency(runningBalance)}</div>
             ) : null}
           </>
         )}
@@ -421,12 +480,17 @@ const CashbookEntryRow = memo(function CashbookEntryRow({
           <strong>{getSignedAmountLabel(entry)}</strong>
         </div>
       )}
-      {isRecent ? <CheckCircle2 size={14} className="cashbook-entry-saved" aria-hidden="true" /> : null}
+      {isRecent ? (
+        <CheckCircle2 size={14} className="cashbook-entry-saved" aria-hidden="true" />
+      ) : null}
     </div>
   );
 });
 
-const buildCashbookDisplaySnapshot = (snapshot, { dateRange = ['', ''], hideCreditHistory = false, todayKey = '' } = {}) => {
+const buildCashbookDisplaySnapshot = (
+  snapshot,
+  { dateRange = ['', ''], hideCreditHistory = false, todayKey = '' } = {}
+) => {
   if (!snapshot) return null;
 
   const groups = Array.isArray(snapshot?.groups) ? snapshot.groups : [];
@@ -486,7 +550,9 @@ const buildCashbookDisplaySnapshot = (snapshot, { dateRange = ['', ''], hideCred
       closing_balance: closingBalance,
       entry_count: entries.length,
       auto_count: entries.filter((entry) => entry.is_auto).length,
-      manual_count: entries.filter((entry) => !entry.is_auto && !isCreditHistoryEntry(entry) && entry.type !== 'task').length,
+      manual_count: entries.filter(
+        (entry) => !entry.is_auto && !isCreditHistoryEntry(entry) && entry.type !== 'task'
+      ).length,
       credit_count: entries.filter((entry) => isCreditHistoryEntry(entry)).length,
       task_count: entries.filter((entry) => entry.type === 'task').length,
       entries,
@@ -494,26 +560,31 @@ const buildCashbookDisplaySnapshot = (snapshot, { dateRange = ['', ''], hideCred
   });
 
   const rebuiltDesc = rebuiltAscending.slice().reverse();
-  const summaryGroup = rebuiltAscending.find((group) => group.date === todayKey) || rebuiltAscending[rebuiltAscending.length - 1] || null;
+  const summaryGroup =
+    rebuiltAscending.find((group) => group.date === todayKey) ||
+    rebuiltAscending[rebuiltAscending.length - 1] ||
+    null;
 
   return {
     ...snapshot,
     groups: rebuiltDesc,
-    today_summary: summaryGroup ? {
-      date: summaryGroup.date,
-      label: summaryGroup.label,
-      opening_balance: summaryGroup.opening_balance,
-      in_total: summaryGroup.in_total,
-      out_total: summaryGroup.out_total,
-      closing_balance: summaryGroup.closing_balance,
-      entry_count: summaryGroup.entry_count,
-      auto_count: summaryGroup.auto_count,
-      manual_count: summaryGroup.manual_count,
-      task_count: summaryGroup.task_count,
-      has_saved_opening_balance: summaryGroup.has_saved_opening_balance,
-      opening_balance_updated_at: summaryGroup.opening_balance_updated_at,
-      entries: summaryGroup.entries,
-    } : null,
+    today_summary: summaryGroup
+      ? {
+          date: summaryGroup.date,
+          label: summaryGroup.label,
+          opening_balance: summaryGroup.opening_balance,
+          in_total: summaryGroup.in_total,
+          out_total: summaryGroup.out_total,
+          closing_balance: summaryGroup.closing_balance,
+          entry_count: summaryGroup.entry_count,
+          auto_count: summaryGroup.auto_count,
+          manual_count: summaryGroup.manual_count,
+          task_count: summaryGroup.task_count,
+          has_saved_opening_balance: summaryGroup.has_saved_opening_balance,
+          opening_balance_updated_at: summaryGroup.opening_balance_updated_at,
+          entries: summaryGroup.entries,
+        }
+      : null,
   };
 };
 
@@ -565,17 +636,20 @@ function CashbookSection() {
     composerInputRef.current?.focus();
   }, []);
 
-  useEffect(() => () => {
-    if (recentEntryTimerRef.current) {
-      clearTimeout(recentEntryTimerRef.current);
-    }
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-    }
-    if (undoHideTimerRef.current) {
-      clearTimeout(undoHideTimerRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (recentEntryTimerRef.current) {
+        clearTimeout(recentEntryTimerRef.current);
+      }
+      if (undoTimerRef.current) {
+        clearTimeout(undoTimerRef.current);
+      }
+      if (undoHideTimerRef.current) {
+        clearTimeout(undoHideTimerRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!snapshot?.today_summary) return;
@@ -667,11 +741,13 @@ function CashbookSection() {
     ];
   }, [todayKey]);
 
-  const activeDatePreset = useMemo(() => (
-    dateRangePresets.find((preset) => (
-      dateRange[0] === preset.value[0] && dateRange[1] === preset.value[1]
-    )) || null
-  ), [dateRange, dateRangePresets]);
+  const activeDatePreset = useMemo(
+    () =>
+      dateRangePresets.find(
+        (preset) => dateRange[0] === preset.value[0] && dateRange[1] === preset.value[1]
+      ) || null,
+    [dateRange, dateRangePresets]
+  );
 
   const isCustomDateRange = Boolean(dateRange[0] || dateRange[1]) && !activeDatePreset;
 
@@ -683,20 +759,22 @@ function CashbookSection() {
   }, [dateRange]);
 
   const displaySnapshot = useMemo(
-    () => buildCashbookDisplaySnapshot(snapshot, {
-      dateRange,
-      hideCreditHistory,
-      todayKey,
-    }),
+    () =>
+      buildCashbookDisplaySnapshot(snapshot, {
+        dateRange,
+        hideCreditHistory,
+        todayKey,
+      }),
     [snapshot, dateRange, hideCreditHistory, todayKey]
   );
 
   const summarySnapshot = useMemo(
-    () => buildCashbookDisplaySnapshot(snapshot, {
-      dateRange: ['', ''],
-      hideCreditHistory,
-      todayKey,
-    }),
+    () =>
+      buildCashbookDisplaySnapshot(snapshot, {
+        dateRange: ['', ''],
+        hideCreditHistory,
+        todayKey,
+      }),
     [snapshot, hideCreditHistory, todayKey]
   );
 
@@ -760,19 +838,22 @@ function CashbookSection() {
     }
   }, []);
 
-  const queueUndoState = useCallback((entry) => {
-    if (!entry) return;
-    setLastDeletedEntry(entry);
-    setUndoToastVisible(true);
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (undoHideTimerRef.current) clearTimeout(undoHideTimerRef.current);
-    undoTimerRef.current = setTimeout(() => {
-      setUndoToastVisible(false);
-      undoHideTimerRef.current = setTimeout(() => {
-        clearUndoState();
-      }, 140);
-    }, 2500);
-  }, [clearUndoState]);
+  const queueUndoState = useCallback(
+    (entry) => {
+      if (!entry) return;
+      setLastDeletedEntry(entry);
+      setUndoToastVisible(true);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      if (undoHideTimerRef.current) clearTimeout(undoHideTimerRef.current);
+      undoTimerRef.current = setTimeout(() => {
+        setUndoToastVisible(false);
+        undoHideTimerRef.current = setTimeout(() => {
+          clearUndoState();
+        }, 140);
+      }, 2500);
+    },
+    [clearUndoState]
+  );
 
   const repeatLastEntry = () => {
     if (!latestEditableEntry) return;
@@ -802,28 +883,31 @@ function CashbookSection() {
     }
   };
 
-  const buildRestorePayload = useCallback((entry) => {
-    if (!entry) return null;
-    const type = String(entry.type || '').trim();
-    const date = String(entry.date || todayKey || '').trim();
-    if (!type || !date) return null;
+  const buildRestorePayload = useCallback(
+    (entry) => {
+      if (!entry) return null;
+      const type = String(entry.type || '').trim();
+      const date = String(entry.date || todayKey || '').trim();
+      if (!type || !date) return null;
 
-    const payload = { date, type };
-    if (type === 'task') {
-      payload.note = String(entry.note || '').trim();
+      const payload = { date, type };
+      if (type === 'task') {
+        payload.note = String(entry.note || '').trim();
+        if (entry.time) payload.time = entry.time;
+        return payload;
+      }
+
+      payload.amount = Math.abs(Number(entry.amount || 0));
+      if (entry.note) payload.note = String(entry.note || '').trim();
+      if (type === 'adjustment') {
+        const signedAmount = Number(entry.signed_amount ?? 0);
+        payload.adjustment_direction = signedAmount < 0 ? 'reduce' : 'add';
+      }
       if (entry.time) payload.time = entry.time;
       return payload;
-    }
-
-    payload.amount = Math.abs(Number(entry.amount || 0));
-    if (entry.note) payload.note = String(entry.note || '').trim();
-    if (type === 'adjustment') {
-      const signedAmount = Number(entry.signed_amount ?? 0);
-      payload.adjustment_direction = signedAmount < 0 ? 'reduce' : 'add';
-    }
-    if (entry.time) payload.time = entry.time;
-    return payload;
-  }, [todayKey]);
+    },
+    [todayKey]
+  );
 
   const handleUndoDelete = useCallback(async () => {
     if (!lastDeletedEntry) return;
@@ -860,7 +944,10 @@ function CashbookSection() {
     editingSavingRef.current = false;
     setTimeout(() => {
       editInputRef.current?.focus();
-      editInputRef.current?.setSelectionRange?.(editInputRef.current.value.length, editInputRef.current.value.length);
+      editInputRef.current?.setSelectionRange?.(
+        editInputRef.current.value.length,
+        editInputRef.current.value.length
+      );
     }, 0);
   }, []);
 
@@ -879,7 +966,9 @@ function CashbookSection() {
     if (!entryId || editingSavingRef.current) return;
     const parsed = parseCashbookLine(draft);
     if (!parsed) {
-      setFormError('Type a cash line like `500 rice`, `-150 petrol`, `+2000`, or `task: call supplier`.');
+      setFormError(
+        'Type a cash line like `500 rice`, `-150 petrol`, `+2000`, or `task: call supplier`.'
+      );
       return;
     }
 
@@ -892,7 +981,8 @@ function CashbookSection() {
         type: parsed.type,
         amount: parsed.type === 'task' ? undefined : parsed.amount,
         note: parsed.note,
-        adjustment_direction: parsed.type === 'adjustment' ? (parsed.adjustment_direction || 'add') : undefined,
+        adjustment_direction:
+          parsed.type === 'adjustment' ? parsed.adjustment_direction || 'add' : undefined,
       });
       if (response?.snapshot) {
         setSnapshot(response.snapshot);
@@ -919,25 +1009,30 @@ function CashbookSection() {
     setFormError('');
   }, []);
 
-  const handleEditKeyDown = useCallback((event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      void handleSaveEdit();
-      return;
-    }
+  const handleEditKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        void handleSaveEdit();
+        return;
+      }
 
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      handleCancelEdit();
-    }
-  }, [handleCancelEdit, handleSaveEdit]);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleCancelEdit();
+      }
+    },
+    [handleCancelEdit, handleSaveEdit]
+  );
 
   const handleSaveEntry = async () => {
     if (!todayKey) return;
     setFormError('');
     const parsed = parseCashbookLine(composerDraft);
     if (!parsed) {
-      setFormError('Type a cash line like `500 rice`, `-150 petrol`, `+2000`, or `task: call supplier`.');
+      setFormError(
+        'Type a cash line like `500 rice`, `-150 petrol`, `+2000`, or `task: call supplier`.'
+      );
       return;
     }
 
@@ -1010,7 +1105,9 @@ function CashbookSection() {
       <div className={`cashbook-toprail${isMobile ? ' is-mobile' : ''}`}>
         <div className="cashbook-topbar">
           <div className="cashbook-topbar-title">
-            <p className="cashbook-summary-kicker">{todayLabel.toUpperCase()} ({todayDateLabel})</p>
+            <p className="cashbook-summary-kicker">
+              {todayLabel.toUpperCase()} ({todayDateLabel})
+            </p>
             <h2 className="cashbook-panel-title">Cashbook</h2>
           </div>
           <div className="cashbook-topbar-actions">
@@ -1030,7 +1127,9 @@ function CashbookSection() {
 
         <div className="cashbook-inline-controls">
           <div className="cashbook-opening-inline">
-            <label htmlFor="cashbook-opening-balance" className="cashbook-opening-label">Opening</label>
+            <label htmlFor="cashbook-opening-balance" className="cashbook-opening-label">
+              Opening
+            </label>
             <input
               id="cashbook-opening-balance"
               type="number"
@@ -1143,10 +1242,18 @@ function CashbookSection() {
         </div>
 
         <div className="cashbook-summary-strip" aria-label="Today summary">
-          <span>Opening <strong>{formatCurrency(summaryOpening)}</strong></span>
-          <span>In <strong>{formatCurrency(summaryIn)}</strong></span>
-          <span className="is-out">Out <strong>{formatCurrency(summaryOut)}</strong></span>
-          <span>Closing <strong>{formatCurrency(summaryClosing)}</strong></span>
+          <span>
+            Opening <strong>{formatCurrency(summaryOpening)}</strong>
+          </span>
+          <span>
+            In <strong>{formatCurrency(summaryIn)}</strong>
+          </span>
+          <span className="is-out">
+            Out <strong>{formatCurrency(summaryOut)}</strong>
+          </span>
+          <span>
+            Closing <strong>{formatCurrency(summaryClosing)}</strong>
+          </span>
         </div>
 
         <div className="cashbook-analysis-panel" ref={analysisPanelRef}>
@@ -1177,9 +1284,15 @@ function CashbookSection() {
             </button>
           </div>
           {showAnalysisPanel ? (
-            <div className="cashbook-custom-popover" role="dialog" aria-label="Custom cashbook filter">
+            <div
+              className="cashbook-custom-popover"
+              role="dialog"
+              aria-label="Custom cashbook filter"
+            >
               <div className="cashbook-custom-row">
-                <label className={`cashbook-custom-field${calendarField === 'from' ? ' is-active' : ''}`}>
+                <label
+                  className={`cashbook-custom-field${calendarField === 'from' ? ' is-active' : ''}`}
+                >
                   <span>From</span>
                   <div className="cashbook-custom-input-shell">
                     <input
@@ -1200,7 +1313,14 @@ function CashbookSection() {
                         if (event.key === 'ArrowDown') {
                           event.preventDefault();
                           setCalendarField('from');
-                          setCalendarMonthToken(parseDateInputValue(customFromInput) || parseDateInputValue(customToInput) || dateRange[0] || dateRange[1] || todayKey || '');
+                          setCalendarMonthToken(
+                            parseDateInputValue(customFromInput) ||
+                              parseDateInputValue(customToInput) ||
+                              dateRange[0] ||
+                              dateRange[1] ||
+                              todayKey ||
+                              ''
+                          );
                         }
                         if (event.key === 'Enter') {
                           const parsed = parseDateInputValue(customFromInput);
@@ -1223,7 +1343,13 @@ function CashbookSection() {
                       className="cashbook-custom-calendar-button"
                       onClick={() => {
                         setCalendarField((current) => (current === 'from' ? '' : 'from'));
-                        setCalendarMonthToken(parseDateInputValue(customFromInput) || dateRange[0] || dateRange[1] || todayKey || '');
+                        setCalendarMonthToken(
+                          parseDateInputValue(customFromInput) ||
+                            dateRange[0] ||
+                            dateRange[1] ||
+                            todayKey ||
+                            ''
+                        );
                         setCustomDateError('');
                       }}
                       aria-label="Open from date picker"
@@ -1235,7 +1361,9 @@ function CashbookSection() {
                     <span className="cashbook-custom-error">{customDateError}</span>
                   ) : null}
                 </label>
-                <label className={`cashbook-custom-field${calendarField === 'to' ? ' is-active' : ''}`}>
+                <label
+                  className={`cashbook-custom-field${calendarField === 'to' ? ' is-active' : ''}`}
+                >
                   <span>To</span>
                   <div className="cashbook-custom-input-shell">
                     <input
@@ -1256,7 +1384,14 @@ function CashbookSection() {
                         if (event.key === 'ArrowDown') {
                           event.preventDefault();
                           setCalendarField('to');
-                          setCalendarMonthToken(parseDateInputValue(customToInput) || parseDateInputValue(customFromInput) || dateRange[0] || dateRange[1] || todayKey || '');
+                          setCalendarMonthToken(
+                            parseDateInputValue(customToInput) ||
+                              parseDateInputValue(customFromInput) ||
+                              dateRange[0] ||
+                              dateRange[1] ||
+                              todayKey ||
+                              ''
+                          );
                         }
                         if (event.key === 'Enter') {
                           const parsed = parseDateInputValue(customToInput);
@@ -1279,7 +1414,13 @@ function CashbookSection() {
                       className="cashbook-custom-calendar-button"
                       onClick={() => {
                         setCalendarField((current) => (current === 'to' ? '' : 'to'));
-                        setCalendarMonthToken(parseDateInputValue(customToInput) || dateRange[1] || dateRange[0] || todayKey || '');
+                        setCalendarMonthToken(
+                          parseDateInputValue(customToInput) ||
+                            dateRange[1] ||
+                            dateRange[0] ||
+                            todayKey ||
+                            ''
+                        );
                         setCustomDateError('');
                       }}
                       aria-label="Open to date picker"
@@ -1313,7 +1454,15 @@ function CashbookSection() {
               {calendarField ? (
                 <div className="cashbook-mini-calendar-popover">
                   <MiniCalendar
-                    monthToken={calendarMonthToken || parseDateInputValue(customFromInput) || parseDateInputValue(customToInput) || dateRange[0] || dateRange[1] || todayKey || ''}
+                    monthToken={
+                      calendarMonthToken ||
+                      parseDateInputValue(customFromInput) ||
+                      parseDateInputValue(customToInput) ||
+                      dateRange[0] ||
+                      dateRange[1] ||
+                      todayKey ||
+                      ''
+                    }
                     selectedStartDate={parseDateInputValue(customFromInput) || dateRange[0] || ''}
                     selectedEndDate={parseDateInputValue(customToInput) || dateRange[1] || ''}
                     hoverDate={hoverDate}
@@ -1344,7 +1493,12 @@ function CashbookSection() {
                       }
                     }}
                     onMonthChange={(delta) => {
-                      setCalendarMonthToken((current) => shiftMonthToken(current || todayKey || dateRange[0] || dateRange[1] || new Date(), delta));
+                      setCalendarMonthToken((current) =>
+                        shiftMonthToken(
+                          current || todayKey || dateRange[0] || dateRange[1] || new Date(),
+                          delta
+                        )
+                      );
                     }}
                     weekStartsOn={1}
                   />
@@ -1370,7 +1524,9 @@ function CashbookSection() {
                 <div className="cashbook-group-header-time" aria-hidden="true" />
                 <div className="cashbook-group-header-main">
                   <h3>{group.label}</h3>
-                  <p>{group.entry_count} line{group.entry_count === 1 ? '' : 's'}</p>
+                  <p>
+                    {group.entry_count} line{group.entry_count === 1 ? '' : 's'}
+                  </p>
                 </div>
                 <div className="cashbook-group-header-amount">
                   <span>Closing</span>
@@ -1380,25 +1536,27 @@ function CashbookSection() {
               <div className="cashbook-group-entries">
                 {group.entries.length === 0 ? (
                   <div className="cashbook-empty-row">No entries for this day.</div>
-                ) : group.entries.map((entry) => {
-                  const isRecent = String(entry.id) === String(recentEntryId);
-                  const isEditing = String(editingEntryId) === String(entry.id);
-                  return (
-                    <CashbookEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      isEditing={isEditing}
-                      editDraft={isEditing ? editingDraft : ''}
-                      editInputRef={isEditing ? editInputRef : null}
-                      onStartEdit={handleStartEdit}
-                      onEditDraftChange={handleEditDraftChange}
-                      onEditKeyDown={handleEditKeyDown}
-                      showRunningBalance={showRunningBalance}
-                      isRecent={isRecent}
-                      recentEntryFlash={recentEntryFlash}
-                    />
-                  );
-                })}
+                ) : (
+                  group.entries.map((entry) => {
+                    const isRecent = String(entry.id) === String(recentEntryId);
+                    const isEditing = String(editingEntryId) === String(entry.id);
+                    return (
+                      <CashbookEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        isEditing={isEditing}
+                        editDraft={isEditing ? editingDraft : ''}
+                        editInputRef={isEditing ? editInputRef : null}
+                        onStartEdit={handleStartEdit}
+                        onEditDraftChange={handleEditDraftChange}
+                        onEditKeyDown={handleEditKeyDown}
+                        showRunningBalance={showRunningBalance}
+                        isRecent={isRecent}
+                        recentEntryFlash={recentEntryFlash}
+                      />
+                    );
+                  })
+                )}
               </div>
             </section>
           ))

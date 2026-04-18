@@ -25,14 +25,16 @@ const useProductsCatalogFilters = ({
         .filter((category) => category.name);
     }
 
-    const unique = Array.from(new Set(
-      productFamilies
-        .map((family) => {
-          const parsed = splitHierarchyValue(family.categoryPath || family.category);
-          return String(parsed.parent || family.category || '').trim();
-        })
-        .filter(Boolean)
-    ));
+    const unique = Array.from(
+      new Set(
+        productFamilies
+          .map((family) => {
+            const parsed = splitHierarchyValue(family.categoryPath || family.category);
+            return String(parsed.parent || family.category || '').trim();
+          })
+          .filter(Boolean)
+      )
+    );
     return unique.map((name) => ({
       id: name,
       name,
@@ -62,7 +64,9 @@ const useProductsCatalogFilters = ({
         image_height: 34,
       });
     });
-    return [...byName.values()].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    return [...byName.values()].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''))
+    );
   }, [productFamilies, normalizeText, splitHierarchyValue, resolveBrandLogoUrl]);
 
   const activeFilterOptions = useMemo(
@@ -72,9 +76,13 @@ const useProductsCatalogFilters = ({
 
   const mobileRootCategories = useMemo(() => {
     if (effectiveCategories.length === 0) return [];
-    const roots = effectiveCategories.filter((category) => (
-      category.parent_id === null || category.parent_id === undefined || category.parent_id === '' || category.parent_id === 0
-    ));
+    const roots = effectiveCategories.filter(
+      (category) =>
+        category.parent_id === null ||
+        category.parent_id === undefined ||
+        category.parent_id === '' ||
+        category.parent_id === 0
+    );
     const base = roots.length > 0 ? roots : effectiveCategories;
     return [...base].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   }, [effectiveCategories]);
@@ -82,15 +90,15 @@ const useProductsCatalogFilters = ({
   const mobileSubcategories = useMemo(() => {
     const selected = normalizeText(selectedCategory);
     if (!selected || selected === 'all') return [];
-    const selectedNode = effectiveCategories.find((category) => (
-      normalizeText(category.name) === selected
-    ));
+    const selectedNode = effectiveCategories.find(
+      (category) => normalizeText(category.name) === selected
+    );
     let subcategories = [];
 
     if (selectedNode) {
-      subcategories = effectiveCategories.filter((category) => (
-        String(category.parent_id) === String(selectedNode.id)
-      ));
+      subcategories = effectiveCategories.filter(
+        (category) => String(category.parent_id) === String(selectedNode.id)
+      );
     }
 
     if (subcategories.length === 0) {

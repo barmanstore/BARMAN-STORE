@@ -23,7 +23,9 @@ const createLocalAuthSync = ({
     if (!user) {
       let phoneToInsert = metadataPhone;
       if (phoneToInsert) {
-        const existingPhone = await dbGetAsync(`SELECT id FROM users WHERE phone = ? LIMIT 1`, [phoneToInsert]);
+        const existingPhone = await dbGetAsync(`SELECT id FROM users WHERE phone = ? LIMIT 1`, [
+          phoneToInsert,
+        ]);
         if (existingPhone) phoneToInsert = null;
       }
       const result = await dbRunAsync(
@@ -48,17 +50,20 @@ const createLocalAuthSync = ({
     const nextEmailVerified = emailVerified || Number(user.email_verified || 0) === 1 ? 1 : 0;
     let nextPhone = user.phone || null;
     if (!nextPhone && metadataPhone) {
-      const conflict = await dbGetAsync(`SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1`, [metadataPhone, user.id]);
+      const conflict = await dbGetAsync(
+        `SELECT id FROM users WHERE phone = ? AND id <> ? LIMIT 1`,
+        [metadataPhone, user.id]
+      );
       if (!conflict) nextPhone = metadataPhone;
     }
     const nextName = String(user.name || '').trim() || metadataName || 'Customer';
     const nextAddress = user.address || metadataAddress || null;
 
     if (
-      nextName !== String(user.name || '')
-      || Number(user.email_verified || 0) !== nextEmailVerified
-      || String(user.phone || '') !== String(nextPhone || '')
-      || String(user.address || '') !== String(nextAddress || '')
+      nextName !== String(user.name || '') ||
+      Number(user.email_verified || 0) !== nextEmailVerified ||
+      String(user.phone || '') !== String(nextPhone || '') ||
+      String(user.address || '') !== String(nextAddress || '')
     ) {
       await dbRunAsync(
         `UPDATE users

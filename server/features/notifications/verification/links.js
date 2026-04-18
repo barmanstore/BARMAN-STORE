@@ -1,8 +1,5 @@
 const createVerificationLinks = (deps = {}) => {
-  const {
-    EMAIL_VERIFY_BASE_URL,
-    PHONE_VERIFY_BASE_URL,
-  } = deps;
+  const { EMAIL_VERIFY_BASE_URL, PHONE_VERIFY_BASE_URL } = deps;
 
   const buildEmailVerificationLink = ({ email, token }) => {
     const base = String(EMAIL_VERIFY_BASE_URL || 'http://localhost/login').trim();

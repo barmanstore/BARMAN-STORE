@@ -17,8 +17,10 @@ const MobileCategoryHero = ({
     let nextIndex = currentIndex;
     if (event.key === 'Home') nextIndex = 0;
     else if (event.key === 'End') nextIndex = tabs.length - 1;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown')
+      nextIndex = (currentIndex + 1) % tabs.length;
     tabs[nextIndex].focus();
   };
 
@@ -28,7 +30,11 @@ const MobileCategoryHero = ({
     <section className="mobile-category-hero">
       <div className="mobile-category-title">
         <h2>{selectedCategory === 'all' ? 'Shop By Category' : selectedCategory}</h2>
-        <p>{selectedCategory === 'all' ? 'Pick a category to filter products quickly.' : 'Browse subcategories below.'}</p>
+        <p>
+          {selectedCategory === 'all'
+            ? 'Pick a category to filter products quickly.'
+            : 'Browse subcategories below.'}
+        </p>
       </div>
       {mobileSubcategories.length > 0 ? (
         <div className="mobile-subcategory-scroller" role="tablist" aria-label="Subcategories">
@@ -44,7 +50,8 @@ const MobileCategoryHero = ({
             All
           </button>
           {mobileSubcategories.map((subcategory) => {
-            const isSelected = normalizeText(selectedSubcategory) === normalizeText(subcategory.name);
+            const isSelected =
+              normalizeText(selectedSubcategory) === normalizeText(subcategory.name);
             return (
               <button
                 type="button"

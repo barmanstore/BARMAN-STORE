@@ -1,5 +1,7 @@
 const normalizeBaseUrl = (value) => {
-  const raw = String(value || '').trim().replace(/\/+$/, '');
+  const raw = String(value || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (!raw) return '';
   try {
     const parsed = new URL(raw);
@@ -13,11 +15,7 @@ const normalizeBaseUrl = (value) => {
 const parseStorageErrorMessage = (payload, fallback = 'Storage request failed') => {
   if (!payload || typeof payload !== 'object') return fallback;
   return String(
-    payload.error_description
-      || payload.msg
-      || payload.error
-      || payload.message
-      || fallback
+    payload.error_description || payload.msg || payload.error || payload.message || fallback
   );
 };
 
@@ -31,7 +29,9 @@ const createProfileImageStorage = ({
   path,
   fetch,
 } = {}) => {
-  const normalizedProvider = String(provider || '').trim().toLowerCase();
+  const normalizedProvider = String(provider || '')
+    .trim()
+    .toLowerCase();
   const baseUrl = normalizeBaseUrl(supabaseUrl);
   const normalizedBucket = String(bucket || '').trim();
   const normalizedServiceRoleKey = String(serviceRoleKey || '').trim();
@@ -47,7 +47,8 @@ const createProfileImageStorage = ({
 
   const buildLocalPath = (fileName) => `/uploads/profiles/${path.basename(String(fileName || ''))}`;
   const buildSupabaseObjectPath = (fileName) => `profiles/${path.basename(String(fileName || ''))}`;
-  const buildSupabasePublicUrl = (objectPath) => `${baseUrl}/storage/v1/object/public/${normalizedBucket}/${objectPath}`;
+  const buildSupabasePublicUrl = (objectPath) =>
+    `${baseUrl}/storage/v1/object/public/${normalizedBucket}/${objectPath}`;
 
   const uploadToSupabase = async ({ fileName, buffer, contentType }) => {
     if (!supabaseReady) throw new Error('Supabase Storage is not configured');
@@ -69,7 +70,9 @@ const createProfileImageStorage = ({
       payload = null;
     }
     if (!response.ok) {
-      throw new Error(parseStorageErrorMessage(payload, `Supabase Storage upload failed (${response.status})`));
+      throw new Error(
+        parseStorageErrorMessage(payload, `Supabase Storage upload failed (${response.status})`)
+      );
     }
     return {
       url: buildSupabasePublicUrl(objectPath),

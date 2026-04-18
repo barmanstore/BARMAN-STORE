@@ -15,7 +15,9 @@ const createNotificationService = (config = {}) => {
   const defaultCountryCode = String(config.defaultCountryCode || '91').trim() || '91';
 
   const prepareEmail = ({ type, to, payload = {} }) => {
-    const recipient = String(to || '').trim().toLowerCase();
+    const recipient = String(to || '')
+      .trim()
+      .toLowerCase();
     if (!recipient) {
       throw new Error('Recipient email is required');
     }
@@ -25,7 +27,9 @@ const createNotificationService = (config = {}) => {
       onlineStoreUrl,
     });
     return {
-      type: String(type || '').trim().toLowerCase(),
+      type: String(type || '')
+        .trim()
+        .toLowerCase(),
       to: recipient,
       subject: String(template.subject || '').trim(),
       body: String(template.body || ''),
@@ -60,7 +64,9 @@ const createNotificationService = (config = {}) => {
       throw new Error('WhatsApp template text is empty');
     }
     return {
-      type: String(type || '').trim().toLowerCase(),
+      type: String(type || '')
+        .trim()
+        .toLowerCase(),
       to: normalizedPhone,
       text,
       whatsapp_url: `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(text)}`,

@@ -55,7 +55,9 @@
   border-radius: 999px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .stock-ledger-history .stock-ledger-search-filter .search-filter-shell:focus-within {
@@ -142,7 +144,10 @@
   background: #eff6ff;
   color: #0369a1;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .stock-ledger-history .stock-ledger-search-filter .search-filter-submit:hover,
@@ -406,7 +411,9 @@
   width: 100%;
 }
 
-.stock-ledger-history .stock-ledger-filter-row-control--date.date-range-filter--icon > .rounded-full {
+.stock-ledger-history
+  .stock-ledger-filter-row-control--date.date-range-filter--icon
+  > .rounded-full {
   width: 100%;
 }
 
@@ -526,8 +533,8 @@
   box-shadow: inset 0 -1px 0 rgba(148, 163, 184, 0.16);
 }
 
-.stock-ledger-history .ledger-table th[aria-sort="ascending"],
-.stock-ledger-history .ledger-table th[aria-sort="descending"] {
+.stock-ledger-history .ledger-table th[aria-sort='ascending'],
+.stock-ledger-history .ledger-table th[aria-sort='descending'] {
   background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
   color: #1d4ed8;
   box-shadow:
@@ -601,13 +608,17 @@
   border-radius: 999px;
   color: #94a3b8;
   background: transparent;
-  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .stock-ledger-history .ledger-sort-btn:hover .ledger-sort-indicator,
 .stock-ledger-history .ledger-sort-btn:focus-visible .ledger-sort-indicator,
-.stock-ledger-history .ledger-table th[aria-sort="ascending"] .ledger-sort-indicator,
-.stock-ledger-history .ledger-table th[aria-sort="descending"] .ledger-sort-indicator {
+.stock-ledger-history .ledger-table th[aria-sort='ascending'] .ledger-sort-indicator,
+.stock-ledger-history .ledger-table th[aria-sort='descending'] .ledger-sort-indicator {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;
@@ -853,5 +864,4 @@
   .stock-ledger-history .icon {
     margin-right: 0;
   }
-
 }

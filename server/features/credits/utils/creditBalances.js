@@ -4,14 +4,15 @@ const createCreditBalanceUtils = ({
   dbRunAsync,
   normalizeCreditType,
 } = {}) => {
-  const getLatestCreditEntryAsync = (userId) => dbGetAsync(
-    `SELECT *
+  const getLatestCreditEntryAsync = (userId) =>
+    dbGetAsync(
+      `SELECT *
      FROM credit_history
      WHERE user_id = ?
      ORDER BY transaction_ts DESC, created_at DESC, id DESC
      LIMIT 1`,
-    [userId]
-  );
+      [userId]
+    );
 
   const recalculateCreditBalancesForUser = async (userId) => {
     const rows = await dbAllAsync(
@@ -26,10 +27,12 @@ const createCreditBalanceUtils = ({
     for (const row of rows) {
       const normalizedType = normalizeCreditType(row.type);
       const amount = Math.abs(Number(row.amount || 0));
-      runningBalance = normalizedType === 'payment'
-        ? (runningBalance - amount)
-        : (runningBalance + amount);
-      await dbRunAsync(`UPDATE credit_history SET balance = ? WHERE id = ?`, [runningBalance, row.id]);
+      runningBalance =
+        normalizedType === 'payment' ? runningBalance - amount : runningBalance + amount;
+      await dbRunAsync(`UPDATE credit_history SET balance = ? WHERE id = ?`, [
+        runningBalance,
+        row.id,
+      ]);
     }
 
     return runningBalance;

@@ -8,7 +8,12 @@ const registerPurchaseReturnsUpdateRoutes = (deps) => {
       const b = req.body || {};
       await dbRunAsync(
         'UPDATE purchase_returns SET reason=?, return_type=?, reference_po=?, updated_at=CURRENT_TIMESTAMP WHERE id = ?',
-        [b.reason ?? cur.reason, b.return_type ?? cur.return_type, b.reference_po ?? cur.reference_po, req.params.id]
+        [
+          b.reason ?? cur.reason,
+          b.return_type ?? cur.return_type,
+          b.reference_po ?? cur.reference_po,
+          req.params.id,
+        ]
       );
       return res.json({ success: true });
     } catch (error) {

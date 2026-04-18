@@ -55,7 +55,9 @@
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.95rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   box-sizing: border-box;
 }
 
@@ -65,7 +67,9 @@
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 0.95rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   box-sizing: border-box;
   resize: vertical;
   min-height: 120px;
@@ -273,4 +277,3 @@
     width: 100%;
   }
 }
-

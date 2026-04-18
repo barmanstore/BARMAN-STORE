@@ -41,7 +41,9 @@ const deriveProjectRefFromDbUrl = (value) => {
 const resolveProjectRef = () => {
   const fromArg = parseArgValue('project-ref');
   if (fromArg) return fromArg.toLowerCase();
-  const fromEnv = String(process.env.SUPABASE_PROJECT_REF || '').trim().toLowerCase();
+  const fromEnv = String(process.env.SUPABASE_PROJECT_REF || '')
+    .trim()
+    .toLowerCase();
   if (fromEnv) return fromEnv;
   const fromUrl = deriveProjectRefFromSupabaseUrl(process.env.SUPABASE_URL);
   if (fromUrl) return fromUrl;
@@ -52,9 +54,7 @@ const resolveAccessToken = () => {
   const fromArg = parseArgValue('access-token');
   if (fromArg) return fromArg;
   const fromEnv = String(
-    process.env.SUPABASE_ACCESS_TOKEN
-    || process.env.SUPABASE_MANAGEMENT_API_TOKEN
-    || ''
+    process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_MANAGEMENT_API_TOKEN || ''
   ).trim();
   return fromEnv;
 };
@@ -79,7 +79,8 @@ const requestManagementApi = async ({ projectRef, accessToken, method, body = nu
   }
 
   if (!response.ok) {
-    const detail = payload?.message || payload?.error || payload?.msg || text || `HTTP ${response.status}`;
+    const detail =
+      payload?.message || payload?.error || payload?.msg || text || `HTTP ${response.status}`;
     throw new Error(`Supabase Management API ${method} failed: ${detail}`);
   }
   return payload || {};
@@ -109,12 +110,16 @@ const main = async () => {
   const enabled = Boolean(current?.password_hibp_enabled);
 
   if (enabled) {
-    console.log(`[SECURITY] Leaked password protection is already enabled for project ${projectRef}.`);
+    console.log(
+      `[SECURITY] Leaked password protection is already enabled for project ${projectRef}.`
+    );
     return;
   }
 
   if (dryRun) {
-    console.log(`[SECURITY] Dry run: would enable password_hibp_enabled=true for project ${projectRef}.`);
+    console.log(
+      `[SECURITY] Dry run: would enable password_hibp_enabled=true for project ${projectRef}.`
+    );
     return;
   }
 
@@ -131,10 +136,14 @@ const main = async () => {
     method: 'GET',
   });
   if (!Boolean(verify?.password_hibp_enabled)) {
-    throw new Error('Setting update returned success but verification read-back is still disabled.');
+    throw new Error(
+      'Setting update returned success but verification read-back is still disabled.'
+    );
   }
 
-  console.log(`[SECURITY] Enabled leaked password protection (password_hibp_enabled=true) for project ${projectRef}.`);
+  console.log(
+    `[SECURITY] Enabled leaked password protection (password_hibp_enabled=true) for project ${projectRef}.`
+  );
 };
 
 main().catch((error) => {

@@ -13,9 +13,7 @@ const createCategoryQueries = (deps = {}) => {
     if (!trimmedName) return null;
     const normalizedParentId = toNullablePositiveInt(parentId);
     const normalizedExcludeId = toNullablePositiveInt(excludeId);
-    const parentFilter = normalizedParentId == null
-      ? 'parent_id IS NULL'
-      : 'parent_id = ?';
+    const parentFilter = normalizedParentId == null ? 'parent_id IS NULL' : 'parent_id = ?';
     const parentParams = normalizedParentId == null ? [] : [normalizedParentId];
     const row = await dbGetAsync(
       `SELECT id, name, description, icon, image, image_width, image_height, parent_id, created_at
@@ -65,9 +63,10 @@ const createCategoryQueries = (deps = {}) => {
     return created ? normalizeCategoryRow(created) : null;
   };
 
-  const listCategoryRowsWithCountsAsync = async () => (
-    await dbAllAsync(
-      `SELECT
+  const listCategoryRowsWithCountsAsync = async () =>
+    (
+      await dbAllAsync(
+        `SELECT
          c.id,
          c.name,
          c.description,
@@ -88,8 +87,8 @@ const createCategoryQueries = (deps = {}) => {
          GROUP BY category_id
        ) pc ON pc.category_id = c.id
        ORDER BY LOWER(c.name) ASC`
-    )
-  ).map(normalizeCategoryRow);
+      )
+    ).map(normalizeCategoryRow);
 
   return {
     findCategoryByNameAndParentAsync,

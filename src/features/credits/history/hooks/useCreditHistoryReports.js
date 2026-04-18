@@ -27,21 +27,18 @@ const CREDIT_REPORT_TRIM_STEPS = [
   (line) => /^তৈয়াৰ:/.test(line),
 ];
 
-const normalizeWhatsAppShareText = (text) => (
+const normalizeWhatsAppShareText = (text) =>
   String(text || '')
     .split(/\r?\n/)
     .map((line) => String(line || '').trimEnd())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
-    .trim()
-);
+    .trim();
 
-const countMessageLines = (message) => (
+const countMessageLines = (message) =>
   normalizeWhatsAppShareText(message)
     .split(/\r?\n/)
-    .filter((line) => String(line || '').trim())
-    .length
-);
+    .filter((line) => String(line || '').trim()).length;
 
 const dropLastMatchingLine = (text, matcher) => {
   const lines = normalizeWhatsAppShareText(text).split(/\r?\n/);
@@ -54,9 +51,8 @@ const dropLastMatchingLine = (text, matcher) => {
   return normalizeWhatsAppShareText(lines.join('\n'));
 };
 
-const getTrimStepsForShareType = (shareType) => (
-  shareType === 'report' ? CREDIT_REPORT_TRIM_STEPS : CREDIT_SHARE_TRIM_STEPS
-);
+const getTrimStepsForShareType = (shareType) =>
+  shareType === 'report' ? CREDIT_REPORT_TRIM_STEPS : CREDIT_SHARE_TRIM_STEPS;
 
 export const isCreditShareTextWithinWhatsAppLimit = ({
   phone,
@@ -81,12 +77,14 @@ export const trimCreditShareTextForWhatsApp = ({
   if (!normalizedText) return '';
 
   let current = normalizedText;
-  if (isCreditShareTextWithinWhatsAppLimit({
-    phone,
-    text: current,
-    maxUrlLength,
-    lineLimit,
-  })) {
+  if (
+    isCreditShareTextWithinWhatsAppLimit({
+      phone,
+      text: current,
+      maxUrlLength,
+      lineLimit,
+    })
+  ) {
     return current;
   }
 
@@ -94,12 +92,14 @@ export const trimCreditShareTextForWhatsApp = ({
     const next = dropLastMatchingLine(current, trimStep);
     if (!next || next === current) continue;
     current = next;
-    if (isCreditShareTextWithinWhatsAppLimit({
-      phone,
-      text: current,
-      maxUrlLength,
-      lineLimit,
-    })) {
+    if (
+      isCreditShareTextWithinWhatsAppLimit({
+        phone,
+        text: current,
+        maxUrlLength,
+        lineLimit,
+      })
+    ) {
       return current;
     }
   }
@@ -147,15 +147,21 @@ const useCreditHistoryReports = ({
   const buildPaymentProfilePayload = (summaryOverride = null, balanceOverride = null) => {
     const summary = summaryOverride || paymentBadgeSummary || null;
     const rawScore = summary?.payment_score;
-    const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
+    const hasScore =
+      rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
     const statusLabel = String(summary?.payment_status_label || '').trim();
-    const statusValue = String(summary?.payment_status || '').trim().toLowerCase();
-    const isNewCustomer = String(summary?.customer_tag || '').trim().toLowerCase() === 'insufficient_history'
-      || statusValue === 'new';
+    const statusValue = String(summary?.payment_status || '')
+      .trim()
+      .toLowerCase();
+    const isNewCustomer =
+      String(summary?.customer_tag || '')
+        .trim()
+        .toLowerCase() === 'insufficient_history' || statusValue === 'new';
     const resolvedLabel = statusLabel || (isNewCustomer ? 'New' : '');
     const hasDueDateReminder = Boolean(String(summary?.maintain_score_by_date || '').trim());
     const hasCreditLimit = Number(summary?.credit_limit || 0) > 0;
-    if (!hasScore && !resolvedLabel && !statusValue && !hasDueDateReminder && !hasCreditLimit) return null;
+    if (!hasScore && !resolvedLabel && !statusValue && !hasDueDateReminder && !hasCreditLimit)
+      return null;
     return {
       ...summary,
       score: hasScore ? Number(rawScore) : null,
@@ -175,9 +181,10 @@ const useCreditHistoryReports = ({
         return Boolean(dateKey) && dateKey <= to;
       })
       .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
-    const periodEndingBalance = allThroughPeriod.length > 0
-      ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
-      : 0;
+    const periodEndingBalance =
+      allThroughPeriod.length > 0
+        ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
+        : 0;
 
     const normalizedTransactions = (transactions || []).map((transaction) => ({
       dateLabel: formatTransactionDate(transaction),
@@ -185,7 +192,8 @@ const useCreditHistoryReports = ({
       type: transaction.type,
       amount: Number(transaction.amount) || 0,
       balance: Number(transaction.balance || 0),
-      description: `${getCreditEntrySourceLabel(transaction)} | ${getCreditEntryDescription(transaction)}`.trim(),
+      description:
+        `${getCreditEntrySourceLabel(transaction)} | ${getCreditEntryDescription(transaction)}`.trim(),
     }));
 
     return buildCreditReportText({
@@ -216,10 +224,12 @@ const useCreditHistoryReports = ({
         shareType: 'report',
       });
       finalText = preparedCandidate;
-      if (isCreditShareTextWithinWhatsAppLimit({
-        phone: customer?.phone,
-        text: preparedCandidate,
-      })) {
+      if (
+        isCreditShareTextWithinWhatsAppLimit({
+          phone: customer?.phone,
+          text: preparedCandidate,
+        })
+      ) {
         return preparedCandidate;
       }
     }
@@ -239,9 +249,10 @@ const useCreditHistoryReports = ({
     setSuccess('');
     setReportSummary(null);
 
-    const sourceHistory = typeof getHistoryForReport === 'function'
-      ? await getHistoryForReport({ fromDate, toDate })
-      : creditHistory;
+    const sourceHistory =
+      typeof getHistoryForReport === 'function'
+        ? await getHistoryForReport({ fromDate, toDate })
+        : creditHistory;
     const filtered = sourceHistory
       .filter((transaction) => {
         const dateKey = getEffectiveTransactionDateKey(transaction);
@@ -249,15 +260,18 @@ const useCreditHistoryReports = ({
       })
       .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
-    const totals = filtered.reduce((acc, transaction) => {
-      const delta = getCreditEntryDelta(transaction);
-      if (delta >= 0) {
-        acc.totalDebit += delta;
-      } else {
-        acc.totalCredit += Math.abs(delta);
-      }
-      return acc;
-    }, { totalDebit: 0, totalCredit: 0 });
+    const totals = filtered.reduce(
+      (acc, transaction) => {
+        const delta = getCreditEntryDelta(transaction);
+        if (delta >= 0) {
+          acc.totalDebit += delta;
+        } else {
+          acc.totalCredit += Math.abs(delta);
+        }
+        return acc;
+      },
+      { totalDebit: 0, totalCredit: 0 }
+    );
 
     const allThroughPeriod = sourceHistory
       .filter((transaction) => {
@@ -265,9 +279,10 @@ const useCreditHistoryReports = ({
         return Boolean(dateKey) && dateKey <= toDate;
       })
       .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
-    const endingBalance = allThroughPeriod.length > 0
-      ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
-      : 0;
+    const endingBalance =
+      allThroughPeriod.length > 0
+        ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
+        : 0;
 
     const report = buildWhatsAppReportText(filtered, fromDate, toDate, sourceHistory);
     setReportText(report);
@@ -357,19 +372,20 @@ const useCreditHistoryReports = ({
     updatedBalance,
     paymentProfile,
     thankYouLine,
-  }) => buildCreditEntryText({
-    companyTitle: companyTitle || info.TITLE || 'BARMAN STORE',
-    entryTypeLabel: getTypeLabel(entryType),
-    amount,
-    description,
-    reference,
-    entryDate,
-    previousBalance,
-    updatedBalance,
-    paymentProfile: buildPaymentProfilePayload(paymentProfile, updatedBalance),
-    onlineStoreUrl: info.ONLINE_STORE_URL,
-    thankYouLine,
-  });
+  }) =>
+    buildCreditEntryText({
+      companyTitle: companyTitle || info.TITLE || 'BARMAN STORE',
+      entryTypeLabel: getTypeLabel(entryType),
+      amount,
+      description,
+      reference,
+      entryDate,
+      previousBalance,
+      updatedBalance,
+      paymentProfile: buildPaymentProfilePayload(paymentProfile, updatedBalance),
+      onlineStoreUrl: info.ONLINE_STORE_URL,
+      thankYouLine,
+    });
 
   const handleCopyEntryShare = async () => {
     if (!entryShareText) return;
@@ -391,12 +407,13 @@ const useCreditHistoryReports = ({
   };
 
   const isTransactionWithinFiveDays = (transactionOrDate) => {
-    const txTime = typeof transactionOrDate === 'object'
-      ? getEffectiveTransactionTimestamp(transactionOrDate)
-      : new Date(transactionOrDate).getTime();
+    const txTime =
+      typeof transactionOrDate === 'object'
+        ? getEffectiveTransactionTimestamp(transactionOrDate)
+        : new Date(transactionOrDate).getTime();
     if (!Number.isFinite(txTime)) return false;
     const now = Date.now();
-    return now >= txTime && (now - txTime) <= FIVE_DAYS_MS;
+    return now >= txTime && now - txTime <= FIVE_DAYS_MS;
   };
 
   const buildTransactionShareText = (transaction) => {
@@ -441,9 +458,10 @@ const useCreditHistoryReports = ({
     setSuccess('');
 
     try {
-      const sourceHistory = typeof getHistoryForReport === 'function'
-        ? await getHistoryForReport({ fromDate, toDate })
-        : creditHistory;
+      const sourceHistory =
+        typeof getHistoryForReport === 'function'
+          ? await getHistoryForReport({ fromDate, toDate })
+          : creditHistory;
       const filtered = sourceHistory
         .filter((transaction) => {
           const dateKey = getEffectiveTransactionDateKey(transaction);
@@ -458,9 +476,10 @@ const useCreditHistoryReports = ({
         })
         .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
 
-      const periodEndingBalance = allThroughPeriod.length > 0
-        ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
-        : 0;
+      const periodEndingBalance =
+        allThroughPeriod.length > 0
+          ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
+          : 0;
       const currentDayBalance = Number(balance || 0);
 
       const doc = createPdfDoc();
@@ -478,7 +497,9 @@ const useCreditHistoryReports = ({
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text(info.SUB_TITLE || 'Quality Groceries & Everyday Essentials', 105, 28, { align: 'center' });
+      doc.text(info.SUB_TITLE || 'Quality Groceries & Everyday Essentials', 105, 28, {
+        align: 'center',
+      });
 
       doc.setFontSize(9);
       const contactText = `${info.EMAIL || ''} | ${info.CONTACT || ''}`;
@@ -515,9 +536,18 @@ const useCreditHistoryReports = ({
             formatTransactionDate(transaction),
             getTypeLabel(transaction),
             getCreditEntrySourceLabel(transaction),
-            { content: delta >= 0 ? formatPdfCurrency(Math.abs(delta)) : '-', styles: { halign: 'right' } },
-            { content: delta < 0 ? formatPdfCurrency(Math.abs(delta)) : '-', styles: { halign: 'right' } },
-            { content: formatPdfCurrency(Number(transaction.balance || 0)), styles: { halign: 'right' } },
+            {
+              content: delta >= 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
+              styles: { halign: 'right' },
+            },
+            {
+              content: delta < 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
+              styles: { halign: 'right' },
+            },
+            {
+              content: formatPdfCurrency(Number(transaction.balance || 0)),
+              styles: { halign: 'right' },
+            },
             getCreditEntryDescription(transaction),
           ];
         });
@@ -564,7 +594,7 @@ const useCreditHistoryReports = ({
         const summaryHeight = 42;
         const footerReserve = 14;
         const pageHeight = doc.internal.pageSize.height;
-        const summaryTop = (finalY + summaryHeight + footerReserve > pageHeight) ? 20 : finalY;
+        const summaryTop = finalY + summaryHeight + footerReserve > pageHeight ? 20 : finalY;
 
         if (summaryTop !== finalY) {
           doc.addPage();
@@ -590,20 +620,34 @@ const useCreditHistoryReports = ({
         doc.setFontSize(9);
         doc.setTextColor(...secondaryColor);
         doc.text('Period Ending Balance:', 118, summaryY + 2);
-        doc.setTextColor(periodEndingBalance >= 0 ? accentColor[0] : 231, periodEndingBalance >= 0 ? accentColor[1] : 76, periodEndingBalance >= 0 ? accentColor[2] : 60);
+        doc.setTextColor(
+          periodEndingBalance >= 0 ? accentColor[0] : 231,
+          periodEndingBalance >= 0 ? accentColor[1] : 76,
+          periodEndingBalance >= 0 ? accentColor[2] : 60
+        );
         doc.text(formatPdfCurrency(periodEndingBalance), 118, summaryY + 8);
         doc.setTextColor(...secondaryColor);
         doc.text('Current Day Balance:', 118, summaryY + 14);
-        doc.setTextColor(currentDayBalance >= 0 ? accentColor[0] : 231, currentDayBalance >= 0 ? accentColor[1] : 76, currentDayBalance >= 0 ? accentColor[2] : 60);
+        doc.setTextColor(
+          currentDayBalance >= 0 ? accentColor[0] : 231,
+          currentDayBalance >= 0 ? accentColor[1] : 76,
+          currentDayBalance >= 0 ? accentColor[2] : 60
+        );
         doc.text(formatPdfCurrency(currentDayBalance), 118, summaryY + 20);
       } else {
         doc.setFontSize(11);
         doc.setTextColor(100, 100, 100);
-        doc.text('No transactions found in the selected date range.', 105, 110, { align: 'center' });
+        doc.text('No transactions found in the selected date range.', 105, 110, {
+          align: 'center',
+        });
         doc.setFontSize(9);
         doc.setTextColor(...secondaryColor);
-        doc.text(`Period Ending Balance: ${formatPdfCurrency(periodEndingBalance)}`, 105, 118, { align: 'center' });
-        doc.text(`Current Day Balance: ${formatPdfCurrency(currentDayBalance)}`, 105, 124, { align: 'center' });
+        doc.text(`Period Ending Balance: ${formatPdfCurrency(periodEndingBalance)}`, 105, 118, {
+          align: 'center',
+        });
+        doc.text(`Current Day Balance: ${formatPdfCurrency(currentDayBalance)}`, 105, 124, {
+          align: 'center',
+        });
       }
 
       addPdfFooterWithPagination(doc, (pdf, pageIndex, pageCount) => {

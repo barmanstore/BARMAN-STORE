@@ -24,16 +24,22 @@ const PoPaymentModal = ({
 
   const currentBalance = Math.max(0, Number(getPoBalanceDue(paymentOrder)) || 0);
   const poTotal = Math.max(0, Number(getOrderDisplayTotal?.(paymentOrder)) || 0);
-  const poNumber = String(paymentOrder.po_number || paymentOrder.invoice_number || '-').trim() || '-';
+  const poNumber =
+    String(paymentOrder.po_number || paymentOrder.invoice_number || '-').trim() || '-';
   const distributorName = paymentOrder.distributor_name || paymentOrder.supplier_name || '-';
   const totalLabel = formatCurrency(poTotal);
   const amountRaw = String(poPaymentFormData.amount || '').trim();
   const amountValidation = validateAmountInput(poPaymentFormData.amount, { max: currentBalance });
-  const remainingBalance = amountRaw === ''
-    ? currentBalance
-    : amountValidation.valid
-      ? Math.max(0, currentBalance - amountValidation.value)
-      : currentBalance;
+  const isFullPayment =
+    amountRaw === ''
+      ? currentBalance <= 0
+      : amountValidation.valid && amountValidation.value >= currentBalance;
+  const remainingBalance =
+    amountRaw === ''
+      ? currentBalance
+      : amountValidation.valid
+        ? Math.max(0, currentBalance - amountValidation.value)
+        : currentBalance;
 
   const updatePaymentField = (field, value) => {
     setPoPaymentFormData((prev) => ({ ...prev, [field]: value }));
@@ -53,6 +59,28 @@ const PoPaymentModal = ({
         ...prev,
         amount: nextValidation.value.toFixed(2),
       };
+    });
+  };
+
+  const handlePaymentSplitChange = (nextSplit) => {
+    setPoPaymentFormData((prev) => {
+      if (nextSplit === 'full') {
+        return {
+          ...prev,
+          amount: currentBalance > 0 ? currentBalance.toFixed(2) : '',
+        };
+      }
+
+      const currentAmount = String(prev.amount || '').trim();
+      const currentAmountValue = currentAmount === '' ? 0 : Number.parseFloat(currentAmount) || 0;
+      if (currentAmount === '' || currentAmountValue >= currentBalance) {
+        return {
+          ...prev,
+          amount: '',
+        };
+      }
+
+      return prev;
     });
   };
 
@@ -83,6 +111,27 @@ const PoPaymentModal = ({
           <strong className="purchase-process-info-value">{totalLabel}</strong>
         </div>
       </div>
+      <div className="form-group">
+        <label>Payment</label>
+        <div className="purchase-process-split-toggle" role="group" aria-label="Payment split">
+          <button
+            type="button"
+            className={`purchase-process-split-btn${isFullPayment ? ' active' : ''}`}
+            aria-pressed={isFullPayment}
+            onClick={() => handlePaymentSplitChange('full')}
+          >
+            Full paid
+          </button>
+          <button
+            type="button"
+            className={`purchase-process-split-btn${!isFullPayment ? ' active' : ''}`}
+            aria-pressed={!isFullPayment}
+            onClick={() => handlePaymentSplitChange('part')}
+          >
+            Part paid
+          </button>
+        </div>
+      </div>
       <div className="form-row">
         <div className="form-group">
           <label htmlFor={`${prefix}-amount`}>Amount</label>
@@ -99,7 +148,11 @@ const PoPaymentModal = ({
           />
           <div className="purchase-process-balance-note" aria-live="polite">
             <span>Remaining balance</span>
-            <strong>{amountRaw && !amountValidation.valid ? amountValidation.message : formatCurrency(remainingBalance)}</strong>
+            <strong>
+              {amountRaw && !amountValidation.valid
+                ? amountValidation.message
+                : formatCurrency(remainingBalance)}
+            </strong>
           </div>
         </div>
         <div className="form-group">
@@ -178,7 +231,12 @@ const PoPaymentModal = ({
 
   const actionRow = (
     <div className="modal-actions purchase-process-actions">
-      <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
+      <button
+        type="button"
+        className="cancel-btn"
+        onClick={closePoPaymentModal}
+        disabled={poPaymentSubmitting}
+      >
         Cancel
       </button>
       <button type="submit" className="submit-btn" disabled={poPaymentSubmitting}>
@@ -195,16 +253,26 @@ const PoPaymentModal = ({
         title="Add PO Payment"
         className="purchase-process-sheet"
         dismissible={!poPaymentSubmitting}
-        actions={(
+        actions={
           <>
-            <button type="button" className="cancel-btn" onClick={closePoPaymentModal} disabled={poPaymentSubmitting}>
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={closePoPaymentModal}
+              disabled={poPaymentSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" form="po-payment-form" className="submit-btn" disabled={poPaymentSubmitting}>
+            <button
+              type="submit"
+              form="po-payment-form"
+              className="submit-btn"
+              disabled={poPaymentSubmitting}
+            >
               {poPaymentSubmitting ? 'Saving...' : 'Save Payment'}
             </button>
           </>
-        )}
+        }
       >
         <form id="po-payment-form" onSubmit={handlePoPaymentSubmit}>
           {renderCoreFields('po-payment-mobile')}

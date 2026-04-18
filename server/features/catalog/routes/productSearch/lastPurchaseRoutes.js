@@ -1,9 +1,5 @@
 const registerProductLastPurchaseRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbGetAsync,
-  } = deps;
+  const { app, requireAdmin, dbGetAsync } = deps;
 
   app.get('/api/products/:id(\\d+)/last-purchase', requireAdmin, async (req, res) => {
     try {

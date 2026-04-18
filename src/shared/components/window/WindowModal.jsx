@@ -61,9 +61,8 @@ function WindowModal({
   )
     ? activeWindowId
     : null;
-  const topVisibleWindowId = activeVisibleWindowId
-    || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id
-    || null;
+  const topVisibleWindowId =
+    activeVisibleWindowId || sortedVisibleWindows[sortedVisibleWindows.length - 1]?.id || null;
   const isActive = !entry || !topVisibleWindowId ? true : topVisibleWindowId === windowId;
   const overlayZIndex = 3600 + Number(entry?.order || 0);
   const canHandleEscape = dismissible !== false && closeOnEscape !== false;
@@ -72,23 +71,17 @@ function WindowModal({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const {
-    frameRef,
-    isMaximized,
-    windowStyle,
-    handleDragStart,
-    handleResizeStart,
-    toggleMaximize,
-  } = useWindowDragResize({
-    open,
-    active: open && !isMinimized,
-    interactive: dismissible && !fullscreen,
-    draggable: desktopLike && draggable && !fullscreen,
-    resizable: desktopLike && resizable && !fullscreen,
-    initialSize,
-    minWidth,
-    minHeight,
-  });
+  const { frameRef, isMaximized, windowStyle, handleDragStart, handleResizeStart, toggleMaximize } =
+    useWindowDragResize({
+      open,
+      active: open && !isMinimized,
+      interactive: dismissible && !fullscreen,
+      draggable: desktopLike && draggable && !fullscreen,
+      resizable: desktopLike && resizable && !fullscreen,
+      initialSize,
+      minWidth,
+      minHeight,
+    });
 
   useFocusTrap(frameRef, open && !isMinimized);
 
@@ -156,7 +149,16 @@ function WindowModal({
       closeOnBackdrop,
       closeOnEscape,
     });
-  }, [closeOnBackdrop, closeOnEscape, dismissible, handleClose, open, title, upsertWindow, windowId]);
+  }, [
+    closeOnBackdrop,
+    closeOnEscape,
+    dismissible,
+    handleClose,
+    open,
+    title,
+    upsertWindow,
+    windowId,
+  ]);
 
   useEffect(() => {
     if (!open || !activateWindow) return;
@@ -210,7 +212,9 @@ function WindowModal({
           isActive ? 'is-active' : 'is-inactive',
           !fullscreen && isMaximized ? 'is-maximized' : '',
           fullscreen ? 'is-fullscreen' : '',
-        ].filter(Boolean).join(' ')}
+        ]
+          .filter(Boolean)
+          .join(' ')}
         style={frameStyle}
         onMouseDown={handleFrameMouseDown}
         role="dialog"
@@ -229,7 +233,10 @@ function WindowModal({
             {subtitle ? <p id={subtitleId}>{subtitle}</p> : null}
           </div>
 
-          <div className="window-modal-toolbar" data-window-ignore-drag={fullscreen ? undefined : 'true'}>
+          <div
+            className="window-modal-toolbar"
+            data-window-ignore-drag={fullscreen ? undefined : 'true'}
+          >
             {headerActions}
             <div className="window-modal-controls">
               {desktopLike && minimizable ? (
@@ -258,7 +265,13 @@ function WindowModal({
               ) : null}
               <button
                 type="button"
-                className={['window-modal-control-btn', 'window-modal-close-btn', closeButtonClassName].filter(Boolean).join(' ')}
+                className={[
+                  'window-modal-control-btn',
+                  'window-modal-close-btn',
+                  closeButtonClassName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={handleClose}
                 disabled={!dismissible}
                 aria-label="Close window"

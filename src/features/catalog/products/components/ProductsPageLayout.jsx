@@ -94,12 +94,12 @@ const ProductsPageLayout = ({
   hasMoreProducts,
   filteredFamilies,
   commitSearchQuery,
-   DEFAULT_SORT_BY,
-   showMobileFilters,
-   smartSectionsProps,
-   snackbar,
-   dismissSnackbar,
- }) => {
+  DEFAULT_SORT_BY,
+  showMobileFilters,
+  smartSectionsProps,
+  snackbar,
+  dismissSnackbar,
+}) => {
   if (!isMobile && loading && productsLength === 0) {
     const skeletonCount = isMobile ? 6 : 8;
     return (
@@ -108,7 +108,10 @@ const ProductsPageLayout = ({
         <div className="products-skeleton-controls shimmer-skeleton" aria-hidden="true" />
         <div className="products-skeleton-grid" aria-hidden="true">
           {Array.from({ length: skeletonCount }).map((_, index) => (
-            <div key={`product-skeleton-${index}`} className="product-skeleton-card shimmer-skeleton" />
+            <div
+              key={`product-skeleton-${index}`}
+              className="product-skeleton-card shimmer-skeleton"
+            />
           ))}
         </div>
       </div>
@@ -117,11 +120,11 @@ const ProductsPageLayout = ({
 
   const activeTabFamilies = mobileTabFamilies[activeMobileTab] || [];
   const isLoggedIn = Boolean(
-    localUser?.id
-    || String(localUser?.token || '').trim()
-    || String(localUser?.supabase_session?.access_token || '').trim()
-    || String(localUser?.email || '').trim()
-    || String(localUser?.phone || '').trim()
+    localUser?.id ||
+    String(localUser?.token || '').trim() ||
+    String(localUser?.supabase_session?.access_token || '').trim() ||
+    String(localUser?.email || '').trim() ||
+    String(localUser?.phone || '').trim()
   );
   const profileHref = isLoggedIn ? '/profile' : '/login';
   const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';

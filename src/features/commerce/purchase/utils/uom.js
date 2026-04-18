@@ -1,5 +1,7 @@
 const normalizeUomToken = (value, fallback = 'pcs') =>
-  String(value || fallback).trim().toLowerCase() || fallback;
+  String(value || fallback)
+    .trim()
+    .toLowerCase() || fallback;
 
 const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
   pcs: 'pcs',
@@ -55,9 +57,8 @@ const getProductUomProfile = (product = null) => {
   const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
   const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
   const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-    ? conversionFactorRaw
-    : 1;
+  const conversionFactor =
+    Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0 ? conversionFactorRaw : 1;
   return {
     sellingUnit,
     baseUnit,
@@ -78,7 +79,7 @@ const resolvePurchaseUnitForProduct = (product = null, unit = 'pcs') => {
   if (!product) return normalizeUomToken(unit, 'pcs');
   const allowedUnits = getAllowedPurchaseUnitsForProduct(product);
   const requestedUnit = normalizeUomToken(unit, allowedUnits[0] || 'pcs');
-  return allowedUnits.includes(requestedUnit) ? requestedUnit : (allowedUnits[0] || requestedUnit);
+  return allowedUnits.includes(requestedUnit) ? requestedUnit : allowedUnits[0] || requestedUnit;
 };
 
 const toBaseQtyForProduct = (qty, unit, product = null) => {
@@ -87,7 +88,12 @@ const toBaseQtyForProduct = (qty, unit, product = null) => {
   if (!product) return numericQty;
   const profile = getProductUomProfile(product);
   const resolvedUnit = resolvePurchaseUnitForProduct(product, unit);
-  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, resolvedUnit, profile.baseUnit, profile.baseUnit);
+  const familyConverted = convertQtyBetweenFamilyUnits(
+    numericQty,
+    resolvedUnit,
+    profile.baseUnit,
+    profile.baseUnit
+  );
   if (familyConverted !== null) return familyConverted;
   if (resolvedUnit === profile.baseUnit) return numericQty;
   if (resolvedUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
@@ -102,7 +108,12 @@ const fromBaseQtyForProduct = (qty, unit, product = null) => {
   if (!product) return numericQty;
   const profile = getProductUomProfile(product);
   const resolvedUnit = resolvePurchaseUnitForProduct(product, unit);
-  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, profile.baseUnit, resolvedUnit, profile.baseUnit);
+  const familyConverted = convertQtyBetweenFamilyUnits(
+    numericQty,
+    profile.baseUnit,
+    resolvedUnit,
+    profile.baseUnit
+  );
   if (familyConverted !== null) return familyConverted;
   if (resolvedUnit === profile.baseUnit) return numericQty;
   if (resolvedUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {

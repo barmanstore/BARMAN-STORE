@@ -21,12 +21,7 @@ const createPurchaseOperationsDistributorSchedules = (deps) => {
     distributorInsightById,
     payablesWithInsights,
   }) => {
-    const {
-      todayKey,
-      tomorrowKey,
-      distributors,
-      suppliers,
-    } = baseData;
+    const { todayKey, tomorrowKey, distributors, suppliers } = baseData;
     const { ordersByDistributor, ordersBySupplier } = metrics;
 
     const { todayDistributors, tomorrowDistributors, weeklyDistributors } = buildScheduleLists({

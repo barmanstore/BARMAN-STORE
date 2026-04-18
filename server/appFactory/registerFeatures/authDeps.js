@@ -1,6 +1,13 @@
 const buildAuthDeps = ({ core, domain }) => {
   const { configValues, providers, authSupport, requestUtils } = core;
-  const { contactVerificationUtils, phoneChangeService, notificationUtils, verificationUtils, authMiddleware, sanitizeUser } = domain;
+  const {
+    contactVerificationUtils,
+    phoneChangeService,
+    notificationUtils,
+    verificationUtils,
+    authMiddleware,
+    sanitizeUser,
+  } = domain;
 
   return {
     normalizeEmail: authSupport.normalizeEmail,
@@ -29,7 +36,8 @@ const buildAuthDeps = ({ core, domain }) => {
     queueContactVerificationRequest: contactVerificationUtils.queueContactVerificationRequest,
     getRequestIp: requestUtils.getRequestIp,
     syncLocalEmailVerifiedFromSupabase: authMiddleware.syncLocalEmailVerifiedFromSupabase,
-    completeContactVerificationRequests: contactVerificationUtils.completeContactVerificationRequests,
+    completeContactVerificationRequests:
+      contactVerificationUtils.completeContactVerificationRequests,
     EMAIL_VERIFY_MAX_ATTEMPTS: configValues.EMAIL_VERIFY_MAX_ATTEMPTS,
     hashVerificationToken: authSupport.hashVerificationToken,
     getBearerTokenFromRequest: authSupport.getBearerTokenFromRequest,
@@ -46,7 +54,8 @@ const buildAuthDeps = ({ core, domain }) => {
     createAppNotification: notificationUtils.createAppNotification,
     PHONE_CHANGE_STATUS_REJECTED: configValues.PHONE_CHANGE_STATUS_REJECTED,
     PHONE_CHANGE_AUTO_BATCH_SIZE: configValues.PHONE_CHANGE_AUTO_BATCH_SIZE,
-    normalizeContactVerificationRequestType: contactVerificationUtils.normalizeContactVerificationRequestType,
+    normalizeContactVerificationRequestType:
+      contactVerificationUtils.normalizeContactVerificationRequestType,
     AUTH_FLOW_MODE: configValues.AUTH_FLOW_MODE,
     OTP_PROVIDER: configValues.OTP_PROVIDER,
     OTP_DELIVERY_MODE: configValues.OTP_DELIVERY_MODE,

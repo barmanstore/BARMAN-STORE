@@ -12,9 +12,16 @@ const PurchaseDeliveriesPanel = ({ operationsSummary, toNumber }) => (
           <div key={`next-delivery-${entry.distributor_id}`} className="purchase-ops-item">
             <div>
               <strong>{entry.distributor_name}</strong>
-              <p>ETA: {entry.next_delivery_date} | Open orders: {toNumber(entry.active_open_orders)}</p>
+              <p>
+                ETA: {entry.next_delivery_date} | Open orders: {toNumber(entry.active_open_orders)}
+              </p>
               <small>
-                Source: {entry.next_delivery_source === 'open_order' ? 'Open order' : (entry.next_delivery_source === 'history_inferred' ? 'History inferred' : 'Unknown')}
+                Source:{' '}
+                {entry.next_delivery_source === 'open_order'
+                  ? 'Open order'
+                  : entry.next_delivery_source === 'history_inferred'
+                    ? 'History inferred'
+                    : 'Unknown'}
               </small>
               <small>Predicted deliveries: {toNumber(entry.predicted_delivery_count)}</small>
             </div>

@@ -20,17 +20,15 @@ export const formatHierarchyPath = (parent, child) => {
   return `${root} -> ${leaf}`;
 };
 
-export const getCategoryPath = (product) => (
-  String(product?.category_path || '').trim()
-  || formatHierarchyPath(product?.category, product?.subcategory)
-  || String(product?.category || '').trim()
-);
+export const getCategoryPath = (product) =>
+  String(product?.category_path || '').trim() ||
+  formatHierarchyPath(product?.category, product?.subcategory) ||
+  String(product?.category || '').trim();
 
-export const getBrandPath = (product) => (
-  String(product?.brand_path || '').trim()
-  || formatHierarchyPath(product?.brand, product?.sub_brand)
-  || String(product?.brand || '').trim()
-);
+export const getBrandPath = (product) =>
+  String(product?.brand_path || '').trim() ||
+  formatHierarchyPath(product?.brand, product?.sub_brand) ||
+  String(product?.brand || '').trim();
 
 export const getInitials = (name) => {
   const clean = String(name || '').trim();

@@ -1,10 +1,8 @@
 const registerPasswordDisabledRoutes = (deps) => {
-  const {
-    app,
-    authIpLimiter,
-  } = deps;
+  const { app, authIpLimiter } = deps;
 
-  const PASSWORD_AUTH_DISABLED_ERROR = 'Password-based authentication is disabled. Use OTP or OAuth login.';
+  const PASSWORD_AUTH_DISABLED_ERROR =
+    'Password-based authentication is disabled. Use OTP or OAuth login.';
   const respondPasswordAuthDisabled = (_, res) =>
     res.status(410).json({ error: PASSWORD_AUTH_DISABLED_ERROR });
 

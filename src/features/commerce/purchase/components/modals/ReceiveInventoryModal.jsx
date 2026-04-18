@@ -25,18 +25,32 @@ const ReceiveInventoryModal = ({
         title={`Receive Inventory - ${selectedOrder.po_number}`}
         className="purchase-receive-sheet"
         dismissible={!receiveSubmitting}
-        actions={(
+        actions={
           <>
-            <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={() => setShowReceiveModal(false)}
+              disabled={receiveSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" form="receive-inventory-form" className="submit-btn" disabled={receiveSubmitting}>
+            <button
+              type="submit"
+              form="receive-inventory-form"
+              className="submit-btn"
+              disabled={receiveSubmitting}
+            >
               {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
             </button>
           </>
-        )}
+        }
       >
-        <form id="receive-inventory-form" onSubmit={handleReceiveSubmit} className="mobile-receive-form">
+        <form
+          id="receive-inventory-form"
+          onSubmit={handleReceiveSubmit}
+          className="mobile-receive-form"
+        >
           <div className="form-section">
             <div className="form-group">
               <label htmlFor="receive-mobile-invoice-number">Invoice Number</label>
@@ -45,7 +59,9 @@ const ReceiveInventoryModal = ({
                 name="invoice_number"
                 type="text"
                 value={receiveData.invoice_number}
-                onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                onChange={(e) =>
+                  setReceiveData((prev) => ({ ...prev, invoice_number: e.target.value }))
+                }
                 placeholder="Enter invoice number"
               />
             </div>
@@ -76,7 +92,16 @@ const ReceiveInventoryModal = ({
                       min="0"
                       max={item.ordered_quantity}
                       value={item.received_quantity}
-                      onChange={e => handleReceiveItemChange(index, 'received_quantity', Math.max(0, Math.min(toNumber(item.ordered_quantity), toNumber(e.target.value))))}
+                      onChange={(e) =>
+                        handleReceiveItemChange(
+                          index,
+                          'received_quantity',
+                          Math.max(
+                            0,
+                            Math.min(toNumber(item.ordered_quantity), toNumber(e.target.value))
+                          )
+                        )
+                      }
                     />
                     <button
                       type="button"
@@ -95,12 +120,16 @@ const ReceiveInventoryModal = ({
                       type="number"
                       step="0.01"
                       value={item.unit_price}
-                      onChange={e => handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))}
+                      onChange={(e) =>
+                        handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))
+                      }
                     />
                   </div>
                   <div className="mobile-receive-row value">
                     <span>Value</span>
-                    <strong>{formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}</strong>
+                    <strong>
+                      {formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}
+                    </strong>
                   </div>
                 </div>
               ))}
@@ -126,77 +155,89 @@ const ReceiveInventoryModal = ({
       minHeight={420}
     >
       <form id="receive-inventory-form" onSubmit={handleReceiveSubmit}>
-          <div className="form-section">
-            <div className="form-group">
-              <label htmlFor="receive-desktop-invoice-number">Invoice Number</label>
-              <input
-                id="receive-desktop-invoice-number"
-                name="invoice_number"
-                type="text"
-                value={receiveData.invoice_number}
-                onChange={e => setReceiveData(prev => ({ ...prev, invoice_number: e.target.value }))}
-                placeholder="Enter invoice number"
-              />
-            </div>
+        <div className="form-section">
+          <div className="form-group">
+            <label htmlFor="receive-desktop-invoice-number">Invoice Number</label>
+            <input
+              id="receive-desktop-invoice-number"
+              name="invoice_number"
+              type="text"
+              value={receiveData.invoice_number}
+              onChange={(e) =>
+                setReceiveData((prev) => ({ ...prev, invoice_number: e.target.value }))
+              }
+              placeholder="Enter invoice number"
+            />
           </div>
+        </div>
 
-          <div className="form-section">
-            <h3>Received Items</h3>
-            <div className="items-list">
-              {receiveData.items.map((item, index) => (
-                <div key={index} className="item-row">
-                  <div className="item-field product">
-                    <span className="field-label">Product</span>
-                    <span>{item.product_name}</span>
-                  </div>
-                  <div className="item-field qty">
-                    <span className="field-label">Ordered</span>
-                    <span>{item.ordered_quantity}</span>
-                  </div>
-                  <div className="item-field qty">
-                    <label htmlFor={`receive-desktop-qty-${index}`}>Received</label>
-                    <input
-                      id={`receive-desktop-qty-${index}`}
-                      name={`received_quantity_${index}`}
-                      type="number"
-                      min="0"
-                      max={item.ordered_quantity}
-                      value={item.received_quantity}
-                      onChange={e => handleReceiveItemChange(index, 'received_quantity', toNumber(e.target.value))}
-                    />
-                  </div>
-                  <div className="item-field price">
-                    <label htmlFor={`receive-desktop-unit-cost-${index}`}>Unit Cost</label>
-                    <input
-                      id={`receive-desktop-unit-cost-${index}`}
-                      name={`unit_cost_${index}`}
-                      type="number"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={e => handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))}
-                    />
-                  </div>
-                  <div className="item-field total">
-                    <span className="field-label">Value</span>
-                    <span>{formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}</span>
-                  </div>
+        <div className="form-section">
+          <h3>Received Items</h3>
+          <div className="items-list">
+            {receiveData.items.map((item, index) => (
+              <div key={index} className="item-row">
+                <div className="item-field product">
+                  <span className="field-label">Product</span>
+                  <span>{item.product_name}</span>
                 </div>
-              ))}
-            </div>
+                <div className="item-field qty">
+                  <span className="field-label">Ordered</span>
+                  <span>{item.ordered_quantity}</span>
+                </div>
+                <div className="item-field qty">
+                  <label htmlFor={`receive-desktop-qty-${index}`}>Received</label>
+                  <input
+                    id={`receive-desktop-qty-${index}`}
+                    name={`received_quantity_${index}`}
+                    type="number"
+                    min="0"
+                    max={item.ordered_quantity}
+                    value={item.received_quantity}
+                    onChange={(e) =>
+                      handleReceiveItemChange(index, 'received_quantity', toNumber(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="item-field price">
+                  <label htmlFor={`receive-desktop-unit-cost-${index}`}>Unit Cost</label>
+                  <input
+                    id={`receive-desktop-unit-cost-${index}`}
+                    name={`unit_cost_${index}`}
+                    type="number"
+                    step="0.01"
+                    value={item.unit_price}
+                    onChange={(e) =>
+                      handleReceiveItemChange(index, 'unit_price', toNumber(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="item-field total">
+                  <span className="field-label">Value</span>
+                  <span>
+                    {formatCurrency(toNumber(item.received_quantity) * toNumber(item.unit_price))}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
 
-          <div className="modal-actions">
-            <button type="button" className="cancel-btn" onClick={() => setShowReceiveModal(false)} disabled={receiveSubmitting}>
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={receiveSubmitting}>
-              {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
-            </button>
-          </div>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="cancel-btn"
+            onClick={() => setShowReceiveModal(false)}
+            disabled={receiveSubmitting}
+          >
+            Cancel
+          </button>
+          <button type="submit" className="submit-btn" disabled={receiveSubmitting}>
+            {receiveSubmitting ? 'Saving...' : 'Confirm Receipt'}
+          </button>
+        </div>
       </form>
     </WindowModal>
   );
 };
 
 export default ReceiveInventoryModal;
-

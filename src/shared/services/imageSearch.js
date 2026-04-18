@@ -11,7 +11,9 @@ const buildAutoQuery = ({ name, brand, content, category, query }) => {
     normalize(content),
     normalize(category),
     'product packshot',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 };
 
 const makeFallbackImages = (seedText, limit) => {
@@ -37,13 +39,16 @@ const fetchSerpApiBingImages = async (query, limit) => {
   });
   const data = await apiFetch(`/api/products/image-search?${params.toString()}`);
   const rows = Array.isArray(data?.images) ? data.images : [];
-  return rows.slice(0, limit).map((img, index) => ({
-    id: String(img?.id || `serpapi-bing-${index + 1}`),
-    thumbUrl: String(img?.thumbUrl || img?.fullUrl || ''),
-    fullUrl: String(img?.fullUrl || ''),
-    source: 'serpapi-bing',
-    title: String(img?.title || `Suggestion ${index + 1}`),
-  })).filter((img) => img.fullUrl);
+  return rows
+    .slice(0, limit)
+    .map((img, index) => ({
+      id: String(img?.id || `serpapi-bing-${index + 1}`),
+      thumbUrl: String(img?.thumbUrl || img?.fullUrl || ''),
+      fullUrl: String(img?.fullUrl || ''),
+      source: 'serpapi-bing',
+      title: String(img?.title || `Suggestion ${index + 1}`),
+    }))
+    .filter((img) => img.fullUrl);
 };
 
 export const searchProductImages = async (params = {}) => {

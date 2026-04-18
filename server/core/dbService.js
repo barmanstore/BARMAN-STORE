@@ -35,10 +35,11 @@ const createDatabaseService = ({
     const tx = getActiveTransaction();
     return tx ? tx.allAsync(sql, params) : dbQuery.allAsync(sql, params);
   };
-  const dbTxAsync = (handler, ...args) => dbQuery.transactionAsync(
-    async (tx, ...handlerArgs) => txStorage.run(tx, () => handler(...handlerArgs)),
-    ...args
-  );
+  const dbTxAsync = (handler, ...args) =>
+    dbQuery.transactionAsync(
+      async (tx, ...handlerArgs) => txStorage.run(tx, () => handler(...handlerArgs)),
+      ...args
+    );
 
   let runtimeBootstrapError = null;
   const startDatabaseScaffolding = async () => {
@@ -52,7 +53,9 @@ const createDatabaseService = ({
       if (runMigrationsOnStartup) {
         const migrationResult = await applyPostgresMigrations(postgresPool, postgresMigrationsDir);
         if (migrationResult.applied.length) {
-          console.log(`[DB] Postgres migrations applied (${migrationResult.applied.length}/${migrationResult.total}): ${migrationResult.applied.join(', ')}`);
+          console.log(
+            `[DB] Postgres migrations applied (${migrationResult.applied.length}/${migrationResult.total}): ${migrationResult.applied.join(', ')}`
+          );
         } else {
           console.log(`[DB] Postgres migrations up-to-date (${migrationResult.total} files).`);
         }
@@ -76,10 +79,13 @@ const createDatabaseService = ({
       runtimeBootstrapError = null;
       return true;
     } catch (error) {
-      runtimeBootstrapError = error instanceof Error
-        ? error
-        : new Error(String(error || 'Unknown database initialization error'));
-      console.error(`[DB] Postgres/Supabase initialization failed: ${runtimeBootstrapError.message}`);
+      runtimeBootstrapError =
+        error instanceof Error
+          ? error
+          : new Error(String(error || 'Unknown database initialization error'));
+      console.error(
+        `[DB] Postgres/Supabase initialization failed: ${runtimeBootstrapError.message}`
+      );
       await closePostgresScaffold();
       return false;
     }

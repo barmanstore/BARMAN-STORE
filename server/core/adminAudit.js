@@ -1,20 +1,15 @@
-const createAdminAuditLogger = ({
-  dbRunAsync,
-  safeSerializeJson,
-  getRequestIp,
-} = {}) => {
-  const logAdminAuditAsync = async (req, {
-    action,
-    entityType,
-    entityId = null,
-    requestId = null,
-    details = null,
-  } = {}) => {
+const createAdminAuditLogger = ({ dbRunAsync, safeSerializeJson, getRequestIp } = {}) => {
+  const logAdminAuditAsync = async (
+    req,
+    { action, entityType, entityId = null, requestId = null, details = null } = {}
+  ) => {
     if (!action || !entityType) return;
     const actorId = Number(req?.authUser?.id || 0) || null;
     const actorRole = String(req?.authUser?.role || '').trim() || null;
-    const normalizedEntityId = entityId === null || entityId === undefined ? null : String(entityId);
-    const normalizedRequestId = requestId === null || requestId === undefined ? null : String(requestId);
+    const normalizedEntityId =
+      entityId === null || entityId === undefined ? null : String(entityId);
+    const normalizedRequestId =
+      requestId === null || requestId === undefined ? null : String(requestId);
     const ipAddress = getRequestIp(req) || null;
 
     try {

@@ -24,20 +24,29 @@ const createPhoneChangeApprove = (deps = {}) => {
     const requestId = Number(id || 0);
     if (!requestId) return null;
     const reviewedById = Number(reviewedBy || 0) || null;
-    const source = String(decisionSource || '').trim().toUpperCase() === PHONE_CHANGE_DECISION_AUTO
-      ? PHONE_CHANGE_DECISION_AUTO
-      : PHONE_CHANGE_DECISION_ADMIN;
+    const source =
+      String(decisionSource || '')
+        .trim()
+        .toUpperCase() === PHONE_CHANGE_DECISION_AUTO
+        ? PHONE_CHANGE_DECISION_AUTO
+        : PHONE_CHANGE_DECISION_ADMIN;
 
     return dbTxAsync(async () => {
-      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [requestId]);
+      const requestRow = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [
+        requestId,
+      ]);
       if (!requestRow) return null;
-      if (normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING) {
+      if (
+        normalizePhoneChangeRequestStatus(requestRow.status, '') !== PHONE_CHANGE_STATUS_PENDING
+      ) {
         const err = new Error(`Cannot approve request in status "${requestRow.status}"`);
         err.status = 400;
         throw err;
       }
 
-      const owner = await dbGetAsync('SELECT id, phone FROM users WHERE id = ?', [requestRow.user_id]);
+      const owner = await dbGetAsync('SELECT id, phone FROM users WHERE id = ?', [
+        requestRow.user_id,
+      ]);
       if (!owner) {
         const err = new Error('User not found for this phone change request');
         err.status = 404;
@@ -71,7 +80,11 @@ const createPhoneChangeApprove = (deps = {}) => {
       if (conflictUserId) {
         mergeImpact = await getPhoneMergeImpactSummary(conflictUserId);
       }
-      if (source === PHONE_CHANGE_DECISION_ADMIN && conflictUserId && !Boolean(allowConflictMerge)) {
+      if (
+        source === PHONE_CHANGE_DECISION_ADMIN &&
+        conflictUserId &&
+        !allowConflictMerge
+      ) {
         const err = new Error('Conflict detected. Confirm identity merge to approve this request.');
         err.status = 409;
         err.code = 'PHONE_CONFLICT_REQUIRES_MERGE';
@@ -124,7 +137,9 @@ const createPhoneChangeApprove = (deps = {}) => {
         ]
       );
 
-      const updatedRequest = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [requestId]);
+      const updatedRequest = await dbGetAsync('SELECT * FROM phone_change_requests WHERE id = ?', [
+        requestId,
+      ]);
       const updatedUser = await dbGetAsync('SELECT * FROM users WHERE id = ?', [owner.id]);
       return {
         request: updatedRequest,

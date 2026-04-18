@@ -6,10 +6,9 @@ const PurchaseOrderSummaryPanel = ({
   itemCount = 0,
   quantityTotal = 0,
 }) => {
-  const hasTaxDetails = orderFullMode && (
-    Number(orderTotals.taxableValue || 0) > 0
-    || Number(orderTotals.taxAmount || 0) > 0
-  );
+  const hasTaxDetails =
+    orderFullMode &&
+    (Number(orderTotals.taxableValue || 0) > 0 || Number(orderTotals.taxAmount || 0) > 0);
 
   return (
     <div className="order-summary">

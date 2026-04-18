@@ -6,7 +6,7 @@ function BackofficePageHeader({
   subtitle,
   actions = null,
   className = '',
-  children = null
+  children = null,
 }) {
   const classes = ['admin-page-header', className].filter(Boolean).join(' ');
 

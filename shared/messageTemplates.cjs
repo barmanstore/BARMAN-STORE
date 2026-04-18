@@ -20,14 +20,13 @@ const toNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const formatCurrency = (amount) => (
+const formatCurrency = (amount) =>
   new Intl.NumberFormat(INR_LOCALE, {
     style: 'currency',
     currency: INR_CURRENCY,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(toNumber(amount))
-);
+  }).format(toNumber(amount));
 
 const formatDateTime = (value) => {
   const date = new Date(value || Date.now());
@@ -65,7 +64,9 @@ const dateKeyToUtcMs = (value) => {
 const addDaysToDateKey = (value, days) => {
   const baseMs = dateKeyToUtcMs(value);
   if (!Number.isFinite(baseMs)) return '';
-  return new Date(baseMs + (Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)).toISOString().slice(0, 10);
+  return new Date(baseMs + Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)
+    .toISOString()
+    .slice(0, 10);
 };
 
 const getTodayDateKey = (nowValue = Date.now()) => {
@@ -93,7 +94,9 @@ const toEntryTypeLabel = (value) => {
 };
 
 const toPaymentStatusLabel = (value) => {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
   if (normalized === 'paid') return 'পৰিশোধিত';
   if (normalized === 'pending') return 'বকেয়া';
   if (normalized === 'partial') return 'আংশিক';
@@ -106,25 +109,30 @@ const buildMaintainScoreLine = (paymentProfile) => {
   const dueDateKey = String(paymentProfile.maintain_score_by_date || '').trim();
   const dueDateLabel = formatDueDateLabel(dueDateKey);
   const outstandingAmount = Number(
-    paymentProfile.outstanding_amount
-    ?? paymentProfile.current_balance
-    ?? paymentProfile.balance
-    ?? 0
+    paymentProfile.outstanding_amount ??
+      paymentProfile.current_balance ??
+      paymentProfile.balance ??
+      0
   );
   if (!dueDateLabel || !Number.isFinite(outstandingAmount) || outstandingAmount <= 0) return '';
 
-  const statusLabel = String(paymentProfile.label ?? paymentProfile.payment_status_label ?? '').trim();
-  const statusValue = String(paymentProfile.status ?? paymentProfile.payment_status ?? '').trim().toLowerCase();
-  const customerTag = String(paymentProfile.customer_tag || '').trim().toLowerCase();
+  const statusLabel = String(
+    paymentProfile.label ?? paymentProfile.payment_status_label ?? ''
+  ).trim();
+  const statusValue = String(paymentProfile.status ?? paymentProfile.payment_status ?? '')
+    .trim()
+    .toLowerCase();
+  const customerTag = String(paymentProfile.customer_tag || '')
+    .trim()
+    .toLowerCase();
   const normalizedStatus = statusLabel.toLowerCase();
   const nextStatusLabel = String(paymentProfile.next_status_label || '').trim();
   const graceDays = Math.max(0, Math.floor(Number(paymentProfile.grace_days) || 0));
   const graceEndDateKey = addDaysToDateKey(dueDateKey, graceDays);
   const graceEndDateLabel = formatDueDateLabel(graceEndDateKey);
   const todayDateKey = getTodayDateKey(paymentProfile.now_ms ?? paymentProfile.nowMs);
-  const isNewCustomer = customerTag === 'insufficient_history'
-    || statusValue === 'new'
-    || normalizedStatus === 'new';
+  const isNewCustomer =
+    customerTag === 'insufficient_history' || statusValue === 'new' || normalizedStatus === 'new';
   const dueDatePassed = isDateKey(dueDateKey) && todayDateKey > dueDateKey;
   const gracePeriodEnded = isDateKey(graceEndDateKey) && todayDateKey > graceEndDateKey;
 
@@ -183,12 +191,16 @@ const formatPoNoticeRate = (value) => {
   if (!Number.isFinite(amount) || amount <= 0) return '0/';
   const normalized = Number.isInteger(amount)
     ? String(amount)
-    : String(Number(amount.toFixed(2))).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    : String(Number(amount.toFixed(2)))
+        .replace(/\.0+$/, '')
+        .replace(/(\.\d*[1-9])0+$/, '$1');
   return `${normalized}/`;
 };
 
 const formatPoNoticeItemName = (value, fallback = 'ITEM') => {
-  const raw = String(value || '').trim().replace(/\s+/g, ' ');
+  const raw = String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
   return (raw || fallback).toUpperCase();
 };
 
@@ -206,17 +218,16 @@ const buildHeaderLines = ({ storeTitle, title, paymentProfile } = {}) => {
   const rawScore = paymentProfile?.score ?? paymentProfile?.payment_score;
   const hasScore = rawScore !== null && rawScore !== undefined && Number.isFinite(Number(rawScore));
   const scoreValue = hasScore ? `${Math.round(Number(rawScore))}/100` : null;
-  const statusLabel = String(paymentProfile?.label ?? paymentProfile?.payment_status_label ?? '').trim();
+  const statusLabel = String(
+    paymentProfile?.label ?? paymentProfile?.payment_status_label ?? ''
+  ).trim();
   const scoreLine = hasScore
     ? `স্কোৰ: ${scoreValue}${statusLabel ? ` | ${statusLabel}` : ''}`
-    : (statusLabel ? `স্কোৰ: ${statusLabel}` : '');
+    : statusLabel
+      ? `স্কোৰ: ${statusLabel}`
+      : '';
 
-  const headerText = compactJoin([
-    safeStoreTitle,
-    safeTitle,
-    scoreLine,
-    '━━━━━━━━━━━━━━',
-  ]);
+  const headerText = compactJoin([safeStoreTitle, safeTitle, scoreLine, '━━━━━━━━━━━━━━']);
   return headerText ? headerText.split('\n') : [];
 };
 
@@ -249,17 +260,13 @@ const buildStructuredMessage = ({
   const footer = Array.isArray(footerLines)
     ? footerLines
     : buildFooterLines({
-      storeTitle: companyTitle,
-      onlineStoreUrl,
-      thankYouLine,
-      endSuffix,
-    });
+        storeTitle: companyTitle,
+        onlineStoreUrl,
+        thankYouLine,
+        endSuffix,
+      });
 
-  return compactJoin([
-    ...header,
-    ...detailLines,
-    ...footer,
-  ]);
+  return compactJoin([...header, ...detailLines, ...footer]);
 };
 
 const buildBillShareText = ({
@@ -338,7 +345,9 @@ const buildCreditReportText = ({
     .slice(0, maxLines > 0 ? maxLines : 0)
     .map((transaction, index) => {
       const amount = toNumber(transaction?.amount);
-      const kind = String(transaction?.type || transaction?.typeLabel || '').trim().toLowerCase();
+      const kind = String(transaction?.type || transaction?.typeLabel || '')
+        .trim()
+        .toLowerCase();
       if (kind === 'given') totalGiven += amount;
       if (kind === 'payment') totalPayment += amount;
       return `${index + 1}. ${normalizeLabel(transaction?.dateLabel)} | ${toEntryTypeLabel(transaction?.typeLabel || transaction?.type)} ${formatCurrency(amount)} | বেলেঞ্চ ${formatCurrency(transaction?.balance || 0)} | ${normalizeLabel(transaction?.description, DEFAULT_DESCRIPTION)}`;
@@ -347,7 +356,9 @@ const buildCreditReportText = ({
   if (safeTransactions.length > transactionLines.length) {
     for (let index = transactionLines.length; index < safeTransactions.length; index += 1) {
       const amount = toNumber(safeTransactions[index]?.amount);
-      const kind = String(safeTransactions[index]?.type || safeTransactions[index]?.typeLabel || '').trim().toLowerCase();
+      const kind = String(safeTransactions[index]?.type || safeTransactions[index]?.typeLabel || '')
+        .trim()
+        .toLowerCase();
       if (kind === 'given') totalGiven += amount;
       if (kind === 'payment') totalPayment += amount;
     }
@@ -355,7 +366,7 @@ const buildCreditReportText = ({
 
   return buildStructuredMessage({
     companyTitle,
-    title: 'ধাৰ ৰিপ\'ৰ্ট',
+    title: "ধাৰ ৰিপ'ৰ্ট",
     paymentProfile,
     detailLines: [
       `গ্ৰাহক: ${normalizeLabel(customerName, DEFAULT_CUSTOMER_LABEL)}`,
@@ -363,7 +374,9 @@ const buildCreditReportText = ({
       `তৈয়াৰ: ${formatDateTime(generatedAt)}`,
       ...buildPaymentProfileLines(paymentProfile),
       safeTransactions.length
-        ? (maxLines > 0 ? `লেনদেন (${safeTransactions.length}):` : `লেনদেন (${safeTransactions.length}): সংক্ষেপিত`)
+        ? maxLines > 0
+          ? `লেনদেন (${safeTransactions.length}):`
+          : `লেনদেন (${safeTransactions.length}): সংক্ষেপিত`
         : 'লেনদেন: নাই',
       ...transactionLines,
       maxLines > 0 && safeTransactions.length > transactionLines.length
@@ -391,22 +404,23 @@ const buildCreditEntryText = ({
   paymentProfile,
   onlineStoreUrl,
   thankYouLine,
-} = {}) => buildStructuredMessage({
-  companyTitle,
-  title: 'ধাৰ লেজাৰ আপডেট',
-  paymentProfile,
-  detailLines: [
-    `তাৰিখ: ${formatDate(entryDate)}`,
-    `ধৰণ: ${toEntryTypeLabel(entryTypeLabel)} | পৰিমাণ: ${formatCurrency(amount)}`,
-    `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
-    reference ? `ৰেফ: ${reference}` : '',
-    `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
-    ...buildPaymentProfileLines(paymentProfile),
-  ],
-  onlineStoreUrl,
-  thankYouLine,
-  endSuffix: '',
-});
+} = {}) =>
+  buildStructuredMessage({
+    companyTitle,
+    title: 'ধাৰ লেজাৰ আপডেট',
+    paymentProfile,
+    detailLines: [
+      `তাৰিখ: ${formatDate(entryDate)}`,
+      `ধৰণ: ${toEntryTypeLabel(entryTypeLabel)} | পৰিমাণ: ${formatCurrency(amount)}`,
+      `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
+      reference ? `ৰেফ: ${reference}` : '',
+      `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
+      ...buildPaymentProfileLines(paymentProfile),
+    ],
+    onlineStoreUrl,
+    thankYouLine,
+    endSuffix: '',
+  });
 
 const buildCreditTransactionText = ({
   companyTitle,
@@ -420,22 +434,23 @@ const buildCreditTransactionText = ({
   paymentProfile,
   onlineStoreUrl,
   thankYouLine,
-} = {}) => buildStructuredMessage({
-  companyTitle,
-  title: 'লেনদেন আপডেট',
-  paymentProfile,
-  detailLines: [
-    `তাৰিখ: ${normalizeLabel(dateLabel)}`,
-    `ধৰণ: ${toEntryTypeLabel(typeLabel)} | পৰিমাণ: ${formatCurrency(amount)}`,
-    `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
-    reference ? `ৰেফ: ${reference}` : '',
-    `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
-    ...buildPaymentProfileLines(paymentProfile),
-  ],
-  onlineStoreUrl,
-  thankYouLine,
-  endSuffix: '',
-});
+} = {}) =>
+  buildStructuredMessage({
+    companyTitle,
+    title: 'লেনদেন আপডেট',
+    paymentProfile,
+    detailLines: [
+      `তাৰিখ: ${normalizeLabel(dateLabel)}`,
+      `ধৰণ: ${toEntryTypeLabel(typeLabel)} | পৰিমাণ: ${formatCurrency(amount)}`,
+      `টোকা: ${normalizeLabel(description, DEFAULT_DESCRIPTION)}`,
+      reference ? `ৰেফ: ${reference}` : '',
+      `বেলেঞ্চ: ${formatCurrency(previousBalance)} -> ${formatCurrency(updatedBalance)}`,
+      ...buildPaymentProfileLines(paymentProfile),
+    ],
+    onlineStoreUrl,
+    thankYouLine,
+    endSuffix: '',
+  });
 
 const buildPurchaseOrderDistributorNoticeText = ({
   companyTitle,
@@ -453,8 +468,18 @@ const buildPurchaseOrderDistributorNoticeText = ({
   const resolvedTitle = /^order for\b/i.test(rawTitle) || !rawTitle ? 'অৰ্ডাৰ আপডেট' : rawTitle;
   const safeItems = Array.isArray(items) ? items : [];
   const itemLines = safeItems.map((item, index) => {
-    const itemName = formatPoNoticeItemName(item?.product_name || item?.name || `Item ${index + 1}`);
-    const rate = Number(item?.product_price ?? item?.price ?? item?.selling_price ?? item?.mrp ?? item?.unit_price ?? item?.rate ?? 0);
+    const itemName = formatPoNoticeItemName(
+      item?.product_name || item?.name || `Item ${index + 1}`
+    );
+    const rate = Number(
+      item?.product_price ??
+        item?.price ??
+        item?.selling_price ??
+        item?.mrp ??
+        item?.unit_price ??
+        item?.rate ??
+        0
+    );
     const quantity = item?.quantity ?? 0;
     const uom = String(item?.uom || item?.unit || 'pcs').trim() || 'pcs';
     return `${index + 1}. ${itemName} (${formatPoNoticeRate(rate)}) ------------ ${formatCount(quantity)} ${uom}`;

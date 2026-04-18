@@ -23,7 +23,9 @@ const registerCreditIssuesAdminRoutes = (deps) => {
 
   app.get('/api/admin/credit-issues', requireAdmin, async (req, res) => {
     try {
-      const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
+      const requestedStatus = String(req.query?.status || '')
+        .trim()
+        .toLowerCase();
       const rows = await listCreditIssues({
         dbAllAsync,
         normalizeCreditIssueStatus,
@@ -59,7 +61,9 @@ const registerCreditIssuesAdminRoutes = (deps) => {
       return res.json({ success: true, issue: issueDetails || updated });
     } catch (error) {
       const status = Number(error?.status || 0) || (error?.code === 'NOT_FOUND' ? 404 : 500);
-      const message = error?.message || (status === 404 ? 'Credit issue not found' : 'Failed to update credit issue');
+      const message =
+        error?.message ||
+        (status === 404 ? 'Credit issue not found' : 'Failed to update credit issue');
       return res.status(status).json({ error: message });
     }
   });

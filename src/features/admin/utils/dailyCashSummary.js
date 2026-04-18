@@ -37,7 +37,9 @@ export const buildCashSummary = ({
   const normalizedTxCount = Math.max(0, asNumber(txCount, 0));
   const manualTallyEnabled = Boolean(hasManualCashTally);
   const resolvedManualCashTally = manualTallyEnabled ? asNumber(manualCashTally, 0) : 0;
-  const effectiveCashPicture = manualTallyEnabled ? resolvedManualCashTally : normalizedCashCollected;
+  const effectiveCashPicture = manualTallyEnabled
+    ? resolvedManualCashTally
+    : normalizedCashCollected;
 
   return {
     totalBilled: normalizedTotalBilled,
@@ -59,10 +61,7 @@ export const buildCashSummary = ({
 
 export const normalizeCashSummary = (payload) => {
   const source = payload && typeof payload === 'object' ? payload : {};
-  const hasManualCashTally = Boolean(
-    source.has_manual_cash_tally
-    ?? source.hasManualCashTally
-  );
+  const hasManualCashTally = Boolean(source.has_manual_cash_tally ?? source.hasManualCashTally);
 
   return buildCashSummary({
     totalBilled: source.total_billed ?? source.totalBilled,
@@ -72,26 +71,18 @@ export const normalizeCashSummary = (payload) => {
     pendingBills: source.pending_bills ?? source.pendingBills,
     txCount: source.tx_count ?? source.txCount,
     hasManualCashTally,
-    manualCashTally: hasManualCashTally
-      ? (source.manual_cash_tally ?? source.manualCashTally)
-      : 0,
+    manualCashTally: hasManualCashTally ? (source.manual_cash_tally ?? source.manualCashTally) : 0,
     cashTallyUpdatedAt: source.cash_tally_updated_at ?? source.cashTallyUpdatedAt,
     cashTallyUpdatedByName: source.cash_tally_updated_by_name ?? source.cashTallyUpdatedByName,
   });
 };
 
 export const normalizeDailyCashTallyEntry = (payload, fallbackDateKey = '') => {
-  const source = payload?.entry && typeof payload.entry === 'object'
-    ? payload.entry
-    : payload;
+  const source = payload?.entry && typeof payload.entry === 'object' ? payload.entry : payload;
   if (!source || typeof source !== 'object') return null;
 
   const date = String(
-    source.date
-    || source.tally_date
-    || payload?.date
-    || fallbackDateKey
-    || ''
+    source.date || source.tally_date || payload?.date || fallbackDateKey || ''
   ).trim();
   const countedCashTotal = Number(source.counted_cash_total ?? source.countedCashTotal);
   if (!date || !Number.isFinite(countedCashTotal)) return null;

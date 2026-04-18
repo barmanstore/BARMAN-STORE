@@ -13,7 +13,9 @@ const dateKeyToUtcMs = (value) => {
 const addDaysToDateKey = (value, days) => {
   const baseMs = dateKeyToUtcMs(value);
   if (!Number.isFinite(baseMs)) return '';
-  return new Date(baseMs + (Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)).toISOString().slice(0, 10);
+  return new Date(baseMs + Math.max(0, Math.floor(Number(days) || 0)) * PAYMENT_DAY_MS)
+    .toISOString()
+    .slice(0, 10);
 };
 
 const getTodayDateKey = () => new Date().toISOString().slice(0, 10);
@@ -25,10 +27,7 @@ const formatDueDateLabel = (value) => {
   return new Date(year, month - 1, day).toLocaleDateString('en-IN');
 };
 
-function CreditMonthlyStatementSection({
-  monthlyStatements,
-  paymentBadgeSummary,
-}) {
+function CreditMonthlyStatementSection({ monthlyStatements, paymentBadgeSummary }) {
   if (!Array.isArray(monthlyStatements) || monthlyStatements.length === 0) return null;
 
   const maintainScoreByDateKey = String(paymentBadgeSummary?.maintain_score_by_date || '').trim();
@@ -41,24 +40,31 @@ function CreditMonthlyStatementSection({
   const gracePeriodEnded = isDateKey(graceEndDateKey) && todayDateKey > graceEndDateKey;
   const paymentStatusLabel = String(paymentBadgeSummary?.payment_status_label || '').trim();
   const nextStatusLabel = String(paymentBadgeSummary?.next_status_label || '').trim();
-  const customerTag = String(paymentBadgeSummary?.customer_tag || '').trim().toLowerCase();
+  const customerTag = String(paymentBadgeSummary?.customer_tag || '')
+    .trim()
+    .toLowerCase();
   const outstandingAmount = Number(paymentBadgeSummary?.outstanding_amount || 0);
-  const visibleDeadlineLabel = dueDatePassed ? (graceEndDateLabel || maintainScoreByDate) : maintainScoreByDate;
-  const showPayByNote = Boolean(visibleDeadlineLabel) && Number.isFinite(outstandingAmount) && outstandingAmount > 0;
+  const visibleDeadlineLabel = dueDatePassed
+    ? graceEndDateLabel || maintainScoreByDate
+    : maintainScoreByDate;
+  const showPayByNote =
+    Boolean(visibleDeadlineLabel) && Number.isFinite(outstandingAmount) && outstandingAmount > 0;
   const normalizedStatus = paymentStatusLabel.toLowerCase();
   const isNewCustomer = customerTag === 'insufficient_history' || normalizedStatus === 'new';
   const payByHeading = gracePeriodEnded
     ? 'Grace period ended'
-    : (dueDatePassed ? 'Grace period ends' : 'Current pay-by date');
+    : dueDatePassed
+      ? 'Grace period ends'
+      : 'Current pay-by date';
   const payByDescription = gracePeriodEnded
     ? 'The due date and grace period have passed. Pay immediately to avoid a worse payment score.'
-    : (dueDatePassed
+    : dueDatePassed
       ? 'The due date has passed. Pay within this grace period to avoid hurting your payment score.'
-      : (isNewCustomer
+      : isNewCustomer
         ? 'Clear this first due on time to unlock your payment status.'
-        : ((normalizedStatus === 'excellent')
-        ? `Pay by this date to help keep your ${paymentStatusLabel} score.`
-        : `Pay by this date to improve your payment score and move toward ${nextStatusLabel || 'a better status'}.`)));
+        : normalizedStatus === 'excellent'
+          ? `Pay by this date to help keep your ${paymentStatusLabel} score.`
+          : `Pay by this date to improve your payment score and move toward ${nextStatusLabel || 'a better status'}.`;
 
   return (
     <section className="credit-monthly-statements">
@@ -66,8 +72,8 @@ function CreditMonthlyStatementSection({
         <div className="credit-monthly-statements-copy">
           <h2>Monthly statement view</h2>
           <p>
-            This month-by-month summary is derived from your full ledger for easier tracking.
-            Scores and due dates still follow the original credit entries.
+            This month-by-month summary is derived from your full ledger for easier tracking. Scores
+            and due dates still follow the original credit entries.
           </p>
         </div>
         {showPayByNote ? (
@@ -81,11 +87,12 @@ function CreditMonthlyStatementSection({
 
       <div className="credit-monthly-statement-grid">
         {monthlyStatements.map((statement) => {
-          const netLabel = statement.netTone === 'debit'
-            ? `Net added ${formatCurrency(statement.netChange)}`
-            : (statement.netTone === 'credit'
-              ? `Net paid ${formatCurrency(Math.abs(statement.netChange))}`
-              : 'No net change');
+          const netLabel =
+            statement.netTone === 'debit'
+              ? `Net added ${formatCurrency(statement.netChange)}`
+              : statement.netTone === 'credit'
+                ? `Net paid ${formatCurrency(Math.abs(statement.netChange))}`
+                : 'No net change';
 
           return (
             <article key={statement.monthKey} className="credit-monthly-statement-card">
@@ -97,7 +104,8 @@ function CreditMonthlyStatementSection({
                   </span>
                 </div>
                 <span className="credit-monthly-statement-count">
-                  {statement.transactionCount} {statement.transactionCount === 1 ? 'entry' : 'entries'}
+                  {statement.transactionCount}{' '}
+                  {statement.transactionCount === 1 ? 'entry' : 'entries'}
                 </span>
               </div>
 
@@ -120,9 +128,7 @@ function CreditMonthlyStatementSection({
                 </div>
               </div>
 
-              <div className={`credit-monthly-statement-net ${statement.netTone}`}>
-                {netLabel}
-              </div>
+              <div className={`credit-monthly-statement-net ${statement.netTone}`}>{netLabel}</div>
             </article>
           );
         })}

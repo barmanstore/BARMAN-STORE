@@ -6,7 +6,14 @@ import { useSession } from '../../../providers/SessionProvider';
 import { ordersApi } from '../api/index.js';
 import { formatCurrency } from '../../../shared/utils/formatters';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
-import { formatDate, getStatusConfig, statusFilters, sortOptions, extractQtyLabelFromName, buildRepeatCartFromOrder } from '../utils/orderHistoryUtils';
+import {
+  formatDate,
+  getStatusConfig,
+  statusFilters,
+  sortOptions,
+  extractQtyLabelFromName,
+  buildRepeatCartFromOrder,
+} from '../utils/orderHistoryUtils';
 import './OrderHistoryPage.css';
 
 function HistoryHeader({ latestOrder, onRepeatLastOrder, repeatLoading, repeatMessage }) {
@@ -36,7 +43,7 @@ function OrderFilters({
   setStatusFilter,
   sortBy,
   setSortBy,
-  statusCounts
+  statusCounts,
 }) {
   return (
     <div className="filters-section fade-in-up">
@@ -55,7 +62,11 @@ function OrderFilters({
       <div className="filter-controls">
         <div className="filter-group">
           <Filter size={18} />
-          <select name="status_filter" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select
+            name="status_filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
             {statusFilters.map((status) => (
               <option key={status} value={status}>
                 {status === 'all'
@@ -102,7 +113,7 @@ function EmptyOrdersState({ hasActiveFilters, onStartShopping }) {
     <div className="empty-state fade-in-up">
       <Package size={80} />
       <h2>No Orders Found</h2>
-      <p>{hasActiveFilters ? 'Try adjusting your filters' : 'You haven\'t placed any orders yet'}</p>
+      <p>{hasActiveFilters ? 'Try adjusting your filters' : "You haven't placed any orders yet"}</p>
       <button onClick={onStartShopping}>Start Shopping</button>
     </div>
   );
@@ -113,10 +124,7 @@ function OrderCard({ order, index, onViewOrder, onRepeatOrder, repeatDisabled })
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div
-      className="order-card slide-in-up"
-      style={{ animationDelay: `${index * 0.05}s` }}
-    >
+    <div className="order-card slide-in-up" style={{ animationDelay: `${index * 0.05}s` }}>
       <div className="order-header">
         <div className="order-info">
           <button
@@ -128,7 +136,7 @@ function OrderCard({ order, index, onViewOrder, onRepeatOrder, repeatDisabled })
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              textDecoration: 'underline'
+              textDecoration: 'underline',
             }}
           >
             {order.order_number || `#${order.id}`}
@@ -144,11 +152,14 @@ function OrderCard({ order, index, onViewOrder, onRepeatOrder, repeatDisabled })
       <div className="order-items-preview">
         {order.items?.slice(0, 3).map((item, itemIndex) => {
           const parsed = extractQtyLabelFromName(item.product_name || item.name);
-          const qtyText = String(item.quantity_label || parsed.qtyLabel || '').trim() || `x${item.quantity}`;
+          const qtyText =
+            String(item.quantity_label || parsed.qtyLabel || '').trim() || `x${item.quantity}`;
           return (
             <div key={item.id || itemIndex} className="item-preview">
               <span className="item-name">{parsed.name || item.product_name || item.name}</span>
-              <span className="item-qty">{qtyText.startsWith('x') ? qtyText : `Qty: ${qtyText}`}</span>
+              <span className="item-qty">
+                {qtyText.startsWith('x') ? qtyText : `Qty: ${qtyText}`}
+              </span>
             </div>
           );
         })}
@@ -204,7 +215,11 @@ function OrderHistoryPage() {
 
   const latestOrder = useMemo(() => {
     if (!Array.isArray(orders) || orders.length === 0) return null;
-    return [...orders].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || null;
+    return (
+      [...orders].sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )[0] || null
+    );
   }, [orders]);
 
   useEffect(() => {
@@ -237,16 +252,17 @@ function OrderHistoryPage() {
 
     // Filter by search term
     if (searchTerm) {
-      result = result.filter(order => 
-        order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
+      result = result.filter(
+        (order) =>
+          order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Filter by status
     if (statusFilter !== 'all') {
-      result = result.filter(order => order.status === statusFilter);
+      result = result.filter((order) => order.status === statusFilter);
     }
 
     // Sort
@@ -273,8 +289,8 @@ function OrderHistoryPage() {
   const getStatusCounts = () => {
     const counts = {
       all: orders.length,
-      ordered: orders.filter(o => o.status === 'ordered').length,
-      received: orders.filter(o => o.status === 'received').length,
+      ordered: orders.filter((o) => o.status === 'ordered').length,
+      received: orders.filter((o) => o.status === 'received').length,
     };
     return counts;
   };
@@ -287,7 +303,9 @@ function OrderHistoryPage() {
 
   const handleRepeatLastOrder = () => {
     if (!latestOrder) return;
-    const repeatCart = buildRepeatCartFromOrder(latestOrder).filter((item) => String(item?.name || '').trim());
+    const repeatCart = buildRepeatCartFromOrder(latestOrder).filter((item) =>
+      String(item?.name || '').trim()
+    );
     if (repeatCart.length === 0) {
       setRepeatMessage('Last order has no repeatable items.');
       return;
@@ -295,7 +313,9 @@ function OrderHistoryPage() {
     try {
       setRepeatLoading(true);
       restoreFromOrder(repeatCart);
-      setRepeatMessage(`Added ${repeatCart.length} items from ${latestOrder.order_number || `#${latestOrder.id}`}.`);
+      setRepeatMessage(
+        `Added ${repeatCart.length} items from ${latestOrder.order_number || `#${latestOrder.id}`}.`
+      );
       navigate('/cart');
     } catch (_) {
       setRepeatMessage('Unable to repeat last order right now.');
@@ -306,7 +326,9 @@ function OrderHistoryPage() {
 
   const handleRepeatOrder = (order) => {
     if (!order) return;
-    const repeatCart = buildRepeatCartFromOrder(order).filter((item) => String(item?.name || '').trim());
+    const repeatCart = buildRepeatCartFromOrder(order).filter((item) =>
+      String(item?.name || '').trim()
+    );
     if (repeatCart.length === 0) {
       setRepeatMessage('This order has no repeatable items.');
       return;
@@ -314,7 +336,9 @@ function OrderHistoryPage() {
     try {
       setRepeatLoading(true);
       restoreFromOrder(repeatCart);
-      setRepeatMessage(`Added ${repeatCart.length} items from ${order.order_number || `#${order.id}`}.`);
+      setRepeatMessage(
+        `Added ${repeatCart.length} items from ${order.order_number || `#${order.id}`}.`
+      );
       navigate('/cart');
     } catch (_) {
       setRepeatMessage('Unable to repeat this order right now.');
@@ -333,7 +357,7 @@ function OrderHistoryPage() {
       payment_status: order.payment_status || '',
       fulfillment_status: order.fulfillment_status || '',
       total_amount: Number(order.total_amount || 0).toFixed(2),
-      item_count: Array.isArray(order.items) ? order.items.length : 0
+      item_count: Array.isArray(order.items) ? order.items.length : 0,
     }));
 
     const headers = [
@@ -345,7 +369,7 @@ function OrderHistoryPage() {
       'payment_status',
       'fulfillment_status',
       'total_amount',
-      'item_count'
+      'item_count',
     ];
 
     const escapeCsv = (value) => {
@@ -358,7 +382,7 @@ function OrderHistoryPage() {
 
     const csvLines = [
       headers.join(','),
-      ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(','))
+      ...rows.map((row) => headers.map((h) => escapeCsv(row[h])).join(',')),
     ];
 
     const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -410,27 +434,27 @@ function OrderHistoryPage() {
           repeatLoading={repeatLoading}
           repeatMessage={repeatMessage}
         />
-      <OrderFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        statusCounts={statusCounts}
-      />
-      <StatusTabs
-        statusCounts={statusCounts}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
-      />
-      {filteredOrders.length === 0 ? (
-        <EmptyOrdersState
-          hasActiveFilters={Boolean(searchTerm) || statusFilter !== 'all'}
-          onStartShopping={() => navigate('/products')}
+        <OrderFilters
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          statusCounts={statusCounts}
         />
-      ) : (
-        <div className="orders-list">
+        <StatusTabs
+          statusCounts={statusCounts}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+        />
+        {filteredOrders.length === 0 ? (
+          <EmptyOrdersState
+            hasActiveFilters={Boolean(searchTerm) || statusFilter !== 'all'}
+            onStartShopping={() => navigate('/products')}
+          />
+        ) : (
+          <div className="orders-list">
             {filteredOrders.map((order, index) => (
               <OrderCard
                 key={order.id}
@@ -441,7 +465,7 @@ function OrderHistoryPage() {
                 repeatDisabled={repeatLoading}
               />
             ))}
-        </div>
+          </div>
         )}
         {orders.length > 0 && <ExportSection onExport={handleExportOrders} />}
       </div>
@@ -450,4 +474,3 @@ function OrderHistoryPage() {
 }
 
 export default OrderHistoryPage;
-

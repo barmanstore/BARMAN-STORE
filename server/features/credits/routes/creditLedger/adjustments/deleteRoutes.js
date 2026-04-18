@@ -18,12 +18,17 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
         return res.status(400).json({ error: 'Invalid user or transaction id' });
       }
 
-      const existing = await dbGetAsync('SELECT * FROM credit_history WHERE id = ? AND user_id = ?', [entryId, userId]);
+      const existing = await dbGetAsync(
+        'SELECT * FROM credit_history WHERE id = ? AND user_id = ?',
+        [entryId, userId]
+      );
       if (!existing) {
         return res.status(404).json({ error: 'Credit transaction not found' });
       }
 
-      const existingSourceType = String(existing?.source_type || '').trim().toLowerCase();
+      const existingSourceType = String(existing?.source_type || '')
+        .trim()
+        .toLowerCase();
       if (existingSourceType === 'reversal') {
         return res.status(400).json({ error: 'Reversal entries cannot be reversed again' });
       }
@@ -43,9 +48,12 @@ const registerCreditLedgerDeleteRoutes = (deps) => {
 
       const result = await dbTxAsync(async () => {
         const reversalAmount = Math.abs(Number(existing.amount || 0));
-        const reversalType = String(existing.type || '').trim().toLowerCase() === 'payment'
-          ? 'given'
-          : 'payment';
+        const reversalType =
+          String(existing.type || '')
+            .trim()
+            .toLowerCase() === 'payment'
+            ? 'given'
+            : 'payment';
         const transactionTs = new Date().toISOString();
         const transactionDate = transactionTs.slice(0, 10);
         const sourceLabel = String(existing.reference || '').trim()

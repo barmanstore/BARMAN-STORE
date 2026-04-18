@@ -37,4 +37,3 @@ const ProductsGroupedList = ({
 );
 
 export default ProductsGroupedList;
-

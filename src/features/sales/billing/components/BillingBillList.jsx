@@ -20,11 +20,7 @@ const BillingBillList = ({
         <p className="billing-panel-copy">Tap a row to edit.</p>
       </div>
       {lastRemovedItem ? (
-        <button
-          type="button"
-          className="billing-secondary-btn"
-          onClick={onUndoLastRemoval}
-        >
+        <button type="button" className="billing-secondary-btn" onClick={onUndoLastRemoval}>
           <RotateCcw size={16} />
           Undo
         </button>

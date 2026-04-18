@@ -1,6 +1,15 @@
 import { useState, useRef, useEffect, useId } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { User, Shield, LogOut, ChevronDown, X, CreditCard, FileText, Lightbulb } from 'lucide-react';
+import {
+  User,
+  Shield,
+  LogOut,
+  ChevronDown,
+  X,
+  CreditCard,
+  FileText,
+  Lightbulb,
+} from 'lucide-react';
 import { useOverlayStackEntry } from '../../providers/OverlayProvider';
 import { useSession } from '../../providers/SessionProvider';
 import { resolveMediaSourceForDisplay } from '../services/api';
@@ -8,11 +17,11 @@ import { truncateUserName } from '../utils/formatters';
 import useLockBodyScroll from '../hooks/useLockBodyScroll';
 import './UserMenu.css';
 
-function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} }) {
+function UserMenu({ user, inMobileNav = false, onNavigate = () => {} }) {
   const overlayId = useId();
   const { clearUser } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const [failedAvatarSrc, setFailedAvatarSrc] = useState('');
   const [avatarSrc, setAvatarSrc] = useState('');
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -43,7 +52,9 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMenuOpen(false);
   }, [location.pathname]);
 
@@ -68,18 +79,19 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
 
   const getInitials = (name) => {
     if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
-
-  useEffect(() => {
-    setAvatarLoadFailed(false);
-  }, [user?.profile_image]);
 
   useEffect(() => {
     let cancelled = false;
     let revokeUrl = null;
     const run = async () => {
-      if (avatarLoadFailed || !user?.profile_image) {
+      if (failedAvatarSrc === user?.profile_image || !user?.profile_image) {
         setAvatarSrc('');
         return;
       }
@@ -96,9 +108,9 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
       cancelled = true;
       if (revokeUrl) URL.revokeObjectURL(revokeUrl);
     };
-  }, [user?.profile_image, avatarLoadFailed]);
+  }, [user?.profile_image, failedAvatarSrc]);
 
-  const profileImageSrc = !avatarLoadFailed ? avatarSrc : '';
+  const profileImageSrc = failedAvatarSrc === user?.profile_image ? '' : avatarSrc;
   const closeAccountMenu = () => setMenuOpen(false);
   const closeAccountMenuAndNav = () => {
     setMenuOpen(false);
@@ -116,7 +128,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
           src={profileImageSrc}
           alt={user?.name || 'User'}
           className="avatar-image"
-          onError={() => setAvatarLoadFailed(true)}
+          onError={() => setFailedAvatarSrc(user?.profile_image || '')}
         />
       ) : user?.name ? (
         getInitials(user.name)
@@ -131,7 +143,7 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
       {user ? (
         <>
           {/* Logged in - Show user avatar button */}
-          <button 
+          <button
             type="button"
             className="user-menu-button logged-in"
             onMouseDown={(event) => event.stopPropagation()}
@@ -153,8 +165,12 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                   <div className="dropdown-header">
                     {renderAvatar('dropdown-avatar')}
                     <div className="dropdown-user-info">
-                      <span className="dropdown-user-name">{truncateUserName(user.name || 'User', 15)}</span>
-                      <span className="dropdown-user-email">{user.email || user.phone || 'No email'}</span>
+                      <span className="dropdown-user-name">
+                        {truncateUserName(user.name || 'User', 15)}
+                      </span>
+                      <span className="dropdown-user-email">
+                        {user.email || user.phone || 'No email'}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -174,19 +190,31 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                       <span>My Profile</span>
                     </Link>
                     {user.role === 'customer' && (
-                      <Link to="/my-credit" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                      <Link
+                        to="/my-credit"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
                         <CreditCard size={18} />
                         <span>My Credit History</span>
                       </Link>
                     )}
                     {user.role === 'customer' && (
-                      <Link to="/my-bills" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                      <Link
+                        to="/my-bills"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
                         <FileText size={18} />
                         <span>My Bills</span>
                       </Link>
                     )}
                     {user.role === 'customer' && (
-                      <Link to="/product-requests" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                      <Link
+                        to="/product-requests"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
                         <Lightbulb size={18} />
                         <span>Request Product</span>
                       </Link>
@@ -210,8 +238,12 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                     <div className="dropdown-header">
                       {renderAvatar('dropdown-avatar')}
                       <div className="dropdown-user-info">
-                        <span className="dropdown-user-name">{truncateUserName(user.name || 'User', 15)}</span>
-                        <span className="dropdown-user-email">{user.email || user.phone || 'No email'}</span>
+                        <span className="dropdown-user-name">
+                          {truncateUserName(user.name || 'User', 15)}
+                        </span>
+                        <span className="dropdown-user-email">
+                          {user.email || user.phone || 'No email'}
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -232,7 +264,11 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                       </Link>
 
                       {user.role === 'admin' && (
-                        <Link to="/admin" className="dropdown-item admin-item" onClick={closeAccountMenu}>
+                        <Link
+                          to="/admin"
+                          className="dropdown-item admin-item"
+                          onClick={closeAccountMenu}
+                        >
                           <Shield size={18} />
                           <span>Admin Panel</span>
                         </Link>
@@ -250,7 +286,11 @@ function UserMenu({ user, setUser, inMobileNav = false, onNavigate = () => {} })
                         </Link>
                       )}
                       {user.role === 'customer' && (
-                        <Link to="/product-requests" className="dropdown-item" onClick={closeAccountMenu}>
+                        <Link
+                          to="/product-requests"
+                          className="dropdown-item"
+                          onClick={closeAccountMenu}
+                        >
                           <Lightbulb size={18} />
                           <span>Request Product</span>
                         </Link>

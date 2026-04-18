@@ -6,17 +6,20 @@ import {
 } from '../utils/backofficePopup';
 
 function useBackofficePopupStatus(kind) {
-  const popupKind = String(kind || '').trim().toLowerCase();
+  const popupKind = String(kind || '')
+    .trim()
+    .toLowerCase();
   const [status, setStatus] = useState(() => readBackofficePopupStatus(popupKind));
 
-  useEffect(() => {
-    setStatus(readBackofficePopupStatus(popupKind));
-  }, [popupKind]);
-
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!popupKind) return undefined;
 
-    const sync = () => setStatus(readBackofficePopupStatus(popupKind));
+    const sync = () => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus(readBackofficePopupStatus(popupKind));
+    };
+
     const handleStorage = (event) => {
       if (event.key && event.key !== `backoffice_popup_status_${popupKind}`) return;
       sync();
@@ -25,7 +28,12 @@ function useBackofficePopupStatus(kind) {
     const channel = createBackofficePopupChannel();
     const handleChannelMessage = (event) => {
       if (event?.data?.type !== 'popup-status') return;
-      if (String(event?.data?.kind || '').trim().toLowerCase() !== popupKind) return;
+      if (
+        String(event?.data?.kind || '')
+          .trim()
+          .toLowerCase() !== popupKind
+      )
+        return;
       sync();
     };
 
@@ -42,10 +50,13 @@ function useBackofficePopupStatus(kind) {
     };
   }, [popupKind]);
 
-  return useMemo(() => ({
-    ...status,
-    label: status.label || getBackofficePopupConfig(popupKind)?.label || '',
-  }), [popupKind, status]);
+  return useMemo(
+    () => ({
+      ...status,
+      label: status.label || getBackofficePopupConfig(popupKind)?.label || '',
+    }),
+    [popupKind, status]
+  );
 }
 
 export default useBackofficePopupStatus;

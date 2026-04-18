@@ -8,7 +8,9 @@ const createPurchaseDateUtils = (deps = {}) => {
   const { PURCHASE_WEEKDAYS = [] } = deps;
 
   const dateKeyUtils = createDateKeyUtils({ PURCHASE_WEEKDAYS });
-  const scheduleUtils = createScheduleUtils({ normalizeWeekdayLabel: dateKeyUtils.normalizeWeekdayLabel });
+  const scheduleUtils = createScheduleUtils({
+    normalizeWeekdayLabel: dateKeyUtils.normalizeWeekdayLabel,
+  });
   const rangeUtils = createRangeUtils({
     normalizeTransactionDate: dateKeyUtils.normalizeTransactionDate,
     addDaysToDateKey: dateKeyUtils.addDaysToDateKey,

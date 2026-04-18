@@ -1,13 +1,6 @@
 import classNames from 'classnames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  CalendarClock,
-  Gift,
-  Plus,
-  Sparkles,
-  Target,
-  X,
-} from 'lucide-react';
+import { CalendarClock, Gift, Plus, Sparkles, Target, X } from 'lucide-react';
 import { categoriesApi, offersApi } from '../../shared/services/api';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
 import OfferField from './components/OfferField';
@@ -70,7 +63,10 @@ function OfferManagement() {
     () => OFFER_TYPE_META[normalizedForm.type] || OFFER_TYPE_META.percentage,
     [normalizedForm.type]
   );
-  const validationIssues = useMemo(() => getOfferValidationIssues(normalizedForm), [normalizedForm]);
+  const validationIssues = useMemo(
+    () => getOfferValidationIssues(normalizedForm),
+    [normalizedForm]
+  );
   const conflictWarnings = useMemo(
     () => getPotentialConflictWarnings(normalizedForm, offers, editingId),
     [editingId, normalizedForm, offers]
@@ -79,39 +75,32 @@ function OfferManagement() {
     () => filterOffersByStatus(offers, tableFilter),
     [offers, tableFilter]
   );
-  const stats = useMemo(() => TABLE_FILTERS.reduce((acc, key) => {
-    if (key === 'all') {
-      acc[key] = offers.length;
-      return acc;
-    }
-    acc[key] = offers.filter((offer) => getOfferLifecycleStatus(offer) === key).length;
-    return acc;
-  }, {}), [offers]);
+  const stats = useMemo(
+    () =>
+      TABLE_FILTERS.reduce((acc, key) => {
+        if (key === 'all') {
+          acc[key] = offers.length;
+          return acc;
+        }
+        acc[key] = offers.filter((offer) => getOfferLifecycleStatus(offer) === key).length;
+        return acc;
+      }, {}),
+    [offers]
+  );
   const previewTitle = useMemo(
     () => normalizedForm.name || 'Untitled Offer',
     [normalizedForm.name]
   );
-  const previewText = useMemo(
-    () => buildOfferPreviewText(normalizedForm),
-    [normalizedForm]
-  );
-  const previewScope = useMemo(
-    () => buildScopeSummary(normalizedForm),
-    [normalizedForm]
-  );
-  const previewValue = useMemo(
-    () => buildValueSummary(normalizedForm),
-    [normalizedForm]
-  );
+  const previewText = useMemo(() => buildOfferPreviewText(normalizedForm), [normalizedForm]);
+  const previewScope = useMemo(() => buildScopeSummary(normalizedForm), [normalizedForm]);
+  const previewValue = useMemo(() => buildValueSummary(normalizedForm), [normalizedForm]);
   const previewSchedule = useMemo(
-    () => normalizedForm.schedule_mode === 'none' ? 'Any time' : buildScheduleSummary(normalizedForm),
+    () =>
+      normalizedForm.schedule_mode === 'none' ? 'Any time' : buildScheduleSummary(normalizedForm),
     [normalizedForm]
   );
   const scheduleMode = normalizedForm.schedule_mode;
-  const strengthMeta = useMemo(
-    () => getOfferStrengthMeta(normalizedForm),
-    [normalizedForm]
-  );
+  const strengthMeta = useMemo(() => getOfferStrengthMeta(normalizedForm), [normalizedForm]);
   const canSubmit = validationIssues.length === 0 && !submitting;
 
   const resetForm = useCallback(() => {
@@ -164,7 +153,7 @@ function OfferManagement() {
     const { name, valueAsNumber, value } = event.target;
     setForm((prev) => ({
       ...prev,
-      [name]: value === '' ? '' : (Number.isNaN(valueAsNumber) ? '' : valueAsNumber),
+      [name]: value === '' ? '' : Number.isNaN(valueAsNumber) ? '' : valueAsNumber,
     }));
     setError('');
   }, []);
@@ -198,9 +187,10 @@ function OfferManagement() {
         ...prev,
         type: nextType,
         value: Number(prev.value || 0) > 0 ? Number(prev.value) : 10,
-        min_quantity: nextType === 'volume'
-          ? Math.max(2, Number(prev.min_quantity || 2) || 2)
-          : Math.max(1, Number(prev.min_quantity || 1) || 1),
+        min_quantity:
+          nextType === 'volume'
+            ? Math.max(2, Number(prev.min_quantity || 2) || 2)
+            : Math.max(1, Number(prev.min_quantity || 1) || 1),
         apply_to_category: String(prev.apply_to_category || '').trim() || 'ALL',
         apply_to_product: prev.apply_to_product ? Number(prev.apply_to_product) : null,
         buy_product_id: null,
@@ -274,31 +264,34 @@ function OfferManagement() {
     setError('');
   }, []);
 
-  const handleSubmit = useCallback(async (event) => {
-    event.preventDefault();
+  const handleSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
 
-    if (validationIssues.length > 0) {
-      setError(validationIssues[0]);
-      return;
-    }
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      if (editingId) {
-        await offersApi.update(editingId, normalizedForm);
-      } else {
-        await offersApi.create(normalizedForm);
+      if (validationIssues.length > 0) {
+        setError(validationIssues[0]);
+        return;
       }
-      resetForm();
-      await refreshOffers();
-    } catch (submitError) {
-      setError(submitError.message || 'Failed to save offer');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [editingId, normalizedForm, refreshOffers, resetForm, validationIssues]);
+
+      setSubmitting(true);
+      setError('');
+
+      try {
+        if (editingId) {
+          await offersApi.update(editingId, normalizedForm);
+        } else {
+          await offersApi.create(normalizedForm);
+        }
+        resetForm();
+        await refreshOffers();
+      } catch (submitError) {
+        setError(submitError.message || 'Failed to save offer');
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [editingId, normalizedForm, refreshOffers, resetForm, validationIssues]
+  );
 
   const handleEdit = useCallback((offer) => {
     setEditingId(Number(offer?.id || 0) || null);
@@ -306,22 +299,25 @@ function OfferManagement() {
     setError('');
   }, []);
 
-  const handleDelete = useCallback(async (id) => {
-    if (!window.confirm('Delete this offer? This cannot be undone from the offers screen.')) {
-      return;
-    }
-
-    try {
-      setError('');
-      await offersApi.delete(id);
-      setOffers((prev) => prev.filter((offer) => Number(offer?.id || 0) !== Number(id || 0)));
-      if (Number(editingId || 0) === Number(id || 0)) {
-        resetForm();
+  const handleDelete = useCallback(
+    async (id) => {
+      if (!window.confirm('Delete this offer? This cannot be undone from the offers screen.')) {
+        return;
       }
-    } catch (deleteError) {
-      setError(deleteError.message || 'Failed to delete offer');
-    }
-  }, [editingId, resetForm]);
+
+      try {
+        setError('');
+        await offersApi.delete(id);
+        setOffers((prev) => prev.filter((offer) => Number(offer?.id || 0) !== Number(id || 0)));
+        if (Number(editingId || 0) === Number(id || 0)) {
+          resetForm();
+        }
+      } catch (deleteError) {
+        setError(deleteError.message || 'Failed to delete offer');
+      }
+    },
+    [editingId, resetForm]
+  );
 
   if (loading) {
     return (
@@ -496,7 +492,9 @@ function OfferManagement() {
                     <datalist id="offer-category-options">
                       <option value="ALL">All categories</option>
                       {categories.map((category) => (
-                        <option key={category} value={category}>{category}</option>
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
                       ))}
                     </datalist>
                   </OfferField>
@@ -622,7 +620,9 @@ function OfferManagement() {
               </div>
               <div>
                 <h3>Schedule</h3>
-                <p>Choose one schedule mode so admins never mix all-day dates with exact timestamps.</p>
+                <p>
+                  Choose one schedule mode so admins never mix all-day dates with exact timestamps.
+                </p>
               </div>
             </div>
 
@@ -632,8 +632,8 @@ function OfferManagement() {
                   key={mode}
                   type="button"
                   className={classNames('offer-mode-chip', {
-  'is-active': scheduleMode === mode,
-})}
+                    'is-active': scheduleMode === mode,
+                  })}
                   onClick={() => handleScheduleModeChange(mode)}
                 >
                   <strong>{SCHEDULE_MODE_META[mode].label}</strong>
@@ -743,7 +743,11 @@ function OfferManagement() {
               <label className="offer-toggle-card" htmlFor="offer-status-toggle">
                 <div>
                   <strong>Status</strong>
-                  <span>{form.status === 'active' ? 'Offer is live or will go live by schedule.' : 'Offer stays disabled until you turn it on.'}</span>
+                  <span>
+                    {form.status === 'active'
+                      ? 'Offer is live or will go live by schedule.'
+                      : 'Offer stays disabled until you turn it on.'}
+                  </span>
                 </div>
                 <span className="offer-switch">
                   <input
@@ -764,7 +768,11 @@ function OfferManagement() {
               <Plus size={16} />
               {submitting ? 'Saving...' : editingId ? 'Update Offer' : 'Add Offer'}
             </button>
-            {!canSubmit ? <span className="offer-submit-note">Resolve the validation items in the preview panel before saving.</span> : null}
+            {!canSubmit ? (
+              <span className="offer-submit-note">
+                Resolve the validation items in the preview panel before saving.
+              </span>
+            ) : null}
           </div>
         </form>
 

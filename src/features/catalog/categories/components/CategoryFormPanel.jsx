@@ -96,7 +96,9 @@ const CategoryFormPanel = ({
             inputMode="numeric"
             className={formErrors.image_width ? 'error' : ''}
           />
-          {formErrors.image_width ? <span className="field-error">{formErrors.image_width}</span> : null}
+          {formErrors.image_width ? (
+            <span className="field-error">{formErrors.image_width}</span>
+          ) : null}
         </div>
         <div className="form-group">
           <label htmlFor="image_height">Image Height</label>
@@ -109,11 +111,13 @@ const CategoryFormPanel = ({
             inputMode="numeric"
             className={formErrors.image_height ? 'error' : ''}
           />
-          {formErrors.image_height ? <span className="field-error">{formErrors.image_height}</span> : null}
+          {formErrors.image_height ? (
+            <span className="field-error">{formErrors.image_height}</span>
+          ) : null}
         </div>
       </div>
 
-      {(String(formData.image || '').trim() || String(formData.icon || '').trim()) ? (
+      {String(formData.image || '').trim() || String(formData.icon || '').trim() ? (
         <div className="category-media-preview" aria-live="polite">
           {String(formData.image || '').trim() ? (
             <img
@@ -135,7 +139,7 @@ const CategoryFormPanel = ({
           Cancel
         </button>
         <button type="submit" className="submit-btn" disabled={loading}>
-          {loading ? 'Saving...' : (isEditing ? 'Update Category' : 'Add Category')}
+          {loading ? 'Saving...' : isEditing ? 'Update Category' : 'Add Category'}
         </button>
       </div>
     </form>

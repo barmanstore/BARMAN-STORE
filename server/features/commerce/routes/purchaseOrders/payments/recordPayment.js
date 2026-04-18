@@ -58,7 +58,10 @@ const recordPurchaseOrderPayment = async ({
       });
     }
 
-    nextSnapshot = calculatePoPaymentSnapshot(totalSnapshotBefore.totalAmount, totalSnapshotBefore.paidAmount + amount);
+    nextSnapshot = calculatePoPaymentSnapshot(
+      totalSnapshotBefore.totalAmount,
+      totalSnapshotBefore.paidAmount + amount
+    );
     nextPoStatus = derivePoLifecycleFromPaymentStatus(poStatus, nextSnapshot.paymentStatus);
     nextAction = derivePurchaseNextAction({
       ...order,
@@ -76,7 +79,14 @@ const recordPurchaseOrderPayment = async ({
            next_action = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [nextPoStatus, nextSnapshot.paymentStatus, nextSnapshot.paidAmount, nextSnapshot.balanceDue, nextAction, orderId]
+      [
+        nextPoStatus,
+        nextSnapshot.paymentStatus,
+        nextSnapshot.paidAmount,
+        nextSnapshot.balanceDue,
+        nextAction,
+        orderId,
+      ]
     );
   });
 

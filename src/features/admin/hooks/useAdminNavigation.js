@@ -1,5 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import { ADMIN_DEFAULT_TAB, getAdminTabHref, isKnownAdminTab, normalizeAdminTab } from '../config/adminSidebarConfig';
+import {
+  ADMIN_DEFAULT_TAB,
+  getAdminTabHref,
+  isKnownAdminTab,
+  normalizeAdminTab,
+} from '../config/adminSidebarConfig';
 
 const useAdminNavigation = ({
   activeTab,
@@ -17,32 +22,35 @@ const useAdminNavigation = ({
   setDesktopPanelCollapsed,
   setIsMobileSidebarOpen,
 }) => {
-  const tabGroupMap = useMemo(() => ({
-    dashboard: 'general',
-    orders: 'general',
-    offers: 'general',
-    'credit-aging': 'general',
-    products: 'products',
-    'restock-dashboard': 'products',
-    categories: 'products',
-    billing: 'billing',
-    cashbook: 'billing',
-    'daily-sales': 'billing',
-    'view-bills': 'billing',
-    purchases: 'purchase',
-    distributors: 'purchase',
-    'stock-ledger': 'purchase',
-    'product-insights': 'purchase',
-    'distributor-insights': 'purchase',
-    users: 'users',
-    'credit-khata': 'users',
-    'customer-requests': 'users'
-  }), []);
+  const tabGroupMap = useMemo(
+    () => ({
+      dashboard: 'general',
+      orders: 'general',
+      offers: 'general',
+      'credit-aging': 'general',
+      products: 'products',
+      'restock-dashboard': 'products',
+      categories: 'products',
+      billing: 'billing',
+      cashbook: 'billing',
+      'daily-sales': 'billing',
+      'view-bills': 'billing',
+      purchases: 'purchase',
+      distributors: 'purchase',
+      'stock-ledger': 'purchase',
+      'product-insights': 'purchase',
+      'distributor-insights': 'purchase',
+      users: 'users',
+      'credit-khata': 'users',
+      'customer-requests': 'users',
+    }),
+    []
+  );
 
   useEffect(() => {
     const group = tabGroupMap[activeTab];
     if (!group) return;
-    setExpandedGroups(prev => ({ ...prev, [group]: true }));
+    setExpandedGroups((prev) => ({ ...prev, [group]: true }));
     setDesktopActiveGroup(group);
   }, [activeTab, setExpandedGroups, setDesktopActiveGroup, tabGroupMap]);
 
@@ -53,9 +61,8 @@ const useAdminNavigation = ({
       navigate(getAdminTabHref(ADMIN_DEFAULT_TAB), { replace: true });
       return;
     }
-    const nextTab = isMobile && !MOBILE_ALLOWED_TABS.has(requestedTab)
-      ? ADMIN_DEFAULT_TAB
-      : requestedTab;
+    const nextTab =
+      isMobile && !MOBILE_ALLOWED_TABS.has(requestedTab) ? ADMIN_DEFAULT_TAB : requestedTab;
     if (nextTab !== requestedTab) {
       navigate(getAdminTabHref(nextTab), { replace: true });
       return;
@@ -66,7 +73,7 @@ const useAdminNavigation = ({
   }, [routeTab, activeTab, isMobile, setActiveTab, navigate, MOBILE_ALLOWED_TABS]);
 
   const toggleSidebarGroup = (groupKey) => {
-    setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    setExpandedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
   };
 
   const handleDesktopGroupSelect = (groupKey) => {
@@ -89,7 +96,8 @@ const useAdminNavigation = ({
   };
 
   const desktopCurrentSection = useMemo(
-    () => SIDEBAR_SECTIONS.find((section) => section.key === desktopActiveGroup) || SIDEBAR_SECTIONS[0],
+    () =>
+      SIDEBAR_SECTIONS.find((section) => section.key === desktopActiveGroup) || SIDEBAR_SECTIONS[0],
     [SIDEBAR_SECTIONS, desktopActiveGroup]
   );
 

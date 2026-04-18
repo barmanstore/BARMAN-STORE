@@ -3,15 +3,16 @@ import AppModal from '../../../shared/components/AppModal';
 
 const normalizeText = (value) => String(value || '').toLowerCase();
 
-const getActionKeywords = (action) => [
-  action?.id,
-  action?.label,
-  action?.description,
-  action?.shortcut,
-  ...(Array.isArray(action?.keywords) ? action.keywords : []),
-]
-  .map((value) => normalizeText(value))
-  .join(' ');
+const getActionKeywords = (action) =>
+  [
+    action?.id,
+    action?.label,
+    action?.description,
+    action?.shortcut,
+    ...(Array.isArray(action?.keywords) ? action.keywords : []),
+  ]
+    .map((value) => normalizeText(value))
+    .join(' ');
 
 const CommandPalette = ({ open, query, setQuery, actions = [], onClose }) => {
   const inputRef = useRef(null);
@@ -151,7 +152,9 @@ const CommandPalette = ({ open, query, setQuery, actions = [], onClose }) => {
                   <span className="command-palette-item-copy">
                     <span className="command-palette-item-label-row">
                       <span className="command-palette-item-label">{action.label}</span>
-                      {action.shortcut ? <span className="command-palette-item-shortcut">{action.shortcut}</span> : null}
+                      {action.shortcut ? (
+                        <span className="command-palette-item-shortcut">{action.shortcut}</span>
+                      ) : null}
                     </span>
                     <span className="command-palette-item-description">{action.description}</span>
                   </span>

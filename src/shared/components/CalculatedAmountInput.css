@@ -4,7 +4,7 @@
 }
 
 .calculated-amount-input.has-error input,
-.calculated-amount-input input[aria-invalid="true"] {
+.calculated-amount-input input[aria-invalid='true'] {
   border-color: #dc2626;
   background: #fef2f2;
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);

@@ -17,7 +17,8 @@ const registerProductUpdateRoutes = (deps) => {
       if (!current) return res.status(404).json({ error: 'Product not found' });
       const body = normalizeProductInput(req.body || {}, current);
       const errors = validateProductPayload(body);
-      if (errors.length) return res.status(400).json({ error: 'Validation failed', details: errors });
+      if (errors.length)
+        return res.status(400).json({ error: 'Validation failed', details: errors });
       if (Number(current.is_active ?? 1) !== 1) {
         body.is_active = 1;
       }
@@ -31,7 +32,7 @@ const registerProductUpdateRoutes = (deps) => {
             error: duplicate.message,
             field: duplicate.field,
             conflict_type: duplicate.conflict_type,
-            conflict: duplicate
+            conflict: duplicate,
           });
         }
       }
@@ -71,7 +72,11 @@ const registerProductUpdateRoutes = (deps) => {
           req.params.id,
         ]
       );
-      return res.json(normalizeProductRecord(await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id])));
+      return res.json(
+        normalizeProductRecord(
+          await dbGetAsync(`SELECT * FROM products WHERE id = ?`, [req.params.id])
+        )
+      );
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }

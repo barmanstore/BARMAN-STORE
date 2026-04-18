@@ -106,11 +106,12 @@ const registerStockRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/stock-ledger/product/:productId', requireAdmin, async (req, res) => {
     try {
-      return res.json(await dbAllAsync(
-        `
+      return res.json(
+        await dbAllAsync(
+          `
           SELECT stock_ledger.*, po.po_number AS po_number, COALESCE(bill_by_id.bill_number, bill_by_order.bill_number) AS bill_number
           FROM stock_ledger
           LEFT JOIN purchase_orders po
@@ -125,17 +126,18 @@ const registerStockRoutes = (deps) => {
           WHERE stock_ledger.product_id = ?
           ORDER BY stock_ledger.created_at DESC
         `,
-        [req.params.productId]
-      ));
+          [req.params.productId]
+        )
+      );
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });
-  
+
   app.get('/api/stock-ledger/batch/:batchNumber', requireAdmin, (_, res) => {
     return res.json([]);
   });
-  
+
   app.get('/api/stock-ledger/summary', requireAdmin, async (_, res) => {
     try {
       const rows = await dbAllAsync(`
@@ -159,36 +161,52 @@ const registerStockRoutes = (deps) => {
 
   app.post('/api/stock-ledger/adjustments', requireAdmin, async (req, res) => {
     try {
-      const hasSingleItemBody = req.body
-        && typeof req.body === 'object'
-        && !Array.isArray(req.body)
-        && Object.keys(req.body).length > 0;
+      const hasSingleItemBody =
+        req.body &&
+        typeof req.body === 'object' &&
+        !Array.isArray(req.body) &&
+        Object.keys(req.body).length > 0;
       const rawItems = Array.isArray(req.body?.items)
         ? req.body.items
-        : (hasSingleItemBody ? [req.body] : []);
+        : hasSingleItemBody
+          ? [req.body]
+          : [];
       if (!rawItems.length) {
         return res.status(400).json({ error: 'At least one stock adjustment item is required' });
       }
 
       const syncBatchId = resolveClientRequestId?.(req) || `manual-sync-${Date.now()}`;
       const actorId = Number(req.user?.id || req.authUser?.id || req.body?.updated_by || 0) || null;
-      const actorName = String(req.user?.name || req.authUser?.name || req.body?.updated_by_name || 'Admin').trim() || 'Admin';
+      const actorName =
+        String(
+          req.user?.name || req.authUser?.name || req.body?.updated_by_name || 'Admin'
+        ).trim() || 'Admin';
       const updates = [];
 
       for (const rawItem of rawItems) {
         const productId = Number(rawItem?.product_id || rawItem?.productId || 0);
-        const quantity = Number(rawItem?.quantity ?? rawItem?.restock_quantity ?? rawItem?.pending_quantity ?? 0);
-        const mode = String(rawItem?.mode || 'increment').trim().toLowerCase();
+        const quantity = Number(
+          rawItem?.quantity ?? rawItem?.restock_quantity ?? rawItem?.pending_quantity ?? 0
+        );
+        const mode = String(rawItem?.mode || 'increment')
+          .trim()
+          .toLowerCase();
         const notes = String(rawItem?.notes || '').trim();
 
         if (!productId) {
-          return res.status(400).json({ error: 'Each stock adjustment item requires a valid product_id' });
+          return res
+            .status(400)
+            .json({ error: 'Each stock adjustment item requires a valid product_id' });
         }
         if (!Number.isFinite(quantity) || quantity < 0) {
-          return res.status(400).json({ error: 'Each stock adjustment item requires a non-negative quantity' });
+          return res
+            .status(400)
+            .json({ error: 'Each stock adjustment item requires a non-negative quantity' });
         }
         if (mode !== 'increment' && mode !== 'set') {
-          return res.status(400).json({ error: 'Stock adjustment mode must be either "increment" or "set"' });
+          return res
+            .status(400)
+            .json({ error: 'Stock adjustment mode must be either "increment" or "set"' });
         }
 
         updates.push({
@@ -215,22 +233,24 @@ const registerStockRoutes = (deps) => {
           }
 
           const previousStock = Number(product.stock || 0);
-          const nextStock = item.mode === 'set'
-            ? item.quantity
-            : previousStock + item.quantity;
+          const nextStock = item.mode === 'set' ? item.quantity : previousStock + item.quantity;
           const quantityChange = nextStock - previousStock;
 
           if (!Number.isFinite(nextStock) || nextStock < 0) {
-            const error = new Error(`Stock cannot go below zero for product ${product.name || item.productId}`);
+            const error = new Error(
+              `Stock cannot go below zero for product ${product.name || item.productId}`
+            );
             error.status = 400;
             throw error;
           }
           if (
-            Number.isFinite(Number(PURCHASE_STOCK_CAP || 0))
-            && Number(PURCHASE_STOCK_CAP) > 0
-            && nextStock > Number(PURCHASE_STOCK_CAP)
+            Number.isFinite(Number(PURCHASE_STOCK_CAP || 0)) &&
+            Number(PURCHASE_STOCK_CAP) > 0 &&
+            nextStock > Number(PURCHASE_STOCK_CAP)
           ) {
-            const error = new Error(`Stock cannot exceed ${Number(PURCHASE_STOCK_CAP)} for product ${product.name || item.productId}`);
+            const error = new Error(
+              `Stock cannot exceed ${Number(PURCHASE_STOCK_CAP)} for product ${product.name || item.productId}`
+            );
             error.status = 400;
             throw error;
           }
@@ -280,7 +300,10 @@ const registerStockRoutes = (deps) => {
           entityId: syncBatchId,
           details: {
             item_count: adjustmentResults.length,
-            total_quantity_change: adjustmentResults.reduce((sum, row) => sum + Number(row.quantity_change || 0), 0),
+            total_quantity_change: adjustmentResults.reduce(
+              (sum, row) => sum + Number(row.quantity_change || 0),
+              0
+            ),
             product_ids: adjustmentResults.map((row) => row.product_id),
           },
         });
@@ -293,30 +316,35 @@ const registerStockRoutes = (deps) => {
       });
     } catch (error) {
       const status = Number(error?.status || 0) || 500;
-      return res.status(status).json({ error: error.message || 'Failed to apply stock adjustments' });
+      return res
+        .status(status)
+        .json({ error: error.message || 'Failed to apply stock adjustments' });
     }
   });
-  
+
   app.post('/api/stock/verify', requireAdmin, async (req, res) => {
     try {
       const items = Array.isArray(req.body?.items) ? req.body.items : [];
-      const result = await Promise.all(items.map(async (it) => {
-        const product = await dbGetAsync(`SELECT id, name, stock FROM products WHERE id = ?`, [it.product_id]);
-        if (!product) return { product_id: it.product_id, available: false, reason: 'NOT_FOUND' };
-        return {
-          product_id: it.product_id,
-          product_name: product.name,
-          available: Number(product.stock) >= Number(it.quantity || 0),
-          in_stock: Number(product.stock),
-          requested: Number(it.quantity || 0),
-        };
-      }));
+      const result = await Promise.all(
+        items.map(async (it) => {
+          const product = await dbGetAsync(`SELECT id, name, stock FROM products WHERE id = ?`, [
+            it.product_id,
+          ]);
+          if (!product) return { product_id: it.product_id, available: false, reason: 'NOT_FOUND' };
+          return {
+            product_id: it.product_id,
+            product_name: product.name,
+            available: Number(product.stock) >= Number(it.quantity || 0),
+            in_stock: Number(product.stock),
+            requested: Number(it.quantity || 0),
+          };
+        })
+      );
       return res.json({ items: result, allAvailable: result.every((x) => x.available) });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }
   });
-  
 };
 
 module.exports = { registerStockRoutes };

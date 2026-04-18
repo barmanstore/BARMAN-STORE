@@ -15,7 +15,11 @@ const PurchaseWorkflowPanel = ({ operationsSummary, onOpenOrder }) => (
               <p>{entry.distributor_name}</p>
               <small>{entry.next_action}</small>
             </div>
-            <button type="button" className="admin-btn secondary small" onClick={() => onOpenOrder(entry.order_id)}>
+            <button
+              type="button"
+              className="admin-btn secondary small"
+              onClick={() => onOpenOrder(entry.order_id)}
+            >
               Open
             </button>
           </div>

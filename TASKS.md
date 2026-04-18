@@ -6,36 +6,11 @@ Use this file for cross-session task tracking only.
 
 ### Frontend Platform
 
-- PO payment window parity with `ProcessOrderModal`:
-  - Reuse the current payment block as the source of truth for layout and behavior.
-  - Mirror the stacked payment control, quick-entry amount field, remaining-balance hint, and label + calendar trigger for payment date.
-  - Keep the payment amount cursor-safe while typing and format on blur.
+- None.
 
 ### Lint Remediation
 
-- Run a full source lint sweep and preserve the report for review.
-- Resolve the biggest rule categories first:
-  - `react-hooks/set-state-in-effect`
-  - `react-hooks/exhaustive-deps`
-  - `react-hooks/refs`
-  - `react-hooks/purity`
-  - `no-unused-vars`, `no-dupe-keys`, `no-useless-escape`, `no-empty`
-- Break the cleanup into feature-area passes:
-  1. Admin area: `src/features/admin/*` and shared admin hooks.
-  2. Catalog & products: `src/features/catalog/*` and mobile product views.
-  3. Commerce purchase flows: `src/features/commerce/purchase/*`.
-  4. Checkout/cart/auth surfaces: `src/features/checkout/*`, `src/features/cart/*`, `src/features/auth/*`.
-  5. Shared utilities and framework code: `src/shared/components/*`, `src/shared/hooks/*`, `src/shared/utils/*`, `src/RootShell.jsx`.
-- For each pass:
-  - fix invalid effect state updates and hook dependency issues,
-  - remove dead imports/unused variables,
-  - refactor impure render-time expressions,
-  - keep lint fixes local and regress feature behavior with quick smoke checks.
-- Validation criteria:
-  - `npm run lint -- --max-warnings=0` passes for the whole `src` tree,
-  - no new global disable-comments are introduced except clearly justified cases,
-  - the developer can rerun targeted checks such as `npx eslint --ext .js,.jsx src/features/admin --max-warnings=0`.
-- Current status: Admin area pass complete; proceeding to Catalog & products.
+- None.
 
 ### Ops & Scripts
 
@@ -47,7 +22,7 @@ Use this file for cross-session task tracking only.
 
 ## Next
 
-- Catalog & products lint pass: `src/features/catalog/*` and mobile product views.
+- None.
 
 ## Backlog
 
@@ -84,6 +59,14 @@ Use this file for cross-session task tracking only.
 - Sequence: schema and indexes -> `ledgerService.insertEntry()` -> `recalculateFrom(sequence_no)` -> reversal/idempotency -> basic timeline UI -> enhancements.
 
 ## Done
+
+- PO payment window parity with `ProcessOrderModal`:
+  - Mirrored the stacked payment toggle, quick-entry amount handling, remaining-balance hint, and payment-date picker trigger in `src/features/commerce/purchase/components/modals/PoPaymentModal.jsx`.
+  - Kept the payment amount cursor-safe while typing and formatted it on blur.
+- Lint remediation:
+  - Full `src` ESLint sweep now passes with `npx eslint src --max-warnings=0`.
+  - Full CSS Stylelint sweep now passes with `npx stylelint src/**/*.css`.
+  - Preserved the current repo-wide lint baseline for follow-up work.
 
 - Performance posture hardening:
   - Added a hard `LIMIT` cap to the legacy product array API path so product fetches stay bounded.

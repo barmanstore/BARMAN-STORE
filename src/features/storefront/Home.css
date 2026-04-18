@@ -45,22 +45,6 @@
   --text-supporting-color: rgba(15, 23, 42, 0.7);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Dark Hero Section */
 .home-hero {
   background: #1a3d2b;
@@ -99,7 +83,7 @@
   font-weight: 700;
   color: #f4d03f;
   margin: 0 0 8px 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   line-height: 1.1;
 }
 
@@ -107,7 +91,7 @@
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 500;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0 0 16px 0;
 }
 
@@ -155,13 +139,13 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .home-promo-sub {
   margin: 0.25rem 0 0 0;
   font-size: 0.85rem;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
 }
 
@@ -184,7 +168,7 @@
   background: transparent;
   color: white;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .home-social-proof {
@@ -416,7 +400,9 @@
   text-decoration: none;
   color: var(--color-primary);
   font-weight: 700;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .home .category-card:hover {
@@ -443,7 +429,7 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .home .category-icon {
@@ -491,7 +477,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.15s ease;
   position: relative;
 }
 
@@ -635,9 +624,15 @@
 }
 
 @keyframes addedPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 768px) {

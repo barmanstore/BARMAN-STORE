@@ -34,14 +34,15 @@ function OrdersSection({
       const statusKey = statusLabel.toLowerCase();
       const isOrdered = statusKey === 'ordered';
       const isReceived = statusKey === 'received';
-      const isBilled = Boolean(Number(order?.bill_id || 0) || String(order?.linked_bill_number || '').trim());
+      const isBilled = Boolean(
+        Number(order?.bill_id || 0) || String(order?.linked_bill_number || '').trim()
+      );
       const requestedQty = Math.max(0, Number(order?.requested_qty || 0));
       const fulfilledQty = Math.max(0, Number(order?.fulfilled_qty || 0));
       const pendingQty = Math.max(0, Number(order?.pending_qty || 0));
       const canProceedBilling = !isBilled && (isOrdered || isReceived);
-      const fulfillmentSummary = requestedQty > 0
-        ? `${fulfilledQty}/${requestedQty} fulfilled`
-        : 'Awaiting item allocation';
+      const fulfillmentSummary =
+        requestedQty > 0 ? `${fulfilledQty}/${requestedQty} fulfilled` : 'Awaiting item allocation';
 
       return {
         ...order,
@@ -62,18 +63,21 @@ function OrdersSection({
   }, [visibleOrders]);
 
   const summaryCards = useMemo(() => {
-    const counts = orderRows.reduce((acc, row) => {
-      acc.awaitingReceipt += row.isOrdered ? 1 : 0;
-      acc.readyBilling += row.canProceedBilling ? 1 : 0;
-      acc.pendingQty += row.pendingQty > 0 ? 1 : 0;
-      acc.billed += row.isBilled ? 1 : 0;
-      return acc;
-    }, {
-      awaitingReceipt: 0,
-      readyBilling: 0,
-      pendingQty: 0,
-      billed: 0,
-    });
+    const counts = orderRows.reduce(
+      (acc, row) => {
+        acc.awaitingReceipt += row.isOrdered ? 1 : 0;
+        acc.readyBilling += row.canProceedBilling ? 1 : 0;
+        acc.pendingQty += row.pendingQty > 0 ? 1 : 0;
+        acc.billed += row.isBilled ? 1 : 0;
+        return acc;
+      },
+      {
+        awaitingReceipt: 0,
+        readyBilling: 0,
+        pendingQty: 0,
+        billed: 0,
+      }
+    );
 
     return [
       {
@@ -114,12 +118,11 @@ function OrdersSection({
     ];
   }, [orderRows, orders.length, ordersTotal]);
 
-  const pageStart = orderRows.length > 0 ? ((ordersPage - 1) * ORDERS_PAGE_SIZE) + 1 : 0;
+  const pageStart = orderRows.length > 0 ? (ordersPage - 1) * ORDERS_PAGE_SIZE + 1 : 0;
   const pageEnd = orderRows.length > 0 ? pageStart + orderRows.length - 1 : 0;
   const totalMatches = Number(ordersTotal || orders.length || 0);
-  const searchCountLabel = totalMatches > 0
-    ? `Rows ${pageStart}-${pageEnd} of ${totalMatches}`
-    : 'No matching orders';
+  const searchCountLabel =
+    totalMatches > 0 ? `Rows ${pageStart}-${pageEnd} of ${totalMatches}` : 'No matching orders';
 
   const handleSearchChange = (event) => {
     setOrdersPage(1);
@@ -147,7 +150,9 @@ function OrdersSection({
         />
         <div className="orders-toolbar-meta">
           <span className="orders-search-count">{searchCountLabel}</span>
-          <span className="orders-search-count">Page {ordersPage} of {totalPages}</span>
+          <span className="orders-search-count">
+            Page {ordersPage} of {totalPages}
+          </span>
         </div>
       </div>
 
@@ -185,73 +190,82 @@ function OrdersSection({
         </div>
       </div>
 
-      {ordersLoading ? (
-        <p className="admin-list-loading">Loading orders...</p>
-      ) : null}
+      {ordersLoading ? <p className="admin-list-loading">Loading orders...</p> : null}
 
       {isMobile ? (
         <div className="orders-mobile-list">
           {orderRows.length === 0 ? (
             <p className="orders-empty-text">No orders match your search.</p>
-          ) : orderRows.map((order) => (
-            <article key={`mobile-${order.id}`} className="order-mobile-card">
-              <div className="order-mobile-head">
-                <div className="order-mobile-title">
-                  <strong>{order.orderLabel}</strong>
-                  <span className="order-mobile-date">{order.createdLabel}</span>
+          ) : (
+            orderRows.map((order) => (
+              <article key={`mobile-${order.id}`} className="order-mobile-card">
+                <div className="order-mobile-head">
+                  <div className="order-mobile-title">
+                    <strong>{order.orderLabel}</strong>
+                    <span className="order-mobile-date">{order.createdLabel}</span>
+                  </div>
+                  <span className={`status ${order.statusKey}`}>{order.statusLabel}</span>
                 </div>
-                <span className={`status ${order.statusKey}`}>{order.statusLabel}</span>
-              </div>
-              <div className="order-mobile-meta">
-                <p><strong>{truncateUserName(order.customer_name || '-', 15)}</strong></p>
-                <p>{formatCurrency(order.total_amount || 0)}</p>
-              </div>
-              <p className="order-mobile-subtle">{order.fulfillmentSummary}</p>
-              {order.pendingQty > 0 ? (
-                <p className="order-mobile-subtle pending">Pending qty {order.pendingQty}</p>
-              ) : null}
-              {order.canProceedBilling ? (
-                <p className="order-mobile-subtle ready">Ready for billing</p>
-              ) : null}
-              {order.isBilled ? (
-                <p className="order-mobile-subtle">Bill: {order.linked_bill_number || `#${order.bill_id}`}</p>
-              ) : null}
-              {(order.isOrdered || order.isReceived) ? (
-                <div className="order-mobile-actions">
-                  {order.isOrdered ? (
-                    <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>
-                      Mark Received
-                    </button>
-                  ) : null}
-                  {order.canProceedBilling ? (
-                    <button
-                      className="admin-btn order-action-btn"
-                      onClick={() => handleProceedToBilling(order)}
-                      disabled={proceedBillingOrderId === Number(order.id)}
-                    >
-                      {proceedBillingOrderId === Number(order.id)
-                        ? 'Opening...'
-                        : order.isOrdered
-                          ? 'Confirm + Billing'
-                          : 'Proceed Billing'}
-                    </button>
-                  ) : (
-                    <span className="order-mobile-muted">{order.isBilled ? 'Already billed' : 'No pending action'}</span>
-                  )}
-                  {order.isReceived && order.pendingQty > 0 ? (
-                    <button
-                      className="admin-btn order-action-btn"
-                      onClick={() => handleApplyPendingFulfillment(order.id)}
-                    >
-                      Apply Pending
-                    </button>
-                  ) : null}
+                <div className="order-mobile-meta">
+                  <p>
+                    <strong>{truncateUserName(order.customer_name || '-', 15)}</strong>
+                  </p>
+                  <p>{formatCurrency(order.total_amount || 0)}</p>
                 </div>
-              ) : (
-                <span className="order-mobile-muted">No pending action</span>
-              )}
-            </article>
-          ))}
+                <p className="order-mobile-subtle">{order.fulfillmentSummary}</p>
+                {order.pendingQty > 0 ? (
+                  <p className="order-mobile-subtle pending">Pending qty {order.pendingQty}</p>
+                ) : null}
+                {order.canProceedBilling ? (
+                  <p className="order-mobile-subtle ready">Ready for billing</p>
+                ) : null}
+                {order.isBilled ? (
+                  <p className="order-mobile-subtle">
+                    Bill: {order.linked_bill_number || `#${order.bill_id}`}
+                  </p>
+                ) : null}
+                {order.isOrdered || order.isReceived ? (
+                  <div className="order-mobile-actions">
+                    {order.isOrdered ? (
+                      <button
+                        className="admin-btn primary order-action-btn"
+                        onClick={() => openApproveModal(order.id)}
+                      >
+                        Mark Received
+                      </button>
+                    ) : null}
+                    {order.canProceedBilling ? (
+                      <button
+                        className="admin-btn order-action-btn"
+                        onClick={() => handleProceedToBilling(order)}
+                        disabled={proceedBillingOrderId === Number(order.id)}
+                      >
+                        {proceedBillingOrderId === Number(order.id)
+                          ? 'Opening...'
+                          : order.isOrdered
+                            ? 'Confirm + Billing'
+                            : 'Proceed Billing'}
+                      </button>
+                    ) : (
+                      <span className="order-mobile-muted">
+                        {order.isBilled ? 'Already billed' : 'No pending action'}
+                      </span>
+                    )}
+                    {order.isReceived && order.pendingQty > 0 ? (
+                      <button
+                        className="admin-btn order-action-btn"
+                        onClick={() => handleApplyPendingFulfillment(order.id)}
+                      >
+                        Apply Pending
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="order-mobile-muted">No pending action</span>
+                )}
+              </article>
+            ))
+          )}
         </div>
       ) : (
         <div className="orders-table">
@@ -269,82 +283,91 @@ function OrdersSection({
             <tbody>
               {orderRows.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="orders-empty-row">No orders match your search.</td>
+                  <td colSpan="6" className="orders-empty-row">
+                    No orders match your search.
+                  </td>
                 </tr>
-              ) : orderRows.map((order) => (
-                <tr key={order.id}>
-                  <td>
-                    <div className="order-order-cell">
-                      <strong className="order-order-number">{order.orderLabel}</strong>
-                      <span className="order-order-meta">{order.fulfillmentSummary}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="order-customer-cell">
-                      <strong>{truncateUserName(order.customer_name || '-', 15)}</strong>
-                      <span>{order.customer_email || '-'}</span>
-                    </div>
-                  </td>
-                  <td><SignedCurrency amount={order.total_amount} /></td>
-                  <td>
-                    <div className="order-status-stack">
-                      <span className={`status ${order.statusKey}`}>{order.statusLabel}</span>
-                      {order.pendingQty > 0 ? (
-                        <div className="order-status-detail pending">
-                          Pending qty {order.pendingQty}
-                        </div>
-                      ) : null}
-                      {order.canProceedBilling ? (
-                        <div className="order-status-detail ready">
-                          Ready for billing
-                        </div>
-                      ) : null}
-                      {order.isBilled ? (
-                        <div className="order-status-detail billed">
-                          Bill: {order.linked_bill_number || `#${order.bill_id}`}
-                        </div>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td>{order.createdLabel}</td>
-                  <td>
-                    {(order.isOrdered || order.isReceived) ? (
-                      <div className="order-actions">
-                        {order.isOrdered ? (
-                          <button className="admin-btn primary order-action-btn" onClick={() => openApproveModal(order.id)}>
-                            Mark Received
-                          </button>
+              ) : (
+                orderRows.map((order) => (
+                  <tr key={order.id}>
+                    <td>
+                      <div className="order-order-cell">
+                        <strong className="order-order-number">{order.orderLabel}</strong>
+                        <span className="order-order-meta">{order.fulfillmentSummary}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="order-customer-cell">
+                        <strong>{truncateUserName(order.customer_name || '-', 15)}</strong>
+                        <span>{order.customer_email || '-'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <SignedCurrency amount={order.total_amount} />
+                    </td>
+                    <td>
+                      <div className="order-status-stack">
+                        <span className={`status ${order.statusKey}`}>{order.statusLabel}</span>
+                        {order.pendingQty > 0 ? (
+                          <div className="order-status-detail pending">
+                            Pending qty {order.pendingQty}
+                          </div>
                         ) : null}
                         {order.canProceedBilling ? (
-                          <button
-                            className="admin-btn order-action-btn"
-                            onClick={() => handleProceedToBilling(order)}
-                            disabled={proceedBillingOrderId === Number(order.id)}
-                          >
-                            {proceedBillingOrderId === Number(order.id)
-                              ? 'Opening...'
-                              : order.isOrdered
-                                ? 'Confirm + Billing'
-                                : 'Proceed Billing'}
-                          </button>
-                        ) : (
-                          <span className="order-action-note">{order.isBilled ? 'Already billed' : 'No pending action'}</span>
-                        )}
-                        {order.isReceived && order.pendingQty > 0 ? (
-                          <button
-                            className="admin-btn order-action-btn"
-                            onClick={() => handleApplyPendingFulfillment(order.id)}
-                          >
-                            Apply Pending
-                          </button>
+                          <div className="order-status-detail ready">Ready for billing</div>
+                        ) : null}
+                        {order.isBilled ? (
+                          <div className="order-status-detail billed">
+                            Bill: {order.linked_bill_number || `#${order.bill_id}`}
+                          </div>
                         ) : null}
                       </div>
-                    ) : (
-                      <span className="order-action-note">No pending action</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>{order.createdLabel}</td>
+                    <td>
+                      {order.isOrdered || order.isReceived ? (
+                        <div className="order-actions">
+                          {order.isOrdered ? (
+                            <button
+                              className="admin-btn primary order-action-btn"
+                              onClick={() => openApproveModal(order.id)}
+                            >
+                              Mark Received
+                            </button>
+                          ) : null}
+                          {order.canProceedBilling ? (
+                            <button
+                              className="admin-btn order-action-btn"
+                              onClick={() => handleProceedToBilling(order)}
+                              disabled={proceedBillingOrderId === Number(order.id)}
+                            >
+                              {proceedBillingOrderId === Number(order.id)
+                                ? 'Opening...'
+                                : order.isOrdered
+                                  ? 'Confirm + Billing'
+                                  : 'Proceed Billing'}
+                            </button>
+                          ) : (
+                            <span className="order-action-note">
+                              {order.isBilled ? 'Already billed' : 'No pending action'}
+                            </span>
+                          )}
+                          {order.isReceived && order.pendingQty > 0 ? (
+                            <button
+                              className="admin-btn order-action-btn"
+                              onClick={() => handleApplyPendingFulfillment(order.id)}
+                            >
+                              Apply Pending
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="order-action-note">No pending action</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

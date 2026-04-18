@@ -10,7 +10,9 @@ const registerOrderCreateRoutes = (deps) => {
   } = deps;
 
   app.post('/api/orders', requireAuth, async (_, res) =>
-    res.status(410).json({ error: 'Legacy order endpoint is disabled. Use /api/orders/create-validated.' })
+    res
+      .status(410)
+      .json({ error: 'Legacy order endpoint is disabled. Use /api/orders/create-validated.' })
   );
 
   app.post('/api/orders/create-validated', requireAuth, async (req, res) => {
@@ -19,7 +21,7 @@ const registerOrderCreateRoutes = (deps) => {
       const authUser = req.authUser;
       const isAdminOrder = Boolean(body.is_admin_order) && authUser.role === 'admin';
       const effectiveUserId = isAdminOrder
-        ? (Number(body.selected_customer_id || body.user_id || 0) || null)
+        ? Number(body.selected_customer_id || body.user_id || 0) || null
         : Number(authUser.id);
       if (body.is_admin_order && authUser.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required for admin order mode' });
@@ -33,7 +35,9 @@ const registerOrderCreateRoutes = (deps) => {
           [effectiveUserId]
         );
         if (!customer) {
-          return res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
+          return res
+            .status(404)
+            .json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
         }
         let address = {};
         if (customer.address) {
@@ -44,9 +48,10 @@ const registerOrderCreateRoutes = (deps) => {
           }
         }
         if (String(customer.role || '').toLowerCase() !== 'admin') {
-          const submittedAddress = (body.shipping_address && typeof body.shipping_address === 'object')
-            ? body.shipping_address
-            : {};
+          const submittedAddress =
+            body.shipping_address && typeof body.shipping_address === 'object'
+              ? body.shipping_address
+              : {};
           const mergedAddress = {
             street: String(submittedAddress.street || address.street || '').trim(),
             city: String(submittedAddress.city || address.city || '').trim(),
@@ -87,9 +92,10 @@ const registerOrderCreateRoutes = (deps) => {
           await createAppNotification({
             userId: Number(effectiveUserId),
             title: 'Order placed',
-            message: pendingQty > 0
-              ? `Order ${orderNumber || `#${orderId}`} placed. Partially available: ${availableNowQty} now, ${pendingQty} pending.`
-              : `Order ${orderNumber || `#${orderId}`} has been placed successfully.`,
+            message:
+              pendingQty > 0
+                ? `Order ${orderNumber || `#${orderId}`} placed. Partially available: ${availableNowQty} now, ${pendingQty} pending.`
+                : `Order ${orderNumber || `#${orderId}`} has been placed successfully.`,
             level: 'success',
             entityType: 'order',
             entityId: orderId,
@@ -120,15 +126,19 @@ const registerOrderCreateRoutes = (deps) => {
           });
         }
       } catch (notifyError) {
-        console.warn('[NOTIFY] order placement notification failed:', notifyError?.message || notifyError);
+        console.warn(
+          '[NOTIFY] order placement notification failed:',
+          notifyError?.message || notifyError
+        );
       }
-      return res.status(201).json({ success: true, ...result, message: 'Order placed successfully' });
+      return res
+        .status(201)
+        .json({ success: true, ...result, message: 'Order placed successfully' });
     } catch (error) {
       const status = Number(error?.status || 0) || 400;
       return res.status(status).json({ error: error.message });
     }
   });
-
 };
 
 module.exports = { registerOrderCreateRoutes };

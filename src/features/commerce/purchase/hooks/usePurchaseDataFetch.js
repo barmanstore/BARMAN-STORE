@@ -25,7 +25,7 @@ const readCachedPurchaseLookups = () => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const updatedAt = Number(parsed?.updatedAt || 0);
-    if (!updatedAt || (Date.now() - updatedAt) > LOOKUP_CACHE_TTL_MS) {
+    if (!updatedAt || Date.now() - updatedAt > LOOKUP_CACHE_TTL_MS) {
       return null;
     }
     const distributors = Array.isArray(parsed?.distributors) ? parsed.distributors : null;
@@ -39,12 +39,15 @@ const readCachedPurchaseLookups = () => {
 };
 
 const writeCachedPurchaseLookups = ({ distributors, suppliers, products }) => {
-  safeSessionStorageSet(PURCHASE_LOOKUP_CACHE_KEY, JSON.stringify({
-    updatedAt: Date.now(),
-    distributors: Array.isArray(distributors) ? distributors : [],
-    suppliers: Array.isArray(suppliers) ? suppliers : [],
-    products: Array.isArray(products) ? products : [],
-  }));
+  safeSessionStorageSet(
+    PURCHASE_LOOKUP_CACHE_KEY,
+    JSON.stringify({
+      updatedAt: Date.now(),
+      distributors: Array.isArray(distributors) ? distributors : [],
+      suppliers: Array.isArray(suppliers) ? suppliers : [],
+      products: Array.isArray(products) ? products : [],
+    })
+  );
 };
 
 const usePurchaseDataFetch = ({
@@ -106,7 +109,16 @@ const usePurchaseDataFetch = ({
     } finally {
       setLoading(false);
     }
-  }, [distributorsApi, suppliersApi, productsApi, setLoading, setDistributors, setSuppliers, setProducts, setError]);
+  }, [
+    distributorsApi,
+    suppliersApi,
+    productsApi,
+    setLoading,
+    setDistributors,
+    setSuppliers,
+    setProducts,
+    setError,
+  ]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -145,19 +157,23 @@ const usePurchaseDataFetch = ({
   const fetchDistributorLedger = useCallback(async () => {
     try {
       setLedgerLoading(true);
-      const localEntries = getLocalLedgerEntries(localLedgerKey)
-        .filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
+      const localEntries = getLocalLedgerEntries(localLedgerKey).filter(
+        (entry) =>
+          !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id)
+      );
       const derivedEntries = getDerivedLedgerFromOrders(purchaseOrders, filters.distributor_id);
       const response = filters.distributor_id
         ? await distributorLedgerApi.getByDistributor(filters.distributor_id, { limit: 100 })
         : await distributorLedgerApi.getAll({ limit: 100 });
       const apiRecords = Array.isArray(response)
         ? response
-        : (response?.rows || response?.data || response?.transactions || []);
+        : response?.rows || response?.data || response?.transactions || [];
       setLedgerRecords(mergeLedgerRecords(apiRecords, localEntries, derivedEntries));
     } catch (err) {
-      const localEntries = getLocalLedgerEntries(localLedgerKey)
-        .filter(entry => !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id));
+      const localEntries = getLocalLedgerEntries(localLedgerKey).filter(
+        (entry) =>
+          !filters.distributor_id || String(entry.distributor_id) === String(filters.distributor_id)
+      );
       const derivedEntries = getDerivedLedgerFromOrders(purchaseOrders, filters.distributor_id);
       setLedgerRecords(mergeLedgerRecords([], localEntries, derivedEntries));
     } finally {
@@ -181,7 +197,11 @@ const usePurchaseDataFetch = ({
   }, [fetchOrders]);
 
   useEffect(() => {
-    if (activeSubTab === 'dashboard' || activeSubTab === 'payments' || activeSubTab === 'reminders') {
+    if (
+      activeSubTab === 'dashboard' ||
+      activeSubTab === 'payments' ||
+      activeSubTab === 'reminders'
+    ) {
       fetchOperationsSummary();
     }
     if (activeSubTab === 'payments') {

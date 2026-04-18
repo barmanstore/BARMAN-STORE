@@ -11,12 +11,21 @@ function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null, onCartC
   const resolvedCartCount = Number(cartCount || sharedCartCount || 0);
 
   const homeButton = onHome ? (
-    <button type="button" className="mobile-footer-btn" onClick={onHome} aria-current={isProductsPage ? 'page' : undefined}>
+    <button
+      type="button"
+      className="mobile-footer-btn"
+      onClick={onHome}
+      aria-current={isProductsPage ? 'page' : undefined}
+    >
       <Home size={18} />
       <span>Home</span>
     </button>
   ) : (
-    <Link to="/products" className="mobile-footer-btn" aria-current={isProductsPage ? 'page' : undefined}>
+    <Link
+      to="/products"
+      className="mobile-footer-btn"
+      aria-current={isProductsPage ? 'page' : undefined}
+    >
       <Home size={18} />
       <span>Home</span>
     </Link>
@@ -42,16 +51,24 @@ function MobileFooter({ cartCount = 0, onHome = null, onTopPicks = null, onCartC
         <button type="button" className="mobile-footer-btn basket" onClick={onCartClick}>
           <ShoppingCart size={18} />
           <span>Basket</span>
-          {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
+          {resolvedCartCount > 0 ? (
+            <em className="mobile-footer-badge">{resolvedCartCount}</em>
+          ) : null}
         </button>
       ) : (
         <Link to="/cart" className="mobile-footer-btn basket">
           <ShoppingCart size={18} />
           <span>Basket</span>
-          {resolvedCartCount > 0 ? <em className="mobile-footer-badge">{resolvedCartCount}</em> : null}
+          {resolvedCartCount > 0 ? (
+            <em className="mobile-footer-badge">{resolvedCartCount}</em>
+          ) : null}
         </Link>
       )}
-      <Link to="/store" className="mobile-footer-btn" aria-current={isStorePage ? 'page' : undefined}>
+      <Link
+        to="/store"
+        className="mobile-footer-btn"
+        aria-current={isStorePage ? 'page' : undefined}
+      >
         <Store size={18} />
         <span>Store</span>
       </Link>

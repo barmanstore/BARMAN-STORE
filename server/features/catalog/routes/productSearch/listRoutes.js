@@ -12,12 +12,11 @@ const buildHierarchyPath = (parent, child) => {
   return `${root} -> ${leaf}`;
 };
 
-const normalizeQueryText = (value, maxLength = 160) => (
+const normalizeQueryText = (value, maxLength = 160) =>
   String(value || '')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, maxLength)
-);
+    .slice(0, maxLength);
 
 const escapeLikePattern = (value) => String(value || '').replace(/[\\%_]/g, '\\$&');
 
@@ -67,14 +66,18 @@ const normalizeSortField = (value) => {
 };
 
 const normalizeSortDir = (value) => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (raw === 'asc' || raw === 'ascending') return 'asc';
   if (raw === 'desc' || raw === 'descending') return 'desc';
   return '';
 };
 
 const translateLegacySort = (value, searchQuery = '') => {
-  const raw = String(value || '').trim().toLowerCase();
+  const raw = String(value || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return null;
   switch (raw) {
     case 'price-asc':
@@ -95,7 +98,8 @@ const translateLegacySort = (value, searchQuery = '') => {
 const PRODUCT_LIST_SORT_SPECS = {
   created_at: {
     expr: "COALESCE(p.created_at, TIMESTAMPTZ '1970-01-01 00:00:00+00')",
-    valueFromRow: (row) => (row?.created_at ? new Date(row.created_at).toISOString() : '1970-01-01T00:00:00.000Z'),
+    valueFromRow: (row) =>
+      row?.created_at ? new Date(row.created_at).toISOString() : '1970-01-01T00:00:00.000Z',
   },
   id: {
     expr: 'COALESCE(p.id, 0)',
@@ -103,7 +107,10 @@ const PRODUCT_LIST_SORT_SPECS = {
   },
   name: {
     expr: "LOWER(COALESCE(p.name, ''))",
-    valueFromRow: (row) => String(row?.name || '').trim().toLowerCase(),
+    valueFromRow: (row) =>
+      String(row?.name || '')
+        .trim()
+        .toLowerCase(),
   },
   brand: {
     expr: "LOWER(TRIM(COALESCE(p.brand, '') || CASE WHEN COALESCE(p.sub_brand, '') = '' THEN '' ELSE ' -> ' || COALESCE(p.sub_brand, '') END))",
@@ -127,11 +134,17 @@ const PRODUCT_LIST_SORT_SPECS = {
   },
   sku: {
     expr: "LOWER(COALESCE(p.sku, ''))",
-    valueFromRow: (row) => String(row?.sku || '').trim().toLowerCase(),
+    valueFromRow: (row) =>
+      String(row?.sku || '')
+        .trim()
+        .toLowerCase(),
   },
   barcode: {
     expr: "LOWER(COALESCE(p.barcode, ''))",
-    valueFromRow: (row) => String(row?.barcode || '').trim().toLowerCase(),
+    valueFromRow: (row) =>
+      String(row?.barcode || '')
+        .trim()
+        .toLowerCase(),
   },
   is_active: {
     expr: 'COALESCE(p.is_active, 1)',
@@ -207,15 +220,30 @@ const registerProductListRoutes = (deps) => {
       });
 
       const rawSearch = normalizeSearchText(query.q || query.name || '');
-      const searchQuery = String(rawSearch || '').trim().toLowerCase();
+      const searchQuery = String(rawSearch || '')
+        .trim()
+        .toLowerCase();
       const categoryQuery = normalizeSearchText(query.category || '');
       const brandQuery = normalizeSearchText(query.brand || '');
-      const rawStatus = String(query.status || '').trim().toLowerCase();
-      const includeInactive = String(query.include_inactive || '').trim().toLowerCase() === 'true';
-      const lowStockOnly = String(query.low_stock || '').trim().toLowerCase() === 'true';
-      const inStockOnly = String(query.in_stock || '').trim().toLowerCase() === 'true';
+      const rawStatus = String(query.status || '')
+        .trim()
+        .toLowerCase();
+      const includeInactive =
+        String(query.include_inactive || '')
+          .trim()
+          .toLowerCase() === 'true';
+      const lowStockOnly =
+        String(query.low_stock || '')
+          .trim()
+          .toLowerCase() === 'true';
+      const inStockOnly =
+        String(query.in_stock || '')
+          .trim()
+          .toLowerCase() === 'true';
       const requestedCursor = String(query.cursor || '').trim();
-      const rawSortDirInput = String(query.sort_dir || '').trim().toLowerCase();
+      const rawSortDirInput = String(query.sort_dir || '')
+        .trim()
+        .toLowerCase();
 
       let sortField = normalizeSortField(query.sort_field || '');
       let sortDir = normalizeSortDir(query.sort_dir || '');
@@ -237,16 +265,23 @@ const registerProductListRoutes = (deps) => {
         throw Object.assign(new Error(`Unsupported sort_dir: ${query.sort_dir}`), { status: 400 });
       }
       if (!sortDir && sortField) {
-        sortDir = sortField === 'name' || sortField === 'brand' || sortField === 'category' || sortField === 'sku'
-          ? 'asc'
-          : 'desc';
+        sortDir =
+          sortField === 'name' ||
+          sortField === 'brand' ||
+          sortField === 'category' ||
+          sortField === 'sku'
+            ? 'asc'
+            : 'desc';
       }
 
       const responseMode = hasExplicitParams ? 'object' : 'array';
-      const requestedPageSizeRaw = Number(query.limit || query.page_size || PRODUCT_LIST_PAGE_LIMIT);
-      const pageSize = Number.isFinite(requestedPageSizeRaw) && requestedPageSizeRaw > 0
-        ? Math.max(1, Math.min(PRODUCT_LIST_MAX_LIMIT, Math.floor(requestedPageSizeRaw)))
-        : PRODUCT_LIST_PAGE_LIMIT;
+      const requestedPageSizeRaw = Number(
+        query.limit || query.page_size || PRODUCT_LIST_PAGE_LIMIT
+      );
+      const pageSize =
+        Number.isFinite(requestedPageSizeRaw) && requestedPageSizeRaw > 0
+          ? Math.max(1, Math.min(PRODUCT_LIST_MAX_LIMIT, Math.floor(requestedPageSizeRaw)))
+          : PRODUCT_LIST_PAGE_LIMIT;
       const page = Math.max(1, Math.floor(Number(query.page || 1) || 1));
       const cursorMode = Boolean(requestedCursor);
 
@@ -281,11 +316,11 @@ const registerProductListRoutes = (deps) => {
       if (categoryQuery) {
         const categoryParts = splitHierarchyFilter(categoryQuery);
         if (categoryParts.parent) {
-          whereClauses.push('LOWER(COALESCE(p.category, \'\')) = LOWER(?)');
+          whereClauses.push("LOWER(COALESCE(p.category, '')) = LOWER(?)");
           whereParams.push(categoryParts.parent);
         }
         if (categoryParts.child) {
-          whereClauses.push('LOWER(COALESCE(p.subcategory, \'\')) = LOWER(?)');
+          whereClauses.push("LOWER(COALESCE(p.subcategory, '')) = LOWER(?)");
           whereParams.push(categoryParts.child);
         }
       }
@@ -293,11 +328,11 @@ const registerProductListRoutes = (deps) => {
       if (brandQuery) {
         const brandParts = splitHierarchyFilter(brandQuery);
         if (brandParts.parent) {
-          whereClauses.push('LOWER(COALESCE(p.brand, \'\')) = LOWER(?)');
+          whereClauses.push("LOWER(COALESCE(p.brand, '')) = LOWER(?)");
           whereParams.push(brandParts.parent);
         }
         if (brandParts.child) {
-          whereClauses.push('LOWER(COALESCE(p.sub_brand, \'\')) = LOWER(?)');
+          whereClauses.push("LOWER(COALESCE(p.sub_brand, '')) = LOWER(?)");
           whereParams.push(brandParts.child);
         }
       }
@@ -329,7 +364,11 @@ const registerProductListRoutes = (deps) => {
           dbAllAsync(`SELECT * FROM products p WHERE ${whereSql}${orderSql}`, whereParams),
           loadActiveOffers(dbAllAsync),
         ]);
-        const payload = rows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true }));
+        const payload = rows.map((row) =>
+          decorateProductWithOffers(normalizeProductRecord(row), activeOffers, {
+            offersArePrepared: true,
+          })
+        );
         setProductsListCacheHeaders(res, {
           isPaginated: false,
           includeInactive,
@@ -358,12 +397,18 @@ const registerProductListRoutes = (deps) => {
         try {
           cursorPayload = decodeCursorToken(requestedCursor);
         } catch (error) {
-          throw Object.assign(new Error('Invalid cursor token'), { status: 400, details: error.message });
+          throw Object.assign(new Error('Invalid cursor token'), {
+            status: 400,
+            details: error.message,
+          });
         }
         if (!cursorPayload || Number(cursorPayload?.v || 0) !== PRODUCT_LIST_CURSOR_VERSION) {
           throw Object.assign(new Error('Invalid cursor token'), { status: 400 });
         }
-        if (normalizeSortField(cursorPayload.sort_field || '') !== effectiveSortField || normalizeSortDir(cursorPayload.sort_dir || '') !== effectiveSortDir) {
+        if (
+          normalizeSortField(cursorPayload.sort_field || '') !== effectiveSortField ||
+          normalizeSortDir(cursorPayload.sort_dir || '') !== effectiveSortDir
+        ) {
           throw Object.assign(new Error('Cursor sort mismatch'), { status: 400 });
         }
         const cursorValue = cursorPayload.last_value;
@@ -371,7 +416,12 @@ const registerProductListRoutes = (deps) => {
         if (!cursorId) {
           throw Object.assign(new Error('Invalid cursor token'), { status: 400 });
         }
-        const cursorSql = buildCursorFilterSql(effectiveSortField, effectiveSortDir, cursorValue, cursorId);
+        const cursorSql = buildCursorFilterSql(
+          effectiveSortField,
+          effectiveSortDir,
+          cursorValue,
+          cursorId
+        );
         listSql += ` AND ${cursorSql.sql}${orderSql} LIMIT ?`;
         listParams = [...whereParams, ...cursorSql.params, pageSize + 1];
       } else {
@@ -382,15 +432,27 @@ const registerProductListRoutes = (deps) => {
 
       const rows = await dbAllAsync(listSql, listParams);
       const limitedRows = cursorMode ? rows.slice(0, pageSize) : rows;
-      hasMore = cursorMode ? rows.length > pageSize : (page * pageSize) < totalCount;
+      hasMore = cursorMode ? rows.length > pageSize : page * pageSize < totalCount;
 
-      const decoratedRows = limitedRows.map((row) => decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true }));
+      const decoratedRows = limitedRows.map((row) =>
+        decorateProductWithOffers(normalizeProductRecord(row), activeOffers, {
+          offersArePrepared: true,
+        })
+      );
       const pageInfo = {
         has_more: Boolean(hasMore),
-        next_cursor: limitedRows.length > 0 && hasMore ? encodeRowCursor(limitedRows[limitedRows.length - 1], effectiveSortField, effectiveSortDir) : null,
-        prev_cursor: limitedRows.length > 0 && (cursorMode || page > 1)
-          ? encodeRowCursor(limitedRows[0], effectiveSortField, effectiveSortDir)
-          : null,
+        next_cursor:
+          limitedRows.length > 0 && hasMore
+            ? encodeRowCursor(
+                limitedRows[limitedRows.length - 1],
+                effectiveSortField,
+                effectiveSortDir
+              )
+            : null,
+        prev_cursor:
+          limitedRows.length > 0 && (cursorMode || page > 1)
+            ? encodeRowCursor(limitedRows[0], effectiveSortField, effectiveSortDir)
+            : null,
       };
       const payload = {
         items: decoratedRows,

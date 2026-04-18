@@ -7,7 +7,10 @@ const { buildPostgresConfigFromEnv } = require('../server/db/postgresScaffold');
 
 const { Pool } = pg;
 
-const normalizeSkuToken = (value) => String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+const normalizeSkuToken = (value) =>
+  String(value || '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toUpperCase();
 const toSkuFixed = (value, length, fallback = 'X') => {
   const clean = normalizeSkuToken(value);
   if (!clean) return fallback.repeat(length);
@@ -16,7 +19,12 @@ const toSkuFixed = (value, length, fallback = 'X') => {
 const normalizeSkuContent = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return 'NA';
-  return raw.replace(/\s+/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'NA';
+  return (
+    raw
+      .replace(/\s+/g, '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toUpperCase() || 'NA'
+  );
 };
 const normalizeSkuPrice = (price, mrp) => {
   const candidate = price ?? mrp ?? '';

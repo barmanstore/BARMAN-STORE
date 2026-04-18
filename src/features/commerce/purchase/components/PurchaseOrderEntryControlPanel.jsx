@@ -7,17 +7,18 @@ const PurchaseOrderEntryControlPanel = ({
   setOrderFormData,
 }) => {
   const hasReviewDetails = Boolean(
-    String(orderFormData?.expected_delivery || '').trim()
-    || String(orderFormData?.strict_due_date || '').trim()
-    || String(orderFormData?.notes || '').trim()
-    || String(orderFormData?.strict_due_note || '').trim()
+    String(orderFormData?.expected_delivery || '').trim() ||
+    String(orderFormData?.strict_due_date || '').trim() ||
+    String(orderFormData?.notes || '').trim() ||
+    String(orderFormData?.strict_due_note || '').trim()
   );
   const reviewNotices = [
-    draftDiagnostics.hasDuplicateErrors
-      ? { tone: 'danger', text: 'Fix duplicates' }
-      : null,
+    draftDiagnostics.hasDuplicateErrors ? { tone: 'danger', text: 'Fix duplicates' } : null,
     draftDiagnostics.hasDiscountErrors
-      ? { tone: 'danger', text: `${Math.max(1, Number(draftDiagnostics.discountBlockingRows?.length || 0))} discount fix` }
+      ? {
+          tone: 'danger',
+          text: `${Math.max(1, Number(draftDiagnostics.discountBlockingRows?.length || 0))} discount fix`,
+        }
       : null,
     draftDiagnostics.hasRateConfirmationErrors
       ? { tone: 'danger', text: `${draftDiagnostics.rateConfirmationCount} rate confirm` }
@@ -28,7 +29,9 @@ const PurchaseOrderEntryControlPanel = ({
     draftDiagnostics.rateWarningCount > 0 && !draftDiagnostics.hasRateConfirmationErrors
       ? { tone: 'bad', text: `${draftDiagnostics.rateWarningCount} rate drift` }
       : null,
-  ].filter(Boolean).slice(0, 3);
+  ]
+    .filter(Boolean)
+    .slice(0, 3);
   const filledFieldCount = [
     String(orderFormData?.expected_delivery || '').trim(),
     String(orderFormData?.strict_due_date || '').trim(),
@@ -64,7 +67,9 @@ const PurchaseOrderEntryControlPanel = ({
             name="expected_delivery"
             type="date"
             value={orderFormData.expected_delivery || ''}
-            onChange={(event) => setOrderFormData((prev) => ({ ...prev, expected_delivery: event.target.value }))}
+            onChange={(event) =>
+              setOrderFormData((prev) => ({ ...prev, expected_delivery: event.target.value }))
+            }
           />
         </div>
         <div className="form-group po-review-edit-note">
@@ -74,7 +79,9 @@ const PurchaseOrderEntryControlPanel = ({
             name="notes"
             rows="2"
             value={orderFormData.notes || ''}
-            onChange={(event) => setOrderFormData((prev) => ({ ...prev, notes: event.target.value }))}
+            onChange={(event) =>
+              setOrderFormData((prev) => ({ ...prev, notes: event.target.value }))
+            }
             placeholder="Optional supplier note"
           />
         </div>
@@ -87,7 +94,9 @@ const PurchaseOrderEntryControlPanel = ({
                 name="strict_due_date"
                 type="date"
                 value={orderFormData.strict_due_date || ''}
-                onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_date: event.target.value }))}
+                onChange={(event) =>
+                  setOrderFormData((prev) => ({ ...prev, strict_due_date: event.target.value }))
+                }
               />
             </div>
             <div className="form-group po-review-edit-note">
@@ -97,7 +106,9 @@ const PurchaseOrderEntryControlPanel = ({
                 name="strict_due_note"
                 rows="2"
                 value={orderFormData.strict_due_note || ''}
-                onChange={(event) => setOrderFormData((prev) => ({ ...prev, strict_due_note: event.target.value }))}
+                onChange={(event) =>
+                  setOrderFormData((prev) => ({ ...prev, strict_due_note: event.target.value }))
+                }
                 placeholder="Optional hard deadline reason"
               />
             </div>

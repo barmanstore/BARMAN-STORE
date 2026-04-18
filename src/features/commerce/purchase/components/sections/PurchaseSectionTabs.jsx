@@ -1,9 +1,4 @@
-import {
-  BellRing,
-  Package,
-  RotateCcw,
-  Wallet,
-} from 'lucide-react';
+import { BellRing, Package, RotateCcw, Wallet } from 'lucide-react';
 
 const PurchaseSectionTabs = ({ activeTab, onChange, counts = {} }) => {
   const items = [

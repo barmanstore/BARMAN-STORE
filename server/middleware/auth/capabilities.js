@@ -6,20 +6,18 @@ const ROLE_CAPABILITIES = Object.freeze({
     'edit_products',
     'manage_purchase_orders',
   ]),
-  staff: Object.freeze([
-    'view_backoffice',
-    'edit_products',
-    'manage_purchase_orders',
-  ]),
-  viewer: Object.freeze([
-    'view_backoffice',
-  ]),
+  staff: Object.freeze(['view_backoffice', 'edit_products', 'manage_purchase_orders']),
+  viewer: Object.freeze(['view_backoffice']),
   customer: Object.freeze([]),
 });
 
-const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+const normalizeRole = (role) =>
+  String(role || '')
+    .trim()
+    .toLowerCase();
 
-const getRoleCapabilities = (role) => ROLE_CAPABILITIES[normalizeRole(role)] || ROLE_CAPABILITIES.customer;
+const getRoleCapabilities = (role) =>
+  ROLE_CAPABILITIES[normalizeRole(role)] || ROLE_CAPABILITIES.customer;
 
 const userHasCapability = (user, capability) => {
   const token = String(capability || '').trim();

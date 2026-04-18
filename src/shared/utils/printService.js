@@ -1,9 +1,10 @@
-export const escapeHtml = (value) => String(value ?? '')
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;');
+export const escapeHtml = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 export const printHtmlDocument = ({
   title = 'Print',
@@ -49,11 +50,16 @@ export const printHtmlDocument = ({
       win.print();
       if (autoClose) {
         win.onafterprint = () => {
-          try { win.close(); } catch (_) {}
+          try {
+            win.close();
+          } catch (_) {
+            // Silently ignore close errors on some browsers
+          }
         };
       }
     } catch (_) {
-      if (typeof onError === 'function') onError('Print failed. Please use browser print from the opened page.');
+      if (typeof onError === 'function')
+        onError('Print failed. Please use browser print from the opened page.');
     }
   };
 
@@ -64,4 +70,3 @@ export const printHtmlDocument = ({
   win.onload = () => setTimeout(triggerPrint, 250);
   return true;
 };
-

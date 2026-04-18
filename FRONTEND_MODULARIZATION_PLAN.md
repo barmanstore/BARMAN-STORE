@@ -1,11 +1,13 @@
 # Frontend Modularization Plan
 
 ## Goals
+
 - Move to feature-based structure with reusable shared modules.
 - Keep entry points lean and focused on composition.
 - Enable incremental migration with minimal regressions.
 
 ## Target Structure
+
 - `src/app/`
   - `App.jsx`
   - `AppProviders.jsx`
@@ -33,6 +35,7 @@
   - `styles/`
 
 ## Phases (1 by 1)
+
 1. **Bootstrap extraction**
    - Move host redirect, stale chunk recovery, cache cleanup out of `src/main.jsx`.
    - Create `src/app/bootstrap/*` and keep `main.jsx` minimal.
@@ -73,33 +76,42 @@
    - Move `BillingTab` into `src/features/sales/billing`.
 
 10. **Shared user modal**
-   - Move `UserEditModal` into `src/shared/components`.
+
+- Move `UserEditModal` into `src/shared/components`.
 
 11. **Auth pages**
-   - Move `login` + `Profile` into `src/features/auth`.
+
+- Move `login` + `Profile` into `src/features/auth`.
 
 12. **Cart & checkout**
-   - Move `Cart` into `src/features/cart`.
-   - Move `Checkout` into `src/features/checkout`.
+
+- Move `Cart` into `src/features/cart`.
+- Move `Checkout` into `src/features/checkout`.
 
 13. **Order pages**
-   - Move `OrderHistory`, `OrderDetails`, `OrderTracking` into `src/features/orders`.
+
+- Move `OrderHistory`, `OrderDetails`, `OrderTracking` into `src/features/orders`.
 
 14. **Admin feature pages**
-   - Move distributor, inventory, insights, credits, billing, marketing, and customer request admin pages into `src/features/*`.
+
+- Move distributor, inventory, insights, credits, billing, marketing, and customer request admin pages into `src/features/*`.
 
 15. **Storefront + bills**
-   - Move `Home`, `StoreInfo`, `StorePage`, `ProductRecommendations` into `src/features/storefront`.
-   - Move `MyBills` into `src/features/sales/billing`.
+
+- Move `Home`, `StoreInfo`, `StorePage`, `ProductRecommendations` into `src/features/storefront`.
+- Move `MyBills` into `src/features/sales/billing`.
 
 16. **Pages cleanup**
-   - Keep only `src/shared/info.js` as shared copy.
+
+- Keep only `src/shared/info.js` as shared copy.
 
 17. **Catalog products helpers**
-   - Move Products helpers into `src/features/catalog/products/utils`.
-   - Extract brand + image helpers into `src/features/catalog/products/components`.
+
+- Move Products helpers into `src/features/catalog/products/utils`.
+- Extract brand + image helpers into `src/features/catalog/products/components`.
 
 ## Progress Checklist
+
 - [x] Phase 1: Bootstrap extraction
 - [x] Phase 2: App shell split
 - [x] Phase 3: Route consolidation
@@ -119,6 +131,7 @@
 - [x] Phase 17: Catalog products helpers
 
 ## Mapping Notes (initial)
+
 - `src/shared/services/api` is the shared canonical entry point.
 - Initial feature-local API entry points now exist in:
   - `src/features/admin/api`

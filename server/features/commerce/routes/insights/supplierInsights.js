@@ -1,9 +1,5 @@
 const registerSupplierInsightsRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbAllAsync,
-  } = deps;
+  const { app, requireAdmin, dbAllAsync } = deps;
 
   app.get('/api/products/:id(\\d+)/suppliers', requireAdmin, async (req, res) => {
     try {

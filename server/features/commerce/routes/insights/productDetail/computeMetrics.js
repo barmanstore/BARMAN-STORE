@@ -31,7 +31,9 @@ const computeHistoryMetrics = ({
   const onTimeRate = (() => {
     const evaluated = historyRows.filter((row) => row.received_at && row.expected_delivery);
     if (!evaluated.length) return null;
-    const onTime = evaluated.filter((row) => new Date(row.received_at) <= new Date(row.expected_delivery)).length;
+    const onTime = evaluated.filter(
+      (row) => new Date(row.received_at) <= new Date(row.expected_delivery)
+    ).length;
     return onTime / evaluated.length;
   })();
 

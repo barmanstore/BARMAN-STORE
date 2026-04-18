@@ -1,16 +1,7 @@
-const {
-  loadActiveOffers,
-  decorateProductWithOffers,
-} = require('../../../offers/offerEngine');
+const { loadActiveOffers, decorateProductWithOffers } = require('../../../offers/offerEngine');
 
 const registerProductSuggestRoutes = (deps) => {
-  const {
-    app,
-    dbAllAsync,
-    normalizeSearchText,
-    clampInt,
-    normalizeProductRecord,
-  } = deps;
+  const { app, dbAllAsync, normalizeSearchText, clampInt, normalizeProductRecord } = deps;
 
   app.get('/api/products/suggest', async (req, res) => {
     try {
@@ -44,7 +35,9 @@ const registerProductSuggestRoutes = (deps) => {
 
       const activeOffers = await loadActiveOffers(dbAllAsync);
       const items = (Array.isArray(rows) ? rows : []).map((row) => {
-        const normalized = decorateProductWithOffers(normalizeProductRecord(row), activeOffers, { offersArePrepared: true });
+        const normalized = decorateProductWithOffers(normalizeProductRecord(row), activeOffers, {
+          offersArePrepared: true,
+        });
         return {
           id: Number(normalized.id || 0),
           name: String(normalized.name || '').trim() || 'Product',
@@ -56,7 +49,9 @@ const registerProductSuggestRoutes = (deps) => {
           category: String(normalized.category || '').trim(),
           stock: Number(normalized.stock || 0),
           offer_display: normalized.offer_display || null,
-          active_offer_labels: Array.isArray(normalized.active_offer_labels) ? normalized.active_offer_labels : [],
+          active_offer_labels: Array.isArray(normalized.active_offer_labels)
+            ? normalized.active_offer_labels
+            : [],
         };
       });
 

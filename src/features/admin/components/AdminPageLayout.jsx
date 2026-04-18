@@ -14,7 +14,9 @@ const AdminPageLayout = () => {
         <div className="admin-container">
           <h1>Access Denied</h1>
           <p>You must be an admin to access this page.</p>
-          <Link to="/login" className="admin-btn">Go to Login</Link>
+          <Link to="/login" className="admin-btn">
+            Go to Login
+          </Link>
         </div>
       </div>
     );

@@ -7,13 +7,15 @@ const RoutePolicyContext = createContext(null);
 
 const resolveShellVariant = (shell, isMobile) => {
   if (!shell || typeof shell !== 'object') return 'default';
-  return isMobile ? shell.mobile || shell.desktop || 'default' : shell.desktop || shell.mobile || 'default';
+  return isMobile
+    ? shell.mobile || shell.desktop || 'default'
+    : shell.desktop || shell.mobile || 'default';
 };
 
-const matchRouteDefinition = (pathname) => (
-  APP_ROUTE_DEFINITIONS.find((definition) => Boolean(matchPath({ path: definition.path, end: true }, pathname)))
-  || null
-);
+const matchRouteDefinition = (pathname) =>
+  APP_ROUTE_DEFINITIONS.find((definition) =>
+    Boolean(matchPath({ path: definition.path, end: true }, pathname))
+  ) || null;
 
 export function RoutePolicyProvider({ children }) {
   const location = useLocation();
@@ -41,11 +43,7 @@ export function RoutePolicyProvider({ children }) {
     };
   }, [isMobile, location.pathname, location.search, matchedRoute]);
 
-  return (
-    <RoutePolicyContext.Provider value={value}>
-      {children}
-    </RoutePolicyContext.Provider>
-  );
+  return <RoutePolicyContext.Provider value={value}>{children}</RoutePolicyContext.Provider>;
 }
 
 export const useRoutePolicy = () => {

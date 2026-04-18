@@ -1,21 +1,18 @@
 const registerProductDeleteRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbGetAsync,
-    dbRunAsync,
-    logAdminAuditAsync,
-  } = deps;
+  const { app, requireAdmin, dbGetAsync, dbRunAsync, logAdminAuditAsync } = deps;
 
-  const doesTableExistAsync = async (tableName) => Boolean(
-    (await dbGetAsync(
-      `SELECT 1 AS ok
+  const doesTableExistAsync = async (tableName) =>
+    Boolean(
+      (
+        await dbGetAsync(
+          `SELECT 1 AS ok
        FROM information_schema.tables
        WHERE table_schema = current_schema() AND table_name = ?
        LIMIT 1`,
-      [tableName]
-    ))?.ok
-  );
+          [tableName]
+        )
+      )?.ok
+    );
 
   app.delete('/api/products/:id(\\d+)', requireAdmin, async (req, res) => {
     try {
@@ -41,16 +38,31 @@ const registerProductDeleteRoutes = (deps) => {
       if (!current) return res.status(404).json({ error: 'Product not found' });
 
       const referenceChecks = [
-        { table: 'order_items', sql: 'SELECT COUNT(*) as count FROM order_items WHERE product_id = ?' },
-        { table: 'purchase_order_items', sql: 'SELECT COUNT(*) as count FROM purchase_order_items WHERE product_id = ?' },
-        { table: 'purchase_return_items', sql: 'SELECT COUNT(*) as count FROM purchase_return_items WHERE product_id = ?' },
-        { table: 'stock_ledger', sql: 'SELECT COUNT(*) as count FROM stock_ledger WHERE product_id = ?' },
-        { table: 'batch_stock', sql: 'SELECT COUNT(*) as count FROM batch_stock WHERE product_id = ?' },
+        {
+          table: 'order_items',
+          sql: 'SELECT COUNT(*) as count FROM order_items WHERE product_id = ?',
+        },
+        {
+          table: 'purchase_order_items',
+          sql: 'SELECT COUNT(*) as count FROM purchase_order_items WHERE product_id = ?',
+        },
+        {
+          table: 'purchase_return_items',
+          sql: 'SELECT COUNT(*) as count FROM purchase_return_items WHERE product_id = ?',
+        },
+        {
+          table: 'stock_ledger',
+          sql: 'SELECT COUNT(*) as count FROM stock_ledger WHERE product_id = ?',
+        },
+        {
+          table: 'batch_stock',
+          sql: 'SELECT COUNT(*) as count FROM batch_stock WHERE product_id = ?',
+        },
       ];
 
       const blockingRefs = [];
       for (const check of referenceChecks) {
-        if (!await doesTableExistAsync(check.table)) continue;
+        if (!(await doesTableExistAsync(check.table))) continue;
         const count = Number((await dbGetAsync(check.sql, [productId]))?.count || 0);
         if (count > 0) blockingRefs.push(`${check.table} (${count})`);
       }

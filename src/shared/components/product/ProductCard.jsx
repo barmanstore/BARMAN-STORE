@@ -8,7 +8,9 @@ const formatPriceTag = (value) => {
   if (!Number.isFinite(amount) || amount <= 0) return '0/';
   const normalized = Number.isInteger(amount)
     ? String(amount)
-    : String(Number(amount.toFixed(2))).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    : String(Number(amount.toFixed(2)))
+        .replace(/\.0+$/, '')
+        .replace(/(\.\d*[1-9])0+$/, '$1');
   return `${normalized}/`;
 };
 
@@ -60,16 +62,22 @@ const ProductCard = memo(function ProductCard({
   const Image = ImageComponent;
 
   const offerLabel = String(
-    selectedVariation?.offerLabel
-    || selectedVariation?.offerBadges?.[0]
-    || selectedVariation?.offerDisplay?.display_offer_label
-    || ''
+    selectedVariation?.offerLabel ||
+      selectedVariation?.offerBadges?.[0] ||
+      selectedVariation?.offerDisplay?.display_offer_label ||
+      ''
   ).trim();
   const offerNote = offerLabel.replace(/^\s*(save\s+[^|]+|\d+% off)\s*(\|\s*)?/i, '').trim();
   const urgencyLabel = selectedStock > 0 && selectedStock <= 5 ? `Only ${selectedStock} left` : '';
   const offerToneLabel = hasDiscount
-    ? (offerLabel ? (discountPercent >= 25 ? 'Best Deal' : 'Live Offer') : 'Price Drop')
-    : (offerLabel ? 'Live Offer' : '');
+    ? offerLabel
+      ? discountPercent >= 25
+        ? 'Best Deal'
+        : 'Live Offer'
+      : 'Price Drop'
+    : offerLabel
+      ? 'Live Offer'
+      : '';
 
   return (
     <article
@@ -151,15 +159,17 @@ const ProductCard = memo(function ProductCard({
             </div>
           ) : (
             <div className="product-price-row">
-              <strong><SignedCurrency amount={priceValue} /></strong>
-              {offerToneLabel ? <span className="card-inline-offer-chip">{offerToneLabel}</span> : null}
+              <strong>
+                <SignedCurrency amount={priceValue} />
+              </strong>
+              {offerToneLabel ? (
+                <span className="card-inline-offer-chip">{offerToneLabel}</span>
+              ) : null}
             </div>
           )}
 
           {!hasDiscount && offerLabel ? (
-            <small className="card-offer-note-line">
-              {offerLabel}
-            </small>
+            <small className="card-offer-note-line">{offerLabel}</small>
           ) : null}
 
           {showFromPrice ? (
@@ -171,7 +181,7 @@ const ProductCard = memo(function ProductCard({
           <div className="product-stock">
             <span className={stockTone}>{stockText}</span>
             <small className="cart-qty-indicator">
-              {familyCartQty > 0 ? `Cart ${familyCartQty}` : (urgencyLabel || stockHint)}
+              {familyCartQty > 0 ? `Cart ${familyCartQty}` : urgencyLabel || stockHint}
             </small>
           </div>
 
@@ -201,26 +211,26 @@ const ProductCard = memo(function ProductCard({
                 type="button"
                 className="add-to-cart-btn"
                 onClick={() => onAdd(family, selectedVariation)}
-                aria-label={selectedStock === 0
-                  ? `${stockActionLabel} ${family.name}`
-                  : `Add ${family.name} to cart`}
+                aria-label={
+                  selectedStock === 0
+                    ? `${stockActionLabel} ${family.name}`
+                    : `Add ${family.name} to cart`
+                }
               >
                 <Plus size={14} />
                 {selectedStock === 0 ? stockActionLabel : 'Add'}
               </button>
             )}
 
-            <button
-              type="button"
-              className="card-view-btn"
-              onClick={onOpenDetails}
-            >
+            <button type="button" className="card-view-btn" onClick={onOpenDetails}>
               {detailLabel}
             </button>
           </div>
 
           {showSwipeHint ? (
-            <span className="quick-add-swipe-hint">{isAddedState ? 'Added' : 'Swipe card to quick add'}</span>
+            <span className="quick-add-swipe-hint">
+              {isAddedState ? 'Added' : 'Swipe card to quick add'}
+            </span>
           ) : null}
         </div>
 

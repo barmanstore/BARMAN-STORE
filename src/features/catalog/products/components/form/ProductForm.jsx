@@ -68,7 +68,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         expiry_date: product.expiry_date || '',
         category: product.category_path || product.category || '',
         defaultDiscount: product.defaultDiscount?.toString() || '',
-        discountType: product.discountType || 'fixed'
+        discountType: product.discountType || 'fixed',
       });
       setIsDescriptionAuto(false);
       setIsContentAutoFromPrice(false);
@@ -115,12 +115,11 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
   const handleSuggestDescription = () => {
     const suggested = generateDescriptionSuggestion(formData);
     if (!suggested) return;
-    setFormData(prev => ({ ...prev, description: suggested }));
+    setFormData((prev) => ({ ...prev, description: suggested }));
     setIsDescriptionAuto(true);
   };
 
   const validateFormData = (data) => validateProductFormData(data);
-
 
   const handleAddToBatch = () => {
     setError('');
@@ -150,7 +149,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
       category: prev.category || '',
       uom: prev.uom || 'pcs',
       base_unit: prev.base_unit || 'pcs',
-      uom_type: prev.uom_type || 'selling'
+      uom_type: prev.uom_type || 'selling',
     }));
     setErrors({});
     setIsDescriptionAuto(true);
@@ -177,7 +176,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
     }
 
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
     const pricingVariantCount = getPricingVariantCount(nextFormData);
@@ -187,8 +186,9 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         const mrpValues = splitCommaValues(nextFormData.mrp);
         const contentDefaults = [];
         for (let i = 0; i < pricingVariantCount; i += 1) {
-          const seededContent = pickVariantValueLoose(priceValues, i, pricingVariantCount)
-            || pickVariantValueLoose(mrpValues, i, pricingVariantCount);
+          const seededContent =
+            pickVariantValueLoose(priceValues, i, pricingVariantCount) ||
+            pickVariantValueLoose(mrpValues, i, pricingVariantCount);
           if (seededContent) contentDefaults.push(seededContent);
         }
         nextFormData.content = joinCommaValues(contentDefaults);
@@ -205,21 +205,28 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
       const packValues = splitCommaValues(nextFormData.purchase_pack_size);
       const priceValues = splitCommaValues(nextFormData.price);
       const mrpValues = splitCommaValues(nextFormData.mrp);
-      const skuVariantCount = Math.max(1, contentValues.length, packValues.length, priceValues.length, mrpValues.length);
+      const skuVariantCount = Math.max(
+        1,
+        contentValues.length,
+        packValues.length,
+        priceValues.length,
+        mrpValues.length
+      );
       const skuList = [];
       for (let i = 0; i < skuVariantCount; i += 1) {
         const row = {
           ...nextFormData,
-          content: pickVariantValueLoose(contentValues, i, skuVariantCount)
-            || pickVariantValueLoose(priceValues, i, skuVariantCount)
-            || pickVariantValueLoose(mrpValues, i, skuVariantCount),
+          content:
+            pickVariantValueLoose(contentValues, i, skuVariantCount) ||
+            pickVariantValueLoose(priceValues, i, skuVariantCount) ||
+            pickVariantValueLoose(mrpValues, i, skuVariantCount),
           purchase_pack_size: pickVariantValueLoose(packValues, i, skuVariantCount),
           price: pickVariantValueLoose(priceValues, i, skuVariantCount),
           mrp: pickVariantValueLoose(mrpValues, i, skuVariantCount),
         };
         skuList.push(generateAutoSKU(row, i));
       }
-      nextFormData.sku = skuVariantCount > 1 ? skuList.join(',') : (skuList[0] || '');
+      nextFormData.sku = skuVariantCount > 1 ? skuList.join(',') : skuList[0] || '';
     }
 
     if (name === 'description') {
@@ -249,9 +256,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
       const submitWithIdenticalChoice = async ({ mode, payload, id }) => {
         const send = (allowIdentical = false) => {
           const body = allowIdentical ? { ...payload, allow_identical: true } : payload;
-          return mode === 'update'
-            ? productsApi.update(id, body)
-            : productsApi.create(body);
+          return mode === 'update' ? productsApi.update(id, body) : productsApi.create(body);
         };
 
         try {
@@ -280,7 +285,9 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         variantRows.forEach((row, index) => {
           const variantErrors = validateFormData(row);
           if (Object.keys(variantErrors).length) {
-            validationMessages.push(`Variant ${index + 1}: ${Object.values(variantErrors).join(', ')}`);
+            validationMessages.push(
+              `Variant ${index + 1}: ${Object.values(variantErrors).join(', ')}`
+            );
           }
         });
         if (validationMessages.length) {
@@ -295,7 +302,7 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
             if (selling > 0 && selling < latestCost) {
               const ok = window.confirm(
                 `Warning: Selling price (Rs ${selling.toFixed(2)}) is below latest purchase cost (Rs ${latestCost.toFixed(2)}).\n\n` +
-                'Do you still want to save this product price?'
+                  'Do you still want to save this product price?'
               );
               if (!ok) {
                 setLoading(false);
@@ -306,10 +313,17 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         }
 
         const payloads = variantRows.map((row) => buildProductData(row));
-        const updatedProduct = await submitWithIdenticalChoice({ mode: 'update', id: product.id, payload: payloads[0] });
+        const updatedProduct = await submitWithIdenticalChoice({
+          mode: 'update',
+          id: product.id,
+          payload: payloads[0],
+        });
         if (updatedProduct) savedProducts.push(updatedProduct);
         for (let i = 1; i < payloads.length; i += 1) {
-          const createdProduct = await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+          const createdProduct = await submitWithIdenticalChoice({
+            mode: 'create',
+            payload: payloads[i],
+          });
           if (createdProduct) savedProducts.push(createdProduct);
         }
         if (payloads.length > 1) {
@@ -342,7 +356,9 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
           variantRows.forEach((row, index) => {
             const variantErrors = validateFormData(row);
             if (Object.keys(variantErrors).length) {
-              validationMessages.push(`Variant ${index + 1}: ${Object.values(variantErrors).join(', ')}`);
+              validationMessages.push(
+                `Variant ${index + 1}: ${Object.values(variantErrors).join(', ')}`
+              );
             }
           });
           if (validationMessages.length) {
@@ -360,7 +376,10 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
         let createdCount = 0;
         for (let i = 0; i < payloads.length; i += 1) {
           try {
-            const createdProduct = await submitWithIdenticalChoice({ mode: 'create', payload: payloads[i] });
+            const createdProduct = await submitWithIdenticalChoice({
+              mode: 'create',
+              payload: payloads[i],
+            });
             if (createdProduct) createdProducts.push(createdProduct);
             createdCount += 1;
           } catch (err) {
@@ -372,7 +391,9 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
                 savedProducts: createdProducts,
               });
             }
-            setError(`Failed at product ${i + 1} (${payloads[i].name}): ${err.message || 'Create failed'}. Created ${createdCount} product(s).`);
+            setError(
+              `Failed at product ${i + 1} (${payloads[i].name}): ${err.message || 'Create failed'}. Created ${createdCount} product(s).`
+            );
             return;
           }
         }
@@ -393,7 +414,11 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
 
   const isEditing = !!product;
   const visibleAdvancedFields = showAdvancedFields && !isQuickMode;
-  const formHeading = isEditing ? 'Edit Product' : (isQuickMode ? 'Quick Add Product' : 'Add New Product');
+  const formHeading = isEditing
+    ? 'Edit Product'
+    : isQuickMode
+      ? 'Quick Add Product'
+      : 'Add New Product';
 
   const handleImageChange = (nextUrl) => {
     setFormData((prev) => ({ ...prev, image: nextUrl }));
@@ -427,4 +452,3 @@ function ProductForm({ product, onClose, onSave, mode = 'full', initialFormPatch
 }
 
 export default ProductForm;
-

@@ -5,7 +5,9 @@ const createPurchaseOperationsReminderQueries = (deps) => {
     date = null,
     distributorId = null,
   } = {}) => {
-    const todayKey = normalizeTransactionDate(date || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const todayKey =
+      normalizeTransactionDate(date || new Date().toISOString()) ||
+      new Date().toISOString().slice(0, 10);
     const tomorrowKey = addDaysToDateKey(todayKey, 1) || todayKey;
     const normalizedDistributorId = Number(distributorId || 0) || null;
     const distributorWhereSql = normalizedDistributorId ? ' WHERE id = ?' : '';

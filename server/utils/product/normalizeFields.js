@@ -12,11 +12,16 @@ const createProductFieldNormalizers = () => {
   };
 
   const normalizeDiscountType = (value) => {
-    const raw = String(value || 'fixed').trim().toLowerCase();
+    const raw = String(value || 'fixed')
+      .trim()
+      .toLowerCase();
     return raw === 'percent' || raw === 'percentage' ? 'percent' : 'fixed';
   };
 
-  const normalizeTextKey = (value) => String(value || '').trim().toLowerCase();
+  const normalizeTextKey = (value) =>
+    String(value || '')
+      .trim()
+      .toLowerCase();
 
   const normalizeMoneyValue = (value) => {
     const n = Number(value);
@@ -51,7 +56,11 @@ const createProductFieldNormalizers = () => {
     const parts = raw.split(HIERARCHY_SEPARATOR).map((part) => String(part || '').trim());
     if (parts.length === 1) return { parent: parts[0], child: '', invalid: false };
     if (parts.length === 2) return { parent: parts[0], child: parts[1], invalid: false };
-    return { parent: parts[0], child: parts.slice(1).join(` ${HIERARCHY_SEPARATOR} `), invalid: true };
+    return {
+      parent: parts[0],
+      child: parts.slice(1).join(` ${HIERARCHY_SEPARATOR} `),
+      invalid: true,
+    };
   };
 
   const composeHierarchyPath = (parent, child) => {

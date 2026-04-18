@@ -29,9 +29,9 @@ const buildSummaryAmounts = ({
   const unpostedOutstandingAmount = (openOrders || []).reduce((sum, order) => {
     const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
     if (
-      lifecycleStatus === PO_LIFECYCLE_PREPARED
-      || lifecycleStatus === PO_LIFECYCLE_SENT
-      || lifecycleStatus === PO_LIFECYCLE_REVISED
+      lifecycleStatus === PO_LIFECYCLE_PREPARED ||
+      lifecycleStatus === PO_LIFECYCLE_SENT ||
+      lifecycleStatus === PO_LIFECYCLE_REVISED
     ) {
       return sum + Math.max(0, Number(order.balance_due || 0));
     }

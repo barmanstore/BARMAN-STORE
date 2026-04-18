@@ -10,10 +10,16 @@ const ProductFormBatchSection = ({
   <div className="form-section batch-section">
     <h3 className="section-title">Batch Add Products</h3>
     <p className="batch-help">
-      Fill product details and click <strong>Add To Batch</strong>. You can submit all queued products at once.
+      Fill product details and click <strong>Add To Batch</strong>. You can submit all queued
+      products at once.
     </p>
     <div className="batch-actions">
-      <button type="button" className="submit-btn batch-add-btn" onClick={onAddToBatch} disabled={loading}>
+      <button
+        type="button"
+        className="submit-btn batch-add-btn"
+        onClick={onAddToBatch}
+        disabled={loading}
+      >
         <Plus size={16} /> Add To Batch
       </button>
     </div>
@@ -31,7 +37,9 @@ const ProductFormBatchSection = ({
           <div key={`${item.name}-${index}`} className="batch-item">
             <div className="batch-item-info">
               <strong>{item.name}</strong>
-              <span>{item.category} | Rs {Number(item.price || 0).toFixed(2)} | Stock: {item.stock}</span>
+              <span>
+                {item.category} | Rs {Number(item.price || 0).toFixed(2)} | Stock: {item.stock}
+              </span>
             </div>
             <button
               type="button"

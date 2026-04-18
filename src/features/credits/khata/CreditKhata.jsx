@@ -23,7 +23,11 @@ import {
 } from '../../../shared/services/api';
 import { formatCurrency, formatDate, truncateUserName } from '../../../shared/utils/formatters';
 import { getTodayDate, toLocalDateKey } from '../../../shared/utils/dateTime';
-import { getLedgerEntryTimestamp, getSignedLedgerAmount, toNumber } from '../../../shared/utils/ledger';
+import {
+  getLedgerEntryTimestamp,
+  getSignedLedgerAmount,
+  toNumber,
+} from '../../../shared/utils/ledger';
 import CalculatedAmountInput from '../../../shared/components/CalculatedAmountInput';
 import WindowModal from '../../../shared/components/window/WindowModal';
 import { useSession } from '../../../providers/SessionProvider';
@@ -61,8 +65,16 @@ const TRANSACTION_TYPE_OPTIONS = [
   { value: 'entry', label: 'Entry' },
 ];
 
-const normalizeRows = (payload) => (Array.isArray(payload) ? payload : (Array.isArray(payload?.rows) ? payload.rows : []));
-const getRecordDate = (entry) => getLedgerEntryTimestamp(entry, ['transaction_ts', 'transactionTs', 'transaction_date', 'created_at', 'date']);
+const normalizeRows = (payload) =>
+  Array.isArray(payload) ? payload : Array.isArray(payload?.rows) ? payload.rows : [];
+const getRecordDate = (entry) =>
+  getLedgerEntryTimestamp(entry, [
+    'transaction_ts',
+    'transactionTs',
+    'transaction_date',
+    'created_at',
+    'date',
+  ]);
 const isLedgerEntryEdited = (entry) => Number(entry?.edited || 0) === 1 || !!entry?.edited_at;
 const formatDateDisplayToken = (value) => {
   const normalized = String(value || '').trim();
@@ -106,12 +118,19 @@ const buildDateRangePresets = () => {
     { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
     { label: 'Last 30 Days', value: [toDateToken(shiftDateByDays(today, -29)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
-const formatLedgerGroupLabel = (value) => formatDate(value, 'en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const normalizeValue = (value) => String(value || '').trim().toLowerCase();
+const formatLedgerGroupLabel = (value) =>
+  formatDate(value, 'en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const normalizeValue = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 const normalizeTypeValue = (value) => normalizeValue(value).replace(/\s+/g, '_');
 const getCustomerName = (entry, usersById) => {
   const userKey = String(entry?.user_id || '');
@@ -120,22 +139,34 @@ const getCustomerName = (entry, usersById) => {
 const getEntryTypeValue = (entry) => normalizeTypeValue(getCreditEntryTypeLabel(entry));
 const getEntryTypeTone = (entry) => {
   switch (getEntryTypeValue(entry)) {
-    case 'payment': return 'payment';
-    case 'manual_sale': return 'manual-sale';
-    case 'bill': return 'bill';
-    case 'reversal': return 'reversal';
-    case 'correction': return 'correction';
-    default: return 'entry';
+    case 'payment':
+      return 'payment';
+    case 'manual_sale':
+      return 'manual-sale';
+    case 'bill':
+      return 'bill';
+    case 'reversal':
+      return 'reversal';
+    case 'correction':
+      return 'correction';
+    default:
+      return 'entry';
   }
 };
 const getEntryTypeIcon = (entry) => {
   switch (getEntryTypeValue(entry)) {
-    case 'payment': return <ArrowDown size={12} aria-hidden="true" />;
-    case 'manual_sale': return <ArrowUp size={12} aria-hidden="true" />;
-    case 'bill': return <FileText size={12} aria-hidden="true" />;
-    case 'reversal': return <RotateCcw size={12} aria-hidden="true" />;
-    case 'correction': return <PencilLine size={12} aria-hidden="true" />;
-    default: return <Minus size={12} aria-hidden="true" />;
+    case 'payment':
+      return <ArrowDown size={12} aria-hidden="true" />;
+    case 'manual_sale':
+      return <ArrowUp size={12} aria-hidden="true" />;
+    case 'bill':
+      return <FileText size={12} aria-hidden="true" />;
+    case 'reversal':
+      return <RotateCcw size={12} aria-hidden="true" />;
+    case 'correction':
+      return <PencilLine size={12} aria-hidden="true" />;
+    default:
+      return <Minus size={12} aria-hidden="true" />;
   }
 };
 const getEntryDetailsText = (entry) => {
@@ -155,7 +186,12 @@ function CreditKhata({ user }) {
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
   const [ledgerRecords, setLedgerRecords] = useState([]);
-  const [filters, setFilters] = useState({ user_id: '', transaction_type: '', start_date: '', end_date: '' });
+  const [filters, setFilters] = useState({
+    user_id: '',
+    transaction_type: '',
+    start_date: '',
+    end_date: '',
+  });
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchScope, setSearchScope] = useState('all');
@@ -174,15 +210,24 @@ function CreditKhata({ user }) {
 
   const usersById = useMemo(() => {
     const map = {};
-    users.forEach((row) => { map[String(row.id)] = row; });
+    users.forEach((row) => {
+      map[String(row.id)] = row;
+    });
     return map;
   }, [users]);
 
-  const customerOptions = useMemo(() => (
-    [...users]
-      .sort((left, right) => String(left?.name || '').localeCompare(String(right?.name || ''), undefined, { numeric: true, sensitivity: 'base' }))
-      .map((customer) => ({ value: String(customer.id), label: customer.name }))
-  ), [users]);
+  const customerOptions = useMemo(
+    () =>
+      [...users]
+        .sort((left, right) =>
+          String(left?.name || '').localeCompare(String(right?.name || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+        .map((customer) => ({ value: String(customer.id), label: customer.name })),
+    [users]
+  );
 
   const fetchLedger = async (selectedUserId, customerRows = users) => {
     setLedgerLoading(true);
@@ -193,7 +238,10 @@ function CreditKhata({ user }) {
         merged = await creditApi.getLedger(selectedUserId ? { user_id: selectedUserId } : {});
       } catch (err) {
         const errMsg = String(err?.message || '').toLowerCase();
-        const isMissingLedgerEndpoint = errMsg.includes('not found') || errMsg.includes('cannot get') || errMsg.includes('not available');
+        const isMissingLedgerEndpoint =
+          errMsg.includes('not found') ||
+          errMsg.includes('cannot get') ||
+          errMsg.includes('not available');
         if (!isMissingLedgerEndpoint) throw err;
         const sourceUsers = selectedUserId
           ? customerRows.filter((row) => String(row.id) === String(selectedUserId))
@@ -225,10 +273,12 @@ function CreditKhata({ user }) {
         return { ...entry, computed_balance: next };
       });
 
-      setLedgerRecords(withBalances.sort((left, right) => {
-        const dateDiff = getRecordDate(right) - getRecordDate(left);
-        return dateDiff !== 0 ? dateDiff : Number(right.id || 0) - Number(left.id || 0);
-      }));
+      setLedgerRecords(
+        withBalances.sort((left, right) => {
+          const dateDiff = getRecordDate(right) - getRecordDate(left);
+          return dateDiff !== 0 ? dateDiff : Number(right.id || 0) - Number(left.id || 0);
+        })
+      );
     } catch (err) {
       if (err?.status === 401) {
         clearUser();
@@ -246,7 +296,12 @@ function CreditKhata({ user }) {
     const allUsers = await usersApi.getAll();
     const customers = (allUsers || [])
       .filter((row) => row.role !== 'admin')
-      .sort((left, right) => String(left?.name || '').localeCompare(String(right?.name || ''), undefined, { numeric: true, sensitivity: 'base' }));
+      .sort((left, right) =>
+        String(left?.name || '').localeCompare(String(right?.name || ''), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        })
+      );
     setUsers(customers);
     return customers;
   };
@@ -331,19 +386,26 @@ function CreditKhata({ user }) {
 
   const activeDatePresetLabel = useMemo(() => {
     if (!filters.start_date && !filters.end_date) return '';
-    const normalizeRange = (startDate, endDate) => [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
+    const normalizeRange = (startDate, endDate) =>
+      [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
     const currentRange = normalizeRange(filters.start_date, filters.end_date);
-    return dateRangePresets.find((preset) => {
-      const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
-      return normalizeRange(presetStart, presetEnd) === currentRange;
-    })?.label || '';
+    return (
+      dateRangePresets.find((preset) => {
+        const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
+        return normalizeRange(presetStart, presetEnd) === currentRange;
+      })?.label || ''
+    );
   }, [dateRangePresets, filters.end_date, filters.start_date]);
 
   const filteredLedgerRecords = useMemo(() => {
     const normalizedSearchQuery = searchQuery.trim().toLowerCase();
     return ledgerRecords.filter((entry) => {
       const entryDate = toLocalDateKey(getRecordDate(entry));
-      if (filters.transaction_type && getEntryTypeValue(entry) !== normalizeTypeValue(filters.transaction_type)) return false;
+      if (
+        filters.transaction_type &&
+        getEntryTypeValue(entry) !== normalizeTypeValue(filters.transaction_type)
+      )
+        return false;
       if (filters.start_date && entryDate && entryDate < filters.start_date) return false;
       if (filters.end_date && entryDate && entryDate > filters.end_date) return false;
       if (!normalizedSearchQuery) return true;
@@ -353,7 +415,17 @@ function CreditKhata({ user }) {
       const sourceLabel = String(getCreditEntrySourceLabel(entry) || '').trim();
       const description = String(getCreditEntryDescription(entry) || '').trim();
       const searchableFields = {
-        all: [customerName, entry.reference, sourceLabel, description, getEntryDetailsText(entry), typeLabel, entry.type, entry.amount, entry.balance],
+        all: [
+          customerName,
+          entry.reference,
+          sourceLabel,
+          description,
+          getEntryDetailsText(entry),
+          typeLabel,
+          entry.type,
+          entry.amount,
+          entry.balance,
+        ],
         customer: [customerName],
         reference: [entry.reference, sourceLabel],
         notes: [description, getEntryDetailsText(entry)],
@@ -364,7 +436,15 @@ function CreditKhata({ user }) {
         .join(' ');
       return searchableText.includes(normalizedSearchQuery);
     });
-  }, [filters.end_date, filters.start_date, filters.transaction_type, ledgerRecords, searchQuery, searchScope, usersById]);
+  }, [
+    filters.end_date,
+    filters.start_date,
+    filters.transaction_type,
+    ledgerRecords,
+    searchQuery,
+    searchScope,
+    usersById,
+  ]);
 
   const groupedLedgerRecords = useMemo(() => {
     if (!filteredLedgerRecords.length) return [];
@@ -392,7 +472,10 @@ function CreditKhata({ user }) {
       }
     }
     if (filters.user_id) {
-      return { label: 'Customer Balance', value: toNumber(balanceByUser[String(filters.user_id)] || 0) };
+      return {
+        label: 'Customer Balance',
+        value: toNumber(balanceByUser[String(filters.user_id)] || 0),
+      };
     }
     return {
       label: 'Total Balance (All Customers)',
@@ -400,12 +483,18 @@ function CreditKhata({ user }) {
     };
   }, [filters.user_id, ledgerRecords]);
 
-  const summaryCounts = useMemo(() => ({
-    visible: filteredLedgerRecords.length,
-    payments: filteredLedgerRecords.filter((entry) => getEntryTypeValue(entry) === 'payment').length,
-    manualSales: filteredLedgerRecords.filter((entry) => getEntryTypeValue(entry) === 'manual_sale').length,
-    edited: filteredLedgerRecords.filter((entry) => isLedgerEntryEdited(entry)).length,
-  }), [filteredLedgerRecords]);
+  const summaryCounts = useMemo(
+    () => ({
+      visible: filteredLedgerRecords.length,
+      payments: filteredLedgerRecords.filter((entry) => getEntryTypeValue(entry) === 'payment')
+        .length,
+      manualSales: filteredLedgerRecords.filter(
+        (entry) => getEntryTypeValue(entry) === 'manual_sale'
+      ).length,
+      edited: filteredLedgerRecords.filter((entry) => isLedgerEntryEdited(entry)).length,
+    }),
+    [filteredLedgerRecords]
+  );
 
   const latestEntryIdByUser = useMemo(() => {
     const map = {};
@@ -418,23 +507,29 @@ function CreditKhata({ user }) {
   }, [ledgerRecords]);
 
   const activeFilterPills = [
-    filters.user_id ? {
-      key: 'user_id',
-      label: `Customer: ${truncateUserName(usersById[String(filters.user_id)]?.name || '-', 24)}`,
-      onClear: () => setFilters((prev) => ({ ...prev, user_id: '' })),
-    } : null,
-    filters.transaction_type ? {
-      key: 'transaction_type',
-      label: `Type: ${TRANSACTION_TYPE_OPTIONS.find((type) => type.value === filters.transaction_type)?.label || filters.transaction_type}`,
-      onClear: () => setFilters((prev) => ({ ...prev, transaction_type: '' })),
-    } : null,
-    (filters.start_date || filters.end_date) ? {
-      key: 'date_range',
-      label: activeDatePresetLabel
-        ? `Date: ${activeDatePresetLabel}`
-        : `Date: ${formatDateDisplayToken(filters.start_date) || 'Start'} - ${formatDateDisplayToken(filters.end_date) || 'End'}`,
-      onClear: () => setFilters((prev) => ({ ...prev, start_date: '', end_date: '' })),
-    } : null,
+    filters.user_id
+      ? {
+          key: 'user_id',
+          label: `Customer: ${truncateUserName(usersById[String(filters.user_id)]?.name || '-', 24)}`,
+          onClear: () => setFilters((prev) => ({ ...prev, user_id: '' })),
+        }
+      : null,
+    filters.transaction_type
+      ? {
+          key: 'transaction_type',
+          label: `Type: ${TRANSACTION_TYPE_OPTIONS.find((type) => type.value === filters.transaction_type)?.label || filters.transaction_type}`,
+          onClear: () => setFilters((prev) => ({ ...prev, transaction_type: '' })),
+        }
+      : null,
+    filters.start_date || filters.end_date
+      ? {
+          key: 'date_range',
+          label: activeDatePresetLabel
+            ? `Date: ${activeDatePresetLabel}`
+            : `Date: ${formatDateDisplayToken(filters.start_date) || 'Start'} - ${formatDateDisplayToken(filters.end_date) || 'End'}`,
+          onClear: () => setFilters((prev) => ({ ...prev, start_date: '', end_date: '' })),
+        }
+      : null,
   ].filter(Boolean);
 
   const activeFilterCount = [
@@ -447,11 +542,13 @@ function CreditKhata({ user }) {
   const hasSearchState = Boolean(searchDraft.trim() || searchQuery.trim());
   const handleSearchDraftChange = (value) => setSearchDraft(value);
   const handleSearchSubmit = (value) => setSearchQuery(value);
-  const handleSingleSelectChange = (key, nextItems) => setFilters((prev) => ({
-    ...prev,
-    [key]: Array.isArray(nextItems) && nextItems.length ? String(nextItems[0] || '').trim() : '',
-  }));
-  const handleDateRangeChange = ([startDate, endDate]) => setFilters((prev) => ({ ...prev, start_date: startDate || '', end_date: endDate || '' }));
+  const handleSingleSelectChange = (key, nextItems) =>
+    setFilters((prev) => ({
+      ...prev,
+      [key]: Array.isArray(nextItems) && nextItems.length ? String(nextItems[0] || '').trim() : '',
+    }));
+  const handleDateRangeChange = ([startDate, endDate]) =>
+    setFilters((prev) => ({ ...prev, start_date: startDate || '', end_date: endDate || '' }));
   const handleClearAllFilters = () => {
     setSearchDraft('');
     setSearchQuery('');
@@ -461,15 +558,27 @@ function CreditKhata({ user }) {
   };
   const handleRefreshLedger = () => fetchLedger(filters.user_id, users);
 
-  useEffect(() => registerDomainListener(DOMAINS.Ledger, () => {
-    void fetchLedger(filters.user_id, users);
-  }, {
-    listenerId: 'credit-khata',
-  }), [fetchLedger, filters.user_id, users]);
+  useEffect(
+    () =>
+      registerDomainListener(
+        DOMAINS.Ledger,
+        () => {
+          void fetchLedger(filters.user_id, users);
+        },
+        {
+          listenerId: 'credit-khata',
+        }
+      ),
+    [fetchLedger, filters.user_id, users]
+  );
 
   const renderLoadingState = () => (
     <div className="credit-khata">
-      <BackofficePageHeader className="credit-khata-header" title="Credit Khata" subtitle="Customer payments, manual sales, and running balances." />
+      <BackofficePageHeader
+        className="credit-khata-header"
+        title="Credit Khata"
+        subtitle="Customer payments, manual sales, and running balances."
+      />
       <div className="credit-khata-loading-shell" aria-hidden="true">
         <div className="credit-khata-skeleton-toolbar">
           <div className="credit-khata-skeleton-search" />
@@ -519,13 +628,23 @@ function CreditKhata({ user }) {
         className="credit-khata-header"
         title="Credit Khata"
         subtitle="Customer payments, manual sales, and running balances."
-        actions={(
+        actions={
           <div className="credit-khata-header-actions">
-            <button type="button" className="admin-btn primary credit-khata-header-action" onClick={() => handleOpenLedgerForm('payment')}>
-              <ArrowDown size={16} /><span>Add Payment</span>
+            <button
+              type="button"
+              className="admin-btn primary credit-khata-header-action"
+              onClick={() => handleOpenLedgerForm('payment')}
+            >
+              <ArrowDown size={16} />
+              <span>Add Payment</span>
             </button>
-            <button type="button" className="admin-btn credit-khata-header-action" onClick={() => handleOpenLedgerForm('given')}>
-              <ArrowUp size={16} /><span>Add Manual Sale</span>
+            <button
+              type="button"
+              className="admin-btn credit-khata-header-action"
+              onClick={() => handleOpenLedgerForm('given')}
+            >
+              <ArrowUp size={16} />
+              <span>Add Manual Sale</span>
             </button>
             <button
               type="button"
@@ -537,7 +656,7 @@ function CreditKhata({ user }) {
               <RefreshCw size={16} aria-hidden="true" />
             </button>
           </div>
-        )}
+        }
       />
 
       {error && <div className="error-message credit-khata-error">{error}</div>}
@@ -545,7 +664,9 @@ function CreditKhata({ user }) {
       <div className="credit-khata-filters">
         <SearchFilter
           id="credit-khata-search"
-          placeholder={SEARCH_SCOPE_COPY[searchScope]?.placeholder || SEARCH_SCOPE_COPY.all.placeholder}
+          placeholder={
+            SEARCH_SCOPE_COPY[searchScope]?.placeholder || SEARCH_SCOPE_COPY.all.placeholder
+          }
           value={searchDraft}
           onChange={handleSearchDraftChange}
           onSubmit={handleSearchSubmit}
@@ -559,7 +680,9 @@ function CreditKhata({ user }) {
           scopeValue={searchScope}
           onScopeChange={setSearchScope}
           scopeAriaLabel="Search scope"
-          submitAriaLabel={SEARCH_SCOPE_COPY[searchScope]?.ariaLabel || SEARCH_SCOPE_COPY.all.ariaLabel}
+          submitAriaLabel={
+            SEARCH_SCOPE_COPY[searchScope]?.ariaLabel || SEARCH_SCOPE_COPY.all.ariaLabel
+          }
         />
 
         <button
@@ -576,15 +699,26 @@ function CreditKhata({ user }) {
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
-        {(hasSearchState || activeFilterCount) ? (
-          <button type="button" className="credit-khata-filter-clear" onClick={handleClearAllFilters}>Clear</button>
+        {hasSearchState || activeFilterCount ? (
+          <button
+            type="button"
+            className="credit-khata-filter-clear"
+            onClick={handleClearAllFilters}
+          >
+            Clear
+          </button>
         ) : null}
       </div>
 
       {activeFilterPills.length ? (
         <div className="credit-khata-active-filters" aria-label="Active filters">
           {activeFilterPills.map((pill) => (
-            <button key={pill.key} type="button" className="credit-khata-active-filter-pill" onClick={pill.onClear}>
+            <button
+              key={pill.key}
+              type="button"
+              className="credit-khata-active-filter-pill"
+              onClick={pill.onClear}
+            >
               <span>{pill.label}</span>
               <X size={12} aria-hidden="true" />
             </button>
@@ -593,7 +727,11 @@ function CreditKhata({ user }) {
       ) : null}
 
       {showAdvancedFilters ? (
-        <div ref={advancedFiltersRef} id="credit-khata-advanced-filters" className="credit-khata-advanced-filters">
+        <div
+          ref={advancedFiltersRef}
+          id="credit-khata-advanced-filters"
+          className="credit-khata-advanced-filters"
+        >
           <div className="credit-khata-filter-row credit-khata-filter-row--customer">
             <span className="credit-khata-filter-row-label">Customer</span>
             <DropdownFilter
@@ -644,8 +782,12 @@ function CreditKhata({ user }) {
           <span className="credit-khata-stat-value">{summaryCounts.visible}</span>
           <span className="credit-khata-stat-label">Visible Entries</span>
         </div>
-        <div className={`credit-khata-stat-card ${ledgerBalanceSummary.value >= 0 ? 'credit-khata-stat-card--due' : 'credit-khata-stat-card--advance'}`}>
-          <span className={`credit-khata-stat-value ${ledgerBalanceSummary.value >= 0 ? 'positive' : 'negative'}`}>
+        <div
+          className={`credit-khata-stat-card ${ledgerBalanceSummary.value >= 0 ? 'credit-khata-stat-card--due' : 'credit-khata-stat-card--advance'}`}
+        >
+          <span
+            className={`credit-khata-stat-value ${ledgerBalanceSummary.value >= 0 ? 'positive' : 'negative'}`}
+          >
             {formatCurrency(ledgerBalanceSummary.value)}
           </span>
           <span className="credit-khata-stat-label">{ledgerBalanceSummary.label}</span>
@@ -672,21 +814,37 @@ function CreditKhata({ user }) {
           </div>
         ) : filteredLedgerRecords.length === 0 ? (
           <div className="credit-khata-empty-state">
-            <strong>{hasSearchState || activeFilterCount ? 'No credit entries match the current filters.' : 'No credit entries found.'}</strong>
+            <strong>
+              {hasSearchState || activeFilterCount
+                ? 'No credit entries match the current filters.'
+                : 'No credit entries found.'}
+            </strong>
             <p>
               {hasSearchState || activeFilterCount
                 ? 'Clear the filters or widen the search scope to bring entries back into view.'
                 : 'Add a payment or manual sale to start building the ledger.'}
             </p>
             <div className="credit-khata-empty-actions">
-              {(hasSearchState || activeFilterCount) ? (
-                <button type="button" className="admin-btn" onClick={handleClearAllFilters}>Clear Filters</button>
+              {hasSearchState || activeFilterCount ? (
+                <button type="button" className="admin-btn" onClick={handleClearAllFilters}>
+                  Clear Filters
+                </button>
               ) : null}
-              <button type="button" className="admin-btn primary" onClick={() => handleOpenLedgerForm('payment')}>
-                <ArrowDown size={16} /><span>Add Payment</span>
+              <button
+                type="button"
+                className="admin-btn primary"
+                onClick={() => handleOpenLedgerForm('payment')}
+              >
+                <ArrowDown size={16} />
+                <span>Add Payment</span>
               </button>
-              <button type="button" className="admin-btn" onClick={() => handleOpenLedgerForm('given')}>
-                <ArrowUp size={16} /><span>Add Manual Sale</span>
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => handleOpenLedgerForm('given')}
+              >
+                <ArrowUp size={16} />
+                <span>Add Manual Sale</span>
               </button>
             </div>
           </div>
@@ -713,11 +871,16 @@ function CreditKhata({ user }) {
                   {group.items.map((entry, index) => {
                     const userKey = String(entry.user_id || '');
                     const customerName = truncateUserName(getCustomerName(entry, usersById), 26);
-                    const isLatestForCustomer = Number(entry.id || 0) > 0 && Number(entry.id || 0) === Number(latestEntryIdByUser[userKey] || 0);
+                    const isLatestForCustomer =
+                      Number(entry.id || 0) > 0 &&
+                      Number(entry.id || 0) === Number(latestEntryIdByUser[userKey] || 0);
                     const signedAmount = getSignedLedgerAmount(entry);
                     const balanceValue = toNumber(entry.computed_balance ?? entry.balance);
-                    const referenceText = String(getCreditEntrySourceLabel(entry) || entry.reference || '-').trim() || '-';
-                    const descriptionText = String(getCreditEntryDescription(entry) || '-').trim() || '-';
+                    const referenceText =
+                      String(getCreditEntrySourceLabel(entry) || entry.reference || '-').trim() ||
+                      '-';
+                    const descriptionText =
+                      String(getCreditEntryDescription(entry) || '-').trim() || '-';
                     const hasAttachment = Boolean(String(entry.image_path || '').trim());
 
                     return (
@@ -726,28 +889,55 @@ function CreditKhata({ user }) {
                           <span className="credit-khata-customer-name">{customerName}</span>
                         </td>
                         <td className="credit-khata-type-cell" data-label="Type">
-                          <span className={`credit-khata-type-pill ${getEntryTypeTone(entry)}`} title={getCreditEntryTypeLabel(entry)}>
+                          <span
+                            className={`credit-khata-type-pill ${getEntryTypeTone(entry)}`}
+                            title={getCreditEntryTypeLabel(entry)}
+                          >
                             {getEntryTypeIcon(entry)}
                             <span>{getCreditEntryTypeLabel(entry)}</span>
                           </span>
                         </td>
                         <td className="credit-khata-amount-cell" data-label="Amount">
-                          <span className={signedAmount >= 0 ? 'credit-khata-amount-positive' : 'credit-khata-amount-negative'}>
+                          <span
+                            className={
+                              signedAmount >= 0
+                                ? 'credit-khata-amount-positive'
+                                : 'credit-khata-amount-negative'
+                            }
+                          >
                             {formatSignedCurrency(signedAmount)}
                           </span>
                         </td>
                         <td className="credit-khata-balance-cell" data-label="Balance">
-                          <strong className={balanceValue > 0 ? 'credit-khata-balance-due' : balanceValue < 0 ? 'credit-khata-balance-advance' : 'credit-khata-balance-settled'}>
+                          <strong
+                            className={
+                              balanceValue > 0
+                                ? 'credit-khata-balance-due'
+                                : balanceValue < 0
+                                  ? 'credit-khata-balance-advance'
+                                  : 'credit-khata-balance-settled'
+                            }
+                          >
                             {formatCurrency(balanceValue)}
                           </strong>
                         </td>
                         <td className="credit-khata-details-cell" data-label="Details">
-                          <span className="credit-khata-detail-line"><strong>Ref:</strong> <span>{referenceText}</span></span>
+                          <span className="credit-khata-detail-line">
+                            <strong>Ref:</strong> <span>{referenceText}</span>
+                          </span>
                           <span className="credit-khata-detail-note">{descriptionText}</span>
                           <div className="credit-khata-detail-chips">
-                            {isLedgerEntryEdited(entry) ? <span className="credit-khata-status-chip edited">Edited</span> : null}
-                            {hasAttachment ? <span className="credit-khata-status-chip attachment">Attachment</span> : null}
-                            {String(entry.linked_bill_number || '').trim() ? <span className="credit-khata-status-chip bill">Bill Linked</span> : null}
+                            {isLedgerEntryEdited(entry) ? (
+                              <span className="credit-khata-status-chip edited">Edited</span>
+                            ) : null}
+                            {hasAttachment ? (
+                              <span className="credit-khata-status-chip attachment">
+                                Attachment
+                              </span>
+                            ) : null}
+                            {String(entry.linked_bill_number || '').trim() ? (
+                              <span className="credit-khata-status-chip bill">Bill Linked</span>
+                            ) : null}
                           </div>
                         </td>
                         <td className="credit-khata-actions-cell" data-label="Actions">
@@ -788,7 +978,9 @@ function CreditKhata({ user }) {
       {showLedgerForm && (
         <WindowModal
           open
-          title={editingLedgerEntryId ? `Edit Latest ${ledgerEntryLabel}` : `Add ${ledgerEntryLabel}`}
+          title={
+            editingLedgerEntryId ? `Edit Latest ${ledgerEntryLabel}` : `Add ${ledgerEntryLabel}`
+          }
           onClose={closeLedgerForm}
           dismissible={!ledgerSubmitting && !ledgerUploading}
           themeClassName="credit-khata"
@@ -803,13 +995,17 @@ function CreditKhata({ user }) {
                   id="ledger-user-id"
                   name="user_id"
                   value={ledgerFormData.user_id}
-                  onChange={(e) => setLedgerFormData((prev) => ({ ...prev, user_id: e.target.value }))}
+                  onChange={(e) =>
+                    setLedgerFormData((prev) => ({ ...prev, user_id: e.target.value }))
+                  }
                   disabled={!!editingLedgerEntryId}
                   required
                 >
                   <option value="">Select customer</option>
                   {customerOptions.map((customer) => (
-                    <option key={customer.value} value={customer.value}>{truncateUserName(customer.label, 32)}</option>
+                    <option key={customer.value} value={customer.value}>
+                      {truncateUserName(customer.label, 32)}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -822,7 +1018,9 @@ function CreditKhata({ user }) {
                   id="ledger-amount"
                   name="amount"
                   value={ledgerFormData.amount}
-                  onValueChange={(nextValue) => setLedgerFormData((prev) => ({ ...prev, amount: nextValue }))}
+                  onValueChange={(nextValue) =>
+                    setLedgerFormData((prev) => ({ ...prev, amount: nextValue }))
+                  }
                   placeholder="Amount or expression"
                   required
                 />
@@ -834,7 +1032,9 @@ function CreditKhata({ user }) {
                   id="ledger-transaction-date"
                   name="transactionDate"
                   value={ledgerFormData.transactionDate}
-                  onChange={(e) => setLedgerFormData((prev) => ({ ...prev, transactionDate: e.target.value }))}
+                  onChange={(e) =>
+                    setLedgerFormData((prev) => ({ ...prev, transactionDate: e.target.value }))
+                  }
                 />
               </div>
             </div>
@@ -847,7 +1047,9 @@ function CreditKhata({ user }) {
                   id="ledger-reference"
                   name="reference"
                   value={ledgerFormData.reference}
-                  onChange={(e) => setLedgerFormData((prev) => ({ ...prev, reference: e.target.value }))}
+                  onChange={(e) =>
+                    setLedgerFormData((prev) => ({ ...prev, reference: e.target.value }))
+                  }
                   placeholder="Bill / UPI / Bank ref"
                 />
               </div>
@@ -858,7 +1060,9 @@ function CreditKhata({ user }) {
                   id="ledger-description"
                   name="description"
                   value={ledgerFormData.description}
-                  onChange={(e) => setLedgerFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  onChange={(e) =>
+                    setLedgerFormData((prev) => ({ ...prev, description: e.target.value }))
+                  }
                   placeholder={`Short note for this ${ledgerEntryLabel.toLowerCase()}`}
                   required
                 />
@@ -880,14 +1084,23 @@ function CreditKhata({ user }) {
                 {ledgerFormData.attachmentName ? (
                   <div className="credit-ledger-note">
                     <span>{ledgerFormData.attachmentName}</span>
-                    <button type="button" className="admin-btn" onClick={handleClearLedgerAttachment} disabled={ledgerSubmitting || ledgerUploading}>
+                    <button
+                      type="button"
+                      className="admin-btn"
+                      onClick={handleClearLedgerAttachment}
+                      disabled={ledgerSubmitting || ledgerUploading}
+                    >
                       Remove File
                     </button>
                   </div>
                 ) : null}
                 {!ledgerFormData.attachmentName && ledgerFormData.imagePath ? (
                   <div className="credit-ledger-note">
-                    <a href={resolveMediaUrl(ledgerFormData.imagePath)} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={resolveMediaUrl(ledgerFormData.imagePath)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       View Current Attachment
                     </a>
                   </div>
@@ -896,11 +1109,26 @@ function CreditKhata({ user }) {
             </div>
 
             <div className="modal-actions">
-              <button type="button" className="cancel-btn" onClick={closeLedgerForm} disabled={ledgerSubmitting || ledgerUploading}>
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={closeLedgerForm}
+                disabled={ledgerSubmitting || ledgerUploading}
+              >
                 Cancel
               </button>
-              <button type="submit" className="submit-btn" disabled={ledgerSubmitting || ledgerUploading}>
-                {ledgerSubmitting ? 'Saving...' : ledgerUploading ? 'Preparing File...' : (editingLedgerEntryId ? `Update ${ledgerEntryLabel}` : `Save ${ledgerEntryLabel}`)}
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={ledgerSubmitting || ledgerUploading}
+              >
+                {ledgerSubmitting
+                  ? 'Saving...'
+                  : ledgerUploading
+                    ? 'Preparing File...'
+                    : editingLedgerEntryId
+                      ? `Update ${ledgerEntryLabel}`
+                      : `Save ${ledgerEntryLabel}`}
               </button>
             </div>
           </form>

@@ -1,12 +1,6 @@
 const registerCreditIssuesActionsRoutes = (deps) => {
-  const {
-    app,
-    requireAuth,
-    dbGetAsync,
-    dbRunAsync,
-    notifyAdmins,
-    normalizeCreditIssueStatus,
-  } = deps;
+  const { app, requireAuth, dbGetAsync, dbRunAsync, notifyAdmins, normalizeCreditIssueStatus } =
+    deps;
 
   app.post('/api/users/:userId/credit-issues', requireAuth, async (req, res) => {
     try {
@@ -16,7 +10,9 @@ const registerCreditIssuesActionsRoutes = (deps) => {
         return res.status(403).json({ error: 'Forbidden' });
       }
       const creditEntryId = Number(req.body?.credit_entry_id || 0) || null;
-      const issueType = String(req.body?.issue_type || 'wrong_entry').trim().toLowerCase();
+      const issueType = String(req.body?.issue_type || 'wrong_entry')
+        .trim()
+        .toLowerCase();
       const message = String(req.body?.message || '').trim();
       if (!message) return res.status(400).json({ error: 'Issue message is required' });
       const allowedIssueTypes = new Set(['wrong_entry', 'missing_entry', 'wrong_amount', 'other']);
@@ -26,7 +22,10 @@ const registerCreditIssuesActionsRoutes = (deps) => {
 
       let entry = null;
       if (creditEntryId) {
-        entry = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ? AND user_id = ?`, [creditEntryId, requestUserId]);
+        entry = await dbGetAsync(`SELECT * FROM credit_history WHERE id = ? AND user_id = ?`, [
+          creditEntryId,
+          requestUserId,
+        ]);
         if (!entry) return res.status(404).json({ error: 'Credit entry not found for this user' });
       }
 
@@ -44,7 +43,9 @@ const registerCreditIssuesActionsRoutes = (deps) => {
           req.authUser.id,
         ]
       );
-      const created = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [result.lastInsertRowid]);
+      const created = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ?`, [
+        result.lastInsertRowid,
+      ]);
       const reporterName = String(req.authUser?.name || '').trim() || `User #${requestUserId}`;
       await notifyAdmins({
         title: 'New credit issue reported',
@@ -78,7 +79,9 @@ const registerCreditIssuesActionsRoutes = (deps) => {
         return res.status(403).json({ error: 'Forbidden' });
       }
 
-      const responseStatus = String(req.body?.response_status || '').trim().toLowerCase();
+      const responseStatus = String(req.body?.response_status || '')
+        .trim()
+        .toLowerCase();
       if (responseStatus !== 'acknowledged' && responseStatus !== 'disputed') {
         return res.status(400).json({ error: 'response_status must be acknowledged or disputed' });
       }
@@ -87,15 +90,17 @@ const registerCreditIssuesActionsRoutes = (deps) => {
         return res.status(400).json({ error: 'Please describe what is still wrong' });
       }
 
-      const existing = await dbGetAsync(`SELECT * FROM credit_entry_issues WHERE id = ? AND user_id = ?`, [issueId, requestUserId]);
+      const existing = await dbGetAsync(
+        `SELECT * FROM credit_entry_issues WHERE id = ? AND user_id = ?`,
+        [issueId, requestUserId]
+      );
       if (!existing) return res.status(404).json({ error: 'Credit issue not found' });
 
-      const nextStatus = (
-        responseStatus === 'disputed'
-        && normalizeCreditIssueStatus(existing.status, { fallback: 'open' }) === 'corrected'
-      )
-        ? 'in_review'
-        : normalizeCreditIssueStatus(existing.status, { fallback: 'open' });
+      const nextStatus =
+        responseStatus === 'disputed' &&
+        normalizeCreditIssueStatus(existing.status, { fallback: 'open' }) === 'corrected'
+          ? 'in_review'
+          : normalizeCreditIssueStatus(existing.status, { fallback: 'open' });
 
       await dbRunAsync(
         `UPDATE credit_entry_issues

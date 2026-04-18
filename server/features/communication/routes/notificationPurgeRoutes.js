@@ -39,10 +39,18 @@ const registerNotificationPurgeRoutes = (deps) => {
 
   app.post('/api/internal/notifications/purge', requireCronSecret, async (req, res) => {
     try {
-      const rawDays = Number(req.body?.older_than_days ?? req.query?.older_than_days ?? APP_NOTIFICATION_RETENTION_DAYS);
-      const days = Number.isFinite(rawDays) ? Math.max(1, Math.min(365, Math.floor(rawDays))) : APP_NOTIFICATION_RETENTION_DAYS;
-      const rawLimit = Number(req.body?.limit ?? req.query?.limit ?? APP_NOTIFICATION_PURGE_BATCH_LIMIT);
-      const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(50000, Math.floor(rawLimit))) : APP_NOTIFICATION_PURGE_BATCH_LIMIT;
+      const rawDays = Number(
+        req.body?.older_than_days ?? req.query?.older_than_days ?? APP_NOTIFICATION_RETENTION_DAYS
+      );
+      const days = Number.isFinite(rawDays)
+        ? Math.max(1, Math.min(365, Math.floor(rawDays)))
+        : APP_NOTIFICATION_RETENTION_DAYS;
+      const rawLimit = Number(
+        req.body?.limit ?? req.query?.limit ?? APP_NOTIFICATION_PURGE_BATCH_LIMIT
+      );
+      const limit = Number.isFinite(rawLimit)
+        ? Math.max(1, Math.min(50000, Math.floor(rawLimit)))
+        : APP_NOTIFICATION_PURGE_BATCH_LIMIT;
       const result = await purgeOldAppNotificationsAsync({
         olderThanDays: days,
         limit,
@@ -52,7 +60,6 @@ const registerNotificationPurgeRoutes = (deps) => {
       return res.status(500).json({ error: error.message || 'Failed to purge old notifications' });
     }
   });
-
 };
 
 module.exports = { registerNotificationPurgeRoutes };

@@ -35,6 +35,7 @@ It is written for non‑technical readers and should stay up to date.
 This system helps run a small grocery shop.
 
 It does four main things:
+
 - Helps customers place orders.
 - Helps the shop owner bill and track money.
 - Helps manage suppliers and stock.
@@ -71,12 +72,14 @@ There are three types of users:
 ## What Problems It Solves
 
 Most small shops struggle with:
+
 - Forgetting who owes money
 - Losing track of stock
 - Missing supplier follow‑ups
 - Slow billing during busy hours
 
 This system solves those by:
+
 - Keeping one clear record of every sale and payment
 - Showing who owes money and how much
 - Making billing faster and more accurate
@@ -89,92 +92,118 @@ This system solves those by:
 Here is everything the system does, from A to Z:
 
 **A. Accounts**
+
 - Tracks every customer’s balance.
 - Shows paid and unpaid amounts.
 
 **B. Billing**
+
 - Makes bills quickly.
 - Supports cash or credit.
 
 **C. Credit (Udhar)**
+
 - Records every credit entry.
 - Records every payment against that credit.
 
 **D. Distributor / Supplier**
+
 - Creates purchase orders.
 - Tracks received stock and due payments.
 
 **E. Expenses**
+
 - Not a full accounting tool.
 - Only store‑related credit and payment records.
 
 **F. Follow‑ups**
+
 - Reminders for unpaid credit.
 - Flags customers who need attention.
 
 **G. Goods / Products**
+
 - Product catalog
 - Prices, units, categories
 
 **H. History**
+
 - Full history of orders, bills, and payments.
 
 **I. Inventory**
+
 - Stock level view
 - Low stock and out‑of‑stock visibility
 
 **J. Jobs (Daily Work)**
+
 - Today’s tasks: billing, receiving, payments
 
 **K. Khata Book**
+
 - Digital version of udhar tracking
 
 **L. Ledger**
+
 - System keeps a clean, consistent money trail
 
 **M. Messaging**
+
 - WhatsApp‑ready payment reminders (if enabled)
 
 **N. Notifications**
+
 - Order updates, credit reminders, stock alerts
 
 **O. Orders**
+
 - Customer orders and shop‑owner orders
 
 **P. Payments**
+
 - Multiple payments supported
 - Partial payments supported
 
 **Q. Quick Actions**
+
 - Fast buttons for common daily actions
 
 **R. Reports**
+
 - Credit aging report
 - Outstanding balance summary
 
 **S. Suppliers**
+
 - Who supplies which items
 - What is pending
 
 **T. Tracking**
+
 - Track due dates and delays
 
 **U. Users**
+
 - Customers, staff, admins
 
 **V. Verification**
+
 - Contact verification for customer accounts
 
 **W. WhatsApp**
+
 - Send reminders and summaries easily
 
 **X. eXtra Notes**
+
 - Attach notes to payments and orders
 
 **Y. You (Shop Owner)**
+
 - All key data in one place
 
 **Z. Zero Confusion**
+
 - One system for all shop tasks
 
 ---
@@ -196,6 +225,7 @@ Think of the system as a small shop with three rooms:
    - It stores products, orders, bills, payments, and balances.
 
 Why this matters:
+
 - The front room shows information.
 - The back room controls actions.
 - The ledger room keeps permanent records.
@@ -227,6 +257,7 @@ The customer experience should feel simple:
 5. Pay now or pay later
 
 They should also be able to:
+
 - See how much they owe
 - View their past orders
 
@@ -255,6 +286,7 @@ Billing is the core daily action:
 - Payment is marked as cash or credit.
 
 If payment is credit:
+
 - The system records who owes money.
 - The balance stays until paid later.
 
@@ -267,6 +299,7 @@ Bills are the official record of a sale.
 Udhar means a customer pays later.
 
 The system:
+
 - Records every credit entry
 - Records every payment
 - Keeps a running balance
@@ -281,6 +314,7 @@ This is like a digital “khata book.”
 The system uses simple labels to show how a customer pays over time.
 
 Examples:
+
 - **Excellent / Very Good**: usually pays on time
 - **Good**: normal, no major problems
 - **Needs Attention**: often late
@@ -288,6 +322,7 @@ Examples:
 - **New**: not enough history yet
 
 Why this helps:
+
 - You can quickly see who needs follow‑up.
 - It saves time when checking many customers.
 
@@ -301,6 +336,7 @@ They are just a quick signal to help you decide who to call first.
 Suppliers bring stock to the shop.
 
 The system should help:
+
 - Track what is ordered
 - Track what was received
 - Track what is still unpaid
@@ -314,6 +350,7 @@ This helps the shop avoid missed stock and late payments.
 Stock means how many items are left.
 
 The system should:
+
 - Show low stock
 - Show out‑of‑stock items
 - Suggest what to reorder
@@ -327,6 +364,7 @@ This avoids missed sales due to empty shelves.
 Customers can place orders.
 
 The shop owner can:
+
 - Confirm the order
 - Prepare items
 - Mark items as received or delivered
@@ -341,6 +379,7 @@ This keeps orders and billing in one clean flow.
 Notifications are short messages in the system.
 
 They can be:
+
 - Payment reminders
 - Order updates
 - Stock alerts
@@ -352,6 +391,7 @@ These should be clear and action‑oriented.
 ## Reports and Admin Views
 
 The system includes admin views for:
+
 - Outstanding credit totals
 - Aging reports (who is late, and how long)
 - Customer payment behavior summaries
@@ -364,6 +404,7 @@ Reports help you make business decisions without guessing.
 ## What This System Is Not
 
 This is not:
+
 - A full accounting or tax tool
 - A replacement for government billing systems
 - A marketplace for multiple shops
@@ -375,6 +416,7 @@ It is focused on one shop’s daily operations.
 ## Who Should Use This System
 
 This system is best for:
+
 - Grocery shops
 - Kirana stores
 - Small to medium retail outlets
@@ -382,6 +424,7 @@ This system is best for:
 - Shops that manage local suppliers
 
 It may be too much for:
+
 - Very small shops with no credit or suppliers
 - Shops that only sell pre‑packed goods with no tracking needs
 
@@ -417,6 +460,7 @@ Yes, purchasing and supplier tracking is part of the system.
 ## Update Rules
 
 This guide must be updated whenever:
+
 - A new workflow is added
 - A screen changes meaning
 - A role’s behavior changes
@@ -431,39 +475,38 @@ Add short notes here when the system changes:
 
 - YYYY‑MM‑DD: short summary of what changed in simple language.
 
-
 ## Recommandation
 
 1. Trusted & Responsive User Interface
-Trust-Building Home Page:
-Simple Hero Section: Bold store name, "Cash Only," and "In-Store Pickup" disclaimer.
-Live Status: A clear "Open/Closed" badge.
-Direct Contact: A prominent WhatsApp button for immediate queries.
-Adaptive Layout (Mobile vs. Desktop):
-Mobile View: A "One-Handed" design. Focus on a vertical, scrollable catalog with large "Add" buttons and a floating "View Bill/Order" button. Use Responsive Web Design to ensure usability on small screens.
-Desktop View: A multi-column dashboard for the owner. View the catalog, short-items, and active orders side-by-side to minimize clicking. 
+   Trust-Building Home Page:
+   Simple Hero Section: Bold store name, "Cash Only," and "In-Store Pickup" disclaimer.
+   Live Status: A clear "Open/Closed" badge.
+   Direct Contact: A prominent WhatsApp button for immediate queries.
+   Adaptive Layout (Mobile vs. Desktop):
+   Mobile View: A "One-Handed" design. Focus on a vertical, scrollable catalog with large "Add" buttons and a floating "View Bill/Order" button. Use Responsive Web Design to ensure usability on small screens.
+   Desktop View: A multi-column dashboard for the owner. View the catalog, short-items, and active orders side-by-side to minimize clicking.
 
 2. "Informative Only" Inventory Logic
-The system must allow for real-world stock mismatches: 
-Flexible Billing: The owner must be able to bill any quantity, even if the system shows 0 or Negative stock.
-Non-Listed Sales: A "Quick Add Custom Item" button on the billing screen for products not yet in the digital catalog.
-Warning, Not Block: If a user orders more than what is "listed," show a "Stock may vary" note to the customer, but allow the order to proceed.
+   The system must allow for real-world stock mismatches:
+   Flexible Billing: The owner must be able to bill any quantity, even if the system shows 0 or Negative stock.
+   Non-Listed Sales: A "Quick Add Custom Item" button on the billing screen for products not yet in the digital catalog.
+   Warning, Not Block: If a user orders more than what is "listed," show a "Stock may vary" note to the customer, but allow the order to proceed.
 
 3. Digital "Khata" & Payment Collection
-To replace manual registers with a Digital Retail Management System: 
-Customer Credit Profile: A simple "Red/Green" status. Red if they owe money (Udhar), Green if they have a balance.
-One-Tap Collection: Inside each customer’s profile, include a "Request Payment" button. This launches WhatsApp with a pre-written message: "Hi [Name], your balance at [Store Name] is ₹[Amount]. Please settle at your next visit. Thank you!"
-History Logs: Every "Udhar" entry must be timestamped with a optional note (e.g., "forgot wallet" or "weekly credit").
+   To replace manual registers with a Digital Retail Management System:
+   Customer Credit Profile: A simple "Red/Green" status. Red if they owe money (Udhar), Green if they have a balance.
+   One-Tap Collection: Inside each customer’s profile, include a "Request Payment" button. This launches WhatsApp with a pre-written message: "Hi [Name], your balance at [Store Name] is ₹[Amount]. Please settle at your next visit. Thank you!"
+   History Logs: Every "Udhar" entry must be timestamped with a optional note (e.g., "forgot wallet" or "weekly credit").
 
 4. Advanced Distributor & Analytics Logic
-Smart Scheduling: A calendar view that automatically highlights "Today’s Distributors" based on their assigned weekly day.
-PO "Shortage" Bridge: The "Short Item" list should allow you to tag items to a specific distributor. When you open that distributor's profile, it automatically shows: "Items you need from them."
-Store Analytics (Simple):
-Top Items: What is actually selling vs. what is sitting on the shelf.
-Cash Flow: Total cash collected today vs. total "Udhar" given out today.
-Vendor Due: Total money currently owed to all distributors.
+   Smart Scheduling: A calendar view that automatically highlights "Today’s Distributors" based on their assigned weekly day.
+   PO "Shortage" Bridge: The "Short Item" list should allow you to tag items to a specific distributor. When you open that distributor's profile, it automatically shows: "Items you need from them."
+   Store Analytics (Simple):
+   Top Items: What is actually selling vs. what is sitting on the shelf.
+   Cash Flow: Total cash collected today vs. total "Udhar" given out today.
+   Vendor Due: Total money currently owed to all distributors.
 
 5. Technical Instruction for Coder
-Database: Use Supabase Postgres with "Soft Constraints"—do not set the stock column to UNSIGNED (allow it to go below zero).
-UI Framework: Use Tailwind CSS for easy mobile/desktop toggling.
-No Heavy Logic: Keep analytics calculations on the backend to ensure the mobile app remains fast for the "Simple User."
+   Database: Use Supabase Postgres with "Soft Constraints"—do not set the stock column to UNSIGNED (allow it to go below zero).
+   UI Framework: Use Tailwind CSS for easy mobile/desktop toggling.
+   No Heavy Logic: Keep analytics calculations on the backend to ensure the mobile app remains fast for the "Simple User."

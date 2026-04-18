@@ -7,7 +7,7 @@ import {
   buildBillShareTextForBill,
   buildBillSmsText,
   downloadBillPdf,
-  printBillInvoice
+  printBillInvoice,
 } from './utils/billsViewerHelpers';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
 import BackofficeToolbar from '../../../shared/components/backoffice/BackofficeToolbar';
@@ -31,9 +31,12 @@ const BillsViewer = ({ user }) => {
   const canDeleteBills = hasCapability(user, 'delete_bills');
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchBills({ nextPage: page, nextQuery: searchTerm });
-    }, searchTerm ? 180 : 0);
+    const timer = window.setTimeout(
+      () => {
+        void fetchBills({ nextPage: page, nextQuery: searchTerm });
+      },
+      searchTerm ? 180 : 0
+    );
     return () => window.clearTimeout(timer);
   }, [page, searchTerm]);
 
@@ -65,7 +68,7 @@ const BillsViewer = ({ user }) => {
         limit: pageSize,
         q: String(nextQuery || '').trim(),
       });
-      const items = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
       const totalCount = Number(data?.total || items.length || 0);
       setBills(items);
       setTotal(totalCount);
@@ -132,9 +135,10 @@ const BillsViewer = ({ user }) => {
     setDeleteCandidate(null);
   };
 
-  const handlePrint = (bill) => printBillInvoice(bill, {
-    onError: (message) => pushFeedback(message || 'Unable to open the print view.', 'error'),
-  });
+  const handlePrint = (bill) =>
+    printBillInvoice(bill, {
+      onError: (message) => pushFeedback(message || 'Unable to open the print view.', 'error'),
+    });
 
   const handleCopyShare = async (bill) => {
     const text = buildBillShareTextForBill(bill);
@@ -162,7 +166,10 @@ const BillsViewer = ({ user }) => {
       text: buildBillShareTextForBill(bill),
     });
     if (result.status === 'blocked_no_phone') {
-      pushFeedback('Customer phone is missing or invalid. Please update phone and try again.', 'error');
+      pushFeedback(
+        'Customer phone is missing or invalid. Please update phone and try again.',
+        'error'
+      );
       return;
     }
     if (result.status === 'opened_with_copy') {
@@ -190,14 +197,22 @@ const BillsViewer = ({ user }) => {
       {actionFeedback?.text ? (
         <div className={`bills-viewer-feedback ${actionFeedback.type || ''}`} role="status">
           <span>{actionFeedback.text}</span>
-          <button type="button" onClick={() => setActionFeedback(null)}>Dismiss</button>
+          <button type="button" onClick={() => setActionFeedback(null)}>
+            Dismiss
+          </button>
         </div>
       ) : null}
 
       {error && (
         <div className="bills-viewer-error">
           {error}
-          <button onClick={() => { void fetchBills({ nextPage: page, nextQuery: searchTerm }); }}>Retry</button>
+          <button
+            onClick={() => {
+              void fetchBills({ nextPage: page, nextQuery: searchTerm });
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -216,7 +231,12 @@ const BillsViewer = ({ user }) => {
             }}
           />
         </div>
-        <button className="refresh-btn" onClick={() => { void fetchBills({ nextPage: page, nextQuery: searchTerm }); }}>
+        <button
+          className="refresh-btn"
+          onClick={() => {
+            void fetchBills({ nextPage: page, nextQuery: searchTerm });
+          }}
+        >
           Refresh
         </button>
       </BackofficeToolbar>
@@ -251,7 +271,7 @@ const BillsViewer = ({ user }) => {
       ) : (
         <div className="bills-viewer-content">
           <div className="bills-list">
-            {filteredBills.map(bill => (
+            {filteredBills.map((bill) => (
               <div
                 key={bill.id}
                 className={`bill-card ${selectedBill?.id === bill.id ? 'active' : ''}`}
@@ -262,10 +282,10 @@ const BillsViewer = ({ user }) => {
                   <span className="bill-amount">?{bill.total_amount}</span>
                 </div>
                 <div className="bill-card-details">
-                  <p><strong>{bill.customer_name}</strong></p>
-                  <p className="bill-date">
-                    {new Date(bill.created_at).toLocaleDateString()}
+                  <p>
+                    <strong>{bill.customer_name}</strong>
                   </p>
+                  <p className="bill-date">{new Date(bill.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="bill-card-status">
                   <span className={`status-badge ${bill.payment_status}`}>
@@ -353,8 +373,12 @@ const BillsViewer = ({ user }) => {
                 </div>
               ) : null}
 
-              {selectedBillLoading ? <div className="loading-indicator">Loading bill details...</div> : null}
-              {selectedBillError ? <div className="bills-viewer-error">{selectedBillError}</div> : null}
+              {selectedBillLoading ? (
+                <div className="loading-indicator">Loading bill details...</div>
+              ) : null}
+              {selectedBillError ? (
+                <div className="bills-viewer-error">{selectedBillError}</div>
+              ) : null}
 
               <div className="bill-details-section">
                 <h3>Customer Information</h3>
@@ -467,6 +491,3 @@ const BillsViewer = ({ user }) => {
 };
 
 export default BillsViewer;
-
-
-

@@ -9,13 +9,12 @@ import {
   AlertCircle,
   ArrowLeft,
   Camera,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 
 const ProfileView = ({
   loading,
-  user,
   success,
   error,
   validationIssues,
@@ -116,16 +115,14 @@ const ProfileView = ({
         <div className="profile-content">
           <form onSubmit={handleSubmit} className="profile-form slide-in-up">
             <div className="form-section">
-              <h2><User size={20} /> Personal Information</h2>
+              <h2>
+                <User size={20} /> Personal Information
+              </h2>
 
               <div className="profile-image-section">
                 <div className="profile-image-preview">
                   {displayProfileImageSrc && !imageLoadFailed ? (
-                    <img
-                      src={displayProfileImageSrc}
-                      alt="Profile"
-                      onError={onImageError}
-                    />
+                    <img src={displayProfileImageSrc} alt="Profile" onError={onImageError} />
                   ) : (
                     <span>{(formData.name || 'U').slice(0, 1).toUpperCase()}</span>
                   )}
@@ -169,7 +166,7 @@ const ProfileView = ({
                   required
                   placeholder="Your full name"
                   autoComplete="name"
-                  className={validationIssues.find(i => i.field === 'name') ? 'error-field' : ''}
+                  className={validationIssues.find((i) => i.field === 'name') ? 'error-field' : ''}
                 />
               </div>
 
@@ -194,12 +191,16 @@ const ProfileView = ({
                     onChange={handleInputChange}
                     placeholder="your@email.com"
                     autoComplete="email"
-                    className={validationIssues.find(i => i.field === 'email') ? 'error-field' : ''}
+                    className={
+                      validationIssues.find((i) => i.field === 'email') ? 'error-field' : ''
+                    }
                   />
                   {formData.email && (
                     <div className="verification-tools">
                       {emailDraftChanged && (
-                        <span className="verification-note">Save email changes before verification actions</span>
+                        <span className="verification-note">
+                          Save email changes before verification actions
+                        </span>
                       )}
                       {!emailVerified && (
                         <>
@@ -211,13 +212,15 @@ const ProfileView = ({
                               type="button"
                               className="verify-btn"
                               onClick={handleRequestEmailVerification}
-                              disabled={verificationLoading === 'email_request' || emailDraftChanged}
+                              disabled={
+                                verificationLoading === 'email_request' || emailDraftChanged
+                              }
                             >
                               {verificationLoading === 'email_request'
                                 ? 'Requesting...'
-                                : (authModeInfo.emailProvider === 'supabase'
+                                : authModeInfo.emailProvider === 'supabase'
                                   ? 'Send Verification Email'
-                                  : 'Request Verification')}
+                                  : 'Request Verification'}
                             </button>
                             <div className="verify-token-group">
                               <select
@@ -236,7 +239,11 @@ const ProfileView = ({
                                 type="text"
                                 value={emailVerificationToken}
                                 onChange={(e) => setEmailVerificationToken(e.target.value)}
-                                placeholder={emailVerificationTokenType === 'token_hash' ? 'Enter email token_hash' : 'Enter email token'}
+                                placeholder={
+                                  emailVerificationTokenType === 'token_hash'
+                                    ? 'Enter email token_hash'
+                                    : 'Enter email token'
+                                }
                                 disabled={emailDraftChanged}
                               />
                             </div>
@@ -244,9 +251,13 @@ const ProfileView = ({
                               type="button"
                               className="verify-btn secondary"
                               onClick={handleConfirmEmailVerification}
-                              disabled={verificationLoading === 'email_confirm' || emailDraftChanged}
+                              disabled={
+                                verificationLoading === 'email_confirm' || emailDraftChanged
+                              }
                             >
-                              {verificationLoading === 'email_confirm' ? 'Confirming...' : 'Confirm Email'}
+                              {verificationLoading === 'email_confirm'
+                                ? 'Confirming...'
+                                : 'Confirm Email'}
                             </button>
                           </div>
                         </>
@@ -275,7 +286,9 @@ const ProfileView = ({
                     required
                     placeholder="+91 98765 43210"
                     autoComplete="tel"
-                    className={validationIssues.find(i => i.field === 'phone') ? 'error-field' : ''}
+                    className={
+                      validationIssues.find((i) => i.field === 'phone') ? 'error-field' : ''
+                    }
                   />
                   {phoneChangeRequest && (
                     <span className={`verification-note ${getPhoneChangeStatusClassName()}`}>
@@ -284,8 +297,12 @@ const ProfileView = ({
                   )}
                   {pendingPhoneChangeRequest && (
                     <div className="verification-tools">
-                      <span className="verification-note">Current phone: {normalizedSavedPhone || '-'}</span>
-                      <span className="verification-note">Requested phone: {phoneChangeRequest?.new_phone || '-'}</span>
+                      <span className="verification-note">
+                        Current phone: {normalizedSavedPhone || '-'}
+                      </span>
+                      <span className="verification-note">
+                        Requested phone: {phoneChangeRequest?.new_phone || '-'}
+                      </span>
                       <div className="verification-actions">
                         <button
                           type="button"
@@ -301,7 +318,9 @@ const ProfileView = ({
                   {formData.phone && (
                     <div className="verification-tools">
                       {phoneDraftChanged && (
-                        <span className="verification-note">Save phone changes to submit update request</span>
+                        <span className="verification-note">
+                          Save phone changes to submit update request
+                        </span>
                       )}
                     </div>
                   )}
@@ -310,7 +329,9 @@ const ProfileView = ({
             </div>
 
             <div className="form-section">
-              <h2><MapPin size={20} /> Shipping Address</h2>
+              <h2>
+                <MapPin size={20} /> Shipping Address
+              </h2>
               <p className="section-help">This address will be used for all orders</p>
 
               <div className="form-group">
@@ -323,7 +344,9 @@ const ProfileView = ({
                   onChange={handleInputChange}
                   placeholder="123 Main Street, Apartment 4B"
                   autoComplete="street-address"
-                  className={validationIssues.find(i => i.field === 'street') ? 'error-field' : ''}
+                  className={
+                    validationIssues.find((i) => i.field === 'street') ? 'error-field' : ''
+                  }
                 />
               </div>
 
@@ -338,7 +361,9 @@ const ProfileView = ({
                     onChange={handleInputChange}
                     placeholder="Mumbai"
                     autoComplete="address-level2"
-                    className={validationIssues.find(i => i.field === 'city') ? 'error-field' : ''}
+                    className={
+                      validationIssues.find((i) => i.field === 'city') ? 'error-field' : ''
+                    }
                   />
                 </div>
                 <div className="form-group">
@@ -351,7 +376,9 @@ const ProfileView = ({
                     onChange={handleInputChange}
                     placeholder="Maharashtra"
                     autoComplete="address-level1"
-                    className={validationIssues.find(i => i.field === 'state') ? 'error-field' : ''}
+                    className={
+                      validationIssues.find((i) => i.field === 'state') ? 'error-field' : ''
+                    }
                   />
                 </div>
                 <div className="form-group">
@@ -364,7 +391,7 @@ const ProfileView = ({
                     onChange={handleInputChange}
                     placeholder="400001"
                     autoComplete="postal-code"
-                    className={validationIssues.find(i => i.field === 'zip') ? 'error-field' : ''}
+                    className={validationIssues.find((i) => i.field === 'zip') ? 'error-field' : ''}
                   />
                 </div>
               </div>
@@ -416,4 +443,3 @@ const ProfileView = ({
 };
 
 export default ProfileView;
-

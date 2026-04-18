@@ -2,13 +2,7 @@ const { buildProductInsightsQuery } = require('./productInsights/query');
 const { mapProductInsightsRows } = require('./productInsights/mapper');
 
 const registerProductInsightsListRoutes = (deps) => {
-  const {
-    app,
-    requireAdmin,
-    dbAllAsync,
-    deriveStockoutRisk,
-    resolveInsightDateRange,
-  } = deps;
+  const { app, requireAdmin, dbAllAsync, deriveStockoutRisk, resolveInsightDateRange } = deps;
 
   app.get('/api/insights/products', requireAdmin, async (req, res) => {
     try {

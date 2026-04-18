@@ -1,28 +1,55 @@
 import { resolveMediaUrl } from '../services/api';
 
 const THEMES = [
-  { label: 'RICE', colorA: '#f59e0b', colorB: '#d97706', keywords: ['rice', 'atta', 'flour', 'grain', 'wheat'] },
-  { label: 'OIL', colorA: '#22c55e', colorB: '#16a34a', keywords: ['oil', 'mustard', 'sunflower', 'ghee', 'butter'] },
+  {
+    label: 'RICE',
+    colorA: '#f59e0b',
+    colorB: '#d97706',
+    keywords: ['rice', 'atta', 'flour', 'grain', 'wheat'],
+  },
+  {
+    label: 'OIL',
+    colorA: '#22c55e',
+    colorB: '#16a34a',
+    keywords: ['oil', 'mustard', 'sunflower', 'ghee', 'butter'],
+  },
   { label: 'TEA', colorA: '#14b8a6', colorB: '#0f766e', keywords: ['tea', 'coffee'] },
-  { label: 'SOAP', colorA: '#3b82f6', colorB: '#1d4ed8', keywords: ['soap', 'shampoo', 'detergent', 'cleaner'] },
-  { label: 'BISCUIT', colorA: '#fb7185', colorB: '#e11d48', keywords: ['biscuit', 'snack', 'chips', 'cookie'] },
-  { label: 'DAIRY', colorA: '#a78bfa', colorB: '#7c3aed', keywords: ['milk', 'curd', 'paneer', 'dairy'] },
-  { label: 'SPICE', colorA: '#f97316', colorB: '#c2410c', keywords: ['spice', 'masala', 'salt', 'sugar'] },
+  {
+    label: 'SOAP',
+    colorA: '#3b82f6',
+    colorB: '#1d4ed8',
+    keywords: ['soap', 'shampoo', 'detergent', 'cleaner'],
+  },
+  {
+    label: 'BISCUIT',
+    colorA: '#fb7185',
+    colorB: '#e11d48',
+    keywords: ['biscuit', 'snack', 'chips', 'cookie'],
+  },
+  {
+    label: 'DAIRY',
+    colorA: '#a78bfa',
+    colorB: '#7c3aed',
+    keywords: ['milk', 'curd', 'paneer', 'dairy'],
+  },
+  {
+    label: 'SPICE',
+    colorA: '#f97316',
+    colorB: '#c2410c',
+    keywords: ['spice', 'masala', 'salt', 'sugar'],
+  },
 ];
 
 const DEFAULT_THEME = { label: 'PRODUCT', colorA: '#64748b', colorB: '#334155' };
-const BLOCKED_REMOTE_IMAGE_HOSTS = [
-  'boliya.in',
-  'static.meds.cvpharmacy.in',
-];
+const BLOCKED_REMOTE_IMAGE_HOSTS = ['boliya.in', 'static.meds.cvpharmacy.in'];
 
-const normalize = (value) => String(value || '').trim().toLowerCase();
+const normalize = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
-const getSearchText = (product) => [
-  normalize(product?.name),
-  normalize(product?.category),
-  normalize(product?.brand),
-].join(' ');
+const getSearchText = (product) =>
+  [normalize(product?.name), normalize(product?.category), normalize(product?.brand)].join(' ');
 
 const matchTheme = (product) => {
   const text = getSearchText(product);
@@ -34,8 +61,14 @@ const matchTheme = (product) => {
 
 const buildSvgDataUri = (product) => {
   const theme = matchTheme(product);
-  const title = String(product?.name || theme.label || 'PRODUCT').trim().slice(0, 24) || 'PRODUCT';
-  const label = String(theme.label || 'PRODUCT').trim().slice(0, 12) || 'PRODUCT';
+  const title =
+    String(product?.name || theme.label || 'PRODUCT')
+      .trim()
+      .slice(0, 24) || 'PRODUCT';
+  const label =
+    String(theme.label || 'PRODUCT')
+      .trim()
+      .slice(0, 12) || 'PRODUCT';
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid slice">
   <defs>
@@ -53,11 +86,13 @@ const buildSvgDataUri = (product) => {
 };
 
 const isBlockedRemoteImageHost = (hostname) => {
-  const normalized = String(hostname || '').trim().toLowerCase();
+  const normalized = String(hostname || '')
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
-  return BLOCKED_REMOTE_IMAGE_HOSTS.some((entry) => (
-    normalized === entry || normalized.endsWith(`.${entry}`)
-  ));
+  return BLOCKED_REMOTE_IMAGE_HOSTS.some(
+    (entry) => normalized === entry || normalized.endsWith(`.${entry}`)
+  );
 };
 
 const sanitizeImageSrc = (value) => {
@@ -86,6 +121,7 @@ export const getProductImageSrc = (productOrSrc) => {
   const imageValue = typeof productOrSrc === 'string' ? productOrSrc : productOrSrc?.image;
   const safe = sanitizeImageSrc(imageValue);
   if (safe) return resolveMediaUrl(safe);
-  const product = typeof productOrSrc === 'string' ? { name: '', category: '' } : (productOrSrc || {});
+  const product =
+    typeof productOrSrc === 'string' ? { name: '', category: '' } : productOrSrc || {};
   return getProductFallbackImage(product);
 };

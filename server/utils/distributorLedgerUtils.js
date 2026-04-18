@@ -1,15 +1,12 @@
 ﻿const createDistributorLedgerUtils = (deps = {}) => {
-  const {
-    dbAllAsync,
-    dbGetAsync,
-    dbRunAsync,
-    SQL_CAST_TO_INT,
-  } = deps;
+  const { dbAllAsync, dbGetAsync, dbRunAsync, SQL_CAST_TO_INT } = deps;
 
   const createHttpError = (status, message) => Object.assign(new Error(message), { status });
 
   const normalizeDistributorLedgerType = (type) => {
-    const raw = String(type || '').trim().toLowerCase();
+    const raw = String(type || '')
+      .trim()
+      .toLowerCase();
     if (raw === 'payment' || raw === 'paid') return 'payment';
     if (raw === 'credit' || raw === 'given' || raw === 'due') return 'credit';
     return 'credit';
@@ -71,7 +68,9 @@
     const distributorId = Number(distributorIdRaw || body.distributor_id || body.user_id);
     if (!distributorId) throw createHttpError(400, 'distributor_id is required');
 
-    const distributor = await dbGetAsync(`SELECT id FROM distributors WHERE id = ?`, [distributorId]);
+    const distributor = await dbGetAsync(`SELECT id FROM distributors WHERE id = ?`, [
+      distributorId,
+    ]);
     if (!distributor) throw createHttpError(404, 'Distributor not found');
 
     const rawAmount = Math.abs(Number(body.amount || 0));
@@ -89,11 +88,17 @@
     const transactionDate = transactionDateRaw ? String(transactionDateRaw).slice(0, 10) : null;
     const paymentMode = body.payment_mode || body.mode || null;
     const billNumberRaw = body.bill_number ?? body.billNo ?? body.invoice_number;
-    const billNumber = billNumberRaw === undefined || billNumberRaw === null ? null : String(billNumberRaw).trim() || null;
+    const billNumber =
+      billNumberRaw === undefined || billNumberRaw === null
+        ? null
+        : String(billNumberRaw).trim() || null;
     const sourceIdRaw = body.source_id;
-    const sourceIdText = sourceIdRaw === undefined || sourceIdRaw === null ? '' : String(sourceIdRaw).trim();
+    const sourceIdText =
+      sourceIdRaw === undefined || sourceIdRaw === null ? '' : String(sourceIdRaw).trim();
     const sourceId = sourceIdText
-      ? (/^[0-9]+(?:\.0+)?$/.test(sourceIdText) ? String(parseInt(sourceIdText, 10)) : sourceIdText)
+      ? /^[0-9]+(?:\.0+)?$/.test(sourceIdText)
+        ? String(parseInt(sourceIdText, 10))
+        : sourceIdText
       : null;
 
     const result = await dbRunAsync(

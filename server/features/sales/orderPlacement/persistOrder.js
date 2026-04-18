@@ -41,9 +41,11 @@ const persistOrderPlacement = async ({
 
     for (const it of parsedItems) {
       const isManual = Number(it.is_manual || 0) === 1;
-      const productId = isManual ? 0 : (it.product_id || null);
+      const productId = isManual ? 0 : it.product_id || null;
       const requestedQty = Number(it.quantity || 0);
-      const stockSnapshot = isManual ? null : Number(stockSnapshotByProductId.get(Number(productId || 0)) || 0);
+      const stockSnapshot = isManual
+        ? null
+        : Number(stockSnapshotByProductId.get(Number(productId || 0)) || 0);
       const availableNowQty = isManual
         ? requestedQty
         : Math.min(Math.max(0, Number(stockSnapshot || 0)), requestedQty);
@@ -71,13 +73,11 @@ const persistOrderPlacement = async ({
           it.price,
           Number.isFinite(Number(it?.line_subtotal))
             ? Number(it.line_subtotal)
-            : (it.price * it.quantity),
+            : it.price * it.quantity,
           Math.max(0, Number(it?.offer_discount || 0)),
           Math.max(0, Number(it?.manual_discount || 0)),
           String(it?.offer_label || '').trim() || null,
-          Number.isFinite(Number(it?.line_total))
-            ? Number(it.line_total)
-            : (it.price * it.quantity),
+          Number.isFinite(Number(it?.line_total)) ? Number(it.line_total) : it.price * it.quantity,
         ]
       );
     }

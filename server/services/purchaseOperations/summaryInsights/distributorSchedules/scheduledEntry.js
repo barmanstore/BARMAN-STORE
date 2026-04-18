@@ -18,43 +18,55 @@ const buildScheduledDistributorEntry = ({
   const distributorId = Number(distributor.id || 0);
   const insight = distributorInsightById.get(distributorId) || null;
   const supplierId = Number(supplier?.id || 0);
-  const supplierOrders = supplierId ? (ordersBySupplier.get(supplierId) || []) : [];
-  const ordersForEntry = supplierId ? supplierOrders : (ordersByDistributor.get(distributorId) || []);
+  const supplierOrders = supplierId ? ordersBySupplier.get(supplierId) || [] : [];
+  const ordersForEntry = supplierId ? supplierOrders : ordersByDistributor.get(distributorId) || [];
   const ledgerBalance = supplierId ? 0 : Number(insight?.ledger_balance || 0);
   const activePayables = payablesWithInsights.filter((entry) => {
     if (supplierId) return Number(entry?.supplier_id || 0) === supplierId;
     return Number(entry?.distributor_id || 0) === distributorId;
   });
-  const openDraftOrders = ordersForEntry.filter((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)));
-  const orderedUnconfirmedOrders = openDraftOrders.slice().sort((left, right) => (
-    String(left.created_at || '').localeCompare(String(right.created_at || ''))
-    || Number(left.id || 0) - Number(right.id || 0)
-  ));
+  const openDraftOrders = ordersForEntry.filter((order) =>
+    isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order))
+  );
+  const orderedUnconfirmedOrders = openDraftOrders
+    .slice()
+    .sort(
+      (left, right) =>
+        String(left.created_at || '').localeCompare(String(right.created_at || '')) ||
+        Number(left.id || 0) - Number(right.id || 0)
+    );
   const unconfirmedPoCount = orderedUnconfirmedOrders.length;
-  const unconfirmedPoDue = orderedUnconfirmedOrders.reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
+  const unconfirmedPoDue = orderedUnconfirmedOrders.reduce(
+    (sum, order) => sum + Number(order.balance_due || 0),
+    0
+  );
   const unconfirmedPoOrder = orderedUnconfirmedOrders[0] || null;
   const confirmedPoBalanceDue = ordersForEntry
     .filter((order) => !isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)))
     .reduce((sum, order) => sum + Number(order.balance_due || 0), 0);
-  const fallbackProductsSuppliedText = String(supplier?.products_supplied || '').trim()
-    || String(distributor?.products_supplied || '').trim();
+  const fallbackProductsSuppliedText =
+    String(supplier?.products_supplied || '').trim() ||
+    String(distributor?.products_supplied || '').trim();
   const dueTodayAmount = activePayables
     .filter((entry) => entry.payment_due_date === todayKey)
     .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
   const overdueAmountForDistributor = activePayables
     .filter((entry) => entry.payment_due_date < todayKey)
     .reduce((sum, entry) => sum + Number(entry.balance_due || 0), 0);
-  const strictDeadlineOrder = ordersForEntry
-    .map((order) => normalizeTransactionDate(order.strict_due_date || null))
-    .filter(Boolean)
-    .sort()[0] || null;
-  const payableOrderId = activePayables
-    .slice()
-    .sort((left, right) => (
-      String(left.payment_due_date || '').localeCompare(String(right.payment_due_date || ''))
-      || Number(right.balance_due || 0) - Number(left.balance_due || 0)
-      || Number(left.order_id || 0) - Number(right.order_id || 0)
-    ))[0]?.order_id || null;
+  const strictDeadlineOrder =
+    ordersForEntry
+      .map((order) => normalizeTransactionDate(order.strict_due_date || null))
+      .filter(Boolean)
+      .sort()[0] || null;
+  const payableOrderId =
+    activePayables
+      .slice()
+      .sort(
+        (left, right) =>
+          String(left.payment_due_date || '').localeCompare(String(right.payment_due_date || '')) ||
+          Number(right.balance_due || 0) - Number(left.balance_due || 0) ||
+          Number(left.order_id || 0) - Number(right.order_id || 0)
+      )[0]?.order_id || null;
 
   return {
     distributor_id: distributorId,
@@ -77,7 +89,9 @@ const buildScheduledDistributorEntry = ({
     payable_order_id: payableOrderId,
     likely_items: insight?.likely_items || [],
     suggested_items: insight?.suggested_items || [],
-    products_supplied_all: insight?.products_supplied_all || parseDistributorProductsSupplied(fallbackProductsSuppliedText),
+    products_supplied_all:
+      insight?.products_supplied_all ||
+      parseDistributorProductsSupplied(fallbackProductsSuppliedText),
     novelty_alerts: insight?.novelty_alerts || [],
     novelty_summary: insight?.novelty_summary || { total_count: 0 },
     has_novelty_alerts: Boolean(insight?.has_novelty_alerts),

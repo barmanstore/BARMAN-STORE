@@ -1,7 +1,10 @@
 import { LOW_STOCK_THRESHOLD } from './productConstants';
 
 const getVariationLabel = (variation, index) => {
-  const parts = [String(variation.content || '').trim(), String(variation.color || '').trim()].filter(Boolean);
+  const parts = [
+    String(variation.content || '').trim(),
+    String(variation.color || '').trim(),
+  ].filter(Boolean);
   if (parts.length > 0) return parts.join(' / ');
   const sku = String(variation.sku || '').trim();
   if (sku) return sku;
@@ -12,7 +15,7 @@ const getVariationPreviewLabel = (variation) => {
   const content = String(variation?.content || '').trim();
   const color = String(variation?.color || '').trim();
   const sku = String(variation?.sku || '').trim();
-  const label = [content, color].filter(Boolean).join(' · ');
+  const label = [content, color].filter(Boolean).join(' ï¿½ ');
   return label || sku || 'Option';
 };
 
@@ -27,7 +30,12 @@ const getFamilyPreviewVariation = (family, fallbackVariation = null) => {
     if (fallbackImage) return fallbackVariation;
   }
   const variations = Array.isArray(family?.variations) ? family.variations : [];
-  return variations.find((variation) => String(variation?.image || '').trim().length > 0) || fallbackVariation || variations[0] || null;
+  return (
+    variations.find((variation) => String(variation?.image || '').trim().length > 0) ||
+    fallbackVariation ||
+    variations[0] ||
+    null
+  );
 };
 
 const getFirstAvailableVariation = (family) => {
@@ -62,7 +70,7 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
       stockHint: 'Request item',
       metaLine: '',
       uomLabel: 'pcs',
-      stockActionLabel: 'Request'
+      stockActionLabel: 'Request',
     };
   }
 
@@ -70,27 +78,39 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
   const hasMultipleVariations = variations.length > 1;
   const previewVariation = getFamilyPreviewVariation(family, resolvedVariation);
   const familyInStock = variations.some((variation) => Number(variation.stock || 0) > 0);
-  const familyLowStock = Number(family?.totalStock || 0) > 0 && Number(family.totalStock || 0) <= LOW_STOCK_THRESHOLD;
-  const familyCartQty = variations.reduce((sum, variation) => sum + Number(cartQtyById[variation.id] || 0), 0);
+  const familyLowStock =
+    Number(family?.totalStock || 0) > 0 && Number(family.totalStock || 0) <= LOW_STOCK_THRESHOLD;
+  const familyCartQty = variations.reduce(
+    (sum, variation) => sum + Number(cartQtyById[variation.id] || 0),
+    0
+  );
   const selectedQty = Number(cartQtyById[resolvedVariation.id] || 0);
   const selectedStock = Number(resolvedVariation.stock || 0);
   const selectedLowStock = selectedStock > 0 && selectedStock <= LOW_STOCK_THRESHOLD;
-  const inStockOptionCount = variations.filter((variation) => Number(variation.stock || 0) > 0).length;
-  const uniqueUoms = [...new Set(variations.map((variation) => String(variation.uom || 'pcs').trim()).filter(Boolean))];
-  const uomLabel = uniqueUoms.length === 1 ? uniqueUoms[0] : String(resolvedVariation.uom || 'pcs').trim();
-  const previewLabels = [...new Set(
-    variations
-      .slice(0, 3)
-      .map((variation) => getVariationPreviewLabel(variation))
-      .filter(Boolean)
-  )];
+  const inStockOptionCount = variations.filter(
+    (variation) => Number(variation.stock || 0) > 0
+  ).length;
+  const uniqueUoms = [
+    ...new Set(
+      variations.map((variation) => String(variation.uom || 'pcs').trim()).filter(Boolean)
+    ),
+  ];
+  const uomLabel =
+    uniqueUoms.length === 1 ? uniqueUoms[0] : String(resolvedVariation.uom || 'pcs').trim();
+  const previewLabels = [
+    ...new Set(
+      variations
+        .slice(0, 3)
+        .map((variation) => getVariationPreviewLabel(variation))
+        .filter(Boolean)
+    ),
+  ];
   const priceValue = Number(resolvedVariation.price || 0);
   const mrpValue = Math.max(priceValue, Number(resolvedVariation.mrp || 0));
   const hasDiscount = mrpValue > priceValue;
-  const savingsValue = hasDiscount ? (mrpValue - priceValue) : 0;
-  const discountPercent = hasDiscount && mrpValue > 0
-    ? Math.round((savingsValue / mrpValue) * 100)
-    : 0;
+  const savingsValue = hasDiscount ? mrpValue - priceValue : 0;
+  const discountPercent =
+    hasDiscount && mrpValue > 0 ? Math.round((savingsValue / mrpValue) * 100) : 0;
   const minPrice = Number(family?.minPrice || priceValue || 0);
   const showFromPrice = hasMultipleVariations && minPrice > 0 && minPrice < priceValue;
 
@@ -133,7 +153,7 @@ const getFamilyCardState = (family, selectedVariation, cartQtyById = {}) => {
     stockHint,
     metaLine: String(family.brand || family.category || '').trim(),
     uomLabel: uomLabel || 'pcs',
-    stockActionLabel: selectedStock === 0 ? 'Request' : 'Add'
+    stockActionLabel: selectedStock === 0 ? 'Request' : 'Add',
   };
 };
 

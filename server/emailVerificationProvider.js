@@ -1,4 +1,7 @@
-const normalizeMode = (value) => String(value || '').trim().toLowerCase();
+const normalizeMode = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 
 const hasConfig = (value) => String(value || '').trim().length > 0;
 

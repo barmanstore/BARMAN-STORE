@@ -23,9 +23,12 @@ export const ordersApi = {
       body: { ...orderData, payment_method: 'stripe' },
     }),
   updateStatus: (id, status, extra = {}) => {
-    const normalizedExtra = typeof extra === 'string'
-      ? { description: extra }
-      : (extra && typeof extra === 'object' ? extra : {});
+    const normalizedExtra =
+      typeof extra === 'string'
+        ? { description: extra }
+        : extra && typeof extra === 'object'
+          ? extra
+          : {};
     return apiFetch(`/api/orders/${id}/status`, {
       method: 'PUT',
       body: {

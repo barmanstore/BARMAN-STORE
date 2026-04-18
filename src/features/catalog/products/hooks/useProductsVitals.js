@@ -3,7 +3,8 @@ import { analyticsApi } from '../api/index.js';
 
 const useProductsVitals = ({ productsTelemetryRef }) => {
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return undefined;
+    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined')
+      return undefined;
     const metrics = { lcp: 0, cls: 0, inp: 0 };
     let lcpObserver;
     let clsObserver;
@@ -15,18 +16,20 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
       flushed = true;
       const sessionId = String(productsTelemetryRef.current.sessionId || '').trim();
       if (!sessionId) return;
-      analyticsApi.heartbeat({
-        session_id: sessionId,
-        path: '/products',
-        web_vitals: {
+      analyticsApi
+        .heartbeat({
           session_id: sessionId,
-          ab_variant: productsTelemetryRef.current.abVariant,
-          lcp_ms: Math.round(Number(metrics.lcp || 0)),
-          inp_ms: Math.round(Number(metrics.inp || 0)),
-          cls: Number((metrics.cls || 0).toFixed(4)),
-          captured_at: new Date().toISOString(),
-        }
-      }).catch(() => {});
+          path: '/products',
+          web_vitals: {
+            session_id: sessionId,
+            ab_variant: productsTelemetryRef.current.abVariant,
+            lcp_ms: Math.round(Number(metrics.lcp || 0)),
+            inp_ms: Math.round(Number(metrics.inp || 0)),
+            cls: Number((metrics.cls || 0).toFixed(4)),
+            captured_at: new Date().toISOString(),
+          },
+        })
+        .catch(() => {});
     };
 
     try {
@@ -83,4 +86,3 @@ const useProductsVitals = ({ productsTelemetryRef }) => {
 };
 
 export default useProductsVitals;
-

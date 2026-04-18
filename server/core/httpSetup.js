@@ -18,12 +18,16 @@ const applyBaseMiddleware = ({
   app.options('*', cors(corsOptions));
   app.use((req, res, next) => {
     if (!IS_VERCEL_RUNTIME) return next();
-    const host = String(req.headers.host || '').split(':')[0].trim().toLowerCase();
-    if (!host || host === CANONICAL_HOST || !LEGACY_HOSTS.has(host)) return next();
-    const proto = String(req.headers['x-forwarded-proto'] || 'https')
-      .split(',')[0]
+    const host = String(req.headers.host || '')
+      .split(':')[0]
       .trim()
-      .toLowerCase() || 'https';
+      .toLowerCase();
+    if (!host || host === CANONICAL_HOST || !LEGACY_HOSTS.has(host)) return next();
+    const proto =
+      String(req.headers['x-forwarded-proto'] || 'https')
+        .split(',')[0]
+        .trim()
+        .toLowerCase() || 'https';
     return res.redirect(308, `${proto}://${CANONICAL_HOST}${req.originalUrl || '/'}`);
   });
   app.use(express.json({ limit: '5mb' }));
@@ -31,7 +35,9 @@ const applyBaseMiddleware = ({
   if (!fs.existsSync(PROFILE_UPLOAD_DIR)) fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
   app.use('/uploads', express.static(UPLOADS_DIR));
   app.use('/api/uploads', express.static(UPLOADS_DIR));
-  const profileBase = String(profileImagePublicBaseUrl || '').trim().replace(/\/+$/, '');
+  const profileBase = String(profileImagePublicBaseUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (profileBase) {
     const redirectProfileImage = (req, res, next) => {
       const fileName = path.basename(String(req.params?.file || '').trim());
@@ -63,8 +69,12 @@ const createAuthRateLimiters = ({ createRateLimiter } = {}) => {
     windowMs: 30 * 60 * 1000,
     max: 6,
     keyFn: (req) => {
-      const email = String(req.body?.email || '').trim().toLowerCase();
-      return email ? `email:${email}` : `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
+      const email = String(req.body?.email || '')
+        .trim()
+        .toLowerCase();
+      return email
+        ? `email:${email}`
+        : `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
     },
   });
   return { authIpLimiter, emailVerificationLimiter };

@@ -70,10 +70,9 @@ const useAdminEffects = ({
     }
     if (activeTab === 'dashboard' || activeTab === 'products') {
       const showGlobalLoading = !didResolveInitialRouteRef.current;
-      void ensureTabData(activeTab, { showGlobalLoading })
-        .finally(() => {
-          didResolveInitialRouteRef.current = true;
-        });
+      void ensureTabData(activeTab, { showGlobalLoading }).finally(() => {
+        didResolveInitialRouteRef.current = true;
+      });
       return;
     }
     if (!didResolveInitialRouteRef.current) {
@@ -147,15 +146,28 @@ const useAdminEffects = ({
 
   useEffect(() => {
     if (!userId || !authToken || !canViewBackoffice || activeTab !== 'users') return;
-    const timer = window.setTimeout(() => {
-      void loadUsersPage({ page: usersPage, query: usersSearchQuery, silent: false })
-        .catch((error) => {
-          if (isUnauthorizedError(error)) return;
-          showNotification(error?.message || 'Failed to load users', 'error');
-        });
-    }, usersSearchQuery ? 180 : 0);
+    const timer = window.setTimeout(
+      () => {
+        void loadUsersPage({ page: usersPage, query: usersSearchQuery, silent: false }).catch(
+          (error) => {
+            if (isUnauthorizedError(error)) return;
+            showNotification(error?.message || 'Failed to load users', 'error');
+          }
+        );
+      },
+      usersSearchQuery ? 180 : 0
+    );
     return () => window.clearTimeout(timer);
-  }, [activeTab, authToken, canViewBackoffice, loadUsersPage, showNotification, userId, usersPage, usersSearchQuery]);
+  }, [
+    activeTab,
+    authToken,
+    canViewBackoffice,
+    loadUsersPage,
+    showNotification,
+    userId,
+    usersPage,
+    usersSearchQuery,
+  ]);
 
   useEffect(() => {
     if (!userId || !authToken || !canViewBackoffice || activeTab !== 'daily-sales') return;
@@ -174,7 +186,10 @@ const useAdminEffects = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem('admin-products-visible-columns', JSON.stringify(productTableVisibleColumns));
+    window.localStorage.setItem(
+      'admin-products-visible-columns',
+      JSON.stringify(productTableVisibleColumns)
+    );
   }, [productTableVisibleColumns]);
 
   useEffect(() => {

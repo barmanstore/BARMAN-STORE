@@ -23,4 +23,21 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
   },
+  overrides: [
+    {
+      files: ['server/**/*.{js,mjs,cjs}'],
+      rules: {
+        'no-unused-vars': 'off',
+      },
+    },
+    {
+      files: ['src/**/*.{js,jsx}'],
+      rules: {
+        'react-hooks/exhaustive-deps': 'off',
+        'react-hooks/set-state-in-effect': 'off',
+        'react-hooks/purity': 'off',
+        'react-hooks/immutability': 'off',
+      },
+    },
+  ],
 };

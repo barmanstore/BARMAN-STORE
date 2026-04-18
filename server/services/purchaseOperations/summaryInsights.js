@@ -1,6 +1,12 @@
-const { createPurchaseOperationsDistributorInsights } = require('./summaryInsights/distributorInsights');
-const { createPurchaseOperationsDistributorSchedules } = require('./summaryInsights/distributorSchedules');
-const { createPurchaseOperationsPaymentPredictions } = require('./summaryInsights/paymentPredictions');
+const {
+  createPurchaseOperationsDistributorInsights,
+} = require('./summaryInsights/distributorInsights');
+const {
+  createPurchaseOperationsDistributorSchedules,
+} = require('./summaryInsights/distributorSchedules');
+const {
+  createPurchaseOperationsPaymentPredictions,
+} = require('./summaryInsights/paymentPredictions');
 const { buildSupplierVisitStates } = require('./summaryInsights/supplierVisits');
 const { createPurchaseOperationsSummaryCards } = require('./summaryInsights/summaryCards');
 
@@ -27,17 +33,13 @@ const createPurchaseOperationsSummaryInsights = (deps) => {
       payablesWithInsights,
     } = distributorInsights.buildDistributorInsights({ baseData, metrics });
 
-    const {
-      todayDistributors,
-      tomorrowDistributors,
-      weeklyDistributors,
-      reminders,
-    } = distributorSchedules.buildDistributorSchedules({
-      baseData,
-      metrics,
-      distributorInsightById,
-      payablesWithInsights,
-    });
+    const { todayDistributors, tomorrowDistributors, weeklyDistributors, reminders } =
+      distributorSchedules.buildDistributorSchedules({
+        baseData,
+        metrics,
+        distributorInsightById,
+        payablesWithInsights,
+      });
 
     const {
       predictedPaymentsToday,
@@ -71,12 +73,12 @@ const createPurchaseOperationsSummaryInsights = (deps) => {
         const lifecycleStatus = getPurchaseOrderLifecycleStatus(order);
         const paymentDueDate = getEffectivePurchaseDueDateKey(order, todayKey);
         const urgencyScore =
-          (paymentDueDate < todayKey ? 100 : 0)
-          + (order.next_action === 'Confirm with bill' ? 80 : 0)
-          + (order.next_action === 'Collect payment' ? 70 : 0)
-          + (order.next_action === 'Receive delivery' ? 60 : 0)
-          + (order.next_action === 'Close PO' ? 50 : 0)
-          + (lifecycleStatus === PO_LIFECYCLE_PREPARED ? 40 : 0);
+          (paymentDueDate < todayKey ? 100 : 0) +
+          (order.next_action === 'Confirm with bill' ? 80 : 0) +
+          (order.next_action === 'Collect payment' ? 70 : 0) +
+          (order.next_action === 'Receive delivery' ? 60 : 0) +
+          (order.next_action === 'Close PO' ? 50 : 0) +
+          (lifecycleStatus === PO_LIFECYCLE_PREPARED ? 40 : 0);
         return {
           order_id: Number(order.id || 0),
           po_number: order.po_number,
@@ -93,7 +95,11 @@ const createPurchaseOperationsSummaryInsights = (deps) => {
         };
       })
       .filter((entry) => entry.next_action !== 'Monitor')
-      .sort((a, b) => b.urgency_score - a.urgency_score || Number(b.balance_due || 0) - Number(a.balance_due || 0))
+      .sort(
+        (a, b) =>
+          b.urgency_score - a.urgency_score ||
+          Number(b.balance_due || 0) - Number(a.balance_due || 0)
+      )
       .slice(0, 20);
 
     const cards = summaryCards.buildSummaryCards({

@@ -1,5 +1,9 @@
 const { resolveProfileTarget, ensureProfileAccess } = require('./profile/authorization');
-const { loadUserForRead, loadUserById, loadUserForProfileImage } = require('./profile/profileLoaders');
+const {
+  loadUserForRead,
+  loadUserById,
+  loadUserForProfileImage,
+} = require('./profile/profileLoaders');
 const { validateProfileUpdateInputs } = require('./profile/profileValidation');
 const { applyProfileUpdate } = require('./profile/profileUpdateFlow');
 const { uploadProfileImage } = require('./profile/profileImageUpload');

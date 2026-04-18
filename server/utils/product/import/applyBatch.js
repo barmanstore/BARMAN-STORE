@@ -18,7 +18,12 @@ const createApplyProductImportBatch = (deps) => {
   const { applyImportBatchRows } = require('./applyBatch/applyRows');
   const { finalizeImportBatch } = require('./applyBatch/finalizeBatch');
 
-  const applyProductImportBatch = async ({ batchId, checksum, authUser, allowIdenticalRows = [] }) => {
+  const applyProductImportBatch = async ({
+    batchId,
+    checksum,
+    authUser,
+    allowIdenticalRows = [],
+  }) => {
     const { normalizedBatchId, normalizedChecksum, batch } = resolveImportBatch({
       batchId,
       checksum,
@@ -35,21 +40,22 @@ const createApplyProductImportBatch = (deps) => {
     };
     const { seenInBatch, allowIdenticalSet } = createBatchTracking({ allowIdenticalRows });
 
-    const processRow = (row) => processImportRow({
-      row,
-      deps: {
-        dbGetAsync,
-        dbRunAsync,
-        SQL_INSERT_IGNORE_CATEGORY,
-        normalizeProductInput,
-        validateProductPayload,
-        findProductConflictAsync,
-        buildProductExactKey,
-        normalizeTextKey,
-      },
-      seenInBatch,
-      allowIdenticalSet,
-    });
+    const processRow = (row) =>
+      processImportRow({
+        row,
+        deps: {
+          dbGetAsync,
+          dbRunAsync,
+          SQL_INSERT_IGNORE_CATEGORY,
+          normalizeProductInput,
+          validateProductPayload,
+          findProductConflictAsync,
+          buildProductExactKey,
+          normalizeTextKey,
+        },
+        seenInBatch,
+        allowIdenticalSet,
+      });
 
     await applyImportBatchRows({
       batch,

@@ -64,36 +64,55 @@ const useAdminComputedData = ({
   }, [orders]);
 
   const recentOrders = useMemo(
-    () => [...(Array.isArray(recentOrdersPreview) ? recentOrdersPreview : [])]
-      .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
-      .slice(0, 3),
+    () =>
+      [...(Array.isArray(recentOrdersPreview) ? recentOrdersPreview : [])]
+        .sort(
+          (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+        )
+        .slice(0, 3),
     [recentOrdersPreview]
   );
 
   const lowStockProducts = useMemo(() => {
-    if (Array.isArray(productSummary?.lowStockProducts) && productSummary.lowStockProducts.length > 0) {
+    if (
+      Array.isArray(productSummary?.lowStockProducts) &&
+      productSummary.lowStockProducts.length > 0
+    ) {
       return productSummary.lowStockProducts.slice(0, 3);
     }
     return products
-      .filter((product) => Number(product?.is_active ?? 1) === 1 && asNumber(product?.stock, 0) <= 10)
+      .filter(
+        (product) => Number(product?.is_active ?? 1) === 1 && asNumber(product?.stock, 0) <= 10
+      )
       .sort((a, b) => asNumber(a?.stock, 0) - asNumber(b?.stock, 0))
       .slice(0, 3);
   }, [productSummary, products, asNumber]);
 
   const recentCustomers = useMemo(
-    () => [...(Array.isArray(recentCustomersPreview) ? recentCustomersPreview : [])]
-      .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
-      .slice(0, 3),
+    () =>
+      [...(Array.isArray(recentCustomersPreview) ? recentCustomersPreview : [])]
+        .sort(
+          (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+        )
+        .slice(0, 3),
     [recentCustomersPreview]
   );
 
   const selectedDateKey = String(dailySalesDate || '').trim() || toLocalDateKey(new Date());
 
   const selectedSalesBills = useMemo(
-    () => (Array.isArray(bills) ? bills : [])
-      .filter((bill) => String(bill?.bill_type || 'sales').trim().toLowerCase() === 'sales')
-      .filter((bill) => toLocalDateKey(bill?.created_at) === selectedDateKey)
-      .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()),
+    () =>
+      (Array.isArray(bills) ? bills : [])
+        .filter(
+          (bill) =>
+            String(bill?.bill_type || 'sales')
+              .trim()
+              .toLowerCase() === 'sales'
+        )
+        .filter((bill) => toLocalDateKey(bill?.created_at) === selectedDateKey)
+        .sort(
+          (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+        ),
     [bills, selectedDateKey, toLocalDateKey]
   );
 
@@ -103,23 +122,30 @@ const useAdminComputedData = ({
   }, [dailyCashTally, selectedDateKey]);
 
   const dailySalesSummary = useMemo(() => {
-    const totals = selectedSalesBills.reduce((acc, bill) => {
-      acc.totalBilled += asNumber(bill?.total_amount, 0);
-      acc.cashCollected += asNumber(bill?.paid_amount, 0);
-      acc.creditIssued += asNumber(bill?.credit_amount, 0);
-      if (String(bill?.payment_status || '').trim().toLowerCase() === 'paid') {
-        acc.paidBills += 1;
-      } else {
-        acc.pendingBills += 1;
+    const totals = selectedSalesBills.reduce(
+      (acc, bill) => {
+        acc.totalBilled += asNumber(bill?.total_amount, 0);
+        acc.cashCollected += asNumber(bill?.paid_amount, 0);
+        acc.creditIssued += asNumber(bill?.credit_amount, 0);
+        if (
+          String(bill?.payment_status || '')
+            .trim()
+            .toLowerCase() === 'paid'
+        ) {
+          acc.paidBills += 1;
+        } else {
+          acc.pendingBills += 1;
+        }
+        return acc;
+      },
+      {
+        totalBilled: 0,
+        cashCollected: 0,
+        creditIssued: 0,
+        paidBills: 0,
+        pendingBills: 0,
       }
-      return acc;
-    }, {
-      totalBilled: 0,
-      cashCollected: 0,
-      creditIssued: 0,
-      paidBills: 0,
-      pendingBills: 0,
-    });
+    );
     const txCount = selectedSalesBills.length;
     return {
       ...buildCashSummary({
@@ -131,7 +157,8 @@ const useAdminComputedData = ({
         txCount,
         hasManualCashTally: Boolean(selectedDailyCashTally),
         manualCashTally: selectedDailyCashTally?.countedCashTotal ?? 0,
-        cashTallyUpdatedAt: selectedDailyCashTally?.updatedAt || selectedDailyCashTally?.createdAt || '',
+        cashTallyUpdatedAt:
+          selectedDailyCashTally?.updatedAt || selectedDailyCashTally?.createdAt || '',
         cashTallyUpdatedByName: selectedDailyCashTally?.updatedByName || '',
       }),
       cashTallyNote: String(selectedDailyCashTally?.note || '').trim(),

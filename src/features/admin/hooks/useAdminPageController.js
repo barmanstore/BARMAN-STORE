@@ -17,7 +17,11 @@ import { getProductImageSrc, getProductFallbackImage } from '../../../shared/uti
 import { truncateUserName } from '../../../shared/utils/formatters';
 import useLockBodyScroll from '../../../shared/hooks/useLockBodyScroll';
 import useIsMobile from '../../../shared/hooks/useIsMobile';
-import { MOBILE_ALLOWED_TABS, MOBILE_SIDEBAR_SECTIONS, SIDEBAR_SECTIONS } from '../config/adminSidebarConfig';
+import {
+  MOBILE_ALLOWED_TABS,
+  MOBILE_SIDEBAR_SECTIONS,
+  SIDEBAR_SECTIONS,
+} from '../config/adminSidebarConfig';
 import {
   PRODUCT_TABLE_ALL_COLUMN_KEYS,
   PRODUCT_TABLE_COLUMN_MIN_WIDTH,
@@ -214,10 +218,13 @@ const useAdminPageController = ({ user }) => {
   const [purchaseShortcutRequest, setPurchaseShortcutRequest] = useState(0);
   const [purchaseShortcutPayload, setPurchaseShortcutPayload] = useState(null);
 
-  const showNotification = useCallback((message, type) => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  }, [setNotification]);
+  const showNotification = useCallback(
+    (message, type) => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 3000);
+    },
+    [setNotification]
+  );
 
   const closeNotification = useCallback(() => {
     setNotification(null);
@@ -280,11 +287,7 @@ const useAdminPageController = ({ user }) => {
       query: ordersSearchQuery,
       silent: false,
     });
-  }, [
-    loadOrdersPage,
-    ordersPage,
-    ordersSearchQuery,
-  ]);
+  }, [loadOrdersPage, ordersPage, ordersSearchQuery]);
 
   const refreshAdminProducts = useCallback(async () => {
     await loadProductsPage({
@@ -308,9 +311,13 @@ const useAdminPageController = ({ user }) => {
     productTableSortDir,
   ]);
 
-  useEffect(() => registerDomainListener(DOMAINS.Products, refreshAdminProducts, {
-    listenerId: 'admin-products',
-  }), [refreshAdminProducts]);
+  useEffect(
+    () =>
+      registerDomainListener(DOMAINS.Products, refreshAdminProducts, {
+        listenerId: 'admin-products',
+      }),
+    [refreshAdminProducts]
+  );
 
   useEffect(() => {
     setProductsPage(1);
@@ -327,19 +334,22 @@ const useAdminPageController = ({ user }) => {
   useEffect(() => {
     if (activeTab !== 'products') return undefined;
     if (typeof window === 'undefined') return undefined;
-    const timer = window.setTimeout(() => {
-      void loadProductCategories();
-      void loadProductsPage({
-        page: productsPage,
-        query: productTableSearch,
-        category: productTableCategoryFilter,
-        brand: '',
-        status: productTableStatusFilter,
-        lowStockOnly: productTableLowStockOnly,
-        sortField: productTableSortField,
-        sortDir: productTableSortDir,
-      });
-    }, productTableSearch ? 180 : 0);
+    const timer = window.setTimeout(
+      () => {
+        void loadProductCategories();
+        void loadProductsPage({
+          page: productsPage,
+          query: productTableSearch,
+          category: productTableCategoryFilter,
+          brand: '',
+          status: productTableStatusFilter,
+          lowStockOnly: productTableLowStockOnly,
+          sortField: productTableSortField,
+          sortDir: productTableSortDir,
+        });
+      },
+      productTableSearch ? 180 : 0
+    );
     return () => window.clearTimeout(timer);
   }, [
     activeTab,
@@ -376,48 +386,65 @@ const useAdminPageController = ({ user }) => {
     setIsMobileSidebarOpen,
   });
 
-  const handleOpenPurchaseShortcut = useCallback((payload = null) => {
-    const nextPayload = payload && typeof payload === 'object' ? payload : null;
-    const shortcutAction = String(nextPayload?.action || 'create-draft').trim().toLowerCase();
-    const selectedCount = Array.isArray(nextPayload?.suggestedItems) ? nextPayload.suggestedItems.length : 0;
-    const isRestockShortcut = String(nextPayload?.source || '').trim().toLowerCase() === 'restock';
-    const inlineMessage = shortcutAction === 'open-payment'
-      ? 'Supplier payment opened.'
-      : shortcutAction === 'open-order'
-        ? 'Purchase review opened.'
-        : (
-          selectedCount > 0
-            ? `PO draft opened with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
-            : 'PO draft opened.'
-        );
+  const handleOpenPurchaseShortcut = useCallback(
+    (payload = null) => {
+      const nextPayload = payload && typeof payload === 'object' ? payload : null;
+      const shortcutAction = String(nextPayload?.action || 'create-draft')
+        .trim()
+        .toLowerCase();
+      const selectedCount = Array.isArray(nextPayload?.suggestedItems)
+        ? nextPayload.suggestedItems.length
+        : 0;
+      const isRestockShortcut =
+        String(nextPayload?.source || '')
+          .trim()
+          .toLowerCase() === 'restock';
+      const inlineMessage =
+        shortcutAction === 'open-payment'
+          ? 'Supplier payment opened.'
+          : shortcutAction === 'open-order'
+            ? 'Purchase review opened.'
+            : selectedCount > 0
+              ? `PO draft opened with ${selectedCount} item${selectedCount === 1 ? '' : 's'}.`
+              : 'PO draft opened.';
 
-    setPurchaseShortcutPayload(nextPayload);
-    setPurchaseShortcutRequest((current) => current + 1);
-    if (!isRestockShortcut) {
-      handleTabChange('purchases');
-    }
-    showNotification(inlineMessage, 'success');
-  }, [handleTabChange, showNotification]);
+      setPurchaseShortcutPayload(nextPayload);
+      setPurchaseShortcutRequest((current) => current + 1);
+      if (!isRestockShortcut) {
+        handleTabChange('purchases');
+      }
+      showNotification(inlineMessage, 'success');
+    },
+    [handleTabChange, showNotification]
+  );
 
-  const handleClosePurchaseShortcutDraft = useCallback((details = {}) => {
-    setPurchaseShortcutPayload(null);
-    setPurchaseShortcutRequest(0);
-    const returnTab = String(details?.returnTab || 'restock-dashboard').trim() || 'restock-dashboard';
-    const reason = String(details?.reason || '').trim().toLowerCase();
-    if (reason === 'deferred') {
-      showNotification('Restock selection kept. Retry when ready.', 'success');
-    } else if (reason === 'empty') {
-      showNotification('PO closed because no restock items remain.', 'success');
-    } else if (reason === 'cancel') {
-      showNotification('PO cancelled and returned to restock.', 'success');
-    }
-    handleTabChange(returnTab);
-  }, [handleTabChange, showNotification]);
+  const handleClosePurchaseShortcutDraft = useCallback(
+    (details = {}) => {
+      setPurchaseShortcutPayload(null);
+      setPurchaseShortcutRequest(0);
+      const returnTab =
+        String(details?.returnTab || 'restock-dashboard').trim() || 'restock-dashboard';
+      const reason = String(details?.reason || '')
+        .trim()
+        .toLowerCase();
+      if (reason === 'deferred') {
+        showNotification('Restock selection kept. Retry when ready.', 'success');
+      } else if (reason === 'empty') {
+        showNotification('PO closed because no restock items remain.', 'success');
+      } else if (reason === 'cancel') {
+        showNotification('PO cancelled and returned to restock.', 'success');
+      }
+      handleTabChange(returnTab);
+    },
+    [handleTabChange, showNotification]
+  );
 
   useLockBodyScroll(isMobileSidebarOpen);
 
   useEffect(() => {
-    const shortcutAction = String(searchParams.get('shortcut') || '').trim().toLowerCase();
+    const shortcutAction = String(searchParams.get('shortcut') || '')
+      .trim()
+      .toLowerCase();
     const shortcutToken = String(searchParams.get('shortcutToken') || '').trim();
     if (!shortcutAction || !shortcutToken) return;
 
@@ -444,7 +471,9 @@ const useAdminPageController = ({ user }) => {
   }, [activeTab, searchParams, setActiveTab, setSearchParams]);
 
   useEffect(() => {
-    const formMode = String(searchParams.get('productForm') || '').trim().toLowerCase();
+    const formMode = String(searchParams.get('productForm') || '')
+      .trim()
+      .toLowerCase();
     if (!formMode) return;
     const next = new URLSearchParams(searchParams);
     next.delete('productForm');
@@ -456,7 +485,15 @@ const useAdminPageController = ({ user }) => {
     setEditingProduct(null);
     setProductFormMode(formMode === 'quick' ? 'quick' : 'full');
     setShowProductForm(true);
-  }, [activeTab, searchParams, setActiveTab, setEditingProduct, setProductFormMode, setSearchParams, setShowProductForm]);
+  }, [
+    activeTab,
+    searchParams,
+    setActiveTab,
+    setEditingProduct,
+    setProductFormMode,
+    setSearchParams,
+    setShowProductForm,
+  ]);
 
   useAdminEffects({
     user,
@@ -551,25 +588,20 @@ const useAdminPageController = ({ user }) => {
     getCategoryPath,
   });
 
-  const {
-    handleDeleteUser,
-    handleEditUser,
-    handleUserSave,
-    handleAddUser,
-    handleCreateUser,
-  } = useAdminUserActions({
-    currentUser: user,
-    usersApi,
-    setUsers,
-    loadUsersPage,
-    usersPage,
-    usersSearchQuery,
-    setUsersSearchQuery,
-    showNotification,
-    setEditingUser,
-    setIsCreatingUser,
-    setShowUserForm,
-  });
+  const { handleDeleteUser, handleEditUser, handleUserSave, handleAddUser, handleCreateUser } =
+    useAdminUserActions({
+      currentUser: user,
+      usersApi,
+      setUsers,
+      loadUsersPage,
+      usersPage,
+      usersSearchQuery,
+      setUsersSearchQuery,
+      showNotification,
+      setEditingUser,
+      setIsCreatingUser,
+      setShowUserForm,
+    });
 
   const {
     productCategories,
@@ -656,34 +688,30 @@ const useAdminPageController = ({ user }) => {
     tableEditFieldRefs,
   });
 
-  const {
-    handleExportProducts,
-    handleStartImport,
-    handleFileSelected,
-    handleConfirmImport,
-  } = useAdminImportExport({
-    productsApi,
-    user,
-    importFile,
-    setImportFile,
-    importPreviewData,
-    setImportPreviewData,
-    importAllowIdenticalRows,
-    setImportAllowIdenticalRows,
-    setImportBusy,
-    importBusy,
-    importFileInputRef,
-    showNotification,
-    registerBulkJob,
-    setShowExportDialog,
-    exportFormat,
-    productTableSearch,
-    productTableCategoryFilter,
-    productTableStatusFilter,
-    productTableLowStockOnly,
-    productTableSortField,
-    productTableSortDir,
-  });
+  const { handleExportProducts, handleStartImport, handleFileSelected, handleConfirmImport } =
+    useAdminImportExport({
+      productsApi,
+      user,
+      importFile,
+      setImportFile,
+      importPreviewData,
+      setImportPreviewData,
+      importAllowIdenticalRows,
+      setImportAllowIdenticalRows,
+      setImportBusy,
+      importBusy,
+      importFileInputRef,
+      showNotification,
+      registerBulkJob,
+      setShowExportDialog,
+      exportFormat,
+      productTableSearch,
+      productTableCategoryFilter,
+      productTableStatusFilter,
+      productTableLowStockOnly,
+      productTableSortField,
+      productTableSortDir,
+    });
   const {
     openApproveModal,
     confirmApprove,
@@ -706,63 +734,67 @@ const useAdminPageController = ({ user }) => {
   });
 
   const effectiveProductViewMode = isMobile ? 'grid' : productViewMode;
-  const canEditDailyCashTally = String(user?.role || '').trim().toLowerCase() === 'admin';
-  const handleSaveDailyCashTally = useCallback(async ({
-    date,
-    countedCashTotal,
-    note = '',
-  } = {}) => {
-    const dateKey = String(date || '').trim();
-    const amount = Number(countedCashTotal);
-    if (!dateKey) {
-      const message = 'Select a valid date before saving the cash tally.';
-      setDailyCashTallyError(message);
-      showNotification(message, 'error');
-      return { success: false };
-    }
-    if (!Number.isFinite(amount) || amount < 0) {
-      const message = 'Enter a valid non-negative counted cash total.';
-      setDailyCashTallyError(message);
-      showNotification(message, 'error');
-      return { success: false };
-    }
-
-    try {
-      setDailyCashTallySaving(true);
-      setDailyCashTallyError('');
-      const response = await adminApi.upsertDailyCashTally({
-        date: dateKey,
-        counted_cash_total: amount,
-        note,
-      });
-      const normalizedEntry = normalizeDailyCashTallyEntry(response, dateKey);
-      setDailyCashTally(normalizedEntry);
-      if (dateKey === toLocalDateKey(new Date())) {
-        setTodayCashSummary(normalizeCashSummary(response?.summary));
+  const canEditDailyCashTally =
+    String(user?.role || '')
+      .trim()
+      .toLowerCase() === 'admin';
+  const handleSaveDailyCashTally = useCallback(
+    async ({ date, countedCashTotal, note = '' } = {}) => {
+      const dateKey = String(date || '').trim();
+      const amount = Number(countedCashTotal);
+      if (!dateKey) {
+        const message = 'Select a valid date before saving the cash tally.';
+        setDailyCashTallyError(message);
+        showNotification(message, 'error');
+        return { success: false };
       }
-      showNotification('Daily cash tally saved.', 'success');
-      return { success: true, entry: normalizedEntry };
-    } catch (error) {
-      const message = error?.message || 'Failed to save daily cash tally';
-      setDailyCashTallyError(message);
-      showNotification(message, 'error');
-      return { success: false, error };
-    } finally {
-      setDailyCashTallySaving(false);
-    }
-  }, [
-    setDailyCashTally,
-    setDailyCashTallyError,
-    setDailyCashTallySaving,
-    setTodayCashSummary,
-    showNotification,
-  ]);
+      if (!Number.isFinite(amount) || amount < 0) {
+        const message = 'Enter a valid non-negative counted cash total.';
+        setDailyCashTallyError(message);
+        showNotification(message, 'error');
+        return { success: false };
+      }
 
-  const showProductsImportCard = !isMobile && Boolean(
-    importPreviewData?.batch_id
-    || importPreviewData?.summary
-    || (Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0)
+      try {
+        setDailyCashTallySaving(true);
+        setDailyCashTallyError('');
+        const response = await adminApi.upsertDailyCashTally({
+          date: dateKey,
+          counted_cash_total: amount,
+          note,
+        });
+        const normalizedEntry = normalizeDailyCashTallyEntry(response, dateKey);
+        setDailyCashTally(normalizedEntry);
+        if (dateKey === toLocalDateKey(new Date())) {
+          setTodayCashSummary(normalizeCashSummary(response?.summary));
+        }
+        showNotification('Daily cash tally saved.', 'success');
+        return { success: true, entry: normalizedEntry };
+      } catch (error) {
+        const message = error?.message || 'Failed to save daily cash tally';
+        setDailyCashTallyError(message);
+        showNotification(message, 'error');
+        return { success: false, error };
+      } finally {
+        setDailyCashTallySaving(false);
+      }
+    },
+    [
+      setDailyCashTally,
+      setDailyCashTallyError,
+      setDailyCashTallySaving,
+      setTodayCashSummary,
+      showNotification,
+    ]
   );
+
+  const showProductsImportCard =
+    !isMobile &&
+    Boolean(
+      importPreviewData?.batch_id ||
+      importPreviewData?.summary ||
+      (Array.isArray(importPreviewData?.preview) && importPreviewData.preview.length > 0)
+    );
 
   return {
     user,

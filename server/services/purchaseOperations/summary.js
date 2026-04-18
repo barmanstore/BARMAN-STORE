@@ -21,11 +21,16 @@ const createPurchaseOperationsSummary = (deps) => {
       });
       return res.json(payload);
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load purchase operations summary' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to load purchase operations summary' });
     }
   };
 
-  const collectPurchaseAnalyticsSnapshotsAsync = async ({ date = null, distributorId = null } = {}) => {
+  const collectPurchaseAnalyticsSnapshotsAsync = async ({
+    date = null,
+    distributorId = null,
+  } = {}) => {
     if (typeof handlePurchaseOperationsSummary !== 'function') return null;
     const req = { query: {} };
     if (date) req.query.date = date;

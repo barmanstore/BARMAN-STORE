@@ -1,5 +1,13 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import { insightsApi, distributorsApi, categoriesApi } from '../../shared/services/api';
 import SignedCurrency from '../../shared/components/SignedCurrency';
 import { formatCurrency, formatDate, getSignedCurrencyClassName } from '../../shared/utils/formatters';
@@ -74,16 +82,8 @@ const formatPercent = (value) => {
   return `${num.toFixed(1)}%`;
 };
 
-const formatCurrencyValue = (value) => (
-  value !== null && value !== undefined ? formatCurrency(value) : '-'
-);
-
-const formatSignedCurrencyValue = (value) => {
-  const num = Number(value);
-  if (!Number.isFinite(num) || num === 0) return formatCurrency(0);
-  const prefix = num > 0 ? '+' : '-';
-  return `${prefix}${formatCurrency(Math.abs(num))}`;
-};
+const formatCurrencyValue = (value) =>
+  value !== null && value !== undefined ? formatCurrency(value) : '-';
 
 const formatDayValue = (value) => {
   const num = Number(value);
@@ -160,7 +160,10 @@ const buildDateRangePresets = () => {
     { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
     { label: 'Last 30 Days', value: [toDateToken(shiftDateByDays(today, -29)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
@@ -197,8 +200,13 @@ const compareSortValues = (left, right) => {
 };
 
 const renderRiskPill = (risk, symbol) => {
-  const label = String(risk || 'unknown').trim().toLowerCase() || 'unknown';
-  const resolvedSymbol = String(symbol || '').trim() || (label === 'high' ? '▲' : label === 'medium' ? '●' : label === 'low' ? '○' : '?');
+  const label =
+    String(risk || 'unknown')
+      .trim()
+      .toLowerCase() || 'unknown';
+  const resolvedSymbol =
+    String(symbol || '').trim() ||
+    (label === 'high' ? '▲' : label === 'medium' ? '●' : label === 'low' ? '○' : '?');
   const ariaLabel = `Risk ${label}`;
   return (
     <span className={`risk-pill ${label}`} title={ariaLabel} aria-label={ariaLabel}>
@@ -220,10 +228,7 @@ const buildDecisionTags = (row) => {
     tags.push({ tone: 'caution', label: 'Low margin' });
   }
 
-  if (
-    (row.avgDaysValue !== null && row.avgDaysValue <= 3)
-    || row.purchaseCountValue >= 5
-  ) {
+  if ((row.avgDaysValue !== null && row.avgDaysValue <= 3) || row.purchaseCountValue >= 5) {
     tags.push({ tone: 'hot', label: 'Fast moving' });
   }
 
@@ -255,31 +260,34 @@ const SortHeader = memo(function SortHeader({
     >
       <span className="sort-header-label">{label}</span>
       <span className="sort-indicator" aria-hidden="true">
-        {isActive
-          ? (direction === 'asc'
-            ? <ArrowUp size={12} aria-hidden="true" />
-            : <ArrowDown size={12} aria-hidden="true" />)
-          : <ArrowUpDown size={12} aria-hidden="true" />}
+        {isActive ? (
+          direction === 'asc' ? (
+            <ArrowUp size={12} aria-hidden="true" />
+          ) : (
+            <ArrowDown size={12} aria-hidden="true" />
+          )
+        ) : (
+          <ArrowUpDown size={12} aria-hidden="true" />
+        )}
       </span>
     </button>
   );
 });
 
-const ProductInsightsRow = memo(function ProductInsightsRow({
-  row,
-  isSelected,
-  onView,
-}) {
+const ProductInsightsRow = memo(function ProductInsightsRow({ row, isSelected, onView }) {
   const handleView = useCallback(() => {
     onView(row.productId);
   }, [onView, row.productId]);
 
-  const handleKeyDown = useCallback((event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handleView();
-    }
-  }, [handleView]);
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleView();
+      }
+    },
+    [handleView]
+  );
 
   return (
     <tr
@@ -299,22 +307,36 @@ const ProductInsightsRow = memo(function ProductInsightsRow({
       <td className="numeric-cell cost-summary-cell" title={row.costSummaryTooltip}>
         <div className="metric-stack compact-metric-stack cost-summary-stack">
           <span className="cell-primary compact-cell">{row.latestCostCompactLabel}</span>
-          <span className={`cell-secondary compact-cell ${row.marginClass}`}>{row.marginSummaryLabel}</span>
-          <span className={`cell-secondary compact-cell ${row.changeClass}`}>{row.changeSummaryLabel}</span>
+          <span className={`cell-secondary compact-cell ${row.marginClass}`}>
+            {row.marginSummaryLabel}
+          </span>
+          <span className={`cell-secondary compact-cell ${row.changeClass}`}>
+            {row.changeSummaryLabel}
+          </span>
           <span className="cell-secondary compact-cell">{row.costRangeSummaryLabel}</span>
         </div>
       </td>
       <td
         className="numeric-cell"
-        title={row.avgDaysValue !== null ? `Average days between purchases ${row.avgDaysLabel} · ${row.purchaseCountLabel}` : 'Average days between purchases'}
+        title={
+          row.avgDaysValue !== null
+            ? `Average days between purchases ${row.avgDaysLabel} · ${row.purchaseCountLabel}`
+            : 'Average days between purchases'
+        }
       >
         <span className="cell-primary compact-cell">{row.cadenceCompactLabel}</span>
       </td>
-      <td title={`Best distributor ${row.bestDistributorName}${row.bestDistributorCostLabel !== '-' ? ` · Avg cost ${row.bestDistributorCostLabel}` : ''}`}>
-        <span className="cell-primary compact-cell distributor-inline">{row.bestDistributorCompactLabel}</span>
+      <td
+        title={`Best distributor ${row.bestDistributorName}${row.bestDistributorCostLabel !== '-' ? ` · Avg cost ${row.bestDistributorCostLabel}` : ''}`}
+      >
+        <span className="cell-primary compact-cell distributor-inline">
+          {row.bestDistributorCompactLabel}
+        </span>
       </td>
       <td className="numeric-cell" title={`Cost volatility ${row.volatilityLabel}`}>
-        <span className="cell-primary compact-cell volatility-inline">{row.volatilityCompactLabel}</span>
+        <span className="cell-primary compact-cell volatility-inline">
+          {row.volatilityCompactLabel}
+        </span>
       </td>
       <td>{renderRiskPill(row.riskLabel, row.riskSymbol)}</td>
     </tr>
@@ -331,7 +353,9 @@ const ProductInsightsDetailPanel = memo(function ProductInsightsDetailPanel({
     <div className="detail-panel inline-detail-panel">
       <div className="detail-header">
         <h3>Product Detail</h3>
-        {(detail?.product?.name || productName) && <span>{detail?.product?.name || productName}</span>}
+        {(detail?.product?.name || productName) && (
+          <span>{detail?.product?.name || productName}</span>
+        )}
       </div>
       {detailLoading && <div className="empty-state">Loading product details...</div>}
       {!detailLoading && detailError && <div className="empty-state">{detailError}</div>}
@@ -340,7 +364,9 @@ const ProductInsightsDetailPanel = memo(function ProductInsightsDetailPanel({
           <div className="detail-grid">
             <div className="detail-metric">
               <span>Latest Cost</span>
-              <strong>{detail.latest_cost !== null ? formatCurrency(detail.latest_cost) : '-'}</strong>
+              <strong>
+                {detail.latest_cost !== null ? formatCurrency(detail.latest_cost) : '-'}
+              </strong>
             </div>
             <div className="detail-metric">
               <span>Cost Change</span>
@@ -350,19 +376,27 @@ const ProductInsightsDetailPanel = memo(function ProductInsightsDetailPanel({
             </div>
             <div className="detail-metric">
               <span>Avg Days Between</span>
-              <strong>{detail.avg_days_between !== null ? `${detail.avg_days_between} days` : '-'}</strong>
+              <strong>
+                {detail.avg_days_between !== null ? `${detail.avg_days_between} days` : '-'}
+              </strong>
             </div>
             <div className="detail-metric">
               <span>Avg Lead Time</span>
-              <strong>{detail.avg_lead_time !== null ? `${detail.avg_lead_time} days` : '-'}</strong>
+              <strong>
+                {detail.avg_lead_time !== null ? `${detail.avg_lead_time} days` : '-'}
+              </strong>
             </div>
             <div className="detail-metric">
               <span>On-Time Rate</span>
-              <strong>{detail.on_time_rate !== null ? formatPercent(detail.on_time_rate * 100) : '-'}</strong>
+              <strong>
+                {detail.on_time_rate !== null ? formatPercent(detail.on_time_rate * 100) : '-'}
+              </strong>
             </div>
             <div className="detail-metric">
               <span>Volatility</span>
-              <strong>{detail.price_volatility !== null ? formatCurrency(detail.price_volatility) : '-'}</strong>
+              <strong>
+                {detail.price_volatility !== null ? formatCurrency(detail.price_volatility) : '-'}
+              </strong>
             </div>
           </div>
 
@@ -383,12 +417,28 @@ const ProductInsightsDetailPanel = memo(function ProductInsightsDetailPanel({
                 {(detail.distributors || []).map((row) => (
                   <tr key={row.distributor_id}>
                     <td>{row.distributor_name || '-'}</td>
-                    <td className="numeric-cell">{row.avg_cost !== null ? formatCurrency(row.avg_cost) : '-'}</td>
-                    <td className="numeric-cell">{row.min_cost !== null ? formatCurrency(row.min_cost) : '-'}</td>
-                    <td className="numeric-cell">{row.max_cost !== null ? formatCurrency(row.max_cost) : '-'}</td>
+                    <td className="numeric-cell">
+                      {row.avg_cost !== null ? formatCurrency(row.avg_cost) : '-'}
+                    </td>
+                    <td className="numeric-cell">
+                      {row.min_cost !== null ? formatCurrency(row.min_cost) : '-'}
+                    </td>
+                    <td className="numeric-cell">
+                      {row.max_cost !== null ? formatCurrency(row.max_cost) : '-'}
+                    </td>
                     <td>{row.last_purchase_at ? formatDate(row.last_purchase_at) : '-'}</td>
-                    <td>{row.is_available === null ? '-' : (row.is_available ? 'Available' : 'Unavailable')}</td>
-                    <td>{row.lead_time_days !== null && row.lead_time_days !== undefined ? `${row.lead_time_days} days` : '-'}</td>
+                    <td>
+                      {row.is_available === null
+                        ? '-'
+                        : row.is_available
+                          ? 'Available'
+                          : 'Unavailable'}
+                    </td>
+                    <td>
+                      {row.lead_time_days !== null && row.lead_time_days !== undefined
+                        ? `${row.lead_time_days} days`
+                        : '-'}
+                    </td>
                   </tr>
                 ))}
                 {(!detail.distributors || detail.distributors.length === 0) && (
@@ -487,152 +537,194 @@ const ProductInsights = () => {
     };
   }, [filters.start_date, filters.end_date, filters.distributor_id, filters.category]);
 
-  const distributorOptions = useMemo(() => (
-    distributors
-      .map((dist) => {
-        const value = String(dist?.id || '').trim();
-        const label = String(dist?.name || '').trim();
-        return value && label ? { value, label } : null;
-      })
-      .filter(Boolean)
-      .sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' }))
-  ), [distributors]);
+  const distributorOptions = useMemo(
+    () =>
+      distributors
+        .map((dist) => {
+          const value = String(dist?.id || '').trim();
+          const label = String(dist?.name || '').trim();
+          return value && label ? { value, label } : null;
+        })
+        .filter(Boolean)
+        .sort((left, right) =>
+          left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' })
+        ),
+    [distributors]
+  );
 
-  const categoryOptions = useMemo(() => (
-    categories
-      .map((cat) => {
-        const value = String(cat?.name || cat?.label || '').trim();
-        return value ? { value, label: value } : null;
-      })
-      .filter(Boolean)
-      .reduce((accumulator, option) => {
-        if (!accumulator.some((item) => item.value === option.value)) {
-          accumulator.push(option);
-        }
-        return accumulator;
-      }, [])
-      .sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' }))
-  ), [categories]);
+  const categoryOptions = useMemo(
+    () =>
+      categories
+        .map((cat) => {
+          const value = String(cat?.name || cat?.label || '').trim();
+          return value ? { value, label: value } : null;
+        })
+        .filter(Boolean)
+        .reduce((accumulator, option) => {
+          if (!accumulator.some((item) => item.value === option.value)) {
+            accumulator.push(option);
+          }
+          return accumulator;
+        }, [])
+        .sort((left, right) =>
+          left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' })
+        ),
+    [categories]
+  );
 
   const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const normalizedSearchQuery = String(deferredSearchQuery || '').trim().toLowerCase();
+  const normalizedSearchQuery = String(deferredSearchQuery || '')
+    .trim()
+    .toLowerCase();
 
-  const tableRows = useMemo(() => insights.map((row) => {
-    const riskLabel = String(row.stockout_risk || 'unknown').trim().toLowerCase() || 'unknown';
-    const categoryName = String(row.category || '').trim() || 'Uncategorized';
-    const subcategoryName = String(row.subcategory || '').trim();
-    const categoryLabel = subcategoryName ? `${categoryName} · ${subcategoryName}` : categoryName;
-    const latestDistributorName = String(row.latest_distributor_name || '').trim() || '-';
-    const bestDistributorName = String(row.best_distributor_name || '').trim() || '-';
-    const availableDistributorNames = (Array.isArray(row.available_distributors) ? row.available_distributors : [])
-      .map((entry) => String(entry?.name || '').trim())
-      .filter(Boolean)
-      .join(' ');
-    const latestCostLabel = formatCurrencyValue(row.latest_cost);
-    const latestCostCompactLabel = formatCompactCurrencyValue(row.latest_cost);
-    const marginAmount = row.margin_amount != null ? Number(row.margin_amount) : null;
-    const marginPercentValue = row.margin_pct != null ? Number(row.margin_pct) : null;
-    const changeAmount = row.cost_change != null ? Number(row.cost_change) : null;
-    const changePercentValue = row.cost_change_pct != null ? Number(row.cost_change_pct) : null;
-    const minCostLabel = formatCurrencyValue(row.min_cost);
-    const avgCostLabel = formatCurrencyValue(row.avg_cost);
-    const maxCostLabel = formatCurrencyValue(row.max_cost);
-    const minCostCompactLabel = formatCompactCurrencyValue(row.min_cost);
-    const avgCostCompactLabel = formatCompactCurrencyValue(row.avg_cost);
-    const maxCostCompactLabel = formatCompactCurrencyValue(row.max_cost);
-    const avgDaysValue = getComparableNumber(row.avg_days_between);
-    const purchaseCountValue = Math.max(0, Number(row.purchase_count || 0));
-    const bestDistributorCostLabel = formatCurrencyValue(row.best_distributor_avg_cost);
-    const bestDistributorCostCompactLabel = formatCompactCurrencyValue(row.best_distributor_avg_cost);
-    const volatilityLabel = formatCurrencyValue(row.price_volatility);
-    const volatilityCompactValue = formatCompactCurrencyValue(row.price_volatility);
-    const marginPercentLabel = marginPercentValue !== null ? `${marginPercentValue.toFixed(1)}%` : '';
-    const changePercentLabel = changePercentValue !== null ? `${changePercentValue.toFixed(1)}%` : '-';
-    const marginSummaryLabel = marginAmount !== null
-      ? `Margin ${formatCompactSignedCurrencyValue(marginAmount)}${marginPercentLabel ? ` (${marginPercentLabel})` : ''}`
-      : 'Margin -';
-    const changeSummaryLabel = changeAmount !== null
-      ? `Change ${formatCompactSignedCurrencyValue(changeAmount)}${changePercentValue !== null ? ` (${changePercentLabel})` : ''}`
-      : 'Change -';
+  const tableRows = useMemo(
+    () =>
+      insights
+        .map((row) => {
+          const riskLabel =
+            String(row.stockout_risk || 'unknown')
+              .trim()
+              .toLowerCase() || 'unknown';
+          const categoryName = String(row.category || '').trim() || 'Uncategorized';
+          const subcategoryName = String(row.subcategory || '').trim();
+          const categoryLabel = subcategoryName
+            ? `${categoryName} · ${subcategoryName}`
+            : categoryName;
+          const latestDistributorName = String(row.latest_distributor_name || '').trim() || '-';
+          const bestDistributorName = String(row.best_distributor_name || '').trim() || '-';
+          const availableDistributorNames = (
+            Array.isArray(row.available_distributors) ? row.available_distributors : []
+          )
+            .map((entry) => String(entry?.name || '').trim())
+            .filter(Boolean)
+            .join(' ');
+          const latestCostLabel = formatCurrencyValue(row.latest_cost);
+          const latestCostCompactLabel = formatCompactCurrencyValue(row.latest_cost);
+          const marginAmount = row.margin_amount != null ? Number(row.margin_amount) : null;
+          const marginPercentValue = row.margin_pct != null ? Number(row.margin_pct) : null;
+          const changeAmount = row.cost_change != null ? Number(row.cost_change) : null;
+          const changePercentValue =
+            row.cost_change_pct != null ? Number(row.cost_change_pct) : null;
+          const minCostLabel = formatCurrencyValue(row.min_cost);
+          const avgCostLabel = formatCurrencyValue(row.avg_cost);
+          const maxCostLabel = formatCurrencyValue(row.max_cost);
+          const minCostCompactLabel = formatCompactCurrencyValue(row.min_cost);
+          const avgCostCompactLabel = formatCompactCurrencyValue(row.avg_cost);
+          const maxCostCompactLabel = formatCompactCurrencyValue(row.max_cost);
+          const avgDaysValue = getComparableNumber(row.avg_days_between);
+          const purchaseCountValue = Math.max(0, Number(row.purchase_count || 0));
+          const bestDistributorCostLabel = formatCurrencyValue(row.best_distributor_avg_cost);
+          const bestDistributorCostCompactLabel = formatCompactCurrencyValue(
+            row.best_distributor_avg_cost
+          );
+          const volatilityLabel = formatCurrencyValue(row.price_volatility);
+          const volatilityCompactValue = formatCompactCurrencyValue(row.price_volatility);
+          const marginPercentLabel =
+            marginPercentValue !== null ? `${marginPercentValue.toFixed(1)}%` : '';
+          const changePercentLabel =
+            changePercentValue !== null ? `${changePercentValue.toFixed(1)}%` : '-';
+          const marginSummaryLabel =
+            marginAmount !== null
+              ? `Margin ${formatCompactSignedCurrencyValue(marginAmount)}${marginPercentLabel ? ` (${marginPercentLabel})` : ''}`
+              : 'Margin -';
+          const changeSummaryLabel =
+            changeAmount !== null
+              ? `Change ${formatCompactSignedCurrencyValue(changeAmount)}${changePercentValue !== null ? ` (${changePercentLabel})` : ''}`
+              : 'Change -';
 
-    return {
-      productId: Number(row.product_id || 0),
-      productName: String(row.product_name || 'Unknown product').trim() || 'Unknown product',
-      categoryName,
-      subcategoryName,
-      categoryLabel,
-      latestDistributorId: row.latest_distributor_id ? Number(row.latest_distributor_id) : null,
-      latestDistributorName,
-      bestDistributorName,
-      availableDistributorNames,
-      latestCostValue: getComparableNumber(row.latest_cost),
-      latestCostLabel,
-      latestCostCompactLabel,
-      marginAmount,
-      marginPercentValue,
-      marginPercentLabel,
-      marginSummaryLabel,
-      marginClass: getSignedCurrencyClassName(row.margin_amount || 0),
-      changeAmount,
-      changePercentValue,
-      changePercentLabel,
-      changeSummaryLabel,
-      changeClass: getSignedCurrencyClassName(row.cost_change || 0),
-      minCostValue: getComparableNumber(row.min_cost),
-      avgCostValue: getComparableNumber(row.avg_cost),
-      maxCostValue: getComparableNumber(row.max_cost),
-      rangeValues: [
-        { label: '↓', value: minCostCompactLabel, fullValue: minCostLabel },
-        { label: '≈', value: avgCostCompactLabel, fullValue: avgCostLabel },
-        { label: '↑', value: maxCostCompactLabel, fullValue: maxCostLabel },
-      ],
-      avgDaysValue,
-      avgDaysLabel: formatDayValue(row.avg_days_between),
-      cadenceCompactLabel: avgDaysValue !== null
-        ? `⏱${formatCompactDayValue(avgDaysValue)}×${formatCompactCountValue(purchaseCountValue)}`
-        : '-',
-      purchaseCountValue,
-      purchaseCountLabel: formatPurchaseCount(row.purchase_count),
-      bestDistributorCostValue: getComparableNumber(row.best_distributor_avg_cost),
-      bestDistributorCostLabel,
-      bestDistributorCompactLabel: row.bestDistributorName !== '-'
-        ? `◉ ${row.bestDistributorName}${bestDistributorCostLabel !== '-' ? ` @${bestDistributorCostCompactLabel}` : ''}`
-        : '-',
-      volatilityValue: getComparableNumber(row.price_volatility),
-      volatilityLabel,
-      volatilityCompactLabel: volatilityCompactValue !== '-'
-        ? `σ${volatilityCompactValue}`
-        : '-',
-      riskLabel,
-      riskSymbol: riskLabel === 'high' ? '▲' : riskLabel === 'medium' ? '●' : riskLabel === 'low' ? '○' : '?',
-      riskRank: Object.prototype.hasOwnProperty.call(RISK_ORDER, riskLabel)
-        ? RISK_ORDER[riskLabel]
-        : RISK_ORDER.unknown,
-    };
-  }).map((row) => ({
-    ...row,
-    rangeCompactLabel: `${row.rangeValues[0].label}${row.rangeValues[0].value} · ${row.rangeValues[1].label}${row.rangeValues[1].value} · ${row.rangeValues[2].label}${row.rangeValues[2].value}`,
-    rangeTooltip: `Min ${row.rangeValues[0].fullValue} / Avg ${row.rangeValues[1].fullValue} / Max ${row.rangeValues[2].fullValue}`,
-    costSummaryTooltip: `Latest cost ${row.latestCostLabel} · ${row.marginSummaryLabel} · ${row.changeSummaryLabel} · Range ${row.rangeTooltip}`,
-    costRangeSummaryLabel: `Range ${row.rangeCompactLabel}`,
-  })).map((row) => ({
-    ...row,
-    decisionTags: buildDecisionTags(row),
-  })).map((row) => ({
-    ...row,
-    searchText: [
-      row.productName,
-      row.categoryLabel,
-      row.latestDistributorName,
-      row.bestDistributorName,
-      row.availableDistributorNames,
-      row.riskLabel,
-      ...(row.decisionTags || []).map((tag) => tag.label),
-    ]
-      .map((value) => String(value || '').toLowerCase())
-      .join(' '),
-  })), [insights]);
+          return {
+            productId: Number(row.product_id || 0),
+            productName: String(row.product_name || 'Unknown product').trim() || 'Unknown product',
+            categoryName,
+            subcategoryName,
+            categoryLabel,
+            latestDistributorId: row.latest_distributor_id
+              ? Number(row.latest_distributor_id)
+              : null,
+            latestDistributorName,
+            bestDistributorName,
+            availableDistributorNames,
+            latestCostValue: getComparableNumber(row.latest_cost),
+            latestCostLabel,
+            latestCostCompactLabel,
+            marginAmount,
+            marginPercentValue,
+            marginPercentLabel,
+            marginSummaryLabel,
+            marginClass: getSignedCurrencyClassName(row.margin_amount || 0),
+            changeAmount,
+            changePercentValue,
+            changePercentLabel,
+            changeSummaryLabel,
+            changeClass: getSignedCurrencyClassName(row.cost_change || 0),
+            minCostValue: getComparableNumber(row.min_cost),
+            avgCostValue: getComparableNumber(row.avg_cost),
+            maxCostValue: getComparableNumber(row.max_cost),
+            rangeValues: [
+              { label: '↓', value: minCostCompactLabel, fullValue: minCostLabel },
+              { label: '≈', value: avgCostCompactLabel, fullValue: avgCostLabel },
+              { label: '↑', value: maxCostCompactLabel, fullValue: maxCostLabel },
+            ],
+            avgDaysValue,
+            avgDaysLabel: formatDayValue(row.avg_days_between),
+            cadenceCompactLabel:
+              avgDaysValue !== null
+                ? `⏱${formatCompactDayValue(avgDaysValue)}×${formatCompactCountValue(purchaseCountValue)}`
+                : '-',
+            purchaseCountValue,
+            purchaseCountLabel: formatPurchaseCount(row.purchase_count),
+            bestDistributorCostValue: getComparableNumber(row.best_distributor_avg_cost),
+            bestDistributorCostLabel,
+            bestDistributorCompactLabel:
+              row.bestDistributorName !== '-'
+                ? `◉ ${row.bestDistributorName}${bestDistributorCostLabel !== '-' ? ` @${bestDistributorCostCompactLabel}` : ''}`
+                : '-',
+            volatilityValue: getComparableNumber(row.price_volatility),
+            volatilityLabel,
+            volatilityCompactLabel:
+              volatilityCompactValue !== '-' ? `σ${volatilityCompactValue}` : '-',
+            riskLabel,
+            riskSymbol:
+              riskLabel === 'high'
+                ? '▲'
+                : riskLabel === 'medium'
+                  ? '●'
+                  : riskLabel === 'low'
+                    ? '○'
+                    : '?',
+            riskRank: Object.prototype.hasOwnProperty.call(RISK_ORDER, riskLabel)
+              ? RISK_ORDER[riskLabel]
+              : RISK_ORDER.unknown,
+          };
+        })
+        .map((row) => ({
+          ...row,
+          rangeCompactLabel: `${row.rangeValues[0].label}${row.rangeValues[0].value} · ${row.rangeValues[1].label}${row.rangeValues[1].value} · ${row.rangeValues[2].label}${row.rangeValues[2].value}`,
+          rangeTooltip: `Min ${row.rangeValues[0].fullValue} / Avg ${row.rangeValues[1].fullValue} / Max ${row.rangeValues[2].fullValue}`,
+          costSummaryTooltip: `Latest cost ${row.latestCostLabel} · ${row.marginSummaryLabel} · ${row.changeSummaryLabel} · Range ${row.rangeTooltip}`,
+          costRangeSummaryLabel: `Range ${row.rangeCompactLabel}`,
+        }))
+        .map((row) => ({
+          ...row,
+          decisionTags: buildDecisionTags(row),
+        }))
+        .map((row) => ({
+          ...row,
+          searchText: [
+            row.productName,
+            row.categoryLabel,
+            row.latestDistributorName,
+            row.bestDistributorName,
+            row.availableDistributorNames,
+            row.riskLabel,
+            ...(row.decisionTags || []).map((tag) => tag.label),
+          ]
+            .map((value) => String(value || '').toLowerCase())
+            .join(' '),
+        })),
+    [insights]
+  );
 
   const visibleRows = useMemo(() => {
     return tableRows.filter((row) => {
@@ -646,7 +738,13 @@ const ProductInsights = () => {
           case 'category':
             return [row.categoryName, row.subcategoryName].filter(Boolean).join(' ');
           case 'distributor':
-            return [row.latestDistributorName, row.bestDistributorName, row.availableDistributorNames].filter(Boolean).join(' ');
+            return [
+              row.latestDistributorName,
+              row.bestDistributorName,
+              row.availableDistributorNames,
+            ]
+              .filter(Boolean)
+              .join(' ');
           case 'risk':
             return [row.riskLabel, ...(row.decisionTags || []).map((tag) => tag.label)].join(' ');
           case 'all':
@@ -655,7 +753,9 @@ const ProductInsights = () => {
         }
       })();
 
-      return String(scopeText || '').toLowerCase().includes(normalizedSearchQuery);
+      return String(scopeText || '')
+        .toLowerCase()
+        .includes(normalizedSearchQuery);
     });
   }, [filters.risk, normalizedSearchQuery, searchScope, tableRows]);
 
@@ -738,13 +838,16 @@ const ProductInsights = () => {
   const activeDatePresetLabel = useMemo(() => {
     if (!filters.start_date && !filters.end_date) return '';
 
-    const normalizeRange = (startDate, endDate) => [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
+    const normalizeRange = (startDate, endDate) =>
+      [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
     const currentRange = normalizeRange(filters.start_date, filters.end_date);
 
-    return dateRangePresets.find((preset) => {
-      const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
-      return normalizeRange(presetStart, presetEnd) === currentRange;
-    })?.label || '';
+    return (
+      dateRangePresets.find((preset) => {
+        const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
+        return normalizeRange(presetStart, presetEnd) === currentRange;
+      })?.label || ''
+    );
   }, [dateRangePresets, filters.end_date, filters.start_date]);
 
   const activeFilterPills = [
@@ -769,7 +872,7 @@ const ProductInsights = () => {
           onClear: () => setFilters((prev) => ({ ...prev, risk: '' })),
         }
       : null,
-    (filters.start_date || filters.end_date)
+    filters.start_date || filters.end_date
       ? {
           key: 'date_range',
           label: activeDatePresetLabel
@@ -792,11 +895,12 @@ const ProductInsights = () => {
   const summaryStats = useMemo(() => {
     const totalProducts = visibleRows.length;
     const highRiskCount = visibleRows.filter((row) => row.riskLabel === 'high').length;
-    const lowMarginCount = visibleRows.filter((row) => row.marginPercentValue !== null && row.marginPercentValue <= 10).length;
-    const fastMovingCount = visibleRows.filter((row) => (
-      (row.avgDaysValue !== null && row.avgDaysValue <= 3)
-      || row.purchaseCountValue >= 5
-    )).length;
+    const lowMarginCount = visibleRows.filter(
+      (row) => row.marginPercentValue !== null && row.marginPercentValue <= 10
+    ).length;
+    const fastMovingCount = visibleRows.filter(
+      (row) => (row.avgDaysValue !== null && row.avgDaysValue <= 3) || row.purchaseCountValue >= 5
+    ).length;
 
     return {
       totalProducts,
@@ -847,8 +951,12 @@ const ProductInsights = () => {
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
-        {(searchDraft || searchQuery || activeFilterCount) ? (
-          <button type="button" className="product-insights-filter-clear" onClick={handleClearAllFilters}>
+        {searchDraft || searchQuery || activeFilterCount ? (
+          <button
+            type="button"
+            className="product-insights-filter-clear"
+            onClick={handleClearAllFilters}
+          >
             Clear
           </button>
         ) : null}
@@ -857,7 +965,12 @@ const ProductInsights = () => {
       {activeFilterPills.length ? (
         <div className="product-insights-active-filters" aria-label="Active filters">
           {activeFilterPills.map((pill) => (
-            <button key={pill.key} type="button" className="product-insights-active-filter-pill" onClick={pill.onClear}>
+            <button
+              key={pill.key}
+              type="button"
+              className="product-insights-active-filter-pill"
+              onClick={pill.onClear}
+            >
               <span>{pill.label}</span>
               <X size={12} aria-hidden="true" />
             </button>
@@ -967,7 +1080,13 @@ const ProductInsights = () => {
               <tr className="sticky-header-row">
                 <th
                   className="sticky-col"
-                  aria-sort={sortConfig.key === 'productName' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'productName'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Product"
@@ -980,7 +1099,13 @@ const ProductInsights = () => {
                 </th>
                 <th
                   className="numeric-header"
-                  aria-sort={sortConfig.key === 'latestCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'latestCostValue'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Cost / Margin"
@@ -994,7 +1119,13 @@ const ProductInsights = () => {
                 </th>
                 <th
                   className="numeric-header"
-                  aria-sort={sortConfig.key === 'avgDaysValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'avgDaysValue'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Avg Days"
@@ -1007,7 +1138,13 @@ const ProductInsights = () => {
                   />
                 </th>
                 <th
-                  aria-sort={sortConfig.key === 'bestDistributorName' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'bestDistributorName'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Best Distributor"
@@ -1020,7 +1157,13 @@ const ProductInsights = () => {
                 </th>
                 <th
                   className="numeric-header"
-                  aria-sort={sortConfig.key === 'volatilityValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'volatilityValue'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Volatility"
@@ -1033,7 +1176,13 @@ const ProductInsights = () => {
                   />
                 </th>
                 <th
-                  aria-sort={sortConfig.key === 'riskRank' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortConfig.key === 'riskRank'
+                      ? sortConfig.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                 >
                   <SortHeader
                     label="Risk"
@@ -1051,11 +1200,7 @@ const ProductInsights = () => {
                 const isSelected = Number(selectedProductId || 0) === row.productId;
                 return (
                   <Fragment key={row.productId}>
-                    <ProductInsightsRow
-                      row={row}
-                      isSelected={isSelected}
-                      onView={loadDetail}
-                    />
+                    <ProductInsightsRow row={row} isSelected={isSelected} onView={loadDetail} />
                     {isSelected && (
                       <tr className="detail-inline-row">
                         <td colSpan={TABLE_COLUMN_COUNT} className="detail-inline-cell">

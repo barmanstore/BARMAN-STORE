@@ -51,7 +51,9 @@ const ProductsControls = ({
           aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
           aria-controls={searchSuggestionsListId}
           aria-activedescendant={
-            activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
+            activeSuggestionIndex >= 0
+              ? `products-search-suggestion-${activeSuggestionIndex}`
+              : undefined
           }
           inputMode="search"
           enterKeyHint="search"
@@ -68,7 +70,11 @@ const ProductsControls = ({
             <span aria-hidden="true">×</span>
           </button>
         ) : null}
-        {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
+        {isLoadingSuggestions ? (
+          <span className="search-suggest-loading" aria-live="polite">
+            Loading
+          </span>
+        ) : null}
         {showSearchSuggestions && searchSuggestions.length > 0 ? (
           <SearchSuggestionsList
             searchSuggestions={searchSuggestions}
@@ -91,7 +97,11 @@ const ProductsControls = ({
 
     {isMobile ? (
       <div className="mobile-filter-launch-row">
-        <button type="button" className="mobile-filter-btn" onClick={() => setShowMobileFilters(true)}>
+        <button
+          type="button"
+          className="mobile-filter-btn"
+          onClick={() => setShowMobileFilters(true)}
+        >
           <Filter size={16} /> Filters & Sort
         </button>
         <label className="stock-only-toggle">
@@ -154,4 +164,3 @@ const ProductsControls = ({
 );
 
 export default ProductsControls;
-

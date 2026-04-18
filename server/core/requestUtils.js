@@ -53,10 +53,10 @@ const createRequestUtils = ({ crypto } = {}) => {
   const resolveClientRequestId = (req) => {
     const fromBody = String(req.body?.client_request_id || '').trim();
     const fromHeader = String(
-      req.headers['x-idempotency-key']
-      || req.headers['x-client-request-id']
-      || req.headers['x-request-id']
-      || ''
+      req.headers['x-idempotency-key'] ||
+        req.headers['x-client-request-id'] ||
+        req.headers['x-request-id'] ||
+        ''
     ).trim();
     const candidate = fromBody || fromHeader;
     if (!candidate) return { value: null, error: null };

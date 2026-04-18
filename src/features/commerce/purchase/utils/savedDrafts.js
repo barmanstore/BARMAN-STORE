@@ -9,9 +9,8 @@ const PURCHASE_SAVED_DRAFTS_KEY = 'purchase_saved_drafts_v1';
 const normalizeSavedDraft = (entry = {}) => {
   const id = String(entry?.id || '').trim();
   if (!id) return null;
-  const orderFormData = entry?.orderFormData && typeof entry.orderFormData === 'object'
-    ? entry.orderFormData
-    : null;
+  const orderFormData =
+    entry?.orderFormData && typeof entry.orderFormData === 'object' ? entry.orderFormData : null;
   if (!orderFormData) return null;
   return {
     id,
@@ -53,8 +52,4 @@ const writeSavedPurchaseDrafts = (drafts = []) => {
   return normalized;
 };
 
-export {
-  PURCHASE_SAVED_DRAFTS_KEY,
-  readSavedPurchaseDrafts,
-  writeSavedPurchaseDrafts,
-};
+export { PURCHASE_SAVED_DRAFTS_KEY, readSavedPurchaseDrafts, writeSavedPurchaseDrafts };

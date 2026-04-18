@@ -1,11 +1,5 @@
 const registerCreditLedgerListRoutes = (deps) => {
-  const {
-    app,
-    requireAuth,
-    requireAdmin,
-    dbGetAsync,
-    dbAllAsync,
-  } = deps;
+  const { app, requireAuth, requireAdmin, dbGetAsync, dbAllAsync } = deps;
 
   const creditLedgerSelect = `
     SELECT ch.*,
@@ -67,15 +61,15 @@ const registerCreditLedgerListRoutes = (deps) => {
       const selectedUserId = Number(req.query.user_id || 0);
       const rows = selectedUserId
         ? await dbAllAsync(
-          `${creditLedgerSelect}
+            `${creditLedgerSelect}
            WHERE ch.user_id = ?
            ORDER BY ch.transaction_ts ASC, ch.created_at ASC, ch.id ASC`,
-          [selectedUserId]
-        )
+            [selectedUserId]
+          )
         : await dbAllAsync(
-          `${creditLedgerSelect}
+            `${creditLedgerSelect}
            ORDER BY ch.transaction_ts ASC, ch.created_at ASC, ch.id ASC`
-        );
+          );
       return res.json(rows);
     } catch (error) {
       return res.status(500).json({ error: error.message });

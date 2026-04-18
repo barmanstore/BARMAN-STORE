@@ -54,18 +54,13 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
         });
       }
 
-      const {
-        distributor,
-        supplier,
-        distributorId,
-        supplierId,
-        normalizedItems,
-      } = await validatePurchaseOrderInput({
-        body: b,
-        getDistributorByIdAsync,
-        getSupplierByIdAsync,
-        normalizePurchaseOrderItems,
-      });
+      const { distributor, supplier, distributorId, supplierId, normalizedItems } =
+        await validatePurchaseOrderInput({
+          body: b,
+          getDistributorByIdAsync,
+          getSupplierByIdAsync,
+          normalizePurchaseOrderItems,
+        });
 
       const context = buildPurchaseOrderContext({
         body: {
@@ -131,7 +126,10 @@ const registerPurchaseOrdersListCreateRoutes = (deps) => {
       });
     } catch (error) {
       if (clientRequestId && isUniqueViolationError(error)) {
-        const existing = await dbGetAsync('SELECT id, po_number FROM purchase_orders WHERE client_request_id = ? LIMIT 1', [clientRequestId]);
+        const existing = await dbGetAsync(
+          'SELECT id, po_number FROM purchase_orders WHERE client_request_id = ? LIMIT 1',
+          [clientRequestId]
+        );
         if (existing) {
           return res.status(200).json({
             success: true,

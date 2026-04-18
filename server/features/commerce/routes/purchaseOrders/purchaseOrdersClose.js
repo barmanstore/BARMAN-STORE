@@ -1,9 +1,4 @@
-const handlePurchaseOrderClose = async (deps, {
-  req,
-  res,
-  order,
-  currentPoStatus,
-}) => {
+const handlePurchaseOrderClose = async (deps, { req, res, order, currentPoStatus }) => {
   const {
     dbRunAsync,
     canPoAcceptPayment,

@@ -13,14 +13,22 @@ const buildReminderList = ({
   getWeekdayFromDateKey,
 } = {}) => {
   const distributorById = new Map(
-    (Array.isArray(distributors) ? distributors : []).map((entry) => [Number(entry?.id || 0), entry])
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [
+      Number(entry?.id || 0),
+      entry,
+    ])
   );
   const activeSuppliers = (Array.isArray(suppliers) ? suppliers : [])
     .filter((supplier) => Number(supplier?.distributor_id || 0))
     .filter((supplier) => Boolean(supplier?.is_active ?? true))
     .filter((supplier) => {
       const distributor = distributorById.get(Number(supplier.distributor_id || 0));
-      return distributor && String(distributor.status || 'active').trim().toLowerCase() === 'active';
+      return (
+        distributor &&
+        String(distributor.status || 'active')
+          .trim()
+          .toLowerCase() === 'active'
+      );
     })
     .filter((supplier) => {
       const distributor = distributorById.get(Number(supplier.distributor_id || 0));
@@ -33,18 +41,25 @@ const buildReminderList = ({
       if (!distributor) return null;
       const schedule = getSupplierScheduleConfig(supplier, distributor);
       const scheduleDay = schedule.scheduleType === 'weekly' ? schedule.scheduleDay : null;
-      const isDueTomorrow = schedule.scheduleType === 'daily'
-        || (schedule.scheduleType === 'weekly' && scheduleDay === getWeekdayFromDateKey(tomorrowKey))
-        || (schedule.scheduleType === 'irregular'
-          && (distributorInsights.find((entry) => entry.distributor_id === Number(distributor.id || 0))?.next_order_date === tomorrowKey));
+      const isDueTomorrow =
+        schedule.scheduleType === 'daily' ||
+        (schedule.scheduleType === 'weekly' &&
+          scheduleDay === getWeekdayFromDateKey(tomorrowKey)) ||
+        (schedule.scheduleType === 'irregular' &&
+          distributorInsights.find((entry) => entry.distributor_id === Number(distributor.id || 0))
+            ?.next_order_date === tomorrowKey);
       if (!isDueTomorrow) return null;
 
       const supplierId = Number(supplier.id || 0);
-      const supplierOrders = supplierId ? (ordersBySupplier.get(supplierId) || []) : [];
+      const supplierOrders = supplierId ? ordersBySupplier.get(supplierId) || [] : [];
       const distributorOrders = ordersByDistributor.get(Number(distributor.id || 0)) || [];
       const ordersForEntry = supplierOrders.length ? supplierOrders : distributorOrders;
-      const hasEditableOrder = ordersForEntry.some((order) => isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order)));
-      const insight = distributorInsights.find((entry) => entry.distributor_id === Number(distributor.id || 0)) || null;
+      const hasEditableOrder = ordersForEntry.some((order) =>
+        isPoEditableLifecycle(getPurchaseOrderLifecycleStatus(order))
+      );
+      const insight =
+        distributorInsights.find((entry) => entry.distributor_id === Number(distributor.id || 0)) ||
+        null;
       return {
         distributor_id: Number(distributor.id || 0),
         distributor_name: distributor.name,

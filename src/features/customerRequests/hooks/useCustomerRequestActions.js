@@ -23,7 +23,9 @@ const useCustomerRequestActions = ({
   const updateIssue = async (issue, action) => {
     const id = Number(issue?.id || 0);
     if (!id) return;
-    const normalizedAction = String(action || '').trim().toLowerCase();
+    const normalizedAction = String(action || '')
+      .trim()
+      .toLowerCase();
     if (!normalizedAction) return;
     const draft = getIssueDraft(issue);
     const payload = {
@@ -34,7 +36,9 @@ const useCustomerRequestActions = ({
     const correctionAmountResult = hasCorrectionAmount
       ? validateAmountInput(draft.correction_amount, { min: 0 })
       : { valid: true, value: 0 };
-    const correctionAmount = correctionAmountResult.valid ? Number(correctionAmountResult.value || 0) : 0;
+    const correctionAmount = correctionAmountResult.valid
+      ? Number(correctionAmountResult.value || 0)
+      : 0;
     if (normalizedAction === 'corrected' && hasCorrectionAmount && !correctionAmountResult.valid) {
       setError(correctionAmountResult.message || 'Please enter a valid correction amount');
       return;
@@ -66,7 +70,11 @@ const useCustomerRequestActions = ({
         `Conflict detected. This approval will merge identity records${conflictUserId ? ` (user #${conflictUserId})` : ''}.\n${impactText ? `Impact: ${impactText}\n` : ''}Type MERGE to continue:`,
         ''
       );
-      return String(confirmation || '').trim().toUpperCase() === 'MERGE';
+      return (
+        String(confirmation || '')
+          .trim()
+          .toUpperCase() === 'MERGE'
+      );
     };
     const applyApproval = async (mergeIdentity) => {
       await adminApi.approvePhoneChangeRequest(requestId, {
@@ -111,12 +119,18 @@ const useCustomerRequestActions = ({
           await applyApproval(true);
           return;
         } catch (retryErr) {
-          applyErrorFromPayload(retryErr?.payload, retryErr.message || 'Failed to approve phone update request');
+          applyErrorFromPayload(
+            retryErr?.payload,
+            retryErr.message || 'Failed to approve phone update request'
+          );
           return;
         }
       }
       if (requiresMerge) {
-        applyErrorFromPayload(err?.payload, err.message || 'Failed to approve phone update request');
+        applyErrorFromPayload(
+          err?.payload,
+          err.message || 'Failed to approve phone update request'
+        );
       } else {
         setError(err.message || 'Failed to approve phone update request');
       }

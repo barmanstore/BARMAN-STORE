@@ -35,7 +35,11 @@ const registerProductCategoryReassignRoutes = (deps) => {
       }
 
       const rootCategory = ancestry[0];
-      const childPath = ancestry.slice(1).map((node) => String(node.name || '').trim()).filter(Boolean).join(' -> ');
+      const childPath = ancestry
+        .slice(1)
+        .map((node) => String(node.name || '').trim())
+        .filter(Boolean)
+        .join(' -> ');
 
       await dbRunAsync(
         `UPDATE products

@@ -68,7 +68,9 @@ const ProductsImportCard = ({
                             });
                           }}
                         />
-                      ) : '-'}
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td>
                       {row.errors?.length
@@ -83,7 +85,8 @@ const ProductsImportCard = ({
             </table>
             {importPreviewData.preview.length > 25 && (
               <p className="products-import-preview-note">
-                Showing first 25 rows of {importPreviewData.preview.length}. Confirm queues the full validated batch as a background job.
+                Showing first 25 rows of {importPreviewData.preview.length}. Confirm queues the full
+                validated batch as a background job.
               </p>
             )}
           </div>

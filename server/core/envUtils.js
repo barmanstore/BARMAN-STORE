@@ -1,5 +1,7 @@
 const parseBooleanEnv = (value, fallback = false) => {
-  const raw = String(value ?? '').trim().toLowerCase();
+  const raw = String(value ?? '')
+    .trim()
+    .toLowerCase();
   if (!raw) return fallback;
   return ['1', 'true', 'yes', 'on'].includes(raw);
 };
@@ -13,7 +15,7 @@ const normalizeOrigin = (value) => {
     const hostname = parsed.hostname.toLowerCase();
     const isDefaultHttpPort = protocol === 'http:' && parsed.port === '80';
     const isDefaultHttpsPort = protocol === 'https:' && parsed.port === '443';
-    const port = (isDefaultHttpPort || isDefaultHttpsPort || !parsed.port) ? '' : `:${parsed.port}`;
+    const port = isDefaultHttpPort || isDefaultHttpsPort || !parsed.port ? '' : `:${parsed.port}`;
     return `${protocol}//${hostname}${port}`;
   } catch (_) {
     return raw.replace(/\/+$/, '').toLowerCase();

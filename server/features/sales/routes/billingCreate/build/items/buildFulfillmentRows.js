@@ -10,12 +10,14 @@ const buildItemFulfillmentRows = ({
   fromStockUnitQty,
   roundQty,
 }) => {
-  const linkedFulfilledRemainingByOrderItemId = linkedFulfilledRemaining?.byOrderItemId instanceof Map
-    ? linkedFulfilledRemaining.byOrderItemId
-    : new Map();
-  const linkedFulfilledRemainingByProductId = linkedFulfilledRemaining?.byProductId instanceof Map
-    ? linkedFulfilledRemaining.byProductId
-    : new Map();
+  const linkedFulfilledRemainingByOrderItemId =
+    linkedFulfilledRemaining?.byOrderItemId instanceof Map
+      ? linkedFulfilledRemaining.byOrderItemId
+      : new Map();
+  const linkedFulfilledRemainingByProductId =
+    linkedFulfilledRemaining?.byProductId instanceof Map
+      ? linkedFulfilledRemaining.byProductId
+      : new Map();
 
   return sanitizedItems.map((it) => {
     const requestedQty = Math.max(0, Number(it.qty || 0));
@@ -23,8 +25,12 @@ const buildItemFulfillmentRows = ({
     const linkedOrderItemId = Number(it.linked_order_item_id || 0);
     const product = productId ? productCache.get(productId) : null;
     const stockSnapshotBase = productId ? Number(product?.stock || 0) : 0;
-    const requestedStockQty = product ? toStockUnitQty(requestedQty, it.unit, product) : requestedQty;
-    const stockSnapshot = product ? fromStockUnitQty(stockSnapshotBase, it.unit, product) : stockSnapshotBase;
+    const requestedStockQty = product
+      ? toStockUnitQty(requestedQty, it.unit, product)
+      : requestedQty;
+    const stockSnapshot = product
+      ? fromStockUnitQty(stockSnapshotBase, it.unit, product)
+      : stockSnapshotBase;
 
     if (!productId) {
       return {
@@ -68,15 +74,19 @@ const buildItemFulfillmentRows = ({
         stock_snapshot_base: roundQty(stockSnapshotBase),
       };
     }
-    const fulfilledRemaining = linkedOrderItemId > 0 && linkedFulfilledRemainingByOrderItemId.has(linkedOrderItemId)
-      ? Math.max(0, Number(linkedFulfilledRemainingByOrderItemId.get(linkedOrderItemId) || 0))
-      : Math.max(0, Number(linkedFulfilledRemainingByProductId.get(productId) || 0));
+    const fulfilledRemaining =
+      linkedOrderItemId > 0 && linkedFulfilledRemainingByOrderItemId.has(linkedOrderItemId)
+        ? Math.max(0, Number(linkedFulfilledRemainingByOrderItemId.get(linkedOrderItemId) || 0))
+        : Math.max(0, Number(linkedFulfilledRemainingByProductId.get(productId) || 0));
     const fulfilledQty = Math.min(requestedQty, fulfilledRemaining);
     const pendingQty = Math.max(0, requestedQty - fulfilledQty);
-    const fulfilledStockQty = product ? toStockUnitQty(fulfilledQty, it.unit, product) : fulfilledQty;
+    const fulfilledStockQty = product
+      ? toStockUnitQty(fulfilledQty, it.unit, product)
+      : fulfilledQty;
     const pendingStockQty = Math.max(0, requestedStockQty - fulfilledStockQty);
-    const fulfillmentRatio = requestedQty > 0 ? (fulfilledQty / requestedQty) : 0;
-    const scaleMoney = (value = 0) => roundMoney(Math.max(0, Number(value || 0)) * fulfillmentRatio);
+    const fulfillmentRatio = requestedQty > 0 ? fulfilledQty / requestedQty : 0;
+    const scaleMoney = (value = 0) =>
+      roundMoney(Math.max(0, Number(value || 0)) * fulfillmentRatio);
     if (linkedOrderItemId > 0 && linkedFulfilledRemainingByOrderItemId.has(linkedOrderItemId)) {
       linkedFulfilledRemainingByOrderItemId.set(
         linkedOrderItemId,
@@ -85,11 +95,17 @@ const buildItemFulfillmentRows = ({
       if (productId > 0 && linkedFulfilledRemainingByProductId.has(productId)) {
         linkedFulfilledRemainingByProductId.set(
           productId,
-          Math.max(0, Number(linkedFulfilledRemainingByProductId.get(productId) || 0) - fulfilledQty)
+          Math.max(
+            0,
+            Number(linkedFulfilledRemainingByProductId.get(productId) || 0) - fulfilledQty
+          )
         );
       }
     } else {
-      linkedFulfilledRemainingByProductId.set(productId, Math.max(0, fulfilledRemaining - fulfilledQty));
+      linkedFulfilledRemainingByProductId.set(
+        productId,
+        Math.max(0, fulfilledRemaining - fulfilledQty)
+      );
     }
     return {
       ...it,

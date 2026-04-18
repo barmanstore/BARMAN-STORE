@@ -10,20 +10,21 @@ const createOriginConfig = ({
     .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
   const vercelDeploymentOrigin = normalizeOrigin(
-    String(vercelUrl || '').trim()
-      ? `https://${String(vercelUrl || '').trim()}`
-      : ''
+    String(vercelUrl || '').trim() ? `https://${String(vercelUrl || '').trim()}` : ''
   );
 
-  const normalizedDefaults = (defaultAllowedOrigins || []).map((origin) => normalizeOrigin(origin)).filter(Boolean);
+  const normalizedDefaults = (defaultAllowedOrigins || [])
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
   const allowedOrigins = new Set([
     ...(envAllowedOrigins.length ? envAllowedOrigins : normalizedDefaults),
     ...(vercelDeploymentOrigin ? [vercelDeploymentOrigin] : []),
   ]);
-  const defaultOnlineStoreUrl = envAllowedOrigins.find((origin) => origin.startsWith('https://'))
-    || normalizedDefaults.find((origin) => origin.startsWith('https://'))
-    || normalizedDefaults[0]
-    || '';
+  const defaultOnlineStoreUrl =
+    envAllowedOrigins.find((origin) => origin.startsWith('https://')) ||
+    normalizedDefaults.find((origin) => origin.startsWith('https://')) ||
+    normalizedDefaults[0] ||
+    '';
 
   const corsOptions = {
     origin(origin, callback) {

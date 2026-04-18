@@ -1,13 +1,16 @@
-const updatePurchaseOrderOnConfirm = async (deps, {
-  req,
-  billNumber,
-  nextLifecycleStatus,
-  totalSnapshot,
-  paymentDueDate,
-  nextAction,
-  confirmedAt,
-  delivered,
-}) => {
+const updatePurchaseOrderOnConfirm = async (
+  deps,
+  {
+    req,
+    billNumber,
+    nextLifecycleStatus,
+    totalSnapshot,
+    paymentDueDate,
+    nextAction,
+    confirmedAt,
+    delivered,
+  }
+) => {
   const { dbRunAsync } = deps;
 
   await dbRunAsync(

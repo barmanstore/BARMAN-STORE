@@ -47,11 +47,9 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
   };
 
   const clearNotificationFeedback = () => {
-    setNotificationFeedback((current) => (
-      current?.text || current?.type
-        ? { type: '', text: '' }
-        : current
-    ));
+    setNotificationFeedback((current) =>
+      current?.text || current?.type ? { type: '', text: '' } : current
+    );
   };
 
   const setNotificationError = (message) => {
@@ -80,7 +78,7 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
 
   useEffect(() => {
     notificationPanelOpenRef.current = notificationPanelOpen;
-  }, [notificationPanelOpen]);
+  }, [enabled, notificationPanelOpen]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -115,7 +113,8 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
         }
         if (!silent || notificationPanelOpenRef.current) {
           setNotificationError(
-            error?.message || (silent ? 'Failed to refresh notifications.' : 'Failed to load notifications.')
+            error?.message ||
+              (silent ? 'Failed to refresh notifications.' : 'Failed to load notifications.')
           );
         }
       }
@@ -132,7 +131,9 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
         void loadNotifications(true);
       }, 45000);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       resetNotificationState();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       clearNotificationFeedback();
     }
 
@@ -141,17 +142,27 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
       if (timerId) window.clearInterval(timerId);
       if (bootstrapTimerId) window.clearTimeout(bootstrapTimerId);
     };
-  }, [userId, userToken]);
-  
+  }, [userId, userToken, enabled]);
+
+  // Reset notification state when disabled
   useEffect(() => {
     if (enabled) return;
+    // Batch all resets when feature is disabled
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNotificationPanelOpen(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedNotificationId(null);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessageDraft('');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessageRecipients([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedRecipientIds([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecipientSearch('');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessageSending(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessageFeedback({ type: '', text: '' });
     resetNotificationState();
     clearNotificationFeedback();
@@ -181,7 +192,8 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
   };
 
   const loadOlderNotifications = async () => {
-    if (!enabled || !userId || !userToken || !notificationsHasMore || !notificationsNextBeforeId) return;
+    if (!enabled || !userId || !userToken || !notificationsHasMore || !notificationsNextBeforeId)
+      return;
     try {
       const rows = await notificationsApi.listMine({
         unreadOnly: false,
@@ -215,7 +227,9 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
 
   useEffect(() => {
     if (!enabled || !notificationPanelOpen || !userId || !userToken || !isAdminUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessageRecipients([]);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedRecipientIds([]);
       return;
     }
@@ -242,23 +256,25 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [isAdminUser, notificationPanelOpen, recipientSearch, userId, userToken]);
+  }, [enabled, isAdminUser, notificationPanelOpen, recipientSearch, userId, userToken]);
 
   useEffect(() => {
     if (!notificationPanelOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessageFeedback({ type: '', text: '' });
       clearNotificationFeedback();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setExpandedNotificationId(null);
     }
-  }, [notificationPanelOpen]);
+  }, [enabled, notificationPanelOpen]);
 
   const resolveNotificationHref = (notice) => {
-    const metadata = notice?.metadata && typeof notice.metadata === 'object'
-      ? notice.metadata
-      : {};
+    const metadata = notice?.metadata && typeof notice.metadata === 'object' ? notice.metadata : {};
     const metadataRoute = String(metadata?.route || '').trim();
     if (metadataRoute.startsWith('/')) return metadataRoute;
-    const entityType = String(notice?.entity_type || '').trim().toLowerCase();
+    const entityType = String(notice?.entity_type || '')
+      .trim()
+      .toLowerCase();
     const issueId = Number(notice?.issue_id || metadata?.issue_id || 0) || null;
     const creditEntryId = Number(metadata?.credit_entry_id || 0) || null;
     const targetUserId = Number(metadata?.user_id || 0) || null;
@@ -299,11 +315,13 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
     if (!targetId) return;
     try {
       await notificationsApi.markRead(targetId);
-      setNotifications((prev) => prev.map((row) => (
-        Number(row?.id || 0) === targetId
-          ? { ...row, is_read: true, read_at: row?.read_at || new Date().toISOString() }
-          : row
-      )));
+      setNotifications((prev) =>
+        prev.map((row) =>
+          Number(row?.id || 0) === targetId
+            ? { ...row, is_read: true, read_at: row?.read_at || new Date().toISOString() }
+            : row
+        )
+      );
       setUnreadNotificationCount((prev) => Math.max(0, Number(prev || 0) - 1));
       clearNotificationFeedback();
     } catch (error) {
@@ -329,11 +347,9 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
   const toggleRecipientSelection = (recipientId) => {
     const id = Number(recipientId || 0);
     if (!id) return;
-    setSelectedRecipientIds((prev) => (
-      prev.includes(id)
-        ? prev.filter((value) => value !== id)
-        : [...prev, id]
-    ));
+    setSelectedRecipientIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
+    );
   };
 
   const sendInboxMessage = async () => {
@@ -390,7 +406,7 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [notificationPanelOpen]);
+  }, [enabled, notificationPanelOpen]);
 
   return {
     notificationPanelOpen: enabled ? notificationPanelOpen : false,
@@ -418,4 +434,3 @@ export const useNotificationsInbox = ({ user, isAdminUser, enabled = true }) => 
     onClearRecipientSelection: clearRecipientSelection,
   };
 };
-

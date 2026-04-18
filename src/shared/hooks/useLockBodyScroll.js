@@ -39,7 +39,8 @@ const applyBodyScrollLock = () => {
 };
 
 const releaseBodyScrollLock = () => {
-  if (typeof window === 'undefined' || typeof document === 'undefined' || activeLockCount === 0) return;
+  if (typeof window === 'undefined' || typeof document === 'undefined' || activeLockCount === 0)
+    return;
   activeLockCount -= 1;
   if (activeLockCount > 0) return;
 

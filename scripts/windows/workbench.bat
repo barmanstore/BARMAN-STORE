@@ -58,10 +58,13 @@ echo 24. Code cleanup (preview)
 echo 25. Code cleanup (apply)
 echo 26. Worktree cleanup (preview)
 echo 27. Worktree cleanup (apply)
-echo 28. Exit
+echo 28. Maintenance lint sweep
+echo 29. Stale code scan
+echo 30. Maintenance all
+echo 31. Exit
 echo.
 set "CHOICE="
-set /p CHOICE=Select option [1-28]: 
+set /p CHOICE=Select option [1-31]: 
 
 :dispatch
 if "%CHOICE%"=="1" goto :git_quick
@@ -91,7 +94,10 @@ if "%CHOICE%"=="24" goto :code_cleanup_preview
 if "%CHOICE%"=="25" goto :code_cleanup_apply
 if "%CHOICE%"=="26" goto :wt_cleanup_preview
 if "%CHOICE%"=="27" goto :wt_cleanup_apply
-if "%CHOICE%"=="28" goto :done
+if "%CHOICE%"=="28" goto :maintenance_lint
+if "%CHOICE%"=="29" goto :stale_code_scan
+if "%CHOICE%"=="30" goto :maintenance_all
+if "%CHOICE%"=="31" goto :done
 if "%CHOICE%"=="" goto :menu
 goto :menu
 
@@ -204,6 +210,18 @@ goto :pause_and_menu
 :wt_cleanup_apply
 call :confirm_or_abort "Type YES to delete generated worktree artifacts: " || goto :pause_and_menu
 call npm run cleanup:worktree:apply
+goto :pause_and_menu
+
+:maintenance_lint
+call npm run maintenance:lint
+goto :pause_and_menu
+
+:stale_code_scan
+call npm run maintenance:scan
+goto :pause_and_menu
+
+:maintenance_all
+call npm run maintenance:all
 goto :pause_and_menu
 
 :phone_smoke

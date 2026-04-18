@@ -68,7 +68,7 @@ export const resolveMediaUrl = (value) => {
   if (raw.startsWith('/')) {
     const baseUrl = getApiUrl();
     if (raw.startsWith('/uploads/')) {
-      const mediaBase = import.meta.env.DEV ? '/api' : (baseUrl ? `${baseUrl}/api` : '/api');
+      const mediaBase = import.meta.env.DEV ? '/api' : baseUrl ? `${baseUrl}/api` : '/api';
       return `${mediaBase}${raw}`;
     }
     return `${baseUrl}${raw}`;

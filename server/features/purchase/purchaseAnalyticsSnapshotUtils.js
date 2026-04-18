@@ -6,7 +6,9 @@
     distributorId = 0,
     payload = {},
   } = {}) => {
-    const normalizedDate = normalizeTransactionDate(snapshotDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const normalizedDate =
+      normalizeTransactionDate(snapshotDate || new Date().toISOString()) ||
+      new Date().toISOString().slice(0, 10);
     const payloadJson = JSON.stringify(payload ?? {});
     return dbRunAsync(
       `INSERT INTO purchase_analytics_snapshots (snapshot_date, distributor_id, payload)
@@ -25,7 +27,9 @@
     predictedDeliveriesNext = [],
     distributorInsights = [],
   } = {}) => {
-    const normalizedDate = normalizeTransactionDate(snapshotDate || new Date().toISOString()) || new Date().toISOString().slice(0, 10);
+    const normalizedDate =
+      normalizeTransactionDate(snapshotDate || new Date().toISOString()) ||
+      new Date().toISOString().slice(0, 10);
     const globalPayload = {
       snapshot_date: normalizedDate,
       cards,

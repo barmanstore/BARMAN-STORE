@@ -1,5 +1,7 @@
 const { registerPhoneChangeAdminRoutes } = require('./routes/phoneChangeAdminRoutes');
-const { registerContactVerificationAdminRoutes } = require('./routes/contactVerificationAdminRoutes');
+const {
+  registerContactVerificationAdminRoutes,
+} = require('./routes/contactVerificationAdminRoutes');
 const { registerUserVerificationAdminRoutes } = require('./routes/userVerificationAdminRoutes');
 const { registerUserCrudRoutes } = require('./routes/userCrudRoutes');
 const { registerCustomerRoutes } = require('./routes/customerRoutes');

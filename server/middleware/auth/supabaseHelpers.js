@@ -1,10 +1,10 @@
 const createSupabaseAuthHelpers = ({ supabaseAuthProvider, parsePhoneInput } = {}) => {
-  const isSupabaseEmailAuthUsable = () => (
-    supabaseAuthProvider.shouldUseClientAuth()
-    || supabaseAuthProvider.shouldUseAccessTokenDecodeFallback()
-  );
+  const isSupabaseEmailAuthUsable = () =>
+    supabaseAuthProvider.shouldUseClientAuth() ||
+    supabaseAuthProvider.shouldUseAccessTokenDecodeFallback();
   const isSupabaseAuthStrictMode = () => supabaseAuthProvider.isStrictMode();
-  const isSupabaseEmailVerified = (user = null) => Boolean(user?.email_confirmed_at || user?.confirmed_at);
+  const isSupabaseEmailVerified = (user = null) =>
+    Boolean(user?.email_confirmed_at || user?.confirmed_at);
   const toSupabaseSessionPayload = (session = null) => {
     if (!session || typeof session !== 'object') return null;
     const accessToken = String(session.access_token || '').trim();

@@ -4,10 +4,11 @@ import { apiFetch } from './core';
 // DISTRIBUTOR LEDGER API (Credit/Payment)
 // ============================================
 
-const isNotFoundError = (err) => (
-  Number(err?.status || 0) === 404
-  || String(err?.message || '').toLowerCase().includes('not found')
-);
+const isNotFoundError = (err) =>
+  Number(err?.status || 0) === 404 ||
+  String(err?.message || '')
+    .toLowerCase()
+    .includes('not found');
 const DISTRIBUTOR_LEDGER_DISABLED_KEY = 'distributor_ledger_api_disabled';
 const readDistributorLedgerDisabled = () => {
   try {
@@ -49,7 +50,6 @@ export const distributorLedgerApi = {
       return apiFetch(endpoint);
     }
 
-    let lastError;
     for (const request of requests) {
       try {
         const result = await apiFetch(request.endpoint);
@@ -57,7 +57,6 @@ export const distributorLedgerApi = {
         distributorLedgerState.getAllEndpoint = request.endpoint.split('?')[0];
         return result;
       } catch (err) {
-        lastError = err;
         if (!isNotFoundError(err)) throw err;
       }
     }
@@ -86,7 +85,8 @@ export const distributorLedgerApi = {
         if (request.endpoint.includes('/ledger')) {
           distributorLedgerState.byDistributorEndpoint = (id) => `/api/distributors/${id}/ledger`;
         } else {
-          distributorLedgerState.byDistributorEndpoint = (id) => `/api/distributors/${id}/credit-history`;
+          distributorLedgerState.byDistributorEndpoint = (id) =>
+            `/api/distributors/${id}/credit-history`;
         }
         return result;
       } catch (err) {
@@ -105,11 +105,22 @@ export const distributorLedgerApi = {
 
     const normalizedAmount = Number(data?.amount || 0);
     const typeRaw = String(data?.type || data?.transaction_type || '').toLowerCase();
-    const normalizedType = typeRaw === 'credit' ? 'given' : (typeRaw || 'given');
+    const normalizedType = typeRaw === 'credit' ? 'given' : typeRaw || 'given';
 
-    const payloadA = { ...data, amount: normalizedAmount, type: normalizedType, transaction_type: normalizedType };
-    const payloadB = { ...payloadA, transactionDate: data?.transactionDate || data?.transaction_date };
-    const payloadC = { ...payloadA, transaction_date: data?.transaction_date || data?.transactionDate };
+    const payloadA = {
+      ...data,
+      amount: normalizedAmount,
+      type: normalizedType,
+      transaction_type: normalizedType,
+    };
+    const payloadB = {
+      ...payloadA,
+      transactionDate: data?.transactionDate || data?.transaction_date,
+    };
+    const payloadC = {
+      ...payloadA,
+      transaction_date: data?.transaction_date || data?.transactionDate,
+    };
     const payloadD = {
       distributor_id: distributorId,
       user_id: distributorId,
@@ -144,7 +155,8 @@ export const distributorLedgerApi = {
       return apiFetch(cachedEndpoint, {
         method: 'POST',
         body:
-          cachedEndpoint.includes('/distributor-ledger') || cachedEndpoint.includes('/distributors/ledger')
+          cachedEndpoint.includes('/distributor-ledger') ||
+          cachedEndpoint.includes('/distributors/ledger')
             ? payloadD
             : payloadA,
       });

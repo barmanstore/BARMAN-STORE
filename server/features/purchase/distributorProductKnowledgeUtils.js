@@ -24,11 +24,17 @@
     suggestedItems = [],
   } = {}) => {
     const manualItems = parseDistributorProductsSupplied(manualProductsSupplied);
-    const historicalItems = parseDistributorProductsSupplied([
-      ...likelyItems,
-      ...(Array.isArray(suggestedItems) ? suggestedItems.map((item) => item?.product_name) : []),
-    ].filter(Boolean).join(', '));
-    const mergedItems = parseDistributorProductsSupplied([...manualItems, ...historicalItems].join(', '));
+    const historicalItems = parseDistributorProductsSupplied(
+      [
+        ...likelyItems,
+        ...(Array.isArray(suggestedItems) ? suggestedItems.map((item) => item?.product_name) : []),
+      ]
+        .filter(Boolean)
+        .join(', ')
+    );
+    const mergedItems = parseDistributorProductsSupplied(
+      [...manualItems, ...historicalItems].join(', ')
+    );
     return {
       manual_items: manualItems,
       historical_items: historicalItems,

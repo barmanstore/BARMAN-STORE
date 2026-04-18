@@ -14,7 +14,10 @@ const validatePurchaseOrderPayment = async ({
 
   const poStatus = getPurchaseOrderLifecycleStatus(order);
   if (!canPoAcceptPayment(poStatus)) {
-    throw createInputError(400, 'Payments are allowed only for confirmed or part-paid purchase orders');
+    throw createInputError(
+      400,
+      'Payments are allowed only for confirmed or part-paid purchase orders'
+    );
   }
 
   const amount = Math.max(0, Number(body?.amount || 0));
@@ -22,11 +25,17 @@ const validatePurchaseOrderPayment = async ({
 
   const distributorId = Number(order.distributor_id || 0);
   if (!distributorId) {
-    throw createInputError(400, 'Purchase order distributor is missing. Reassign the distributor before recording payment.');
+    throw createInputError(
+      400,
+      'Purchase order distributor is missing. Reassign the distributor before recording payment.'
+    );
   }
   const distributor = await getDistributorByIdAsync(distributorId);
   if (!distributor) {
-    throw createInputError(400, 'Purchase order distributor not found. Reassign the distributor before recording payment.');
+    throw createInputError(
+      400,
+      'Purchase order distributor not found. Reassign the distributor before recording payment.'
+    );
   }
 
   const totalSnapshotBefore = calculatePoPaymentSnapshot(
@@ -37,10 +46,7 @@ const validatePurchaseOrderPayment = async ({
   const amountCents = Math.round(amount * 100);
   if (amountCents > balanceDueCents) {
     const balanceDueText = (balanceDueCents / 100).toFixed(2);
-    throw createInputError(
-      400,
-      `Payment amount cannot exceed balance due (${balanceDueText})`
-    );
+    throw createInputError(400, `Payment amount cannot exceed balance due (${balanceDueText})`);
   }
 
   return {

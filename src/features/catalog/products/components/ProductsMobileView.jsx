@@ -187,7 +187,14 @@ function ProductsMobileView({
         <div className="mobile-snackbar">
           <span>{snackbar.message}</span>
           {snackbar.undo && (
-            <button onClick={() => { snackbar.undo(); dismissSnackbar(); }}>Undo</button>
+            <button
+              onClick={() => {
+                snackbar.undo();
+                dismissSnackbar();
+              }}
+            >
+              Undo
+            </button>
           )}
           <button onClick={dismissSnackbar}>×</button>
         </div>
@@ -201,13 +208,17 @@ function MiniCartPreview({ onClose }) {
     <div className="mini-cart-preview">
       <div className="mini-cart-header">
         <h3>Your Cart</h3>
-        <button type="button" onClick={onClose}>×</button>
+        <button type="button" onClick={onClose}>
+          ×
+        </button>
       </div>
       <div className="mini-cart-items">
         <p>Cart items preview here</p>
       </div>
       <div className="mini-cart-actions">
-        <button type="button" onClick={onClose}>Continue Shopping</button>
+        <button type="button" onClick={onClose}>
+          Continue Shopping
+        </button>
         <button type="button">Checkout</button>
       </div>
     </div>
@@ -215,4 +226,3 @@ function MiniCartPreview({ onClose }) {
 }
 
 export default ProductsMobileView;
-

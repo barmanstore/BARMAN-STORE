@@ -60,9 +60,7 @@ const registerCreditIssuesListRoutes = (deps) => {
   const decodeHistoryCursor = (cursor) => {
     if (!cursor) return null;
     try {
-      const normalized = String(cursor)
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
+      const normalized = String(cursor).replace(/-/g, '+').replace(/_/g, '/');
       const padded = normalized + '==='.slice((normalized.length + 3) % 4);
       const parsed = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
       if (!Array.isArray(parsed) || parsed.length < 3) return null;
@@ -83,14 +81,21 @@ const registerCreditIssuesListRoutes = (deps) => {
       if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      const allowAll = ['1', 'true', 'yes'].includes(String(req.query?.all || '').trim().toLowerCase());
+      const allowAll = ['1', 'true', 'yes'].includes(
+        String(req.query?.all || '')
+          .trim()
+          .toLowerCase()
+      );
       const rawLimit = Number(req.query?.limit || 0);
       const resolvedLimit = allowAll
         ? null
         : Math.min(
-          Math.max(Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : CREDIT_HISTORY_DEFAULT_LIMIT, 1),
-          CREDIT_HISTORY_MAX_LIMIT
-        );
+            Math.max(
+              Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : CREDIT_HISTORY_DEFAULT_LIMIT,
+              1
+            ),
+            CREDIT_HISTORY_MAX_LIMIT
+          );
       const cursor = allowAll ? null : decodeHistoryCursor(String(req.query?.cursor || '').trim());
       const sortExpr = 'ch.transaction_ts';
       const whereClauses = ['ch.user_id = ?'];
@@ -129,13 +134,10 @@ const registerCreditIssuesListRoutes = (deps) => {
       const hasMore = rows.length > resolvedLimit;
       const slicedRows = hasMore ? rows.slice(0, resolvedLimit) : rows;
       const lastRow = slicedRows[slicedRows.length - 1];
-      const nextCursor = hasMore && lastRow
-        ? encodeHistoryCursor([
-          lastRow.transaction_ts,
-          lastRow.created_at,
-          lastRow.id,
-        ])
-        : null;
+      const nextCursor =
+        hasMore && lastRow
+          ? encodeHistoryCursor([lastRow.transaction_ts, lastRow.created_at, lastRow.id])
+          : null;
       return res.json({ rows: slicedRows, nextCursor, hasMore });
     } catch (error) {
       return res.status(500).json({ error: error.message });
@@ -184,7 +186,9 @@ const registerCreditIssuesListRoutes = (deps) => {
       if (!isAdmin && Number(req.authUser?.id) !== requestUserId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      const requestedStatus = String(req.query?.status || '').trim().toLowerCase();
+      const requestedStatus = String(req.query?.status || '')
+        .trim()
+        .toLowerCase();
       const normalizedStatus = requestedStatus
         ? normalizeCreditIssueStatus(requestedStatus, { fallback: '' })
         : '';

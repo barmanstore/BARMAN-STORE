@@ -6,7 +6,10 @@ import { validateEmail } from '../../shared/utils/validation';
 import MobileAccountLayout from '../../shared/components/mobile/MobileAccountLayout';
 import './Login.css';
 
-const sanitizeSupabaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
+const sanitizeSupabaseUrl = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\/+$/, '');
 const normalizeBasePath = (value) => {
   const raw = String(value || '/').trim();
   if (!raw || raw === '/') return '';
@@ -124,7 +127,10 @@ function Login() {
       try {
         const payload = await authApi.getResetMode();
         if (cancelled) return;
-        const oauthReady = payload?.supabase_oauth_ready ?? payload?.auth_methods?.oauth ?? payload?.supabase_client_ready;
+        const oauthReady =
+          payload?.supabase_oauth_ready ??
+          payload?.auth_methods?.oauth ??
+          payload?.supabase_client_ready;
         setAuthMeta({
           loaded: true,
           supabaseEnabled: Boolean(payload?.supabase_auth_enabled),
@@ -156,13 +162,8 @@ function Login() {
     oauthHandledRef.current = true;
 
     const run = async () => {
-      const {
-        accessToken,
-        refreshToken,
-        oauthError,
-        authCode,
-        hasCallbackParams,
-      } = parseOAuthCallbackParams();
+      const { accessToken, refreshToken, oauthError, authCode, hasCallbackParams } =
+        parseOAuthCallbackParams();
       const cleanUrl = `${window.location.pathname}${window.location.search}`;
 
       if (oauthError) {
@@ -195,10 +196,10 @@ function Login() {
         const nextToken = String(sessionPayload?.token || accessToken).trim();
         const mergedSession = refreshToken
           ? {
-            access_token: accessToken,
-            refresh_token: refreshToken || null,
-            token_type: 'bearer',
-          }
+              access_token: accessToken,
+              refresh_token: refreshToken || null,
+              token_type: 'bearer',
+            }
           : null;
         const nextUser = {
           ...(sessionPayload?.user || {}),
@@ -245,7 +246,11 @@ function Login() {
       if (nextDevOtpCode) {
         setOtp(nextDevOtpCode);
       }
-      setSuccess(nextDevOtpCode ? `OTP sent to email. Local dev code: ${nextDevOtpCode}` : 'OTP sent to email.');
+      setSuccess(
+        nextDevOtpCode
+          ? `OTP sent to email. Local dev code: ${nextDevOtpCode}`
+          : 'OTP sent to email.'
+      );
     } catch (err) {
       setDevOtpCode('');
       if (err?.payload?.register_required) {
@@ -296,11 +301,15 @@ function Login() {
   };
 
   const handleSocialLogin = (provider) => {
-    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    const normalizedProvider = String(provider || '')
+      .trim()
+      .toLowerCase();
     if (normalizedProvider !== 'google' && normalizedProvider !== 'facebook') return;
     setError('');
     if (isLikelyInAppBrowser()) {
-      setError('OAuth is usually blocked inside in-app browsers. Open this site in Chrome or Safari and try again.');
+      setError(
+        'OAuth is usually blocked inside in-app browsers. Open this site in Chrome or Safari and try again.'
+      );
       return;
     }
     if (!isSupabaseSocialReady) {
@@ -329,7 +338,9 @@ function Login() {
       if (oauthRedirectTimerRef.current) clearTimeout(oauthRedirectTimerRef.current);
       oauthRedirectTimerRef.current = window.setTimeout(() => {
         setOauthLoading('');
-        setError('OAuth redirect did not start. Check mobile popup/redirect settings and browser tracking protection.');
+        setError(
+          'OAuth redirect did not start. Check mobile popup/redirect settings and browser tracking protection.'
+        );
       }, 2500);
       window.location.replace(`${supabaseAuthBase}/auth/v1/authorize?${params.toString()}`);
     } catch (err) {
@@ -364,108 +375,124 @@ function Login() {
           <p className="otp-kicker">Secure Login</p>
           <h1>{authMode === 'register' ? 'Register with OTP' : 'Sign in with OTP'}</h1>
 
-        <div className="auth-view-switch">
-          <button
-            type="button"
-            className={`switch-btn ${authMode === 'login' ? 'active' : ''}`}
-            onClick={() => switchAuthMode('login')}
-            disabled={loading}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            className={`switch-btn ${authMode === 'register' ? 'active' : ''}`}
-            onClick={() => switchAuthMode('register')}
-            disabled={loading}
-          >
-            Register
-          </button>
-        </div>
-
-        {error ? <div className="error-message">{error}</div> : null}
-        {success ? <div className="success-message">{success}</div> : null}
-        {showRegisterPrompt && authMode === 'login' ? (
-          <div className="register-prompt-box">
-            <p>Account not found. Please register first.</p>
-            <button type="button" className="login-button secondary" onClick={() => switchAuthMode('register')} disabled={loading}>
-              Register Now
+          <div className="auth-view-switch">
+            <button
+              type="button"
+              className={`switch-btn ${authMode === 'login' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('login')}
+              disabled={loading}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              className={`switch-btn ${authMode === 'register' ? 'active' : ''}`}
+              onClick={() => switchAuthMode('register')}
+              disabled={loading}
+            >
+              Register
             </button>
           </div>
-        ) : null}
 
-        {step === 'request' ? (
-          <form className="otp-form" onSubmit={handleRequestOtp}>
-            <div className="form-group">
-              <label htmlFor="identifier">Email</label>
-              <input
-                id="identifier"
-                name="identifier"
-                type="email"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="name@example.com"
-                required
-                autoComplete="username"
-              />
+          {error ? <div className="error-message">{error}</div> : null}
+          {success ? <div className="success-message">{success}</div> : null}
+          {showRegisterPrompt && authMode === 'login' ? (
+            <div className="register-prompt-box">
+              <p>Account not found. Please register first.</p>
+              <button
+                type="button"
+                className="login-button secondary"
+                onClick={() => switchAuthMode('register')}
+                disabled={loading}
+              >
+                Register Now
+              </button>
             </div>
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? 'Sending OTP...' : 'Send OTP'}
-            </button>
-          </form>
-        ) : (
-          <form className="otp-form" onSubmit={handleVerifyOtp}>
-            <div className="otp-step-pill">
-              Code sent to {pendingIdentifier?.email || 'your email'}
-            </div>
-            {devOtpCode ? (
-              <div className="success-message">
-                Local dev OTP is prefilled: <strong>{devOtpCode}</strong>
+          ) : null}
+
+          {step === 'request' ? (
+            <form className="otp-form" onSubmit={handleRequestOtp}>
+              <div className="form-group">
+                <label htmlFor="identifier">Email</label>
+                <input
+                  id="identifier"
+                  name="identifier"
+                  type="email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="name@example.com"
+                  required
+                  autoComplete="username"
+                />
               </div>
-            ) : null}
-            <div className="form-group">
-              <label htmlFor="otp">Enter OTP</label>
-              <input
-                id="otp"
-                name="otp"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="6-digit OTP"
-                required
-                autoComplete="one-time-code"
-              />
-            </div>
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? 'Verifying...' : (authMode === 'register' ? 'Verify and Register' : 'Verify and Sign In')}
-            </button>
-            <button type="button" className="login-button secondary" onClick={switchToRequestStep} disabled={loading}>
-              Edit Contact
-            </button>
-          </form>
-        )}
+              <button type="submit" className="login-button" disabled={loading}>
+                {loading ? 'Sending OTP...' : 'Send OTP'}
+              </button>
+            </form>
+          ) : (
+            <form className="otp-form" onSubmit={handleVerifyOtp}>
+              <div className="otp-step-pill">
+                Code sent to {pendingIdentifier?.email || 'your email'}
+              </div>
+              {devOtpCode ? (
+                <div className="success-message">
+                  Local dev OTP is prefilled: <strong>{devOtpCode}</strong>
+                </div>
+              ) : null}
+              <div className="form-group">
+                <label htmlFor="otp">Enter OTP</label>
+                <input
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="6-digit OTP"
+                  required
+                  autoComplete="one-time-code"
+                />
+              </div>
+              <button type="submit" className="login-button" disabled={loading}>
+                {loading
+                  ? 'Verifying...'
+                  : authMode === 'register'
+                    ? 'Verify and Register'
+                    : 'Verify and Sign In'}
+              </button>
+              <button
+                type="button"
+                className="login-button secondary"
+                onClick={switchToRequestStep}
+                disabled={loading}
+              >
+                Edit Contact
+              </button>
+            </form>
+          )}
 
-        <div className="oauth-divider"><span>or continue with</span></div>
-        <div className="oauth-grid">
-          <button
-            type="button"
-            className="oauth-btn google"
-            disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
-            onClick={() => handleSocialLogin('google')}
-          >
-            {oauthLoading === 'google' ? 'Redirecting...' : 'Google'}
-          </button>
-          <button
-            type="button"
-            className="oauth-btn facebook"
-            disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
-            onClick={() => handleSocialLogin('facebook')}
-          >
-            {oauthLoading === 'facebook' ? 'Redirecting...' : 'Facebook'}
-          </button>
-        </div>
+          <div className="oauth-divider">
+            <span>or continue with</span>
+          </div>
+          <div className="oauth-grid">
+            <button
+              type="button"
+              className="oauth-btn google"
+              disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
+              onClick={() => handleSocialLogin('google')}
+            >
+              {oauthLoading === 'google' ? 'Redirecting...' : 'Google'}
+            </button>
+            <button
+              type="button"
+              className="oauth-btn facebook"
+              disabled={!isSupabaseSocialReady || Boolean(oauthLoading)}
+              onClick={() => handleSocialLogin('facebook')}
+            >
+              {oauthLoading === 'facebook' ? 'Redirecting...' : 'Facebook'}
+            </button>
+          </div>
         </section>
       </div>
     </MobileAccountLayout>
@@ -473,4 +500,3 @@ function Login() {
 }
 
 export default Login;
-

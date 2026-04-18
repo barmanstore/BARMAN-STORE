@@ -5,7 +5,7 @@ const buildIssueDraft = (issue, current) => ({
   correction_type: current.correction_type ?? '',
   correction_amount: current.correction_amount ?? '',
   correction_description: current.correction_description ?? '',
-  correction_reference: current.correction_reference ?? ''
+  correction_reference: current.correction_reference ?? '',
 });
 
 const useIssueDrafts = () => {
@@ -16,15 +16,18 @@ const useIssueDrafts = () => {
       ...prev,
       [id]: {
         ...(prev[id] || {}),
-        ...patch
-      }
+        ...patch,
+      },
     }));
   }, []);
 
-  const getIssueDraft = useCallback((issue) => {
-    const current = issueDrafts[issue.id] || {};
-    return buildIssueDraft(issue, current);
-  }, [issueDrafts]);
+  const getIssueDraft = useCallback(
+    (issue) => {
+      const current = issueDrafts[issue.id] || {};
+      return buildIssueDraft(issue, current);
+    },
+    [issueDrafts]
+  );
 
   return { setIssueDraft, getIssueDraft };
 };

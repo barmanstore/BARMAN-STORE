@@ -22,12 +22,19 @@ const ProcessOrderModal = ({
   if (!showProcessModal || !processingOrder) return null;
 
   const poTotal = Math.max(0, getOrderDisplayTotal(processingOrder));
-  const poNumber = String(processingOrder.po_number || processingOrder.invoice_number || '-').trim() || '-';
-  const distributorName = processingOrder.distributor_name || getDistributorName(processingOrder) || '-';
-  const paymentSplit = String(processFormData.payment_split || 'part').trim().toLowerCase();
+  const poNumber =
+    String(processingOrder.po_number || processingOrder.invoice_number || '-').trim() || '-';
+  const distributorName =
+    processingOrder.distributor_name || getDistributorName(processingOrder) || '-';
+  const paymentSplit = String(processFormData.payment_split || 'part')
+    .trim()
+    .toLowerCase();
   const isDelivered = Boolean(processFormData.delivered);
   const paidAmountRaw = String(processFormData.paid_amount || '').trim();
-  const paidAmountNumber = paidAmountRaw === '' ? 0 : Math.min(Math.max(0, Number.parseFloat(paidAmountRaw) || 0), poTotal);
+  const paidAmountNumber =
+    paidAmountRaw === ''
+      ? 0
+      : Math.min(Math.max(0, Number.parseFloat(paidAmountRaw) || 0), poTotal);
   const remainingBalance = Math.max(0, poTotal - paidAmountNumber);
   const isFullPayment = paymentSplit === 'full' || paidAmountNumber >= poTotal;
 
@@ -37,9 +44,7 @@ const ProcessOrderModal = ({
 
   const handlePaidAmountChange = (e) => {
     const rawValue = e.target.value;
-    const sanitizedValue = rawValue
-      .replace(/[^\d.]/g, '')
-      .replace(/(\..*)\./g, '$1');
+    const sanitizedValue = rawValue.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
     if (sanitizedValue === '') {
       setProcessFormData((prev) => ({
         ...prev,
@@ -77,7 +82,10 @@ const ProcessOrderModal = ({
       const nextState = { ...prev, payment_split: nextSplit };
       if (nextSplit === 'full') {
         nextState.paid_amount = poTotal.toFixed(2);
-      } else if (poTotal > 0 && Math.max(0, Number.parseFloat(prev.paid_amount || 0) || 0) >= poTotal) {
+      } else if (
+        poTotal > 0 &&
+        Math.max(0, Number.parseFloat(prev.paid_amount || 0) || 0) >= poTotal
+      ) {
         nextState.paid_amount = '';
       }
       return nextState;
@@ -246,7 +254,12 @@ const ProcessOrderModal = ({
 
   const actionRow = (
     <div className="modal-actions purchase-process-actions">
-      <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
+      <button
+        type="button"
+        className="cancel-btn"
+        onClick={closeProcessModal}
+        disabled={processSubmitting}
+      >
         Cancel
       </button>
       <button type="submit" className="submit-btn" disabled={processSubmitting}>
@@ -263,16 +276,26 @@ const ProcessOrderModal = ({
         title="Confirm Purchase Order"
         className="purchase-process-sheet"
         dismissible={!processSubmitting}
-        actions={(
+        actions={
           <>
-            <button type="button" className="cancel-btn" onClick={closeProcessModal} disabled={processSubmitting}>
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={closeProcessModal}
+              disabled={processSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" form="purchase-process-form" className="submit-btn" disabled={processSubmitting}>
+            <button
+              type="submit"
+              form="purchase-process-form"
+              className="submit-btn"
+              disabled={processSubmitting}
+            >
               {processSubmitting ? 'Confirming...' : 'Confirm PO'}
             </button>
           </>
-        )}
+        }
       >
         <form id="purchase-process-form" onSubmit={handleProcessSubmit}>
           {renderCoreFields('process-mobile')}
@@ -302,4 +325,3 @@ const ProcessOrderModal = ({
 };
 
 export default ProcessOrderModal;
-

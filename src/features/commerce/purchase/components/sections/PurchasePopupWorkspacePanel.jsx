@@ -72,9 +72,14 @@ const PurchasePopupWorkspacePanel = ({
         </div>
 
         {recentOrders.length ? (
-          <div className="purchase-popup-order-list" role="list" aria-label="Recent purchase orders">
+          <div
+            className="purchase-popup-order-list"
+            role="list"
+            aria-label="Recent purchase orders"
+          >
             {recentOrders.map((order) => {
-              const isLatestSaved = String(order?.id || '') === String(lastSavedOrderSummary?.id || '');
+              const isLatestSaved =
+                String(order?.id || '') === String(lastSavedOrderSummary?.id || '');
               return (
                 <article
                   key={`purchase-popup-order-${order.id}`}
@@ -96,7 +101,11 @@ const PurchasePopupWorkspacePanel = ({
                     </button>
                   </div>
                   <div className="purchase-popup-order-card-meta">
-                    <span>{new Date(order.created_at || order.order_date || order.expected_delivery || 0).toLocaleDateString()}</span>
+                    <span>
+                      {new Date(
+                        order.created_at || order.order_date || order.expected_delivery || 0
+                      ).toLocaleDateString()}
+                    </span>
                     <strong>{formatCurrency(getOrderDisplayTotal(order))}</strong>
                   </div>
                   <div className="purchase-popup-order-card-badges">
@@ -113,7 +122,9 @@ const PurchasePopupWorkspacePanel = ({
         ) : (
           <div className="purchase-empty-state-card purchase-empty-state-card--muted">
             <strong>No purchase orders yet.</strong>
-            <p>Create the first purchase order to keep completion history visible in this workspace.</p>
+            <p>
+              Create the first purchase order to keep completion history visible in this workspace.
+            </p>
           </div>
         )}
       </section>

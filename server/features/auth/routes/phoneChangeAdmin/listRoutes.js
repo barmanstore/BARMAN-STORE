@@ -16,7 +16,9 @@ const registerPhoneChangeAdminListRoutes = (deps) => {
     try {
       await runCustomerRequestPurge();
       await processPendingPhoneChangeRequests();
-      const statusFilter = String(req.query?.status || 'open').trim().toLowerCase();
+      const statusFilter = String(req.query?.status || 'open')
+        .trim()
+        .toLowerCase();
       const params = [];
       let whereClause = '';
       if (statusFilter === 'open') {
@@ -60,23 +62,29 @@ const registerPhoneChangeAdminListRoutes = (deps) => {
            pcr.id DESC`,
         params
       );
-      const payload = await Promise.all((rows || []).map(async (row) => {
-        const conflictUserId = Number(row?.conflict_user_id || 0) || null;
-        const mergeImpact = conflictUserId ? await getPhoneMergeImpactSummary(conflictUserId) : null;
-        return {
-          ...serializePhoneChangeRequest(row),
-          user_name: row.user_name || null,
-          user_email: row.user_email || null,
-          user_phone: row.user_phone || null,
-          conflict_user_name: row.conflict_user_name || null,
-          conflict_user_email: row.conflict_user_email || null,
-          reviewed_by_name: row.reviewed_by_name || null,
-          merge_impact: mergeImpact,
-        };
-      }));
+      const payload = await Promise.all(
+        (rows || []).map(async (row) => {
+          const conflictUserId = Number(row?.conflict_user_id || 0) || null;
+          const mergeImpact = conflictUserId
+            ? await getPhoneMergeImpactSummary(conflictUserId)
+            : null;
+          return {
+            ...serializePhoneChangeRequest(row),
+            user_name: row.user_name || null,
+            user_email: row.user_email || null,
+            user_phone: row.user_phone || null,
+            conflict_user_name: row.conflict_user_name || null,
+            conflict_user_email: row.conflict_user_email || null,
+            reviewed_by_name: row.reviewed_by_name || null,
+            merge_impact: mergeImpact,
+          };
+        })
+      );
       return res.json(payload);
     } catch (error) {
-      return res.status(500).json({ error: error.message || 'Failed to load phone change requests' });
+      return res
+        .status(500)
+        .json({ error: error.message || 'Failed to load phone change requests' });
     }
   });
 };

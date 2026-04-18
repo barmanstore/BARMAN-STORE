@@ -71,7 +71,9 @@ const uploadProfileImage = async ({
     }
   }
 
-  const updated = sanitizeUser(await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId]));
+  const updated = sanitizeUser(
+    await dbGetAsync('SELECT * FROM users WHERE id = ?', [targetUserId])
+  );
   return { profile_image: nextPath, user: updated };
 };
 

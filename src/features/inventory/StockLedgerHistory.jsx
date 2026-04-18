@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, ChevronDown, ChevronUp, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown, Minus, SlidersHorizontal, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Minus,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import { stockLedgerApi } from '../../shared/services/api';
-import { formatCurrency, formatDate } from '../../shared/utils/formatters';
+import { formatDate } from '../../shared/utils/formatters';
 import { toLocalDateKey } from '../../shared/utils/dateTime';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
 import { DateRangeFilter, DropdownFilter, SearchFilter } from '../../shared/components/filters';
@@ -140,7 +150,10 @@ const buildDateRangePresets = () => {
     { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
     { label: 'Last 30 Days', value: [toDateToken(shiftDateByDays(today, -29)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
@@ -156,11 +169,12 @@ const WHOLE_NUMBER_FORMATTER = new Intl.NumberFormat('en-IN', {
   minimumFractionDigits: 0,
 });
 
-const formatLedgerGroupLabel = (value) => formatDate(value, 'en-IN', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric',
-});
+const formatLedgerGroupLabel = (value) =>
+  formatDate(value, 'en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
 const formatWholeNumber = (value) => {
   if (value === null || value === undefined || value === '') return '-';
@@ -170,7 +184,9 @@ const formatWholeNumber = (value) => {
 };
 
 const normalizeLedgerTransactionType = (type) => {
-  const normalized = String(type || '').trim().toUpperCase();
+  const normalized = String(type || '')
+    .trim()
+    .toUpperCase();
   if (normalized === 'OUT') return 'SALE';
   if (normalized === 'IN') return 'PURCHASE';
   return normalized;
@@ -196,65 +212,95 @@ const compareLedgerEntries = (left, right, sortKey, direction = 'asc') => {
 
   switch (sortKey) {
     case SORTABLE_COLUMNS.dateTime:
-      return directionMultiplier * compareNullable(
-        toTimestamp(left?.created_at),
-        toTimestamp(right?.created_at),
-        (leftValue, rightValue) => leftValue - rightValue,
+      return (
+        directionMultiplier *
+        compareNullable(
+          toTimestamp(left?.created_at),
+          toTimestamp(right?.created_at),
+          (leftValue, rightValue) => leftValue - rightValue
+        )
       );
     case SORTABLE_COLUMNS.product:
-      return directionMultiplier * compareNullable(
-        [left?.product_name, left?.sku].filter(Boolean).join(' '),
-        [right?.product_name, right?.sku].filter(Boolean).join(' '),
-        (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }),
+      return (
+        directionMultiplier *
+        compareNullable(
+          [left?.product_name, left?.sku].filter(Boolean).join(' '),
+          [right?.product_name, right?.sku].filter(Boolean).join(' '),
+          (leftValue, rightValue) =>
+            leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        )
       );
     case SORTABLE_COLUMNS.type:
-      return directionMultiplier * compareNullable(
-        getTransactionTypeLabel(left?.transaction_type),
-        getTransactionTypeLabel(right?.transaction_type),
-        (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }),
+      return (
+        directionMultiplier *
+        compareNullable(
+          getTransactionTypeLabel(left?.transaction_type),
+          getTransactionTypeLabel(right?.transaction_type),
+          (leftValue, rightValue) =>
+            leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        )
       );
     case SORTABLE_COLUMNS.quantity:
-      return directionMultiplier * compareNullable(
-        toNumericValue(left?.quantity_change),
-        toNumericValue(right?.quantity_change),
-        (leftValue, rightValue) => leftValue - rightValue,
+      return (
+        directionMultiplier *
+        compareNullable(
+          toNumericValue(left?.quantity_change),
+          toNumericValue(right?.quantity_change),
+          (leftValue, rightValue) => leftValue - rightValue
+        )
       );
     case SORTABLE_COLUMNS.previous:
-      return directionMultiplier * compareNullable(
-        toNumericValue(left?.previous_balance),
-        toNumericValue(right?.previous_balance),
-        (leftValue, rightValue) => leftValue - rightValue,
+      return (
+        directionMultiplier *
+        compareNullable(
+          toNumericValue(left?.previous_balance),
+          toNumericValue(right?.previous_balance),
+          (leftValue, rightValue) => leftValue - rightValue
+        )
       );
     case SORTABLE_COLUMNS.newBalance:
-      return directionMultiplier * compareNullable(
-        toNumericValue(left?.new_balance),
-        toNumericValue(right?.new_balance),
-        (leftValue, rightValue) => leftValue - rightValue,
+      return (
+        directionMultiplier *
+        compareNullable(
+          toNumericValue(left?.new_balance),
+          toNumericValue(right?.new_balance),
+          (leftValue, rightValue) => leftValue - rightValue
+        )
       );
     case SORTABLE_COLUMNS.reference:
-      return directionMultiplier * compareNullable(
-        [left?.bill_number, left?.po_number, left?.reference_type, left?.reference_id].filter(Boolean).join(' '),
-        [right?.bill_number, right?.po_number, right?.reference_type, right?.reference_id].filter(Boolean).join(' '),
-        (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }),
+      return (
+        directionMultiplier *
+        compareNullable(
+          [left?.bill_number, left?.po_number, left?.reference_type, left?.reference_id]
+            .filter(Boolean)
+            .join(' '),
+          [right?.bill_number, right?.po_number, right?.reference_type, right?.reference_id]
+            .filter(Boolean)
+            .join(' '),
+          (leftValue, rightValue) =>
+            leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        )
       );
     case SORTABLE_COLUMNS.by:
-      return directionMultiplier * compareNullable(
-        left?.user_name || '',
-        right?.user_name || '',
-        (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }),
+      return (
+        directionMultiplier *
+        compareNullable(left?.user_name || '', right?.user_name || '', (leftValue, rightValue) =>
+          leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        )
       );
     case SORTABLE_COLUMNS.notes:
-      return directionMultiplier * compareNullable(
-        left?.notes || '',
-        right?.notes || '',
-        (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' }),
+      return (
+        directionMultiplier *
+        compareNullable(left?.notes || '', right?.notes || '', (leftValue, rightValue) =>
+          leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        )
       );
     default:
       return 0;
   }
 };
 
-function StockLedgerHistory({ user }) {
+function StockLedgerHistory() {
   const [ledger, setLedger] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchDraft, setSearchDraft] = useState('');
@@ -270,7 +316,7 @@ function StockLedgerHistory({ user }) {
   const [filters, setFilters] = useState({
     transaction_type: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
   });
   const advancedFiltersRef = useRef(null);
   const filterToggleRef = useRef(null);
@@ -317,7 +363,7 @@ function StockLedgerHistory({ user }) {
     setFilters({
       transaction_type: '',
       start_date: '',
-      end_date: ''
+      end_date: '',
     });
   };
 
@@ -330,13 +376,16 @@ function StockLedgerHistory({ user }) {
   const activeDatePresetLabel = useMemo(() => {
     if (!filters.start_date && !filters.end_date) return '';
 
-    const normalizeRange = (startDate, endDate) => [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
+    const normalizeRange = (startDate, endDate) =>
+      [String(startDate || '').trim(), String(endDate || '').trim()].join('|');
     const currentRange = normalizeRange(filters.start_date, filters.end_date);
 
-    return dateRangePresets.find((preset) => {
-      const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
-      return normalizeRange(presetStart, presetEnd) === currentRange;
-    })?.label || '';
+    return (
+      dateRangePresets.find((preset) => {
+        const [presetStart, presetEnd] = Array.isArray(preset?.value) ? preset.value : [];
+        return normalizeRange(presetStart, presetEnd) === currentRange;
+      })?.label || ''
+    );
   }, [dateRangePresets, filters.end_date, filters.start_date]);
 
   const visibleLedger = useMemo(() => {
@@ -385,40 +434,45 @@ function StockLedgerHistory({ user }) {
       return accumulator;
     }, new Map());
 
-    const dateSortDirection = sortConfig.key === SORTABLE_COLUMNS.dateTime ? sortConfig.direction : 'desc';
+    const dateSortDirection =
+      sortConfig.key === SORTABLE_COLUMNS.dateTime ? sortConfig.direction : 'desc';
 
     return Array.from(grouped.entries())
       .sort(([leftDate], [rightDate]) => {
         const comparison = compareNullable(
           toTimestamp(leftDate),
           toTimestamp(rightDate),
-          (leftValue, rightValue) => leftValue - rightValue,
+          (leftValue, rightValue) => leftValue - rightValue
         );
         return dateSortDirection === 'asc' ? comparison : -comparison;
       })
       .map(([dateKey, entries]) => ({
         key: dateKey,
         label: dateKey === 'unknown' ? 'Unknown date' : formatLedgerGroupLabel(dateKey),
-        items: [...entries].sort((left, right) => compareLedgerEntries(left, right, sortConfig.key, sortConfig.direction)),
+        items: [...entries].sort((left, right) =>
+          compareLedgerEntries(left, right, sortConfig.key, sortConfig.direction)
+        ),
       }));
   }, [sortConfig.direction, sortConfig.key, visibleLedger]);
 
-  const flattenedLedger = useMemo(() => (
-    groupedLedger.flatMap((group) => ([
-      {
-        type: 'group',
-        key: `group-${group.key}`,
-        label: group.label,
-        height: LEDGER_DATE_GROUP_ROW_HEIGHT,
-      },
-      ...group.items.map((entry) => ({
-        type: 'entry',
-        key: `entry-${entry.id}`,
-        entry,
-        height: LEDGER_DATA_ROW_HEIGHT,
-      })),
-    ]))
-  ), [groupedLedger]);
+  const flattenedLedger = useMemo(
+    () =>
+      groupedLedger.flatMap((group) => [
+        {
+          type: 'group',
+          key: `group-${group.key}`,
+          label: group.label,
+          height: LEDGER_DATE_GROUP_ROW_HEIGHT,
+        },
+        ...group.items.map((entry) => ({
+          type: 'entry',
+          key: `entry-${entry.id}`,
+          entry,
+          height: LEDGER_DATA_ROW_HEIGHT,
+        })),
+      ]),
+    [groupedLedger]
+  );
 
   const ledgerOffsets = useMemo(() => {
     const offsets = [0];
@@ -429,7 +483,8 @@ function StockLedgerHistory({ user }) {
   }, [flattenedLedger]);
 
   const ledgerTotalHeight = ledgerOffsets[flattenedLedger.length] || 0;
-  const shouldVirtualizeLedger = !isCompactLayout && flattenedLedger.length >= LEDGER_VIRTUAL_MIN_ITEMS;
+  const shouldVirtualizeLedger =
+    !isCompactLayout && flattenedLedger.length >= LEDGER_VIRTUAL_MIN_ITEMS;
 
   useEffect(() => {
     const nextEnd = Math.max(0, Math.min(flattenedLedger.length - 1, 24));
@@ -501,7 +556,7 @@ function StockLedgerHistory({ user }) {
   const virtualizedLedgerItems = shouldVirtualizeLedger
     ? flattenedLedger.slice(ledgerWindow.start, ledgerWindow.end + 1)
     : flattenedLedger;
-  const ledgerTopSpacerHeight = shouldVirtualizeLedger ? (ledgerOffsets[ledgerWindow.start] || 0) : 0;
+  const ledgerTopSpacerHeight = shouldVirtualizeLedger ? ledgerOffsets[ledgerWindow.start] || 0 : 0;
   const ledgerBottomSpacerHeight = shouldVirtualizeLedger
     ? Math.max(0, ledgerTotalHeight - (ledgerOffsets[ledgerWindow.end + 1] || ledgerTotalHeight))
     : 0;
@@ -545,7 +600,7 @@ function StockLedgerHistory({ user }) {
           onClear: handleClearTransactionType,
         }
       : null,
-    (filters.start_date || filters.end_date)
+    filters.start_date || filters.end_date
       ? {
           key: 'date_range',
           label: activeDatePresetLabel
@@ -564,33 +619,38 @@ function StockLedgerHistory({ user }) {
     filters.end_date,
   ].filter(Boolean).length;
 
-  const ledgerSummary = useMemo(() => (
-    visibleLedger.reduce((accumulator, entry) => {
-      accumulator.total += 1;
-      switch (normalizeLedgerTransactionType(entry.transaction_type)) {
-        case 'PURCHASE':
-          accumulator.purchases += 1;
-          break;
-        case 'SALE':
-          accumulator.sales += 1;
-          break;
-        case 'RETURN':
-          accumulator.returns += 1;
-          break;
-        default:
-          break;
-      }
-      return accumulator;
-    }, {
-      total: 0,
-      purchases: 0,
-      sales: 0,
-      returns: 0,
-    })
-  ), [visibleLedger]);
+  const ledgerSummary = useMemo(
+    () =>
+      visibleLedger.reduce(
+        (accumulator, entry) => {
+          accumulator.total += 1;
+          switch (normalizeLedgerTransactionType(entry.transaction_type)) {
+            case 'PURCHASE':
+              accumulator.purchases += 1;
+              break;
+            case 'SALE':
+              accumulator.sales += 1;
+              break;
+            case 'RETURN':
+              accumulator.returns += 1;
+              break;
+            default:
+              break;
+          }
+          return accumulator;
+        },
+        {
+          total: 0,
+          purchases: 0,
+          sales: 0,
+          returns: 0,
+        }
+      ),
+    [visibleLedger]
+  );
 
   const handleSortChange = (columnKey) => {
-    setSortConfig((current) => (
+    setSortConfig((current) =>
       current.key === columnKey
         ? {
             key: columnKey,
@@ -600,7 +660,7 @@ function StockLedgerHistory({ user }) {
             key: columnKey,
             direction: DEFAULT_SORT_DIRECTION[columnKey] || 'asc',
           }
-    ));
+    );
   };
 
   const renderSortIcon = (columnKey) => {
@@ -608,9 +668,11 @@ function StockLedgerHistory({ user }) {
       return <ArrowUpDown size={12} className="ledger-sort-icon" aria-hidden="true" />;
     }
 
-    return sortConfig.direction === 'asc'
-      ? <ArrowUp size={12} className="ledger-sort-icon" aria-hidden="true" />
-      : <ArrowDown size={12} className="ledger-sort-icon" aria-hidden="true" />;
+    return sortConfig.direction === 'asc' ? (
+      <ArrowUp size={12} className="ledger-sort-icon" aria-hidden="true" />
+    ) : (
+      <ArrowDown size={12} className="ledger-sort-icon" aria-hidden="true" />
+    );
   };
 
   const getAriaSort = (columnKey) => {
@@ -647,7 +709,7 @@ function StockLedgerHistory({ user }) {
     { value: 'PURCHASE_RETURN', label: 'Purchase Return' },
     { value: 'ADJUSTMENT', label: 'Adjustment' },
     { value: 'EXCHANGE_IN', label: 'Exchange In' },
-    { value: 'EXCHANGE_OUT', label: 'Exchange Out' }
+    { value: 'EXCHANGE_OUT', label: 'Exchange Out' },
   ];
 
   return (
@@ -655,11 +717,11 @@ function StockLedgerHistory({ user }) {
       <BackofficePageHeader
         className="page-header"
         title="Stock Ledger History"
-        actions={(
+        actions={
           <button className="admin-btn" onClick={fetchLedger}>
             <RefreshCw size={18} /> Refresh
           </button>
-        )}
+        }
       />
 
       <div className="filters-bar stock-ledger-filters">
@@ -694,8 +756,12 @@ function StockLedgerHistory({ user }) {
           {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
-        {(searchDraft || searchQuery || activeFilterCount) ? (
-          <button type="button" className="stock-ledger-filter-clear" onClick={handleClearAllFilters}>
+        {searchDraft || searchQuery || activeFilterCount ? (
+          <button
+            type="button"
+            className="stock-ledger-filter-clear"
+            onClick={handleClearAllFilters}
+          >
             Clear
           </button>
         ) : null}
@@ -704,7 +770,12 @@ function StockLedgerHistory({ user }) {
       {activeFilterPills.length ? (
         <div className="stock-ledger-active-filters" aria-label="Active filters">
           {activeFilterPills.map((pill) => (
-            <button key={pill.key} type="button" className="stock-ledger-active-filter-pill" onClick={pill.onClear}>
+            <button
+              key={pill.key}
+              type="button"
+              className="stock-ledger-active-filter-pill"
+              onClick={pill.onClear}
+            >
               <span>{pill.label}</span>
               <X size={12} aria-hidden="true" />
             </button>
@@ -713,13 +784,21 @@ function StockLedgerHistory({ user }) {
       ) : null}
 
       {showAdvancedFilters ? (
-        <div ref={advancedFiltersRef} id="stock-ledger-advanced-filters" className="stock-ledger-advanced-filters">
+        <div
+          ref={advancedFiltersRef}
+          id="stock-ledger-advanced-filters"
+          className="stock-ledger-advanced-filters"
+        >
           <div className="stock-ledger-filter-row stock-ledger-filter-row--type">
             <span className="stock-ledger-filter-row-label">Transaction Type</span>
             <DropdownFilter
-              options={transactionTypes.filter((t) => t.value).map((t) => ({ value: t.value, label: t.label }))}
+              options={transactionTypes
+                .filter((t) => t.value)
+                .map((t) => ({ value: t.value, label: t.label }))}
               selectedItems={filters.transaction_type ? [filters.transaction_type] : []}
-              onChange={(nextItems) => handleSingleFilterMultiSelectChange(nextItems, 'transaction_type')}
+              onChange={(nextItems) =>
+                handleSingleFilterMultiSelectChange(nextItems, 'transaction_type')
+              }
               width={FILTER_WIDTH}
               allLabel="All Types"
               tone="violet"
@@ -800,7 +879,10 @@ function StockLedgerHistory({ user }) {
             <tbody>
               {shouldVirtualizeLedger && ledgerTopSpacerHeight > 0 ? (
                 <tr className="ledger-virtual-spacer" aria-hidden="true">
-                  <td colSpan={LEDGER_TABLE_COLUMN_COUNT} style={{ height: `${ledgerTopSpacerHeight}px` }} />
+                  <td
+                    colSpan={LEDGER_TABLE_COLUMN_COUNT}
+                    style={{ height: `${ledgerTopSpacerHeight}px` }}
+                  />
                 </tr>
               ) : null}
               {virtualizedLedgerItems.map((item) => {
@@ -819,7 +901,9 @@ function StockLedgerHistory({ user }) {
                   <tr key={item.key}>
                     <td className="product-cell" data-label="Product">
                       <span className="product-name">{entry.product_name}</span>
-                      <span className="product-linked-number">{formatLedgerLinkedNumber(entry)}</span>
+                      <span className="product-linked-number">
+                        {formatLedgerLinkedNumber(entry)}
+                      </span>
                     </td>
                     <td
                       className="type-cell"
@@ -831,17 +915,23 @@ function StockLedgerHistory({ user }) {
                     </td>
                     <td className="qty-cell" data-label="Quantity">
                       <span className={entry.quantity_change >= 0 ? 'positive' : 'negative'}>
-                        {entry.quantity_change >= 0 ? '+' : ''}{formatWholeNumber(entry.quantity_change)}
+                        {entry.quantity_change >= 0 ? '+' : ''}
+                        {formatWholeNumber(entry.quantity_change)}
                       </span>
                     </td>
                     <td data-label="Previous">{formatWholeNumber(entry.previous_balance)}</td>
-                    <td data-label="New Balance"><strong>{formatWholeNumber(entry.new_balance)}</strong></td>
+                    <td data-label="New Balance">
+                      <strong>{formatWholeNumber(entry.new_balance)}</strong>
+                    </td>
                   </tr>
                 );
               })}
               {shouldVirtualizeLedger && ledgerBottomSpacerHeight > 0 ? (
                 <tr className="ledger-virtual-spacer" aria-hidden="true">
-                  <td colSpan={LEDGER_TABLE_COLUMN_COUNT} style={{ height: `${ledgerBottomSpacerHeight}px` }} />
+                  <td
+                    colSpan={LEDGER_TABLE_COLUMN_COUNT}
+                    style={{ height: `${ledgerBottomSpacerHeight}px` }}
+                  />
                 </tr>
               ) : null}
             </tbody>
@@ -853,4 +943,3 @@ function StockLedgerHistory({ user }) {
 }
 
 export default StockLedgerHistory;
-

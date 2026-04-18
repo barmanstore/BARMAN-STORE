@@ -10,8 +10,8 @@ export const PDF_TABLE_LAYOUT = {
     reference: 0.12,
     amount: 0.14,
     balance: 0.16,
-    description: 0.38
-  }
+    description: 0.38,
+  },
 };
 
 export const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
@@ -30,7 +30,7 @@ export const formatPdfCurrency = (amount) => {
   const abs = Math.abs(numeric);
   const value = new Intl.NumberFormat('en-IN', {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(abs);
   return `${numeric < 0 ? '-' : ''}Rs ${value}`;
 };
@@ -74,7 +74,15 @@ export const getEffectiveTransactionTimestamp = (transaction) => {
       const [year, month, day] = txDateRaw.split('-').map((v) => Number(v));
       const createdAt = new Date(transaction?.created_at || '');
       const withTime = !Number.isNaN(createdAt.getTime())
-        ? new Date(year, month - 1, day, createdAt.getHours(), createdAt.getMinutes(), createdAt.getSeconds(), createdAt.getMilliseconds())
+        ? new Date(
+            year,
+            month - 1,
+            day,
+            createdAt.getHours(),
+            createdAt.getMinutes(),
+            createdAt.getSeconds(),
+            createdAt.getMilliseconds()
+          )
         : new Date(year, month - 1, day);
       if (!Number.isNaN(withTime.getTime())) return withTime.getTime();
     }
@@ -91,11 +99,14 @@ export const compareTransactionsByDateDesc = (a, b) => {
   return Number(b?.id || 0) - Number(a?.id || 0);
 };
 
-export const buildCreditHistoryDayGroups = (transactions, {
-  getDateKey = getEffectiveTransactionDateKey,
-  compareTransactions = compareTransactionsByDateDesc,
-  formatDate = formatTransactionDate,
-} = {}) => {
+export const buildCreditHistoryDayGroups = (
+  transactions,
+  {
+    getDateKey = getEffectiveTransactionDateKey,
+    compareTransactions = compareTransactionsByDateDesc,
+    formatDate = formatTransactionDate,
+  } = {}
+) => {
   const groups = new Map();
   (Array.isArray(transactions) ? transactions : []).forEach((transaction) => {
     const dateKey = getDateKey(transaction) || 'Unknown';
@@ -107,9 +118,7 @@ export const buildCreditHistoryDayGroups = (transactions, {
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([dateKey, dayTransactions]) => ({
       dateKey,
-      dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
-        ? formatCompactDateKey(dateKey)
-        : dateKey,
+      dateLabel: /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? formatCompactDateKey(dateKey) : dateKey,
       dateLabelLong: /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
         ? formatDate({ transaction_date: dateKey }, { long: true })
         : dateKey,
@@ -126,7 +135,7 @@ export const formatTransactionDate = (transaction, { long = false } = {}) => {
       return localDate.toLocaleDateString('en-IN', {
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
       });
     }
     return localDate.toLocaleDateString('en-IN');
@@ -135,9 +144,10 @@ export const formatTransactionDate = (transaction, { long = false } = {}) => {
 };
 
 export const getPdfColumnStyles = (doc) => {
-  const pageWidth = typeof doc?.internal?.pageSize?.getWidth === 'function'
-    ? doc.internal.pageSize.getWidth()
-    : 210;
+  const pageWidth =
+    typeof doc?.internal?.pageSize?.getWidth === 'function'
+      ? doc.internal.pageSize.getWidth()
+      : 210;
   const usableWidth = pageWidth - PDF_TABLE_LAYOUT.marginLeft - PDF_TABLE_LAYOUT.marginRight;
   const w = PDF_TABLE_LAYOUT.columnWeight;
   return {
@@ -146,6 +156,6 @@ export const getPdfColumnStyles = (doc) => {
     2: { cellWidth: usableWidth * w.reference },
     3: { cellWidth: usableWidth * w.amount, halign: 'right' },
     4: { cellWidth: usableWidth * w.balance, halign: 'right' },
-    5: { cellWidth: usableWidth * w.description, overflow: 'linebreak', valign: 'top' }
+    5: { cellWidth: usableWidth * w.description, overflow: 'linebreak', valign: 'top' },
   };
 };

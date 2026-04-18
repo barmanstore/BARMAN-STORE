@@ -45,7 +45,8 @@ const CreditAddTransactionModal = ({
   const referenceSummary = String(newTransaction.reference || '').trim() || 'Not set';
   const attachmentSummary = String(newTransaction.attachmentName || '').trim() || 'None';
   const customerName = String(customer?.name || '').trim() || 'Customer';
-  const balanceHeadline = String(balanceSummary?.headline || 'Current balance').trim() || 'Current balance';
+  const balanceHeadline =
+    String(balanceSummary?.headline || 'Current balance').trim() || 'Current balance';
   const balanceAmount = formatCurrency(Math.abs(Number(balance || 0)));
 
   return (
@@ -73,7 +74,9 @@ const CreditAddTransactionModal = ({
             id="credit-tx-amount"
             name="amount"
             value={newTransaction.amount}
-            onValueChange={(nextValue) => setNewTransaction((current) => ({ ...current, amount: nextValue }))}
+            onValueChange={(nextValue) =>
+              setNewTransaction((current) => ({ ...current, amount: nextValue }))
+            }
             placeholder="Enter amount (Rs)"
             required
             autoFocus
@@ -88,7 +91,9 @@ const CreditAddTransactionModal = ({
             name="description"
             type="text"
             value={newTransaction.description}
-            onChange={(event) => setNewTransaction((current) => ({ ...current, description: event.target.value }))}
+            onChange={(event) =>
+              setNewTransaction((current) => ({ ...current, description: event.target.value }))
+            }
             placeholder={newTransaction.type === 'given' ? 'Manual sale' : 'Payment received'}
           />
         </div>
@@ -129,7 +134,12 @@ const CreditAddTransactionModal = ({
                 name="transaction_date"
                 type="date"
                 value={newTransaction.transactionDate}
-                onChange={(event) => setNewTransaction((current) => ({ ...current, transactionDate: event.target.value }))}
+                onChange={(event) =>
+                  setNewTransaction((current) => ({
+                    ...current,
+                    transactionDate: event.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -141,7 +151,9 @@ const CreditAddTransactionModal = ({
                 name="reference"
                 type="text"
                 value={newTransaction.reference}
-                onChange={(event) => setNewTransaction((current) => ({ ...current, reference: event.target.value }))}
+                onChange={(event) =>
+                  setNewTransaction((current) => ({ ...current, reference: event.target.value }))
+                }
                 placeholder="Bill no / receipt / reason"
               />
             </div>
@@ -175,7 +187,12 @@ const CreditAddTransactionModal = ({
         ) : null}
 
         <div className="modal-actions">
-          <button type="button" className="cancel-btn" onClick={closeAddModal} disabled={addingTransaction}>
+          <button
+            type="button"
+            className="cancel-btn"
+            onClick={closeAddModal}
+            disabled={addingTransaction}
+          >
             Cancel
           </button>
           <button

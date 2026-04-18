@@ -50,7 +50,9 @@ const useCreditHistoryIssues = ({
 
   const handleIssueResponse = async (issue, responseStatus) => {
     if (isAdminView || !issue?.id || !effectiveUserId) return;
-    const nextResponse = String(responseStatus || '').trim().toLowerCase();
+    const nextResponse = String(responseStatus || '')
+      .trim()
+      .toLowerCase();
     if (nextResponse !== 'acknowledged' && nextResponse !== 'disputed') return;
     const note = String(issueResponseDrafts[issue.id] || '').trim();
     if (nextResponse === 'disputed' && !note) {
@@ -68,9 +70,11 @@ const useCreditHistoryIssues = ({
       const issueRows = await creditApi.getIssues(effectiveUserId);
       setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
       setIssueResponseDrafts((prev) => ({ ...prev, [issue.id]: '' }));
-      setSuccess(nextResponse === 'acknowledged'
-        ? 'Thanks. Admin has been notified that this issue is acknowledged.'
-        : 'Your dispute has been sent to admin for re-check.');
+      setSuccess(
+        nextResponse === 'acknowledged'
+          ? 'Thanks. Admin has been notified that this issue is acknowledged.'
+          : 'Your dispute has been sent to admin for re-check.'
+      );
     } catch (err) {
       setError(err.message || 'Failed to send issue response');
     } finally {
@@ -103,7 +107,9 @@ const useCreditHistoryIssues = ({
     if (!isAdminView) return;
     const issueId = Number(issue?.id || 0);
     if (!issueId) return;
-    const nextAction = String(action || '').trim().toLowerCase();
+    const nextAction = String(action || '')
+      .trim()
+      .toLowerCase();
     if (!nextAction) return;
     const draft = getAdminIssueDraft(issue);
     const payload = {
@@ -114,7 +120,9 @@ const useCreditHistoryIssues = ({
     const correctionAmountResult = hasCorrectionAmount
       ? validateAmountInput(draft.correction_amount, { min: 0 })
       : { valid: true, value: 0 };
-    const correctionAmount = correctionAmountResult.valid ? Number(correctionAmountResult.value || 0) : 0;
+    const correctionAmount = correctionAmountResult.valid
+      ? Number(correctionAmountResult.value || 0)
+      : 0;
     if (nextAction === 'corrected' && hasCorrectionAmount && !correctionAmountResult.valid) {
       setError(correctionAmountResult.message || 'Please enter a valid correction amount');
       return;

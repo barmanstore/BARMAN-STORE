@@ -5,17 +5,22 @@ function VirtualizedFamilyGrid({
   renderFamilyCard,
   estimatedColumns = 2,
   estimatedCardHeight = 290,
-  shouldVirtualize = false
+  shouldVirtualize = false,
 }) {
   const hostRef = useRef(null);
   const itemRefs = useRef(new Map());
   const [isNearViewport, setIsNearViewport] = useState(!shouldVirtualize);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: Math.max(0, Math.min((families?.length || 1) - 1, 15)) });
+  const [visibleRange, setVisibleRange] = useState({
+    start: 0,
+    end: Math.max(0, Math.min((families?.length || 1) - 1, 15)),
+  });
   const cols = Math.max(1, Number(estimatedColumns || 1));
   const rowHeight = Math.max(160, Number(estimatedCardHeight || 290));
   const totalItems = Math.max(0, Number(families?.length || 0));
   const totalRows = Math.max(1, Math.ceil(totalItems / cols));
-  const [rowHeights, setRowHeights] = useState(() => Array.from({ length: totalRows }, () => rowHeight));
+  const [rowHeights, setRowHeights] = useState(() =>
+    Array.from({ length: totalRows }, () => rowHeight)
+  );
   const rowOffsets = useMemo(() => {
     const offsets = new Array(totalRows + 1);
     offsets[0] = 0;
@@ -25,24 +30,27 @@ function VirtualizedFamilyGrid({
     return offsets;
   }, [rowHeights, totalRows, rowHeight]);
 
-  const totalHeight = Math.max(110, rowOffsets[totalRows] || (totalRows * rowHeight));
+  const totalHeight = Math.max(110, rowOffsets[totalRows] || totalRows * rowHeight);
   const startRowIndex = Math.floor(Math.max(0, visibleRange.start) / cols);
   const virtualWindowOffset = rowOffsets[startRowIndex] || 0;
 
-  const findRowIndexAtOffset = useCallback((offsetPx) => {
-    if (totalRows <= 1) return 0;
-    let low = 0;
-    let high = totalRows - 1;
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2);
-      if ((rowOffsets[mid + 1] || 0) <= offsetPx) {
-        low = mid + 1;
-      } else {
-        high = mid;
+  const findRowIndexAtOffset = useCallback(
+    (offsetPx) => {
+      if (totalRows <= 1) return 0;
+      let low = 0;
+      let high = totalRows - 1;
+      while (low < high) {
+        const mid = Math.floor((low + high) / 2);
+        if ((rowOffsets[mid + 1] || 0) <= offsetPx) {
+          low = mid + 1;
+        } else {
+          high = mid;
+        }
       }
-    }
-    return low;
-  }, [rowOffsets, totalRows]);
+      return low;
+    },
+    [rowOffsets, totalRows]
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -51,9 +59,11 @@ function VirtualizedFamilyGrid({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRowHeights((prev) => Array.from({ length: totalRows }, (_, index) => (
-      Math.max(120, Number(prev[index] || rowHeight))
-    )));
+    setRowHeights((prev) =>
+      Array.from({ length: totalRows }, (_, index) =>
+        Math.max(120, Number(prev[index] || rowHeight))
+      )
+    );
   }, [totalRows, rowHeight, cols]);
 
   useEffect(() => {
@@ -63,7 +73,11 @@ function VirtualizedFamilyGrid({
       return undefined;
     }
     const node = hostRef.current;
-    if (!node || typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
+    if (
+      !node ||
+      typeof window === 'undefined' ||
+      typeof window.IntersectionObserver !== 'function'
+    ) {
       setIsNearViewport(true);
       return undefined;
     }
@@ -93,9 +107,12 @@ function VirtualizedFamilyGrid({
       const visibleTopPx = Math.max(0, viewportTop - componentTop);
       const visibleBottomPx = Math.min(totalHeight, viewportBottom - componentTop);
       const startRow = Math.max(0, findRowIndexAtOffset(visibleTopPx) - overscanRows);
-      const endRow = Math.min(totalRows - 1, findRowIndexAtOffset(Math.max(0, visibleBottomPx)) + overscanRows);
+      const endRow = Math.min(
+        totalRows - 1,
+        findRowIndexAtOffset(Math.max(0, visibleBottomPx)) + overscanRows
+      );
       const nextStart = Math.max(0, startRow * cols);
-      const nextEnd = Math.min(totalItems - 1, ((endRow + 1) * cols) - 1);
+      const nextEnd = Math.min(totalItems - 1, (endRow + 1) * cols - 1);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisibleRange((prev) => {
         if (prev.start === nextStart && prev.end === nextEnd) return prev;
@@ -116,7 +133,16 @@ function VirtualizedFamilyGrid({
       window.removeEventListener('scroll', scheduleCompute);
       window.removeEventListener('resize', scheduleCompute);
     };
-  }, [shouldVirtualize, isNearViewport, totalRows, totalHeight, cols, totalItems, rowOffsets, findRowIndexAtOffset]);
+  }, [
+    shouldVirtualize,
+    isNearViewport,
+    totalRows,
+    totalHeight,
+    cols,
+    totalItems,
+    rowOffsets,
+    findRowIndexAtOffset,
+  ]);
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || !isNearViewport || totalItems === 0) return undefined;
@@ -135,9 +161,12 @@ function VirtualizedFamilyGrid({
 
       setRowHeights((prev) => {
         let changed = false;
-        const next = prev.length === totalRows
-          ? [...prev]
-          : Array.from({ length: totalRows }, (_, index) => Math.max(120, Number(prev[index] || rowHeight)));
+        const next =
+          prev.length === totalRows
+            ? [...prev]
+            : Array.from({ length: totalRows }, (_, index) =>
+                Math.max(120, Number(prev[index] || rowHeight))
+              );
         measuredByRow.forEach((measuredHeight, rowIndex) => {
           const stableHeight = Math.max(120, measuredHeight);
           if (Math.abs(Number(next[rowIndex] || rowHeight) - stableHeight) > 1) {
@@ -150,7 +179,8 @@ function VirtualizedFamilyGrid({
     };
 
     measureVisibleRows();
-    if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function') return undefined;
+    if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function')
+      return undefined;
     const observer = new window.ResizeObserver(() => measureVisibleRows());
     itemRefs.current.forEach((node, indexKey) => {
       const absoluteIndex = Number(indexKey);
@@ -159,7 +189,16 @@ function VirtualizedFamilyGrid({
       }
     });
     return () => observer.disconnect();
-  }, [shouldVirtualize, isNearViewport, totalItems, visibleRange.start, visibleRange.end, cols, totalRows, rowHeight]);
+  }, [
+    shouldVirtualize,
+    isNearViewport,
+    totalItems,
+    visibleRange.start,
+    visibleRange.end,
+    cols,
+    totalRows,
+    rowHeight,
+  ]);
 
   if (!shouldVirtualize) {
     return (
@@ -174,7 +213,11 @@ function VirtualizedFamilyGrid({
   if (!isNearViewport) {
     return (
       <div ref={hostRef} className="virtual-grid-host">
-        <div className="virtual-grid-placeholder" style={{ height: `${totalHeight}px` }} aria-hidden="true" />
+        <div
+          className="virtual-grid-placeholder"
+          style={{ height: `${totalHeight}px` }}
+          aria-hidden="true"
+        />
       </div>
     );
   }
@@ -213,4 +256,3 @@ function VirtualizedFamilyGrid({
 }
 
 export default VirtualizedFamilyGrid;
-

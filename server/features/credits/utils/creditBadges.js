@@ -80,7 +80,7 @@ const dateKeyToUtcMs = (dateKey) => {
 const addDaysToDateKey = (dateKey, days) => {
   const baseMs = dateKeyToUtcMs(dateKey);
   if (!baseMs) return '';
-  return getUtcDateKey(baseMs + (Math.max(0, Math.floor(toFiniteNumber(days, 0))) * PAYMENT_DAY_MS));
+  return getUtcDateKey(baseMs + Math.max(0, Math.floor(toFiniteNumber(days, 0))) * PAYMENT_DAY_MS);
 };
 
 const diffDateKeysInDays = (laterDateKey, earlierDateKey) => {
@@ -125,7 +125,11 @@ const buildStatusHelper = ({
     };
   }
 
-  if (!Number.isFinite(outstandingAmount) || outstandingAmount <= EPSILON || !activeCycleDueDateKey) {
+  if (
+    !Number.isFinite(outstandingAmount) ||
+    outstandingAmount <= EPSILON ||
+    !activeCycleDueDateKey
+  ) {
     return {
       mode: 'clear',
       text: 'No unpaid due right now. Keep clearing entries on time.',
@@ -152,7 +156,11 @@ const buildStatusHelper = ({
     };
   }
 
-  if (String(displayStatus.key || '').trim().toLowerCase() === 'excellent') {
+  if (
+    String(displayStatus.key || '')
+      .trim()
+      .toLowerCase() === 'excellent'
+  ) {
     return {
       mode: 'maintain',
       text: `Pay by ${dueDateLabel} to keep Excellent.`,
@@ -182,17 +190,24 @@ const buildCycleState = (startDateKey, referenceDateKey, graceDays = DEFAULT_GRA
     };
   }
 
-  const elapsedDays = Math.max(0, diffDateKeysInDays(normalizedReferenceDateKey, normalizedStartDateKey));
+  const elapsedDays = Math.max(
+    0,
+    diffDateKeysInDays(normalizedReferenceDateKey, normalizedStartDateKey)
+  );
   const band = getCycleBandForElapsedDays(elapsedDays, { graceDays }) || getFirstEstablishedBand();
-  const dueDateKey = band ? addDaysToDateKey(normalizedStartDateKey, Number(band.target_days || 0)) : '';
+  const dueDateKey = band
+    ? addDaysToDateKey(normalizedStartDateKey, Number(band.target_days || 0))
+    : '';
   const graceEndDateKey = dueDateKey ? addDaysToDateKey(dueDateKey, graceDays) : '';
-  const overdueDays = dueDateKey ? Math.max(0, diffDateKeysInDays(normalizedReferenceDateKey, dueDateKey)) : 0;
-  const earlyDays = dueDateKey ? Math.max(0, diffDateKeysInDays(dueDateKey, normalizedReferenceDateKey)) : 0;
+  const overdueDays = dueDateKey
+    ? Math.max(0, diffDateKeysInDays(normalizedReferenceDateKey, dueDateKey))
+    : 0;
+  const earlyDays = dueDateKey
+    ? Math.max(0, diffDateKeysInDays(dueDateKey, normalizedReferenceDateKey))
+    : 0;
   const isPastDue = Boolean(dueDateKey) && normalizedReferenceDateKey > dueDateKey;
   const isAfterGrace = Boolean(graceEndDateKey) && normalizedReferenceDateKey > graceEndDateKey;
-  const score = band
-    ? getBandScoreForElapsedDays(band.key, elapsedDays, { graceDays })
-    : null;
+  const score = band ? getBandScoreForElapsedDays(band.key, elapsedDays, { graceDays }) : null;
 
   return {
     band,
@@ -207,11 +222,7 @@ const buildCycleState = (startDateKey, referenceDateKey, graceDays = DEFAULT_GRA
   };
 };
 
-const classifySettledCycle = ({
-  earlyDays = 0,
-  overdueDays = 0,
-  isAfterGrace = false,
-} = {}) => {
+const classifySettledCycle = ({ earlyDays = 0, overdueDays = 0, isAfterGrace = false } = {}) => {
   if (isAfterGrace) {
     return {
       bucket: 'late_after_grace',
@@ -260,13 +271,16 @@ const classifySettledCycle = ({
 };
 
 const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
-  const buildCreditDisciplineProfile = (entries, {
-    balance = 0,
-    creditLimit = 0,
-    nowMs = Date.now(),
-    isActive = true,
-    graceDays = CREDIT_BADGE_SETTINGS.defaultGraceDays,
-  } = {}) => {
+  const buildCreditDisciplineProfile = (
+    entries,
+    {
+      balance = 0,
+      creditLimit = 0,
+      nowMs = Date.now(),
+      isActive = true,
+      graceDays = CREDIT_BADGE_SETTINGS.defaultGraceDays,
+    } = {}
+  ) => {
     const normalizedGraceDays = normalizeGraceDays(graceDays);
     const normalizedIsActive = Boolean(isActive);
     const nowDateKey = getUtcDateKey(nowMs);
@@ -277,7 +291,9 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
         const timestampMs = resolveCreditEntryTimestampMs(entry);
         const createdAtMs = Date.parse(String(entry?.created_at || '').trim() || 0);
         const amount = Math.abs(toFiniteNumber(entry?.amount, 0));
-        const type = String(entry?.type || '').trim().toLowerCase();
+        const type = String(entry?.type || '')
+          .trim()
+          .toLowerCase();
         if (!Number.isFinite(timestampMs) || timestampMs <= 0) return null;
         if (amount <= 0) return null;
         if (type !== 'given' && type !== 'payment') return null;
@@ -299,19 +315,22 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
           createdAt: entry?.created_at || null,
           transactionDateKey,
           dueDateKey,
-          sourceType: String(entry?.source_type || '').trim().toLowerCase(),
+          sourceType: String(entry?.source_type || '')
+            .trim()
+            .toLowerCase(),
           sourceId: String(entry?.source_id || '').trim(),
           sourceLabel: String(entry?.source_label || entry?.reference || '').trim(),
           reference: String(entry?.reference || '').trim(),
         };
       })
       .filter(Boolean)
-      .sort((a, b) => (
-        (a.timestampMs - b.timestampMs)
-        || (a.createdAtMs - b.createdAtMs)
-        || ((a.id || 0) - (b.id || 0))
-        || (a.index - b.index)
-      ));
+      .sort(
+        (a, b) =>
+          a.timestampMs - b.timestampMs ||
+          a.createdAtMs - b.createdAtMs ||
+          (a.id || 0) - (b.id || 0) ||
+          a.index - b.index
+      );
 
     const paymentTimeline = [];
     const periods = [];
@@ -371,7 +390,11 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
       const settledAtMs = period.settled_at ? Date.parse(period.settled_at) : 0;
       const settledDateKey = settledAtMs ? getUtcDateKey(settledAtMs) : '';
       const referenceDateKey = period.is_fully_settled ? settledDateKey : nowDateKey;
-      const cycleState = buildCycleState(period.period_start_date_key, referenceDateKey, normalizedGraceDays);
+      const cycleState = buildCycleState(
+        period.period_start_date_key,
+        referenceDateKey,
+        normalizedGraceDays
+      );
       const ageDays = toAgeDays(nowMs, period.period_start_ms);
 
       let status = 'paid';
@@ -437,21 +460,29 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
     const earliestOpenPeriod = openPeriods[0] || null;
     const lastSettledPeriod = settledPeriods.reduce((latest, period) => {
       if (!latest) return period;
-      return Number(period.settled_at_ms || 0) > Number(latest.settled_at_ms || 0) ? period : latest;
+      return Number(period.settled_at_ms || 0) > Number(latest.settled_at_ms || 0)
+        ? period
+        : latest;
     }, null);
 
     const firstEstablishedBand = getFirstEstablishedBand() || NEW_CUSTOMER_STATUS;
     const firstPeriodStartDateKey = String(scoredPeriods[0]?.period_start_date_key || '').trim();
     const firstCycleJudgementDateKey = firstPeriodStartDateKey
       ? addDaysToDateKey(
-        addDaysToDateKey(firstPeriodStartDateKey, Number(firstEstablishedBand.target_days || DEFAULT_NEW_STATUS_DAYS)),
-        normalizedGraceDays
-      )
+          addDaysToDateKey(
+            firstPeriodStartDateKey,
+            Number(firstEstablishedBand.target_days || DEFAULT_NEW_STATUS_DAYS)
+          ),
+          normalizedGraceDays
+        )
       : '';
 
     const totalPeriods = scoredPeriods.length;
-    const isNewCustomer = totalPeriods === 0
-      || (!settledPeriods.length && firstCycleJudgementDateKey && nowDateKey <= firstCycleJudgementDateKey);
+    const isNewCustomer =
+      totalPeriods === 0 ||
+      (!settledPeriods.length &&
+        firstCycleJudgementDateKey &&
+        nowDateKey <= firstCycleJudgementDateKey);
 
     let displayStatus = earliestOpenPeriod?.cycle_band || null;
     let paymentScore = earliestOpenPeriod?.cycle_score ?? null;
@@ -469,63 +500,141 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
       displayStatus = firstEstablishedBand || NEW_CUSTOMER_STATUS;
     }
 
-    const activeCycleMisses = (!isNewCustomer && earliestOpenPeriod?.cycle_band?.key)
-      ? Math.max(0, getBandIndex(earliestOpenPeriod.cycle_band.key))
-      : 0;
-    const judgedPeriods = settledPeriods.length + openPeriods.filter((period) => period.status === 'missed').length;
+    const activeCycleMisses =
+      !isNewCustomer && earliestOpenPeriod?.cycle_band?.key
+        ? Math.max(0, getBandIndex(earliestOpenPeriod.cycle_band.key))
+        : 0;
+    const judgedPeriods =
+      settledPeriods.length + openPeriods.filter((period) => period.status === 'missed').length;
     const onTimePeriods = settledPeriods.filter((period) => period.delay_days <= 0).length;
-    const within7Days = settledPeriods.filter((period) => period.delay_days > 0 && period.delay_days <= 7).length;
-    const within30Days = settledPeriods.filter((period) => period.delay_days > 7 && period.delay_days <= 30).length;
-    const within60Days = settledPeriods.filter((period) => period.delay_days > 30 && period.delay_days <= 60).length;
-    const latePeriods = settledPeriods.filter((period) => period.delay_days > 0).length
-      + ((earliestOpenPeriod && (earliestOpenPeriod.status === 'late' || earliestOpenPeriod.status === 'missed')) ? 1 : 0);
-    const missedPeriods = settledPeriods.filter((period) => period.score_bucket === 'late_after_grace').length
-      + activeCycleMisses;
-    const totalDelayDays = settledPeriods.reduce((sum, period) => sum + Math.max(0, toFiniteNumber(period.delay_days, 0)), 0)
-      + openPeriods
+    const within7Days = settledPeriods.filter(
+      (period) => period.delay_days > 0 && period.delay_days <= 7
+    ).length;
+    const within30Days = settledPeriods.filter(
+      (period) => period.delay_days > 7 && period.delay_days <= 30
+    ).length;
+    const within60Days = settledPeriods.filter(
+      (period) => period.delay_days > 30 && period.delay_days <= 60
+    ).length;
+    const latePeriods =
+      settledPeriods.filter((period) => period.delay_days > 0).length +
+      (earliestOpenPeriod &&
+      (earliestOpenPeriod.status === 'late' || earliestOpenPeriod.status === 'missed')
+        ? 1
+        : 0);
+    const missedPeriods =
+      settledPeriods.filter((period) => period.score_bucket === 'late_after_grace').length +
+      activeCycleMisses;
+    const totalDelayDays =
+      settledPeriods.reduce(
+        (sum, period) => sum + Math.max(0, toFiniteNumber(period.delay_days, 0)),
+        0
+      ) +
+      openPeriods
         .filter((period) => period.status === 'missed')
         .reduce((sum, period) => sum + Math.max(0, toFiniteNumber(period.delay_days, 0)), 0);
     const averageDelayDays = judgedPeriods > 0 ? totalDelayDays / judgedPeriods : 0;
-    const averageSettlementDays = settledPeriods.length > 0
-      ? settledPeriods.reduce((sum, period) => sum + Math.max(0, toFiniteNumber(period.elapsed_days, 0)), 0) / settledPeriods.length
-      : null;
-    const outstandingAmount = roundMoney(openPeriods.reduce((sum, period) => sum + toFiniteNumber(period.remaining_amount, 0), 0));
-    const oldestOpenDays = openPeriods.reduce((maxAge, period) => (
-      period.age_days > maxAge ? period.age_days : maxAge
-    ), 0);
-    const oldestOverdueDays = earliestOpenPeriod && (earliestOpenPeriod.status === 'late' || earliestOpenPeriod.status === 'missed')
-      ? Math.max(0, toFiniteNumber(earliestOpenPeriod.delay_days, 0))
-      : 0;
-    const aging0To30 = roundMoney(openPeriods.reduce((sum, period) => sum + (period.age_days <= 30 ? toFiniteNumber(period.remaining_amount, 0) : 0), 0));
-    const aging31To60 = roundMoney(openPeriods.reduce((sum, period) => sum + (period.age_days > 30 && period.age_days <= 60 ? toFiniteNumber(period.remaining_amount, 0) : 0), 0));
-    const aging61To90 = roundMoney(openPeriods.reduce((sum, period) => sum + (period.age_days > 60 && period.age_days <= 90 ? toFiniteNumber(period.remaining_amount, 0) : 0), 0));
-    const agingOver90 = roundMoney(openPeriods.reduce((sum, period) => sum + (period.age_days > 90 ? toFiniteNumber(period.remaining_amount, 0) : 0), 0));
+    const averageSettlementDays =
+      settledPeriods.length > 0
+        ? settledPeriods.reduce(
+            (sum, period) => sum + Math.max(0, toFiniteNumber(period.elapsed_days, 0)),
+            0
+          ) / settledPeriods.length
+        : null;
+    const outstandingAmount = roundMoney(
+      openPeriods.reduce((sum, period) => sum + toFiniteNumber(period.remaining_amount, 0), 0)
+    );
+    const oldestOpenDays = openPeriods.reduce(
+      (maxAge, period) => (period.age_days > maxAge ? period.age_days : maxAge),
+      0
+    );
+    const oldestOverdueDays =
+      earliestOpenPeriod &&
+      (earliestOpenPeriod.status === 'late' || earliestOpenPeriod.status === 'missed')
+        ? Math.max(0, toFiniteNumber(earliestOpenPeriod.delay_days, 0))
+        : 0;
+    const aging0To30 = roundMoney(
+      openPeriods.reduce(
+        (sum, period) =>
+          sum + (period.age_days <= 30 ? toFiniteNumber(period.remaining_amount, 0) : 0),
+        0
+      )
+    );
+    const aging31To60 = roundMoney(
+      openPeriods.reduce(
+        (sum, period) =>
+          sum +
+          (period.age_days > 30 && period.age_days <= 60
+            ? toFiniteNumber(period.remaining_amount, 0)
+            : 0),
+        0
+      )
+    );
+    const aging61To90 = roundMoney(
+      openPeriods.reduce(
+        (sum, period) =>
+          sum +
+          (period.age_days > 60 && period.age_days <= 90
+            ? toFiniteNumber(period.remaining_amount, 0)
+            : 0),
+        0
+      )
+    );
+    const agingOver90 = roundMoney(
+      openPeriods.reduce(
+        (sum, period) =>
+          sum + (period.age_days > 90 ? toFiniteNumber(period.remaining_amount, 0) : 0),
+        0
+      )
+    );
 
-    const positivePoints = settledPeriods.reduce((sum, period) => (
-      period.score_delta > 0 ? sum + period.score_delta : sum
-    ), 0);
-    const latePenaltyPoints = settledPeriods.reduce((sum, period) => (
-      period.score_bucket === 'late_within_grace' ? sum + Math.abs(period.score_delta || 0) : sum
-    ), 0);
-    const missedPenaltyPoints = settledPeriods.reduce((sum, period) => (
-      period.score_bucket === 'late_after_grace' ? sum + Math.abs(period.score_delta || 0) : sum
-    ), 0) + (activeCycleMisses * 3);
-    const averageWeight = judgedPeriods > 0
-      ? (onTimePeriods + (within7Days * 0.5)) / judgedPeriods
-      : 0;
+    const positivePoints = settledPeriods.reduce(
+      (sum, period) => (period.score_delta > 0 ? sum + period.score_delta : sum),
+      0
+    );
+    const latePenaltyPoints = settledPeriods.reduce(
+      (sum, period) =>
+        period.score_bucket === 'late_within_grace' ? sum + Math.abs(period.score_delta || 0) : sum,
+      0
+    );
+    const missedPenaltyPoints =
+      settledPeriods.reduce(
+        (sum, period) =>
+          period.score_bucket === 'late_after_grace'
+            ? sum + Math.abs(period.score_delta || 0)
+            : sum,
+        0
+      ) +
+      activeCycleMisses * 3;
+    const averageWeight =
+      judgedPeriods > 0 ? (onTimePeriods + within7Days * 0.5) / judgedPeriods : 0;
 
     const totalPayments = paymentTimeline.length;
-    const totalPaidAmount = roundMoney(paymentTimeline.reduce((sum, entry) => sum + entry.amount, 0));
-    const lastPaymentTs = paymentTimeline.reduce((latest, entry) => (
-      entry.timestampMs > latest ? entry.timestampMs : latest
-    ), 0);
+    const totalPaidAmount = roundMoney(
+      paymentTimeline.reduce((sum, entry) => sum + entry.amount, 0)
+    );
+    const lastPaymentTs = paymentTimeline.reduce(
+      (latest, entry) => (entry.timestampMs > latest ? entry.timestampMs : latest),
+      0
+    );
     const lastPaymentLabel = formatPaymentBadgeDate(lastPaymentTs);
     const lastPaymentAgeDays = lastPaymentTs ? toAgeDays(nowMs, lastPaymentTs) : null;
-    const paymentsLast30 = paymentTimeline.filter((entry) => nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow30Days * PAYMENT_DAY_MS).length;
-    const paymentsLast60 = paymentTimeline.filter((entry) => nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow60Days * PAYMENT_DAY_MS).length;
-    const paymentsLast90 = paymentTimeline.filter((entry) => nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow90Days * PAYMENT_DAY_MS).length;
+    const paymentsLast30 = paymentTimeline.filter(
+      (entry) =>
+        nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow30Days * PAYMENT_DAY_MS
+    ).length;
+    const paymentsLast60 = paymentTimeline.filter(
+      (entry) =>
+        nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow60Days * PAYMENT_DAY_MS
+    ).length;
+    const paymentsLast90 = paymentTimeline.filter(
+      (entry) =>
+        nowMs - entry.timestampMs <= CREDIT_BADGE_SETTINGS.paymentWindow90Days * PAYMENT_DAY_MS
+    ).length;
 
-    const monthKeys = new Set(paymentTimeline.map((entry) => getUtcMonthKey(entry.timestampMs)).filter(Boolean));
+    const monthKeys = new Set(
+      paymentTimeline.map((entry) => getUtcMonthKey(entry.timestampMs)).filter(Boolean)
+    );
     let streakMonths = 0;
     if (monthKeys.size > 0) {
       const cursor = new Date(nowMs);
@@ -545,16 +654,22 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
       ? roundRatio((normalizedBalance / normalizedCreditLimit) * 100)
       : null;
     const limitStatusKey = creditLimitActive
-      ? (normalizedBalance > normalizedCreditLimit ? 'over_limit' : 'within_limit')
+      ? normalizedBalance > normalizedCreditLimit
+        ? 'over_limit'
+        : 'within_limit'
       : 'not_set';
-    const limitStatusLabel = limitStatusKey === 'over_limit'
-      ? 'Over Limit'
-      : (limitStatusKey === 'within_limit' ? 'Within Limit' : 'Limit Not Set');
+    const limitStatusLabel =
+      limitStatusKey === 'over_limit'
+        ? 'Over Limit'
+        : limitStatusKey === 'within_limit'
+          ? 'Within Limit'
+          : 'Limit Not Set';
 
     const customerTag = isNewCustomer ? 'insufficient_history' : null;
-    paymentScore = isNewCustomer || paymentScore === null || paymentScore === undefined
-      ? null
-      : clamp(Math.round(toFiniteNumber(paymentScore, 0)), 0, 100);
+    paymentScore =
+      isNewCustomer || paymentScore === null || paymentScore === undefined
+        ? null
+        : clamp(Math.round(toFiniteNumber(paymentScore, 0)), 0, 100);
     displayStatus = isNewCustomer ? NEW_CUSTOMER_STATUS : displayStatus;
     const nextBetterBand = getNextBetterBand(displayStatus?.key || '');
     const helper = buildStatusHelper({
@@ -567,7 +682,11 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
       nowDateKey,
       outstandingAmount,
     });
-    const isDefaulter = !isNewCustomer && String(displayStatus?.key || '').trim().toLowerCase() === 'defaulter';
+    const isDefaulter =
+      !isNewCustomer &&
+      String(displayStatus?.key || '')
+        .trim()
+        .toLowerCase() === 'defaulter';
 
     const badges = [];
     if (displayStatus) {
@@ -585,7 +704,8 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
         label: `Score ${Math.round(paymentScore)}/100`,
         shortLabel: String(Math.round(paymentScore)),
         tone: displayStatus?.tone || 'neutral',
-        description: `${displayStatus?.label || 'Payment status'}. Payment score ${Math.round(paymentScore)}/100. ${displayStatus?.description || ''}`.trim(),
+        description:
+          `${displayStatus?.label || 'Payment status'}. Payment score ${Math.round(paymentScore)}/100. ${displayStatus?.description || ''}`.trim(),
       });
     }
     if (creditLimitActive) {
@@ -594,9 +714,10 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
         label: limitStatusLabel,
         shortLabel: limitStatusKey === 'over_limit' ? 'Over Limit' : 'Limit OK',
         tone: limitStatusKey === 'over_limit' ? 'problem' : 'stable',
-        description: limitStatusKey === 'over_limit'
-          ? `Current balance Rs ${normalizedBalance.toFixed(2)} is above the manual credit limit of Rs ${normalizedCreditLimit.toFixed(2)}.`
-          : `Current balance Rs ${normalizedBalance.toFixed(2)} is within the manual credit limit of Rs ${normalizedCreditLimit.toFixed(2)}.`,
+        description:
+          limitStatusKey === 'over_limit'
+            ? `Current balance Rs ${normalizedBalance.toFixed(2)} is above the manual credit limit of Rs ${normalizedCreditLimit.toFixed(2)}.`
+            : `Current balance Rs ${normalizedBalance.toFixed(2)} is within the manual credit limit of Rs ${normalizedCreditLimit.toFixed(2)}.`,
       });
     }
     if (missedPeriods > 0) {
@@ -621,7 +742,10 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
     const summaryParts = [];
     if (displayStatus?.label) summaryParts.push(displayStatus.label);
     if (paymentScore !== null) summaryParts.push(`Score ${Math.round(paymentScore)}/100`);
-    if (activeCycleDueDateKey) summaryParts.push(`Current due ${formatPaymentBadgeDate(dateKeyToUtcMs(activeCycleDueDateKey))}`);
+    if (activeCycleDueDateKey)
+      summaryParts.push(
+        `Current due ${formatPaymentBadgeDate(dateKeyToUtcMs(activeCycleDueDateKey))}`
+      );
     if (missedPeriods > 0) summaryParts.push(`Missed ${missedPeriods}`);
     if (lastPaymentLabel) summaryParts.push(`Last paid ${lastPaymentLabel}`);
     if (outstandingAmount > EPSILON) summaryParts.push(`Due Rs ${normalizedBalance.toFixed(2)}`);
@@ -669,11 +793,22 @@ const createCreditBadgeUtils = ({ resolveCreditEntryTimestampMs } = {}) => {
         raw_score_70: paymentScore === null ? 0 : roundRatio((paymentScore / 100) * 70),
         score_basis_days: judgedPeriods > 0 ? roundRatio(averageDelayDays) : null,
         same_day_ratio: judgedPeriods > 0 ? roundRatio(onTimePeriods / judgedPeriods) : null,
-        within_7d_ratio: judgedPeriods > 0 ? roundRatio((onTimePeriods + within7Days) / judgedPeriods) : null,
-        within_30d_ratio: judgedPeriods > 0 ? roundRatio((onTimePeriods + within7Days + within30Days) / judgedPeriods) : null,
-        within_60d_ratio: judgedPeriods > 0 ? roundRatio((onTimePeriods + within7Days + within30Days + within60Days) / judgedPeriods) : null,
+        within_7d_ratio:
+          judgedPeriods > 0 ? roundRatio((onTimePeriods + within7Days) / judgedPeriods) : null,
+        within_30d_ratio:
+          judgedPeriods > 0
+            ? roundRatio((onTimePeriods + within7Days + within30Days) / judgedPeriods)
+            : null,
+        within_60d_ratio:
+          judgedPeriods > 0
+            ? roundRatio(
+                (onTimePeriods + within7Days + within30Days + within60Days) / judgedPeriods
+              )
+            : null,
         average_delay_days: judgedPeriods > 0 ? roundRatio(averageDelayDays) : null,
-        average_settlement_days: Number.isFinite(averageSettlementDays) ? roundRatio(averageSettlementDays) : null,
+        average_settlement_days: Number.isFinite(averageSettlementDays)
+          ? roundRatio(averageSettlementDays)
+          : null,
         current_balance: currentBalance,
         balance: currentBalance,
         outstanding_amount: outstandingAmount,

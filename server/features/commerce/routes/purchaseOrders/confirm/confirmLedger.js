@@ -1,19 +1,18 @@
-const applyConfirmLedgerEntries = async (deps, {
-  req,
-  order,
-  billNumber,
-  distributorId,
-  totalSnapshot,
-  paymentMode,
-  paymentReference,
-  paymentNotes,
-  paymentDate,
-}) => {
-  const {
-    dbGetAsync,
-    dbRunAsync,
-    createDistributorLedgerEntry,
-  } = deps;
+const applyConfirmLedgerEntries = async (
+  deps,
+  {
+    req,
+    order,
+    billNumber,
+    distributorId,
+    totalSnapshot,
+    paymentMode,
+    paymentReference,
+    paymentNotes,
+    paymentDate,
+  }
+) => {
+  const { dbGetAsync, dbRunAsync, createDistributorLedgerEntry } = deps;
 
   let createdPaymentId = null;
 
@@ -36,7 +35,8 @@ const applyConfirmLedgerEntries = async (deps, {
       payment_mode: 'credit',
       reference: order.po_number || `PO-${req.params.id}`,
       bill_number: billNumber || null,
-      description: `Purchase Order ${order.po_number || req.params.id}${billNumber ? ` (Bill: ${billNumber})` : ''}`.trim(),
+      description:
+        `Purchase Order ${order.po_number || req.params.id}${billNumber ? ` (Bill: ${billNumber})` : ''}`.trim(),
       transaction_date: paymentDate || new Date().toISOString().slice(0, 10),
       source: 'purchase_order',
       source_id: req.params.id,

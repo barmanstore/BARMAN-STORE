@@ -24,7 +24,9 @@ const createPhoneChangeWorker = (deps = {}) => {
   let phoneChangeWorkerTimer = null;
   let phoneChangeWorkerRunning = false;
 
-  const processPendingPhoneChangeRequests = async ({ limit = PHONE_CHANGE_AUTO_BATCH_SIZE } = {}) => {
+  const processPendingPhoneChangeRequests = async ({
+    limit = PHONE_CHANGE_AUTO_BATCH_SIZE,
+  } = {}) => {
     if (phoneChangeWorkerRunning) return null;
     phoneChangeWorkerRunning = true;
     try {

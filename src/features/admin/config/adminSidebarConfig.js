@@ -1,13 +1,28 @@
-import { TrendingUp, ShoppingCart, Gift, BarChart2, Package, PackagePlus, FolderOpen, FileText, Eye, ShoppingBag, Truck, History, Users, CreditCard, Wallet } from 'lucide-react';
+import {
+  TrendingUp,
+  ShoppingCart,
+  Gift,
+  BarChart2,
+  Package,
+  PackagePlus,
+  FolderOpen,
+  FileText,
+  Eye,
+  ShoppingBag,
+  Truck,
+  History,
+  Users,
+  CreditCard,
+  Wallet,
+} from 'lucide-react';
 
-const filterSections = (sections, predicate) => (
+const filterSections = (sections, predicate) =>
   sections
     .map((section) => ({
       ...section,
       items: section.items.filter(predicate),
     }))
-    .filter((section) => section.items.length > 0)
-);
+    .filter((section) => section.items.length > 0);
 
 export const MOBILE_ALLOWED_TABS = new Set([
   'dashboard',
@@ -38,7 +53,13 @@ export const SIDEBAR_SECTIONS = [
     icon: Package,
     items: [
       { tab: 'products', label: 'Products', icon: Package, mobile: true },
-      { tab: 'restock-dashboard', label: 'Restock Dashboard', icon: PackagePlus, sub: true, mobile: false },
+      {
+        tab: 'restock-dashboard',
+        label: 'Restock Dashboard',
+        icon: PackagePlus,
+        sub: true,
+        mobile: false,
+      },
       { tab: 'categories', label: 'Categories', icon: FolderOpen, sub: true, mobile: false },
     ],
   },
@@ -61,8 +82,20 @@ export const SIDEBAR_SECTIONS = [
       { tab: 'purchases', label: 'Purchases', icon: ShoppingBag, mobile: false },
       { tab: 'distributors', label: 'Distributors', icon: Truck, sub: true, mobile: false },
       { tab: 'stock-ledger', label: 'Stock History', icon: History, sub: true, mobile: false },
-      { tab: 'product-insights', label: 'Product Insights', icon: BarChart2, sub: true, mobile: false },
-      { tab: 'distributor-insights', label: 'Distributor Insights', icon: TrendingUp, sub: true, mobile: false },
+      {
+        tab: 'product-insights',
+        label: 'Product Insights',
+        icon: BarChart2,
+        sub: true,
+        mobile: false,
+      },
+      {
+        tab: 'distributor-insights',
+        label: 'Distributor Insights',
+        icon: TrendingUp,
+        sub: true,
+        mobile: false,
+      },
     ],
   },
   {
@@ -72,7 +105,13 @@ export const SIDEBAR_SECTIONS = [
     items: [
       { tab: 'users', label: 'Users', icon: Users, mobile: true },
       { tab: 'credit-khata', label: 'Credit Khata', icon: CreditCard, sub: true, mobile: true },
-      { tab: 'customer-requests', label: 'Customer Requests', icon: FileText, sub: true, mobile: true },
+      {
+        tab: 'customer-requests',
+        label: 'Customer Requests',
+        icon: FileText,
+        sub: true,
+        mobile: true,
+      },
     ],
   },
 ];
@@ -81,9 +120,9 @@ export const MOBILE_SIDEBAR_SECTIONS = filterSections(SIDEBAR_SECTIONS, (item) =
 
 export const ADMIN_DEFAULT_TAB = 'dashboard';
 
-export const ALL_ADMIN_TABS = Array.from(new Set(
-  SIDEBAR_SECTIONS.flatMap((section) => section.items.map((item) => item.tab))
-));
+export const ALL_ADMIN_TABS = Array.from(
+  new Set(SIDEBAR_SECTIONS.flatMap((section) => section.items.map((item) => item.tab)))
+);
 
 const ADMIN_TAB_SET = new Set(ALL_ADMIN_TABS);
 

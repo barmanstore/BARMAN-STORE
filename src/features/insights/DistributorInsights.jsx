@@ -1,5 +1,13 @@
 import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
 import { insightsApi } from '../../shared/services/api';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
@@ -49,7 +57,10 @@ const buildDateRangePresets = () => {
     { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
     { label: 'Last 30 Days', value: [toDateToken(shiftDateByDays(today, -29)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
@@ -66,9 +77,8 @@ const formatPercent = (value) => {
   return `${num.toFixed(1)}%`;
 };
 
-const formatCurrencyValue = (value) => (
-  value !== null && value !== undefined ? formatCurrency(value) : '-'
-);
+const formatCurrencyValue = (value) =>
+  value !== null && value !== undefined ? formatCurrency(value) : '-';
 
 const formatDayValue = (value) => {
   const num = Number(value);
@@ -103,7 +113,10 @@ const compareSortValues = (left, right) => {
 };
 
 const renderRiskPill = (risk) => {
-  const label = String(risk || 'unknown').trim().toLowerCase() || 'unknown';
+  const label =
+    String(risk || 'unknown')
+      .trim()
+      .toLowerCase() || 'unknown';
   return (
     <span className={`risk-pill ${label}`} title={`Risk ${label}`} aria-label={`Risk ${label}`}>
       {label === 'high' ? '▲' : label === 'medium' ? '●' : label === 'low' ? '○' : '?'}
@@ -147,11 +160,11 @@ const buildDecisionTags = (row) => {
   }
 
   if (
-    !tags.length
-    && row.avgCostValue !== null
-    && row.volatilityValue !== null
-    && row.avgCostValue > 0
-    && row.volatilityValue / row.avgCostValue <= 0.08
+    !tags.length &&
+    row.avgCostValue !== null &&
+    row.volatilityValue !== null &&
+    row.avgCostValue > 0 &&
+    row.volatilityValue / row.avgCostValue <= 0.08
   ) {
     tags.push({ tone: 'calm', label: 'Stable pricing' });
   }
@@ -180,31 +193,34 @@ const SortHeader = memo(function SortHeader({
     >
       <span className="sort-header-label">{label}</span>
       <span className="sort-indicator" aria-hidden="true">
-        {isActive
-          ? (direction === 'asc'
-            ? <ArrowUp size={12} aria-hidden="true" />
-            : <ArrowDown size={12} aria-hidden="true" />)
-          : <ArrowUpDown size={12} aria-hidden="true" />}
+        {isActive ? (
+          direction === 'asc' ? (
+            <ArrowUp size={12} aria-hidden="true" />
+          ) : (
+            <ArrowDown size={12} aria-hidden="true" />
+          )
+        ) : (
+          <ArrowUpDown size={12} aria-hidden="true" />
+        )}
       </span>
     </button>
   );
 });
 
-const DistributorInsightsRow = memo(function DistributorInsightsRow({
-  row,
-  isSelected,
-  onView,
-}) {
+const DistributorInsightsRow = memo(function DistributorInsightsRow({ row, isSelected, onView }) {
   const handleView = useCallback(() => {
     onView(row.distributorId);
   }, [onView, row.distributorId]);
 
-  const handleKeyDown = useCallback((event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handleView();
-    }
-  }, [handleView]);
+  const handleKeyDown = useCallback(
+    (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleView();
+      }
+    },
+    [handleView]
+  );
 
   return (
     <tr
@@ -265,7 +281,9 @@ const DistributorInsightsDetailPanel = memo(function DistributorInsightsDetailPa
     <div className="detail-panel inline-detail-panel">
       <div className="detail-header">
         <h3>Distributor Detail</h3>
-        {(row?.distributorName || distributorName) && <span>{row?.distributorName || distributorName}</span>}
+        {(row?.distributorName || distributorName) && (
+          <span>{row?.distributorName || distributorName}</span>
+        )}
       </div>
       {productsLoading && <div className="empty-state">Loading distributor products...</div>}
       {!productsLoading && productsError && <div className="empty-state">{productsError}</div>}
@@ -317,19 +335,26 @@ const DistributorInsightsDetailPanel = memo(function DistributorInsightsDetailPa
               </thead>
               <tbody>
                 {products.map((product) => {
-                  const availabilityLabel = product.is_available === null
-                    ? '-'
-                    : (product.is_available ? 'Available' : 'Unavailable');
+                  const availabilityLabel =
+                    product.is_available === null
+                      ? '-'
+                      : product.is_available
+                        ? 'Available'
+                        : 'Unavailable';
                   const minMaxLabel = `Min ${formatCurrencyValue(product.min_cost)} | Max ${formatCurrencyValue(product.max_cost)}`;
                   return (
                     <tr key={product.product_id}>
                       <td>
                         <span className="product-name">{product.product_name || '-'}</span>
-                        <span className="secondary-text">{product.category || 'Uncategorized'}</span>
+                        <span className="secondary-text">
+                          {product.category || 'Uncategorized'}
+                        </span>
                       </td>
                       <td className="numeric-cell">{formatCurrencyValue(product.avg_cost)}</td>
                       <td className="numeric-cell">{minMaxLabel}</td>
-                      <td>{product.last_purchase_at ? formatDate(product.last_purchase_at) : '-'}</td>
+                      <td>
+                        {product.last_purchase_at ? formatDate(product.last_purchase_at) : '-'}
+                      </td>
                       <td>{availabilityLabel}</td>
                       <td>{formatDayValue(product.lead_time_days)}</td>
                       <td className="numeric-cell">
@@ -405,72 +430,88 @@ const DistributorInsights = () => {
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  const tableRows = useMemo(() => insights.map((row) => {
-    const riskLabel = deriveRiskLabel(row);
-    return {
-      distributorId: Number(row.distributor_id || 0),
-      distributorName: String(row.distributor_name || 'Unknown distributor').trim() || 'Unknown distributor',
-      purchaseCountValue: Math.max(0, Number(row.purchase_count || 0)),
-      productCountValue: Math.max(0, Number(row.product_count || 0)),
-      avgCostValue: getComparableNumber(row.avg_cost),
-      avgCostLabel: formatCurrencyValue(row.avg_cost),
-      minCostValue: getComparableNumber(row.min_cost),
-      minCostLabel: formatCurrencyValue(row.min_cost),
-      maxCostValue: getComparableNumber(row.max_cost),
-      maxCostLabel: formatCurrencyValue(row.max_cost),
-      avgLeadTimeValue: getComparableNumber(row.avg_lead_time),
-      avgLeadTimeLabel: formatDayValue(row.avg_lead_time),
-      onTimeRateValue: row.on_time_rate !== null && row.on_time_rate !== undefined
-        ? Number(row.on_time_rate) * 100
-        : null,
-      onTimeRateLabel: row.on_time_rate !== null && row.on_time_rate !== undefined
-        ? formatPercent(Number(row.on_time_rate) * 100)
-        : '-',
-      volatilityValue: getComparableNumber(row.price_volatility),
-      volatilityLabel: formatCurrencyValue(row.price_volatility),
-      riskLabel,
-      riskRank: Object.prototype.hasOwnProperty.call(RISK_ORDER, riskLabel)
-        ? RISK_ORDER[riskLabel]
-        : RISK_ORDER.unknown,
-    };
-  }).map((row) => ({
-    ...row,
-    activitySummaryLabel: `${row.productCountValue} products · ${row.purchaseCountValue} purchases`,
-    purchaseSummaryLabel: `${row.purchaseCountValue} buys · ${row.productCountValue} items`,
-    rangeSummaryLabel: `Min ${row.minCostLabel} · Max ${row.maxCostLabel}`,
-    rangeTooltip: `Min ${row.minCostLabel} / Max ${row.maxCostLabel}`,
-    leadTimeSummaryLabel: row.avgLeadTimeValue !== null
-      ? `${formatCompactDayValue(row.avgLeadTimeValue)} avg`
-      : '-',
-    onTimeSummaryLabel: row.onTimeRateLabel,
-    volatilitySummaryLabel: row.volatilityLabel !== '-'
-      ? `${row.volatilityLabel} · swing`
-      : '-',
-  })).map((row) => {
-    const decisionTags = buildDecisionTags(row);
-    return {
-      ...row,
-      decisionTags,
-      searchText: [
-        row.distributorName,
-        row.activitySummaryLabel,
-        row.purchaseSummaryLabel,
-        row.rangeSummaryLabel,
-        row.leadTimeSummaryLabel,
-        row.onTimeSummaryLabel,
-        row.volatilitySummaryLabel,
-        row.riskLabel,
-        ...decisionTags.map((tag) => tag.label),
-      ]
-        .map((value) => String(value || '').toLowerCase())
-        .join(' '),
-    };
-  }), [insights]);
+  const tableRows = useMemo(
+    () =>
+      insights
+        .map((row) => {
+          const riskLabel = deriveRiskLabel(row);
+          return {
+            distributorId: Number(row.distributor_id || 0),
+            distributorName:
+              String(row.distributor_name || 'Unknown distributor').trim() || 'Unknown distributor',
+            purchaseCountValue: Math.max(0, Number(row.purchase_count || 0)),
+            productCountValue: Math.max(0, Number(row.product_count || 0)),
+            avgCostValue: getComparableNumber(row.avg_cost),
+            avgCostLabel: formatCurrencyValue(row.avg_cost),
+            minCostValue: getComparableNumber(row.min_cost),
+            minCostLabel: formatCurrencyValue(row.min_cost),
+            maxCostValue: getComparableNumber(row.max_cost),
+            maxCostLabel: formatCurrencyValue(row.max_cost),
+            avgLeadTimeValue: getComparableNumber(row.avg_lead_time),
+            avgLeadTimeLabel: formatDayValue(row.avg_lead_time),
+            onTimeRateValue:
+              row.on_time_rate !== null && row.on_time_rate !== undefined
+                ? Number(row.on_time_rate) * 100
+                : null,
+            onTimeRateLabel:
+              row.on_time_rate !== null && row.on_time_rate !== undefined
+                ? formatPercent(Number(row.on_time_rate) * 100)
+                : '-',
+            volatilityValue: getComparableNumber(row.price_volatility),
+            volatilityLabel: formatCurrencyValue(row.price_volatility),
+            riskLabel,
+            riskRank: Object.prototype.hasOwnProperty.call(RISK_ORDER, riskLabel)
+              ? RISK_ORDER[riskLabel]
+              : RISK_ORDER.unknown,
+          };
+        })
+        .map((row) => ({
+          ...row,
+          activitySummaryLabel: `${row.productCountValue} products · ${row.purchaseCountValue} purchases`,
+          purchaseSummaryLabel: `${row.purchaseCountValue} buys · ${row.productCountValue} items`,
+          rangeSummaryLabel: `Min ${row.minCostLabel} · Max ${row.maxCostLabel}`,
+          rangeTooltip: `Min ${row.minCostLabel} / Max ${row.maxCostLabel}`,
+          leadTimeSummaryLabel:
+            row.avgLeadTimeValue !== null
+              ? `${formatCompactDayValue(row.avgLeadTimeValue)} avg`
+              : '-',
+          onTimeSummaryLabel: row.onTimeRateLabel,
+          volatilitySummaryLabel:
+            row.volatilityLabel !== '-' ? `${row.volatilityLabel} · swing` : '-',
+        }))
+        .map((row) => {
+          const decisionTags = buildDecisionTags(row);
+          return {
+            ...row,
+            decisionTags,
+            searchText: [
+              row.distributorName,
+              row.activitySummaryLabel,
+              row.purchaseSummaryLabel,
+              row.rangeSummaryLabel,
+              row.leadTimeSummaryLabel,
+              row.onTimeSummaryLabel,
+              row.volatilitySummaryLabel,
+              row.riskLabel,
+              ...decisionTags.map((tag) => tag.label),
+            ]
+              .map((value) => String(value || '').toLowerCase())
+              .join(' '),
+          };
+        }),
+    [insights]
+  );
 
   const visibleRows = useMemo(() => {
-    const term = String(deferredSearchQuery || '').trim().toLowerCase();
+    const term = String(deferredSearchQuery || '')
+      .trim()
+      .toLowerCase();
     if (!term) return tableRows;
-    return tableRows.filter((row) => String(row.searchText || row.distributorName || '').toLowerCase().includes(term));
+    return tableRows.filter((row) =>
+      String(row.searchText || row.distributorName || '')
+        .toLowerCase()
+        .includes(term)
+    );
   }, [deferredSearchQuery, tableRows]);
 
   const sortedRows = useMemo(() => {
@@ -482,7 +523,8 @@ const DistributorInsights = () => {
   }, [sortConfig, visibleRows]);
 
   const selectedRow = useMemo(
-    () => sortedRows.find((row) => row.distributorId === Number(selectedDistributorId || 0)) || null,
+    () =>
+      sortedRows.find((row) => row.distributorId === Number(selectedDistributorId || 0)) || null,
     [selectedDistributorId, sortedRows]
   );
 
@@ -546,20 +588,19 @@ const DistributorInsights = () => {
     setProductsError('');
   }, []);
 
-  const activeFilterCount = [
-    searchQuery,
-    filters.start_date,
-    filters.end_date,
-  ].filter(Boolean).length;
+  const activeFilterCount = [searchQuery, filters.start_date, filters.end_date].filter(
+    Boolean
+  ).length;
 
   const activeFilterPills = useMemo(() => {
     const pills = [];
     const startLabel = formatDateDisplayToken(filters.start_date);
     const endLabel = formatDateDisplayToken(filters.end_date);
     if (startLabel || endLabel) {
-      const label = startLabel && endLabel
-        ? `Date: ${startLabel} - ${endLabel}`
-        : `Date: ${startLabel || endLabel}`;
+      const label =
+        startLabel && endLabel
+          ? `Date: ${startLabel} - ${endLabel}`
+          : `Date: ${startLabel || endLabel}`;
       pills.push({
         key: 'date-range',
         label,
@@ -578,7 +619,9 @@ const DistributorInsights = () => {
   const summaryStats = useMemo(() => {
     const totalDistributors = visibleRows.length;
     const highRiskCount = visibleRows.filter((row) => row.riskLabel === 'high').length;
-    const reliableCount = visibleRows.filter((row) => row.onTimeRateValue !== null && row.onTimeRateValue >= 97).length;
+    const reliableCount = visibleRows.filter(
+      (row) => row.onTimeRateValue !== null && row.onTimeRateValue >= 97
+    ).length;
     const wideCatalogCount = visibleRows.filter((row) => row.productCountValue >= 15).length;
 
     return {
@@ -626,8 +669,12 @@ const DistributorInsights = () => {
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
-        {(searchDraft || searchQuery || activeFilterCount) ? (
-          <button type="button" className="product-insights-filter-clear distributor-insights-filter-clear" onClick={handleClearAllFilters}>
+        {searchDraft || searchQuery || activeFilterCount ? (
+          <button
+            type="button"
+            className="product-insights-filter-clear distributor-insights-filter-clear"
+            onClick={handleClearAllFilters}
+          >
             Clear
           </button>
         ) : null}
@@ -636,7 +683,12 @@ const DistributorInsights = () => {
       {activeFilterPills.length ? (
         <div className="product-insights-active-filters" aria-label="Active filters">
           {activeFilterPills.map((pill) => (
-            <button key={pill.key} type="button" className="product-insights-active-filter-pill" onClick={pill.onClear}>
+            <button
+              key={pill.key}
+              type="button"
+              className="product-insights-active-filter-pill"
+              onClick={pill.onClear}
+            >
               <span>{pill.label}</span>
               <X size={12} aria-hidden="true" />
             </button>
@@ -645,7 +697,10 @@ const DistributorInsights = () => {
       ) : null}
 
       {showAdvancedFilters ? (
-        <div id="distributor-insights-advanced-filters" className="product-insights-advanced-filters">
+        <div
+          id="distributor-insights-advanced-filters"
+          className="product-insights-advanced-filters"
+        >
           <div className="product-insights-filter-row product-insights-filter-row--date">
             <span className="product-insights-filter-row-label">Date Range</span>
             <DateRangeFilter
@@ -713,7 +768,13 @@ const DistributorInsights = () => {
                 <tr className="header-detail-row sticky-header-row">
                   <th
                     className="sticky-col"
-                    aria-sort={sortConfig.key === 'distributorName' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'distributorName'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Distributor"
@@ -726,7 +787,13 @@ const DistributorInsights = () => {
                   </th>
                   <th
                     className="numeric-header"
-                    aria-sort={sortConfig.key === 'purchaseCountValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'purchaseCountValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Purchases"
@@ -740,7 +807,13 @@ const DistributorInsights = () => {
                   </th>
                   <th
                     className="numeric-header"
-                    aria-sort={sortConfig.key === 'avgCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'avgCostValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Avg Cost"
@@ -754,7 +827,13 @@ const DistributorInsights = () => {
                   </th>
                   <th
                     className="numeric-header"
-                    aria-sort={sortConfig.key === 'minCostValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'minCostValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Range"
@@ -767,7 +846,13 @@ const DistributorInsights = () => {
                     />
                   </th>
                   <th
-                    aria-sort={sortConfig.key === 'avgLeadTimeValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'avgLeadTimeValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Lead Time"
@@ -780,7 +865,13 @@ const DistributorInsights = () => {
                   </th>
                   <th
                     className="numeric-header"
-                    aria-sort={sortConfig.key === 'onTimeRateValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'onTimeRateValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="On-Time"
@@ -794,7 +885,13 @@ const DistributorInsights = () => {
                   </th>
                   <th
                     className="numeric-header"
-                    aria-sort={sortConfig.key === 'volatilityValue' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'volatilityValue'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Volatility"
@@ -807,7 +904,13 @@ const DistributorInsights = () => {
                     />
                   </th>
                   <th
-                    aria-sort={sortConfig.key === 'riskRank' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-sort={
+                      sortConfig.key === 'riskRank'
+                        ? sortConfig.direction === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : 'none'
+                    }
                   >
                     <SortHeader
                       label="Risk"

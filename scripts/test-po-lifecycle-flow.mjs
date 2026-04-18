@@ -42,7 +42,10 @@ const terminateServer = async (server, timeoutMs = 2000) => {
   } catch (_) {
     // ignore kill errors
   }
-  const timedOut = await Promise.race([exited.then(() => false), delay(timeoutMs).then(() => true)]);
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    delay(timeoutMs).then(() => true),
+  ]);
   if (timedOut && !server.killed) {
     try {
       server.kill('SIGKILL');
@@ -93,8 +96,12 @@ const spawnTestServer = async (port, authSecret) => {
         ...buildTestEnv(port, authSecret),
       },
     });
-    server.stdout.on('data', (chunk) => { stdout += String(chunk); });
-    server.stderr.on('data', (chunk) => { stderr += String(chunk); });
+    server.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    server.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
     return {
       server,
       app: null,
@@ -119,15 +126,17 @@ const toJson = async (res) => {
   }
 };
 
-const makeRequest = (baseUrl, token = '') => async (pathname, init = {}) =>
-  fetch(`${baseUrl}${pathname}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers || {}),
-    },
-  });
+const makeRequest =
+  (baseUrl, token = '') =>
+  async (pathname, init = {}) =>
+    fetch(`${baseUrl}${pathname}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers || {}),
+      },
+    });
 
 const signToken = ({ uid, role = 'customer' }, secret) => {
   const now = Date.now();
@@ -135,10 +144,11 @@ const signToken = ({ uid, role = 'customer' }, secret) => {
     uid: Number(uid || 0),
     role: String(role || 'customer'),
     iat: now,
-    exp: now + (7 * 24 * 60 * 60 * 1000),
+    exp: now + 7 * 24 * 60 * 60 * 1000,
   };
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', String(secret || 'barman-store-local-secret'))
+  const signature = crypto
+    .createHmac('sha256', String(secret || 'barman-store-local-secret'))
     .update(encoded)
     .digest('base64url');
   return `${encoded}.${signature}`;
@@ -177,7 +187,9 @@ const main = async () => {
       return;
     }
     if (!hasDbEnv) {
-      throw new Error('PO lifecycle smoke test requires SMOKE_TEST_DB_URL. Set SMOKE_TEST_ALLOW_PRIMARY_DB=1 only if you intentionally want to reuse the primary app DB.');
+      throw new Error(
+        'PO lifecycle smoke test requires SMOKE_TEST_DB_URL. Set SMOKE_TEST_ALLOW_PRIMARY_DB=1 only if you intentionally want to reuse the primary app DB.'
+      );
     }
 
     const boot = await spawnTestServer(port, authSecret);
@@ -207,15 +219,21 @@ const main = async () => {
     }
     if (!ready) {
       const logs = readLogs();
-      const dbBootFailed = /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(logs.stderr);
-      if (allowSkipIfNoDb && dbBootFailed) {
-        logSmokeSkipInfo(
-          'PO lifecycle smoke test skipped because the database is unavailable.',
-          ['Set SMOKE_TEST_DB_URL to run the test safely.']
+      const dbBootFailed =
+        /Database initialization failed|Postgres\/Supabase initialization failed|ECONNREFUSED/i.test(
+          logs.stderr
         );
+      if (allowSkipIfNoDb && dbBootFailed) {
+        logSmokeSkipInfo('PO lifecycle smoke test skipped because the database is unavailable.', [
+          'Set SMOKE_TEST_DB_URL to run the test safely.',
+        ]);
         return;
       }
-      assert.equal(ready, true, `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`);
+      assert.equal(
+        ready,
+        true,
+        `Server did not start in time. stderr:\n${logs.stderr}\nstdout:\n${logs.stdout}`
+      );
     }
 
     const dbUrl = String(smokeDbConfig.dbUrl || '').trim();
@@ -224,16 +242,17 @@ const main = async () => {
       await pool.query('SELECT 1 AS ok');
     } catch (error) {
       if (allowSkipIfNoDb) {
-        logSmokeSkipInfo(
-          'PO lifecycle smoke test skipped because the database is unavailable.',
-          ['Set SMOKE_TEST_DB_URL to run the test safely.']
-        );
+        logSmokeSkipInfo('PO lifecycle smoke test skipped because the database is unavailable.', [
+          'Set SMOKE_TEST_DB_URL to run the test safely.',
+        ]);
         return;
       }
       throw error;
     }
 
-    const adminRow = await pool.query(`SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`);
+    const adminRow = await pool.query(
+      `SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`
+    );
     let adminId = Number(adminRow.rows?.[0]?.id || 0);
     if (!adminId) {
       const adminEmail = `po-admin-smoke-${randomSuffix()}@example.com`;
@@ -264,7 +283,11 @@ const main = async () => {
       }),
     });
     const productCreateJson = await toJson(productCreateRes);
-    assert.equal(productCreateRes.status, 201, `product create failed: ${JSON.stringify(productCreateJson)}`);
+    assert.equal(
+      productCreateRes.status,
+      201,
+      `product create failed: ${JSON.stringify(productCreateJson)}`
+    );
     createdProductId = Number(productCreateJson?.id || 0);
     assert.equal(createdProductId > 0, true, 'Created product id missing');
 
@@ -278,7 +301,11 @@ const main = async () => {
       }),
     });
     const distributorCreateJson = await toJson(distributorCreateRes);
-    assert.equal(distributorCreateRes.status, 201, `distributor create failed: ${JSON.stringify(distributorCreateJson)}`);
+    assert.equal(
+      distributorCreateRes.status,
+      201,
+      `distributor create failed: ${JSON.stringify(distributorCreateJson)}`
+    );
     createdDistributorId = Number(distributorCreateJson?.id || 0);
     assert.equal(createdDistributorId > 0, true, 'Created distributor id missing');
 
@@ -286,7 +313,9 @@ const main = async () => {
       method: 'POST',
       body: JSON.stringify({
         distributor_id: createdDistributorId,
-        expected_delivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        expected_delivery: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10),
         notes: 'Smoke lifecycle register',
         items: [
           {
@@ -313,7 +342,11 @@ const main = async () => {
 
     const poBeforeEditRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
     const poBeforeEditJson = await toJson(poBeforeEditRes);
-    assert.equal(poBeforeEditRes.status, 200, `PO fetch before edit failed: ${JSON.stringify(poBeforeEditJson)}`);
+    assert.equal(
+      poBeforeEditRes.status,
+      200,
+      `PO fetch before edit failed: ${JSON.stringify(poBeforeEditJson)}`
+    );
     const poTotal = toNumber(poBeforeEditJson?.total_amount || poBeforeEditJson?.total);
     assert.equal(poTotal > 0, true, 'PO total amount should be > 0');
 
@@ -357,8 +390,16 @@ const main = async () => {
     });
     const processJson = await toJson(processRes);
     assert.equal(processRes.status, 200, `process PO failed: ${JSON.stringify(processJson)}`);
-    assert.equal(String(processJson?.po_status || ''), 'part_paid', 'PO should become part_paid after partial process payment');
-    assert.equal(String(processJson?.payment_status || ''), 'part_paid', 'PO should become part-paid after partial process payment');
+    assert.equal(
+      String(processJson?.po_status || ''),
+      'part_paid',
+      'PO should become part_paid after partial process payment'
+    );
+    assert.equal(
+      String(processJson?.payment_status || ''),
+      'part_paid',
+      'PO should become part-paid after partial process payment'
+    );
 
     const editAfterProcessRes = await adminRequest(`/api/purchase-orders/${createdPoId}`, {
       method: 'PUT',
@@ -367,13 +408,29 @@ const main = async () => {
       }),
     });
     const editAfterProcessJson = await toJson(editAfterProcessRes);
-    assert.equal(editAfterProcessRes.status, 400, `edit should fail after process: ${JSON.stringify(editAfterProcessJson)}`);
+    assert.equal(
+      editAfterProcessRes.status,
+      400,
+      `edit should fail after process: ${JSON.stringify(editAfterProcessJson)}`
+    );
 
     const poAfterProcessRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
     const poAfterProcessJson = await toJson(poAfterProcessRes);
-    assert.equal(poAfterProcessRes.status, 200, `PO fetch after process failed: ${JSON.stringify(poAfterProcessJson)}`);
-    assert.equal(String(poAfterProcessJson?.po_status || ''), 'part_paid', 'stored PO status should be part_paid');
-    assert.equal(String(poAfterProcessJson?.payment_status || ''), 'part_paid', 'stored PO payment should be part_paid');
+    assert.equal(
+      poAfterProcessRes.status,
+      200,
+      `PO fetch after process failed: ${JSON.stringify(poAfterProcessJson)}`
+    );
+    assert.equal(
+      String(poAfterProcessJson?.po_status || ''),
+      'part_paid',
+      'stored PO status should be part_paid'
+    );
+    assert.equal(
+      String(poAfterProcessJson?.payment_status || ''),
+      'part_paid',
+      'stored PO payment should be part_paid'
+    );
     const dueAfterProcess = toNumber(poAfterProcessJson?.balance_due);
     assert.equal(dueAfterProcess > 0, true, 'balance_due should remain after partial payment');
 
@@ -389,53 +446,116 @@ const main = async () => {
       }),
     });
     const finalPaymentJson = await toJson(finalPaymentRes);
-    assert.equal(finalPaymentRes.status, 201, `final payment failed: ${JSON.stringify(finalPaymentJson)}`);
-    assert.equal(String(finalPaymentJson?.po_status || ''), 'fully_paid', 'PO lifecycle should become fully_paid after final payment');
-    assert.equal(String(finalPaymentJson?.payment_status || ''), 'paid', 'payment status should become paid after final payment');
-    assert.equal(toNumber(finalPaymentJson?.balance_due), 0, 'balance should be zero after final payment');
+    assert.equal(
+      finalPaymentRes.status,
+      201,
+      `final payment failed: ${JSON.stringify(finalPaymentJson)}`
+    );
+    assert.equal(
+      String(finalPaymentJson?.po_status || ''),
+      'fully_paid',
+      'PO lifecycle should become fully_paid after final payment'
+    );
+    assert.equal(
+      String(finalPaymentJson?.payment_status || ''),
+      'paid',
+      'payment status should become paid after final payment'
+    );
+    assert.equal(
+      toNumber(finalPaymentJson?.balance_due),
+      0,
+      'balance should be zero after final payment'
+    );
 
     const poAfterFinalRes = await adminRequest(`/api/purchase-orders/${createdPoId}`);
     const poAfterFinalJson = await toJson(poAfterFinalRes);
-    assert.equal(poAfterFinalRes.status, 200, `PO fetch after final payment failed: ${JSON.stringify(poAfterFinalJson)}`);
-    assert.equal(String(poAfterFinalJson?.po_status || ''), 'fully_paid', 'stored PO lifecycle should be fully_paid');
-    assert.equal(String(poAfterFinalJson?.payment_status || ''), 'paid', 'stored payment status should be paid');
+    assert.equal(
+      poAfterFinalRes.status,
+      200,
+      `PO fetch after final payment failed: ${JSON.stringify(poAfterFinalJson)}`
+    );
+    assert.equal(
+      String(poAfterFinalJson?.po_status || ''),
+      'fully_paid',
+      'stored PO lifecycle should be fully_paid'
+    );
+    assert.equal(
+      String(poAfterFinalJson?.payment_status || ''),
+      'paid',
+      'stored payment status should be paid'
+    );
     assert.equal(toNumber(poAfterFinalJson?.balance_due), 0, 'stored balance should be zero');
 
-    const ledgerRes = await adminRequest(`/api/distributors/${createdDistributorId}/ledger?limit=200`);
-    const ledgerJson = await toJson(ledgerRes);
-    assert.equal(ledgerRes.status, 200, `distributor ledger fetch failed: ${JSON.stringify(ledgerJson)}`);
-    const ledgerRows = Array.isArray(ledgerJson) ? ledgerJson : [];
-    const poCreditEntry = ledgerRows.find((row) =>
-      String(row?.source || '').toLowerCase() === 'purchase_order'
-      && String(row?.source_id || '').replace(/\.0+$/, '') === String(createdPoId)
-      && String(row?.type || '').toLowerCase() === 'credit'
+    const ledgerRes = await adminRequest(
+      `/api/distributors/${createdDistributorId}/ledger?limit=200`
     );
-    const poPaymentEntries = ledgerRows.filter((row) => String(row?.source || '').toLowerCase() === 'po_payment');
+    const ledgerJson = await toJson(ledgerRes);
+    assert.equal(
+      ledgerRes.status,
+      200,
+      `distributor ledger fetch failed: ${JSON.stringify(ledgerJson)}`
+    );
+    const ledgerRows = Array.isArray(ledgerJson) ? ledgerJson : [];
+    const poCreditEntry = ledgerRows.find(
+      (row) =>
+        String(row?.source || '').toLowerCase() === 'purchase_order' &&
+        String(row?.source_id || '').replace(/\.0+$/, '') === String(createdPoId) &&
+        String(row?.type || '').toLowerCase() === 'credit'
+    );
+    const poPaymentEntries = ledgerRows.filter(
+      (row) => String(row?.source || '').toLowerCase() === 'po_payment'
+    );
     assert.equal(Boolean(poCreditEntry), true, 'khata should include automatic PO credit entry');
-    assert.equal(poPaymentEntries.length >= 2, true, 'khata should include process payment + final payment entries');
+    assert.equal(
+      poPaymentEntries.length >= 2,
+      true,
+      'khata should include process payment + final payment entries'
+    );
 
-    const filteredPaidRes = await adminRequest('/api/purchase-orders?status=fully_paid&payment_status=paid');
+    const filteredPaidRes = await adminRequest(
+      '/api/purchase-orders?status=fully_paid&payment_status=paid'
+    );
     const filteredPaidJson = await toJson(filteredPaidRes);
-    assert.equal(filteredPaidRes.status, 200, `filtered PO list failed: ${JSON.stringify(filteredPaidJson)}`);
+    assert.equal(
+      filteredPaidRes.status,
+      200,
+      `filtered PO list failed: ${JSON.stringify(filteredPaidJson)}`
+    );
     const filteredRows = Array.isArray(filteredPaidJson) ? filteredPaidJson : [];
     const filteredMatch = filteredRows.find((row) => String(row?.id) === String(createdPoId));
     assert.equal(Boolean(filteredMatch), true, 'filtered PO list should include processed+paid PO');
 
-    const deleteProcessedRes = await adminRequest(`/api/purchase-orders/${createdPoId}`, { method: 'DELETE' });
+    const deleteProcessedRes = await adminRequest(`/api/purchase-orders/${createdPoId}`, {
+      method: 'DELETE',
+    });
     const deleteProcessedJson = await toJson(deleteProcessedRes);
-    assert.equal(deleteProcessedRes.status, 400, `processed PO delete should be blocked: ${JSON.stringify(deleteProcessedJson)}`);
+    assert.equal(
+      deleteProcessedRes.status,
+      400,
+      `processed PO delete should be blocked: ${JSON.stringify(deleteProcessedJson)}`
+    );
 
     console.log('PO lifecycle workflow smoke test passed.');
   } finally {
     if (pool) {
       if (createdPoId > 0) {
-        await pool.query('DELETE FROM purchase_order_payments WHERE purchase_order_id = $1', [createdPoId]).catch(() => {});
-        await pool.query('DELETE FROM purchase_order_items WHERE order_id = $1', [createdPoId]).catch(() => {});
-        await pool.query('DELETE FROM purchase_orders WHERE id = $1', [createdPoId]).catch(() => {});
+        await pool
+          .query('DELETE FROM purchase_order_payments WHERE purchase_order_id = $1', [createdPoId])
+          .catch(() => {});
+        await pool
+          .query('DELETE FROM purchase_order_items WHERE order_id = $1', [createdPoId])
+          .catch(() => {});
+        await pool
+          .query('DELETE FROM purchase_orders WHERE id = $1', [createdPoId])
+          .catch(() => {});
       }
       if (createdDistributorId > 0) {
-        await pool.query('DELETE FROM distributor_ledger WHERE distributor_id = $1', [createdDistributorId]).catch(() => {});
-        await pool.query('DELETE FROM distributors WHERE id = $1', [createdDistributorId]).catch(() => {});
+        await pool
+          .query('DELETE FROM distributor_ledger WHERE distributor_id = $1', [createdDistributorId])
+          .catch(() => {});
+        await pool
+          .query('DELETE FROM distributors WHERE id = $1', [createdDistributorId])
+          .catch(() => {});
       }
       if (createdProductId > 0) {
         await pool.query('DELETE FROM products WHERE id = $1', [createdProductId]).catch(() => {});

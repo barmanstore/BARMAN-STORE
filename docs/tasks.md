@@ -4,6 +4,7 @@ Remove ambiguity (so devs don’t misinterpret)
 Add edge cases (so it doesn’t break in production)
 Add ownership + dependencies (so it actually ships)
 🔧 CRITICAL IMPROVEMENTS TO YOUR PLAN
+
 1. Add Priority Labels (Prevents Scope Drift)
 
 Right now everything looks equally important—which is dangerous.
@@ -30,11 +31,11 @@ If timeline slips, core speed improvements still ship
 Right now it’s not assigned.
 
 Add columns:
-Step	Owner
-UI changes	Frontend
-Smart defaults	Backend + Data
-Performance	Frontend
-Metrics	Analytics
+Step Owner
+UI changes Frontend
+Smart defaults Backend + Data
+Performance Frontend
+Metrics Analytics
 🧠 STEP-BY-STEP DEEPENING (Key Fixes Per Phase)
 ⚡ PHASE 1 (Refined)
 Step 1: Hide Sections (🔴 P0)
@@ -182,9 +183,9 @@ Step 16: Tap Flow (🔴 P0 KPI)
 
 Make it measurable:
 
-Action	Max Allowed
-Reorder flow	3 taps
-Manual order	5 taps
+Action Max Allowed
+Reorder flow 3 taps
+Manual order 5 taps
 📊 PHASE 6 (Missing Depth — Let’s Fix It)
 
 You listed metrics, but not instrumentation.
@@ -200,6 +201,7 @@ cart_abandon
 You can’t prove success
 
 🚨 WHAT YOU MISSED (IMPORTANT)
+
 1. Empty State Design
 
 What if:
@@ -210,8 +212,7 @@ No repeat orders
 👉 Show:
 
 Popular + Categories
-NOT empty “Your Usuals”
-2. Error Handling
+NOT empty “Your Usuals” 2. Error Handling
 
 What if:
 
@@ -220,8 +221,7 @@ Cart fails to update
 
 👉 Add:
 
-Optimistic UI + retry
-3. Inventory Sync
+Optimistic UI + retry 3. Inventory Sync
 
 What if:
 

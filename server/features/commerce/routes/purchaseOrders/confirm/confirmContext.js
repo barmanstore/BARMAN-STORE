@@ -8,7 +8,10 @@ const normalizeConfirmedDeliveredFlag = (value, fallback = true) => {
   return fallback;
 };
 
-const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoStatus, billNumber }) => {
+const preparePurchaseOrderConfirmContext = async (
+  deps,
+  { req, order, currentPoStatus, billNumber }
+) => {
   const {
     calculatePoPaymentSnapshot,
     computePurchasePaymentDueDate,
@@ -59,11 +62,17 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
     req.body?.paid_amount ?? req.body?.initial_paid_amount ?? req.body?.payment_amount ?? 0
   );
   const initialPaidAmount = Math.max(0, initialPaidAmountRaw);
-  const paymentMode = String(req.body?.payment_mode || 'cash').trim().toLowerCase() || 'cash';
-  const paymentReference = String(req.body?.payment_reference || req.body?.reference || billNumber || '').trim() || null;
+  const paymentMode =
+    String(req.body?.payment_mode || 'cash')
+      .trim()
+      .toLowerCase() || 'cash';
+  const paymentReference =
+    String(req.body?.payment_reference || req.body?.reference || billNumber || '').trim() || null;
   const paymentNotes = String(req.body?.payment_notes || req.body?.notes || '').trim() || null;
   const delivered = normalizeConfirmedDeliveredFlag(req.body?.delivered, true);
-  const paymentDate = normalizeTransactionDate(req.body?.payment_date || req.body?.transaction_date || new Date().toISOString());
+  const paymentDate = normalizeTransactionDate(
+    req.body?.payment_date || req.body?.transaction_date || new Date().toISOString()
+  );
   const confirmedAt = new Date().toISOString();
   const distributorId = Number(order.distributor_id || 0);
   const distributor = await getDistributorByIdAsync(distributorId);
@@ -71,11 +80,17 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
     return {
       error: {
         status: 400,
-        body: { error: 'Purchase order distributor not found. Reassign the distributor before processing this PO.' },
+        body: {
+          error:
+            'Purchase order distributor not found. Reassign the distributor before processing this PO.',
+        },
       },
     };
   }
-  const totalSnapshot = calculatePoPaymentSnapshot(Number(order.total_amount ?? order.total ?? 0), initialPaidAmount);
+  const totalSnapshot = calculatePoPaymentSnapshot(
+    Number(order.total_amount ?? order.total ?? 0),
+    initialPaidAmount
+  );
   if (initialPaidAmount > totalSnapshot.totalAmount) {
     return {
       error: {
@@ -86,7 +101,10 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
   }
 
   const stockAlreadyApplied = Number(order.stock_applied_on_confirm || 0) === 1;
-  const nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(PO_LIFECYCLE_CONFIRMED, totalSnapshot.paymentStatus);
+  const nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(
+    PO_LIFECYCLE_CONFIRMED,
+    totalSnapshot.paymentStatus
+  );
   const nextAction = derivePurchaseNextAction({
     ...order,
     po_status: nextLifecycleStatus,
@@ -94,10 +112,11 @@ const preparePurchaseOrderConfirmContext = async (deps, { req, order, currentPoS
     payment_status: totalSnapshot.paymentStatus,
     balance_due: totalSnapshot.balanceDue,
   });
-  const paymentDueDate = normalizeTransactionDate(order.strict_due_date)
-    || computePurchasePaymentDueDate(
+  const paymentDueDate =
+    normalizeTransactionDate(order.strict_due_date) ||
+    computePurchasePaymentDueDate(
       distributor || {},
-      paymentDate || order.planned_order_date || order.expected_delivery || order.created_at,
+      paymentDate || order.planned_order_date || order.expected_delivery || order.created_at
     );
 
   return {

@@ -24,7 +24,9 @@ const ProductFormInventorySection = ({
           className={`input-field ${errors.stock ? 'error' : ''}`}
         />
         {errors.stock && <span className="field-error">{errors.stock}</span>}
-        <small className="field-help">Defaults to `0` per variant (e.g., `0,0,0`) and can be edited.</small>
+        <small className="field-help">
+          Defaults to `0` per variant (e.g., `0,0,0`) and can be edited.
+        </small>
       </div>
 
       {isQuickMode ? (
@@ -38,7 +40,9 @@ const ProductFormInventorySection = ({
             className="input-field"
           >
             {UOM_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </div>
@@ -53,7 +57,9 @@ const ProductFormInventorySection = ({
             className="input-field"
           >
             {UOM_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
           <small className="field-help">Primary unit for inventory</small>
@@ -73,7 +79,9 @@ const ProductFormInventorySection = ({
             className="input-field"
           >
             {UOM_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
         </div>
@@ -122,8 +130,12 @@ const ProductFormInventorySection = ({
             min="0"
             className={`input-field ${errors.conversion_factor ? 'error' : ''}`}
           />
-          {errors.conversion_factor && <span className="field-error">{errors.conversion_factor}</span>}
-          <small className="field-help">Selling units per base unit (e.g., 1000 when selling g and base is kg)</small>
+          {errors.conversion_factor && (
+            <span className="field-error">{errors.conversion_factor}</span>
+          )}
+          <small className="field-help">
+            Selling units per base unit (e.g., 1000 when selling g and base is kg)
+          </small>
         </div>
       </div>
     )}

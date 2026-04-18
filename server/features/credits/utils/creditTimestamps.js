@@ -9,20 +9,23 @@ const createCreditTimestampUtils = ({ normalizeTransactionDate, toTimestampMs } 
     }
 
     const normalizedDate = normalizeTransactionDate(raw);
-    const base = referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
-      ? referenceDate
-      : new Date();
+    const base =
+      referenceDate instanceof Date && !Number.isNaN(referenceDate.getTime())
+        ? referenceDate
+        : new Date();
     if (normalizedDate) {
       const [year, month, day] = normalizedDate.split('-').map((v) => Number(v));
-      const ts = new Date(Date.UTC(
-        year,
-        month - 1,
-        day,
-        base.getUTCHours(),
-        base.getUTCMinutes(),
-        base.getUTCSeconds(),
-        base.getUTCMilliseconds()
-      ));
+      const ts = new Date(
+        Date.UTC(
+          year,
+          month - 1,
+          day,
+          base.getUTCHours(),
+          base.getUTCMinutes(),
+          base.getUTCSeconds(),
+          base.getUTCMilliseconds()
+        )
+      );
       if (!Number.isNaN(ts.getTime())) return ts.toISOString();
     }
     return base.toISOString();

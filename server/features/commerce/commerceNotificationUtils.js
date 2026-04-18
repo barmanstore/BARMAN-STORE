@@ -21,17 +21,17 @@ const createCommerceNotificationUtils = (deps = {}) => {
     return digits;
   };
 
-  const getRequestedDeliveryMode = () => (
-    String(WHATSAPP_DELIVERY_MODE || 'manual').trim().toLowerCase() === 'auto'
+  const getRequestedDeliveryMode = () =>
+    String(WHATSAPP_DELIVERY_MODE || 'manual')
+      .trim()
+      .toLowerCase() === 'auto'
       ? 'auto'
-      : 'manual'
-  );
+      : 'manual';
 
-  const canAutoDeliverWhatsApp = () => (
-    getRequestedDeliveryMode() === 'auto'
-    && Boolean(whatsappProvider?.supportsSend)
-    && Boolean(whatsappProvider?.isReady)
-  );
+  const canAutoDeliverWhatsApp = () =>
+    getRequestedDeliveryMode() === 'auto' &&
+    Boolean(whatsappProvider?.supportsSend) &&
+    Boolean(whatsappProvider?.isReady);
 
   const notifyDistributorPurchaseOrderAsync = async ({
     purchaseOrderId = null,
@@ -51,7 +51,10 @@ const createCommerceNotificationUtils = (deps = {}) => {
   } = {}) => {
     const normalizedDistributorId = Number(distributorId || 0);
     if (!normalizedDistributorId) return { queued: false, reason: 'missing_distributor' };
-    const distributor = await dbGetAsync(`SELECT id, name, contacts FROM distributors WHERE id = ?`, [normalizedDistributorId]);
+    const distributor = await dbGetAsync(
+      `SELECT id, name, contacts FROM distributors WHERE id = ?`,
+      [normalizedDistributorId]
+    );
     if (!distributor) return { queued: false, reason: 'distributor_not_found' };
     const normalizedPhone = getDistributorWhatsappPhone(distributor);
     if (!normalizedPhone) return { queued: false, reason: 'missing_phone' };
@@ -71,11 +74,13 @@ const createCommerceNotificationUtils = (deps = {}) => {
         [normalizedPurchaseOrderId]
       );
     }
-    const noticeProductIds = [...new Set(
-      noticeItems
-        .map((item) => Number(item?.product_id || 0))
-        .filter((value) => Number.isInteger(value) && value > 0)
-    )];
+    const noticeProductIds = [
+      ...new Set(
+        noticeItems
+          .map((item) => Number(item?.product_id || 0))
+          .filter((value) => Number.isInteger(value) && value > 0)
+      ),
+    ];
     if (noticeProductIds.length > 0) {
       const placeholders = noticeProductIds.map(() => '?').join(', ');
       const productRows = await dbAllAsync(
@@ -99,7 +104,8 @@ const createCommerceNotificationUtils = (deps = {}) => {
       });
     }
 
-    const orderDate = normalizeTransactionDate(messageDate) || new Date().toISOString().slice(0, 10);
+    const orderDate =
+      normalizeTransactionDate(messageDate) || new Date().toISOString().slice(0, 10);
     const preparedWhatsApp = notificationService.prepareWhatsApp({
       type: 'purchase_order_distributor_notice',
       to: recipientPhone,
@@ -157,7 +163,12 @@ const createCommerceNotificationUtils = (deps = {}) => {
     try {
       await whatsappProvider.sendMessage({ to: normalizedRecipientPhone, text });
       await updateNotificationEventStatus(eventId, { status: 'sent' });
-      return { queued: true, mode: 'auto', event_id: eventId, whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl } };
+      return {
+        queued: true,
+        mode: 'auto',
+        event_id: eventId,
+        whatsapp: { to: normalizedRecipientPhone, text, whatsapp_url: whatsappUrl },
+      };
     } catch (error) {
       await updateNotificationEventStatus(eventId, {
         status: 'failed',

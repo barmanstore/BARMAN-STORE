@@ -76,7 +76,7 @@
 }
 
 .product-search-results.recent::before {
-  content: "Recent products";
+  content: 'Recent products';
   color: #64748b;
   font-size: 0.78rem;
   font-weight: 800;
@@ -97,7 +97,10 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .product-search-option:hover,

@@ -1,11 +1,6 @@
 import './BackofficePopupShell.css';
 
-function PopupWorkspaceNotice({
-  title,
-  message,
-  onFocusPopup = null,
-  onContinueInline = null,
-}) {
+function PopupWorkspaceNotice({ title, message, onFocusPopup = null, onContinueInline = null }) {
   return (
     <div className="backoffice-popup-notice">
       <div className="backoffice-popup-notice__card">

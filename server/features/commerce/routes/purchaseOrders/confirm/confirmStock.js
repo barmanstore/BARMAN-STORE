@@ -13,7 +13,9 @@ const applyConfirmStockAdjustments = async (deps, { req, order, stockAlreadyAppl
     return { capAdjustments };
   }
 
-  const items = await dbAllAsync('SELECT * FROM purchase_order_items WHERE order_id = ?', [req.params.id]);
+  const items = await dbAllAsync('SELECT * FROM purchase_order_items WHERE order_id = ?', [
+    req.params.id,
+  ]);
   for (const item of items) {
     const productId = Number(item.product_id || 0);
     if (!productId) continue;
@@ -35,7 +37,9 @@ const applyConfirmStockAdjustments = async (deps, { req, order, stockAlreadyAppl
       await dbRunAsync('UPDATE products SET stock = ? WHERE id = ?', [finalStock, productId]);
       const noteLines = ['Auto stock update on PO confirmation'];
       if (capHit) {
-        noteLines.push(`Stock cap ${PURCHASE_STOCK_CAP} applied (intended ${intendedStock}, final ${finalStock})`);
+        noteLines.push(
+          `Stock cap ${PURCHASE_STOCK_CAP} applied (intended ${intendedStock}, final ${finalStock})`
+        );
       }
       await logStockLedgerAsync({
         productId,

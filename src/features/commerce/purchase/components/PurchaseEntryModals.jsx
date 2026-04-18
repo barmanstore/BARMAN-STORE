@@ -10,35 +10,39 @@ import ProductForm from '../../../catalog/products/components/form/ProductForm';
 
 const getPreferredActiveIndex = (items = []) => {
   if (!Array.isArray(items) || !items.length) return 0;
-  const draftIndex = items.findIndex((item) => !String(item?.product_query || '').trim() && !String(item?.product_id || '').trim());
+  const draftIndex = items.findIndex(
+    (item) => !String(item?.product_query || '').trim() && !String(item?.product_id || '').trim()
+  );
   if (draftIndex >= 0) return draftIndex;
   return Math.max(0, items.length - 1);
 };
-const hasMeaningfulDraftRow = (item = {}) => (
-  Number(item?.product_id || 0) > 0
-  || String(item?.product_query || '').trim().length > 0
-  || String(item?.product_name || '').trim().length > 0
-  || Number(item?.quantity || 0) > 1
-  || Number(item?.rate ?? item?.unit_price ?? 0) > 0
-);
-const formatReviewAmount = (value) => Number(value || 0).toLocaleString(undefined, {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-const normalizeDiscountColumnType = (value) => (
-  String(value || '').trim().toLowerCase() === 'fixed' ? 'fixed' : 'percent'
-);
-const getDiscountColumnLabel = (value) => (
-  normalizeDiscountColumnType(value) === 'fixed' ? 'Disc ₹' : 'Disc %'
-);
-const getDiscountColumnSuffix = (value) => (
-  normalizeDiscountColumnType(value) === 'fixed' ? '₹' : '%'
-);
+const hasMeaningfulDraftRow = (item = {}) =>
+  Number(item?.product_id || 0) > 0 ||
+  String(item?.product_query || '').trim().length > 0 ||
+  String(item?.product_name || '').trim().length > 0 ||
+  Number(item?.quantity || 0) > 1 ||
+  Number(item?.rate ?? item?.unit_price ?? 0) > 0;
+const formatReviewAmount = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+const normalizeDiscountColumnType = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase() === 'fixed'
+    ? 'fixed'
+    : 'percent';
+const getDiscountColumnLabel = (value) =>
+  normalizeDiscountColumnType(value) === 'fixed' ? 'Disc ₹' : 'Disc %';
+const getDiscountColumnSuffix = (value) =>
+  normalizeDiscountColumnType(value) === 'fixed' ? '₹' : '%';
 const resolveDiscountColumnType = (items = []) => {
   if (!Array.isArray(items) || !items.length) return 'percent';
-  const preferredItem = items.find((item) => Number(item?.discount_value || 0) > 0)
-    || items.find((item) => hasMeaningfulDraftRow(item))
-    || items[0];
+  const preferredItem =
+    items.find((item) => Number(item?.discount_value || 0) > 0) ||
+    items.find((item) => hasMeaningfulDraftRow(item)) ||
+    items[0];
   return normalizeDiscountColumnType(preferredItem?.discount_type);
 };
 const ORDER_FLOW_STEPS = [
@@ -46,7 +50,8 @@ const ORDER_FLOW_STEPS = [
     key: 'supplier',
     label: 'Supplier',
     title: 'Select Supplier',
-    description: 'Choose the supplier first. The popup expands into the item screen after selection.',
+    description:
+      'Choose the supplier first. The popup expands into the item screen after selection.',
   },
   {
     key: 'items',
@@ -74,7 +79,11 @@ const getDraftRowIssue = (rowDiagnostics = {}) => {
     return { tone: 'bad', text: '', detail: rowDiagnostics.rateAcknowledgementMessage };
   }
   if (rowDiagnostics.discountAcknowledgementMessage) {
-    return { tone: 'bad', text: 'Confirm discount', detail: rowDiagnostics.discountAcknowledgementMessage };
+    return {
+      tone: 'bad',
+      text: 'Confirm discount',
+      detail: rowDiagnostics.discountAcknowledgementMessage,
+    };
   }
   if (rowDiagnostics.rateWarningMessage) {
     return {
@@ -84,28 +93,31 @@ const getDraftRowIssue = (rowDiagnostics = {}) => {
     };
   }
   if (rowDiagnostics.discountWarningMessage) {
-    return { tone: 'neutral', text: 'Discount check', detail: rowDiagnostics.discountWarningMessage };
+    return {
+      tone: 'neutral',
+      text: 'Discount check',
+      detail: rowDiagnostics.discountWarningMessage,
+    };
   }
   return null;
 };
 
-const isSupplierDefaultItem = (item = {}) => (
-  item?.po_item_locked === true
-  || item?.po_item_source === 'supplier_default'
-  || String(item?.row_source || '').trim().toLowerCase() === 'supplier'
-);
+const isSupplierDefaultItem = (item = {}) =>
+  item?.po_item_locked === true ||
+  item?.po_item_source === 'supplier_default' ||
+  String(item?.row_source || '')
+    .trim()
+    .toLowerCase() === 'supplier';
 
 const getPurchaseOrderRowProductSearchText = (entry = {}) => {
   const item = entry?.item || {};
   const product = entry?.product || {};
-  return [
-    item?.product_name,
-    item?.product_query,
-    product?.name,
-    product?.sku,
-    item?.sku,
-  ]
-    .map((value) => String(value || '').trim().toLowerCase())
+  return [item?.product_name, item?.product_query, product?.name, product?.sku, item?.sku]
+    .map((value) =>
+      String(value || '')
+        .trim()
+        .toLowerCase()
+    )
     .filter(Boolean)
     .join(' ');
 };
@@ -113,13 +125,12 @@ const getPurchaseOrderRowProductSearchText = (entry = {}) => {
 const getPurchaseOrderRowProductSortLabel = (entry = {}) => {
   const item = entry?.item || {};
   const product = entry?.product || {};
-  const name = String(
-    item?.product_name
-    || item?.product_query
-    || product?.name
-    || ''
-  ).trim().toLowerCase();
-  const sku = String(product?.sku || item?.sku || '').trim().toLowerCase();
+  const name = String(item?.product_name || item?.product_query || product?.name || '')
+    .trim()
+    .toLowerCase();
+  const sku = String(product?.sku || item?.sku || '')
+    .trim()
+    .toLowerCase();
   return `${name} ${sku}`.trim();
 };
 
@@ -179,8 +190,8 @@ export function PurchaseOrderFormModal({
   const [selectedRowsWindow, setSelectedRowsWindow] = useState({ start: 0, end: 24 });
   const [itemProductSearch, setItemProductSearch] = useState('');
   const [itemProductSortDirection, setItemProductSortDirection] = useState(null);
-  const [discountColumnType, setDiscountColumnType] = useState(
-    () => resolveDiscountColumnType(orderFormData?.items)
+  const [discountColumnType, setDiscountColumnType] = useState(() =>
+    resolveDiscountColumnType(orderFormData?.items)
   );
   const deferredProductPickerSearch = useDeferredValue(productPickerSearch);
   const deferredItemProductSearch = useDeferredValue(itemProductSearch);
@@ -218,7 +229,10 @@ export function PurchaseOrderFormModal({
   };
   const resolvedActiveItemIndex = items[activeItemIndex] ? activeItemIndex : 0;
   const distributorById = new Map(
-    (Array.isArray(distributors) ? distributors : []).map((entry) => [String(entry?.id || ''), entry])
+    (Array.isArray(distributors) ? distributors : []).map((entry) => [
+      String(entry?.id || ''),
+      entry,
+    ])
   );
   const activeSuppliers = (Array.isArray(suppliers) ? suppliers : [])
     .filter((supplier) => supplier?.is_active !== false)
@@ -245,27 +259,30 @@ export function PurchaseOrderFormModal({
     return map;
   }, [orderProductOptions]);
   const visibleOrderRows = useMemo(
-    () => draftProjection.rows
-      .map((row, index) => {
-        const item = row?.item || {};
-        return {
-          index,
-          row,
-          item,
-          line: row?.line || {},
-          product: productLookupById.get(String(item?.product_id || '').trim()) || null,
-          diagnostics: draftDiagnostics.rowDiagnostics[index] || {},
-        };
-      })
-      .filter((entry) => hasMeaningfulDraftRow(entry.item)),
+    () =>
+      draftProjection.rows
+        .map((row, index) => {
+          const item = row?.item || {};
+          return {
+            index,
+            row,
+            item,
+            line: row?.line || {},
+            product: productLookupById.get(String(item?.product_id || '').trim()) || null,
+            diagnostics: draftDiagnostics.rowDiagnostics[index] || {},
+          };
+        })
+        .filter((entry) => hasMeaningfulDraftRow(entry.item)),
     [draftDiagnostics.rowDiagnostics, draftProjection.rows, productLookupById]
   );
-  const normalizedItemProductSearch = String(deferredItemProductSearch || '').trim().toLowerCase();
+  const normalizedItemProductSearch = String(deferredItemProductSearch || '')
+    .trim()
+    .toLowerCase();
   const filteredOrderRows = useMemo(() => {
     if (!normalizedItemProductSearch) return visibleOrderRows;
-    return visibleOrderRows.filter((entry) => (
+    return visibleOrderRows.filter((entry) =>
       getPurchaseOrderRowProductSearchText(entry).includes(normalizedItemProductSearch)
-    ));
+    );
   }, [normalizedItemProductSearch, visibleOrderRows]);
   const displayedOrderRows = useMemo(() => {
     if (!itemProductSortDirection) return filteredOrderRows;
@@ -285,74 +302,96 @@ export function PurchaseOrderFormModal({
     });
   }, [filteredOrderRows, itemProductSortDirection]);
   const selectedRowsTotalHeight = displayedOrderRows.length * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
-  const selectedRowsWindowStart = Math.max(0, Math.min(selectedRowsWindow.start, Math.max(0, displayedOrderRows.length - 1)));
+  const selectedRowsWindowStart = Math.max(
+    0,
+    Math.min(selectedRowsWindow.start, Math.max(0, displayedOrderRows.length - 1))
+  );
   const selectedRowsWindowEnd = Math.max(
     selectedRowsWindowStart,
     Math.min(selectedRowsWindow.end, Math.max(0, displayedOrderRows.length - 1))
   );
-  const windowedDisplayedOrderRows = displayedOrderRows.slice(selectedRowsWindowStart, selectedRowsWindowEnd + 1);
+  const windowedDisplayedOrderRows = displayedOrderRows.slice(
+    selectedRowsWindowStart,
+    selectedRowsWindowEnd + 1
+  );
   const selectedRowsWindowOffset = selectedRowsWindowStart * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
   const reviewableOrderRows = useMemo(
     () => visibleOrderRows.filter((entry) => Number(entry?.item?.quantity || 0) > 0),
     [visibleOrderRows]
   );
   const reviewQuantityTotal = useMemo(
-    () => reviewableOrderRows.reduce((sum, entry) => sum + Math.max(0, Number(entry?.item?.quantity || 0) || 0), 0),
+    () =>
+      reviewableOrderRows.reduce(
+        (sum, entry) => sum + Math.max(0, Number(entry?.item?.quantity || 0) || 0),
+        0
+      ),
     [reviewableOrderRows]
   );
   const reviewSheetRows = useMemo(
-    () => reviewableOrderRows.map((entry, index) => {
-      const rowItem = entry?.item || {};
-      const rowLine = entry?.line || {};
-      return {
-        key: `review-row-${index}-${rowItem?.product_id || rowItem?.product_query || 'draft'}`,
-        name: String(rowItem?.product_name || rowItem?.product_query || `Row ${index + 1}`).trim(),
-        quantity: Math.max(0, Number(rowLine?.quantity || rowItem?.quantity || 0) || 0),
-        uom: String(rowLine?.uom || rowItem?.uom || 'pcs').trim() || 'pcs',
-        rate: Number(rowItem?.rate ?? rowItem?.unit_price ?? 0) || 0,
-        gstRate: Number(rowLine?.gstRate ?? rowItem?.gst_rate ?? 0) || 0,
-        discountType: rowLine?.discountType || rowItem?.discount_type || 'percent',
-        discountValue: Number(rowLine?.discountValue ?? rowItem?.discount_value ?? 0) || 0,
-        total: Number(rowLine?.totalAmount || 0) || 0,
-      };
-    }),
+    () =>
+      reviewableOrderRows.map((entry, index) => {
+        const rowItem = entry?.item || {};
+        const rowLine = entry?.line || {};
+        return {
+          key: `review-row-${index}-${rowItem?.product_id || rowItem?.product_query || 'draft'}`,
+          name: String(
+            rowItem?.product_name || rowItem?.product_query || `Row ${index + 1}`
+          ).trim(),
+          quantity: Math.max(0, Number(rowLine?.quantity || rowItem?.quantity || 0) || 0),
+          uom: String(rowLine?.uom || rowItem?.uom || 'pcs').trim() || 'pcs',
+          rate: Number(rowItem?.rate ?? rowItem?.unit_price ?? 0) || 0,
+          gstRate: Number(rowLine?.gstRate ?? rowItem?.gst_rate ?? 0) || 0,
+          discountType: rowLine?.discountType || rowItem?.discount_type || 'percent',
+          discountValue: Number(rowLine?.discountValue ?? rowItem?.discount_value ?? 0) || 0,
+          total: Number(rowLine?.totalAmount || 0) || 0,
+        };
+      }),
     [reviewableOrderRows]
   );
   const supplierBoardItemCount = useMemo(
-    () => visibleOrderRows.reduce((sum, entry) => (isSupplierDefaultItem(entry?.item || {}) ? sum + 1 : sum), 0),
+    () =>
+      visibleOrderRows.reduce(
+        (sum, entry) => (isSupplierDefaultItem(entry?.item || {}) ? sum + 1 : sum),
+        0
+      ),
     [visibleOrderRows]
   );
   const existingOrderProductIds = useMemo(
-    () => new Set(
-      visibleOrderRows
-        .map((entry) => String(entry?.item?.product_id || '').trim())
-        .filter(Boolean)
-    ),
+    () =>
+      new Set(
+        visibleOrderRows
+          .map((entry) => String(entry?.item?.product_id || '').trim())
+          .filter(Boolean)
+      ),
     [visibleOrderRows]
   );
   const registeredSupplierProductIds = useMemo(
-    () => new Set(
-      (Array.isArray(supplierRegisteredProducts) ? supplierRegisteredProducts : [])
-        .map((product) => String(product?.product_id || product?.id || '').trim())
-        .filter(Boolean)
-    ),
+    () =>
+      new Set(
+        (Array.isArray(supplierRegisteredProducts) ? supplierRegisteredProducts : [])
+          .map((product) => String(product?.product_id || product?.id || '').trim())
+          .filter(Boolean)
+      ),
     [supplierRegisteredProducts]
   );
   const productPickerProducts = useMemo(() => {
-    const prioritized = Array.isArray(orderProductOptions?.prioritized) ? orderProductOptions.prioritized : [];
+    const prioritized = Array.isArray(orderProductOptions?.prioritized)
+      ? orderProductOptions.prioritized
+      : [];
     const all = Array.isArray(orderProductOptions?.all) ? orderProductOptions.all : [];
     const seen = new Set();
-    return [...prioritized, ...all]
-      .filter((product) => {
-        const productId = String(product?.id || '').trim();
-        if (!productId || seen.has(productId)) return false;
-        seen.add(productId);
-        if (product?.is_active === false || Number(product?.is_active || 1) === 0) return false;
-        return true;
-      });
+    return [...prioritized, ...all].filter((product) => {
+      const productId = String(product?.id || '').trim();
+      if (!productId || seen.has(productId)) return false;
+      seen.add(productId);
+      if (product?.is_active === false || Number(product?.is_active || 1) === 0) return false;
+      return true;
+    });
   }, [orderProductOptions]);
   const filteredProductPickerProducts = useMemo(() => {
-    const query = String(deferredProductPickerSearch || '').trim().toLowerCase();
+    const query = String(deferredProductPickerSearch || '')
+      .trim()
+      .toLowerCase();
     if (!query) return productPickerProducts;
     return productPickerProducts.filter((product) => {
       const candidates = [
@@ -362,8 +401,12 @@ export function PurchaseOrderFormModal({
         product?.brand,
         product?.category,
       ];
-      return candidates.some((value) => String(value || '').toLowerCase().includes(query));
-      });
+      return candidates.some((value) =>
+        String(value || '')
+          .toLowerCase()
+          .includes(query)
+      );
+    });
   }, [deferredProductPickerSearch, productPickerProducts]);
   const selectablePickerProductsById = useMemo(() => {
     const map = new Map();
@@ -375,35 +418,39 @@ export function PurchaseOrderFormModal({
     return map;
   }, [productPickerProducts]);
   const availableAllProductPickerProducts = useMemo(
-    () => productPickerProducts.filter((product) => {
-      const productId = String(product?.id || '').trim();
-      if (!productId) return false;
-      if (existingOrderProductIds.has(productId)) return false;
-      if (registeredSupplierProductIds.has(productId)) return false;
-      return true;
-    }),
+    () =>
+      productPickerProducts.filter((product) => {
+        const productId = String(product?.id || '').trim();
+        if (!productId) return false;
+        if (existingOrderProductIds.has(productId)) return false;
+        if (registeredSupplierProductIds.has(productId)) return false;
+        return true;
+      }),
     [existingOrderProductIds, productPickerProducts, registeredSupplierProductIds]
   );
   const filteredAllProductPickerProducts = useMemo(
-    () => filteredProductPickerProducts.filter((product) => {
-      const productId = String(product?.id || '').trim();
-      if (!productId) return false;
-      if (existingOrderProductIds.has(productId)) return false;
-      if (registeredSupplierProductIds.has(productId)) return false;
-      return true;
-    }),
+    () =>
+      filteredProductPickerProducts.filter((product) => {
+        const productId = String(product?.id || '').trim();
+        if (!productId) return false;
+        if (existingOrderProductIds.has(productId)) return false;
+        if (registeredSupplierProductIds.has(productId)) return false;
+        return true;
+      }),
     [existingOrderProductIds, filteredProductPickerProducts, registeredSupplierProductIds]
   );
   const visibleProductPickerProducts = useMemo(
     () => filteredAllProductPickerProducts.slice(0, productPickerVisibleLimit),
     [filteredAllProductPickerProducts, productPickerVisibleLimit]
   );
-  const canLoadMorePickerProducts = productPickerVisibleLimit < filteredAllProductPickerProducts.length;
+  const canLoadMorePickerProducts =
+    productPickerVisibleLimit < filteredAllProductPickerProducts.length;
   const formTitle = editingOrderId ? 'Edit Purchase Order' : 'Create Purchase Order';
   const formSubtitle = '';
   const closeButtonLabel = inline ? 'Reset Form' : 'Cancel';
   const supplierSelected = Boolean(String(orderFormData?.supplier_id || '').trim());
-  const distributorSelected = supplierSelected || Boolean(String(orderFormData?.distributor_id || '').trim());
+  const distributorSelected =
+    supplierSelected || Boolean(String(orderFormData?.distributor_id || '').trim());
   const hasMeaningfulItems = reviewableOrderRows.length > 0;
   const canReviewOrder = distributorSelected && reviewableOrderRows.length > 0 && !orderSubmitting;
   const activeWizardStep = orderReviewMode
@@ -417,7 +464,13 @@ export function PurchaseOrderFormModal({
     ? { width: Math.min(poModalSize.width, 620), height: 360 }
     : {
         width: Math.min(poModalSize.width, 1120),
-        height: orderReviewMode ? 760 : (activeWizardStep === 1 ? (productPickerOpen ? 860 : 780) : 700),
+        height: orderReviewMode
+          ? 760
+          : activeWizardStep === 1
+            ? productPickerOpen
+              ? 860
+              : 780
+            : 700,
       };
   const trimmedProductPickerSearch = String(productPickerSearch || '').trim();
   const hasProductPickerSearch = trimmedProductPickerSearch.length > 0;
@@ -437,65 +490,74 @@ export function PurchaseOrderFormModal({
       if (select && typeof target.select === 'function') target.select();
     });
   }, []);
-  const focusQuantityField = useCallback((rowIndex) => {
-    const attemptFocus = (shouldRetry = false) => {
-      const target = quantityInputRefs.current[rowIndex];
-      if (target) {
-        window.requestAnimationFrame(() => {
-          target.focus();
-          if (typeof target.select === 'function') target.select();
-        });
+  const focusQuantityField = useCallback(
+    (rowIndex) => {
+      const attemptFocus = (shouldRetry = false) => {
+        const target = quantityInputRefs.current[rowIndex];
+        if (target) {
+          window.requestAnimationFrame(() => {
+            target.focus();
+            if (typeof target.select === 'function') target.select();
+          });
+          return;
+        }
+        if (shouldRetry) return;
+        const scrollNode = selectedRowsScrollRef.current;
+        const visiblePosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
+        if (scrollNode && visiblePosition >= 0) {
+          scrollNode.scrollTo({
+            top: Math.max(0, (visiblePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
+            behavior: 'auto',
+          });
+        }
+        window.requestAnimationFrame(() => attemptFocus(true));
+      };
+
+      attemptFocus(false);
+    },
+    [displayedOrderRows]
+  );
+
+  const isWizardStepUnlocked = useCallback(
+    (stepIndex) => {
+      if (stepIndex <= 0) return true;
+      if (!distributorSelected) return false;
+      if (stepIndex >= ORDER_FLOW_REVIEW_STEP) return orderReviewMode;
+      return stepIndex === 1;
+    },
+    [distributorSelected, orderReviewMode]
+  );
+
+  const focusWorkflowStep = useCallback(
+    (stepIndex) => {
+      if (!isWizardStepUnlocked(stepIndex)) {
+        if (!distributorSelected) {
+          focusSupplierField(true);
+        }
         return;
       }
-      if (shouldRetry) return;
-      const scrollNode = selectedRowsScrollRef.current;
-      const visiblePosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
-      if (scrollNode && visiblePosition >= 0) {
-        scrollNode.scrollTo({
-          top: Math.max(0, (visiblePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
-          behavior: 'auto',
+
+      if (stepIndex === 0) {
+        setMobileStep(0);
+        focusSupplierField(true);
+        return;
+      }
+
+      if (stepIndex === 1) {
+        setMobileStep(1);
+        return;
+      }
+
+      if (stepIndex === ORDER_FLOW_REVIEW_STEP && orderReviewMode) {
+        setMobileStep(ORDER_FLOW_REVIEW_STEP);
+        window.requestAnimationFrame(() => {
+          formFooterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          submitButtonRef.current?.focus();
         });
       }
-      window.requestAnimationFrame(() => attemptFocus(true));
-    };
-
-    attemptFocus(false);
-  }, [displayedOrderRows]);
-
-  const isWizardStepUnlocked = useCallback((stepIndex) => {
-    if (stepIndex <= 0) return true;
-    if (!distributorSelected) return false;
-    if (stepIndex >= ORDER_FLOW_REVIEW_STEP) return orderReviewMode;
-    return stepIndex === 1;
-  }, [distributorSelected, orderReviewMode]);
-
-  const focusWorkflowStep = useCallback((stepIndex) => {
-    if (!isWizardStepUnlocked(stepIndex)) {
-      if (!distributorSelected) {
-        focusSupplierField(true);
-      }
-      return;
-    }
-
-    if (stepIndex === 0) {
-      setMobileStep(0);
-      focusSupplierField(true);
-      return;
-    }
-
-    if (stepIndex === 1) {
-      setMobileStep(1);
-      return;
-    }
-
-    if (stepIndex === ORDER_FLOW_REVIEW_STEP && orderReviewMode) {
-      setMobileStep(ORDER_FLOW_REVIEW_STEP);
-      window.requestAnimationFrame(() => {
-        formFooterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        submitButtonRef.current?.focus();
-      });
-    }
-  }, [distributorSelected, focusSupplierField, isWizardStepUnlocked, orderReviewMode]);
+    },
+    [distributorSelected, focusSupplierField, isWizardStepUnlocked, orderReviewMode]
+  );
 
   const handleAdvanceWorkflow = useCallback(() => {
     if (activeWizardStep === 0) {
@@ -630,7 +692,12 @@ export function PurchaseOrderFormModal({
   useEffect(() => {
     if (!productPickerOpen) return;
     setProductPickerVisibleLimit(productPickerPageSize);
-  }, [deferredProductPickerSearch, productPickerOpen, productPickerPageSize, filteredAllProductPickerProducts.length]);
+  }, [
+    deferredProductPickerSearch,
+    productPickerOpen,
+    productPickerPageSize,
+    filteredAllProductPickerProducts.length,
+  ]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -657,10 +724,14 @@ export function PurchaseOrderFormModal({
       }
       const viewportHeight = Math.max(1, Number(scrollNode.clientHeight || 0));
       const scrollTop = Math.max(0, Number(scrollNode.scrollTop || 0));
-      const visibleStart = Math.max(0, Math.floor(scrollTop / PO_SELECTED_ROW_ESTIMATED_HEIGHT) - PO_SELECTED_ROW_OVERSCAN);
+      const visibleStart = Math.max(
+        0,
+        Math.floor(scrollTop / PO_SELECTED_ROW_ESTIMATED_HEIGHT) - PO_SELECTED_ROW_OVERSCAN
+      );
       const visibleEnd = Math.min(
         totalRows - 1,
-        Math.ceil((scrollTop + viewportHeight) / PO_SELECTED_ROW_ESTIMATED_HEIGHT) + PO_SELECTED_ROW_OVERSCAN
+        Math.ceil((scrollTop + viewportHeight) / PO_SELECTED_ROW_ESTIMATED_HEIGHT) +
+          PO_SELECTED_ROW_OVERSCAN
       );
       setSelectedRowsWindow((current) => {
         if (current.start === visibleStart && current.end === visibleEnd) return current;
@@ -686,7 +757,8 @@ export function PurchaseOrderFormModal({
   useEffect(() => {
     const activePosition = displayedOrderRows.findIndex((entry) => entry.index === activeItemIndex);
     if (activePosition < 0) return;
-    if (activePosition >= selectedRowsWindow.start && activePosition <= selectedRowsWindow.end) return;
+    if (activePosition >= selectedRowsWindow.start && activePosition <= selectedRowsWindow.end)
+      return;
     const scrollNode = selectedRowsScrollRef.current;
     if (!scrollNode) return;
     scrollNode.scrollTo({
@@ -703,9 +775,9 @@ export function PurchaseOrderFormModal({
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
-        setProductPickerVisibleLimit((current) => (
+        setProductPickerVisibleLimit((current) =>
           Math.min(current + productPickerPageSize, filteredAllProductPickerProducts.length)
-        ));
+        );
       },
       {
         root: rootNode || null,
@@ -715,37 +787,52 @@ export function PurchaseOrderFormModal({
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [canLoadMorePickerProducts, filteredAllProductPickerProducts.length, productPickerOpen, productPickerPageSize]);
+  }, [
+    canLoadMorePickerProducts,
+    filteredAllProductPickerProducts.length,
+    productPickerOpen,
+    productPickerPageSize,
+  ]);
 
-  const handleRemoveRow = useCallback((index = resolvedActiveItemIndex) => {
-    const nextIndex = Math.max(0, Math.min(index, items.length - 2));
-    handleOrderItemRemove(index);
-    setActiveItemIndex(nextIndex);
-    setMobileStep(1);
-  }, [handleOrderItemRemove, items.length, resolvedActiveItemIndex]);
+  const handleRemoveRow = useCallback(
+    (index = resolvedActiveItemIndex) => {
+      const nextIndex = Math.max(0, Math.min(index, items.length - 2));
+      handleOrderItemRemove(index);
+      setActiveItemIndex(nextIndex);
+      setMobileStep(1);
+    },
+    [handleOrderItemRemove, items.length, resolvedActiveItemIndex]
+  );
 
-  const moveDisplayedRowFocus = useCallback((rowIndex, direction = 1) => {
-    const currentPosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
-    if (currentPosition < 0) return;
-    const nextPosition = direction < 0
-      ? Math.max(0, currentPosition - 1)
-      : Math.min(displayedOrderRows.length - 1, currentPosition + 1);
-    const nextIndex = displayedOrderRows[nextPosition]?.index;
-    if (typeof nextIndex !== 'number') return;
-    setActiveItemIndex(nextIndex);
-    focusQuantityField(nextIndex);
-  }, [displayedOrderRows, focusQuantityField]);
+  const moveDisplayedRowFocus = useCallback(
+    (rowIndex, direction = 1) => {
+      const currentPosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
+      if (currentPosition < 0) return;
+      const nextPosition =
+        direction < 0
+          ? Math.max(0, currentPosition - 1)
+          : Math.min(displayedOrderRows.length - 1, currentPosition + 1);
+      const nextIndex = displayedOrderRows[nextPosition]?.index;
+      if (typeof nextIndex !== 'number') return;
+      setActiveItemIndex(nextIndex);
+      focusQuantityField(nextIndex);
+    },
+    [displayedOrderRows, focusQuantityField]
+  );
 
-  const toggleProductPickerSelection = useCallback((productId) => {
-    const normalizedProductId = String(productId || '').trim();
-    if (!normalizedProductId) return;
-    if (existingOrderProductIds.has(normalizedProductId)) return;
-    setProductPickerSelectedIds((prev) => (
-      prev.includes(normalizedProductId)
-        ? prev.filter((entry) => entry !== normalizedProductId)
-        : [...prev, normalizedProductId]
-    ));
-  }, [existingOrderProductIds]);
+  const toggleProductPickerSelection = useCallback(
+    (productId) => {
+      const normalizedProductId = String(productId || '').trim();
+      if (!normalizedProductId) return;
+      if (existingOrderProductIds.has(normalizedProductId)) return;
+      setProductPickerSelectedIds((prev) =>
+        prev.includes(normalizedProductId)
+          ? prev.filter((entry) => entry !== normalizedProductId)
+          : [...prev, normalizedProductId]
+      );
+    },
+    [existingOrderProductIds]
+  );
 
   const handleOpenProductPicker = useCallback(() => {
     if (!distributorSelected) {
@@ -763,14 +850,17 @@ export function PurchaseOrderFormModal({
     setProductPickerSearch('');
   }, []);
 
-  const handleProductPickerSearchChange = useCallback((event) => {
-    if (!distributorSelected) {
-      focusWorkflowStep(0);
-      return;
-    }
-    setProductPickerOpen(true);
-    setProductPickerSearch(event.target.value);
-  }, [distributorSelected, focusWorkflowStep]);
+  const handleProductPickerSearchChange = useCallback(
+    (event) => {
+      if (!distributorSelected) {
+        focusWorkflowStep(0);
+        return;
+      }
+      setProductPickerOpen(true);
+      setProductPickerSearch(event.target.value);
+    },
+    [distributorSelected, focusWorkflowStep]
+  );
 
   const handleApplySelectedProducts = useCallback(async () => {
     const selectedProducts = productPickerSelectedIds
@@ -783,7 +873,12 @@ export function PurchaseOrderFormModal({
     await handleApplyCatalogProducts(selectedProducts);
     handleCloseProductPicker();
     setMobileStep(1);
-  }, [handleApplyCatalogProducts, handleCloseProductPicker, productPickerSelectedIds, selectablePickerProductsById]);
+  }, [
+    handleApplyCatalogProducts,
+    handleCloseProductPicker,
+    productPickerSelectedIds,
+    selectablePickerProductsById,
+  ]);
 
   const handleOpenProductsCatalog = useCallback(() => {
     setQuickProductFormOpen(true);
@@ -825,46 +920,62 @@ export function PurchaseOrderFormModal({
     void handleApplySelectedProducts();
   }, [handleApplySelectedProducts, orderSubmitting, productPickerSelectedIds.length]);
 
-  const handleProductPickerKeyDown = useCallback((event) => {
-    if (event.key !== 'Enter') return;
-    if (event.defaultPrevented) return;
-    event.preventDefault();
-    handleSubmitProductPicker();
-  }, [handleSubmitProductPicker]);
+  const handleProductPickerKeyDown = useCallback(
+    (event) => {
+      if (event.key !== 'Enter') return;
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      handleSubmitProductPicker();
+    },
+    [handleSubmitProductPicker]
+  );
 
   const handleFormSubmit = useCallback((event) => {
     event.preventDefault();
   }, []);
-  const handleFinalSubmitClick = useCallback((event) => {
-    event.preventDefault();
-    handleOrderSubmit(event);
-  }, [handleOrderSubmit]);
-  const handleQuantityFieldKeyDown = useCallback((rowIndex, quantityStep) => (event) => {
-    const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
-    if (integerOnly && ['e', 'E', '.', ','].includes(event.key)) {
+  const handleFinalSubmitClick = useCallback(
+    (event) => {
       event.preventDefault();
-      return;
-    }
-    if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
-    event.preventDefault();
-    const direction = event.key === 'ArrowUp' || (event.key === 'Enter' && event.shiftKey) ? -1 : 1;
-    moveDisplayedRowFocus(rowIndex, direction);
-  }, [moveDisplayedRowFocus]);
-  const handleQuantityFieldBlur = useCallback((rowIndex, quantityStep) => (event) => {
-    const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
-    if (!integerOnly) return;
-    const parsedValue = Number(event.target.value);
-    if (!Number.isFinite(parsedValue)) return;
-    const normalizedValue = Math.max(0, Math.trunc(parsedValue));
-    if (parsedValue !== normalizedValue) {
-      handleOrderItemChange(rowIndex, 'quantity', normalizedValue);
-    }
-  }, [handleOrderItemChange]);
-  const handleInlineFieldKeyDown = useCallback((rowIndex) => (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    moveDisplayedRowFocus(rowIndex, event.shiftKey ? -1 : 1);
-  }, [moveDisplayedRowFocus]);
+      handleOrderSubmit(event);
+    },
+    [handleOrderSubmit]
+  );
+  const handleQuantityFieldKeyDown = useCallback(
+    (rowIndex, quantityStep) => (event) => {
+      const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
+      if (integerOnly && ['e', 'E', '.', ','].includes(event.key)) {
+        event.preventDefault();
+        return;
+      }
+      if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
+      event.preventDefault();
+      const direction =
+        event.key === 'ArrowUp' || (event.key === 'Enter' && event.shiftKey) ? -1 : 1;
+      moveDisplayedRowFocus(rowIndex, direction);
+    },
+    [moveDisplayedRowFocus]
+  );
+  const handleQuantityFieldBlur = useCallback(
+    (rowIndex, quantityStep) => (event) => {
+      const integerOnly = Number.isFinite(quantityStep) && Number.isInteger(Number(quantityStep));
+      if (!integerOnly) return;
+      const parsedValue = Number(event.target.value);
+      if (!Number.isFinite(parsedValue)) return;
+      const normalizedValue = Math.max(0, Math.trunc(parsedValue));
+      if (parsedValue !== normalizedValue) {
+        handleOrderItemChange(rowIndex, 'quantity', normalizedValue);
+      }
+    },
+    [handleOrderItemChange]
+  );
+  const handleInlineFieldKeyDown = useCallback(
+    (rowIndex) => (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      moveDisplayedRowFocus(rowIndex, event.shiftKey ? -1 : 1);
+    },
+    [moveDisplayedRowFocus]
+  );
   const handleDiscountColumnToggle = useCallback(() => {
     const nextType = discountColumnType === 'fixed' ? 'percent' : 'fixed';
     const hasDiscountValues = items.some((item) => Number(item?.discount_value || 0) > 0);
@@ -887,13 +998,16 @@ export function PurchaseOrderFormModal({
     });
     setDiscountColumnType(nextType);
   }, [discountColumnType, items, setOrderFormData]);
-  const handleDiscountValueChange = useCallback((rowIndex) => (event) => {
-    const nextValue = event.target.value;
-    if (normalizeDiscountColumnType(items[rowIndex]?.discount_type) !== discountColumnType) {
-      handleOrderItemChange(rowIndex, 'discount_type', discountColumnType);
-    }
-    handleOrderItemChange(rowIndex, 'discount_value', nextValue);
-  }, [discountColumnType, handleOrderItemChange, items]);
+  const handleDiscountValueChange = useCallback(
+    (rowIndex) => (event) => {
+      const nextValue = event.target.value;
+      if (normalizeDiscountColumnType(items[rowIndex]?.discount_type) !== discountColumnType) {
+        handleOrderItemChange(rowIndex, 'discount_type', discountColumnType);
+      }
+      handleOrderItemChange(rowIndex, 'discount_value', nextValue);
+    },
+    [discountColumnType, handleOrderItemChange, items]
+  );
 
   if (!open) return null;
 
@@ -908,8 +1022,8 @@ export function PurchaseOrderFormModal({
   const stepPrimaryActionDisabled = orderReviewMode
     ? !canSubmitOrder
     : activeWizardStep === 0
-      ? (!distributorSelected || orderSubmitting)
-      : (!canReviewOrder || orderSubmitting);
+      ? !distributorSelected || orderSubmitting
+      : !canReviewOrder || orderSubmitting;
   const handleBackFromReview = () => {
     closeOrderReview();
     setMobileStep(1);
@@ -923,7 +1037,11 @@ export function PurchaseOrderFormModal({
   };
 
   const content = (
-    <div ref={poModalRef} className={inline ? 'po-entry-inline-shell' : 'po-entry-workspace-shell'} style={inline ? undefined : { width: '100%', height: '100%' }}>
+    <div
+      ref={poModalRef}
+      className={inline ? 'po-entry-inline-shell' : 'po-entry-workspace-shell'}
+      style={inline ? undefined : { width: '100%', height: '100%' }}
+    >
       <form
         onSubmit={handleFormSubmit}
         className={[
@@ -933,7 +1051,9 @@ export function PurchaseOrderFormModal({
           supplierOnlyStep ? 'supplier-step' : '',
           itemsWorkspaceStep ? 'items-workspace' : '',
           reviewWorkspaceStep ? 'review-workspace' : '',
-        ].filter(Boolean).join(' ')}
+        ]
+          .filter(Boolean)
+          .join(' ')}
         noValidate
       >
         <div className="po-invoice-preview po-entry-preview">
@@ -959,7 +1079,10 @@ export function PurchaseOrderFormModal({
                     >
                       <strong>{draft.title}</strong>
                       <small>{draft.supplierName || 'No supplier selected yet'}</small>
-                      <small>{draft.itemCount} item{draft.itemCount === 1 ? '' : 's'} • Total {formatReviewAmount(draft.totalAmount || 0)}</small>
+                      <small>
+                        {draft.itemCount} item{draft.itemCount === 1 ? '' : 's'} • Total{' '}
+                        {formatReviewAmount(draft.totalAmount || 0)}
+                      </small>
                     </button>
                     <button
                       type="button"
@@ -976,8 +1099,12 @@ export function PurchaseOrderFormModal({
           ) : null}
 
           {!orderReviewMode && activeWizardStep === 0 ? (
-            <section className={`po-popup-supplier-stage${supplierOnlyStep ? ' supplier-focus' : ''}`}>
-              <div className={`po-party-grid${supplierOnlyStep ? ' po-supplier-focus-grid' : ' po-entry-header-grid'}`}>
+            <section
+              className={`po-popup-supplier-stage${supplierOnlyStep ? ' supplier-focus' : ''}`}
+            >
+              <div
+                className={`po-party-grid${supplierOnlyStep ? ' po-supplier-focus-grid' : ' po-entry-header-grid'}`}
+              >
                 <PurchaseDistributorSelector
                   activeSuppliers={activeSuppliers}
                   orderFormData={orderFormData}
@@ -989,11 +1116,15 @@ export function PurchaseOrderFormModal({
           ) : null}
 
           {!orderReviewMode && activeWizardStep === 1 ? (
-            <div className={`po-popup-items-screen single-flow${productPickerOpen ? ' picker-open' : ''}`}>
+            <div
+              className={`po-popup-items-screen single-flow${productPickerOpen ? ' picker-open' : ''}`}
+            >
               <section className="po-popup-items-head">
                 <div className="po-popup-items-head-copy">
                   <strong>
-                    {String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Supplier selected'}
+                    {String(
+                      orderFormData?.supplier_name || orderFormData?.distributor_name || ''
+                    ).trim() || 'Supplier selected'}
                   </strong>
                 </div>
                 <div className="po-popup-items-head-actions">
@@ -1054,7 +1185,10 @@ export function PurchaseOrderFormModal({
                             )}
                           </span>
                         </button>
-                        <label className="po-popup-product-search" htmlFor="po-popup-item-product-search">
+                        <label
+                          className="po-popup-product-search"
+                          htmlFor="po-popup-item-product-search"
+                        >
                           <Search size={12} aria-hidden="true" />
                           <input
                             id="po-popup-item-product-search"
@@ -1099,175 +1233,237 @@ export function PurchaseOrderFormModal({
                               transform: `translateY(${selectedRowsWindowOffset}px)`,
                             }}
                           >
-                            {windowedDisplayedOrderRows.map(({ index, item, line, product, diagnostics }) => {
-                        const productSku = String(product?.sku || item?.sku || '').trim();
-                        const displayName = String(
-                          item?.product_name
-                          || item?.product_query
-                          || product?.name
-                          || `Row ${index + 1}`
-                        ).trim();
-                        const displayTitle = productSku ? `${displayName} (SKU: ${productSku})` : displayName;
-                        const rowUom = String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
-                        const itemUomOptions = getAllowedPurchaseUnitsForProduct(product);
-                        const rowIssue = getDraftRowIssue(diagnostics);
-                        const gstRate = Number(item?.gst_rate ?? line?.gstRate ?? 0) || 0;
-                        const quantityStep = getPurchasePackStep(product, rowUom);
-                        const currentRate = Number(item?.rate ?? item?.unit_price ?? 0) || 0;
-                        const seededRate = Number(
-                          item?.last_purchase_rate
-                          || item?.auto_fill_seed_rate
-                          || item?.reference_rate
-                          || item?.rate
-                          || 0
-                        ) || 0;
-                        const hasEditedRate = seededRate > 0 && Math.abs(currentRate - seededRate) > 0.001;
-                        const isActiveRow = activeItemIndex === index;
-                        const quantityValue = Math.max(0, Number(item?.quantity || 0) || 0);
-                        const rowLocked = isSupplierDefaultItem(item);
-                        const rowIsZero = quantityValue <= 0;
-                        const rowMetaNote = [
-                          rowIssue && rowIssue.text ? rowIssue.text : '',
-                          !rowIssue && hasEditedRate ? 'edited' : '',
-                        ].filter(Boolean).join(' • ');
-                        return (
-                          <article
-                            key={`selected-po-row-${index}`}
-                            className={`po-popup-items-table-row selected${isActiveRow ? ' active' : ''}${rowLocked ? ' locked' : ''}${rowIsZero ? ' zero' : ''}`}
-                          >
-                            <div className="po-popup-grid-product">
-                              <SafeProductImage
-                                product={product || { name: displayTitle, image: item?.image || item?.image_url || '' }}
-                                alt={displayTitle}
-                                className="po-popup-grid-image"
-                              />
-                              <div className="po-popup-grid-product-copy">
-                                <strong>{displayTitle}</strong>
-                                {rowMetaNote ? <small>{rowMetaNote}</small> : null}
-                              </div>
-                            </div>
-                            <div className="po-popup-grid-cell po-popup-grid-cell-qty">
-                              <input
-                                ref={(node) => {
-                                  if (node) {
-                                    quantityInputRefs.current[index] = node;
-                                  } else {
-                                    delete quantityInputRefs.current[index];
-                                  }
-                                }}
-                                type="number"
-                                min="0"
-                                step={quantityStep}
-                                inputMode={Number.isInteger(quantityStep) ? 'numeric' : 'decimal'}
-                                value={item?.quantity ?? ''}
-                                onChange={(event) => handleOrderItemChange(index, 'quantity', event.target.value)}
-                                onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleQuantityFieldKeyDown(index, quantityStep)}
-                                onBlur={handleQuantityFieldBlur(index, quantityStep)}
-                                disabled={orderSubmitting}
-                                aria-label={`Quantity for ${displayTitle}`}
-                              />
-                            </div>
-                            <div className="po-popup-grid-cell">
-                              <select
-                                value={rowUom}
-                                onChange={(event) => handleOrderItemChange(index, 'uom', event.target.value)}
-                                onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleInlineFieldKeyDown(index)}
-                                disabled={orderSubmitting}
-                                aria-label={`Unit for ${displayTitle}`}
-                              >
-                                {itemUomOptions.map((uomOption) => (
-                                  <option key={`${index}-${uomOption}`} value={uomOption}>{uomOption}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="po-popup-grid-cell">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item?.rate ?? item?.unit_price ?? ''}
-                                onChange={(event) => handleOrderItemChange(index, 'rate', event.target.value)}
-                                onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleInlineFieldKeyDown(index)}
-                                disabled={orderSubmitting}
-                                aria-label={`Rate for ${displayTitle}`}
-                              />
-                            </div>
-                            <div className="po-popup-grid-cell">
-                              <select
-                                value={gstRate}
-                                onChange={(event) => handleOrderItemChange(index, 'gst_rate', toNumber(event.target.value))}
-                                onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleInlineFieldKeyDown(index)}
-                                disabled={orderSubmitting}
-                                aria-label={`GST for ${displayTitle}`}
-                              >
-                                {GST_RATE_OPTIONS.map((rateOption) => (
-                                  <option key={`${index}-gst-${rateOption}`} value={rateOption}>{rateOption}%</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="po-popup-grid-cell po-popup-grid-cell-discount">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item?.discount_value || ''}
-                                onChange={handleDiscountValueChange(index)}
-                                onFocus={() => setActiveItemIndex(index)}
-                                onKeyDown={handleInlineFieldKeyDown(index)}
-                                disabled={orderSubmitting}
-                                aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayTitle}`}
-                              />
-                              <small>{getDiscountColumnSuffix(discountColumnType)}</small>
-                            </div>
-                            <div className="po-popup-grid-total">
-                              <div className="po-popup-grid-total-main">
-                                <strong>₹{formatReviewAmount(line?.totalAmount || 0)}</strong>
-                                <div className="po-popup-grid-total-actions">
-                                  {diagnostics.rateRequiresAcknowledgement ? (
-                                    <button
-                                      type="button"
-                                      className="po-popup-inline-action po-popup-inline-action-small"
-                                      onClick={() => handleOrderItemChange(index, 'rate_warning_acknowledged', true)}
-                                      disabled={orderSubmitting}
-                                      title={diagnostics.rateAcknowledgementMessage || diagnostics.rateWarningMessage || 'Accept price'}
-                                      aria-label={`Accept rate for ${displayTitle}`}
-                                    >
-                                      ✓
-                                    </button>
-                                  ) : null}
-                                  {diagnostics.discountRequiresAcknowledgement ? (
-                                    <button
-                                      type="button"
-                                      className="po-popup-inline-action po-popup-inline-action-small"
-                                      onClick={() => handleOrderItemChange(index, 'discount_warning_acknowledged', true)}
-                                      disabled={orderSubmitting}
-                                      title={diagnostics.discountAcknowledgementMessage || diagnostics.discountWarningMessage || 'Confirm discount'}
-                                      aria-label={`Confirm unusual discount for ${displayTitle}`}
-                                    >
-                                      ✓
-                                    </button>
-                                  ) : null}
-                                  {!rowLocked ? (
-                                    <button
-                                      type="button"
-                                      className="po-popup-inline-action danger"
-                                      onClick={() => handleRemoveRow(index)}
-                                      disabled={orderSubmitting}
-                                      aria-label={`Remove ${displayTitle}`}
-                                    >
-                                      ✕
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          </article>
-                            );
-                          })}
+                            {windowedDisplayedOrderRows.map(
+                              ({ index, item, line, product, diagnostics }) => {
+                                const productSku = String(product?.sku || item?.sku || '').trim();
+                                const displayName = String(
+                                  item?.product_name ||
+                                    item?.product_query ||
+                                    product?.name ||
+                                    `Row ${index + 1}`
+                                ).trim();
+                                const displayTitle = productSku
+                                  ? `${displayName} (SKU: ${productSku})`
+                                  : displayName;
+                                const rowUom =
+                                  String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
+                                const itemUomOptions = getAllowedPurchaseUnitsForProduct(product);
+                                const rowIssue = getDraftRowIssue(diagnostics);
+                                const gstRate = Number(item?.gst_rate ?? line?.gstRate ?? 0) || 0;
+                                const quantityStep = getPurchasePackStep(product, rowUom);
+                                const currentRate =
+                                  Number(item?.rate ?? item?.unit_price ?? 0) || 0;
+                                const seededRate =
+                                  Number(
+                                    item?.last_purchase_rate ||
+                                      item?.auto_fill_seed_rate ||
+                                      item?.reference_rate ||
+                                      item?.rate ||
+                                      0
+                                  ) || 0;
+                                const hasEditedRate =
+                                  seededRate > 0 && Math.abs(currentRate - seededRate) > 0.001;
+                                const isActiveRow = activeItemIndex === index;
+                                const quantityValue = Math.max(0, Number(item?.quantity || 0) || 0);
+                                const rowLocked = isSupplierDefaultItem(item);
+                                const rowIsZero = quantityValue <= 0;
+                                const rowMetaNote = [
+                                  rowIssue && rowIssue.text ? rowIssue.text : '',
+                                  !rowIssue && hasEditedRate ? 'edited' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' • ');
+                                return (
+                                  <article
+                                    key={`selected-po-row-${index}`}
+                                    className={`po-popup-items-table-row selected${isActiveRow ? ' active' : ''}${rowLocked ? ' locked' : ''}${rowIsZero ? ' zero' : ''}`}
+                                  >
+                                    <div className="po-popup-grid-product">
+                                      <SafeProductImage
+                                        product={
+                                          product || {
+                                            name: displayTitle,
+                                            image: item?.image || item?.image_url || '',
+                                          }
+                                        }
+                                        alt={displayTitle}
+                                        className="po-popup-grid-image"
+                                      />
+                                      <div className="po-popup-grid-product-copy">
+                                        <strong>{displayTitle}</strong>
+                                        {rowMetaNote ? <small>{rowMetaNote}</small> : null}
+                                      </div>
+                                    </div>
+                                    <div className="po-popup-grid-cell po-popup-grid-cell-qty">
+                                      <input
+                                        ref={(node) => {
+                                          if (node) {
+                                            quantityInputRefs.current[index] = node;
+                                          } else {
+                                            delete quantityInputRefs.current[index];
+                                          }
+                                        }}
+                                        type="number"
+                                        min="0"
+                                        step={quantityStep}
+                                        inputMode={
+                                          Number.isInteger(quantityStep) ? 'numeric' : 'decimal'
+                                        }
+                                        value={item?.quantity ?? ''}
+                                        onChange={(event) =>
+                                          handleOrderItemChange(
+                                            index,
+                                            'quantity',
+                                            event.target.value
+                                          )
+                                        }
+                                        onFocus={() => setActiveItemIndex(index)}
+                                        onKeyDown={handleQuantityFieldKeyDown(index, quantityStep)}
+                                        onBlur={handleQuantityFieldBlur(index, quantityStep)}
+                                        disabled={orderSubmitting}
+                                        aria-label={`Quantity for ${displayTitle}`}
+                                      />
+                                    </div>
+                                    <div className="po-popup-grid-cell">
+                                      <select
+                                        value={rowUom}
+                                        onChange={(event) =>
+                                          handleOrderItemChange(index, 'uom', event.target.value)
+                                        }
+                                        onFocus={() => setActiveItemIndex(index)}
+                                        onKeyDown={handleInlineFieldKeyDown(index)}
+                                        disabled={orderSubmitting}
+                                        aria-label={`Unit for ${displayTitle}`}
+                                      >
+                                        {itemUomOptions.map((uomOption) => (
+                                          <option key={`${index}-${uomOption}`} value={uomOption}>
+                                            {uomOption}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="po-popup-grid-cell">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={item?.rate ?? item?.unit_price ?? ''}
+                                        onChange={(event) =>
+                                          handleOrderItemChange(index, 'rate', event.target.value)
+                                        }
+                                        onFocus={() => setActiveItemIndex(index)}
+                                        onKeyDown={handleInlineFieldKeyDown(index)}
+                                        disabled={orderSubmitting}
+                                        aria-label={`Rate for ${displayTitle}`}
+                                      />
+                                    </div>
+                                    <div className="po-popup-grid-cell">
+                                      <select
+                                        value={gstRate}
+                                        onChange={(event) =>
+                                          handleOrderItemChange(
+                                            index,
+                                            'gst_rate',
+                                            toNumber(event.target.value)
+                                          )
+                                        }
+                                        onFocus={() => setActiveItemIndex(index)}
+                                        onKeyDown={handleInlineFieldKeyDown(index)}
+                                        disabled={orderSubmitting}
+                                        aria-label={`GST for ${displayTitle}`}
+                                      >
+                                        {GST_RATE_OPTIONS.map((rateOption) => (
+                                          <option
+                                            key={`${index}-gst-${rateOption}`}
+                                            value={rateOption}
+                                          >
+                                            {rateOption}%
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="po-popup-grid-cell po-popup-grid-cell-discount">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={item?.discount_value || ''}
+                                        onChange={handleDiscountValueChange(index)}
+                                        onFocus={() => setActiveItemIndex(index)}
+                                        onKeyDown={handleInlineFieldKeyDown(index)}
+                                        disabled={orderSubmitting}
+                                        aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayTitle}`}
+                                      />
+                                      <small>{getDiscountColumnSuffix(discountColumnType)}</small>
+                                    </div>
+                                    <div className="po-popup-grid-total">
+                                      <div className="po-popup-grid-total-main">
+                                        <strong>
+                                          ₹{formatReviewAmount(line?.totalAmount || 0)}
+                                        </strong>
+                                        <div className="po-popup-grid-total-actions">
+                                          {diagnostics.rateRequiresAcknowledgement ? (
+                                            <button
+                                              type="button"
+                                              className="po-popup-inline-action po-popup-inline-action-small"
+                                              onClick={() =>
+                                                handleOrderItemChange(
+                                                  index,
+                                                  'rate_warning_acknowledged',
+                                                  true
+                                                )
+                                              }
+                                              disabled={orderSubmitting}
+                                              title={
+                                                diagnostics.rateAcknowledgementMessage ||
+                                                diagnostics.rateWarningMessage ||
+                                                'Accept price'
+                                              }
+                                              aria-label={`Accept rate for ${displayTitle}`}
+                                            >
+                                              ✓
+                                            </button>
+                                          ) : null}
+                                          {diagnostics.discountRequiresAcknowledgement ? (
+                                            <button
+                                              type="button"
+                                              className="po-popup-inline-action po-popup-inline-action-small"
+                                              onClick={() =>
+                                                handleOrderItemChange(
+                                                  index,
+                                                  'discount_warning_acknowledged',
+                                                  true
+                                                )
+                                              }
+                                              disabled={orderSubmitting}
+                                              title={
+                                                diagnostics.discountAcknowledgementMessage ||
+                                                diagnostics.discountWarningMessage ||
+                                                'Confirm discount'
+                                              }
+                                              aria-label={`Confirm unusual discount for ${displayTitle}`}
+                                            >
+                                              ✓
+                                            </button>
+                                          ) : null}
+                                          {!rowLocked ? (
+                                            <button
+                                              type="button"
+                                              className="po-popup-inline-action danger"
+                                              onClick={() => handleRemoveRow(index)}
+                                              disabled={orderSubmitting}
+                                              aria-label={`Remove ${displayTitle}`}
+                                            >
+                                              ✕
+                                            </button>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </article>
+                                );
+                              }
+                            )}
                           </div>
                         </div>
                       ) : null}
@@ -1280,7 +1476,11 @@ export function PurchaseOrderFormModal({
                   </div>
                 ) : (
                   <div className="po-pos-empty-state">
-                    <strong>{loadingDistributorItems ? 'Loading supplier products...' : 'No supplier products are loaded yet.'}</strong>
+                    <strong>
+                      {loadingDistributorItems
+                        ? 'Loading supplier products...'
+                        : 'No supplier products are loaded yet.'}
+                    </strong>
                     <p>
                       {loadingDistributorItems
                         ? 'Preparing the supplier board.'
@@ -1299,9 +1499,18 @@ export function PurchaseOrderFormModal({
               description="Review the order and then do the final submit."
               badgeLabel={`${reviewableOrderRows.length} item${reviewableOrderRows.length === 1 ? '' : 's'}`}
               metaItems={[
-              { label: 'Supplier:', value: String(orderFormData?.supplier_name || orderFormData?.distributor_name || '').trim() || 'Not selected' },
+                {
+                  label: 'Supplier:',
+                  value:
+                    String(
+                      orderFormData?.supplier_name || orderFormData?.distributor_name || ''
+                    ).trim() || 'Not selected',
+                },
                 { label: 'Date:', value: new Date().toLocaleDateString() },
-                { label: 'Delivery:', value: String(orderFormData?.expected_delivery || '').trim() || 'Skipped' },
+                {
+                  label: 'Delivery:',
+                  value: String(orderFormData?.expected_delivery || '').trim() || 'Skipped',
+                },
               ]}
               rows={reviewSheetRows}
               totals={orderTotals}
@@ -1316,14 +1525,19 @@ export function PurchaseOrderFormModal({
               {!reviewableOrderRows.length ? (
                 <div className="po-pos-empty-state">
                   <strong>No reviewable items yet.</strong>
-                  <p>Return to the items step and enter quantity above zero for at least one product.</p>
+                  <p>
+                    Return to the items step and enter quantity above zero for at least one product.
+                  </p>
                 </div>
               ) : null}
             </PurchaseOrderReviewSheet>
           ) : null}
         </div>
 
-        <div ref={formFooterRef} className={`form-section po-form-section po-form-footer${supplierOnlyStep ? ' supplier-step' : ''}`}>
+        <div
+          ref={formFooterRef}
+          className={`form-section po-form-section po-form-footer${supplierOnlyStep ? ' supplier-step' : ''}`}
+        >
           <div className="po-form-footer-panel">
             {distributorSelected && !orderReviewMode ? (
               <PurchaseOrderSummaryPanel
@@ -1342,7 +1556,12 @@ export function PurchaseOrderFormModal({
                 {orderReviewMode ? 'Modify' : closeButtonLabel}
               </button>
               {!orderReviewMode && distributorSelected ? (
-                <button type="button" className="submit-btn secondary" onClick={saveCurrentOrderDraft} disabled={orderSubmitting}>
+                <button
+                  type="button"
+                  className="submit-btn secondary"
+                  onClick={saveCurrentOrderDraft}
+                  disabled={orderSubmitting}
+                >
                   Save Draft
                 </button>
               ) : null}
@@ -1390,18 +1609,18 @@ export function PurchaseOrderFormModal({
         dialogClassName={`purchase-modal-frame large po-form-modal po-entry-view-modal${poWindowInactive ? ' is-underlay' : ''}`}
         headerClassName="purchase-modal-header"
         contentClassName="purchase-modal-body purchase-modal-workspace-body"
-      closeButtonClassName="purchase-modal-close-btn"
-      initialSize={modalInitialSize}
-      minWidth={distributorSelected || orderReviewMode ? 720 : 520}
-      minHeight={distributorSelected || orderReviewMode ? 520 : 260}
-      minimizable={false}
-      maximizable={false}
-      draggable={false}
-      resizable={false}
-      fullscreen
-    >
-      {content}
-    </WindowModal>
+        closeButtonClassName="purchase-modal-close-btn"
+        initialSize={modalInitialSize}
+        minWidth={distributorSelected || orderReviewMode ? 720 : 520}
+        minHeight={distributorSelected || orderReviewMode ? 520 : 260}
+        minimizable={false}
+        maximizable={false}
+        draggable={false}
+        resizable={false}
+        fullscreen
+      >
+        {content}
+      </WindowModal>
       <WindowModal
         open={productPickerOpen}
         title="Add Products"
@@ -1454,7 +1673,8 @@ export function PurchaseOrderFormModal({
               </span>
             </div>
             <p className="po-pos-panel-note">
-              Only products outside this supplier&apos;s registered board are shown here. Products already on the board stay hidden.
+              Only products outside this supplier&apos;s registered board are shown here. Products
+              already on the board stay hidden.
             </p>
           </div>
 
@@ -1481,14 +1701,17 @@ export function PurchaseOrderFormModal({
                       <div className="po-product-picker-card-copy">
                         <strong>{String(product?.name || 'Product').trim()}</strong>
                         <small>
-                          {[product?.brand, product?.category].filter(Boolean).join(' • ') || 'Catalog item'}
+                          {[product?.brand, product?.category].filter(Boolean).join(' • ') ||
+                            'Catalog item'}
                         </small>
                         <div className="po-product-picker-card-meta">
                           <span>Rate {formatReviewAmount(productRate)}</span>
                           <span>{productStock > 0 ? `Stock ${productStock}` : 'Stock 0'}</span>
                         </div>
                       </div>
-                      <span className={`po-product-picker-card-state${isSelected ? ' selected' : ''}`}>
+                      <span
+                        className={`po-product-picker-card-state${isSelected ? ' selected' : ''}`}
+                      >
                         {isSelected ? 'Selected' : 'Tap'}
                       </span>
                     </button>
@@ -1497,7 +1720,11 @@ export function PurchaseOrderFormModal({
               </div>
             ) : (
               <div className="po-pos-empty-state">
-                <strong>{availableAllProductPickerProducts.length ? 'No matching products found.' : 'No more catalog products are available.'}</strong>
+                <strong>
+                  {availableAllProductPickerProducts.length
+                    ? 'No matching products found.'
+                    : 'No more catalog products are available.'}
+                </strong>
                 <p>
                   {availableAllProductPickerProducts.length
                     ? 'Try another search term to add products from the catalog.'
@@ -1506,7 +1733,11 @@ export function PurchaseOrderFormModal({
               </div>
             )}
             {canLoadMorePickerProducts ? (
-              <div ref={productPickerLoadMoreRef} className="po-product-picker-load-more" aria-hidden="true" />
+              <div
+                ref={productPickerLoadMoreRef}
+                className="po-product-picker-load-more"
+                aria-hidden="true"
+              />
             ) : null}
           </div>
           <div className="po-product-picker-actions po-product-picker-sticky-bottom">
@@ -1533,7 +1764,11 @@ export function PurchaseOrderFormModal({
               disabled={orderSubmitting || productPickerSelectedIds.length === 0}
             >
               <Plus size={15} />
-              <span>{productPickerSelectedIds.length ? `Done (${productPickerSelectedIds.length})` : 'Done'}</span>
+              <span>
+                {productPickerSelectedIds.length
+                  ? `Done (${productPickerSelectedIds.length})`
+                  : 'Done'}
+              </span>
             </button>
           </div>
         </section>

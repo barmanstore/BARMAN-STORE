@@ -1,9 +1,4 @@
-const buildProductInsightsQuery = ({
-  distributorId,
-  category,
-  startDate,
-  endExclusive,
-}) => {
+const buildProductInsightsQuery = ({ distributorId, category, startDate, endExclusive }) => {
   const filters = [`COALESCE(LOWER(po.po_status), '') <> 'cancelled'`];
   const params = [];
   if (startDate) {

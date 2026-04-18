@@ -4,7 +4,9 @@ const { registerAnalyticsRoutes } = require('./routes/analyticsRoutes');
 const { registerAdminNotificationRoutes } = require('./routes/adminNotificationRoutes');
 const { registerUserNotificationRoutes } = require('./routes/userNotificationRoutes');
 const { registerNotificationPurgeRoutes } = require('./routes/notificationPurgeRoutes');
-const { registerPurchaseOperationNotificationRoutes } = require('./routes/purchaseOperationNotificationRoutes');
+const {
+  registerPurchaseOperationNotificationRoutes,
+} = require('./routes/purchaseOperationNotificationRoutes');
 const { registerMessageRecipientRoutes } = require('./routes/messageRecipientRoutes');
 const { registerMessageToAdminRoutes } = require('./routes/messageToAdminRoutes');
 const { registerMessageToCustomerRoutes } = require('./routes/messageToCustomerRoutes');

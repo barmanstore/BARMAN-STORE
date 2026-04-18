@@ -1,6 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Package, ShoppingCart, Users, TrendingUp, CreditCard, Wallet, Clock, Truck } from 'lucide-react';
+import {
+  Package,
+  ShoppingCart,
+  Users,
+  TrendingUp,
+  CreditCard,
+  Wallet,
+  Clock,
+  Truck,
+} from 'lucide-react';
 import SignedCurrency from '../../../shared/components/SignedCurrency';
 import { formatCurrency, truncateUserName } from '../../../shared/utils/formatters';
 import { asNumber } from '../utils/adminHelpers';
@@ -23,34 +32,29 @@ const toShortDate = (value) => {
   return parsed.toLocaleDateString();
 };
 
-const takeSuggestedItemNames = (items = [], limit = 4) => (
+const takeSuggestedItemNames = (items = [], limit = 4) =>
   (Array.isArray(items) ? items : [])
     .map((item) => String(item?.product_name || item?.name || '').trim())
     .filter(Boolean)
-    .slice(0, limit)
-);
+    .slice(0, limit);
 
 const isReviewableWorkflowEntry = (entry) => {
-  const status = String(entry?.po_status || '').trim().toLowerCase();
-  const nextAction = String(entry?.next_action || '').trim().toLowerCase();
+  const status = String(entry?.po_status || '')
+    .trim()
+    .toLowerCase();
+  const nextAction = String(entry?.next_action || '')
+    .trim()
+    .toLowerCase();
   return (
-    status === 'prepared'
-    || status === 'sent'
-    || status === 'revised'
-    || nextAction.includes('confirm')
-    || nextAction.includes('bill')
+    status === 'prepared' ||
+    status === 'sent' ||
+    status === 'revised' ||
+    nextAction.includes('confirm') ||
+    nextAction.includes('bill')
   );
 };
 
-const MobileOwnerTaskCard = ({
-  icon: Icon,
-  label,
-  value,
-  title,
-  meta,
-  actionLabel,
-  onAction,
-}) => (
+const MobileOwnerTaskCard = ({ icon: Icon, label, value, title, meta, actionLabel, onAction }) => (
   <article className="dashboard-owner-task">
     <div className="dashboard-owner-task-icon" aria-hidden="true">
       <Icon size={18} />
@@ -109,15 +113,14 @@ function DashboardSection({
   const predictedPaymentsToday = Array.isArray(purchaseOpsSummary?.predictedPaymentsToday)
     ? purchaseOpsSummary.predictedPaymentsToday
     : [];
-  const payables = Array.isArray(purchaseOpsSummary?.payables)
-    ? purchaseOpsSummary.payables
-    : [];
-  const workflow = Array.isArray(purchaseOpsSummary?.workflow)
-    ? purchaseOpsSummary.workflow
-    : [];
+  const payables = Array.isArray(purchaseOpsSummary?.payables) ? purchaseOpsSummary.payables : [];
+  const workflow = Array.isArray(purchaseOpsSummary?.workflow) ? purchaseOpsSummary.workflow : [];
   const reviewableWorkflow = workflow.filter((entry) => isReviewableWorkflowEntry(entry));
   const vendorOutstanding = Number(purchaseOpsSummary?.cards?.outstanding_amount || 0);
-  const waitingDeliveryCount = Math.max(0, Number(purchaseOpsSummary?.cards?.waiting_delivery_count || 0));
+  const waitingDeliveryCount = Math.max(
+    0,
+    Number(purchaseOpsSummary?.cards?.waiting_delivery_count || 0)
+  );
   const waitingBillCount = Math.max(0, Number(purchaseOpsSummary?.cards?.waiting_bill_count || 0));
   const closeReadyCount = Math.max(0, Number(purchaseOpsSummary?.cards?.close_ready_count || 0));
   const nextDeliveryDate = predictedDeliveries[0]?.next_delivery_date || '';
@@ -142,42 +145,50 @@ function DashboardSection({
             : null;
   const selectedDistributorId = normalizeId(primarySupplierContext?.entry?.distributor_id);
   const selectedScheduleSupplierId = normalizeId(primarySupplierContext?.entry?.supplier_id);
-  const matchingTodayEntry = todayDistributors.find(
-    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
-  ) || null;
-  const matchingTomorrowEntry = tomorrowDistributors.find(
-    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
-  ) || null;
-  const matchingWeeklyEntry = weeklyDistributors.find(
-    (entry) => matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
-  ) || null;
+  const matchingTodayEntry =
+    todayDistributors.find((entry) =>
+      matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+    ) || null;
+  const matchingTomorrowEntry =
+    tomorrowDistributors.find((entry) =>
+      matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+    ) || null;
+  const matchingWeeklyEntry =
+    weeklyDistributors.find((entry) =>
+      matchesSupplierScheduleEntry(entry, selectedDistributorId, selectedScheduleSupplierId)
+    ) || null;
   const scheduleEntry = matchingTodayEntry || matchingTomorrowEntry || matchingWeeklyEntry || null;
-  const payableTarget = payables.find((entry) => normalizeId(entry?.distributor_id) === selectedDistributorId)
-    || workflow.find((entry) => normalizeId(entry?.distributor_id) === selectedDistributorId && Number(entry?.balance_due || 0) > 0)
-    || null;
+  const payableTarget =
+    payables.find((entry) => normalizeId(entry?.distributor_id) === selectedDistributorId) ||
+    workflow.find(
+      (entry) =>
+        normalizeId(entry?.distributor_id) === selectedDistributorId &&
+        Number(entry?.balance_due || 0) > 0
+    ) ||
+    null;
   const reviewTarget = selectedDistributorId
-    ? (
-      workflow.find(
-        (entry) => normalizeId(entry?.distributor_id) === selectedDistributorId && isReviewableWorkflowEntry(entry)
+    ? workflow.find(
+        (entry) =>
+          normalizeId(entry?.distributor_id) === selectedDistributorId &&
+          isReviewableWorkflowEntry(entry)
       ) || null
-    )
     : workflow.find((entry) => isReviewableWorkflowEntry(entry)) || null;
   const suggestedItemNames = takeSuggestedItemNames(scheduleEntry?.suggested_items || []);
   const supplierDisplayName = String(
-    primarySupplierContext?.entry?.supplier_name
-      || scheduleEntry?.supplier_name
-      || primarySupplierContext?.entry?.distributor_name
-      || scheduleEntry?.distributor_name
-      || payableTarget?.distributor_name
-      || reviewTarget?.distributor_name
-      || ''
+    primarySupplierContext?.entry?.supplier_name ||
+      scheduleEntry?.supplier_name ||
+      primarySupplierContext?.entry?.distributor_name ||
+      scheduleEntry?.distributor_name ||
+      payableTarget?.distributor_name ||
+      reviewTarget?.distributor_name ||
+      ''
   ).trim();
   const supplierName = String(
-    primarySupplierContext?.entry?.distributor_name
-      || scheduleEntry?.distributor_name
-      || payableTarget?.distributor_name
-      || reviewTarget?.distributor_name
-      || ''
+    primarySupplierContext?.entry?.distributor_name ||
+      scheduleEntry?.distributor_name ||
+      payableTarget?.distributor_name ||
+      reviewTarget?.distributor_name ||
+      ''
   ).trim();
   const supplierSourceLabel = matchingTodayEntry
     ? `Today order day • ${toShortDate(matchingTodayEntry.schedule_date)}`
@@ -190,33 +201,29 @@ function DashboardSection({
           : matchingWeeklyEntry
             ? `Upcoming route • ${matchingWeeklyEntry.schedule_day || toShortDate(matchingWeeklyEntry.schedule_date)}`
             : 'No supplier priority yet';
-  const supplierExpectedDate = scheduleEntry?.schedule_date
-    || reviewTarget?.expected_delivery
-    || '';
+  const supplierExpectedDate =
+    scheduleEntry?.schedule_date || reviewTarget?.expected_delivery || '';
   const supplierDraftSupplierId = normalizeId(
-    scheduleEntry?.supplier_id
-      || primarySupplierContext?.entry?.supplier_id
+    scheduleEntry?.supplier_id || primarySupplierContext?.entry?.supplier_id
   );
   const supplierDraftSupplierName = String(
-    scheduleEntry?.supplier_name
-      || primarySupplierContext?.entry?.supplier_name
-      || ''
+    scheduleEntry?.supplier_name || primarySupplierContext?.entry?.supplier_name || ''
   ).trim();
   const supplierDueAmount = Number(
-    payableTarget?.balance_due
-      || scheduleEntry?.po_balance_due
-      || scheduleEntry?.due_today_amount
-      || 0
+    payableTarget?.balance_due ||
+      scheduleEntry?.po_balance_due ||
+      scheduleEntry?.due_today_amount ||
+      0
   );
-  const supplierPoBalance = Number(scheduleEntry?.po_balance_due || payableTarget?.balance_due || 0);
+  const supplierPoBalance = Number(
+    scheduleEntry?.po_balance_due || payableTarget?.balance_due || 0
+  );
   const supplierLedgerBalance = Number(scheduleEntry?.ledger_balance || 0);
   const supplierOverdueAmount = Number(scheduleEntry?.overdue_amount || 0);
   const supplierDueTodayAmount = Number(scheduleEntry?.due_today_amount || 0);
   const paymentFocusEntry = payables[0] || predictedPaymentsToday[0] || null;
   const paymentFocusAmount = Number(
-    paymentFocusEntry?.balance_due
-      || paymentFocusEntry?.predicted_payment_amount
-      || 0
+    paymentFocusEntry?.balance_due || paymentFocusEntry?.predicted_payment_amount || 0
   );
   const reviewFocusEntry = reviewTarget || reviewableWorkflow[0] || workflow[0] || null;
   const deliveryFocusEntry = predictedDeliveries[0] || null;
@@ -224,7 +231,11 @@ function DashboardSection({
     { key: 'visits', label: 'Visits', value: todayDistributors.length },
     { key: 'payments', label: 'Due', value: payables.length || predictedPaymentsToday.length },
     { key: 'drafts', label: 'Drafts', value: reviewableWorkflow.length || workflow.length },
-    { key: 'deliveries', label: 'Waiting', value: waitingDeliveryCount || predictedDeliveries.length },
+    {
+      key: 'deliveries',
+      label: 'Waiting',
+      value: waitingDeliveryCount || predictedDeliveries.length,
+    },
   ];
 
   const handlePrepareSupplierPo = () => {
@@ -241,7 +252,9 @@ function DashboardSection({
       supplierName: supplierDraftSupplierName,
       plannedOrderDate: supplierExpectedDate,
       expectedDelivery: supplierExpectedDate,
-      suggestedItems: Array.isArray(scheduleEntry?.suggested_items) ? scheduleEntry.suggested_items : [],
+      suggestedItems: Array.isArray(scheduleEntry?.suggested_items)
+        ? scheduleEntry.suggested_items
+        : [],
     });
   };
 
@@ -332,10 +345,10 @@ function DashboardSection({
       title: paymentFocusEntry?.distributor_name || 'No payment due right now',
       meta: paymentFocusEntry
         ? `${formatCurrency(paymentFocusAmount)} | ${toShortDate(
-          paymentFocusEntry.payment_due_date
-            || paymentFocusEntry.next_payment_due_date
-            || paymentFocusEntry.inferred_due_date
-        )}`
+            paymentFocusEntry.payment_due_date ||
+              paymentFocusEntry.next_payment_due_date ||
+              paymentFocusEntry.inferred_due_date
+          )}`
         : 'Open purchases to review payables and predicted payments.',
       actionLabel: paymentFocusEntry?.order_id ? 'Record Payment' : 'View dues',
       onAction: handleOpenPaymentFocus,
@@ -429,13 +442,25 @@ function DashboardSection({
             ))}
           </div>
           <div className="dashboard-owner-mobile-actions">
-            <button type="button" className="admin-btn secondary" onClick={() => onTabChange('purchases')}>
+            <button
+              type="button"
+              className="admin-btn secondary"
+              onClick={() => onTabChange('purchases')}
+            >
               Purchases
             </button>
-            <button type="button" className="admin-btn secondary" onClick={() => onTabChange('daily-sales')}>
+            <button
+              type="button"
+              className="admin-btn secondary"
+              onClick={() => onTabChange('daily-sales')}
+            >
               Daily Cash
             </button>
-            <button type="button" className="admin-btn secondary" onClick={() => onTabChange('orders')}>
+            <button
+              type="button"
+              className="admin-btn secondary"
+              onClick={() => onTabChange('orders')}
+            >
               Orders
             </button>
           </div>
@@ -447,7 +472,9 @@ function DashboardSection({
             <ShoppingCart size={28} />
             <div>
               <p className="stat-group-kicker">Sales Snapshot</p>
-              <h3><SignedCurrency amount={stats.totalRevenue} /></h3>
+              <h3>
+                <SignedCurrency amount={stats.totalRevenue} />
+              </h3>
               <p className="stat-group-main-label">Total Revenue</p>
             </div>
           </div>
@@ -561,10 +588,18 @@ function DashboardSection({
             </div>
           </div>
           <div className="dashboard-actions">
-            <button className="admin-btn" onClick={() => onTabChange('credit-aging')}>View Credit Aging</button>
-            <button className="admin-btn" onClick={() => onTabChange('orders')}>View Orders</button>
-            <button className="admin-btn" onClick={() => onTabChange('products')}>View Low Stock</button>
-            <button className="admin-btn" onClick={() => onTabChange('purchases')}>View Purchases</button>
+            <button className="admin-btn" onClick={() => onTabChange('credit-aging')}>
+              View Credit Aging
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('orders')}>
+              View Orders
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('products')}>
+              View Low Stock
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('purchases')}>
+              View Purchases
+            </button>
           </div>
         </div>
 
@@ -596,8 +631,12 @@ function DashboardSection({
             </div>
           </div>
           <div className="dashboard-actions">
-            <button className="admin-btn" onClick={() => onTabChange('daily-sales')}>View Daily Sales</button>
-            <button className="admin-btn" onClick={() => onTabChange('purchases')}>View Vendor Dues</button>
+            <button className="admin-btn" onClick={() => onTabChange('daily-sales')}>
+              View Daily Sales
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('purchases')}>
+              View Vendor Dues
+            </button>
           </div>
           <div className="dashboard-panel-sublist">
             <div>
@@ -606,7 +645,9 @@ function DashboardSection({
                 topSellingProducts.map((item) => (
                   <div key={`top-${item.product_id}`} className="dashboard-list-row">
                     <span className="dashboard-row-primary">{item.product_name}</span>
-                    <span className="dashboard-row-value">{Math.max(0, Number(item.purchase_count || 0))} buys</span>
+                    <span className="dashboard-row-value">
+                      {Math.max(0, Number(item.purchase_count || 0))} buys
+                    </span>
                   </div>
                 ))
               ) : (
@@ -620,7 +661,9 @@ function DashboardSection({
                   <div key={`slow-${item.product_id}`} className="dashboard-list-row">
                     <span className="dashboard-row-primary">{item.product_name}</span>
                     <span className="dashboard-row-value">
-                      {Number(item.avg_days_between || 0) > 0 ? `${Number(item.avg_days_between).toFixed(1)}d` : '-'}
+                      {Number(item.avg_days_between || 0) > 0
+                        ? `${Number(item.avg_days_between).toFixed(1)}d`
+                        : '-'}
                     </span>
                   </div>
                 ))
@@ -641,19 +684,24 @@ function DashboardSection({
             <h3>Supplier Visit Prep</h3>
           </div>
           {!primarySupplierContext ? (
-            <p className="dashboard-empty">No supplier visit, payable, or draft PO is queued yet.</p>
+            <p className="dashboard-empty">
+              No supplier visit, payable, or draft PO is queued yet.
+            </p>
           ) : (
             <>
               <div className="dashboard-list">
                 <div className="dashboard-list-row">
                   <span className="dashboard-row-primary">{supplierDisplayName || 'Supplier'}</span>
                   <span className="dashboard-row-secondary">{supplierSourceLabel}</span>
-                  <strong className="dashboard-row-value">{formatCurrency(supplierDueAmount)}</strong>
+                  <strong className="dashboard-row-value">
+                    {formatCurrency(supplierDueAmount)}
+                  </strong>
                 </div>
                 <div className="dashboard-list-row">
                   <span className="dashboard-row-primary">PO / ledger due</span>
                   <span className="dashboard-row-secondary">
-                    PO {formatCurrency(supplierPoBalance)} | Ledger {formatCurrency(supplierLedgerBalance)}
+                    PO {formatCurrency(supplierPoBalance)} | Ledger{' '}
+                    {formatCurrency(supplierLedgerBalance)}
                   </span>
                   <strong className="dashboard-row-value">
                     {supplierOverdueAmount > 0
@@ -669,7 +717,9 @@ function DashboardSection({
                       : 'No short-item suggestion learned for this supplier yet.'}
                   </span>
                   <strong className="dashboard-row-value">
-                    {suggestedItemNames.length ? `${suggestedItemNames.length} item${suggestedItemNames.length === 1 ? '' : 's'}` : '-'}
+                    {suggestedItemNames.length
+                      ? `${suggestedItemNames.length} item${suggestedItemNames.length === 1 ? '' : 's'}`
+                      : '-'}
                   </strong>
                 </div>
                 <div className="dashboard-list-row">
@@ -712,9 +762,15 @@ function DashboardSection({
             <h3>Quick Actions</h3>
           </div>
           <div className="dashboard-actions">
-            <button className="admin-btn" onClick={() => onTabChange('orders')}>Manage Orders</button>
-            <button className="admin-btn" onClick={() => onTabChange('products')}>Manage Products</button>
-            <button className="admin-btn" onClick={() => onTabChange('billing')}>Create Bill</button>
+            <button className="admin-btn" onClick={() => onTabChange('orders')}>
+              Manage Orders
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('products')}>
+              Manage Products
+            </button>
+            <button className="admin-btn" onClick={() => onTabChange('billing')}>
+              Create Bill
+            </button>
           </div>
         </div>
 
@@ -729,7 +785,9 @@ function DashboardSection({
               {lowStockProducts.map((product) => (
                 <div className="dashboard-list-row" key={product.id}>
                   <span className="dashboard-row-primary">{product.name}</span>
-                  <strong className="dashboard-row-value">Stock: {asNumber(product.stock, 0)}</strong>
+                  <strong className="dashboard-row-value">
+                    Stock: {asNumber(product.stock, 0)}
+                  </strong>
                 </div>
               ))}
             </div>
@@ -746,11 +804,15 @@ function DashboardSection({
             <div className="dashboard-list">
               {recentOrders.map((order) => (
                 <div className="dashboard-list-row" key={order.id}>
-                  <span className="dashboard-row-primary">{order.order_number || `#${order.id}`}</span>
+                  <span className="dashboard-row-primary">
+                    {order.order_number || `#${order.id}`}
+                  </span>
                   <span className="dashboard-row-secondary">
                     Date: {new Date(order.created_at || fallbackOrderDate).toLocaleDateString()}
                   </span>
-                  <span className="dashboard-row-value">{formatCurrency(order.total_amount || 0)}</span>
+                  <span className="dashboard-row-value">
+                    {formatCurrency(order.total_amount || 0)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -767,8 +829,12 @@ function DashboardSection({
             <div className="dashboard-list">
               {recentCustomers.map((customer) => (
                 <div className="dashboard-list-row" key={customer.id}>
-                  <span className="dashboard-row-primary">{truncateUserName(customer.name || '-', 15)}</span>
-                  <span className="dashboard-row-secondary">{customer.phone || customer.email || '-'}</span>
+                  <span className="dashboard-row-primary">
+                    {truncateUserName(customer.name || '-', 15)}
+                  </span>
+                  <span className="dashboard-row-secondary">
+                    {customer.phone || customer.email || '-'}
+                  </span>
                   <Link
                     className="action-btn credit"
                     to={`/admin/users/${customer.id}/credit?returnTab=dashboard`}
@@ -787,4 +853,3 @@ function DashboardSection({
 }
 
 export default DashboardSection;
-

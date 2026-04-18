@@ -37,24 +37,28 @@ function VisitorTracker() {
     sessionIdRef.current = existingSessionId;
     latestPathRef.current = `${location.pathname || '/'}${location.search || ''}`;
     const cancelIdle = runWhenIdle(() => {
-      analyticsApi.startSession({
-        session_id: existingSessionId,
-        path: latestPathRef.current,
-        referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
-      }).catch(() => {});
+      analyticsApi
+        .startSession({
+          session_id: existingSessionId,
+          path: latestPathRef.current,
+          referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+        })
+        .catch(() => {});
     }, 1200);
     return () => cancelIdle();
-  }, []);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const currentPath = `${location.pathname || '/'}${location.search || ''}`;
     latestPathRef.current = currentPath;
     if (!sessionIdRef.current) return undefined;
     const cancelIdle = runWhenIdle(() => {
-      analyticsApi.heartbeat({
-        session_id: sessionIdRef.current,
-        path: currentPath,
-      }).catch(() => {});
+      analyticsApi
+        .heartbeat({
+          session_id: sessionIdRef.current,
+          path: currentPath,
+        })
+        .catch(() => {});
     }, 900);
     return () => cancelIdle();
   }, [location.pathname, location.search]);
@@ -64,10 +68,12 @@ function VisitorTracker() {
     const interval = window.setInterval(() => {
       if (!sessionIdRef.current) return;
       if (document.visibilityState !== 'visible') return;
-      analyticsApi.heartbeat({
-        session_id: sessionIdRef.current,
-        path: latestPathRef.current || '/',
-      }).catch(() => {});
+      analyticsApi
+        .heartbeat({
+          session_id: sessionIdRef.current,
+          path: latestPathRef.current || '/',
+        })
+        .catch(() => {});
     }, 45000);
     return () => window.clearInterval(interval);
   }, []);

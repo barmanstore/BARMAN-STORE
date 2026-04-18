@@ -46,7 +46,7 @@ function useProductSearchSuggestions({
     const cacheKey = normalizeText(query);
     const cacheRecord = searchSuggestionsCacheRef.current.get(cacheKey);
     const now = Date.now();
-    if (cacheRecord && (now - Number(cacheRecord.at || 0)) < SEARCH_SUGGESTIONS_CACHE_TTL_MS) {
+    if (cacheRecord && now - Number(cacheRecord.at || 0) < SEARCH_SUGGESTIONS_CACHE_TTL_MS) {
       setSearchSuggestions(cacheRecord.items);
       setShowSearchSuggestions(cacheRecord.items.length > 0);
       setActiveSuggestionIndex(-1);
@@ -66,10 +66,13 @@ function useProductSearchSuggestions({
     searchSuggestionsAbortRef.current = controller;
     const timer = setTimeout(async () => {
       try {
-        const payload = await productService.suggest({
-          q: query,
-          limit: SEARCH_SUGGESTIONS_MAX_ITEMS
-        }, { signal: controller.signal });
+        const payload = await productService.suggest(
+          {
+            q: query,
+            limit: SEARCH_SUGGESTIONS_MAX_ITEMS,
+          },
+          { signal: controller.signal }
+        );
         if (requestId !== searchSuggestionsRequestRef.current) return;
         const items = Array.isArray(payload?.items) ? payload.items : [];
         const resolvedItems = items.length > 0 ? items : localSuggestions;
@@ -123,11 +126,12 @@ function useProductSearchSuggestions({
 
   useEffect(() => {
     if (!showSearchSuggestions || activeSuggestionIndex < 0) return;
-    const activeNode = document.getElementById(`products-search-suggestion-${activeSuggestionIndex}`);
+    const activeNode = document.getElementById(
+      `products-search-suggestion-${activeSuggestionIndex}`
+    );
     if (!activeNode || typeof activeNode.scrollIntoView !== 'function') return;
     activeNode.scrollIntoView({ block: 'nearest' });
   }, [showSearchSuggestions, activeSuggestionIndex, searchSuggestionsLength]);
 }
 
 export default useProductSearchSuggestions;
-

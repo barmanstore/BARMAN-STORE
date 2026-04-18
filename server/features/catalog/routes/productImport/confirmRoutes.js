@@ -11,7 +11,9 @@ const registerProductImportConfirmRoutes = (deps) => {
     crypto,
     logAdminAuditAsync,
   } = deps;
-  const { resolveImportBatch } = require('../../../../utils/product/import/applyBatch/resolveBatch');
+  const {
+    resolveImportBatch,
+  } = require('../../../../utils/product/import/applyBatch/resolveBatch');
   const { queueImportBulkJobFromBatchAsync } = require('./importBulkJobHelpers');
 
   app.post('/api/products/import/confirm', requireAdmin, async (req, res) => {

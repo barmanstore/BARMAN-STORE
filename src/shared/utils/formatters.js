@@ -15,7 +15,7 @@ export const formatCurrency = (amount) => {
     style: 'currency',
     currency: INR_CURRENCY,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   }).format(toNumber(amount));
 };
 
@@ -35,7 +35,8 @@ export const getSignedCurrencyDisplay = (amount) => {
   return { text: formatted, isPositive };
 };
 
-export const getSignedCurrencyClassName = (amount) => (toNumber(amount) >= 0 ? 'amount-positive' : 'amount-negative');
+export const getSignedCurrencyClassName = (amount) =>
+  toNumber(amount) >= 0 ? 'amount-positive' : 'amount-negative';
 
 export const formatDate = (value, locale = INR_LOCALE, options = {}) => {
   if (value === null || value === undefined || value === '') return '-';

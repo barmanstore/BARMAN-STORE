@@ -19,13 +19,10 @@ const parseDataUrlImage = (value) => {
   return { mimeType, base64 };
 };
 
-const buildProfileImagePath = (fileName) => `/uploads/profiles/${path.basename(String(fileName || ''))}`;
+const buildProfileImagePath = (fileName) =>
+  `/uploads/profiles/${path.basename(String(fileName || ''))}`;
 
-const createProfileImageUtils = ({
-  fs,
-  path,
-  profileUploadDir,
-} = {}) => {
+const createProfileImageUtils = ({ fs, path, profileUploadDir } = {}) => {
   const deleteManagedProfileImage = (profileImage) => {
     const rel = String(profileImage || '').trim();
     if (!rel.startsWith('/uploads/profiles/')) return;

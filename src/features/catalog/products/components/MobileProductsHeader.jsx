@@ -46,8 +46,10 @@ const MobileProductsHeader = ({
     let nextIndex = currentIndex;
     if (event.key === 'Home') nextIndex = 0;
     else if (event.key === 'End') nextIndex = tabs.length - 1;
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % tabs.length;
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp')
+      nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    else if (event.key === 'ArrowRight' || event.key === 'ArrowDown')
+      nextIndex = (currentIndex + 1) % tabs.length;
     tabs[nextIndex].focus();
   };
 
@@ -74,7 +76,11 @@ const MobileProductsHeader = ({
           </Link>
         )}
         <div className="mobile-header-actions">
-          <Link to={profileHref} className="mobile-profile-btn" aria-label={profileHref === '/profile' ? 'Profile' : 'Login'}>
+          <Link
+            to={profileHref}
+            className="mobile-profile-btn"
+            aria-label={profileHref === '/profile' ? 'Profile' : 'Login'}
+          >
             {profileImageSrc ? (
               <img
                 src={profileImageSrc}
@@ -83,7 +89,9 @@ const MobileProductsHeader = ({
                 onError={onAvatarError}
               />
             ) : profileInitials ? (
-              <span className="mobile-profile-fallback" aria-hidden="true">{profileInitials}</span>
+              <span className="mobile-profile-fallback" aria-hidden="true">
+                {profileInitials}
+              </span>
             ) : (
               <User size={18} />
             )}
@@ -108,7 +116,9 @@ const MobileProductsHeader = ({
           aria-expanded={showSearchSuggestions && searchSuggestions.length > 0}
           aria-controls={searchSuggestionsListId}
           aria-activedescendant={
-            activeSuggestionIndex >= 0 ? `products-search-suggestion-${activeSuggestionIndex}` : undefined
+            activeSuggestionIndex >= 0
+              ? `products-search-suggestion-${activeSuggestionIndex}`
+              : undefined
           }
           inputMode="search"
           enterKeyHint="search"
@@ -116,11 +126,20 @@ const MobileProductsHeader = ({
           autoCorrect="off"
         />
         {searchInputValue ? (
-          <button type="button" className="mobile-search-clear" onClick={clearSearchQuery} aria-label="Clear search">
+          <button
+            type="button"
+            className="mobile-search-clear"
+            onClick={clearSearchQuery}
+            aria-label="Clear search"
+          >
             <X size={14} />
           </button>
         ) : null}
-        {isLoadingSuggestions ? <span className="search-suggest-loading" aria-live="polite">Loading</span> : null}
+        {isLoadingSuggestions ? (
+          <span className="search-suggest-loading" aria-live="polite">
+            Loading
+          </span>
+        ) : null}
         {showSearchSuggestions && searchSuggestions.length > 0 ? (
           <SearchSuggestionsList
             searchSuggestions={searchSuggestions}
@@ -171,4 +190,3 @@ const MobileProductsHeader = ({
 };
 
 export default MobileProductsHeader;
-

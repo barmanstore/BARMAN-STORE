@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 
 export const getCreditTransactionDefaultDescription = (type = 'payment') =>
-  (type === 'given' ? 'Manual sale' : 'Payment received');
+  type === 'given' ? 'Manual sale' : 'Payment received';
 
 const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => ({
   type: type === 'given' ? 'given' : 'payment',
@@ -17,7 +17,7 @@ const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => 
 const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputValue }) => {
   const authUser = user || null;
   const isAdminView = authUser?.role === 'admin';
-  const effectiveUserId = isAdminView ? userId : (authUser?.id || userId);
+  const effectiveUserId = isAdminView ? userId : authUser?.id || userId;
 
   const [creditHistory, setCreditHistory] = useState([]);
   const [historyCursor, setHistoryCursor] = useState('');
@@ -32,7 +32,9 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [addingTransaction, setAddingTransaction] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [newTransaction, setNewTransaction] = useState(() => createNewTransactionDraft(getTodayDateInputValue));
+  const [newTransaction, setNewTransaction] = useState(() =>
+    createNewTransactionDraft(getTodayDateInputValue)
+  );
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [paymentBadges, setPaymentBadges] = useState([]);

@@ -1,6 +1,14 @@
 const ACTIVE_OFFER_STATUSES = new Set(['active']);
 const SUPPORTED_OFFER_TYPES = new Set(['percentage', 'fixed', 'volume', 'bogo', 'bundle']);
-const GLOBAL_OFFER_SCOPE_TOKENS = new Set(['all', '*', 'global', 'all categories', 'all category', 'storewide', 'store wide']);
+const GLOBAL_OFFER_SCOPE_TOKENS = new Set([
+  'all',
+  '*',
+  'global',
+  'all categories',
+  'all category',
+  'storewide',
+  'store wide',
+]);
 const ACTIVE_OFFER_CACHE_TTL_MS = 30 * 1000;
 
 let activeOfferCache = {
@@ -9,7 +17,10 @@ let activeOfferCache = {
 };
 
 const roundMoney = (value = 0) => Math.round((Number(value) || 0) * 100) / 100;
-const normalizeTextToken = (value = '') => String(value || '').trim().toLowerCase();
+const normalizeTextToken = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
 const isTruthyFlag = (value = false) => {
   if (value === true || value === 1) return true;
   const token = normalizeTextToken(value);
@@ -35,7 +46,9 @@ const toMoney = (value, fallback = 0) => {
 const clampDiscount = (discountAmount = 0, subtotal = 0) =>
   roundMoney(Math.max(0, Math.min(Number(discountAmount || 0), Number(subtotal || 0))));
 const normalizeUnitToken = (value = '', fallback = 'pcs') =>
-  String(value || fallback).trim().toLowerCase() || fallback;
+  String(value || fallback)
+    .trim()
+    .toLowerCase() || fallback;
 const clampPercent = (value = 0) => Math.max(0, Math.min(100, Number(value || 0)));
 const isFiniteMoney = (value) => Number.isFinite(Number(value));
 
@@ -62,11 +75,12 @@ const getTodayDateToken = (value = new Date()) => {
 };
 
 const isOfferActiveForDate = (offer = {}, dateToken = null, currentTimestamp = null) => {
-  const now = currentTimestamp instanceof Date
-    ? currentTimestamp
-    : currentTimestamp
-      ? new Date(currentTimestamp)
-      : new Date();
+  const now =
+    currentTimestamp instanceof Date
+      ? currentTimestamp
+      : currentTimestamp
+        ? new Date(currentTimestamp)
+        : new Date();
   const resolvedDateToken = dateToken || getTodayDateToken(now);
   const currentIso = toTimestampIso(now) || now.toISOString();
   const status = normalizeOfferStatus(offer.status);
@@ -83,20 +97,25 @@ const isOfferActiveForDate = (offer = {}, dateToken = null, currentTimestamp = n
 };
 
 const getProductCategoryTokens = (product = {}) => {
-  const rawTokens = [
-    product?.category,
-    product?.subcategory,
-  ];
+  const rawTokens = [product?.category, product?.subcategory];
   const expandedTokens = [];
   rawTokens.forEach((value) => {
     const raw = String(value || '').trim();
     if (!raw) return;
     expandedTokens.push(raw);
     if (raw.includes('/')) {
-      raw.split('/').map((part) => part.trim()).filter(Boolean).forEach((part) => expandedTokens.push(part));
+      raw
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .forEach((part) => expandedTokens.push(part));
     }
     if (raw.includes('>')) {
-      raw.split('>').map((part) => part.trim()).filter(Boolean).forEach((part) => expandedTokens.push(part));
+      raw
+        .split('>')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .forEach((part) => expandedTokens.push(part));
     }
   });
   return new Set(expandedTokens.map(normalizeTextToken).filter(Boolean));
@@ -131,15 +150,19 @@ const matchesOfferScope = (offer = {}, product = null) => {
   return false;
 };
 
-const getOfferBuyProductId = (offer = {}) => Number(offer.buy_product_id || 0) || Number(offer.apply_to_product || 0) || 0;
-const getOfferGetProductId = (offer = {}) => Number(offer.get_product_id || 0) || Number(offer.apply_to_product || 0) || 0;
+const getOfferBuyProductId = (offer = {}) =>
+  Number(offer.buy_product_id || 0) || Number(offer.apply_to_product || 0) || 0;
+const getOfferGetProductId = (offer = {}) =>
+  Number(offer.get_product_id || 0) || Number(offer.apply_to_product || 0) || 0;
 
 const productMatchesOfferForBadge = (offer = {}, product = null) => {
   if (!product) return false;
   if (matchesOfferScope(offer, product)) return true;
   const productId = Number(product?.id || 0);
-  return productId > 0
-    && (productId === getOfferBuyProductId(offer) || productId === getOfferGetProductId(offer));
+  return (
+    productId > 0 &&
+    (productId === getOfferBuyProductId(offer) || productId === getOfferGetProductId(offer))
+  );
 };
 
 const getOfferLabel = (offer = {}) => {
@@ -153,19 +176,19 @@ const getOfferLabel = (offer = {}) => {
   if (type === 'bogo') {
     label = `Buy ${buyQuantity}, get ${getQuantity} free`;
   } else if (type === 'bundle') {
-    label = value > 0
-      ? `Bundle save ${clampPercent(value)}%`
-      : `Bundle on ${buyQuantity} + ${getQuantity}`;
+    label =
+      value > 0
+        ? `Bundle save ${clampPercent(value)}%`
+        : `Bundle on ${buyQuantity} + ${getQuantity}`;
   } else if (type === 'fixed') {
-    label = minQuantity > 1
-      ? `Buy ${minQuantity}+ save Rs ${value}`
-      : `Save Rs ${value}`;
+    label = minQuantity > 1 ? `Buy ${minQuantity}+ save Rs ${value}` : `Save Rs ${value}`;
   } else if (type === 'volume') {
     label = `Buy ${minQuantity}+ save ${clampPercent(value)}%`;
   } else {
-    label = minQuantity > 1
-      ? `Buy ${minQuantity}+ save ${clampPercent(value)}%`
-      : `${clampPercent(value)}% OFF`;
+    label =
+      minQuantity > 1
+        ? `Buy ${minQuantity}+ save ${clampPercent(value)}%`
+        : `${clampPercent(value)}% OFF`;
   }
 
   if (isTruthyFlag(offer.first_order_only)) {
@@ -202,19 +225,17 @@ const isOfferEligibleForPricing = (offer = {}, eligibilityContext = null) => {
 
 const prepareOffersForEvaluation = (
   offers = [],
-  {
-    offersArePrepared = false,
-    eligibilityContext = null,
-    enforceEligibility = false,
-  } = {}
+  { offersArePrepared = false, eligibilityContext = null, enforceEligibility = false } = {}
 ) => {
   const preparedOffers = offersArePrepared
-    ? (Array.isArray(offers) ? offers.filter(Boolean) : [])
+    ? Array.isArray(offers)
+      ? offers.filter(Boolean)
+      : []
     : sortOffersForSelection(
-    (Array.isArray(offers) ? offers : [])
-      .map(normalizeOfferRecord)
-      .filter((offer) => isOfferActiveForDate(offer))
-  );
+        (Array.isArray(offers) ? offers : [])
+          .map(normalizeOfferRecord)
+          .filter((offer) => isOfferActiveForDate(offer))
+      );
   if (!enforceEligibility) return preparedOffers;
   return preparedOffers.filter((offer) => isOfferEligibleForPricing(offer, eligibilityContext));
 };
@@ -243,20 +264,22 @@ const normalizeOfferRecord = (offer = {}) => ({
 });
 
 const resolveOfferEligibilityContext = async (dbGetAsync, context = {}) => {
-  const customerUserId = Number(
-    context?.customer_user_id
-    || context?.customerUserId
-    || context?.user_id
-    || context?.userId
-    || 0
-  ) || 0;
-  const excludeOrderId = Number(
-    context?.exclude_order_id
-    || context?.excludeOrderId
-    || context?.order_id
-    || context?.orderId
-    || 0
-  ) || 0;
+  const customerUserId =
+    Number(
+      context?.customer_user_id ||
+        context?.customerUserId ||
+        context?.user_id ||
+        context?.userId ||
+        0
+    ) || 0;
+  const excludeOrderId =
+    Number(
+      context?.exclude_order_id ||
+        context?.excludeOrderId ||
+        context?.order_id ||
+        context?.orderId ||
+        0
+    ) || 0;
 
   if (!(customerUserId > 0) || typeof dbGetAsync !== 'function') {
     return {
@@ -266,22 +289,23 @@ const resolveOfferEligibilityContext = async (dbGetAsync, context = {}) => {
     };
   }
 
-  const existingOrder = excludeOrderId > 0
-    ? await dbGetAsync(
-      `SELECT id
+  const existingOrder =
+    excludeOrderId > 0
+      ? await dbGetAsync(
+          `SELECT id
        FROM orders
        WHERE user_id = ?
          AND id <> ?
        LIMIT 1`,
-      [customerUserId, excludeOrderId]
-    )
-    : await dbGetAsync(
-      `SELECT id
+          [customerUserId, excludeOrderId]
+        )
+      : await dbGetAsync(
+          `SELECT id
        FROM orders
        WHERE user_id = ?
        LIMIT 1`,
-      [customerUserId]
-    );
+          [customerUserId]
+        );
 
   return {
     customer_user_id: customerUserId,
@@ -323,9 +347,8 @@ const getProductUnitProfile = (product = null) => {
   const sellingUnit = normalizeUnitToken(product?.uom, 'pcs');
   const baseUnit = normalizeUnitToken(product?.base_unit, sellingUnit);
   const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-  const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-    ? conversionFactorRaw
-    : 1;
+  const conversionFactor =
+    Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0 ? conversionFactorRaw : 1;
   return {
     sellingUnit,
     baseUnit,
@@ -338,7 +361,12 @@ const toPricingQty = (qty, unit, product = null) => {
   if (numericQty <= 0) return 0;
   const profile = getProductUnitProfile(product);
   const inputUnit = normalizeUnitToken(unit, profile.sellingUnit);
-  const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
+  const familyConverted = convertQtyBetweenFamilyUnits(
+    numericQty,
+    inputUnit,
+    profile.baseUnit,
+    profile.baseUnit
+  );
   if (familyConverted !== null) return familyConverted;
   if (inputUnit === profile.baseUnit) return numericQty;
   if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
@@ -349,10 +377,10 @@ const toPricingQty = (qty, unit, product = null) => {
 
 const loadActiveOffers = async (dbAllAsync, { useCache = true } = {}) => {
   if (
-    useCache
-    && activeOfferCache.at > 0
-    && (Date.now() - activeOfferCache.at) < ACTIVE_OFFER_CACHE_TTL_MS
-    && Array.isArray(activeOfferCache.rows)
+    useCache &&
+    activeOfferCache.at > 0 &&
+    Date.now() - activeOfferCache.at < ACTIVE_OFFER_CACHE_TTL_MS &&
+    Array.isArray(activeOfferCache.rows)
   ) {
     return activeOfferCache.rows;
   }
@@ -367,7 +395,9 @@ const loadActiveOffers = async (dbAllAsync, { useCache = true } = {}) => {
        AND (end_date IS NULL OR end_date >= CURRENT_DATE)
      ORDER BY created_at DESC, id DESC`
   );
-  const normalized = sortOffersForSelection((Array.isArray(rows) ? rows : []).map(normalizeOfferRecord));
+  const normalized = sortOffersForSelection(
+    (Array.isArray(rows) ? rows : []).map(normalizeOfferRecord)
+  );
   activeOfferCache = {
     at: Date.now(),
     rows: normalized,
@@ -383,11 +413,13 @@ const invalidateActiveOfferCache = () => {
 };
 
 const loadProductsByIds = async (dbAllAsync, productIds = []) => {
-  const uniqueProductIds = [...new Set(
-    productIds
-      .map((value) => Number(value || 0))
-      .filter((value) => Number.isInteger(value) && value > 0)
-  )];
+  const uniqueProductIds = [
+    ...new Set(
+      productIds
+        .map((value) => Number(value || 0))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    ),
+  ];
   if (!uniqueProductIds.length) {
     return new Map();
   }
@@ -445,16 +477,22 @@ const buildCrossItemOfferCandidates = (offer = {}, lines = []) => {
 
   const buyQuantity = toPositiveInteger(offer.buy_quantity, 1) || 1;
   const getQuantity = toPositiveInteger(offer.get_quantity, 1) || 1;
-  const eligibleBuyLines = lines.filter((line) =>
-    !line.skipAutoOffers && Number(line?.product?.id || 0) === buyProductId
+  const eligibleBuyLines = lines.filter(
+    (line) => !line.skipAutoOffers && Number(line?.product?.id || 0) === buyProductId
   );
-  const eligibleGetLines = lines.filter((line) =>
-    !line.skipAutoOffers && Number(line?.product?.id || 0) === getProductId
+  const eligibleGetLines = lines.filter(
+    (line) => !line.skipAutoOffers && Number(line?.product?.id || 0) === getProductId
   );
   if (!eligibleBuyLines.length || !eligibleGetLines.length) return [];
 
-  const buyQtyTotal = eligibleBuyLines.reduce((sum, line) => sum + Math.floor(Number(line.pricingQty || 0)), 0);
-  const getQtyTotal = eligibleGetLines.reduce((sum, line) => sum + Math.floor(Number(line.pricingQty || 0)), 0);
+  const buyQtyTotal = eligibleBuyLines.reduce(
+    (sum, line) => sum + Math.floor(Number(line.pricingQty || 0)),
+    0
+  );
+  const getQtyTotal = eligibleGetLines.reduce(
+    (sum, line) => sum + Math.floor(Number(line.pricingQty || 0)),
+    0
+  );
   let eligibleGroupCount = 0;
 
   if (buyProductId === getProductId) {
@@ -467,9 +505,7 @@ const buildCrossItemOfferCandidates = (offer = {}, lines = []) => {
   const discountedUnitsTotal = Math.min(getQtyTotal, eligibleGroupCount * getQuantity);
   if (discountedUnitsTotal <= 0) return [];
 
-  const percentMultiplier = type === 'bundle'
-    ? (clampPercent(offer.value) / 100)
-    : 1;
+  const percentMultiplier = type === 'bundle' ? clampPercent(offer.value) / 100 : 1;
   if (percentMultiplier <= 0) return [];
 
   let remainingUnits = discountedUnitsTotal;
@@ -519,47 +555,60 @@ const previewOfferPricing = ({
   includeTax = false,
   taxRate = 0.1,
 } = {}) => {
-  const normalizedLines = (Array.isArray(items) ? items : []).map((item, index) => {
-    const lineIndex = index;
-    const productId = Number(item?.product_id || item?.productId || 0) || null;
-    const product = productId ? (productsById.get(productId) || null) : null;
-    const quantity = Math.max(0, Number(item?.quantity ?? item?.qty ?? 0) || 0);
-    const unit = normalizeUnitToken(item?.unit || item?.uom || product?.uom || 'pcs', product?.uom || 'pcs');
-    const pricingQty = product ? toPricingQty(quantity, unit, product) : quantity;
-    const itemTypeToken = normalizeTextToken(item?.item_type || item?.type || (product ? 'catalog' : 'custom'));
-    const itemType = itemTypeToken === 'manual' || itemTypeToken === 'custom' ? itemTypeToken : 'catalog';
-    const defaultUnitPrice = product ? Math.max(0, Number(product?.price || 0)) : 0;
-    const rawUnitPriceOverride = item?.unit_price_override ?? item?.price ?? item?.mrp;
-    const unitPriceOverride = isFiniteMoney(rawUnitPriceOverride)
-      ? Math.max(0, Number(rawUnitPriceOverride ?? 0))
-      : null;
-    const unitPrice = unitPriceOverride !== null ? unitPriceOverride : defaultUnitPrice;
-    const lineSubtotal = roundMoney(unitPrice * pricingQty);
-    const manualDiscountRequested = Math.max(0, Number(item?.manual_discount ?? item?.discount ?? 0) || 0);
-    const manualDiscount = clampDiscount(manualDiscountRequested, lineSubtotal);
-    const skipAutoOffers = Boolean(item?.skip_offers)
-      || itemType !== 'catalog'
-      || !product
-      || Boolean(Number(item?.price_unknown || 0))
-      || (unitPriceOverride !== null && Math.abs(unitPriceOverride - defaultUnitPrice) > 0.009);
+  const normalizedLines = (Array.isArray(items) ? items : [])
+    .map((item, index) => {
+      const lineIndex = index;
+      const productId = Number(item?.product_id || item?.productId || 0) || null;
+      const product = productId ? productsById.get(productId) || null : null;
+      const quantity = Math.max(0, Number(item?.quantity ?? item?.qty ?? 0) || 0);
+      const unit = normalizeUnitToken(
+        item?.unit || item?.uom || product?.uom || 'pcs',
+        product?.uom || 'pcs'
+      );
+      const pricingQty = product ? toPricingQty(quantity, unit, product) : quantity;
+      const itemTypeToken = normalizeTextToken(
+        item?.item_type || item?.type || (product ? 'catalog' : 'custom')
+      );
+      const itemType =
+        itemTypeToken === 'manual' || itemTypeToken === 'custom' ? itemTypeToken : 'catalog';
+      const defaultUnitPrice = product ? Math.max(0, Number(product?.price || 0)) : 0;
+      const rawUnitPriceOverride = item?.unit_price_override ?? item?.price ?? item?.mrp;
+      const unitPriceOverride = isFiniteMoney(rawUnitPriceOverride)
+        ? Math.max(0, Number(rawUnitPriceOverride ?? 0))
+        : null;
+      const unitPrice = unitPriceOverride !== null ? unitPriceOverride : defaultUnitPrice;
+      const lineSubtotal = roundMoney(unitPrice * pricingQty);
+      const manualDiscountRequested = Math.max(
+        0,
+        Number(item?.manual_discount ?? item?.discount ?? 0) || 0
+      );
+      const manualDiscount = clampDiscount(manualDiscountRequested, lineSubtotal);
+      const skipAutoOffers =
+        Boolean(item?.skip_offers) ||
+        itemType !== 'catalog' ||
+        !product ||
+        Boolean(Number(item?.price_unknown || 0)) ||
+        (unitPriceOverride !== null && Math.abs(unitPriceOverride - defaultUnitPrice) > 0.009);
 
-    return {
-      lineIndex,
-      clientItemId: item?.client_item_id ?? item?.clientItemId ?? item?.id ?? lineIndex,
-      productId,
-      product,
-      productName: String(item?.product_name || item?.name || product?.name || 'Item').trim() || 'Item',
-      quantity,
-      unit,
-      pricingQty,
-      itemType,
-      unitPrice,
-      defaultUnitPrice,
-      lineSubtotal,
-      manualDiscount,
-      skipAutoOffers,
-    };
-  }).filter((line) => line.quantity > 0);
+      return {
+        lineIndex,
+        clientItemId: item?.client_item_id ?? item?.clientItemId ?? item?.id ?? lineIndex,
+        productId,
+        product,
+        productName:
+          String(item?.product_name || item?.name || product?.name || 'Item').trim() || 'Item',
+        quantity,
+        unit,
+        pricingQty,
+        itemType,
+        unitPrice,
+        defaultUnitPrice,
+        lineSubtotal,
+        manualDiscount,
+        skipAutoOffers,
+      };
+    })
+    .filter((line) => line.quantity > 0);
 
   const activeOffers = prepareOffersForEvaluation(offers, {
     offersArePrepared,
@@ -582,8 +631,14 @@ const previewOfferPricing = ({
   const bestCandidates = pickBestCandidateByLine(normalizedLines, candidateGroups);
   const lines = normalizedLines.map((line, index) => {
     const offerCandidate = bestCandidates[index];
-    const autoOfferDiscount = clampDiscount(Number(offerCandidate?.discountAmount || 0), line.lineSubtotal);
-    const manualDiscount = clampDiscount(line.manualDiscount, Math.max(0, line.lineSubtotal - autoOfferDiscount));
+    const autoOfferDiscount = clampDiscount(
+      Number(offerCandidate?.discountAmount || 0),
+      line.lineSubtotal
+    );
+    const manualDiscount = clampDiscount(
+      line.manualDiscount,
+      Math.max(0, line.lineSubtotal - autoOfferDiscount)
+    );
     const lineDiscountTotal = clampDiscount(autoOfferDiscount + manualDiscount, line.lineSubtotal);
     const lineTotal = roundMoney(Math.max(0, line.lineSubtotal - lineDiscountTotal));
     const effectiveUnitPrice = line.pricingQty > 0 ? roundMoney(lineTotal / line.pricingQty) : 0;
@@ -610,10 +665,18 @@ const previewOfferPricing = ({
     };
   });
 
-  const baseSubtotal = roundMoney(lines.reduce((sum, line) => sum + Number(line.line_subtotal || 0), 0));
-  const autoOfferDiscountTotal = roundMoney(lines.reduce((sum, line) => sum + Number(line.auto_offer_discount || 0), 0));
-  const manualDiscountTotal = roundMoney(lines.reduce((sum, line) => sum + Number(line.manual_discount || 0), 0));
-  const discountTotal = roundMoney(lines.reduce((sum, line) => sum + Number(line.line_discount_total || 0), 0));
+  const baseSubtotal = roundMoney(
+    lines.reduce((sum, line) => sum + Number(line.line_subtotal || 0), 0)
+  );
+  const autoOfferDiscountTotal = roundMoney(
+    lines.reduce((sum, line) => sum + Number(line.auto_offer_discount || 0), 0)
+  );
+  const manualDiscountTotal = roundMoney(
+    lines.reduce((sum, line) => sum + Number(line.manual_discount || 0), 0)
+  );
+  const discountTotal = roundMoney(
+    lines.reduce((sum, line) => sum + Number(line.line_discount_total || 0), 0)
+  );
   const netSubtotal = roundMoney(Math.max(0, baseSubtotal - discountTotal));
   const normalizedTaxRate = includeTax ? Math.max(0, Number(taxRate || 0)) : 0;
   const taxAmount = roundMoney(netSubtotal * normalizedTaxRate);
@@ -646,23 +709,27 @@ const getSimpleDisplayPriceForOffer = (product = {}, offer = {}) => {
 
   const baseSubtotal = roundMoney(basePrice * pricingQty);
   const value = toMoney(offer.value, 0);
-  const rawDiscount = type === 'percentage'
-    ? baseSubtotal * (clampPercent(value) / 100)
-    : value * pricingQty;
+  const rawDiscount =
+    type === 'percentage' ? baseSubtotal * (clampPercent(value) / 100) : value * pricingQty;
   const discountAmount = clampDiscount(rawDiscount, baseSubtotal);
   const lineTotal = roundMoney(Math.max(0, baseSubtotal - discountAmount));
   return roundMoney(lineTotal / pricingQty);
 };
 
-const buildProductOfferDisplay = (product = {}, offers = [], { offersArePrepared = false } = {}) => {
-  const normalizedOffers = prepareOffersForEvaluation(offers, { offersArePrepared })
-    .filter((offer) => productMatchesOfferForBadge(offer, product));
+const buildProductOfferDisplay = (
+  product = {},
+  offers = [],
+  { offersArePrepared = false } = {}
+) => {
+  const normalizedOffers = prepareOffersForEvaluation(offers, { offersArePrepared }).filter(
+    (offer) => productMatchesOfferForBadge(offer, product)
+  );
 
-  const badges = [...new Set(
-    normalizedOffers
-      .map((offer) => offer.label || getOfferLabel(offer))
-      .filter(Boolean)
-  )];
+  const badges = [
+    ...new Set(
+      normalizedOffers.map((offer) => offer.label || getOfferLabel(offer)).filter(Boolean)
+    ),
+  ];
   const basePrice = Math.max(0, Number(product?.price || 0));
   let displayPrice = basePrice;
   let originalPrice = Math.max(basePrice, Number(product?.mrp || basePrice || 0));
@@ -684,14 +751,24 @@ const buildProductOfferDisplay = (product = {}, offers = [], { offersArePrepared
     badges,
     has_offer: badges.length > 0,
     display_price: roundMoney(displayPrice),
-    original_price: roundMoney(displayPrice < basePrice ? originalPrice : Math.max(basePrice, Number(product?.mrp || basePrice || 0))),
-    savings_amount: roundMoney(Math.max(0, (displayPrice < basePrice ? originalPrice : basePrice) - displayPrice)),
+    original_price: roundMoney(
+      displayPrice < basePrice
+        ? originalPrice
+        : Math.max(basePrice, Number(product?.mrp || basePrice || 0))
+    ),
+    savings_amount: roundMoney(
+      Math.max(0, (displayPrice < basePrice ? originalPrice : basePrice) - displayPrice)
+    ),
     display_offer_id: priceOfferId,
     display_offer_label: priceOfferLabel,
   };
 };
 
-const decorateProductWithOffers = (product = {}, offers = [], { offersArePrepared = false } = {}) => {
+const decorateProductWithOffers = (
+  product = {},
+  offers = [],
+  { offersArePrepared = false } = {}
+) => {
   const offerDisplay = buildProductOfferDisplay(product, offers, { offersArePrepared });
   return {
     ...product,

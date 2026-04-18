@@ -1,10 +1,5 @@
 import { memo } from 'react';
-import {
-  AlertTriangle,
-  Eye,
-  ShieldCheck,
-  Sparkles,
-} from 'lucide-react';
+import { AlertTriangle, Eye, ShieldCheck, Sparkles } from 'lucide-react';
 
 function OfferPreviewPanel({
   previewTitle,

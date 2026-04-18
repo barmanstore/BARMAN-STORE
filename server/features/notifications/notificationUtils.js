@@ -42,16 +42,27 @@
     return Number(result.lastInsertRowid || 0);
   };
 
-  const updateNotificationEventStatus = async (id, { status, errorMessage = null, sentBy = null }) => {
+  const updateNotificationEventStatus = async (
+    id,
+    { status, errorMessage = null, sentBy = null }
+  ) => {
     const eventId = Number(id || 0);
     if (!eventId) return;
-    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const normalizedStatus = String(status || '')
+      .trim()
+      .toLowerCase();
     const sentAt = normalizedStatus === 'sent' ? new Date().toISOString() : null;
     await dbRunAsync(
       `UPDATE notification_events
        SET status = ?, error_message = ?, sent_by = ?, sent_at = ?
        WHERE id = ?`,
-      [normalizedStatus, errorMessage ? String(errorMessage) : null, sentBy || null, sentAt, eventId]
+      [
+        normalizedStatus,
+        errorMessage ? String(errorMessage) : null,
+        sentBy || null,
+        sentAt,
+        eventId,
+      ]
     );
   };
 
@@ -66,8 +77,11 @@
   };
 
   const normalizeNotificationLevel = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (normalized === 'success' || normalized === 'warning' || normalized === 'error') return normalized;
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
+    if (normalized === 'success' || normalized === 'warning' || normalized === 'error')
+      return normalized;
     return 'info';
   };
 
@@ -88,7 +102,9 @@
     const normalizedTitle = String(title || '').trim();
     const normalizedMessage = String(message || '').trim();
     if (!normalizedTitle || !normalizedMessage) return 0;
-    const normalizedClientRequestId = clientRequestId ? normalizeClientRequestId(clientRequestId) || null : null;
+    const normalizedClientRequestId = clientRequestId
+      ? normalizeClientRequestId(clientRequestId) || null
+      : null;
     if (normalizedClientRequestId) {
       const existing = await dbGetAsync(
         `SELECT id

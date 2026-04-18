@@ -7,7 +7,8 @@
 }
 
 /* Loading & Error States */
-.loading-container, .error-container {
+.loading-container,
+.error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -23,8 +24,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-container svg {
@@ -140,7 +145,8 @@
   gap: 12px;
 }
 
-.filter-group, .sort-group {
+.filter-group,
+.sort-group {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -150,11 +156,13 @@
   border-radius: 12px;
 }
 
-.filter-group svg, .sort-group svg {
+.filter-group svg,
+.sort-group svg {
   color: #718096;
 }
 
-.filter-group select, .sort-group select {
+.filter-group select,
+.sort-group select {
   border: none;
   outline: none;
   font-size: 0.95rem;
@@ -200,14 +208,14 @@
 }
 
 .tab-count {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   padding: 2px 8px;
   border-radius: 10px;
   font-size: 0.75rem;
 }
 
 .status-tab.active .tab-count {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Empty State */
@@ -264,7 +272,7 @@
   background: white;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border: 1px solid #edf2f7;
   animation: slideUp 0.4s ease forwards;
   opacity: 1;
@@ -328,26 +336,54 @@
   opacity: 0.7;
 }
 
-.status-icon.pending { color: #ed8936; }
-.status-icon.confirmed { color: #48bb78; }
-.status-icon.processing { color: #4299e1; }
-.status-icon.shipped { color: #805ad5; }
-.status-icon.delivered { color: #38a169; }
-.status-icon.cancelled { color: #e53e3e; }
-.status-icon.refunded { color: #805ad5; }
+.status-icon.pending {
+  color: #ed8936;
+}
+.status-icon.confirmed {
+  color: #48bb78;
+}
+.status-icon.processing {
+  color: #4299e1;
+}
+.status-icon.shipped {
+  color: #805ad5;
+}
+.status-icon.delivered {
+  color: #38a169;
+}
+.status-icon.cancelled {
+  color: #e53e3e;
+}
+.status-icon.refunded {
+  color: #805ad5;
+}
 
 .status-text {
   font-size: 0.9rem;
   font-weight: 600;
 }
 
-.status-text.pending { color: #ed8936; }
-.status-text.confirmed { color: #48bb78; }
-.status-text.processing { color: #4299e1; }
-.status-text.shipped { color: #805ad5; }
-.status-text.delivered { color: #38a169; }
-.status-text.cancelled { color: #e53e3e; }
-.status-text.refunded { color: #805ad5; }
+.status-text.pending {
+  color: #ed8936;
+}
+.status-text.confirmed {
+  color: #48bb78;
+}
+.status-text.processing {
+  color: #4299e1;
+}
+.status-text.shipped {
+  color: #805ad5;
+}
+.status-text.delivered {
+  color: #38a169;
+}
+.status-text.cancelled {
+  color: #e53e3e;
+}
+.status-text.refunded {
+  color: #805ad5;
+}
 
 /* Order Items Preview */
 .order-items-preview {
@@ -420,7 +456,10 @@
   justify-content: flex-end;
 }
 
-.view-btn, .retry-btn, .track-btn, .reorder-btn {
+.view-btn,
+.retry-btn,
+.track-btn,
+.reorder-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -531,7 +570,8 @@
     width: 100%;
   }
 
-  .filter-group, .sort-group {
+  .filter-group,
+  .sort-group {
     flex: 1;
   }
 
@@ -552,7 +592,10 @@
     justify-content: flex-start;
   }
 
-  .view-btn, .retry-btn, .track-btn, .reorder-btn {
+  .view-btn,
+  .retry-btn,
+  .track-btn,
+  .reorder-btn {
     flex: 1;
     justify-content: center;
   }

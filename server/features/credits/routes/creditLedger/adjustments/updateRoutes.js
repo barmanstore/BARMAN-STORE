@@ -9,7 +9,7 @@ const addDaysToDateKey = (dateKey, days) => {
   const [year, month, day] = dateKey.split('-').map((v) => Number(v));
   const baseMs = Date.UTC(year, month - 1, day);
   const safeDays = Math.max(0, Math.floor(Number(days || 0)));
-  const next = new Date(baseMs + (safeDays * DAY_MS));
+  const next = new Date(baseMs + safeDays * DAY_MS);
   return next.toISOString().slice(0, 10);
 };
 
@@ -77,22 +77,36 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
         return res.status(400).json({ error: 'Invalid user or transaction id' });
       }
 
-      const existing = await dbGetAsync('SELECT * FROM credit_history WHERE id = ? AND user_id = ?', [entryId, userId]);
+      const existing = await dbGetAsync(
+        'SELECT * FROM credit_history WHERE id = ? AND user_id = ?',
+        [entryId, userId]
+      );
       if (!existing) {
         return res.status(404).json({ error: 'Credit transaction not found' });
       }
 
       const latest = await getLatestCreditEntryAsync(userId);
       if (!latest || Number(latest.id) !== entryId) {
-        return res.status(400).json({ error: 'Only the latest transaction for this customer can be edited' });
+        return res
+          .status(400)
+          .json({ error: 'Only the latest transaction for this customer can be edited' });
       }
 
-      const existingSourceType = String(existing?.source_type || '').trim().toLowerCase();
-      const isLegacyBillEntry = !existingSourceType
-        && /^Bill credit \|/i.test(String(existing?.description || '').trim())
-        && String(existing?.reference || '').trim();
-      if (['bill', 'reversal', 'issue_correction'].includes(existingSourceType) || isLegacyBillEntry) {
-        return res.status(400).json({ error: 'This entry is linked to system history and cannot be edited directly. Add a new manual entry instead.' });
+      const existingSourceType = String(existing?.source_type || '')
+        .trim()
+        .toLowerCase();
+      const isLegacyBillEntry =
+        !existingSourceType &&
+        /^Bill credit \|/i.test(String(existing?.description || '').trim()) &&
+        String(existing?.reference || '').trim();
+      if (
+        ['bill', 'reversal', 'issue_correction'].includes(existingSourceType) ||
+        isLegacyBillEntry
+      ) {
+        return res.status(400).json({
+          error:
+            'This entry is linked to system history and cannot be edited directly. Add a new manual entry instead.',
+        });
       }
 
       const {
@@ -127,15 +141,16 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
         creditTermsDays: creditProfile?.credit_terms_days,
         paymentSummary,
       });
-      const normalizedDueDate = resolveDueDateKey({
-        dueDate: dueDate || dueDateAlt,
-        existingDueDate: existing?.due_date || null,
-        transactionDate,
-        transactionDateKey,
-        entryType: type,
-        creditTermsDays,
-        normalizeTransactionDate,
-      }) || transactionDateKey;
+      const normalizedDueDate =
+        resolveDueDateKey({
+          dueDate: dueDate || dueDateAlt,
+          existingDueDate: existing?.due_date || null,
+          transactionDate,
+          transactionDateKey,
+          entryType: type,
+          creditTermsDays,
+          normalizeTransactionDate,
+        }) || transactionDateKey;
 
       const { nextBalance, updated } = await dbTxAsync(async () => {
         await dbRunAsync(
@@ -164,7 +179,7 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
             normalizedReference || null,
             req.authUser?.id || null,
             entryId,
-            userId
+            userId,
           ]
         );
 
@@ -175,12 +190,17 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
             userId,
             entryId,
           });
-          await dbRunAsync('UPDATE credit_history SET image_path = ? WHERE id = ? AND user_id = ?', [nextImagePath, entryId, userId]);
+          await dbRunAsync(
+            'UPDATE credit_history SET image_path = ? WHERE id = ? AND user_id = ?',
+            [nextImagePath, entryId, userId]
+          );
         }
 
         const recalculatedBalance = await recalculateCreditBalancesForUser(userId);
         await rebuildCustomerPaymentIntelligence(userId);
-        const nextTransaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [entryId]);
+        const nextTransaction = await dbGetAsync('SELECT * FROM credit_history WHERE id = ?', [
+          entryId,
+        ]);
         return {
           nextBalance: recalculatedBalance,
           updated: nextTransaction,
@@ -201,7 +221,7 @@ const registerCreditLedgerUpdateRoutes = (deps) => {
       return res.json({
         success: true,
         balance: Number(nextBalance || 0),
-        transaction: updated
+        transaction: updated,
       });
     } catch (error) {
       const message = error.message || 'Failed to update credit entry';

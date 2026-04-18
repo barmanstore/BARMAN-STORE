@@ -11,7 +11,10 @@ const createProductCatalogDb = ({
     const sku = normalizeTextKey(payload?.sku);
     if (sku) {
       const bySku = excludeId
-        ? await dbGetAsync(`SELECT * FROM products WHERE lower(sku) = ? AND id != ?`, [sku, excludeId])
+        ? await dbGetAsync(`SELECT * FROM products WHERE lower(sku) = ? AND id != ?`, [
+            sku,
+            excludeId,
+          ])
         : await dbGetAsync(`SELECT * FROM products WHERE lower(sku) = ?`, [sku]);
       if (bySku) {
         return {
@@ -24,7 +27,10 @@ const createProductCatalogDb = ({
     const barcode = normalizeTextKey(payload?.barcode);
     if (barcode) {
       const byBarcode = excludeId
-        ? await dbGetAsync(`SELECT * FROM products WHERE lower(barcode) = ? AND id != ?`, [barcode, excludeId])
+        ? await dbGetAsync(`SELECT * FROM products WHERE lower(barcode) = ? AND id != ?`, [
+            barcode,
+            excludeId,
+          ])
         : await dbGetAsync(`SELECT * FROM products WHERE lower(barcode) = ?`, [barcode]);
       if (byBarcode) {
         return {
@@ -43,24 +49,24 @@ const createProductCatalogDb = ({
 
     const byNameBrand = excludeId
       ? await dbAllAsync(
-        `SELECT * FROM products
+          `SELECT * FROM products
          WHERE lower(name) = ?
            AND lower(COALESCE(brand, '')) = ?
            AND lower(COALESCE(sub_brand, '')) = ?
            AND lower(COALESCE(content, '')) = ?
            AND lower(COALESCE(color, '')) = ?
            AND id != ?`,
-        [nameKey, brandKey, subBrandKey, contentKey, colorKey, excludeId]
-      )
+          [nameKey, brandKey, subBrandKey, contentKey, colorKey, excludeId]
+        )
       : await dbAllAsync(
-        `SELECT * FROM products
+          `SELECT * FROM products
          WHERE lower(name) = ?
            AND lower(COALESCE(brand, '')) = ?
            AND lower(COALESCE(sub_brand, '')) = ?
            AND lower(COALESCE(content, '')) = ?
            AND lower(COALESCE(color, '')) = ?`,
-        [nameKey, brandKey, subBrandKey, contentKey, colorKey]
-      );
+          [nameKey, brandKey, subBrandKey, contentKey, colorKey]
+        );
 
     if (!byNameBrand || byNameBrand.length === 0) return null;
     const price = normalizeMoneyValue(payload?.price);
@@ -72,8 +78,8 @@ const createProductCatalogDb = ({
       };
     }
 
-    const sameContentDifferentPrice = byNameBrand.find((row) =>
-      normalizeMoneyValue(row.price) !== price || normalizeMoneyValue(row.mrp) !== mrp
+    const sameContentDifferentPrice = byNameBrand.find(
+      (row) => normalizeMoneyValue(row.price) !== price || normalizeMoneyValue(row.mrp) !== mrp
     );
     if (sameContentDifferentPrice) {
       return {
@@ -82,9 +88,9 @@ const createProductCatalogDb = ({
       };
     }
 
-    const matchingVariantRows = byNameBrand.filter((row) => (
-      normalizeMoneyValue(row.price) === price && normalizeMoneyValue(row.mrp) === mrp
-    ));
+    const matchingVariantRows = byNameBrand.filter(
+      (row) => normalizeMoneyValue(row.price) === price && normalizeMoneyValue(row.mrp) === mrp
+    );
     const exact = matchingVariantRows.find((row) => normalizeTextKey(row.sku) === sku);
     if (exact) {
       return {
@@ -107,12 +113,16 @@ const createProductCatalogDb = ({
     }
     const sku = String(row.sku || '').trim();
     if (sku) {
-      const bySku = await dbGetAsync(`SELECT * FROM products WHERE lower(sku) = ?`, [sku.toLowerCase()]);
+      const bySku = await dbGetAsync(`SELECT * FROM products WHERE lower(sku) = ?`, [
+        sku.toLowerCase(),
+      ]);
       if (bySku) return bySku;
     }
     const barcode = String(row.barcode || '').trim();
     if (barcode) {
-      const byBarcode = await dbGetAsync(`SELECT * FROM products WHERE lower(barcode) = ?`, [barcode.toLowerCase()]);
+      const byBarcode = await dbGetAsync(`SELECT * FROM products WHERE lower(barcode) = ?`, [
+        barcode.toLowerCase(),
+      ]);
       if (byBarcode) return byBarcode;
     }
     return null;

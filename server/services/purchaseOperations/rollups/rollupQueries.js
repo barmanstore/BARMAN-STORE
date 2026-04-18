@@ -12,7 +12,11 @@ const createRollupQueries = ({
   };
 
   const fetchPoCreatedRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(created_at) AS action_date
        FROM purchase_orders
@@ -45,7 +49,11 @@ const createRollupQueries = ({
   };
 
   const fetchPaymentRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(COALESCE(transaction_date, created_at)) AS action_date
        FROM purchase_order_payments
@@ -57,7 +65,11 @@ const createRollupQueries = ({
   };
 
   const fetchDeliveryRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(received_at) AS action_date
        FROM purchase_orders
@@ -70,7 +82,11 @@ const createRollupQueries = ({
   };
 
   const fetchReturnRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(created_at) AS action_date
        FROM purchase_returns
@@ -82,7 +98,11 @@ const createRollupQueries = ({
   };
 
   const fetchLedgerRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(COALESCE(transaction_date, created_at)) AS action_date
        FROM distributor_ledger
@@ -99,7 +119,11 @@ const createRollupQueries = ({
   };
 
   const fetchReminderRows = ({ normalizedStart, normalizedEnd, distributorId } = {}) => {
-    const { params, distributorClause } = buildRangeParams({ normalizedStart, normalizedEnd, distributorId });
+    const { params, distributorClause } = buildRangeParams({
+      normalizedStart,
+      normalizedEnd,
+      distributorId,
+    });
     return dbAllAsync(
       `SELECT date(COALESCE(sent_at, created_at)) AS action_date
        FROM distributor_purchase_reminders

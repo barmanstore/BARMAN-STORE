@@ -1,9 +1,5 @@
 ﻿const createInventoryUtils = (deps = {}) => {
-  const {
-    dbGetAsync,
-    dbRunAsync,
-    mergeDistributorProductKnowledge,
-  } = deps;
+  const { dbGetAsync, dbRunAsync, mergeDistributorProductKnowledge } = deps;
 
   const syncProductKnowledgeTextAsync = async ({
     tableName,
@@ -36,7 +32,11 @@
     return nextText;
   };
 
-  const syncDistributorProductsSuppliedAsync = async (distributorId, items = [], { supplierId = null } = {}) => {
+  const syncDistributorProductsSuppliedAsync = async (
+    distributorId,
+    items = [],
+    { supplierId = null } = {}
+  ) => {
     const normalizedDistributorId = Number(distributorId || 0);
     if (!normalizedDistributorId) return null;
     const distributor = await dbGetAsync(
@@ -105,7 +105,11 @@
     );
   };
 
-  const upsertSupplierProductsAsync = async (distributorId, items = [], { supplierId = null } = {}) => {
+  const upsertSupplierProductsAsync = async (
+    distributorId,
+    items = [],
+    { supplierId = null } = {}
+  ) => {
     const normalizedDistributorId = Number(distributorId || 0);
     if (!normalizedDistributorId) return null;
     let normalizedSupplierId = Number(supplierId || 0) || null;
@@ -141,12 +145,7 @@
            is_available = TRUE,
            availability_note = NULL,
            last_updated_at = CURRENT_TIMESTAMP`,
-        [
-          normalizedDistributorId,
-          normalizedSupplierId,
-          Number(item.product_id || 0),
-          unitCost,
-        ]
+        [normalizedDistributorId, normalizedSupplierId, Number(item.product_id || 0), unitCost]
       );
     }
     return true;

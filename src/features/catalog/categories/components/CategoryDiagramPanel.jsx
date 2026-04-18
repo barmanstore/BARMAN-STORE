@@ -25,7 +25,9 @@ const CategoryDiagramPanel = ({ diagram, selectedCategoryId, onSelectCategory })
             onClick={() => onSelectCategory(node.id)}
           >
             <rect x={node.x} y={node.y} width="138" height="52" rx="9" />
-            <text x={node.x + 8} y={node.y + 20} className="diagram-node-name">{node.name}</text>
+            <text x={node.x + 8} y={node.y + 20} className="diagram-node-name">
+              {node.name}
+            </text>
             <text x={node.x + 8} y={node.y + 38} className="diagram-node-meta">
               {node.count}/{node.total}
             </text>

@@ -15,10 +15,7 @@ const DISCOUNT_ACK_RESET_FIELDS = new Set([
   'discount_type',
   'discount_value',
 ]);
-const RATE_ACK_RESET_FIELDS = new Set([
-  'rate',
-  'unit_price',
-]);
+const RATE_ACK_RESET_FIELDS = new Set(['rate', 'unit_price']);
 
 const toDateLabel = (value) => {
   if (!value) return '';
@@ -41,31 +38,28 @@ const formatDraftCurrency = (value) => Number(value || 0).toFixed(2);
 
 const normalizePurchaseOrderItemRowSource = (
   value,
-  fallback = PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL,
+  fallback = PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL
 ) => {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (
-    normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER
-    || normalized === 'supplier_default'
-  ) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
+  if (normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER || normalized === 'supplier_default') {
     return PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER;
   }
-  if (
-    normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL
-    || normalized === 'manual_added'
-  ) {
+  if (normalized === PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL || normalized === 'manual_added') {
     return PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL;
   }
   return fallback;
 };
 
 const getPurchaseDraftItemSourceFlags = (item = {}) => {
-  const fallbackSource = item?.po_item_locked === true
-    ? PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER
-    : PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL;
+  const fallbackSource =
+    item?.po_item_locked === true
+      ? PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER
+      : PURCHASE_ORDER_ITEM_ROW_SOURCE_MANUAL;
   const rowSource = normalizePurchaseOrderItemRowSource(
     item?.row_source || item?.po_item_source,
-    fallbackSource,
+    fallbackSource
   );
   const supplierDefault = rowSource === PURCHASE_ORDER_ITEM_ROW_SOURCE_SUPPLIER;
   return {
@@ -85,7 +79,12 @@ const getLastPurchaseMeta = (item = {}) => {
   const ageLabel = getRelativeAgeLabel(createdAt);
 
   return {
-    hasValue: rate > 0 || Boolean(distributorName) || Boolean(createdAt) || Boolean(poNumber) || Boolean(fallbackHint),
+    hasValue:
+      rate > 0 ||
+      Boolean(distributorName) ||
+      Boolean(createdAt) ||
+      Boolean(poNumber) ||
+      Boolean(fallbackHint),
     rate,
     distributorName,
     createdAt,
@@ -96,11 +95,7 @@ const getLastPurchaseMeta = (item = {}) => {
   };
 };
 
-const buildLastPurchaseHint = ({
-  rate = 0,
-  distributorName = '',
-  createdAt = '',
-}) => {
+const buildLastPurchaseHint = ({ rate = 0, distributorName = '', createdAt = '' }) => {
   const summaryParts = [];
   if (Number(rate || 0) > 0) {
     summaryParts.push(`Last ${formatDraftCurrency(rate)}`);
@@ -124,8 +119,12 @@ const getLastPurchaseSuggestionPreserveFlags = ({
   const seededRate = normalizeDraftRate(item?.auto_fill_seed_rate ?? currentRate, toNumber);
   const currentGst = normalizeGstRateOption(item?.gst_rate ?? 5);
   const seededGst = normalizeGstRateOption(item?.auto_fill_seed_gst_rate ?? currentGst);
-  const currentUom = String(item?.uom || '').trim().toLowerCase();
-  const seededUom = String(item?.auto_fill_seed_uom || item?.uom || '').trim().toLowerCase();
+  const currentUom = String(item?.uom || '')
+    .trim()
+    .toLowerCase();
+  const seededUom = String(item?.auto_fill_seed_uom || item?.uom || '')
+    .trim()
+    .toLowerCase();
 
   return {
     preserveRate: currentRate !== seededRate,
@@ -166,9 +165,8 @@ const applyPurchaseDraftFieldChange = ({
   }
 
   if (field === 'uom') {
-    const selectedProduct = typeof findProductForItem === 'function'
-      ? findProductForItem(products, nextItem)
-      : null;
+    const selectedProduct =
+      typeof findProductForItem === 'function' ? findProductForItem(products, nextItem) : null;
     nextItem.uom = resolvePurchaseUnitForProduct(selectedProduct, nextValue);
   }
 
@@ -257,10 +255,7 @@ const applyPurchaseDraftProductSelection = ({
   };
 };
 
-const clearPurchaseDraftProductSelection = ({
-  item = {},
-  query = '',
-}) => ({
+const clearPurchaseDraftProductSelection = ({ item = {}, query = '' }) => ({
   ...item,
   product_id: '',
   product_query: query,
@@ -319,8 +314,12 @@ const applyPurchaseDraftLastPurchaseSuggestion = ({
     quantity: preserveQuantity
       ? Math.max(1, toNumber(item?.quantity ?? 1))
       : Math.max(1, toNumber(suggestedQuantity ?? item?.quantity ?? 1)),
-    unit_price: preserveRate ? normalizeDraftRate(item?.unit_price ?? item?.rate, toNumber) : suggestedRate,
-    rate: preserveRate ? normalizeDraftRate(item?.rate ?? item?.unit_price, toNumber) : suggestedRate,
+    unit_price: preserveRate
+      ? normalizeDraftRate(item?.unit_price ?? item?.rate, toNumber)
+      : suggestedRate,
+    rate: preserveRate
+      ? normalizeDraftRate(item?.rate ?? item?.unit_price, toNumber)
+      : suggestedRate,
     rate_warning_acknowledged: false,
     reference_rate: suggestedRate,
     reference_rate_source: `last purchase ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
@@ -328,16 +327,15 @@ const applyPurchaseDraftLastPurchaseSuggestion = ({
     uom: preserveUom
       ? resolvePurchaseUnitForProduct(product, item?.uom || suggestedUom)
       : suggestedUom,
-    last_purchase_hint: lastPurchaseHint || `Suggested from ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
+    last_purchase_hint:
+      lastPurchaseHint ||
+      `Suggested from ${suggestedPo}${suggestedDate ? ` (${suggestedDate})` : ''}`,
     last_purchase_rate: suggestedRate,
     last_purchase_distributor_name: suggestedDistributorName,
     last_purchase_created_at: String(suggestion.created_at || '').trim(),
     last_purchase_po_number: suggestedPo,
     discount_warning_acknowledged: Boolean(
-      item?.discount_warning_acknowledged
-      && preserveQuantity
-      && preserveRate
-      && preserveUom
+      item?.discount_warning_acknowledged && preserveQuantity && preserveRate && preserveUom
     ),
     auto_fill_seed_rate: null,
     auto_fill_seed_gst_rate: null,
@@ -345,10 +343,7 @@ const applyPurchaseDraftLastPurchaseSuggestion = ({
   };
 };
 
-const toCalculatedPurchaseOrderItem = ({
-  item,
-  calculateOrderItem,
-}) => {
+const toCalculatedPurchaseOrderItem = ({ item, calculateOrderItem }) => {
   const line = calculateOrderItem(item);
   const sourceFlags = getPurchaseDraftItemSourceFlags(item);
   return {
@@ -384,10 +379,10 @@ const projectPurchaseOrderDraft = ({
 }) => {
   const normalizedItems = Array.isArray(items) ? items : [];
   const canReuseRows = Boolean(
-    previousProjection
-    && previousProjection.productsRef === products
-    && previousProjection.findProductForItemRef === findProductForItem
-    && previousProjection.calculateOrderItemRef === calculateOrderItem
+    previousProjection &&
+    previousProjection.productsRef === products &&
+    previousProjection.findProductForItemRef === findProductForItem &&
+    previousProjection.calculateOrderItemRef === calculateOrderItem
   );
   const previousRows = Array.isArray(previousProjection?.rows) ? previousProjection.rows : [];
   const previousRowByItem = canReuseRows
@@ -408,22 +403,26 @@ const projectPurchaseOrderDraft = ({
     findProductForItem,
     calculateOrderItem,
   });
-  const totals = typeof calculateOrderTotals === 'function'
-    ? calculateOrderTotals(normalizedItems)
-    : rows.reduce((summary, row) => {
-        summary.grossAmount += Number(row.line?.grossAmount || 0);
-        summary.discountAmount += Number(row.line?.discountAmount || 0);
-        summary.taxableValue += Number(row.line?.taxableValue || 0);
-        summary.taxAmount += Number(row.line?.taxAmount || 0);
-        summary.totalAmount += Number(row.line?.totalAmount || 0);
-        return summary;
-      }, {
-        grossAmount: 0,
-        discountAmount: 0,
-        taxableValue: 0,
-        taxAmount: 0,
-        totalAmount: 0,
-      });
+  const totals =
+    typeof calculateOrderTotals === 'function'
+      ? calculateOrderTotals(normalizedItems)
+      : rows.reduce(
+          (summary, row) => {
+            summary.grossAmount += Number(row.line?.grossAmount || 0);
+            summary.discountAmount += Number(row.line?.discountAmount || 0);
+            summary.taxableValue += Number(row.line?.taxableValue || 0);
+            summary.taxAmount += Number(row.line?.taxAmount || 0);
+            summary.totalAmount += Number(row.line?.totalAmount || 0);
+            return summary;
+          },
+          {
+            grossAmount: 0,
+            discountAmount: 0,
+            taxableValue: 0,
+            taxAmount: 0,
+            totalAmount: 0,
+          }
+        );
 
   return {
     rows,
@@ -443,18 +442,18 @@ const preparePurchaseOrderSubmission = ({
   calculateOrderTotals,
 }) => {
   const normalizedItems = Array.isArray(items) ? items : [];
-  const invalidTypedProducts = normalizedItems.filter((item) => (
-    String(item?.product_query || '').trim() && !hasSelectedProduct(item)
-  ));
+  const invalidTypedProducts = normalizedItems.filter(
+    (item) => String(item?.product_query || '').trim() && !hasSelectedProduct(item)
+  );
   if (invalidTypedProducts.length > 0) {
     return {
       error: 'Please select valid products from suggestions for all typed product names',
     };
   }
 
-  const validItems = normalizedItems.filter((item) => (
-    hasSelectedProduct(item) && Number(item?.quantity || 0) > 0
-  ));
+  const validItems = normalizedItems.filter(
+    (item) => hasSelectedProduct(item) && Number(item?.quantity || 0) > 0
+  );
   if (!validItems.length) {
     return {
       error: 'Please add at least one item',
@@ -468,10 +467,12 @@ const preparePurchaseOrderSubmission = ({
     calculateOrderItem,
   });
 
-  const calculatedItems = validItems.map((item) => toCalculatedPurchaseOrderItem({
-    item,
-    calculateOrderItem,
-  }));
+  const calculatedItems = validItems.map((item) =>
+    toCalculatedPurchaseOrderItem({
+      item,
+      calculateOrderItem,
+    })
+  );
   const totals = calculateOrderTotals(calculatedItems);
 
   return {

@@ -11,7 +11,7 @@ export const formatMergeImpact = (impact) => {
     `issues ${Number(impact.credit_entry_issues || 0)}`,
     `bills ${Number(impact.bills || 0)}`,
     `orders ${Number(impact.orders || 0)}`,
-    `reco ${Number(impact.product_recommendations || 0)}`
+    `reco ${Number(impact.product_recommendations || 0)}`,
   ];
   return parts.join(' | ');
 };

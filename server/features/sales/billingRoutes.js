@@ -24,12 +24,13 @@ const registerBillingRoutes = (deps) => {
     generateBillNumber,
     logStockLedgerAsync,
     logAdminAuditAsync,
-    createAppNotification
+    createAppNotification,
   } = deps;
 
-
   const normalizeUomToken = (value, fallback = 'pcs') =>
-    String(value || fallback).trim().toLowerCase() || fallback;
+    String(value || fallback)
+      .trim()
+      .toLowerCase() || fallback;
 
   const UNIT_FAMILY_BASE_BY_UNIT = Object.freeze({
     pcs: 'pcs',
@@ -82,7 +83,9 @@ const registerBillingRoutes = (deps) => {
   };
 
   const normalizeUomType = (value) => {
-    const token = String(value || '').trim().toLowerCase();
+    const token = String(value || '')
+      .trim()
+      .toLowerCase();
     return ['selling', 'purchasing', 'both'].includes(token) ? token : 'selling';
   };
 
@@ -90,9 +93,8 @@ const registerBillingRoutes = (deps) => {
     const sellingUnit = normalizeUomToken(product?.uom, 'pcs');
     const baseUnit = normalizeUomToken(product?.base_unit, sellingUnit);
     const conversionFactorRaw = Number(product?.conversion_factor ?? 1);
-    const conversionFactor = Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0
-      ? conversionFactorRaw
-      : 1;
+    const conversionFactor =
+      Number.isFinite(conversionFactorRaw) && conversionFactorRaw > 0 ? conversionFactorRaw : 1;
     return {
       sellingUnit,
       baseUnit,
@@ -114,7 +116,12 @@ const registerBillingRoutes = (deps) => {
     if (numericQty <= 0) return 0;
     const profile = getProductUomProfile(product);
     const inputUnit = normalizeUomToken(unit, profile.sellingUnit);
-    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, inputUnit, profile.baseUnit, profile.baseUnit);
+    const familyConverted = convertQtyBetweenFamilyUnits(
+      numericQty,
+      inputUnit,
+      profile.baseUnit,
+      profile.baseUnit
+    );
     if (familyConverted !== null) return familyConverted;
     if (inputUnit === profile.baseUnit) return numericQty;
     if (inputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
@@ -128,7 +135,12 @@ const registerBillingRoutes = (deps) => {
     if (numericQty <= 0) return 0;
     const profile = getProductUomProfile(product);
     const outputUnit = normalizeUomToken(unit, profile.sellingUnit);
-    const familyConverted = convertQtyBetweenFamilyUnits(numericQty, profile.baseUnit, outputUnit, profile.baseUnit);
+    const familyConverted = convertQtyBetweenFamilyUnits(
+      numericQty,
+      profile.baseUnit,
+      outputUnit,
+      profile.baseUnit
+    );
     if (familyConverted !== null) return familyConverted;
     if (outputUnit === profile.baseUnit) return numericQty;
     if (outputUnit === profile.sellingUnit && profile.sellingUnit !== profile.baseUnit) {
@@ -137,13 +149,12 @@ const registerBillingRoutes = (deps) => {
     return numericQty;
   };
 
-  const roundQty = (value) => Number((Number(value || 0)).toFixed(3));
+  const roundQty = (value) => Number(Number(value || 0).toFixed(3));
   const toPricingQty = (qty, unit, product = null) => {
     const numericQty = Math.max(0, Number(qty || 0));
     if (numericQty <= 0) return 0;
     return product ? toStockUnitQty(numericQty, unit, product) : numericQty;
   };
-
 
   const routeDeps = {
     ...deps,

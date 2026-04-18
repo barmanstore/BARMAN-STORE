@@ -1,9 +1,4 @@
-const finalizePurchaseOrderReceive = async (deps, {
-  req,
-  order,
-  poStatus,
-  nextAction,
-}) => {
+const finalizePurchaseOrderReceive = async (deps, { req, order, poStatus, nextAction }) => {
   const {
     dbGetAsync,
     dbRunAsync,
@@ -25,7 +20,10 @@ const finalizePurchaseOrderReceive = async (deps, {
     Number(totals?.total_amount || 0),
     Number(order.paid_amount || 0)
   );
-  const nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(poStatus, receivePaymentSnapshot.paymentStatus);
+  const nextLifecycleStatus = derivePoLifecycleFromPaymentStatus(
+    poStatus,
+    receivePaymentSnapshot.paymentStatus
+  );
   const nextActionResolved = derivePurchaseNextAction({
     ...order,
     status: 'received',
@@ -62,7 +60,7 @@ const finalizePurchaseOrderReceive = async (deps, {
       receivePaymentSnapshot.paidAmount,
       receivePaymentSnapshot.balanceDue,
       nextActionResolved,
-      req.params.id
+      req.params.id,
     ]
   );
 

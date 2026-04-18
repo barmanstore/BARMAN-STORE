@@ -1,8 +1,5 @@
 const registerCategoryDetailRoutes = (deps) => {
-  const {
-    app,
-    getCategoryByIdAsync,
-  } = deps;
+  const { app, getCategoryByIdAsync } = deps;
 
   app.get('/api/categories/:id(\\d+)', async (req, res) => {
     try {

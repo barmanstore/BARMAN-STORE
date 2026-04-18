@@ -31,6 +31,22 @@ if /i "%~1"=="db:migrate" (
   call "%WORKBENCH%" 16
   exit /b %errorlevel%
 )
+if /i "%~1"=="maintenance" (
+  call "%WORKBENCH%" 30
+  exit /b %errorlevel%
+)
+if /i "%~1"=="maintenance:lint" (
+  call "%WORKBENCH%" 28
+  exit /b %errorlevel%
+)
+if /i "%~1"=="maintenance:scan" (
+  call "%WORKBENCH%" 29
+  exit /b %errorlevel%
+)
+if /i "%~1"=="maintenance:all" (
+  call "%WORKBENCH%" 30
+  exit /b %errorlevel%
+)
 if "%~1"=="" set "OPS_INTERACTIVE=1"
 call "%WORKBENCH%" %*
 if "%~1"=="" pause

@@ -7,7 +7,7 @@ const UOM_OPTIONS = [
   { value: 'box', label: 'Box' },
   { value: 'pack', label: 'Pack' },
   { value: 'case', label: 'Case (24 pcs)' },
-  { value: 'dozen', label: 'Dozen (12 pcs)' }
+  { value: 'dozen', label: 'Dozen (12 pcs)' },
 ];
 
 export { UOM_OPTIONS };

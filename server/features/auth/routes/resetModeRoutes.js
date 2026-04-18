@@ -20,7 +20,8 @@ const registerAuthResetModeRoutes = (deps) => {
   app.get('/api/auth/reset-mode', (_, res) => {
     try {
       const whatsappProviderSupportsSend = Boolean(whatsappProvider?.supportsSend);
-      const whatsappProviderReady = whatsappProviderSupportsSend && Boolean(whatsappProvider?.isReady);
+      const whatsappProviderReady =
+        whatsappProviderSupportsSend && Boolean(whatsappProvider?.isReady);
       return res.json({
         auth_flow_mode: AUTH_FLOW_MODE,
         mode: 'otp_login_only',

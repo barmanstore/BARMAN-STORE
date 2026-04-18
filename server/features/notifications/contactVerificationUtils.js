@@ -2,19 +2,22 @@
   const { dbGetAsync, dbRunAsync } = deps;
 
   const normalizeContactVerificationRequestType = (value) => {
-    const normalized = String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
     if (normalized === 'email' || normalized === 'phone') return normalized;
     return '';
   };
 
-  const getOpenContactVerificationRequest = async ({ userId, requestType }) => dbGetAsync(
-    `SELECT *
+  const getOpenContactVerificationRequest = async ({ userId, requestType }) =>
+    dbGetAsync(
+      `SELECT *
      FROM contact_verification_requests
      WHERE user_id = ? AND request_type = ? AND status IN ('pending', 'sent')
      ORDER BY id DESC
      LIMIT 1`,
-    [Number(userId || 0), normalizeContactVerificationRequestType(requestType)]
-  );
+      [Number(userId || 0), normalizeContactVerificationRequestType(requestType)]
+    );
 
   const queueContactVerificationRequest = async ({
     userId,
@@ -49,7 +52,11 @@
           existing.id,
         ]
       );
-      return (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [existing.id])) || null;
+      return (
+        (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [
+          existing.id,
+        ])) || null
+      );
     }
 
     const result = await dbRunAsync(
@@ -64,7 +71,9 @@
       ]
     );
     const id = Number(result.lastInsertRowid || 0);
-    return id ? (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [id])) || null : null;
+    return id
+      ? (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [id])) || null
+      : null;
   };
 
   const markContactVerificationRequestSent = async ({
@@ -92,14 +101,13 @@
         requestId,
       ]
     );
-    return (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [requestId])) || null;
+    return (
+      (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [requestId])) ||
+      null
+    );
   };
 
-  const rejectContactVerificationRequest = async ({
-    id,
-    processedBy = null,
-    adminNote = null,
-  }) => {
+  const rejectContactVerificationRequest = async ({ id, processedBy = null, adminNote = null }) => {
     const requestId = Number(id || 0);
     if (!requestId) return null;
     await dbRunAsync(
@@ -117,7 +125,10 @@
         requestId,
       ]
     );
-    return (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [requestId])) || null;
+    return (
+      (await dbGetAsync(`SELECT * FROM contact_verification_requests WHERE id = ?`, [requestId])) ||
+      null
+    );
   };
 
   const completeContactVerificationRequests = async ({ userId, requestType }) => {

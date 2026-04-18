@@ -14,11 +14,7 @@ export function NotificationsProvider({ children }) {
     enabled: routePolicy.sideEffects.notifications,
   });
 
-  return (
-    <NotificationsContext.Provider value={value}>
-      {children}
-    </NotificationsContext.Provider>
-  );
+  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
 export const useNotifications = () => {

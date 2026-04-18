@@ -80,12 +80,14 @@ const SEARCH_SCOPE_COPY = {
   },
 };
 
-const parseMultiSelectValue = (value) => String(value || '')
-  .split(',')
-  .map((entry) => entry.trim())
-  .filter(Boolean);
+const parseMultiSelectValue = (value) =>
+  String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
-const getOrderSupplierLabel = (order) => String(order?.supplier_name || order?.distributor_name || '').trim();
+const getOrderSupplierLabel = (order) =>
+  String(order?.supplier_name || order?.distributor_name || '').trim();
 
 const getOrderSupplierFilterKey = (order) => {
   const supplierId = String(order?.supplier_id || '').trim();
@@ -121,7 +123,10 @@ const buildDateRangePresets = () => {
   return [
     { label: 'Today', value: [todayToken, todayToken] },
     { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
-    { label: 'This Month', value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
   ];
 };
 
@@ -167,10 +172,20 @@ const PurchaseOrdersSection = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchScope, setSearchScope] = useState('all');
   const [selectedSupplierFilters, setSelectedSupplierFilters] = useState([]);
-  const [selectedPoStatuses, setSelectedPoStatuses] = useState(() => parseMultiSelectValue(filters.status));
-  const [selectedPaymentStatuses, setSelectedPaymentStatuses] = useState(() => parseMultiSelectValue(filters.payment_status));
+  const [selectedPoStatuses, setSelectedPoStatuses] = useState(() =>
+    parseMultiSelectValue(filters.status)
+  );
+  const [selectedPaymentStatuses, setSelectedPaymentStatuses] = useState(() =>
+    parseMultiSelectValue(filters.payment_status)
+  );
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(
-    Boolean(filters.distributor_id || filters.status || filters.payment_status || filters.start_date || filters.end_date)
+    Boolean(
+      filters.distributor_id ||
+      filters.status ||
+      filters.payment_status ||
+      filters.start_date ||
+      filters.end_date
+    )
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({
@@ -191,9 +206,9 @@ const PurchaseOrdersSection = ({
       optionsByKey.set(value, { value, label });
     });
 
-    return [...optionsByKey.values()].sort((left, right) => (
+    return [...optionsByKey.values()].sort((left, right) =>
       left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
-    ));
+    );
   }, [purchaseOrders]);
 
   const controllerSelectedSupplierFilters = useMemo(() => {
@@ -211,7 +226,8 @@ const PurchaseOrdersSection = ({
   const effectiveSelectedSupplierFilters = selectedSupplierFilters.length
     ? selectedSupplierFilters
     : controllerSelectedSupplierFilters;
-  const activeSupplierFilterCount = effectiveSelectedSupplierFilters.length || (filters.distributor_id ? 1 : 0);
+  const activeSupplierFilterCount =
+    effectiveSelectedSupplierFilters.length || (filters.distributor_id ? 1 : 0);
   const hasActiveDateRange = Boolean(filters.start_date || filters.end_date);
   const activeAdvancedFilterCount = [
     activeSupplierFilterCount,
@@ -229,13 +245,17 @@ const PurchaseOrdersSection = ({
   };
 
   const getNormalizedDateRange = (nextValues = {}) => {
-    let startDate = typeof nextValues.start_date === 'string' ? nextValues.start_date : filters.start_date;
+    let startDate =
+      typeof nextValues.start_date === 'string' ? nextValues.start_date : filters.start_date;
     let endDate = typeof nextValues.end_date === 'string' ? nextValues.end_date : filters.end_date;
 
     if (startDate && endDate && startDate > endDate) {
       if (typeof nextValues.start_date === 'string' && typeof nextValues.end_date !== 'string') {
         endDate = startDate;
-      } else if (typeof nextValues.end_date === 'string' && typeof nextValues.start_date !== 'string') {
+      } else if (
+        typeof nextValues.end_date === 'string' &&
+        typeof nextValues.start_date !== 'string'
+      ) {
         startDate = endDate;
       } else {
         [startDate, endDate] = [endDate, startDate];
@@ -250,10 +270,12 @@ const PurchaseOrdersSection = ({
 
   const handleDateRangeChange = (nextRange = []) => {
     const [startDate = '', endDate = ''] = Array.isArray(nextRange) ? nextRange : [];
-    handleFilterValuesChange(getNormalizedDateRange({
-      start_date: startDate,
-      end_date: endDate,
-    }));
+    handleFilterValuesChange(
+      getNormalizedDateRange({
+        start_date: startDate,
+        end_date: endDate,
+      })
+    );
   };
 
   const handleSupplierFilterChange = (nextItems = []) => {
@@ -291,7 +313,10 @@ const PurchaseOrdersSection = ({
 
     const handlePointerDown = (event) => {
       const target = event.target;
-      if (advancedFiltersRef.current?.contains(target) || filterToggleRef.current?.contains(target)) {
+      if (
+        advancedFiltersRef.current?.contains(target) ||
+        filterToggleRef.current?.contains(target)
+      ) {
         return;
       }
       setShowAdvancedFilters(false);
@@ -347,7 +372,7 @@ const PurchaseOrdersSection = ({
   };
 
   const handleSortChange = (columnKey) => {
-    setSortConfig((current) => (
+    setSortConfig((current) =>
       current.key === columnKey
         ? {
             key: columnKey,
@@ -357,7 +382,7 @@ const PurchaseOrdersSection = ({
             key: columnKey,
             direction: DEFAULT_SORT_DIRECTION[columnKey] || 'asc',
           }
-    ));
+    );
   };
 
   const renderSortIcon = (columnKey) => {
@@ -376,28 +401,40 @@ const PurchaseOrdersSection = ({
     const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
     return [...purchaseOrders].sort((left, right) => {
       if (sortConfig.key === SORTABLE_COLUMNS.poNumber) {
-        return directionMultiplier * compareNullable(
-          String(left?.po_number || '').trim(),
-          String(right?.po_number || '').trim(),
-          (leftValue, rightValue) => leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+        return (
+          directionMultiplier *
+          compareNullable(
+            String(left?.po_number || '').trim(),
+            String(right?.po_number || '').trim(),
+            (leftValue, rightValue) =>
+              leftValue.localeCompare(rightValue, undefined, { numeric: true, sensitivity: 'base' })
+          )
         );
       }
 
       if (sortConfig.key === SORTABLE_COLUMNS.balanceDue) {
-        return directionMultiplier * compareNullable(
-          Number(getPoBalanceDue(left) || 0),
-          Number(getPoBalanceDue(right) || 0),
-          (leftValue, rightValue) => leftValue - rightValue
+        return (
+          directionMultiplier *
+          compareNullable(
+            Number(getPoBalanceDue(left) || 0),
+            Number(getPoBalanceDue(right) || 0),
+            (leftValue, rightValue) => leftValue - rightValue
+          )
         );
       }
 
       if (sortConfig.key === SORTABLE_COLUMNS.dueDate) {
         const leftValue = left?.payment_due_date ? new Date(left.payment_due_date).getTime() : null;
-        const rightValue = right?.payment_due_date ? new Date(right.payment_due_date).getTime() : null;
-        return directionMultiplier * compareNullable(
-          Number.isFinite(leftValue) ? leftValue : null,
-          Number.isFinite(rightValue) ? rightValue : null,
-          (normalizedLeft, normalizedRight) => normalizedLeft - normalizedRight
+        const rightValue = right?.payment_due_date
+          ? new Date(right.payment_due_date).getTime()
+          : null;
+        return (
+          directionMultiplier *
+          compareNullable(
+            Number.isFinite(leftValue) ? leftValue : null,
+            Number.isFinite(rightValue) ? rightValue : null,
+            (normalizedLeft, normalizedRight) => normalizedLeft - normalizedRight
+          )
         );
       }
 
@@ -407,8 +444,12 @@ const PurchaseOrdersSection = ({
 
   const visiblePurchaseOrders = useMemo(() => {
     return sortedPurchaseOrders.filter((order) => {
-      const lifecycleStatus = String(getPoLifecycleStatus(order) || '').trim().toLowerCase();
-      const paymentStatus = String(getPoPaymentStatus(order) || '').trim().toLowerCase();
+      const lifecycleStatus = String(getPoLifecycleStatus(order) || '')
+        .trim()
+        .toLowerCase();
+      const paymentStatus = String(getPoPaymentStatus(order) || '')
+        .trim()
+        .toLowerCase();
       const searchableText = (
         searchScope === 'po_number'
           ? [order?.po_number]
@@ -421,9 +462,14 @@ const PurchaseOrdersSection = ({
         .toLowerCase();
       const supplierFilterKey = getOrderSupplierFilterKey(order);
 
-      if (effectiveSelectedSupplierFilters.length && !effectiveSelectedSupplierFilters.includes(supplierFilterKey)) return false;
+      if (
+        effectiveSelectedSupplierFilters.length &&
+        !effectiveSelectedSupplierFilters.includes(supplierFilterKey)
+      )
+        return false;
       if (selectedPoStatuses.length && !selectedPoStatuses.includes(lifecycleStatus)) return false;
-      if (selectedPaymentStatuses.length && !selectedPaymentStatuses.includes(paymentStatus)) return false;
+      if (selectedPaymentStatuses.length && !selectedPaymentStatuses.includes(paymentStatus))
+        return false;
       if (normalizedSearchQuery && !searchableText.includes(normalizedSearchQuery)) return false;
       return true;
     });
@@ -469,7 +515,8 @@ const PurchaseOrdersSection = ({
     return visiblePurchaseOrders.slice(startIndex, startIndex + PAGE_SIZE);
   }, [activePage, visiblePurchaseOrders]);
 
-  const pageSummaryStart = visiblePurchaseOrders.length === 0 ? 0 : ((activePage - 1) * PAGE_SIZE) + 1;
+  const pageSummaryStart =
+    visiblePurchaseOrders.length === 0 ? 0 : (activePage - 1) * PAGE_SIZE + 1;
   const pageSummaryEnd = Math.min(activePage * PAGE_SIZE, visiblePurchaseOrders.length);
 
   const paginationItems = useMemo(() => {
@@ -504,7 +551,10 @@ const PurchaseOrdersSection = ({
 
       <div className="purchase-orders-toolbar-row">
         <div className="purchase-orders-toolbar" aria-label="Purchase order actions">
-          <button className="admin-btn primary purchase-orders-toolbar-btn purchase-orders-toolbar-btn--primary" onClick={onNewOrder}>
+          <button
+            className="admin-btn primary purchase-orders-toolbar-btn purchase-orders-toolbar-btn--primary"
+            onClick={onNewOrder}
+          >
             <Plus size={16} /> New Order
           </button>
           <span className="purchase-orders-toolbar-separator" aria-hidden="true" />
@@ -562,15 +612,23 @@ const PurchaseOrdersSection = ({
           {activeAdvancedFilterCount ? <strong>{activeAdvancedFilterCount}</strong> : null}
           {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
-        {(searchDraft || searchQuery || activeAdvancedFilterCount) ? (
-          <button type="button" className="purchase-orders-filter-clear" onClick={handleClearAllFilters}>
+        {searchDraft || searchQuery || activeAdvancedFilterCount ? (
+          <button
+            type="button"
+            className="purchase-orders-filter-clear"
+            onClick={handleClearAllFilters}
+          >
             Clear
           </button>
         ) : null}
       </div>
 
       {showAdvancedFilters ? (
-        <div ref={advancedFiltersRef} id="purchase-orders-advanced-filters" className="purchase-orders-advanced-filters">
+        <div
+          ref={advancedFiltersRef}
+          id="purchase-orders-advanced-filters"
+          className="purchase-orders-advanced-filters"
+        >
           <div className="purchase-orders-filter-row purchase-orders-filter-row--supplier">
             <span className="purchase-orders-filter-row-label">Supplier</span>
             <DropdownFilter
@@ -590,7 +648,9 @@ const PurchaseOrdersSection = ({
               options={PO_STATUS_FILTER_OPTIONS}
               multiSelect
               selectedItems={selectedPoStatuses}
-              onChange={(nextItems) => handleLocalMultiSelectChange(nextItems, setSelectedPoStatuses, 'status')}
+              onChange={(nextItems) =>
+                handleLocalMultiSelectChange(nextItems, setSelectedPoStatuses, 'status')
+              }
               width={FILTER_WIDTH}
               allLabel="All Status"
               tone="violet"
@@ -603,7 +663,13 @@ const PurchaseOrdersSection = ({
               options={PAYMENT_FILTER_OPTIONS}
               multiSelect
               selectedItems={selectedPaymentStatuses}
-              onChange={(nextItems) => handleLocalMultiSelectChange(nextItems, setSelectedPaymentStatuses, 'payment_status')}
+              onChange={(nextItems) =>
+                handleLocalMultiSelectChange(
+                  nextItems,
+                  setSelectedPaymentStatuses,
+                  'payment_status'
+                )
+              }
               width={FILTER_WIDTH}
               allLabel="All Payment"
               tone="emerald"
@@ -630,19 +696,31 @@ const PurchaseOrdersSection = ({
           <thead>
             <tr>
               <th aria-sort={getAriaSort(SORTABLE_COLUMNS.poNumber)}>
-                <button type="button" className="purchase-orders-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.poNumber)}>
+                <button
+                  type="button"
+                  className="purchase-orders-sort-btn"
+                  onClick={() => handleSortChange(SORTABLE_COLUMNS.poNumber)}
+                >
                   <span>PO Number</span>
                   {renderSortIcon(SORTABLE_COLUMNS.poNumber)}
                 </button>
               </th>
               <th aria-sort={getAriaSort(SORTABLE_COLUMNS.balanceDue)}>
-                <button type="button" className="purchase-orders-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.balanceDue)}>
+                <button
+                  type="button"
+                  className="purchase-orders-sort-btn"
+                  onClick={() => handleSortChange(SORTABLE_COLUMNS.balanceDue)}
+                >
                   <span>Balance Due</span>
                   {renderSortIcon(SORTABLE_COLUMNS.balanceDue)}
                 </button>
               </th>
               <th aria-sort={getAriaSort(SORTABLE_COLUMNS.dueDate)}>
-                <button type="button" className="purchase-orders-sort-btn" onClick={() => handleSortChange(SORTABLE_COLUMNS.dueDate)}>
+                <button
+                  type="button"
+                  className="purchase-orders-sort-btn"
+                  onClick={() => handleSortChange(SORTABLE_COLUMNS.dueDate)}
+                >
                   <span>Due Date</span>
                   {renderSortIcon(SORTABLE_COLUMNS.dueDate)}
                 </button>
@@ -656,7 +734,10 @@ const PurchaseOrdersSection = ({
                 <td colSpan="4" className="empty-state">
                   <div className="purchase-empty-state-card">
                     <strong>No purchase orders yet.</strong>
-                    <p>Create a purchase order to start tracking supplier items, receiving, and balance due.</p>
+                    <p>
+                      Create a purchase order to start tracking supplier items, receiving, and
+                      balance due.
+                    </p>
                     <button type="button" className="admin-btn primary" onClick={onNewOrder}>
                       <Plus size={18} /> Create First Order
                     </button>
@@ -669,7 +750,11 @@ const PurchaseOrdersSection = ({
                   <div className="purchase-empty-state-card purchase-empty-state-card--muted">
                     <strong>No purchase orders match these filters.</strong>
                     <p>Try a different PO number, supplier, or status selection.</p>
-                    <button type="button" className="admin-btn secondary purchase-orders-toolbar-btn" onClick={handleClearAllFilters}>
+                    <button
+                      type="button"
+                      className="admin-btn secondary purchase-orders-toolbar-btn"
+                      onClick={handleClearAllFilters}
+                    >
                       Clear Filters
                     </button>
                   </div>
@@ -682,15 +767,22 @@ const PurchaseOrdersSection = ({
                 const isReceivableOrder = canReceivePo(order);
                 const isCloseEligible = canClosePo(order);
                 const poPaymentStatus = getPoPaymentStatus(order);
-                const supplierDisplayName = String(order.supplier_name || order.distributor_name || '').trim() || '-';
-                const itemCount = Math.max(0, Number(order.item_count ?? order.items?.length ?? 0) || 0);
+                const supplierDisplayName =
+                  String(order.supplier_name || order.distributor_name || '').trim() || '-';
+                const itemCount = Math.max(
+                  0,
+                  Number(order.item_count ?? order.items?.length ?? 0) || 0
+                );
                 const totalAmount = getOrderDisplayTotal(order);
-                const dueDateLabel = order.payment_due_date ? new Date(order.payment_due_date).toLocaleDateString() : '-';
-                const paymentRowClass = poPaymentStatus === 'paid'
-                  ? 'payment-status-paid'
-                  : poPaymentStatus === 'part_paid'
-                    ? 'payment-status-part-paid'
-                    : 'payment-status-unpaid';
+                const dueDateLabel = order.payment_due_date
+                  ? new Date(order.payment_due_date).toLocaleDateString()
+                  : '-';
+                const paymentRowClass =
+                  poPaymentStatus === 'paid'
+                    ? 'payment-status-paid'
+                    : poPaymentStatus === 'part_paid'
+                      ? 'payment-status-part-paid'
+                      : 'payment-status-unpaid';
                 return (
                   <tr key={order.id} className={`purchase-orders-row ${paymentRowClass}`}>
                     <td data-label="PO Number" className="purchase-order-primary-cell">
@@ -704,16 +796,22 @@ const PurchaseOrdersSection = ({
                             <span className="purchase-order-meta-value">{itemCount} items</span>
                           </div>
                           <div className="purchase-order-meta-item total">
-                            <span className="purchase-order-meta-value">{formatCurrency(totalAmount)}</span>
+                            <span className="purchase-order-meta-value">
+                              {formatCurrency(totalAmount)}
+                            </span>
                           </div>
                           <div className="purchase-order-meta-item status">
-                            <span className="purchase-order-meta-value">{getStatusBadge(order)}</span>
+                            <span className="purchase-order-meta-value">
+                              {getStatusBadge(order)}
+                            </span>
                           </div>
                         </div>
                       </div>
                     </td>
                     <td data-label="Balance Due" className="purchase-order-balance-cell">
-                      <span className="purchase-order-balance-value">{formatCurrency(getPoBalanceDue(order))}</span>
+                      <span className="purchase-order-balance-value">
+                        {formatCurrency(getPoBalanceDue(order))}
+                      </span>
                     </td>
                     <td data-label="Due Date" className="purchase-order-due-cell">
                       <span className="purchase-order-due-value">{dueDateLabel}</span>
@@ -739,7 +837,11 @@ const PurchaseOrdersSection = ({
                           </button>
                           <button
                             className="action-btn whatsapp"
-                            title={sendingWhatsAppOrderId === order.id ? 'Preparing WhatsApp...' : 'Prepare WhatsApp (Manual)'}
+                            title={
+                              sendingWhatsAppOrderId === order.id
+                                ? 'Preparing WhatsApp...'
+                                : 'Prepare WhatsApp (Manual)'
+                            }
                             aria-label="Prepare WhatsApp (Manual)"
                             onClick={() => handleSendDistributorWhatsApp(order)}
                             disabled={sendingWhatsAppOrderId === order.id}
@@ -823,7 +925,7 @@ const PurchaseOrdersSection = ({
               >
                 Prev
               </button>
-              {paginationItems.map((item) => (
+              {paginationItems.map((item) =>
                 typeof item === 'number' ? (
                   <button
                     key={item}
@@ -839,7 +941,7 @@ const PurchaseOrdersSection = ({
                     ...
                   </span>
                 )
-              ))}
+              )}
               <button
                 type="button"
                 className="purchase-orders-page-btn"
@@ -867,8 +969,12 @@ const PurchaseOrdersSection = ({
         >
           <div className="purchase-confirm-delete">
             <p>
-              Delete PO <strong>{pendingDeleteOrder.po_number || `#${pendingDeleteOrder.id}`}</strong>
-              {pendingDeleteOrder.distributor_name ? ` for ${pendingDeleteOrder.distributor_name}` : ''}?
+              Delete PO{' '}
+              <strong>{pendingDeleteOrder.po_number || `#${pendingDeleteOrder.id}`}</strong>
+              {pendingDeleteOrder.distributor_name
+                ? ` for ${pendingDeleteOrder.distributor_name}`
+                : ''}
+              ?
             </p>
             <p>This action cannot be undone.</p>
             <div className="modal-actions">

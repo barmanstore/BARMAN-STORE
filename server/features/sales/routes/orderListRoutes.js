@@ -18,15 +18,22 @@ const registerOrderListRoutes = (deps) => {
     shipping_address: parseOrderAddress(order?.shipping_address),
   });
 
-  app.get('/api/orders', requireCapability('view_backoffice', 'Backoffice access required'), async (req, res) => {
-    try {
-      const query = String(req.query?.q || '').trim();
-      const wantsPaginated = ['1', 'true', 'yes'].includes(String(req.query?.paginated || '').trim().toLowerCase());
-      const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
-      const limit = Math.min(100, Math.max(1, Number.parseInt(req.query?.limit, 10) || 50));
-      const offset = (page - 1) * limit;
-      const searchClause = query
-        ? `WHERE (
+  app.get(
+    '/api/orders',
+    requireCapability('view_backoffice', 'Backoffice access required'),
+    async (req, res) => {
+      try {
+        const query = String(req.query?.q || '').trim();
+        const wantsPaginated = ['1', 'true', 'yes'].includes(
+          String(req.query?.paginated || '')
+            .trim()
+            .toLowerCase()
+        );
+        const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
+        const limit = Math.min(100, Math.max(1, Number.parseInt(req.query?.limit, 10) || 50));
+        const offset = (page - 1) * limit;
+        const searchClause = query
+          ? `WHERE (
             CAST(o.id AS TEXT) LIKE ?
             OR o.order_number LIKE ?
             OR o.customer_name LIKE ?
@@ -36,11 +43,9 @@ const registerOrderListRoutes = (deps) => {
             OR CAST(b.id AS TEXT) LIKE ?
             OR b.bill_number LIKE ?
           )`
-        : '';
-      const searchParams = query
-        ? Array.from({ length: 8 }, () => `%${query}%`)
-        : [];
-      const baseQuery = `
+          : '';
+        const searchParams = query ? Array.from({ length: 8 }, () => `%${query}%`) : [];
+        const baseQuery = `
         SELECT o.*,
                b.id AS bill_id,
                b.bill_number AS linked_bill_number,
@@ -63,32 +68,33 @@ const registerOrderListRoutes = (deps) => {
         ORDER BY o.created_at DESC
       `;
 
-      if (!wantsPaginated) {
-        const rows = await dbAllAsync(baseQuery, searchParams);
-        return res.json(rows.map(mapOrderRecord));
-      }
+        if (!wantsPaginated) {
+          const rows = await dbAllAsync(baseQuery, searchParams);
+          return res.json(rows.map(mapOrderRecord));
+        }
 
-      const [items, totalRow] = await Promise.all([
-        dbAllAsync(`${baseQuery} LIMIT ? OFFSET ?`, [...searchParams, limit, offset]),
-        dbGetAsync(
-          `SELECT COUNT(*) AS total
+        const [items, totalRow] = await Promise.all([
+          dbAllAsync(`${baseQuery} LIMIT ? OFFSET ?`, [...searchParams, limit, offset]),
+          dbGetAsync(
+            `SELECT COUNT(*) AS total
            FROM orders o
            LEFT JOIN bills b ON b.order_id = o.id
            ${searchClause}`,
-          searchParams
-        ),
-      ]);
+            searchParams
+          ),
+        ]);
 
-      return res.json({
-        items: items.map(mapOrderRecord),
-        page,
-        limit,
-        total: Number(totalRow?.total || 0),
-      });
-    } catch (error) {
-      return res.status(500).json({ error: error.message });
+        return res.json({
+          items: items.map(mapOrderRecord),
+          page,
+          limit,
+          total: Number(totalRow?.total || 0),
+        });
+      } catch (error) {
+        return res.status(500).json({ error: error.message });
+      }
     }
-  });
+  );
 };
 
 module.exports = { registerOrderListRoutes };

@@ -1,4 +1,7 @@
-const normalizeProvider = (name) => String(name || '').trim().toLowerCase();
+const normalizeProvider = (name) =>
+  String(name || '')
+    .trim()
+    .toLowerCase();
 
 const requiredConfig = (config = {}, keys = []) => {
   const missing = keys.filter((key) => !String(config[key] || '').trim());

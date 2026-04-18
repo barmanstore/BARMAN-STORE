@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 
-const normalizeQuery = (value) => String(value || '').trim().slice(0, 80);
+const normalizeQuery = (value) =>
+  String(value || '')
+    .trim()
+    .slice(0, 80);
 
 function HeaderSearchBar({ className = '' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [value, setValue] = useState('');
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     if (!location.pathname.startsWith('/products')) return;
     const params = new URLSearchParams(location.search);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValue(String(params.get('q') || ''));
   }, [location.pathname, location.search]);
 

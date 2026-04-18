@@ -1,11 +1,6 @@
 const { parseErrorMessage } = require('./utils');
 
-const createRequestAuth = ({
-  isEnabled,
-  baseUrl,
-  normalizedAnonKey,
-  normalizedServiceRoleKey,
-}) => {
+const createRequestAuth = ({ isEnabled, baseUrl, normalizedAnonKey, normalizedServiceRoleKey }) => {
   return async ({
     path,
     method = 'GET',
@@ -24,9 +19,7 @@ const createRequestAuth = ({
     const headers = {
       apikey: key,
       'Content-Type': 'application/json',
-      Authorization: accessToken
-        ? `Bearer ${accessToken}`
-        : `Bearer ${key}`,
+      Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${key}`,
     };
 
     const response = await fetch(`${baseUrl}${path}`, {

@@ -7,36 +7,56 @@ const generateOrderNumber = () => {
   return `ORD-${y}${m}${d}-${r}`;
 };
 
-const generateBillNumber = () => `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+const generateBillNumber = () =>
+  `BILL-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
 const ORDER_STATUS_ORDERED = 'ordered';
 const ORDER_STATUS_RECEIVED = 'received';
-const ORDER_ALLOWED_PAYMENT_STATUSES = new Set(['pending', 'paid', 'partial', 'refunded', 'declined']);
+const ORDER_ALLOWED_PAYMENT_STATUSES = new Set([
+  'pending',
+  'paid',
+  'partial',
+  'refunded',
+  'declined',
+]);
 
 const normalizeOrderStatus = (status, fallback = ORDER_STATUS_ORDERED) => {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return fallback;
   if (raw === ORDER_STATUS_ORDERED || raw === 'pending') return ORDER_STATUS_ORDERED;
-  if (raw === ORDER_STATUS_RECEIVED || raw === 'confirmed' || raw === 'delivered' || raw === 'processing' || raw === 'shipped') {
+  if (
+    raw === ORDER_STATUS_RECEIVED ||
+    raw === 'confirmed' ||
+    raw === 'delivered' ||
+    raw === 'processing' ||
+    raw === 'shipped'
+  ) {
     return ORDER_STATUS_RECEIVED;
   }
   return fallback;
 };
 
 const normalizeOrderPaymentStatus = (status, orderStatus) => {
-  const raw = String(status || '').trim().toLowerCase();
+  const raw = String(status || '')
+    .trim()
+    .toLowerCase();
   if (ORDER_ALLOWED_PAYMENT_STATUSES.has(raw)) return raw;
   const normalizedOrderStatus = normalizeOrderStatus(orderStatus, ORDER_STATUS_ORDERED);
   return normalizedOrderStatus === ORDER_STATUS_RECEIVED ? 'pending' : 'pending';
 };
 
 const normalizePaymentMethod = (method) => {
-  const raw = String(method || '').trim().toLowerCase();
+  const raw = String(method || '')
+    .trim()
+    .toLowerCase();
   if (!raw) return 'cash';
   if (raw === 'cod' || raw === 'cash') return 'cash';
   if (raw === 'upi') return 'upi';
   if (raw === 'card' || raw === 'credit_card' || raw === 'debit_card') return 'card';
-  if (raw === 'bank' || raw === 'bank_transfer' || raw === 'transfer' || raw === 'netbanking') return 'bank';
+  if (raw === 'bank' || raw === 'bank_transfer' || raw === 'transfer' || raw === 'netbanking')
+    return 'bank';
   if (raw === 'credit') return 'credit';
   return 'cash';
 };

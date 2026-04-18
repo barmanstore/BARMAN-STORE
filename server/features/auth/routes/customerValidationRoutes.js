@@ -53,12 +53,19 @@ const registerCustomerValidationRoutes = (deps) => {
   app.post('/api/orders/validate-customer', requireAuth, async (req, res) => {
     try {
       const userId = Number(req.body?.user_id || 0);
-      if (!userId) return res.status(400).json({ error: 'MISSING_CUSTOMER', message: 'Customer ID is required' });
+      if (!userId)
+        return res
+          .status(400)
+          .json({ error: 'MISSING_CUSTOMER', message: 'Customer ID is required' });
       if (req.authUser.role !== 'admin' && Number(req.authUser.id) !== userId) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      const user = await dbGetAsync(`SELECT id, name, email, email_verified, phone, phone_verified, address, role FROM users WHERE id = ?`, [userId]);
-      if (!user) return res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
+      const user = await dbGetAsync(
+        `SELECT id, name, email, email_verified, phone, phone_verified, address, role FROM users WHERE id = ?`,
+        [userId]
+      );
+      if (!user)
+        return res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
       let address = {};
       if (user.address) {
         try {
@@ -86,7 +93,6 @@ const registerCustomerValidationRoutes = (deps) => {
       return res.status(500).json({ error: error.message });
     }
   });
-  
 };
 
 module.exports = { registerCustomerValidationRoutes };

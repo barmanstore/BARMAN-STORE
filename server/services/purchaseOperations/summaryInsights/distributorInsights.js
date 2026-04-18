@@ -10,12 +10,11 @@ const { attachInsightsToPayables } = require('./distributor/payables');
 
 const RECENT_HABIT_WINDOW_DAYS = 120;
 
-const normalizeNoveltyKey = (value = '') => (
+const normalizeNoveltyKey = (value = '') =>
   String(value || '')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, ' ')
-);
+    .replace(/\s+/g, ' ');
 
 const buildCatalogProductIndex = (products = []) => {
   const productIds = new Set();
@@ -98,7 +97,10 @@ const buildNoveltyInsights = ({
       .filter(Boolean)
   );
   const historicalKeys = new Set(
-    (Array.isArray(mergedProductKnowledge?.historical_items) ? mergedProductKnowledge.historical_items : [])
+    (Array.isArray(mergedProductKnowledge?.historical_items)
+      ? mergedProductKnowledge.historical_items
+      : []
+    )
       .map((value) => normalizeNoveltyKey(value))
       .filter(Boolean)
   );
@@ -110,7 +112,9 @@ const buildNoveltyInsights = ({
     suggestedItemByNameKey.set(nameKey, entry);
   }
 
-  const alerts = (Array.isArray(mergedProductKnowledge?.merged_items) ? mergedProductKnowledge.merged_items : [])
+  const alerts = (
+    Array.isArray(mergedProductKnowledge?.merged_items) ? mergedProductKnowledge.merged_items : []
+  )
     .map((itemName) => {
       const normalizedName = String(itemName || '').trim();
       const nameKey = normalizeNoveltyKey(normalizedName);
@@ -119,21 +123,22 @@ const buildNoveltyInsights = ({
       const suggestedMatch = suggestedItemByNameKey.get(nameKey) || null;
       const suggestedProductId = Number(suggestedMatch?.product_id || 0);
       const catalogByName = catalogProductIndex?.productByNameKey?.get(nameKey) || null;
-      const catalogById = suggestedProductId && catalogProductIndex?.productIds?.has(suggestedProductId)
-        ? (catalogByName || {
-            id: suggestedProductId,
-            name: String(suggestedMatch?.product_name || normalizedName).trim() || null,
-            category: null,
-            brand: null,
-            uom: String(suggestedMatch?.uom || '').trim() || null,
-            is_active: true,
-          })
-        : null;
+      const catalogById =
+        suggestedProductId && catalogProductIndex?.productIds?.has(suggestedProductId)
+          ? catalogByName || {
+              id: suggestedProductId,
+              name: String(suggestedMatch?.product_name || normalizedName).trim() || null,
+              category: null,
+              brand: null,
+              uom: String(suggestedMatch?.uom || '').trim() || null,
+              is_active: true,
+            }
+          : null;
       const catalogMatch = catalogById || catalogByName || null;
       const inCatalog = Boolean(catalogMatch);
       const inRecentHabit = Boolean(
-        (suggestedProductId && recentHabitIndex?.productIds?.has(suggestedProductId))
-        || recentHabitIndex?.productNameKeys?.has(nameKey)
+        (suggestedProductId && recentHabitIndex?.productIds?.has(suggestedProductId)) ||
+        recentHabitIndex?.productNameKeys?.has(nameKey)
       );
       if (inCatalog && inRecentHabit) {
         return null;
@@ -143,43 +148,47 @@ const buildNoveltyInsights = ({
       if (!inCatalog) reasons.push('missing_catalog');
       if (!inRecentHabit) reasons.push('outside_recent_habit');
 
-      const source = manualKeys.has(nameKey) && historicalKeys.has(nameKey)
-        ? 'supplier_profile_and_history'
-        : manualKeys.has(nameKey)
-          ? 'supplier_profile'
-          : 'purchase_history';
+      const source =
+        manualKeys.has(nameKey) && historicalKeys.has(nameKey)
+          ? 'supplier_profile_and_history'
+          : manualKeys.has(nameKey)
+            ? 'supplier_profile'
+            : 'purchase_history';
 
       return {
-        item_name: catalogMatch?.name || String(suggestedMatch?.product_name || normalizedName).trim() || 'Unknown',
+        item_name:
+          catalogMatch?.name ||
+          String(suggestedMatch?.product_name || normalizedName).trim() ||
+          'Unknown',
         product_id: suggestedProductId || catalogMatch?.id || null,
         source,
         reasons,
-        label: reasons.length === 2
-          ? 'Missing from catalog and recent habit'
-          : reasons.includes('missing_catalog')
-            ? 'Missing from catalog'
-            : 'Outside recent habit',
+        label:
+          reasons.length === 2
+            ? 'Missing from catalog and recent habit'
+            : reasons.includes('missing_catalog')
+              ? 'Missing from catalog'
+              : 'Outside recent habit',
         in_catalog: inCatalog,
         in_recent_habit: inRecentHabit,
         category: catalogMatch?.category || null,
         brand: catalogMatch?.brand || null,
         uom: String(suggestedMatch?.uom || catalogMatch?.uom || '').trim() || null,
-        suggested_quantity: Number(suggestedMatch?.quantity || 0) > 0
-          ? Number(suggestedMatch.quantity)
-          : null,
+        suggested_quantity:
+          Number(suggestedMatch?.quantity || 0) > 0 ? Number(suggestedMatch.quantity) : null,
         is_active_catalog_product: catalogMatch ? catalogMatch.is_active !== false : null,
       };
     })
     .filter(Boolean)
     .sort((left, right) => {
       const leftPriority =
-        (left.reasons.length === 2 ? 3 : (left.reasons.includes('missing_catalog') ? 2 : 1))
-        + (left.source === 'supplier_profile' ? 0.5 : 0)
-        + (left.source === 'supplier_profile_and_history' ? 0.25 : 0);
+        (left.reasons.length === 2 ? 3 : left.reasons.includes('missing_catalog') ? 2 : 1) +
+        (left.source === 'supplier_profile' ? 0.5 : 0) +
+        (left.source === 'supplier_profile_and_history' ? 0.25 : 0);
       const rightPriority =
-        (right.reasons.length === 2 ? 3 : (right.reasons.includes('missing_catalog') ? 2 : 1))
-        + (right.source === 'supplier_profile' ? 0.5 : 0)
-        + (right.source === 'supplier_profile_and_history' ? 0.25 : 0);
+        (right.reasons.length === 2 ? 3 : right.reasons.includes('missing_catalog') ? 2 : 1) +
+        (right.source === 'supplier_profile' ? 0.5 : 0) +
+        (right.source === 'supplier_profile_and_history' ? 0.25 : 0);
       if (rightPriority !== leftPriority) return rightPriority - leftPriority;
       return String(left.item_name || '').localeCompare(String(right.item_name || ''));
     });
@@ -188,8 +197,11 @@ const buildNoveltyInsights = ({
     noveltyAlerts: alerts.slice(0, 3),
     noveltySummary: {
       total_count: alerts.length,
-      missing_catalog_count: alerts.filter((entry) => entry.reasons.includes('missing_catalog')).length,
-      outside_recent_habit_count: alerts.filter((entry) => entry.reasons.includes('outside_recent_habit')).length,
+      missing_catalog_count: alerts.filter((entry) => entry.reasons.includes('missing_catalog'))
+        .length,
+      outside_recent_habit_count: alerts.filter((entry) =>
+        entry.reasons.includes('outside_recent_habit')
+      ).length,
       supplier_profile_count: alerts.filter((entry) => entry.source === 'supplier_profile').length,
       recent_habit_window_days: Number(recentHabitIndex?.windowDays || RECENT_HABIT_WINDOW_DAYS),
       recent_habit_start_date: recentHabitIndex?.startDateKey || null,
@@ -218,12 +230,7 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
   } = deps;
 
   const buildDistributorInsights = ({ baseData, metrics }) => {
-    const {
-      todayKey,
-      distributors,
-      suppliers,
-      products,
-    } = baseData;
+    const { todayKey, distributors, suppliers, products } = baseData;
     const {
       paymentsByOrderId,
       ledgerBalanceByDistributor,
@@ -255,9 +262,12 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
 
     const inferDistributorInsight = (distributor) => {
       const distributorId = Number(distributor.id || 0);
-      const distributorOrders = [...(ordersByDistributor.get(distributorId) || [])]
-        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-      const completedOrders = distributorOrders.filter((order) => getPurchaseOrderLifecycleStatus(order) !== PO_LIFECYCLE_CANCELLED);
+      const distributorOrders = [...(ordersByDistributor.get(distributorId) || [])].sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      const completedOrders = distributorOrders.filter(
+        (order) => getPurchaseOrderLifecycleStatus(order) !== PO_LIFECYCLE_CANCELLED
+      );
       const openDistributorOrders = distributorOrders.filter(isOpenOrder);
       const cadenceData = buildDistributorCadence({
         todayKey,
@@ -285,9 +295,9 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
 
       const likelyItems = buildLikelyItems(orderStats.productCounts, { limit: 3 });
       const suggestedItems = buildSuggestedItems(orderStats.suggestionMap, { limit: 5 });
-      const manualProductsSupplied = (
-        supplierProductGroupsByDistributor.get(distributorId) || []
-      ).join(', ') || String(distributor?.products_supplied || '').trim();
+      const manualProductsSupplied =
+        (supplierProductGroupsByDistributor.get(distributorId) || []).join(', ') ||
+        String(distributor?.products_supplied || '').trim();
       const mergedProductKnowledge = mergeSuggestedProductKnowledge({
         manualProductsSupplied,
         mergeDistributorProductKnowledge,
@@ -351,7 +361,9 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
         inferred_payment_due_days: paymentDelivery.inferredPaymentDueDays,
         avg_delivery_days: paymentDelivery.avgDeliveryDays,
         inferred_due_date: paymentDelivery.inferredDueDate || null,
-        strict_deadline_count: completedOrders.filter((order) => Boolean(normalizeTransactionDate(order.strict_due_date))).length,
+        strict_deadline_count: completedOrders.filter((order) =>
+          Boolean(normalizeTransactionDate(order.strict_due_date))
+        ).length,
         novelty_alerts: noveltyInsights.noveltyAlerts,
         novelty_summary: noveltyInsights.noveltySummary,
         has_novelty_alerts: Number(noveltyInsights.noveltySummary?.total_count || 0) > 0,
@@ -359,7 +371,12 @@ const createPurchaseOperationsDistributorInsights = (deps) => {
     };
 
     const distributorInsights = distributors
-      .filter((distributor) => String(distributor.status || 'active').trim().toLowerCase() === 'active')
+      .filter(
+        (distributor) =>
+          String(distributor.status || 'active')
+            .trim()
+            .toLowerCase() === 'active'
+      )
       .map(inferDistributorInsight)
       .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
     const distributorInsightById = new Map(

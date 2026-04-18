@@ -6,11 +6,10 @@ const toFinitePositiveInteger = (value) => {
   return Math.max(0, Math.floor(parsed));
 };
 
-const createGraphemeSegmenter = () => (
+const createGraphemeSegmenter = () =>
   typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
     ? new Intl.Segmenter(GRAPHEME_LOCALE, { granularity: 'grapheme' })
-    : null
-);
+    : null;
 
 const truncateGraphemeText = (value, maxLength = 0) => {
   const input = String(value ?? '');
@@ -32,9 +31,8 @@ const truncateGraphemeText = (value, maxLength = 0) => {
   return Array.from(input).slice(0, limit).join('');
 };
 
-const buildMessagePreview = (value, maxLength = 280) => (
-  truncateGraphemeText(String(value ?? '').trim(), maxLength)
-);
+const buildMessagePreview = (value, maxLength = 280) =>
+  truncateGraphemeText(String(value ?? '').trim(), maxLength);
 
 module.exports = {
   buildMessagePreview,
