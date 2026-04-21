@@ -31,6 +31,7 @@ Full-stack store, billing, purchase, credit, and inventory management app built 
 2. Start backend (terminal 1)
 
 - `npm run server`
+- If your local `.env` does not have a working Supabase password, use `npm run server:local` instead. It starts a persistent repo-local Postgres instance under `.local/embedded-postgres/dev`, applies migrations, and boots the API against that local database only.
 
 3. Start frontend (terminal 2)
 
@@ -128,6 +129,7 @@ Notes:
 
 - `npm run dev` start Vite dev server
 - `npm run server` start Express API server
+- `npm run server:local` start the API against a persistent local Postgres cluster without changing deployed Supabase/Vercel credentials
 - `npm run build` build frontend
 - `npm run preview` preview frontend build
 - `npm run db:supabase:check` verify Supabase/Postgres connectivity (reads `DB_EXECUTION_MODE` from env files)
