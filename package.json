@@ -66,6 +66,7 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "server:local": "node scripts/server-local-postgres.mjs",
+    "server:system-local": "node scripts/server-system-postgres.mjs",
     "start:prod": "node server/index.js",
     "cleanup:code": "node scripts/cleanup-codebase.js",
     "cleanup:code:apply": "node scripts/cleanup-codebase.js --apply",
