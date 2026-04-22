@@ -43,7 +43,7 @@ Full-stack store, billing, purchase, credit, and inventory management app built 
 ### Local Auth On `localhost:3000`
 
 - Keep `FRONTEND_ORIGIN` aligned with the dev frontend host if you override the defaults; when it is unset, the backend already allows `http://localhost:3000` and `http://127.0.0.1:3000` for local Vite dev.
-- For local email OTP and social login, keep the auth block from `.env.example` in place: `SUPABASE_AUTH_ENABLED=true`, `SUPABASE_DB_URL=...`, and `AUTH_LOGIN_OTP_EXPOSE_CODE=true`.
+- For local email OTP and social login, keep the local auth block in `.env.local` (copy it from `.env.example`) in place, including `SUPABASE_AUTH_ENABLED=true`, `AUTH_FLOW_MODE=manual`, `OTP_DELIVERY_MODE=manual`, and `AUTH_LOGIN_OTP_EXPOSE_CODE=true`.
 - If you launch the backend directly with `npm run server`, make sure one of `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, or `NEXT_PUBLIC_SUPABASE_ANON_KEY` is set so OAuth callbacks can be validated.
 - If `OTP_DELIVERY_MODE=manual`, set `AUTH_LOGIN_OTP_EXPOSE_CODE=true` for local development so `POST /api/auth/otp/request` returns `dev_otp_code`.
 - The login screen will prefill and display that dev OTP when the backend exposes it.
@@ -133,8 +133,9 @@ Supported by backend (`server/index.js`):
 
 Notes:
 
-- Backend and DB helper scripts auto-load project env files (`.env`, `.env.local`, `.env.<NODE_ENV>`, `.env.<NODE_ENV>.local`).
-- Shell-defined environment variables still take priority over file values.
+- Backend and DB helper scripts auto-load project env files in this order: `.env`, `.env.<NODE_ENV>`, `.env.local`, `.env.<NODE_ENV>.local`.
+- Later file values override earlier file values, and shell-defined environment variables still take priority over file values.
+- Keep shared values that should match Vercel in `.env`; keep localhost-only overrides in `.env.local`.
 - When `POSTGRES_FALLBACK_URL` or the `POSTGRES_FALLBACK_*` settings are present, local runtime startup will try the primary Supabase/Postgres connection first and then fall back to the local Postgres target if the primary database cannot be reached.
 - Secrets must never be committed. Keep real values only in deployment/runtime environment variables.
 - For Vercel/serverless, run `npm run db:supabase:migrate` as an explicit operational step when schema changes are deployed. Runtime startup now skips migrations/bootstrap by default to reduce cold-start timeouts.
@@ -152,7 +153,10 @@ Notes:
 - `npm run secrets:scan:staged` scan staged files for secrets (used by pre-commit hook)
 - `npm run secrets:scan` scan tracked repository files for secrets (used by pre-push + CI)
 - `docs/SUPABASE_MIGRATION_START.md` Supabase migration runbook
+- `ops.bat` Windows maintenance dashboard
+- `ops.sh` Linux maintenance dashboard
 - `docs/WINDOWS_BAT_WORKFLOWS.md` Windows `.bat` automation guide (git/health/deploy)
+- `docs/LINUX_BASH_WORKFLOWS.md` Linux bash automation guide (dashboard + maintenance)
 
 ## Purchase Analytics Cron
 

@@ -1,5 +1,7 @@
 # Windows Batch Workflows
 
+This page covers the Windows-only batch workflow. For the Linux counterpart, see `docs/LINUX_BASH_WORKFLOWS.md`.
+
 This project now includes Windows automation scripts in:
 
 - `scripts/windows/git-maintain.bat`

@@ -31,27 +31,27 @@ const parseEnvText = (content) => {
   return out;
 };
 
-const loadEnvFile = (filePath) => {
+const loadEnvFile = (filePath, lockedKeys = null) => {
   if (!fs.existsSync(filePath)) return;
   const parsed = parseEnvText(fs.readFileSync(filePath, 'utf8'));
   for (const [key, value] of Object.entries(parsed)) {
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
+    if (lockedKeys?.has(key)) continue;
+    process.env[key] = value;
   }
 };
 
 const loadProjectEnv = () => {
   const projectRoot = path.resolve(__dirname, '..');
   const nodeEnv = String(process.env.NODE_ENV || '').trim();
+  const lockedKeys = new Set(Object.keys(process.env));
   const files = [
     '.env',
-    '.env.local',
     nodeEnv ? `.env.${nodeEnv}` : '',
+    '.env.local',
     nodeEnv ? `.env.${nodeEnv}.local` : '',
   ].filter(Boolean);
 
-  files.forEach((name) => loadEnvFile(path.join(projectRoot, name)));
+  files.forEach((name) => loadEnvFile(path.join(projectRoot, name), lockedKeys));
 };
 
 loadProjectEnv();

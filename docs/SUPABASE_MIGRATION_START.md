@@ -18,7 +18,7 @@ Set env values:
 DB_CLIENT=postgres
 DB_EXECUTION_MODE=postgres
 SUPABASE_DB_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
-POSTGRES_FALLBACK_URL=postgresql://postgres:<local-password>@127.0.0.1:5432/barmanstore
+POSTGRES_FALLBACK_URL=postgresql://<local-user>:<local-password>@127.0.0.1:5432/barman_store_local
 POSTGRES_MIGRATIONS_DIR=supabase/migrations
 PG_SSL=true
 PG_SSL_REJECT_UNAUTHORIZED=false
