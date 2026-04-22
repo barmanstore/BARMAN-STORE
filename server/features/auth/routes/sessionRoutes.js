@@ -1,3 +1,5 @@
+const { isTransientDatabaseError } = require('../../../core/dbErrors');
+
 const registerAuthSessionRoutes = (deps) => {
   const {
     app,
@@ -77,6 +79,11 @@ const registerAuthSessionRoutes = (deps) => {
         auth_provider: isSupabaseEmailAuthUsable() ? 'supabase' : 'legacy',
       });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Session lookup is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message || 'Failed to fetch session' });
     }
   });

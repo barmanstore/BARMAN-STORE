@@ -18,12 +18,14 @@ See also: [AGENTS.md](AGENTS.md), [ROUTES.md](ROUTES.md), [docs/api-contract.md]
 - `404`: missing resource
 - `409`: dedupe or business conflict
 - `410`: intentionally disabled compatibility endpoints
+- `503`: transient upstream or database saturation, including retryable auth lookups and list reads
 - `500+`: runtime or upstream failures
 
 ## Current Examples
 
 - Runtime readiness failures return JSON `500` from [server/core/httpSetup.js](server/core/httpSetup.js).
 - Shared route error handling utilities live in [server/core/routeErrors.js](server/core/routeErrors.js) and preserve `error.status` when emitting JSON.
+- Auth guards and selected list/profile routes may return `503` when the database pool is temporarily saturated so clients can retry without treating the session as invalid.
 - Validated order creation returns structured `400` issues for incomplete profiles in [server/features/sales/routes/orderCreateRoutes.js](server/features/sales/routes/orderCreateRoutes.js).
 - Credit issue resolution uses thrown errors with `status` in [server/features/credits/routes/creditIssues/admin/resolveIssue.js](server/features/credits/routes/creditIssues/admin/resolveIssue.js).
 - Password-auth compatibility endpoints intentionally return `410` and stay documented in [ROUTES.md](ROUTES.md).

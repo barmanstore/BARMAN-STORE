@@ -1,3 +1,4 @@
+const { isTransientDatabaseError } = require('../../core/dbErrors');
 const { userHasCapability } = require('./capabilities');
 
 const createAuthGuards = ({
@@ -12,9 +13,17 @@ const createAuthGuards = ({
       req.authUser = user;
       return { user, error: null };
     } catch (error) {
+      const isTransient = isTransientDatabaseError(error);
       return {
         user: null,
-        error: { status: 500, payload: { error: error.message || errorMessage } },
+        error: {
+          status: isTransient ? 503 : 500,
+          payload: {
+            error: isTransient
+              ? 'Authentication is temporarily unavailable. Please retry.'
+              : error.message || errorMessage,
+          },
+        },
       };
     }
   };

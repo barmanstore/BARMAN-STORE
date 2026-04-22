@@ -1,3 +1,5 @@
+const { isTransientDatabaseError } = require('../../../core/dbErrors');
+
 const registerCustomerRoutes = (deps) => {
   const {
     app,
@@ -57,6 +59,11 @@ const registerCustomerRoutes = (deps) => {
       );
       return res.json(customers);
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Customer directory is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message });
     }
   });
@@ -82,6 +89,11 @@ const registerCustomerRoutes = (deps) => {
       );
       return res.json(rows);
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Customer search is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message });
     }
   });
@@ -112,6 +124,11 @@ const registerCustomerRoutes = (deps) => {
         profileComplete: validateCustomerProfile(user, address),
       });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Customer profile is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message });
     }
   });

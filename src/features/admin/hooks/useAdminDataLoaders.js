@@ -24,9 +24,13 @@ const isTransientAdminLoadError = (error) => {
   const message = String(error?.message || '').toLowerCase();
   return (
     status >= 500 ||
+    message.includes('maxclientsinsessionmode') ||
     message.includes('timeout exceeded when trying to connect') ||
+    message.includes('too many clients already') ||
     message.includes('max client connections reached') ||
-    message.includes('remaining connection slots are reserved')
+    message.includes('remaining connection slots are reserved') ||
+    message.includes('connection limit reached') ||
+    message.includes('pool_size')
   );
 };
 

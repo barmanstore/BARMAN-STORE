@@ -4,9 +4,13 @@ const isTransientAnalyticsWriteError = (error) => {
   return (
     code === '53300' ||
     code === '57P03' ||
+    message.includes('maxclientsinsessionmode') ||
     message.includes('timeout exceeded when trying to connect') ||
+    message.includes('too many clients already') ||
     message.includes('max client connections reached') ||
-    message.includes('remaining connection slots are reserved')
+    message.includes('remaining connection slots are reserved') ||
+    message.includes('connection limit reached') ||
+    message.includes('pool_size')
   );
 };
 
@@ -118,6 +122,16 @@ const loadTodayDailyCashTally = async (dbGetAsync) =>
    WHERE dct.tally_date = CURRENT_DATE`
   );
 
+const resolveAnalyticsAuthUserId = async (req, getAuthUserFromRequest) => {
+  try {
+    const authUser = await getAuthUserFromRequest(req);
+    return Number(authUser?.id || 0) || null;
+  } catch (error) {
+    console.warn('[analytics] auth lookup degraded:', error.message || error);
+    return null;
+  }
+};
+
 const registerAnalyticsRoutes = (deps) => {
   const {
     app,
@@ -166,8 +180,7 @@ const registerAnalyticsRoutes = (deps) => {
       const referrer = sanitizeShortText(req.body?.referrer || req.headers.referer, 500);
       const userAgent = sanitizeShortText(req.headers['user-agent'], 500);
       const ipHash = hashVisitorIp(req);
-      const authUser = await getAuthUserFromRequest(req);
-      const authUserId = Number(authUser?.id || 0) || null;
+      const authUserId = await resolveAnalyticsAuthUserId(req, getAuthUserFromRequest);
 
       await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [
         sessionId,
@@ -198,8 +211,7 @@ const registerAnalyticsRoutes = (deps) => {
       const referrer = sanitizeShortText(req.body?.referrer || req.headers.referer, 500);
       const userAgent = sanitizeShortText(req.headers['user-agent'], 500);
       const ipHash = hashVisitorIp(req);
-      const authUser = await getAuthUserFromRequest(req);
-      const authUserId = Number(authUser?.id || 0) || null;
+      const authUserId = await resolveAnalyticsAuthUserId(req, getAuthUserFromRequest);
 
       await dbRunAsync(SQL_UPSERT_VISITOR_SESSION, [
         sessionId,

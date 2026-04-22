@@ -1,3 +1,5 @@
+const { isTransientDatabaseError } = require('../../../core/dbErrors');
+
 const registerUserNotificationRoutes = (deps) => {
   const {
     app,
@@ -81,6 +83,11 @@ const registerUserNotificationRoutes = (deps) => {
         },
       });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Notifications are temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message || 'Failed to load notifications' });
     }
   });
@@ -97,6 +104,11 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ count: Number(row?.count || 0) });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Unread notification count is temporarily unavailable. Please retry.' });
+      }
       return res
         .status(500)
         .json({ error: error.message || 'Failed to load unread notification count' });
@@ -120,6 +132,11 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ success: true, id: notificationId, is_read: true });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Unable to update notification state right now. Please retry.' });
+      }
       return res
         .status(500)
         .json({ error: error.message || 'Failed to mark notification as read' });
@@ -136,6 +153,11 @@ const registerUserNotificationRoutes = (deps) => {
       );
       return res.json({ success: true });
     } catch (error) {
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Unable to update notifications right now. Please retry.' });
+      }
       return res
         .status(500)
         .json({ error: error.message || 'Failed to mark notifications as read' });

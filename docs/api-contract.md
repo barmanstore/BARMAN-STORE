@@ -43,11 +43,12 @@ See also: [../ROUTES.md](../ROUTES.md), [routing.md](routing.md), [services.md](
 - `POST /api/products/import/confirm` now enqueues an `import_products` bulk job instead of applying rows in a single transaction. The confirm response returns the created job record and the UI should poll that job for the final result summary.
 - `GET /api/products/export` now honors the current catalog filter and sort parameters by default. Full-catalog export is explicit via `mode=all`.
 
-## Admin Analytics Notes
+## Analytics Notes
 
 - `GET /api/admin/analytics/summary` now returns visitor/session metrics plus `today_cash_summary`, which keeps current-day billed totals separate from the optional manual cash tally.
 - `GET /api/admin/analytics/daily-cash-tally?date=YYYY-MM-DD` returns `{ date, entry }`, where `entry` is `null` until an admin saves a tally for that day.
 - `PUT /api/admin/analytics/daily-cash-tally` upserts `{ date, counted_cash_total, note? }` and returns `{ success: true, date, entry, summary }`.
+- `POST /api/analytics/session/start` and `POST /api/analytics/session/heartbeat` are best-effort visitor tracking writes. Auth enrichment is optional. When the database is temporarily saturated or auth lookup fails, the backend may return `202` with `{ success: false, degraded: true, session_id }` instead of failing the page flow.
 
 ## Cashbook Notes
 

@@ -1,3 +1,5 @@
+const { isTransientDatabaseError } = require('../../../../core/dbErrors');
+
 const registerUserAdminListRoutes = (deps) => {
   const { app, requireCapability, dbAllAsync, dbGetAsync, sanitizeUser } = deps;
 
@@ -55,6 +57,11 @@ const registerUserAdminListRoutes = (deps) => {
           customerCount: Number(totals?.customer_count || 0),
         });
       } catch (error) {
+        if (isTransientDatabaseError(error)) {
+          return res
+            .status(503)
+            .json({ error: 'User directory is temporarily unavailable. Please retry.' });
+        }
         return res.status(500).json({ error: error.message });
       }
     }

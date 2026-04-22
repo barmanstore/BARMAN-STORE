@@ -1,3 +1,4 @@
+const { isTransientDatabaseError } = require('../../../../core/dbErrors');
 const { resolveProfileTarget, ensureProfileAccess } = require('./profile/authorization');
 const {
   loadUserForRead,
@@ -49,6 +50,11 @@ const registerUserProfileRoutes = (deps) => {
       return res.json(user);
     } catch (error) {
       const status = Number(error?.status || 0) || 500;
+      if (status === 500 && isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'User profile lookup is temporarily unavailable. Please retry.' });
+      }
       return res.status(status).json({ error: error?.message || 'Failed to load user profile' });
     }
   });
@@ -103,6 +109,11 @@ const registerUserProfileRoutes = (deps) => {
       if (error?.status === 400) return res.status(400).json({ error: error.message });
       if (error?.status === 403) return res.status(403).json({ error: error.message });
       if (error?.status === 404) return res.status(404).json({ error: error.message });
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'User profile update is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message });
     }
   });
@@ -137,6 +148,11 @@ const registerUserProfileRoutes = (deps) => {
       if (error?.status === 400) return res.status(400).json({ error: error.message });
       if (error?.status === 403) return res.status(403).json({ error: error.message });
       if (error?.status === 404) return res.status(404).json({ error: error.message });
+      if (isTransientDatabaseError(error)) {
+        return res
+          .status(503)
+          .json({ error: 'Profile image update is temporarily unavailable. Please retry.' });
+      }
       return res.status(500).json({ error: error.message });
     }
   });
