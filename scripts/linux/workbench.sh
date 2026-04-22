@@ -74,6 +74,52 @@ current_branch() {
   printf '%s' "$branch"
 }
 
+default_git_remote() {
+  local upstream=""
+  local remote_name=""
+  local remotes=()
+
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)"
+  upstream="${upstream//$'\r'/}"
+  if [[ -n "$upstream" && "$upstream" != "@{u}" ]]; then
+    remote_name="${upstream%%/*}"
+    if [[ -n "$remote_name" ]]; then
+      printf '%s' "$remote_name"
+      return 0
+    fi
+  fi
+
+  while IFS= read -r remote_name; do
+    remote_name="${remote_name//$'\r'/}"
+    [[ -n "$remote_name" ]] && remotes+=("$remote_name")
+  done < <(git remote 2>/dev/null || true)
+
+  for remote_name in "${remotes[@]}"; do
+    if [[ "$remote_name" == "origin" ]]; then
+      printf '%s' "$remote_name"
+      return 0
+    fi
+  done
+
+  if [[ ${#remotes[@]} -gt 0 ]]; then
+    printf '%s' "${remotes[0]}"
+    return 0
+  fi
+
+  echo "[ERROR] No git remote configured."
+  return 1
+}
+
+resolve_git_remote() {
+  local remote="${1:-}"
+  if [[ -n "$remote" ]]; then
+    printf '%s' "$remote"
+    return 0
+  fi
+
+  default_git_remote
+}
+
 pause_prompt() {
   [[ -t 0 && -t 1 ]] || return 0
   printf '\n'
@@ -165,7 +211,8 @@ git_status() {
 
 git_pull() {
   ensure_git_tool || return 1
-  local remote="${1:-origin}"
+  local remote
+  remote="$(resolve_git_remote "${1:-}")" || return 1
   local branch="${2:-$(current_branch)}"
   echo "[INFO] Pulling latest changes from ${remote}/${branch} ..."
   run_cmd git pull "$remote" "$branch"
@@ -173,7 +220,8 @@ git_pull() {
 
 git_push() {
   ensure_git_tool || return 1
-  local remote="${1:-origin}"
+  local remote
+  remote="$(resolve_git_remote "${1:-}")" || return 1
   local branch="${2:-$(current_branch)}"
   echo "[INFO] Pushing to ${remote}/${branch} ..."
   run_cmd git push "$remote" "$branch"
@@ -182,7 +230,8 @@ git_push() {
 git_quick() {
   ensure_git_tool || return 1
   local message="${1:-}"
-  local remote="${2:-origin}"
+  local remote
+  remote="$(resolve_git_remote "${2:-}")" || return 1
   local branch="${3:-$(current_branch)}"
 
   if [[ -z "$message" ]]; then
@@ -198,6 +247,12 @@ git_quick() {
 
   echo "[INFO] Staging changes..."
   run_cmd git add -A || return 1
+  if git diff --cached --quiet >/dev/null 2>&1; then
+    echo "[INFO] No staged changes detected; pushing current branch instead."
+    echo "[INFO] Pushing to ${remote}/${branch} ..."
+    run_cmd git push "$remote" "$branch" || return 1
+    return 0
+  fi
   echo "[INFO] Committing..."
   run_cmd git commit -m "$message" || return 1
   echo "[INFO] Pushing to ${remote}/${branch} ..."
@@ -458,8 +513,9 @@ deploy_vercel_preview() {
 deploy_git() {
   ensure_git_tool || return 1
   health_quick || return 1
-  local remote="${1:-origin}"
-  local branch="${2:-main}"
+  local remote
+  remote="$(resolve_git_remote "${1:-}")" || return 1
+  local branch="${2:-$(current_branch)}"
   echo "[INFO] Pushing to ${remote}/${branch} ..."
   run_cmd git push "$remote" "$branch" || return 1
 }
@@ -565,7 +621,7 @@ dispatch_choice() {
       deploy_vercel_preview
       ;;
     33|deploy:git|deploy-git)
-      deploy_git "${2:-origin}" "${3:-main}"
+      deploy_git "${2:-}" "${3:-}"
       ;;
     34|smoke:review|smoke-review)
       smoke_db_review

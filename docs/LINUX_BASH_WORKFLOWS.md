@@ -44,5 +44,8 @@ The `smoke:review` action prints the local smoke-suite database target so you ca
 
 - It expects `bash`, `node`, `npm`, `git`, and `npx` to be available.
 - Shared Supabase values stay in `.env`; localhost-only overrides stay in `.env.local`.
+- Git helpers default to the repo's configured remote. They prefer the branch upstream, then `origin` if present, then the first configured remote such as `barman-store`.
+- When branch names are omitted, Git helpers use the current branch.
+- `git quick` skips the commit step when there are no staged changes, which lets you retry a failed push without creating a duplicate commit.
 - The Windows-only smoke Postgres start/stop helpers are not part of the Linux dashboard. Use the smoke tests and cleanup commands instead.
 - `OPS_DRY_RUN=1` prints commands instead of running them for destructive workflows.
