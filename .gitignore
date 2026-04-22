@@ -43,6 +43,12 @@ Thumbs.db
 
 .vercel
 .codex-*/
+.codex
+.kilo/
+eslint_hooks_output.txt
+lint-output.json
+purchase-lint-report.txt
+vite.config.mjs.timestamp-*.mjs
 /.local/
 .tmp/
 Downloads/
