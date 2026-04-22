@@ -1,0 +1,76 @@
+.ui-stat-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid rgb(226 232 240 / 92%);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 5%);
+}
+
+.ui-stat-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgb(241 245 249);
+  color: rgb(51 65 85);
+}
+
+.ui-stat-card__copy {
+  min-width: 0;
+}
+
+.ui-stat-card__label {
+  display: block;
+  color: rgb(100 116 139);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ui-stat-card__value {
+  display: block;
+  margin-top: 0.2rem;
+  color: rgb(15 23 42);
+  font-size: 1.15rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.ui-stat-card__hint {
+  display: block;
+  margin-top: 0.2rem;
+  color: rgb(100 116 139);
+  font-size: 0.8rem;
+}
+
+.ui-stat-card--sky .ui-stat-card__icon {
+  background: rgb(239 246 255);
+  color: rgb(37 99 235);
+}
+
+.ui-stat-card--emerald .ui-stat-card__icon {
+  background: rgb(236 253 245);
+  color: rgb(5 150 105);
+}
+
+.ui-stat-card--amber .ui-stat-card__icon {
+  background: rgb(255 251 235);
+  color: rgb(217 119 6);
+}
+
+.ui-stat-card--violet .ui-stat-card__icon {
+  background: rgb(245 243 255);
+  color: rgb(109 40 217);
+}
+
+.ui-stat-card--rose .ui-stat-card__icon {
+  background: rgb(255 241 242);
+  color: rgb(225 29 72);
+}

@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -e
+
+node scripts/secret-scan.mjs --staged

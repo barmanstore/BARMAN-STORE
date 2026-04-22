@@ -1,0 +1,720 @@
+/* Credit Aging Report Styles */
+.credit-aging-report {
+  padding: 24px;
+}
+
+.credit-aging-report .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.credit-aging-report .page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.credit-aging-report .page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #111827;
+}
+
+.credit-aging-report .refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.credit-aging-report .refresh-btn:hover {
+  background: #e5e7eb;
+}
+
+.credit-aging-report .reset-filters-btn {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.credit-aging-report .reset-filters-btn.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.credit-aging-report .error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.credit-aging-report .loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* Summary Cards */
+.credit-aging-report .summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.credit-aging-report .summary-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+}
+
+.credit-aging-report .summary-card.total {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+}
+
+.credit-aging-report .summary-card.overdue {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+}
+
+.credit-aging-report .summary-card.score {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  border: none;
+}
+
+.credit-aging-report .summary-card.score.neutral {
+  background: linear-gradient(135deg, #64748b, #475569);
+}
+
+.credit-aging-report .summary-card.follow-up {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+  border: none;
+}
+
+.credit-aging-report .summary-card.limit {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+}
+
+.credit-aging-report .card-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.credit-aging-report .summary-card.total .card-value,
+.credit-aging-report .summary-card.overdue .card-value,
+.credit-aging-report .summary-card.score .card-value,
+.credit-aging-report .summary-card.follow-up .card-value,
+.credit-aging-report .summary-card.limit .card-value {
+  color: white;
+}
+
+.credit-aging-report .card-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.credit-aging-report .summary-card.total .card-label,
+.credit-aging-report .summary-card.overdue .card-label,
+.credit-aging-report .summary-card.score .card-label,
+.credit-aging-report .summary-card.follow-up .card-label,
+.credit-aging-report .summary-card.limit .card-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.credit-aging-report .health-breakdown {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 24px;
+}
+
+.credit-aging-report .health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.credit-aging-report .health-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #111827;
+}
+
+.credit-aging-report .clear-filters {
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+}
+
+.credit-aging-report .health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.credit-aging-report .health-card {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.credit-aging-report .health-card.active,
+.credit-aging-report .health-card:hover {
+  border-color: rgba(15, 23, 42, 0.15);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.credit-aging-report .health-count {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.credit-aging-report .health-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.credit-aging-report .health-card.excellent {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.credit-aging-report .health-card.very-good {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.credit-aging-report .health-card.good {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.credit-aging-report .health-card.attention {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.credit-aging-report .health-card.problem {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-aging-report .health-card.new {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.credit-aging-report .card-action {
+  cursor: pointer;
+  text-align: center;
+}
+
+.credit-aging-report .card-action:hover,
+.credit-aging-report .card-action:focus-visible,
+.credit-aging-report .card-action.active {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.14);
+}
+
+.credit-aging-report .filter-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.credit-aging-report .filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.credit-aging-report .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  font-size: 12px;
+  color: #334155;
+}
+
+.credit-aging-report .chip-remove {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* Aging Chart */
+.credit-aging-report .aging-chart {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid #e5e7eb;
+}
+
+.credit-aging-report .aging-chart h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  color: #374151;
+}
+
+.credit-aging-report .chart-bars {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.credit-aging-report .chart-bar {
+  flex: 1;
+  min-width: 150px;
+}
+
+.credit-aging-report .chart-bar.card-action {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.credit-aging-report .chart-bar.card-action.active {
+  background: #f8fafc;
+}
+
+.credit-aging-report .chart-bar > div {
+  height: 32px;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+.credit-aging-report .bar-fill.days-0-30 {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.credit-aging-report .bar-fill.days-31-60 {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.credit-aging-report .bar-fill.days-61-90 {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.credit-aging-report .bar-fill.days-over-90 {
+  background: linear-gradient(90deg, #7c3aed, #6d28d9);
+}
+
+.credit-aging-report .bar-label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 8px;
+}
+
+.credit-aging-report .bar-risk {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.credit-aging-report .bar-risk.low {
+  color: #15803d;
+}
+
+.credit-aging-report .bar-risk.medium {
+  color: #b45309;
+}
+
+.credit-aging-report .bar-risk.high {
+  color: #b91c1c;
+}
+
+.credit-aging-report .bar-value {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 4px;
+}
+
+/* Report Table */
+.credit-aging-report .report-table-container {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.credit-aging-report .report-table-container h3 {
+  padding: 16px 20px;
+  margin: 0;
+  font-size: 16px;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.credit-aging-report .report-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.credit-aging-report .report-table th {
+  background: #f9fafb;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.credit-aging-report .sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.credit-aging-report .sort-indicator {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.credit-aging-report .sort-indicator.active {
+  color: #2563eb;
+}
+
+.credit-aging-report .report-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  color: #374151;
+}
+
+.credit-aging-report .report-table tr:hover {
+  background: #f9fafb;
+}
+
+.credit-aging-report .customer-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.credit-aging-report .customer-name-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.credit-aging-report .customer-summary-note {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.credit-aging-report .contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.credit-aging-report .contact-info .email {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.credit-aging-report .balance {
+  font-weight: 600;
+  color: #111827;
+  display: grid;
+  gap: 6px;
+}
+
+.credit-aging-report .utilization-note {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.credit-aging-report .limit-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.credit-aging-report .limit-pill.within-limit {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.credit-aging-report .limit-pill.over-limit {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-aging-report .limit-pill.not-set {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.credit-aging-report .aging-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.credit-aging-report .risk-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.credit-aging-report .risk-pill.low {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.credit-aging-report .risk-pill.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.credit-aging-report .risk-pill.high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Status Badges */
+.credit-aging-report .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.credit-aging-report .status-badge.excellent {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.credit-aging-report .status-badge.very-good {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.credit-aging-report .status-badge.good {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.credit-aging-report .status-badge.attention {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+.credit-aging-report .status-badge.problem {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-aging-report .status-badge.new {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.credit-aging-report .badge-score {
+  display: inline-flex;
+  margin-left: 6px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.credit-aging-report .status-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-aging-report .action-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.credit-aging-report .row-action {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.credit-aging-report .row-action.view {
+  border-color: #cbd5f5;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.credit-aging-report .row-action.follow-up {
+  border-color: #fed7aa;
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.credit-aging-report .flag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.credit-aging-report .flag.defaulter {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.credit-aging-report .flag.follow-up {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.credit-aging-report .flag.over-limit {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.credit-aging-report .flag.inactive {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+/* Empty State */
+.credit-aging-report .empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .credit-aging-report .report-table-container {
+    overflow-x: auto;
+  }
+
+  .credit-aging-report .report-table {
+    min-width: 1320px;
+  }
+}
+
+@media (max-width: 768px) {
+  .credit-aging-report {
+    padding: 16px;
+  }
+
+  .credit-aging-report .summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .credit-aging-report .page-header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .credit-aging-report .filter-summary {
+    align-items: flex-start;
+  }
+
+  .credit-aging-report .chart-bars {
+    flex-direction: column;
+  }
+
+  .credit-aging-report .chart-bar {
+    width: 100% !important;
+  }
+}

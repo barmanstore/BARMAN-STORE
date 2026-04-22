@@ -1,0 +1,258 @@
+.admin-page {
+  --admin-font-body: 0.84rem;
+  --admin-font-label: 0.76rem;
+  --admin-font-input: 0.82rem;
+  --admin-font-h1: 1.2rem;
+  --admin-font-h2: 1.02rem;
+  --admin-font-h3: 0.92rem;
+  --admin-control-height: 34px;
+  --admin-control-pad-y: 0.4rem;
+  --admin-control-pad-x: 0.55rem;
+  --admin-radius: 8px;
+  --admin-border: #cfd8e3;
+  --admin-text: #0f172a;
+  --admin-muted: #475569;
+  --admin-soft-bg: #f8fafc;
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  ) {
+  font-size: var(--admin-font-body);
+  color: var(--admin-text);
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  h1 {
+  font-size: var(--admin-font-h1);
+  line-height: 1.25;
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  h2 {
+  font-size: var(--admin-font-h2);
+  line-height: 1.25;
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  h3 {
+  font-size: var(--admin-font-h3);
+  line-height: 1.3;
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  :is(label, .form-label, .field-help, .muted, .card-label, .stat-label, .ledger-balance-label) {
+  font-size: var(--admin-font-label);
+  color: var(--admin-muted);
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .restock-dashboard,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  :is(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+    select,
+    textarea
+  ) {
+  font-size: var(--admin-font-input);
+  min-height: var(--admin-control-height);
+  padding: var(--admin-control-pad-y) var(--admin-control-pad-x);
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  background: #fff;
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  :is(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+    select,
+    textarea
+  ):focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.admin-page
+  :is(
+    .billing-content,
+    .bills-viewer,
+    .purchase-management,
+    .distributor-management,
+    .insights-page,
+    .stock-ledger-history,
+    .credit-aging-report,
+    .credit-khata,
+    .customer-requests-admin,
+    .category-management-container,
+    .product-form,
+    .user-edit-modal
+  )
+  :is(.admin-btn, .action-btn, .add-btn, .submit-btn, .cancel-btn, .share-btn, .reset-btn) {
+  min-height: var(--admin-control-height);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: var(--admin-radius);
+}
+
+.admin-page
+  :is(
+    .billing-table,
+    .billing-items-table,
+    .products-table table,
+    .orders-table table,
+    .users-table table,
+    .data-table table,
+    .bills-viewer table
+  ) {
+  font-size: 0.8rem;
+}
+
+.admin-page
+  :is(
+    .billing-table th,
+    .billing-items-table th,
+    .products-table th,
+    .orders-table th,
+    .users-table th,
+    .data-table th,
+    .bills-viewer th
+  ) {
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #334155;
+  background: var(--admin-soft-bg);
+}
+
+.admin-page
+  :is(
+    .billing-table th,
+    .billing-table td,
+    .billing-items-table th,
+    .billing-items-table td,
+    .products-table th,
+    .products-table td,
+    .orders-table th,
+    .orders-table td,
+    .users-table th,
+    .users-table td,
+    .data-table th,
+    .data-table td,
+    .bills-viewer th,
+    .bills-viewer td
+  ) {
+  padding: 0.42rem 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .admin-page {
+    --admin-font-body: 0.82rem;
+    --admin-font-input: 0.8rem;
+    --admin-font-h1: 1.1rem;
+    --admin-font-h2: 0.97rem;
+    --admin-font-h3: 0.88rem;
+    --admin-control-height: 32px;
+  }
+}

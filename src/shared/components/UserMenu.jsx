@@ -1,0 +1,324 @@
+import { useState, useRef, useEffect, useId } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import {
+  User,
+  Shield,
+  LogOut,
+  ChevronDown,
+  X,
+  CreditCard,
+  FileText,
+  Lightbulb,
+} from 'lucide-react';
+import { useOverlayStackEntry } from '../../providers/OverlayProvider';
+import { useSession } from '../../providers/SessionProvider';
+import { resolveMediaSourceForDisplay } from '../services/api';
+import { truncateUserName } from '../utils/formatters';
+import useLockBodyScroll from '../hooks/useLockBodyScroll';
+import './UserMenu.css';
+
+function UserMenu({ user, inMobileNav = false, onNavigate = () => {} }) {
+  const overlayId = useId();
+  const { clearUser } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [failedAvatarSrc, setFailedAvatarSrc] = useState('');
+  const [avatarSrc, setAvatarSrc] = useState('');
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  });
+  const menuRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isMobileContext = inMobileNav && isMobileViewport;
+
+  useLockBodyScroll(menuOpen && isMobileViewport && !isMobileContext);
+  useOverlayStackEntry({
+    active: menuOpen,
+    id: `user-menu-${String(overlayId).replace(/[:]/g, '')}`,
+    type: 'chrome',
+    zIndex: isMobileContext ? 1700 : 1800,
+    onEscape: () => setMenuOpen(false),
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleLogout = () => {
+    clearUser();
+    setMenuOpen(false);
+    onNavigate();
+    navigate('/');
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let revokeUrl = null;
+    const run = async () => {
+      if (failedAvatarSrc === user?.profile_image || !user?.profile_image) {
+        setAvatarSrc('');
+        return;
+      }
+      const resolved = await resolveMediaSourceForDisplay(user.profile_image);
+      if (cancelled) {
+        if (resolved.revoke && resolved.src) URL.revokeObjectURL(resolved.src);
+        return;
+      }
+      setAvatarSrc(resolved.src || '');
+      revokeUrl = resolved.revoke ? resolved.src : null;
+    };
+    run();
+    return () => {
+      cancelled = true;
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
+  }, [user?.profile_image, failedAvatarSrc]);
+
+  const profileImageSrc = failedAvatarSrc === user?.profile_image ? '' : avatarSrc;
+  const closeAccountMenu = () => setMenuOpen(false);
+  const closeAccountMenuAndNav = () => {
+    setMenuOpen(false);
+    onNavigate();
+  };
+  const handleAccountToggle = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMenuOpen((prev) => !prev);
+  };
+  const renderAvatar = (className) => (
+    <span className={className}>
+      {profileImageSrc ? (
+        <img
+          src={profileImageSrc}
+          alt={user?.name || 'User'}
+          className="avatar-image"
+          onError={() => setFailedAvatarSrc(user?.profile_image || '')}
+        />
+      ) : user?.name ? (
+        getInitials(user.name)
+      ) : (
+        <User size={18} />
+      )}
+    </span>
+  );
+
+  return (
+    <div className={`user-menu-container ${isMobileContext ? 'inline-mode' : ''}`} ref={menuRef}>
+      {user ? (
+        <>
+          {/* Logged in - Show user avatar button */}
+          <button
+            type="button"
+            className="user-menu-button logged-in"
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={handleAccountToggle}
+            aria-label="Account menu"
+            aria-expanded={menuOpen}
+          >
+            {renderAvatar('user-avatar')}
+            <span className="user-menu-label">Account</span>
+            <ChevronDown size={16} className={`chevron ${menuOpen ? 'open' : ''}`} />
+          </button>
+
+          {/* Dropdown menu */}
+          {menuOpen && (
+            <>
+              {isMobileContext ? (
+                <div className="user-dropdown user-dropdown-inline open">
+                  <div className="dropdown-header">
+                    {renderAvatar('dropdown-avatar')}
+                    <div className="dropdown-user-info">
+                      <span className="dropdown-user-name">
+                        {truncateUserName(user.name || 'User', 15)}
+                      </span>
+                      <span className="dropdown-user-email">
+                        {user.email || user.phone || 'No email'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="dropdown-close-btn"
+                      aria-label="Close account menu"
+                      onClick={closeAccountMenu}
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="dropdown-divider"></div>
+
+                  <div className="dropdown-menu">
+                    <Link to="/profile" className="dropdown-item" onClick={closeAccountMenuAndNav}>
+                      <User size={18} />
+                      <span>My Profile</span>
+                    </Link>
+                    {user.role === 'customer' && (
+                      <Link
+                        to="/my-credit"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
+                        <CreditCard size={18} />
+                        <span>My Credit History</span>
+                      </Link>
+                    )}
+                    {user.role === 'customer' && (
+                      <Link
+                        to="/my-bills"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
+                        <FileText size={18} />
+                        <span>My Bills</span>
+                      </Link>
+                    )}
+                    {user.role === 'customer' && (
+                      <Link
+                        to="/product-requests"
+                        className="dropdown-item"
+                        onClick={closeAccountMenuAndNav}
+                      >
+                        <Lightbulb size={18} />
+                        <span>Request Product</span>
+                      </Link>
+                    )}
+                    <div className="dropdown-divider"></div>
+                    <button className="dropdown-item logout-item" onClick={handleLogout}>
+                      <LogOut size={18} />
+                      <span>Sign out</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="user-menu-overlay"
+                    aria-label="Close account menu"
+                    onClick={closeAccountMenu}
+                  />
+                  <div className="user-dropdown user-dropdown--enter open">
+                    <div className="dropdown-header">
+                      {renderAvatar('dropdown-avatar')}
+                      <div className="dropdown-user-info">
+                        <span className="dropdown-user-name">
+                          {truncateUserName(user.name || 'User', 15)}
+                        </span>
+                        <span className="dropdown-user-email">
+                          {user.email || user.phone || 'No email'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="dropdown-close-btn"
+                        aria-label="Close account menu"
+                        onClick={closeAccountMenu}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="dropdown-divider"></div>
+
+                    <div className="dropdown-menu">
+                      <Link to="/profile" className="dropdown-item" onClick={closeAccountMenu}>
+                        <User size={18} />
+                        <span>My Profile</span>
+                      </Link>
+
+                      {user.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          className="dropdown-item admin-item"
+                          onClick={closeAccountMenu}
+                        >
+                          <Shield size={18} />
+                          <span>Admin Panel</span>
+                        </Link>
+                      )}
+                      {user.role === 'customer' && (
+                        <Link to="/my-credit" className="dropdown-item" onClick={closeAccountMenu}>
+                          <CreditCard size={18} />
+                          <span>My Credit History</span>
+                        </Link>
+                      )}
+                      {user.role === 'customer' && (
+                        <Link to="/my-bills" className="dropdown-item" onClick={closeAccountMenu}>
+                          <FileText size={18} />
+                          <span>My Bills</span>
+                        </Link>
+                      )}
+                      {user.role === 'customer' && (
+                        <Link
+                          to="/product-requests"
+                          className="dropdown-item"
+                          onClick={closeAccountMenu}
+                        >
+                          <Lightbulb size={18} />
+                          <span>Request Product</span>
+                        </Link>
+                      )}
+
+                      <div className="dropdown-divider"></div>
+
+                      <button className="dropdown-item logout-item" onClick={handleLogout}>
+                        <LogOut size={18} />
+                        <span>Sign out</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Not logged in - Show Sign in button */}
+          <Link to="/login" className="user-menu-button sign-in-btn" onClick={onNavigate}>
+            <span>Sign in</span>
+          </Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default UserMenu;

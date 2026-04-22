@@ -1,0 +1,25 @@
+.calculated-amount-input {
+  display: block;
+  width: 100%;
+}
+
+.calculated-amount-input.has-error input,
+.calculated-amount-input input[aria-invalid='true'] {
+  border-color: #dc2626;
+  background: #fef2f2;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
+}
+
+.calculated-amount-input-preview {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.calculated-amount-input-preview.ok {
+  color: #0f766e;
+}
+
+.calculated-amount-input-preview.error {
+  color: #b91c1c;
+}

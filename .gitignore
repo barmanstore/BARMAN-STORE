@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+server/uploads/
+
+# Misc
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+tmp.*
+tmp*
+
+# Editor
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+.vercel
+.codex-*/
+/.local/
+.tmp/
+Downloads/
+*.docx
+Pictures/
+.trashed-*
+*.mp4

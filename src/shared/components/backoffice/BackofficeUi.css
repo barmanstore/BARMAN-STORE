@@ -1,0 +1,43 @@
+.admin-page .admin-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.4rem;
+}
+
+.admin-page .admin-page-header-main {
+  min-width: 0;
+}
+
+.admin-page .admin-page-header-main h1 {
+  margin: 0;
+}
+
+.admin-page .admin-page-header-main p {
+  margin: 0.2rem 0 0;
+  color: var(--admin-muted, #475569);
+  font-size: var(--admin-font-label, 0.76rem);
+}
+
+.admin-page .admin-page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.admin-page .admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .admin-page .admin-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

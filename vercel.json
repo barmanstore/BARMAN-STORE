@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "crons": [
+    {
+      "path": "/api/internal/phone-change/process",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/purchase-operations/notifications/run",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/internal/purchase-operations/analytics/run",
+      "schedule": "45 0 * * *"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
+}

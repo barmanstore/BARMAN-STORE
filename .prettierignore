@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.git
+.kilo
+.cache
+.vite
+.tmp
+tmp.workbench.input.txt
+lint-output.txt
+full-lint-output.txt
+eslint-output.json
+purchase-cleanup-diff.txt

@@ -1,0 +1,188 @@
+.ui-dropdown-filter {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-dropdown-filter__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ui-dropdown-filter__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5rem;
+  padding: 0 0.7rem;
+  border: 1px solid rgb(226 232 240 / 92%);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgb(255 255 255 / 92%), rgb(248 250 252 / 88%));
+  color: rgb(71 85 105);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 82%),
+    0 8px 16px rgb(15 23 42 / 4%);
+}
+
+.ui-dropdown-filter__select-shell {
+  width: 100%;
+}
+
+.ui-dropdown-filter__checklist-shell {
+  padding: 0.8rem;
+  border: 1px solid rgb(226 232 240 / 92%);
+  border-radius: 1.4rem;
+  background: linear-gradient(180deg, rgb(255 255 255 / 98%), rgb(248 250 252 / 96%));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 82%),
+    0 18px 36px rgb(15 23 42 / 8%);
+}
+
+.ui-dropdown-filter__checklist {
+  display: grid;
+  gap: 0.35rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.ui-dropdown-filter__item {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  padding: 0.7rem 0.85rem;
+  color: rgb(51 65 85);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.ui-dropdown-filter__item:hover {
+  border-color: rgb(226 232 240 / 88%);
+  background: rgb(248 250 252);
+  transform: translateY(-1px);
+}
+
+.ui-dropdown-filter__item.is-active {
+  border-color: rgb(226 232 240 / 88%);
+  background: linear-gradient(180deg, rgb(241 245 249), rgb(248 250 252));
+  color: rgb(15 23 42);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 82%);
+}
+
+.ui-dropdown-filter__checkbox {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgb(203 213 225);
+  accent-color: rgb(14 165 233);
+}
+
+.ui-dropdown-filter__checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgb(14 165 233 / 14%);
+}
+
+.ui-dropdown-filter__bullet {
+  flex: 0 0 auto;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: rgb(148 163 184);
+}
+
+.ui-dropdown-filter__bullet--active {
+  background: rgb(51 65 85);
+}
+
+.ui-dropdown-filter--sky {
+  --dropdown-filter-accent: rgb(14 165 233);
+}
+
+.ui-dropdown-filter--amber {
+  --dropdown-filter-accent: rgb(245 158 11);
+}
+
+.ui-dropdown-filter--emerald {
+  --dropdown-filter-accent: rgb(16 185 129);
+}
+
+.ui-dropdown-filter--violet {
+  --dropdown-filter-accent: rgb(139 92 246);
+}
+
+.ui-dropdown-filter--slate {
+  --dropdown-filter-accent: rgb(71 85 105);
+}
+
+.ui-dropdown-filter__select {
+  width: 100%;
+  height: 2.75rem;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0 2.75rem 0 1rem;
+  color: rgb(15 23 42);
+  font-size: 0.92rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.ui-dropdown-filter__select::placeholder {
+  color: rgb(148 163 184);
+}
+
+.ui-dropdown-filter__select-chevron {
+  position: absolute;
+  right: 0.95rem;
+  color: rgb(148 163 184);
+  pointer-events: none;
+}
+
+/* Modern pill enhancements */
+.dropdown-filter-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-filter-pill:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.dropdown-filter-pill.is-active {
+  transform: scale(1.02);
+}
+
+.dropdown-filter-pill-indicator {
+  flex: 0 0 auto;
+  display: inline-flex;
+  opacity: 0.8;
+  transition: opacity 0.16s ease;
+}
+
+.dropdown-filter-pill.is-active .dropdown-filter-pill-indicator {
+  opacity: 1;
+}

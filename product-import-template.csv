@@ -1,0 +1,2 @@
+name,description,category,subcategory,brand,sub_brand,content,color,price,mrp,stock,sku,barcode,image,uom,base_unit,uom_type,conversion_factor,purchase_pack_size,expiry_date,default_discount,discount_type,is_active
+Sample Product,Example item from import template,Groceries,Snacks,BrandX,Standard,Pack of 10,Red,99.00,120.00,50,BRX-SN-001,8901234567890,https://example.com/image.jpg,pcs,pcs,selling,1,1,,0,fixed,1

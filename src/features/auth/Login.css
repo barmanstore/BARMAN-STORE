@@ -1,0 +1,241 @@
+.otp-login-page {
+  width: 100%;
+  min-height: calc(100vh - 220px);
+  min-height: calc(100dvh - 220px);
+  padding: 1rem 0.9rem 2.4rem;
+  display: grid;
+  place-items: start center;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(244, 63, 94, 0.12), transparent 36%),
+    radial-gradient(circle at 90% 100%, rgba(14, 165, 233, 0.12), transparent 40%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+.otp-login-card {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 1rem 0.95rem 1.1rem;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.1);
+}
+
+.otp-kicker {
+  margin: 0 0 0.45rem;
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #e2e8f0;
+}
+
+.otp-login-card h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 7vw, 2.2rem);
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+.auth-view-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+  margin: 0.8rem 0 0.95rem;
+}
+
+.switch-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  padding: 0.68rem 0.75rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.switch-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.switch-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.register-prompt-box {
+  border: 1px solid #fbbf24;
+  background: #fefce8;
+  color: #713f12;
+  border-radius: 10px;
+  padding: 0.72rem 0.82rem;
+  margin-bottom: 0.82rem;
+}
+
+.register-prompt-box p {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+}
+
+.error-message,
+.success-message {
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.82rem;
+  font-size: 0.86rem;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.success-message {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.otp-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.form-group {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.form-group label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #334155;
+}
+
+.form-group input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.78rem 0.82rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+.otp-step-pill {
+  font-size: 0.82rem;
+  color: #0f172a;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  padding: 0.4rem 0.72rem;
+}
+
+.login-button {
+  width: 100%;
+  border: 1px solid #0f172a;
+  border-radius: 10px;
+  padding: 0.82rem 0.9rem;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.94rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-button.secondary {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.login-button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.login-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.oauth-divider {
+  margin: 1.1rem 0 0.8rem;
+  text-align: center;
+  position: relative;
+  color: #64748b;
+}
+
+.oauth-divider span {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  padding: 0 0.6rem;
+}
+
+.oauth-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid #cbd5e1;
+}
+
+.oauth-grid {
+  display: grid;
+  gap: 0.62rem;
+  grid-template-columns: 1fr;
+}
+
+.oauth-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0.76rem 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.oauth-btn.google {
+  border-color: #fca5a5;
+  color: #7f1d1d;
+}
+
+.oauth-btn.facebook {
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+
+.oauth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (min-width: 760px) {
+  .otp-login-page {
+    padding-top: 1.6rem;
+  }
+
+  .otp-login-card {
+    padding: 1.35rem 1.35rem 1.4rem;
+  }
+
+  .oauth-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://barmanstore.vercel.app/</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/products</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/cart</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/login</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/order-history</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/order-tracking</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/my-bills</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/product-requests</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/privacy-policy.html</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/terms-of-service.html</loc>
+  </url>
+  <url>
+    <loc>https://barmanstore.vercel.app/data-deletion.html</loc>
+  </url>
+</urlset>
