@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import ProductInsights from './ProductInsights';
 
 export default {
@@ -8,85 +7,6 @@ export default {
     layout: 'fullscreen',
   },
 };
-
-// Mock data for stories
-const MOCK_PRODUCT_INSIGHTS = [
-  {
-    product_id: 1,
-    product_name: 'Organic Rice 5kg',
-    sku: 'RICE-5KG',
-    sales_count: 156,
-    avg_price: 450.0,
-    min_price: 420.0,
-    max_price: 480.0,
-    supplier_count: 3,
-    inventory_level: 125,
-    reorder_point: 50,
-  },
-  {
-    product_id: 2,
-    product_name: 'Wheat Flour 10kg',
-    sku: 'FLOUR-10KG',
-    sales_count: 124,
-    avg_price: 380.0,
-    min_price: 360.0,
-    max_price: 410.0,
-    supplier_count: 2,
-    inventory_level: 95,
-    reorder_point: 40,
-  },
-  {
-    product_id: 3,
-    product_name: 'Sunflower Oil 1L',
-    sku: 'OIL-1L',
-    sales_count: 89,
-    avg_price: 120.0,
-    min_price: 110.0,
-    max_price: 135.0,
-    supplier_count: 4,
-    inventory_level: 8,
-    reorder_point: 15,
-  },
-  {
-    product_id: 4,
-    product_name: 'Sugar 1kg',
-    sku: 'SUGAR-1KG',
-    sales_count: 45,
-    avg_price: 65.0,
-    min_price: 60.0,
-    max_price: 75.0,
-    supplier_count: 2,
-    inventory_level: 250,
-    reorder_point: 100,
-  },
-];
-
-const MOCK_SUPPLIERS = [
-  {
-    supplier_id: 1,
-    supplier_name: 'ACME Foods Ltd',
-    is_active: true,
-    avg_lead_time: 3.5,
-  },
-  {
-    supplier_id: 2,
-    supplier_name: 'Global Supply Co',
-    is_active: true,
-    avg_lead_time: 5.2,
-  },
-  {
-    supplier_id: 3,
-    supplier_name: 'Fresh Direct',
-    is_active: true,
-    avg_lead_time: 2.8,
-  },
-  {
-    supplier_id: 4,
-    supplier_name: 'Premium Imports',
-    is_active: true,
-    avg_lead_time: 7.5,
-  },
-];
 
 /**
  * Default state with full data, filters available, and interactive controls
@@ -195,7 +115,7 @@ export const WithSearchFilter = {
     <div style={{ background: '#faf8f5', minHeight: '100vh', padding: '2rem' }}>
       <div className="insights-page product-insights">
         <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', padding: '2rem' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Search Results for "Rice"</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Search Results for &quot;Rice&quot;</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>

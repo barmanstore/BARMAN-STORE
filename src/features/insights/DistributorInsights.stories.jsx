@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import DistributorInsights from './DistributorInsights';
 
 export default {
@@ -8,82 +7,6 @@ export default {
     layout: 'fullscreen',
   },
 };
-
-// Mock data for stories
-const MOCK_DISTRIBUTOR_INSIGHTS = [
-  {
-    distributor_id: 1,
-    distributor_name: 'ACME Foods Ltd',
-    purchase_count: 24,
-    product_count: 18,
-    avg_cost: 450.75,
-    min_cost: 280.0,
-    max_cost: 850.0,
-    avg_lead_time: 3.5,
-    on_time_rate: 0.96,
-    price_volatility: 45.25,
-  },
-  {
-    distributor_id: 2,
-    distributor_name: 'Global Supply Co',
-    purchase_count: 18,
-    product_count: 12,
-    avg_cost: 520.5,
-    min_cost: 350.0,
-    max_cost: 900.0,
-    avg_lead_time: 5.2,
-    on_time_rate: 0.88,
-    price_volatility: 78.5,
-  },
-  {
-    distributor_id: 3,
-    distributor_name: 'Fresh Direct',
-    purchase_count: 32,
-    product_count: 22,
-    avg_cost: 380.0,
-    min_cost: 200.0,
-    max_cost: 750.0,
-    avg_lead_time: 2.8,
-    on_time_rate: 0.98,
-    price_volatility: 25.0,
-  },
-  {
-    distributor_id: 4,
-    distributor_name: 'Premium Imports',
-    purchase_count: 8,
-    product_count: 5,
-    avg_cost: 1250.0,
-    min_cost: 900.0,
-    max_cost: 1600.0,
-    avg_lead_time: 7.5,
-    on_time_rate: 0.75,
-    price_volatility: 150.0,
-  },
-];
-
-const MOCK_PRODUCTS = [
-  {
-    product_id: 1,
-    product_name: 'Organic Rice 5kg',
-    sku: 'RICE-5KG',
-    is_available: true,
-    last_cost: 450.0,
-  },
-  {
-    product_id: 2,
-    product_name: 'Sunflower Oil 1L',
-    sku: 'OIL-1L',
-    is_available: true,
-    last_cost: 120.0,
-  },
-  {
-    product_id: 3,
-    product_name: 'Wheat Flour 10kg',
-    sku: 'FLOUR-10KG',
-    is_available: true,
-    last_cost: 380.0,
-  },
-];
 
 /**
  * Default state with full data, filters available, and interactive controls
@@ -192,7 +115,7 @@ export const WithSearchFilter = {
     <div style={{ background: '#faf8f5', minHeight: '100vh', padding: '2rem' }}>
       <div className="insights-page distributor-insights">
         <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', padding: '2rem' }}>
-          <h2 style={{ marginBottom: '1rem' }}>Search Results for "Fresh"</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Search Results for &quot;Fresh&quot;</h2>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
