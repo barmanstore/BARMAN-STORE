@@ -138,6 +138,7 @@ Notes:
 - Keep shared values that should match Vercel in `.env`; keep localhost-only overrides in `.env.local`.
 - When `POSTGRES_FALLBACK_URL` or the `POSTGRES_FALLBACK_*` settings are present, local runtime startup will try the primary Supabase/Postgres connection first and then fall back to the local Postgres target if the primary database cannot be reached.
 - Secrets must never be committed. Keep real values only in deployment/runtime environment variables.
+- Vercel functions are pinned to `bom1` in [`vercel.json`](vercel.json) so API compute stays close to the Mumbai Supabase database.
 - For Vercel/serverless, run `npm run db:supabase:migrate` as an explicit operational step when schema changes are deployed. Runtime startup now skips migrations/bootstrap by default to reduce cold-start timeouts.
 
 ## Scripts
