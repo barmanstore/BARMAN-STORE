@@ -22,11 +22,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@storybook/addon-a11y": "^8.6.14",
-    "@storybook/addon-essentials": "^8.6.14",
-    "@storybook/addon-interactions": "^8.6.14",
-    "@storybook/react-vite": "^8.6.14",
-    "@storybook/test": "^8.6.14",
     "@tailwindcss/postcss": "^4.1.18",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.24",
@@ -37,7 +32,6 @@
     "globals": "^17.5.0",
     "postcss": "^8.5.6",
     "prettier": "^3.8.3",
-    "storybook": "^8.6.14",
     "stylelint": "^17.8.0",
     "stylelint-config-standard": "^40.0.0",
     "tailwindcss": "^4.1.18",
@@ -47,8 +41,6 @@
     "dev": "vite",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "storybook": "node scripts/storybook.mjs dev -p 6006",
-    "build-storybook": "node scripts/storybook.mjs build",
     "stylelint": "stylelint \"src/**/*.css\"",
     "stylelint:fix": "stylelint --fix \"src/**/*.css\"",
     "build": "vite build",

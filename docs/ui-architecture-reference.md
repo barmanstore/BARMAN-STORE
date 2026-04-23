@@ -269,7 +269,6 @@ Use this quick check before approving a page that relies on the shared search/fi
 - Summary counts use `StatCard`, not page-local stat blocks.
 - The outer table frame uses `TableShell`; page-specific logic stays inside the body.
 - Page CSS only owns layout bounds, width, or table mechanics that the shared components do not own.
-- Compare the page against the matching Storybook stories before adding page-local overrides.
 
 ## Current Reference Implementations
 

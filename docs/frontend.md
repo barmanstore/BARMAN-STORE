@@ -11,11 +11,6 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [services.md](services.md), 
 - Shared API access lives in `src/shared/services/api/*.js`, rooted at [src/shared/services/api/core.js](../src/shared/services/api/core.js).
 - Cart state is local-storage backed through [src/providers/CartProvider.jsx](../src/providers/CartProvider.jsx), not by a backend cart API.
 - Shared UI primitives and base tokens live in [src/App.css](../src/App.css) and [src/shared/components](../src/shared/components); prefer extending those before introducing feature-local duplicates for recurring surfaces like empty states, cards, and compact action rows.
-- Storybook, when used, should stay component-first: import only shared design tokens, keep stories co-located with components, and use them to document shared primitives and edge states before creating feature-specific page stories.
-- Storybook stories should expose meaningful controls and cover at least the default, empty, loading, and error states for reusable components.
-- Story files should use named exports only and keep a simple standard: `Default` plus at least one edge-state story, with mock data only and no API calls inside the story render.
-- Storybook should model the UI as separate primitives first: `SearchFilter`, `DropdownFilter`, `DateRangeFilter`, `StatCard`, `TableShell`, `BackofficePageHeader`, and `EmptyState` should each have their own stories and controls so pages stay composable instead of page-owned.
-- Composed page stories are assembly examples only. If a page story exists, it should demonstrate how the shared primitives fit together, but the canonical design contract still lives in the individual component stories.
 
 ## Page Verification Checklist
 
@@ -29,7 +24,6 @@ Use this checklist when reviewing any page that uses shared search, filter, stat
 - Summary metrics use `StatCard` instead of page-specific stat blocks.
 - Tables use `TableShell` for the outer frame and scroll container, with page-specific logic only inside the table body.
 - Page CSS should own layout bounds and table behavior only; it should not restyle shared filter chrome.
-- Compare the page against the matching Storybook component stories before adding page-local overrides.
 
 ## State And Orchestration Pattern
 
