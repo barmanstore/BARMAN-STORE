@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { getFilterFrameClassName } from './filterClassNames.js';
+import { SearchFilterSubmitButton } from './SearchFilterButtons.jsx';
 import './SearchFilter.css';
 
 const VISUALLY_HIDDEN_STYLE = {
@@ -44,6 +45,7 @@ function SearchFilter({
   scopeAriaLabel = 'Search scope',
   submitAriaLabel = 'Search',
   ariaAutocomplete,
+  actions = null,
 }) {
   const generatedId = useId();
   const inputId = id || `search-filter-${generatedId}`;
@@ -139,14 +141,14 @@ function SearchFilter({
         {hasSubmitButton ? (
           <>
             <span className="ui-search-filter__divider" aria-hidden="true" />
-            <button
-              type="submit"
-              className="ui-search-filter__submit"
-              aria-label={submitAriaLabel}
-              title={submitAriaLabel}
-            >
-              <Search size={15} aria-hidden="true" />
-            </button>
+            <SearchFilterSubmitButton ariaLabel={submitAriaLabel} title={submitAriaLabel} tone={tone} />
+          </>
+        ) : null}
+
+        {actions ? (
+          <>
+            <span className="ui-search-filter__divider" aria-hidden="true" />
+            <div className="ui-search-filter__actions">{actions}</div>
           </>
         ) : null}
       </form>

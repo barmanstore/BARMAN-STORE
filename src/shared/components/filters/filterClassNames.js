@@ -1,6 +1,6 @@
 const joinClassNames = (...classNames) => classNames.filter(Boolean).join(' ');
 
-const FILTER_FRAME_CLASS_NAME = 'inline-grid min-w-0 gap-1.5';
+const FILTER_FRAME_CLASS_NAME = 'inline-grid min-w-0 gap-0';
 const FILTER_LABEL_CLASS_NAME = 'text-[11px] font-semibold uppercase tracking-[0.08em]';
 const FILTER_SURFACE_CLASS_NAME =
   'relative inline-flex min-h-[44px] items-center overflow-hidden rounded-[18px] border border-slate-200/90 bg-white/95 shadow-[0_12px_28px_rgba(15,23,42,0.08)] backdrop-blur-md transition';

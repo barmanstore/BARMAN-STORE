@@ -42,11 +42,16 @@
   margin-bottom: 20px;
 }
 
+.stock-ledger-history .ledger-toolbar-stack {
+  position: relative;
+  z-index: 5;
+}
+
 /* Ledger Table */
 .stock-ledger-history .ledger-table-container {
   position: sticky;
   top: 16px;
-  z-index: 4;
+  z-index: 1;
   align-self: start;
   overflow: auto;
   max-height: min(70vh, 640px);

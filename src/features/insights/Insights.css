@@ -68,142 +68,17 @@
   max-width: 100%;
   margin-bottom: 14px;
   padding: 10px 12px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
-  box-shadow:
-    0 14px 30px rgba(15, 23, 42, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(8px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .product-insights .product-insights-search-filter {
   width: 100%;
   min-width: 0;
   justify-self: stretch;
-}
-
-.product-insights .product-insights-search-filter.search-filter-frame {
-  display: inline-grid;
-  gap: 6px;
-}
-
-.product-insights .product-insights-search-filter .search-filter-shell {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid #dbe4ef;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.product-insights .product-insights-search-filter .search-filter-shell:focus-within {
-  border-color: #93c5fd;
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.06),
-    0 0 0 4px rgba(219, 234, 254, 0.85);
-}
-
-.product-insights .product-insights-search-filter .search-filter-scope {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  align-self: stretch;
-  flex: 0 0 auto;
-}
-
-.product-insights .product-insights-search-filter .search-filter-scope-select {
-  height: 38px;
-  width: 78px;
-  padding: 0 26px 0 10px;
-  border: 0;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  outline: none;
-}
-
-.product-insights .product-insights-search-filter .search-filter-scope-chevron {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  width: 13px;
-  height: 13px;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.product-insights .product-insights-search-filter .search-filter-divider {
-  flex: 0 0 1px;
-  align-self: stretch;
-  width: 1px;
-  height: auto;
-  background: #e2e8f0;
-}
-
-.product-insights .product-insights-search-filter .search-filter-input-shell {
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.product-insights .product-insights-search-filter .search-filter-input {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
-  outline: none;
-}
-
-.product-insights .product-insights-search-filter .search-filter-input::placeholder {
-  color: #94a3b8;
-}
-
-.product-insights .product-insights-search-filter .search-filter-submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  margin: 0 4px 0 0;
-  border: 0;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #0369a1;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.product-insights .product-insights-search-filter .search-filter-submit:hover,
-.product-insights .product-insights-search-filter .search-filter-submit:focus-visible {
-  background: #dbeafe;
-  color: #075985;
-}
-
-.product-insights .product-insights-search-filter .search-filter-submit:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 4px rgba(219, 234, 254, 0.85);
 }
 
 .product-insights .product-insights-filter-toggle,

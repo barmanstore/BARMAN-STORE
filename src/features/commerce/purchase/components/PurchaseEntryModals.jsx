@@ -1,33 +1,45 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Plus, Search } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Layers,
+  Plus,
+  Search,
+} from 'lucide-react';
 import SafeProductImage from '../../../../shared/components/product/SafeProductImage';
 import WindowModal from '../../../../shared/components/window/WindowModal';
 import PurchaseDistributorSelector from './PurchaseDistributorSelector';
 import PurchaseOrderEntryControlPanel from './PurchaseOrderEntryControlPanel';
 import PurchaseOrderSummaryPanel from './PurchaseOrderSummaryPanel';
-import PurchaseOrderReviewSheet from './PurchaseOrderReviewSheet';
 import ProductForm from '../../../catalog/products/components/form/ProductForm';
 
-const getPreferredActiveIndex = (items = []) => {
-  if (!Array.isArray(items) || !items.length) return 0;
-  const draftIndex = items.findIndex(
-    (item) => !String(item?.product_query || '').trim() && !String(item?.product_id || '').trim()
-  );
-  if (draftIndex >= 0) return draftIndex;
-  return Math.max(0, items.length - 1);
-};
 const hasMeaningfulDraftRow = (item = {}) =>
   Number(item?.product_id || 0) > 0 ||
   String(item?.product_query || '').trim().length > 0 ||
   String(item?.product_name || '').trim().length > 0 ||
-  Number(item?.quantity || 0) > 1 ||
+  Number(item?.quantity || 0) > 0 ||
   Number(item?.rate ?? item?.unit_price ?? 0) > 0;
 const formatReviewAmount = (value) =>
   Number(value || 0).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+const formatReviewTotalAmount = (value) =>
+  Number(value || 0).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 const normalizeDiscountColumnType = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase() === 'fixed'
+    ? 'fixed'
+    : 'percent';
+const normalizeReviewDiscountType = (value) =>
   String(value || '')
     .trim()
     .toLowerCase() === 'fixed'
@@ -37,6 +49,15 @@ const getDiscountColumnLabel = (value) =>
   normalizeDiscountColumnType(value) === 'fixed' ? 'Disc ₹' : 'Disc %';
 const getDiscountColumnSuffix = (value) =>
   normalizeDiscountColumnType(value) === 'fixed' ? '₹' : '%';
+const PURCHASE_CREATE_REVIEW_PAGE_SIZE = 8;
+const splitPurchaseCreateReviewRows = (rows = []) => {
+  const pageRows = [];
+  const size = PURCHASE_CREATE_REVIEW_PAGE_SIZE;
+  for (let index = 0; index < rows.length; index += size) {
+    pageRows.push(rows.slice(index, index + size));
+  }
+  return pageRows.length ? pageRows : [[]];
+};
 const resolveDiscountColumnType = (items = []) => {
   if (!Array.isArray(items) || !items.length) return 'percent';
   const preferredItem =
@@ -67,6 +88,52 @@ const ORDER_FLOW_STEPS = [
   },
 ];
 const ORDER_FLOW_REVIEW_STEP = ORDER_FLOW_STEPS.length - 1;
+
+const PurchaseCreateReviewPage = ({ rows, pageIndex, totalPages }) => (
+  <div className="po-create-review-page">
+    {totalPages > 1 ? (
+      <div className="po-create-review-page-label">
+        Page {pageIndex + 1} of {totalPages}
+      </div>
+    ) : null}
+    <div className="po-review-bill-table">
+      <div className="po-review-bill-head">
+        <span>Item</span>
+        <span>Qty</span>
+        <span>Rate</span>
+        <span>GST</span>
+        <span>Disc</span>
+        <span>Total</span>
+      </div>
+      {rows.length ? (
+        rows.map((row) => {
+          const discountType = normalizeReviewDiscountType(row.discountType);
+          const discountValue = Number(row.discountValue || 0) || 0;
+          const discountLabel =
+            discountValue > 0
+              ? `${formatReviewAmount(discountValue)}${discountType === 'fixed' ? '₹' : '%'}`
+              : '-';
+          return (
+            <div key={row.key} className="po-review-bill-row">
+              <span>{row.name}</span>
+              <span>
+                {row.quantity} {row.uom}
+              </span>
+              <span>{formatReviewAmount(row.rate)}</span>
+              <span>{formatReviewAmount(row.gstRate)}%</span>
+              <span>{discountLabel}</span>
+              <strong>{formatReviewAmount(row.total)}</strong>
+            </div>
+          );
+        })
+      ) : (
+        <div className="po-review-bill-row">
+          <span>No items</span>
+        </div>
+      )}
+    </div>
+  </div>
+);
 
 const getDraftRowIssue = (rowDiagnostics = {}) => {
   if (rowDiagnostics.duplicateMessage) {
@@ -140,8 +207,7 @@ const getNextPurchaseOrderRowSortDirection = (direction) => {
   return 'ascending';
 };
 
-const PO_SELECTED_ROW_ESTIMATED_HEIGHT = 74;
-const PO_SELECTED_ROW_OVERSCAN = 6;
+const PO_SELECTED_ROW_PAGE_SIZE = 12;
 
 export function PurchaseOrderFormModal({
   open,
@@ -187,7 +253,7 @@ export function PurchaseOrderFormModal({
   const [productPickerSelectedIds, setProductPickerSelectedIds] = useState([]);
   const [quickProductFormOpen, setQuickProductFormOpen] = useState(false);
   const [productPickerVisibleLimit, setProductPickerVisibleLimit] = useState(48);
-  const [selectedRowsWindow, setSelectedRowsWindow] = useState({ start: 0, end: 24 });
+  const [selectedRowsPageIndex, setSelectedRowsPageIndex] = useState(0);
   const [itemProductSearch, setItemProductSearch] = useState('');
   const [itemProductSortDirection, setItemProductSortDirection] = useState(null);
   const [discountColumnType, setDiscountColumnType] = useState(() =>
@@ -199,7 +265,6 @@ export function PurchaseOrderFormModal({
   const quantityInputRefs = useRef({});
   const formFooterRef = useRef(null);
   const submitButtonRef = useRef(null);
-  const selectedRowsScrollRef = useRef(null);
   const productPickerScrollRef = useRef(null);
   const productPickerLoadMoreRef = useRef(null);
   const previousDistributorIdRef = useRef('');
@@ -272,7 +337,7 @@ export function PurchaseOrderFormModal({
             diagnostics: draftDiagnostics.rowDiagnostics[index] || {},
           };
         })
-        .filter((entry) => hasMeaningfulDraftRow(entry.item)),
+        .filter((entry) => isSupplierDefaultItem(entry.item) || hasMeaningfulDraftRow(entry.item)),
     [draftDiagnostics.rowDiagnostics, draftProjection.rows, productLookupById]
   );
   const normalizedItemProductSearch = String(deferredItemProductSearch || '')
@@ -301,20 +366,21 @@ export function PurchaseOrderFormModal({
       return left.index - right.index;
     });
   }, [filteredOrderRows, itemProductSortDirection]);
-  const selectedRowsTotalHeight = displayedOrderRows.length * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
-  const selectedRowsWindowStart = Math.max(
+  const selectedRowsPageCount = Math.max(
+    1,
+    Math.ceil(displayedOrderRows.length / PO_SELECTED_ROW_PAGE_SIZE)
+  );
+  const selectedRowsPageIndexResolved = Math.max(
     0,
-    Math.min(selectedRowsWindow.start, Math.max(0, displayedOrderRows.length - 1))
+    Math.min(selectedRowsPageIndex, selectedRowsPageCount - 1)
   );
-  const selectedRowsWindowEnd = Math.max(
-    selectedRowsWindowStart,
-    Math.min(selectedRowsWindow.end, Math.max(0, displayedOrderRows.length - 1))
+  const selectedRowsPageStart = selectedRowsPageIndexResolved * PO_SELECTED_ROW_PAGE_SIZE;
+  const selectedRowsPageEnd = Math.min(
+    displayedOrderRows.length,
+    selectedRowsPageStart + PO_SELECTED_ROW_PAGE_SIZE
   );
-  const windowedDisplayedOrderRows = displayedOrderRows.slice(
-    selectedRowsWindowStart,
-    selectedRowsWindowEnd + 1
-  );
-  const selectedRowsWindowOffset = selectedRowsWindowStart * PO_SELECTED_ROW_ESTIMATED_HEIGHT;
+  const selectedRowsPageRows = displayedOrderRows.slice(selectedRowsPageStart, selectedRowsPageEnd);
+  const selectedRowsPageLabel = `${selectedRowsPageIndexResolved + 1}/${selectedRowsPageCount}`;
   const reviewableOrderRows = useMemo(
     () => visibleOrderRows.filter((entry) => Number(entry?.item?.quantity || 0) > 0),
     [visibleOrderRows]
@@ -347,6 +413,10 @@ export function PurchaseOrderFormModal({
         };
       }),
     [reviewableOrderRows]
+  );
+  const reviewDisplayPages = useMemo(
+    () => splitPurchaseCreateReviewRows(reviewSheetRows),
+    [reviewSheetRows]
   );
   const supplierBoardItemCount = useMemo(
     () =>
@@ -477,10 +547,10 @@ export function PurchaseOrderFormModal({
   const productPickerVisibleCount = filteredAllProductPickerProducts.length;
   const productPickerAvailableCount = availableAllProductPickerProducts.length;
   const productPickerStatusLabel = loadingDistributorItems
-    ? 'Loading supplier board...'
+    ? 'Loading'
     : hasProductPickerSearch
       ? `${productPickerVisibleCount} match${productPickerVisibleCount === 1 ? '' : 'es'}`
-      : `${productPickerAvailableCount} extra product${productPickerAvailableCount === 1 ? '' : 's'}`;
+      : `${productPickerAvailableCount} left`;
 
   const focusSupplierField = useCallback((select = false) => {
     const target = distributorInputRef.current;
@@ -502,14 +572,6 @@ export function PurchaseOrderFormModal({
           return;
         }
         if (shouldRetry) return;
-        const scrollNode = selectedRowsScrollRef.current;
-        const visiblePosition = displayedOrderRows.findIndex((entry) => entry.index === rowIndex);
-        if (scrollNode && visiblePosition >= 0) {
-          scrollNode.scrollTo({
-            top: Math.max(0, (visiblePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
-            behavior: 'auto',
-          });
-        }
         window.requestAnimationFrame(() => attemptFocus(true));
       };
 
@@ -596,7 +658,8 @@ export function PurchaseOrderFormModal({
     } else {
       setMobileStep(1);
     }
-    setActiveItemIndex(getPreferredActiveIndex(items));
+    setActiveItemIndex(0);
+    setSelectedRowsPageIndex(0);
     setProductPickerOpen(false);
     setProductPickerSearch('');
     setProductPickerSelectedIds([]);
@@ -614,7 +677,7 @@ export function PurchaseOrderFormModal({
       focusSupplierField(true);
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [open, focusSupplierField, items, orderFormData?.distributor_id, orderReviewMode]);
+  }, [open, focusSupplierField, orderFormData?.distributor_id, orderReviewMode]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -637,6 +700,7 @@ export function PurchaseOrderFormModal({
     const nextDistributorId = String(orderFormData?.distributor_id || '').trim();
     if (!nextDistributorId) {
       setMobileStep(0);
+      setSelectedRowsPageIndex(0);
       setProductPickerOpen(false);
       setProductPickerSearch('');
       setProductPickerSelectedIds([]);
@@ -646,6 +710,7 @@ export function PurchaseOrderFormModal({
     }
     if (previousDistributorId !== nextDistributorId) {
       setMobileStep(1);
+      setSelectedRowsPageIndex(0);
       setProductPickerOpen(false);
       setProductPickerSearch('');
       setProductPickerSelectedIds([]);
@@ -702,70 +767,9 @@ export function PurchaseOrderFormModal({
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const totalRows = displayedOrderRows.length;
-    setSelectedRowsWindow({
-      start: 0,
-      end: Math.max(0, Math.min(totalRows - 1, 24)),
-    });
+    setSelectedRowsPageIndex(0);
   }, [displayedOrderRows.length, itemProductSearch, itemProductSortDirection]);
   /* eslint-enable react-hooks/set-state-in-effect */
-
-  useEffect(() => {
-    const scrollNode = selectedRowsScrollRef.current;
-    if (!scrollNode || typeof window === 'undefined') return undefined;
-
-    let frameId = 0;
-    const updateWindow = () => {
-      frameId = 0;
-      const totalRows = displayedOrderRows.length;
-      if (totalRows === 0) {
-        setSelectedRowsWindow({ start: 0, end: 0 });
-        return;
-      }
-      const viewportHeight = Math.max(1, Number(scrollNode.clientHeight || 0));
-      const scrollTop = Math.max(0, Number(scrollNode.scrollTop || 0));
-      const visibleStart = Math.max(
-        0,
-        Math.floor(scrollTop / PO_SELECTED_ROW_ESTIMATED_HEIGHT) - PO_SELECTED_ROW_OVERSCAN
-      );
-      const visibleEnd = Math.min(
-        totalRows - 1,
-        Math.ceil((scrollTop + viewportHeight) / PO_SELECTED_ROW_ESTIMATED_HEIGHT) +
-          PO_SELECTED_ROW_OVERSCAN
-      );
-      setSelectedRowsWindow((current) => {
-        if (current.start === visibleStart && current.end === visibleEnd) return current;
-        return { start: visibleStart, end: visibleEnd };
-      });
-    };
-
-    const scheduleUpdate = () => {
-      if (frameId) return;
-      frameId = window.requestAnimationFrame(updateWindow);
-    };
-
-    scheduleUpdate();
-    scrollNode.addEventListener('scroll', scheduleUpdate, { passive: true });
-    window.addEventListener('resize', scheduleUpdate);
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId);
-      scrollNode.removeEventListener('scroll', scheduleUpdate);
-      window.removeEventListener('resize', scheduleUpdate);
-    };
-  }, [displayedOrderRows.length]); // eslint-disable-line react-hooks/set-state-in-effect
-
-  useEffect(() => {
-    const activePosition = displayedOrderRows.findIndex((entry) => entry.index === activeItemIndex);
-    if (activePosition < 0) return;
-    if (activePosition >= selectedRowsWindow.start && activePosition <= selectedRowsWindow.end)
-      return;
-    const scrollNode = selectedRowsScrollRef.current;
-    if (!scrollNode) return;
-    scrollNode.scrollTo({
-      top: Math.max(0, (activePosition - 2) * PO_SELECTED_ROW_ESTIMATED_HEIGHT),
-      behavior: 'auto',
-    });
-  }, [activeItemIndex, displayedOrderRows, selectedRowsWindow.end, selectedRowsWindow.start]);
 
   useEffect(() => {
     if (!productPickerOpen) return undefined;
@@ -797,8 +801,10 @@ export function PurchaseOrderFormModal({
   const handleRemoveRow = useCallback(
     (index = resolvedActiveItemIndex) => {
       const nextIndex = Math.max(0, Math.min(index, items.length - 2));
+      const nextPageIndex = Math.max(0, Math.floor(nextIndex / PO_SELECTED_ROW_PAGE_SIZE));
       handleOrderItemRemove(index);
       setActiveItemIndex(nextIndex);
+      setSelectedRowsPageIndex(nextPageIndex);
       setMobileStep(1);
     },
     [handleOrderItemRemove, items.length, resolvedActiveItemIndex]
@@ -814,10 +820,28 @@ export function PurchaseOrderFormModal({
           : Math.min(displayedOrderRows.length - 1, currentPosition + 1);
       const nextIndex = displayedOrderRows[nextPosition]?.index;
       if (typeof nextIndex !== 'number') return;
+      setSelectedRowsPageIndex(Math.max(0, Math.floor(nextPosition / PO_SELECTED_ROW_PAGE_SIZE)));
       setActiveItemIndex(nextIndex);
       focusQuantityField(nextIndex);
     },
     [displayedOrderRows, focusQuantityField]
+  );
+
+  const handleSelectedRowsPageChange = useCallback(
+    (nextPageIndex) => {
+      const nextIndex = Math.max(
+        0,
+        Math.min(Math.floor(nextPageIndex), selectedRowsPageCount - 1)
+      );
+      const nextPageStart = nextIndex * PO_SELECTED_ROW_PAGE_SIZE;
+      const nextRow = displayedOrderRows[nextPageStart];
+      setSelectedRowsPageIndex(nextIndex);
+      if (typeof nextRow?.index === 'number') {
+        setActiveItemIndex(nextRow.index);
+        focusQuantityField(nextRow.index);
+      }
+    },
+    [displayedOrderRows, focusQuantityField, selectedRowsPageCount]
   );
 
   const toggleProductPickerSelection = useCallback(
@@ -896,8 +920,22 @@ export function PurchaseOrderFormModal({
     setQuickProductFormOpen(false);
   }, []);
 
-  const handleQuickProductSaved = useCallback(async () => {
+  const handleQuickProductSaved = useCallback(async (saveResult = {}) => {
+    const savedProducts = Array.isArray(saveResult?.savedProducts)
+      ? saveResult.savedProducts
+      : Array.isArray(saveResult?.createdProducts)
+        ? saveResult.createdProducts
+        : saveResult?.updatedProduct
+          ? [saveResult.updatedProduct]
+          : [];
+    const primarySavedProduct = savedProducts[0] || null;
+    const nextPickerSearch = String(
+      primarySavedProduct?.name || primarySavedProduct?.sku || ''
+    ).trim();
+    const nextSelectedProductId = String(primarySavedProduct?.id || '').trim();
+
     setQuickProductFormOpen(false);
+    setProductPickerOpen(true);
 
     // Invalidate the purchase lookup cache and refresh products
     try {
@@ -912,6 +950,13 @@ export function PurchaseOrderFormModal({
       }
     } catch (error) {
       console.warn('Failed to refresh products after adding new product:', error);
+    } finally {
+      if (nextPickerSearch) {
+        setProductPickerSearch(nextPickerSearch);
+      }
+      if (nextSelectedProductId) {
+        setProductPickerSelectedIds([nextSelectedProductId]);
+      }
     }
   }, [onRefreshProducts]);
 
@@ -1126,29 +1171,68 @@ export function PurchaseOrderFormModal({
                       orderFormData?.supplier_name || orderFormData?.distributor_name || ''
                     ).trim() || 'Supplier selected'}
                   </strong>
-                </div>
-                <div className="po-popup-items-head-actions">
-                  <span className="po-popup-board-count">
-                    {normalizedItemProductSearch
-                      ? `${displayedOrderRows.length} shown of ${visibleOrderRows.length}`
-                      : `${supplierBoardItemCount} supplier items • ${reviewableOrderRows.length} ordered`}
-                  </span>
                   <button
                     type="button"
-                    className="po-popup-inline-action"
+                    className="po-popup-supplier-switch"
                     onClick={() => focusWorkflowStep(0)}
                     disabled={orderSubmitting}
+                    aria-label="Change supplier"
+                    title="Change supplier"
                   >
-                    Change Supplier
+                    <ArrowUpDown size={14} aria-hidden="true" />
                   </button>
+                </div>
+                <div className="po-popup-items-head-actions">
                   <button
                     type="button"
-                    className="po-popup-inline-action"
+                    className="po-popup-supplier-switch po-popup-add-product"
                     onClick={handleOpenProductPicker}
                     disabled={orderSubmitting}
+                    aria-label="Add product"
+                    title="Add product"
                   >
-                    Add Product
+                    <Plus size={14} aria-hidden="true" />
                   </button>
+                  <span
+                    className="po-popup-board-count"
+                    aria-label={
+                      normalizedItemProductSearch
+                        ? `${displayedOrderRows.length} shown out of ${visibleOrderRows.length}`
+                        : `${supplierBoardItemCount} supplier rows and ${reviewableOrderRows.length} ordered`
+                    }
+                  >
+                    <Layers size={14} aria-hidden="true" />
+                    <strong>
+                      {normalizedItemProductSearch
+                        ? `${displayedOrderRows.length}/${visibleOrderRows.length}`
+                        : `${supplierBoardItemCount}`}
+                    </strong>
+                  </span>
+                  {selectedRowsPageCount > 1 ? (
+                    <div className="po-popup-board-pagination">
+                      <button
+                        type="button"
+                        className="po-popup-inline-action po-popup-page-nav"
+                        onClick={() => handleSelectedRowsPageChange(selectedRowsPageIndexResolved - 1)}
+                        disabled={orderSubmitting || selectedRowsPageIndexResolved <= 0}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="po-popup-page-pill">{selectedRowsPageLabel}</span>
+                      <button
+                        type="button"
+                        className="po-popup-inline-action po-popup-page-nav"
+                        onClick={() => handleSelectedRowsPageChange(selectedRowsPageIndexResolved + 1)}
+                        disabled={
+                          orderSubmitting || selectedRowsPageIndexResolved >= selectedRowsPageCount - 1
+                        }
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </section>
 
@@ -1217,255 +1301,224 @@ export function PurchaseOrderFormModal({
                       </button>
                       <span>Total</span>
                     </div>
-                    <div ref={selectedRowsScrollRef} className="po-popup-items-table-body">
-                      {displayedOrderRows.length ? (
-                        <div
-                          className="po-popup-items-table-virtual"
-                          style={{
-                            width: '100%',
-                            height: `${Math.max(selectedRowsTotalHeight, PO_SELECTED_ROW_ESTIMATED_HEIGHT)}px`,
-                          }}
-                        >
-                          <div
-                            className="po-popup-items-table-virtual-window"
-                            style={{
-                              width: '100%',
-                              transform: `translateY(${selectedRowsWindowOffset}px)`,
-                            }}
-                          >
-                            {windowedDisplayedOrderRows.map(
-                              ({ index, item, line, product, diagnostics }) => {
-                                const productSku = String(product?.sku || item?.sku || '').trim();
-                                const displayName = String(
-                                  item?.product_name ||
-                                    item?.product_query ||
-                                    product?.name ||
-                                    `Row ${index + 1}`
-                                ).trim();
-                                const displayTitle = productSku
-                                  ? `${displayName} (SKU: ${productSku})`
-                                  : displayName;
-                                const rowUom =
-                                  String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
-                                const itemUomOptions = getAllowedPurchaseUnitsForProduct(product);
-                                const rowIssue = getDraftRowIssue(diagnostics);
-                                const gstRate = Number(item?.gst_rate ?? line?.gstRate ?? 0) || 0;
-                                const quantityStep = getPurchasePackStep(product, rowUom);
-                                const currentRate =
-                                  Number(item?.rate ?? item?.unit_price ?? 0) || 0;
-                                const seededRate =
-                                  Number(
-                                    item?.last_purchase_rate ||
-                                      item?.auto_fill_seed_rate ||
-                                      item?.reference_rate ||
-                                      item?.rate ||
-                                      0
-                                  ) || 0;
-                                const hasEditedRate =
-                                  seededRate > 0 && Math.abs(currentRate - seededRate) > 0.001;
-                                const isActiveRow = activeItemIndex === index;
-                                const quantityValue = Math.max(0, Number(item?.quantity || 0) || 0);
-                                const rowLocked = isSupplierDefaultItem(item);
-                                const rowIsZero = quantityValue <= 0;
-                                const rowMetaNote = [
-                                  rowIssue && rowIssue.text ? rowIssue.text : '',
-                                  !rowIssue && hasEditedRate ? 'edited' : '',
-                                ]
-                                  .filter(Boolean)
-                                  .join(' • ');
-                                return (
-                                  <article
-                                    key={`selected-po-row-${index}`}
-                                    className={`po-popup-items-table-row selected${isActiveRow ? ' active' : ''}${rowLocked ? ' locked' : ''}${rowIsZero ? ' zero' : ''}`}
-                                  >
-                                    <div className="po-popup-grid-product">
-                                      <SafeProductImage
-                                        product={
-                                          product || {
-                                            name: displayTitle,
-                                            image: item?.image || item?.image_url || '',
-                                          }
-                                        }
-                                        alt={displayTitle}
-                                        className="po-popup-grid-image"
-                                      />
-                                      <div className="po-popup-grid-product-copy">
-                                        <strong>{displayTitle}</strong>
-                                        {rowMetaNote ? <small>{rowMetaNote}</small> : null}
-                                      </div>
-                                    </div>
-                                    <div className="po-popup-grid-cell po-popup-grid-cell-qty">
-                                      <input
-                                        ref={(node) => {
-                                          if (node) {
-                                            quantityInputRefs.current[index] = node;
-                                          } else {
-                                            delete quantityInputRefs.current[index];
-                                          }
-                                        }}
-                                        type="number"
-                                        min="0"
-                                        step={quantityStep}
-                                        inputMode={
-                                          Number.isInteger(quantityStep) ? 'numeric' : 'decimal'
-                                        }
-                                        value={item?.quantity ?? ''}
-                                        onChange={(event) =>
+                    <div className="po-popup-items-table-body">
+                      {selectedRowsPageRows.length ? (
+                        selectedRowsPageRows.map(({ index, item, line, product, diagnostics }) => {
+                          const productSku = String(product?.sku || item?.sku || '').trim();
+                          const displayName = String(
+                            item?.product_name ||
+                              item?.product_query ||
+                              product?.name ||
+                              `Row ${index + 1}`
+                          ).trim();
+                          const displayTitle = productSku
+                            ? `${displayName} (SKU: ${productSku})`
+                            : displayName;
+                          const rowUom = String(line?.uom || item?.uom || 'pcs').trim() || 'pcs';
+                          const itemUomOptions = getAllowedPurchaseUnitsForProduct(product);
+                          const rowIssue = getDraftRowIssue(diagnostics);
+                          const gstRate = Number(item?.gst_rate ?? line?.gstRate ?? 0) || 0;
+                          const quantityStep = getPurchasePackStep(product, rowUom);
+                          const currentRate = Number(item?.rate ?? item?.unit_price ?? 0) || 0;
+                          const seededRate =
+                            Number(
+                              item?.last_purchase_rate ||
+                                item?.auto_fill_seed_rate ||
+                                item?.reference_rate ||
+                                item?.rate ||
+                                0
+                            ) || 0;
+                          const hasEditedRate =
+                            seededRate > 0 && Math.abs(currentRate - seededRate) > 0.001;
+                          const isActiveRow = activeItemIndex === index;
+                          const quantityValue = Math.max(0, Number(item?.quantity || 0) || 0);
+                          const rowLocked = isSupplierDefaultItem(item);
+                          const rowIsZero = quantityValue <= 0;
+                          const rowMetaNote = [
+                            rowIssue && rowIssue.text ? rowIssue.text : '',
+                            !rowIssue && hasEditedRate ? 'edited' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' • ');
+                          return (
+                            <article
+                              key={`selected-po-row-${index}`}
+                              className={`po-popup-items-table-row selected${isActiveRow ? ' active' : ''}${rowLocked ? ' locked' : ''}${rowIsZero ? ' zero' : ''}`}
+                            >
+                              <div className="po-popup-grid-product">
+                                <SafeProductImage
+                                  product={
+                                    product || {
+                                      name: displayTitle,
+                                      image: item?.image || item?.image_url || '',
+                                    }
+                                  }
+                                  alt={displayTitle}
+                                  className="po-popup-grid-image"
+                                />
+                                <div className="po-popup-grid-product-copy">
+                                  <strong>{displayTitle}</strong>
+                                  {rowMetaNote ? <small>{rowMetaNote}</small> : null}
+                                </div>
+                              </div>
+                              <div className="po-popup-grid-cell po-popup-grid-cell-qty">
+                                <input
+                                  ref={(node) => {
+                                    if (node) {
+                                      quantityInputRefs.current[index] = node;
+                                    } else {
+                                      delete quantityInputRefs.current[index];
+                                    }
+                                  }}
+                                  type="number"
+                                  min="0"
+                                  step={quantityStep}
+                                  inputMode={Number.isInteger(quantityStep) ? 'numeric' : 'decimal'}
+                                  value={item?.quantity ?? ''}
+                                  onChange={(event) =>
+                                    handleOrderItemChange(index, 'quantity', event.target.value)
+                                  }
+                                  onFocus={() => setActiveItemIndex(index)}
+                                  onKeyDown={handleQuantityFieldKeyDown(index, quantityStep)}
+                                  onBlur={handleQuantityFieldBlur(index, quantityStep)}
+                                  disabled={orderSubmitting}
+                                  aria-label={`Quantity for ${displayTitle}`}
+                                />
+                              </div>
+                              <div className="po-popup-grid-cell">
+                                <select
+                                  value={rowUom}
+                                  onChange={(event) =>
+                                    handleOrderItemChange(index, 'uom', event.target.value)
+                                  }
+                                  onFocus={() => setActiveItemIndex(index)}
+                                  onKeyDown={handleInlineFieldKeyDown(index)}
+                                  disabled={orderSubmitting}
+                                  aria-label={`Unit for ${displayTitle}`}
+                                >
+                                  {itemUomOptions.map((uomOption) => (
+                                    <option key={`${index}-${uomOption}`} value={uomOption}>
+                                      {uomOption}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="po-popup-grid-cell">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item?.rate ?? item?.unit_price ?? ''}
+                                  onChange={(event) =>
+                                    handleOrderItemChange(index, 'rate', event.target.value)
+                                  }
+                                  onFocus={() => setActiveItemIndex(index)}
+                                  onKeyDown={handleInlineFieldKeyDown(index)}
+                                  disabled={orderSubmitting}
+                                  aria-label={`Rate for ${displayTitle}`}
+                                />
+                              </div>
+                              <div className="po-popup-grid-cell">
+                                <select
+                                  value={gstRate}
+                                  onChange={(event) =>
+                                    handleOrderItemChange(
+                                      index,
+                                      'gst_rate',
+                                      toNumber(event.target.value)
+                                    )
+                                  }
+                                  onFocus={() => setActiveItemIndex(index)}
+                                  onKeyDown={handleInlineFieldKeyDown(index)}
+                                  disabled={orderSubmitting}
+                                  aria-label={`GST for ${displayTitle}`}
+                                >
+                                  {GST_RATE_OPTIONS.map((rateOption) => (
+                                    <option key={`${index}-gst-${rateOption}`} value={rateOption}>
+                                      {rateOption}%
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="po-popup-grid-cell po-popup-grid-cell-discount">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item?.discount_value || ''}
+                                  onChange={handleDiscountValueChange(index)}
+                                  onFocus={() => setActiveItemIndex(index)}
+                                  onKeyDown={handleInlineFieldKeyDown(index)}
+                                  disabled={orderSubmitting}
+                                  aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayTitle}`}
+                                />
+                                <small>{getDiscountColumnSuffix(discountColumnType)}</small>
+                              </div>
+                              <div className="po-popup-grid-total">
+                                <div className="po-popup-grid-total-main">
+                                  <strong>₹{formatReviewAmount(line?.totalAmount || 0)}</strong>
+                                  <div className="po-popup-grid-total-actions">
+                                    {diagnostics.rateRequiresAcknowledgement ? (
+                                      <button
+                                        type="button"
+                                        className="po-popup-inline-action po-popup-inline-action-small"
+                                        onClick={() =>
                                           handleOrderItemChange(
                                             index,
-                                            'quantity',
-                                            event.target.value
+                                            'rate_warning_acknowledged',
+                                            true
                                           )
                                         }
-                                        onFocus={() => setActiveItemIndex(index)}
-                                        onKeyDown={handleQuantityFieldKeyDown(index, quantityStep)}
-                                        onBlur={handleQuantityFieldBlur(index, quantityStep)}
                                         disabled={orderSubmitting}
-                                        aria-label={`Quantity for ${displayTitle}`}
-                                      />
-                                    </div>
-                                    <div className="po-popup-grid-cell">
-                                      <select
-                                        value={rowUom}
-                                        onChange={(event) =>
-                                          handleOrderItemChange(index, 'uom', event.target.value)
+                                        title={
+                                          diagnostics.rateAcknowledgementMessage ||
+                                          diagnostics.rateWarningMessage ||
+                                          'Accept price'
                                         }
-                                        onFocus={() => setActiveItemIndex(index)}
-                                        onKeyDown={handleInlineFieldKeyDown(index)}
-                                        disabled={orderSubmitting}
-                                        aria-label={`Unit for ${displayTitle}`}
+                                        aria-label={`Accept rate for ${displayTitle}`}
                                       >
-                                        {itemUomOptions.map((uomOption) => (
-                                          <option key={`${index}-${uomOption}`} value={uomOption}>
-                                            {uomOption}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <div className="po-popup-grid-cell">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={item?.rate ?? item?.unit_price ?? ''}
-                                        onChange={(event) =>
-                                          handleOrderItemChange(index, 'rate', event.target.value)
-                                        }
-                                        onFocus={() => setActiveItemIndex(index)}
-                                        onKeyDown={handleInlineFieldKeyDown(index)}
-                                        disabled={orderSubmitting}
-                                        aria-label={`Rate for ${displayTitle}`}
-                                      />
-                                    </div>
-                                    <div className="po-popup-grid-cell">
-                                      <select
-                                        value={gstRate}
-                                        onChange={(event) =>
+                                        ✓
+                                      </button>
+                                    ) : null}
+                                    {diagnostics.discountRequiresAcknowledgement ? (
+                                      <button
+                                        type="button"
+                                        className="po-popup-inline-action po-popup-inline-action-small"
+                                        onClick={() =>
                                           handleOrderItemChange(
                                             index,
-                                            'gst_rate',
-                                            toNumber(event.target.value)
+                                            'discount_warning_acknowledged',
+                                            true
                                           )
                                         }
-                                        onFocus={() => setActiveItemIndex(index)}
-                                        onKeyDown={handleInlineFieldKeyDown(index)}
                                         disabled={orderSubmitting}
-                                        aria-label={`GST for ${displayTitle}`}
+                                        title={
+                                          diagnostics.discountAcknowledgementMessage ||
+                                          diagnostics.discountWarningMessage ||
+                                          'Confirm discount'
+                                        }
+                                        aria-label={`Confirm unusual discount for ${displayTitle}`}
                                       >
-                                        {GST_RATE_OPTIONS.map((rateOption) => (
-                                          <option
-                                            key={`${index}-gst-${rateOption}`}
-                                            value={rateOption}
-                                          >
-                                            {rateOption}%
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                    <div className="po-popup-grid-cell po-popup-grid-cell-discount">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={item?.discount_value || ''}
-                                        onChange={handleDiscountValueChange(index)}
-                                        onFocus={() => setActiveItemIndex(index)}
-                                        onKeyDown={handleInlineFieldKeyDown(index)}
+                                        ✓
+                                      </button>
+                                    ) : null}
+                                    {!rowLocked ? (
+                                      <button
+                                        type="button"
+                                        className="po-popup-inline-action danger"
+                                        onClick={() => handleRemoveRow(index)}
                                         disabled={orderSubmitting}
-                                        aria-label={`${getDiscountColumnLabel(discountColumnType)} for ${displayTitle}`}
-                                      />
-                                      <small>{getDiscountColumnSuffix(discountColumnType)}</small>
-                                    </div>
-                                    <div className="po-popup-grid-total">
-                                      <div className="po-popup-grid-total-main">
-                                        <strong>
-                                          ₹{formatReviewAmount(line?.totalAmount || 0)}
-                                        </strong>
-                                        <div className="po-popup-grid-total-actions">
-                                          {diagnostics.rateRequiresAcknowledgement ? (
-                                            <button
-                                              type="button"
-                                              className="po-popup-inline-action po-popup-inline-action-small"
-                                              onClick={() =>
-                                                handleOrderItemChange(
-                                                  index,
-                                                  'rate_warning_acknowledged',
-                                                  true
-                                                )
-                                              }
-                                              disabled={orderSubmitting}
-                                              title={
-                                                diagnostics.rateAcknowledgementMessage ||
-                                                diagnostics.rateWarningMessage ||
-                                                'Accept price'
-                                              }
-                                              aria-label={`Accept rate for ${displayTitle}`}
-                                            >
-                                              ✓
-                                            </button>
-                                          ) : null}
-                                          {diagnostics.discountRequiresAcknowledgement ? (
-                                            <button
-                                              type="button"
-                                              className="po-popup-inline-action po-popup-inline-action-small"
-                                              onClick={() =>
-                                                handleOrderItemChange(
-                                                  index,
-                                                  'discount_warning_acknowledged',
-                                                  true
-                                                )
-                                              }
-                                              disabled={orderSubmitting}
-                                              title={
-                                                diagnostics.discountAcknowledgementMessage ||
-                                                diagnostics.discountWarningMessage ||
-                                                'Confirm discount'
-                                              }
-                                              aria-label={`Confirm unusual discount for ${displayTitle}`}
-                                            >
-                                              ✓
-                                            </button>
-                                          ) : null}
-                                          {!rowLocked ? (
-                                            <button
-                                              type="button"
-                                              className="po-popup-inline-action danger"
-                                              onClick={() => handleRemoveRow(index)}
-                                              disabled={orderSubmitting}
-                                              aria-label={`Remove ${displayTitle}`}
-                                            >
-                                              ✕
-                                            </button>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </article>
-                                );
-                              }
-                            )}
-                          </div>
-                        </div>
+                                        aria-label={`Remove ${displayTitle}`}
+                                      >
+                                        ✕
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })
                       ) : null}
                     </div>
                   </div>
@@ -1493,28 +1546,63 @@ export function PurchaseOrderFormModal({
           ) : null}
 
           {orderReviewMode ? (
-            <PurchaseOrderReviewSheet
-              kicker="Purchase Order"
-              title="Review Before Final Submit"
-              description="Review the order and then do the final submit."
-              badgeLabel={`${reviewableOrderRows.length} item${reviewableOrderRows.length === 1 ? '' : 's'}`}
-              metaItems={[
-                {
-                  label: 'Supplier:',
-                  value:
-                    String(
-                      orderFormData?.supplier_name || orderFormData?.distributor_name || ''
-                    ).trim() || 'Not selected',
-                },
-                { label: 'Date:', value: new Date().toLocaleDateString() },
-                {
-                  label: 'Delivery:',
-                  value: String(orderFormData?.expected_delivery || '').trim() || 'Skipped',
-                },
-              ]}
-              rows={reviewSheetRows}
-              totals={orderTotals}
-            >
+            <section className="po-review-sheet po-create-review-sheet">
+              <div className="po-review-sheet-head bill">
+                <div>
+                  <span className="po-review-print-kicker">Purchase Order</span>
+                  <h4>Review Before Final Submit</h4>
+                  <p>Review the order and then do the final submit.</p>
+                </div>
+                <span className="po-pos-status-chip good">
+                  {reviewableOrderRows.length} item
+                  {reviewableOrderRows.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              <div className="po-review-print-meta">
+                <div>
+                  <span>Supplier:</span>
+                  <strong>
+                    {String(orderFormData?.supplier_name || orderFormData?.distributor_name || '')
+                      .trim() || 'Not selected'}
+                  </strong>
+                </div>
+                <div>
+                  <span>Date:</span>
+                  <strong>{new Date().toLocaleDateString()}</strong>
+                </div>
+                <div>
+                  <span>Delivery:</span>
+                  <strong>{String(orderFormData?.expected_delivery || '').trim() || 'Skipped'}</strong>
+                </div>
+              </div>
+
+              <div className="po-create-review-pages">
+                {reviewDisplayPages.map((pageRows, pageIndex) => (
+                  <PurchaseCreateReviewPage
+                    key={`po-create-review-page-${pageIndex}`}
+                    rows={pageRows}
+                    pageIndex={pageIndex}
+                    totalPages={reviewDisplayPages.length}
+                  />
+                ))}
+              </div>
+
+              <div className="po-review-bill-totals">
+                <div>
+                  <span>Subtotal</span>
+                  <strong>{formatReviewAmount(orderTotals.taxableValue || 0)}</strong>
+                </div>
+                <div>
+                  <span>GST</span>
+                  <strong>{formatReviewAmount(orderTotals.taxAmount || 0)}</strong>
+                </div>
+                <div className="grand">
+                  <span>Total</span>
+                  <strong>{formatReviewTotalAmount(orderTotals.totalAmount || 0)}</strong>
+                </div>
+              </div>
+
               <PurchaseOrderEntryControlPanel
                 draftDiagnostics={draftDiagnostics}
                 orderFullMode={orderFullMode}
@@ -1530,7 +1618,7 @@ export function PurchaseOrderFormModal({
                   </p>
                 </div>
               ) : null}
-            </PurchaseOrderReviewSheet>
+            </section>
           ) : null}
         </div>
 
@@ -1624,7 +1712,7 @@ export function PurchaseOrderFormModal({
       <WindowModal
         open={productPickerOpen}
         title="Add Products"
-        subtitle="Extra products outside the supplier board"
+        subtitle=""
         onClose={handleCloseProductPicker}
         dismissible={!orderSubmitting}
         themeClassName="purchase-management"
@@ -1650,7 +1738,7 @@ export function PurchaseOrderFormModal({
                 value={productPickerSearch}
                 onChange={handleProductPickerSearchChange}
                 onKeyDown={handleProductPickerKeyDown}
-                placeholder="Search products by name or SKU..."
+                placeholder="Search name or SKU"
                 aria-label="Search products for purchase order"
               />
             </label>
@@ -1665,17 +1753,13 @@ export function PurchaseOrderFormModal({
           </div>
           <div className="po-product-picker-head po-product-picker-sticky">
             <div className="po-product-picker-headline">
-              <strong>Add Extra Products</strong>
+              <strong>Extra Products</strong>
               <span className="po-product-picker-count">
                 {hasProductPickerSearch
                   ? `${productPickerVisibleCount} shown`
-                  : `${productPickerAvailableCount} available`}
+                  : `${productPickerAvailableCount} left`}
               </span>
             </div>
-            <p className="po-pos-panel-note">
-              Only products outside this supplier&apos;s registered board are shown here. Products
-              already on the board stay hidden.
-            </p>
           </div>
 
           <div ref={productPickerScrollRef} className="po-product-picker-scroll">
@@ -1684,8 +1768,6 @@ export function PurchaseOrderFormModal({
                 {visibleProductPickerProducts.map((product) => {
                   const productId = String(product?.id || '').trim();
                   const isSelected = productPickerSelectedIds.includes(productId);
-                  const productRate = Number(product?.price || 0) || 0;
-                  const productStock = Number(product?.stock || 0) || 0;
                   return (
                     <button
                       key={`po-picker-${productId}`}
@@ -1700,19 +1782,13 @@ export function PurchaseOrderFormModal({
                       />
                       <div className="po-product-picker-card-copy">
                         <strong>{String(product?.name || 'Product').trim()}</strong>
-                        <small>
-                          {[product?.brand, product?.category].filter(Boolean).join(' • ') ||
-                            'Catalog item'}
-                        </small>
-                        <div className="po-product-picker-card-meta">
-                          <span>Rate {formatReviewAmount(productRate)}</span>
-                          <span>{productStock > 0 ? `Stock ${productStock}` : 'Stock 0'}</span>
-                        </div>
+                        <small>{product?.sku ? `SKU ${String(product?.sku).trim()}` : 'Catalog item'}</small>
                       </div>
                       <span
                         className={`po-product-picker-card-state${isSelected ? ' selected' : ''}`}
+                        aria-hidden="true"
                       >
-                        {isSelected ? 'Selected' : 'Tap'}
+                        {isSelected ? <Check size={13} /> : <Plus size={13} />}
                       </span>
                     </button>
                   );
@@ -1722,13 +1798,13 @@ export function PurchaseOrderFormModal({
               <div className="po-pos-empty-state">
                 <strong>
                   {availableAllProductPickerProducts.length
-                    ? 'No matching products found.'
-                    : 'No more catalog products are available.'}
+                    ? 'No matches.'
+                    : 'No extra products left.'}
                 </strong>
                 <p>
                   {availableAllProductPickerProducts.length
-                    ? 'Try another search term to add products from the catalog.'
-                    : 'All supplier-board products are already loaded, and no extra catalog products remain to add.'}
+                    ? 'Try a different name or SKU.'
+                    : 'All extra catalog items are already loaded.'}
                 </p>
               </div>
             )}

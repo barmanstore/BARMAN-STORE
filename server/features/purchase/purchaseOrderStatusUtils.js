@@ -14,6 +14,17 @@
     PO_PAYMENT_PAID,
   } = deps;
 
+  const isTruthyFlag = (value = false) => {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0 || value === null || value === undefined || value === '')
+      return false;
+    const raw = String(value).trim().toLowerCase();
+    if (!raw) return false;
+    if (['true', '1', 'yes', 'y', 'on'].includes(raw)) return true;
+    if (['false', '0', 'no', 'n', 'off'].includes(raw)) return false;
+    return Boolean(value);
+  };
+
   const PO_EDITABLE_STATUSES = new Set([
     PO_LIFECYCLE_PREPARED,
     PO_LIFECYCLE_SENT,
@@ -110,6 +121,7 @@
     PO_RECEIVE_ALLOWED_STATUSES.has(normalizePoLifecycleStatus(status));
 
   const hasOrderBeenReceived = (order = {}) => {
+    if (isTruthyFlag(order?.delivered)) return true;
     if (
       String(order?.status || '')
         .trim()

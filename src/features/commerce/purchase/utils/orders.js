@@ -50,6 +50,17 @@ const normalizePoPaymentStatus = (status) => {
   return 'unpaid';
 };
 
+const isTruthyFlag = (value = false) => {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0 || value === null || value === undefined || value === '')
+    return false;
+  const raw = String(value).trim().toLowerCase();
+  if (!raw) return false;
+  if (['true', '1', 'yes', 'y', 'on'].includes(raw)) return true;
+  if (['false', '0', 'no', 'n', 'off'].includes(raw)) return false;
+  return Boolean(value);
+};
+
 const calculateOrderBalanceAmount = (order) => {
   const explicitTotal = toNumber(order?.total_amount ?? order?.grand_total ?? order?.line_total);
   if (explicitTotal > 0) return explicitTotal;
@@ -97,14 +108,26 @@ const isPoEditable = (order) => {
   );
 };
 
-const canReceivePo = (order) => {
-  const lifecycleStatus = getPoLifecycleStatus(order);
-  return (
-    ['confirmed', 'part_paid', 'fully_paid'].includes(lifecycleStatus) &&
+const hasOrderBeenReceived = (order) => {
+  if (isTruthyFlag(order?.delivered)) return true;
+  if (
     String(order?.status || '')
       .trim()
-      .toLowerCase() !== 'received'
+      .toLowerCase() === 'received'
+  ) {
+    return true;
+  }
+  if (order?.received_at) return true;
+  return (
+    Array.isArray(order?.items) &&
+    order.items.length > 0 &&
+    order.items.every((item) => toNumber(item?.received_quantity) >= toNumber(item?.quantity))
   );
+};
+
+const canReceivePo = (order) => {
+  const lifecycleStatus = getPoLifecycleStatus(order);
+  return ['confirmed', 'part_paid', 'fully_paid'].includes(lifecycleStatus) && !hasOrderBeenReceived(order);
 };
 
 const canAddPaymentToPo = (order) =>
@@ -114,18 +137,11 @@ const canClosePo = (order) =>
 const getPoNextAction = (order) => {
   const lifecycleStatus = getPoLifecycleStatus(order);
   const paymentStatus = getPoPaymentStatus(order);
-  const hasReceived =
-    String(order?.status || '')
-      .trim()
-      .toLowerCase() === 'received' ||
-    (Array.isArray(order?.items) &&
-      order.items.length > 0 &&
-      order.items.every((item) => toNumber(item?.received_quantity) >= toNumber(item?.quantity)));
   if (lifecycleStatus === 'cancelled') return 'Cancelled';
   if (lifecycleStatus === 'closed') return 'Closed';
   if (lifecycleStatus === 'prepared') return 'Send to distributor';
   if (lifecycleStatus === 'sent' || lifecycleStatus === 'revised') return 'Confirm with bill';
-  if (!hasReceived) return 'Receive delivery';
+  if (!hasOrderBeenReceived(order)) return 'Receive delivery';
   if (paymentStatus !== 'paid' && getPoBalanceDue(order) > 0) return 'Collect payment';
   if (lifecycleStatus === 'fully_paid') return 'Close PO';
   return order?.next_action || 'Monitor';

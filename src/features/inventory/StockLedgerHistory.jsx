@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
   RefreshCw,
   ShoppingBag,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
   Minus,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import { stockLedgerApi } from '../../shared/services/api';
 import { formatDate } from '../../shared/utils/formatters';
 import { toLocalDateKey } from '../../shared/utils/dateTime';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
-import { DateRangeFilter, DropdownFilter, SearchFilter } from '../../shared/components/filters';
+import {
+  DateRangeFilter,
+  DropdownFilter,
+  FilterToggleButton,
+  SearchFilter,
+} from '../../shared/components/filters';
 import {
   FilterBar,
   FilterPills,
@@ -25,47 +27,6 @@ import {
 import StatCard from '../../shared/components/StatCard';
 import TableShell from '../../shared/components/table/TableShell';
 import './StockLedgerHistory.css';
-
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'product', label: 'Product' },
-  { value: 'sku', label: 'SKU' },
-  { value: 'reference', label: 'Reference' },
-  { value: 'user', label: 'User' },
-  { value: 'notes', label: 'Notes' },
-  { value: 'type', label: 'Type' },
-];
-
-const SEARCH_SCOPE_COPY = {
-  all: {
-    placeholder: 'Search stock ledger',
-    ariaLabel: 'Search stock ledger',
-  },
-  product: {
-    placeholder: 'Search product',
-    ariaLabel: 'Search product',
-  },
-  sku: {
-    placeholder: 'Search SKU',
-    ariaLabel: 'Search SKU',
-  },
-  reference: {
-    placeholder: 'Search reference',
-    ariaLabel: 'Search reference',
-  },
-  user: {
-    placeholder: 'Search user',
-    ariaLabel: 'Search user',
-  },
-  notes: {
-    placeholder: 'Search notes',
-    ariaLabel: 'Search notes',
-  },
-  type: {
-    placeholder: 'Search type',
-    ariaLabel: 'Search type',
-  },
-};
 
 const FILTER_WIDTH = '100%';
 
@@ -314,7 +275,6 @@ function StockLedgerHistory() {
   const [loading, setLoading] = useState(true);
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortConfig, setSortConfig] = useState({
     key: SORTABLE_COLUMNS.dateTime,
@@ -367,7 +327,6 @@ function StockLedgerHistory() {
   const resetFilters = () => {
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
     setFilters({
       transaction_type: '',
       start_date: '',
@@ -380,7 +339,6 @@ function StockLedgerHistory() {
   };
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
   const activeDatePresetLabel = useMemo(() => {
     if (!filters.start_date && !filters.end_date) return '';
 
@@ -401,34 +359,24 @@ function StockLedgerHistory() {
 
     return ledger.filter((entry) => {
       const transactionTypeLabel = getTransactionTypeLabel(entry.transaction_type);
-      const fieldValues = {
-        all: [
-          entry.product_name,
-          entry.sku,
-          entry.po_number,
-          entry.bill_number,
-          transactionTypeLabel,
-          entry.transaction_type,
-          entry.reference_type,
-          entry.reference_id,
-          entry.user_name,
-          entry.notes,
-        ],
-        product: [entry.product_name],
-        sku: [entry.sku],
-        reference: [entry.po_number, entry.bill_number, entry.reference_type, entry.reference_id],
-        user: [entry.user_name],
-        notes: [entry.notes],
-        type: [entry.transaction_type, transactionTypeLabel],
-      };
-
-      const searchableText = (fieldValues[searchScope] || fieldValues.all)
+      const searchableText = [
+        entry.product_name,
+        entry.sku,
+        entry.po_number,
+        entry.bill_number,
+        transactionTypeLabel,
+        entry.transaction_type,
+        entry.reference_type,
+        entry.reference_id,
+        entry.user_name,
+        entry.notes,
+      ]
         .map((value) => String(value || '').toLowerCase())
         .join(' ');
 
       return searchableText.includes(normalizedSearchQuery);
     });
-  }, [ledger, normalizedSearchQuery, searchScope]);
+  }, [ledger, normalizedSearchQuery]);
 
   const groupedLedger = useMemo(() => {
     if (!visibleLedger.length) return [];
@@ -621,7 +569,6 @@ function StockLedgerHistory() {
 
   const activeFilterCount = [
     searchQuery,
-    searchScope !== 'all' ? searchScope : '',
     filters.transaction_type,
     filters.start_date,
     filters.end_date,
@@ -732,113 +679,108 @@ function StockLedgerHistory() {
         }
       />
 
-      <FilterBar>
-        <SearchFilter
-          id="stock-ledger-search"
-          placeholder={activeSearchScopeCopy.placeholder}
-          value={searchDraft}
-          onChange={handleSearchDraftChange}
-          onSubmit={handleSearchSubmit}
-          width="100%"
-          stretch
-          tone="sky"
-          ariaLabel={activeSearchScopeCopy.ariaLabel}
-          ariaAutocomplete="none"
-          scopeOptions={SEARCH_SCOPE_OPTIONS}
-          scopeValue={searchScope}
-          onScopeChange={setSearchScope}
-          scopeAriaLabel="Search scope"
-          submitAriaLabel={activeSearchScopeCopy.ariaLabel}
+      <div className="ledger-toolbar-stack">
+        <FilterBar>
+          <SearchFilter
+            id="stock-ledger-search"
+            placeholder="Search stock ledger"
+            value={searchDraft}
+            onChange={handleSearchDraftChange}
+            onSubmit={handleSearchSubmit}
+            width="100%"
+            stretch
+            tone="sky"
+            ariaLabel="Search stock ledger"
+            ariaAutocomplete="none"
+            submitAriaLabel="Search stock ledger"
+            actions={
+              <FilterToggleButton
+                open={showAdvancedFilters}
+                onClick={() => setShowAdvancedFilters((current) => !current)}
+                ariaControls="stock-ledger-advanced-filters"
+                count={activeFilterCount}
+                tone="sky"
+              />
+            }
+          />
+          {searchDraft || searchQuery || activeFilterCount ? (
+            <button type="button" className="admin-btn" onClick={handleClearAllFilters}>
+              Clear
+            </button>
+          ) : null}
+        </FilterBar>
+
+        <FilterPills
+          items={activeFilterPills.map((pill) => ({
+            ...pill,
+            icon: <X size={12} aria-hidden="true" />,
+          }))}
         />
-        <button
-          type="button"
-          className="admin-btn"
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="stock-ledger-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-        {searchDraft || searchQuery || activeFilterCount ? (
-          <button type="button" className="admin-btn" onClick={handleClearAllFilters}>
-            Clear
-          </button>
+
+        {showAdvancedFilters ? (
+          <FilterTray ref={advancedFiltersRef} id="stock-ledger-advanced-filters">
+            <FilterRow label="Transaction Type">
+              <DropdownFilter
+                options={transactionTypes
+                  .filter((t) => t.value)
+                  .map((t) => ({ value: t.value, label: t.label }))}
+                selectedItems={filters.transaction_type ? [filters.transaction_type] : []}
+                onChange={(nextItems) =>
+                  handleSingleFilterMultiSelectChange(nextItems, 'transaction_type')
+                }
+                width={FILTER_WIDTH}
+                allLabel="All Types"
+                tone="violet"
+                multiSelect
+              />
+            </FilterRow>
+
+            <FilterRow label="Date Range">
+              <DateRangeFilter
+                value={[filters.start_date, filters.end_date]}
+                onChange={handleDateRangeChange}
+                width="100%"
+                tone="sky"
+                presets={dateRangePresets}
+                helperText="Transaction date"
+                showIcon={false}
+                showPlaceholderText
+                alwaysOpen
+              />
+            </FilterRow>
+          </FilterTray>
         ) : null}
-      </FilterBar>
 
-      <FilterPills
-        items={activeFilterPills.map((pill) => ({
-          ...pill,
-          icon: <X size={12} aria-hidden="true" />,
-        }))}
-      />
-
-      {showAdvancedFilters ? (
-        <FilterTray ref={advancedFiltersRef} id="stock-ledger-advanced-filters">
-          <FilterRow label="Transaction Type">
-            <DropdownFilter
-              options={transactionTypes
-                .filter((t) => t.value)
-                .map((t) => ({ value: t.value, label: t.label }))}
-              selectedItems={filters.transaction_type ? [filters.transaction_type] : []}
-              onChange={(nextItems) =>
-                handleSingleFilterMultiSelectChange(nextItems, 'transaction_type')
-              }
-              width={FILTER_WIDTH}
-              allLabel="All Types"
-              tone="violet"
-              multiSelect
-            />
-          </FilterRow>
-
-          <FilterRow label="Date Range">
-            <DateRangeFilter
-              value={[filters.start_date, filters.end_date]}
-              onChange={handleDateRangeChange}
-              width="100%"
-              tone="sky"
-              presets={dateRangePresets}
-              helperText="Transaction date"
-              showIcon={false}
-              showPlaceholderText
-              alwaysOpen
-            />
-          </FilterRow>
-        </FilterTray>
-      ) : null}
-
-      <div className="summary-stats">
-        <StatCard
-          icon={<ShoppingBag size={15} aria-hidden="true" />}
-          label="Total Transactions"
-          value={ledgerSummary.total}
-          hint="All ledger rows"
-          tone="sky"
-        />
-        <StatCard
-          icon={<ArrowDown size={15} aria-hidden="true" />}
-          label="Purchases"
-          value={ledgerSummary.purchases}
-          hint="Incoming stock"
-          tone="emerald"
-        />
-        <StatCard
-          icon={<ArrowUp size={15} aria-hidden="true" />}
-          label="Sales"
-          value={ledgerSummary.sales}
-          hint="Outgoing stock"
-          tone="amber"
-        />
-        <StatCard
-          icon={<RefreshCw size={15} aria-hidden="true" />}
-          label="Returns"
-          value={ledgerSummary.returns}
-          hint="Returned items"
-          tone="violet"
-        />
+        <div className="summary-stats">
+          <StatCard
+            icon={<ShoppingBag size={15} aria-hidden="true" />}
+            label="Total Transactions"
+            value={ledgerSummary.total}
+            hint="All ledger rows"
+            tone="sky"
+          />
+          <StatCard
+            icon={<ArrowDown size={15} aria-hidden="true" />}
+            label="Purchases"
+            value={ledgerSummary.purchases}
+            hint="Incoming stock"
+            tone="emerald"
+          />
+          <StatCard
+            icon={<ArrowUp size={15} aria-hidden="true" />}
+            label="Sales"
+            value={ledgerSummary.sales}
+            hint="Outgoing stock"
+            tone="amber"
+          />
+          <StatCard
+            icon={<RefreshCw size={15} aria-hidden="true" />}
+            label="Returns"
+            value={ledgerSummary.returns}
+            hint="Returned items"
+            tone="violet"
+          />
+        </div>
       </div>
 
       <TableShell ref={ledgerTableScrollRef} scrollClassName="ledger-table-container">

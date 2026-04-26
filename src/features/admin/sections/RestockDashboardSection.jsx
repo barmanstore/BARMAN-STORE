@@ -4,13 +4,10 @@ import {
   ArrowUp,
   ArrowUpDown,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Eraser,
   RefreshCw,
   RotateCw,
   ShoppingCart,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
@@ -24,7 +21,11 @@ import {
 import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
 import { insightsApi, productsApi, stockLedgerApi } from '../../../shared/services/api';
 import '../../inventory/StockLedgerHistory.css';
-import { DropdownFilter, SearchFilter } from '../../../shared/components/filters';
+import {
+  DropdownFilter,
+  FilterToggleButton,
+  SearchFilter,
+} from '../../../shared/components/filters';
 import './RestockDashboardSection.css';
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -35,42 +36,6 @@ const SORTABLE_COLUMNS = {
   systemStock: 'systemStock',
   countedStock: 'countedStock',
   difference: 'difference',
-};
-
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'product', label: 'Product' },
-  { value: 'sku', label: 'SKU' },
-  { value: 'category', label: 'Category' },
-  { value: 'brand', label: 'Brand' },
-  { value: 'supplier', label: 'Supplier' },
-];
-
-const SEARCH_SCOPE_COPY = {
-  all: {
-    placeholder: 'Search restock dashboard',
-    ariaLabel: 'Search restock dashboard',
-  },
-  product: {
-    placeholder: 'Search product',
-    ariaLabel: 'Search product',
-  },
-  sku: {
-    placeholder: 'Search SKU',
-    ariaLabel: 'Search SKU',
-  },
-  category: {
-    placeholder: 'Search category',
-    ariaLabel: 'Search category',
-  },
-  brand: {
-    placeholder: 'Search brand',
-    ariaLabel: 'Search brand',
-  },
-  supplier: {
-    placeholder: 'Search supplier',
-    ariaLabel: 'Search supplier',
-  },
 };
 
 const asNumber = (value, fallback = 0) => {
@@ -220,7 +185,6 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
   const [syncingIds, setSyncingIds] = useState([]);
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [filters, setFilters] = useState({
     distributorId: '',
     category: '',
@@ -232,7 +196,6 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
     direction: 'asc',
   });
   const deferredSearch = useDeferredValue(searchQuery);
-  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
 
   const fetchDashboard = useCallback(async ({ silent = false } = {}) => {
     setError('');
@@ -425,31 +388,16 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
     const selectedDistributorId = Number(filters.distributorId || 0) || null;
     return sortedProducts.filter((row) => {
       if (query) {
-        const haystackParts = (() => {
-          switch (searchScope) {
-            case 'product':
-              return [row.name];
-            case 'sku':
-              return [row.sku];
-            case 'category':
-              return [row.categoryLabel];
-            case 'brand':
-              return [row.brandLabel];
-            case 'supplier':
-              return row.availableDistributors.map((entry) => entry.name).filter(Boolean);
-            case 'all':
-            default:
-              return [
-                row.name,
-                row.sku,
-                row.barcode,
-                row.categoryLabel,
-                row.brandLabel,
-                row.availableDistributors.map((entry) => entry.name).join(' '),
-              ];
-          }
-        })();
-        const haystack = haystackParts.map(normalizeText).join(' ');
+        const haystack = [
+          row.name,
+          row.sku,
+          row.barcode,
+          row.categoryLabel,
+          row.brandLabel,
+          row.availableDistributors.map((entry) => entry.name).join(' '),
+        ]
+          .map(normalizeText)
+          .join(' ');
         if (!haystack.includes(query)) return false;
       }
 
@@ -475,7 +423,6 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
     filters.brand,
     filters.category,
     filters.distributorId,
-    searchScope,
     sortedProducts,
   ]);
 
@@ -618,7 +565,6 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
   const clearFilters = () => {
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
     setFilters({
       distributorId: '',
       category: '',
@@ -845,7 +791,7 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
           <div className="filters-bar stock-ledger-filters">
             <SearchFilter
               id="restock-search"
-              placeholder={activeSearchScopeCopy.placeholder}
+              placeholder="Search restock dashboard"
               value={searchDraft}
               onChange={handleSearchDraftChange}
               onSubmit={handleSearchSubmit}
@@ -853,27 +799,19 @@ function RestockDashboardSection({ onTabChange, onOpenPurchaseOrder }) {
               stretch
               className="stock-ledger-search-filter"
               tone="sky"
-              ariaLabel={activeSearchScopeCopy.ariaLabel}
+              ariaLabel="Search restock dashboard"
               ariaAutocomplete="none"
-              scopeOptions={SEARCH_SCOPE_OPTIONS}
-              scopeValue={searchScope}
-              onScopeChange={setSearchScope}
-              scopeAriaLabel="Search scope"
-              submitAriaLabel={activeSearchScopeCopy.ariaLabel}
+              submitAriaLabel="Search restock dashboard"
+              actions={
+                <FilterToggleButton
+                  open={showAdvancedFilters}
+                  onClick={() => setShowAdvancedFilters((current) => !current)}
+                  ariaControls="restock-advanced-filters"
+                  count={activeFilterCount}
+                  tone="sky"
+                />
+              }
             />
-
-            <button
-              type="button"
-              className={`stock-ledger-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
-              onClick={() => setShowAdvancedFilters((current) => !current)}
-              aria-expanded={showAdvancedFilters}
-              aria-controls="restock-advanced-filters"
-            >
-              <SlidersHorizontal size={14} />
-              <span>Filters</span>
-              {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-              {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
 
             {searchDraft || searchQuery || activeFilterCount ? (
               <button type="button" className="stock-ledger-filter-clear" onClick={clearFilters}>

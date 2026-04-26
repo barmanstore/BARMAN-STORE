@@ -17,7 +17,8 @@ See also: [../ARCHITECTURE.md](../ARCHITECTURE.md), [services.md](services.md), 
 Use this checklist when reviewing any page that uses shared search, filter, stat, or table surfaces:
 
 - Search uses the shared `SearchFilter` shell, not a page-local search box.
-- Filter chrome uses `FilterBar`, `FilterPills`, `FilterTray`, and `FilterRow` instead of a custom filter wrapper.
+- Search submit actions should stay inside the shared `SearchFilter` submit button, and trailing filter toggles should use the shared `FilterToggleButton` through `actions` instead of repainting that chrome in page CSS.
+- Filter chrome uses the flat `FilterBar` rail plus `FilterPills`, `FilterTray`, and `FilterRow` instead of a custom filter wrapper.
 - Advanced filters live inside one shared tray and keep one label/control row rhythm.
 - Active filter chips come from `FilterPills` and use shared pill spacing and icon placement.
 - Date chips follow the same preset-label pattern as `StockLedgerHistory` when the range matches a preset.
@@ -47,7 +48,8 @@ Use this checklist when reviewing any page that uses shared search, filter, stat
   - Popup purchase create should open in a compact supplier-only screen first, and delivery date or note edits should wait until the review stage right before final submit.
   - The item screen should keep only the working PO rows on the board, while supplier selection immediately hydrates that board from the supplier's registered product list and product add/search happens through the separate extra-products picker window.
   - The main entry surface should stay qty-first: new product picks open as quick-entry rows with `0` quantity, those zero-qty rows stay editable in the draft, and only rows with qty above zero should count toward review and final submit.
-  - The review stage should read like a compact printed PO sheet with supplier/date metadata, short item lines, subtotal, GST, total, and only the optional note blocks that are actually filled.
+  - The create-window review stage should read like a compact printed PO sheet with supplier/date metadata, short item lines, subtotal, GST, total, and only the optional note blocks that are actually filled. When the item list grows past eight rows, the create window should continue the extra lines on a second in-app review page so the layout stays balanced.
+  - The live supplier item board should page its loaded rows in explicit chunks with Prev/Next controls instead of trying to show every row in one long scrolling slice.
   - The item workspace should stay single-column and full-width during entry. Avoid a split pending-PO side panel that forces constant left-right eye movement.
   - When the product picker is open, the pending PO should stay visible in the same screen. Product selection should behave like a visual catalog picker with tappable cards and multi-select tracking, not like a hidden text-search workflow.
   - Keep only one product-add entry point in the PO screen. `Add Product` should open the picker, `Done` should commit the current card selections into the PO draft, and `Cancel` should close the picker without adding rows.

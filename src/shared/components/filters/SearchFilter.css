@@ -1,6 +1,6 @@
 .ui-search-filter {
   display: inline-grid;
-  gap: var(--space-2);
+  gap: 0;
   min-width: 0;
 }
 
@@ -11,14 +11,12 @@
 .ui-search-filter__shell {
   display: flex;
   align-items: center;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: var(
-    --search-filter-surface,
-    linear-gradient(180deg, rgb(255 255 255 / 98%), rgb(250 248 245 / 96%))
-  );
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   box-shadow: var(--shadow-sm);
   backdrop-filter: blur(10px);
   transition:
@@ -30,8 +28,7 @@
 
 .ui-search-filter__shell:focus-within {
   border-color: var(--search-filter-accent);
-  box-shadow: 0 14px 34px var(--search-filter-shadow);
-  transform: translateY(-1px);
+  box-shadow: 0 10px 24px var(--search-filter-shadow);
 }
 
 .ui-search-filter__scope {
@@ -39,19 +36,18 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  padding-left: var(--space-1);
 }
 
 .ui-search-filter__scope-select {
-  min-width: 7rem;
-  height: 2.75rem;
+  min-width: 6.5rem;
+  height: 2.125rem;
   appearance: none;
   border: 1px solid var(--search-filter-scope-border);
-  border-radius: var(--radius-pill);
+  border-radius: 10px;
   background: var(--search-filter-scope-bg);
-  padding: 0 2rem 0 1rem;
+  padding: 0 1.75rem 0 0.9rem;
   color: var(--search-filter-text);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -76,7 +72,7 @@
 
 .ui-search-filter__scope-chevron {
   position: absolute;
-  right: 0.8rem;
+  right: 0.6rem;
   color: var(--search-filter-chevron);
   pointer-events: none;
 }
@@ -84,7 +80,7 @@
 .ui-search-filter__divider {
   flex: 0 0 auto;
   width: 1px;
-  height: 1.5rem;
+  height: 1.25rem;
   background: linear-gradient(180deg, transparent, rgb(148 163 184 / 55%), transparent);
 }
 
@@ -98,7 +94,7 @@
 
 .ui-search-filter__icon {
   position: absolute;
-  left: 1rem;
+  left: 0.85rem;
   color: var(--search-filter-accent);
   opacity: 0.92;
   pointer-events: none;
@@ -107,12 +103,12 @@
 .ui-search-filter__input {
   width: 100%;
   min-width: 0;
-  height: 2.75rem;
+  height: 2.125rem;
   border: 0;
   background: transparent;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   color: var(--search-filter-text);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 500;
   outline: none;
 }
@@ -122,7 +118,7 @@
 }
 
 .ui-search-filter__input--with-icon {
-  padding-left: 2.65rem;
+  padding-left: 2.35rem;
 }
 
 .ui-search-filter__input--with-submit {
@@ -130,15 +126,15 @@
 }
 
 .ui-search-filter__submit {
-  margin: 0.25rem;
+  margin: 0;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.125rem;
+  height: 2.125rem;
   border: 0;
-  border-radius: 1rem;
+  border-radius: 0 12px 12px 0;
   background: var(--search-filter-button-bg);
   color: var(--search-filter-button-text);
   box-shadow: 0 10px 24px var(--search-filter-button-shadow);
@@ -165,6 +161,107 @@
   transform: translateY(0);
 }
 
+.ui-search-filter__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.ui-search-filter__action-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  min-height: 2.125rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--search-filter-action-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ui-search-filter__actions > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  min-height: 2.125rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--search-filter-action-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ui-search-filter__action-button:hover,
+.ui-search-filter__actions > *:hover {
+  background: transparent;
+  color: var(--search-filter-action-hover-text);
+}
+
+.ui-search-filter__action-button.is-open,
+.ui-search-filter__action-button:focus-visible,
+.ui-search-filter__actions > *.is-open,
+.ui-search-filter__actions > *:focus-visible {
+  background: transparent;
+  color: var(--search-filter-action-open-text);
+  box-shadow: 0 0 0 4px var(--search-filter-ring);
+  outline: none;
+}
+
+.ui-search-filter__action-button:active,
+.ui-search-filter__actions > *:active {
+  transform: translateY(0);
+}
+
+.ui-search-filter__action-button strong,
+.ui-search-filter__actions > * strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--search-filter-action-count-bg);
+  color: var(--search-filter-action-count-text);
+  font-size: 10px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-search-filter__action-button svg,
+.ui-search-filter__actions > * svg {
+  flex: 0 0 auto;
+}
+
 .ui-search-filter--sky {
   --search-filter-accent: rgb(14 165 233);
   --search-filter-ring: rgb(14 165 233 / 14%);
@@ -180,6 +277,18 @@
   --search-filter-button-bg: linear-gradient(135deg, rgb(14 165 233), rgb(37 99 235));
   --search-filter-button-text: #fff;
   --search-filter-button-shadow: rgb(37 99 235 / 20%);
+  --search-filter-action-bg: rgb(255 255 255 / 100%);
+  --search-filter-action-border: rgb(219 228 239 / 100%);
+  --search-filter-action-text: rgb(51 65 85);
+  --search-filter-action-hover-bg: rgb(239 246 255);
+  --search-filter-action-hover-border: rgb(191 219 254);
+  --search-filter-action-hover-text: rgb(29 78 216);
+  --search-filter-action-hover-shadow: rgb(37 99 235 / 8%);
+  --search-filter-action-open-bg: rgb(239 246 255);
+  --search-filter-action-open-border: rgb(191 219 254);
+  --search-filter-action-open-text: rgb(29 78 216);
+  --search-filter-action-count-bg: rgb(219 234 254);
+  --search-filter-action-count-text: rgb(29 78 216);
 }
 
 .ui-search-filter--amber {
@@ -197,6 +306,18 @@
   --search-filter-button-bg: linear-gradient(135deg, rgb(245 158 11), rgb(217 119 6));
   --search-filter-button-text: #fff;
   --search-filter-button-shadow: rgb(217 119 6 / 20%);
+  --search-filter-action-bg: rgb(255 255 255 / 100%);
+  --search-filter-action-border: rgb(251 191 36 / 26%);
+  --search-filter-action-text: rgb(120 53 15);
+  --search-filter-action-hover-bg: rgb(255 251 235);
+  --search-filter-action-hover-border: rgb(251 191 36 / 42%);
+  --search-filter-action-hover-text: rgb(180 83 9);
+  --search-filter-action-hover-shadow: rgb(217 119 6 / 8%);
+  --search-filter-action-open-bg: rgb(255 251 235);
+  --search-filter-action-open-border: rgb(251 191 36 / 42%);
+  --search-filter-action-open-text: rgb(180 83 9);
+  --search-filter-action-count-bg: rgb(254 249 195);
+  --search-filter-action-count-text: rgb(180 83 9);
 }
 
 .ui-search-filter--emerald {
@@ -214,6 +335,18 @@
   --search-filter-button-bg: linear-gradient(135deg, rgb(16 185 129), rgb(5 150 105));
   --search-filter-button-text: #fff;
   --search-filter-button-shadow: rgb(5 150 105 / 20%);
+  --search-filter-action-bg: rgb(255 255 255 / 100%);
+  --search-filter-action-border: rgb(167 243 208 / 90%);
+  --search-filter-action-text: rgb(6 95 70);
+  --search-filter-action-hover-bg: rgb(236 253 245);
+  --search-filter-action-hover-border: rgb(110 231 183 / 90%);
+  --search-filter-action-hover-text: rgb(4 120 87);
+  --search-filter-action-hover-shadow: rgb(5 150 105 / 8%);
+  --search-filter-action-open-bg: rgb(236 253 245);
+  --search-filter-action-open-border: rgb(110 231 183 / 90%);
+  --search-filter-action-open-text: rgb(4 120 87);
+  --search-filter-action-count-bg: rgb(209 250 229);
+  --search-filter-action-count-text: rgb(4 120 87);
 }
 
 .ui-search-filter--violet {
@@ -231,6 +364,18 @@
   --search-filter-button-bg: linear-gradient(135deg, rgb(139 92 246), rgb(109 40 217));
   --search-filter-button-text: #fff;
   --search-filter-button-shadow: rgb(109 40 217 / 20%);
+  --search-filter-action-bg: rgb(255 255 255 / 100%);
+  --search-filter-action-border: rgb(221 214 254 / 90%);
+  --search-filter-action-text: rgb(91 33 182);
+  --search-filter-action-hover-bg: rgb(245 243 255);
+  --search-filter-action-hover-border: rgb(196 181 253 / 90%);
+  --search-filter-action-hover-text: rgb(109 40 217);
+  --search-filter-action-hover-shadow: rgb(109 40 217 / 8%);
+  --search-filter-action-open-bg: rgb(245 243 255);
+  --search-filter-action-open-border: rgb(196 181 253 / 90%);
+  --search-filter-action-open-text: rgb(109 40 217);
+  --search-filter-action-count-bg: rgb(221 214 254);
+  --search-filter-action-count-text: rgb(109 40 217);
 }
 
 .ui-search-filter--slate {
@@ -248,4 +393,16 @@
   --search-filter-button-bg: linear-gradient(135deg, rgb(71 85 105), rgb(51 65 85));
   --search-filter-button-text: #fff;
   --search-filter-button-shadow: rgb(51 65 85 / 18%);
+  --search-filter-action-bg: rgb(255 255 255 / 100%);
+  --search-filter-action-border: rgb(226 232 240 / 96%);
+  --search-filter-action-text: rgb(51 65 85);
+  --search-filter-action-hover-bg: rgb(241 245 249);
+  --search-filter-action-hover-border: rgb(203 213 225 / 98%);
+  --search-filter-action-hover-text: rgb(15 23 42);
+  --search-filter-action-hover-shadow: rgb(15 23 42 / 6%);
+  --search-filter-action-open-bg: rgb(241 245 249);
+  --search-filter-action-open-border: rgb(203 213 225 / 98%);
+  --search-filter-action-open-text: rgb(15 23 42);
+  --search-filter-action-count-bg: rgb(226 232 240);
+  --search-filter-action-count-text: rgb(51 65 85);
 }

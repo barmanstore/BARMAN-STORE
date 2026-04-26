@@ -3,48 +3,19 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import { insightsApi, distributorsApi, categoriesApi } from '../../shared/services/api';
 import SignedCurrency from '../../shared/components/SignedCurrency';
 import { formatCurrency, formatDate, getSignedCurrencyClassName } from '../../shared/utils/formatters';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
-import { DateRangeFilter, DropdownFilter, SearchFilter } from '../../shared/components/filters';
+import {
+  DateRangeFilter,
+  DropdownFilter,
+  FilterToggleButton,
+  SearchFilter,
+} from '../../shared/components/filters';
 import './Insights.css';
-
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'product', label: 'Product' },
-  { value: 'category', label: 'Category' },
-  { value: 'distributor', label: 'Distributor' },
-  { value: 'risk', label: 'Risk' },
-];
-
-const SEARCH_SCOPE_COPY = {
-  all: {
-    placeholder: 'Search product insights',
-    ariaLabel: 'Search product insights',
-  },
-  product: {
-    placeholder: 'Search product',
-    ariaLabel: 'Search product',
-  },
-  category: {
-    placeholder: 'Search category',
-    ariaLabel: 'Search category',
-  },
-  distributor: {
-    placeholder: 'Search distributor',
-    ariaLabel: 'Search distributor',
-  },
-  risk: {
-    placeholder: 'Search risk',
-    ariaLabel: 'Search risk',
-  },
-};
 
 const FILTER_WIDTH = '100%';
 
@@ -465,7 +436,6 @@ const ProductInsights = () => {
   });
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [insights, setInsights] = useState([]);
   const [distributors, setDistributors] = useState([]);
@@ -572,7 +542,6 @@ const ProductInsights = () => {
     [categories]
   );
 
-  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const normalizedSearchQuery = String(deferredSearchQuery || '')
     .trim()
@@ -731,33 +700,9 @@ const ProductInsights = () => {
       if (filters.risk && row.riskLabel !== filters.risk) return false;
       if (!normalizedSearchQuery) return true;
 
-      const scopeText = (() => {
-        switch (searchScope) {
-          case 'product':
-            return row.productName;
-          case 'category':
-            return [row.categoryName, row.subcategoryName].filter(Boolean).join(' ');
-          case 'distributor':
-            return [
-              row.latestDistributorName,
-              row.bestDistributorName,
-              row.availableDistributorNames,
-            ]
-              .filter(Boolean)
-              .join(' ');
-          case 'risk':
-            return [row.riskLabel, ...(row.decisionTags || []).map((tag) => tag.label)].join(' ');
-          case 'all':
-          default:
-            return row.searchText;
-        }
-      })();
-
-      return String(scopeText || '')
-        .toLowerCase()
-        .includes(normalizedSearchQuery);
+      return String(row.searchText || '').toLowerCase().includes(normalizedSearchQuery);
     });
-  }, [filters.risk, normalizedSearchQuery, searchScope, tableRows]);
+  }, [filters.risk, normalizedSearchQuery, tableRows]);
 
   const sortedRows = useMemo(() => {
     const rows = [...visibleRows];
@@ -824,7 +769,6 @@ const ProductInsights = () => {
   const handleClearAllFilters = useCallback(() => {
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
     setShowAdvancedFilters(false);
     setFilters({
       start_date: '',
@@ -921,35 +865,26 @@ const ProductInsights = () => {
       <div className="filters-bar product-insights-filters">
         <SearchFilter
           id="product-insights-search"
-          placeholder={activeSearchScopeCopy.placeholder}
+          placeholder="Search product insights"
           value={searchDraft}
           onChange={handleSearchDraftChange}
           onSubmit={handleSearchSubmit}
           width="100%"
           stretch
-          className="product-insights-search-filter"
           tone="sky"
-          ariaLabel={activeSearchScopeCopy.ariaLabel}
+          ariaLabel="Search product insights"
           ariaAutocomplete="none"
-          scopeOptions={SEARCH_SCOPE_OPTIONS}
-          scopeValue={searchScope}
-          onScopeChange={setSearchScope}
-          scopeAriaLabel="Search scope"
-          submitAriaLabel={activeSearchScopeCopy.ariaLabel}
+          submitAriaLabel="Search product insights"
+          actions={
+            <FilterToggleButton
+              open={showAdvancedFilters}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              ariaControls="product-insights-advanced-filters"
+              count={activeFilterCount}
+              tone="sky"
+            />
+          }
         />
-
-        <button
-          type="button"
-          className={`product-insights-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="product-insights-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
 
         {searchDraft || searchQuery || activeFilterCount ? (
           <button

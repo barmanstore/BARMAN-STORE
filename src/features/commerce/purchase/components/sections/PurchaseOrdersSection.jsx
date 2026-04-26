@@ -3,14 +3,11 @@ import {
   ArrowDown,
   ArrowUp,
   CheckCheck,
-  ChevronDown,
-  ChevronUp,
   DollarSign,
   Eye,
   MessageCircle,
   Plus,
   RotateCcw,
-  SlidersHorizontal,
   Truck,
   ArrowUpDown,
   Check,
@@ -19,6 +16,7 @@ import {
 import {
   DateRangeFilter,
   DropdownFilter,
+  FilterToggleButton,
   SearchFilter,
 } from '../../../../../shared/components/filters';
 import WindowModal from '../../../../../shared/components/window/WindowModal';
@@ -37,7 +35,7 @@ const DEFAULT_SORT_DIRECTION = {
 
 const PAGE_SIZE = 8;
 const FILTER_WIDTH = '100%';
-const SEARCH_FILTER_WIDTH = '100%';
+const SEARCH_FILTER_WIDTH = 'clamp(280px, 42vw, 520px)';
 
 const PO_STATUS_FILTER_OPTIONS = [
   { value: 'prepared', label: 'Prepared' },
@@ -56,29 +54,9 @@ const PAYMENT_FILTER_OPTIONS = [
   { value: 'paid', label: 'Paid' },
 ];
 
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'po_number', label: 'PO #' },
-  { value: 'supplier', label: 'Supplier' },
-];
-
-const SEARCH_SCOPE_COPY = {
-  all: {
-    placeholder: 'Search PO or Supplier',
-    ariaLabel: 'Search PO or Supplier',
-    submitAriaLabel: 'Search purchase orders by PO number or supplier',
-  },
-  po_number: {
-    placeholder: 'Search PO #',
-    ariaLabel: 'Search PO #',
-    submitAriaLabel: 'Search purchase orders by PO number',
-  },
-  supplier: {
-    placeholder: 'Search Supplier',
-    ariaLabel: 'Search Supplier',
-    submitAriaLabel: 'Search purchase orders by supplier',
-  },
-};
+const SEARCH_PLACEHOLDER = 'Search PO or Supplier';
+const SEARCH_ARIA_LABEL = 'Search PO or Supplier';
+const SEARCH_SUBMIT_ARIA_LABEL = 'Search purchase orders';
 
 const parseMultiSelectValue = (value) =>
   String(value || '')
@@ -170,7 +148,6 @@ const PurchaseOrdersSection = ({
   const [pendingDeleteOrder, setPendingDeleteOrder] = useState(null);
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [selectedSupplierFilters, setSelectedSupplierFilters] = useState([]);
   const [selectedPoStatuses, setSelectedPoStatuses] = useState(() =>
     parseMultiSelectValue(filters.status)
@@ -305,7 +282,6 @@ const PurchaseOrdersSection = ({
     setSelectedPaymentStatuses([]);
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
   };
 
   useEffect(() => {
@@ -348,12 +324,6 @@ const PurchaseOrdersSection = ({
   };
 
   const handleSearchSubmit = () => {
-    setSearchQuery(searchDraft);
-  };
-
-  const handleSearchScopeChange = (nextScope) => {
-    const normalizedScope = SEARCH_SCOPE_COPY[nextScope] ? nextScope : 'all';
-    setSearchScope(normalizedScope);
     setSearchQuery(searchDraft);
   };
 
@@ -450,13 +420,7 @@ const PurchaseOrdersSection = ({
       const paymentStatus = String(getPoPaymentStatus(order) || '')
         .trim()
         .toLowerCase();
-      const searchableText = (
-        searchScope === 'po_number'
-          ? [order?.po_number]
-          : searchScope === 'supplier'
-            ? [order?.supplier_name, order?.distributor_name]
-            : [order?.po_number, order?.supplier_name, order?.distributor_name]
-      )
+      const searchableText = [order?.po_number, order?.supplier_name, order?.distributor_name]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
@@ -478,7 +442,6 @@ const PurchaseOrdersSection = ({
     getPoLifecycleStatus,
     getPoPaymentStatus,
     normalizedSearchQuery,
-    searchScope,
     selectedPaymentStatuses,
     selectedPoStatuses,
     sortedPurchaseOrders,
@@ -489,7 +452,6 @@ const PurchaseOrdersSection = ({
     setCurrentPage(1);
   }, [
     normalizedSearchQuery,
-    searchScope,
     activeSupplierFilterCount,
     filters.distributor_id,
     filters.status,
@@ -538,8 +500,6 @@ const PurchaseOrdersSection = ({
     return items;
   }, [activePage, totalPages]);
 
-  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
-
   return (
     <section className="purchase-section-shell">
       <div className="purchase-section-header purchase-orders-header">
@@ -584,34 +544,27 @@ const PurchaseOrdersSection = ({
 
       <div className="filters-bar purchase-orders-filters">
         <SearchFilter
-          placeholder={activeSearchScopeCopy.placeholder}
+          placeholder={SEARCH_PLACEHOLDER}
           value={searchDraft}
           onChange={handleSearchDraftChange}
           onSubmit={handleSearchSubmit}
           width={SEARCH_FILTER_WIDTH}
           className="purchase-orders-search-filter"
-          ariaLabel={activeSearchScopeCopy.ariaLabel}
+          ariaLabel={SEARCH_ARIA_LABEL}
           ariaAutocomplete="none"
-          scopeOptions={SEARCH_SCOPE_OPTIONS}
-          scopeValue={searchScope}
-          onScopeChange={handleSearchScopeChange}
-          scopeAriaLabel="Search scope"
-          submitAriaLabel={activeSearchScopeCopy.submitAriaLabel}
+          submitAriaLabel={SEARCH_SUBMIT_ARIA_LABEL}
           tone="sky"
+          actions={
+            <FilterToggleButton
+              ref={filterToggleRef}
+              open={showAdvancedFilters}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              ariaControls="purchase-orders-advanced-filters"
+              count={activeAdvancedFilterCount}
+              tone="sky"
+            />
+          }
         />
-        <button
-          ref={filterToggleRef}
-          type="button"
-          className={`purchase-orders-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="purchase-orders-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeAdvancedFilterCount ? <strong>{activeAdvancedFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
         {searchDraft || searchQuery || activeAdvancedFilterCount ? (
           <button
             type="button"

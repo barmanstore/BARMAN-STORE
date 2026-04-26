@@ -225,7 +225,7 @@
 
 .purchase-management .purchase-payments-section.stock-ledger-history .stock-ledger-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px 12px;
   width: 100%;
@@ -245,11 +245,6 @@
 
   .purchase-management .purchase-payments-section.stock-ledger-history .stock-ledger-filters > * {
     width: 100%;
-  }
-
-  .purchase-management .purchase-payments-section.stock-ledger-history .stock-ledger-filter-toggle,
-  .purchase-management .purchase-payments-section.stock-ledger-history .stock-ledger-filter-clear {
-    justify-content: center;
   }
 }
 
@@ -589,159 +584,35 @@
 .purchase-management .purchase-orders-filters {
   display: inline-flex;
   flex-wrap: nowrap;
-  align-items: center;
+  align-items: stretch;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 0;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 14px;
-  padding: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 32%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .purchase-management .purchase-orders-search-filter {
-  flex: 1 1 auto;
-  min-width: 360px;
-}
-
-.purchase-management .purchase-orders-search-filter.search-filter-frame {
-  display: inline-grid;
-  gap: 6px;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-shell {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid #dbe4ef;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-shell:focus-within {
-  border-color: #93c5fd;
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.06),
-    0 0 0 4px rgba(219, 234, 254, 0.85);
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-scope {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  align-self: stretch;
-  flex: 0 0 auto;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-scope-select {
-  height: 38px;
-  width: 78px;
-  padding: 0 26px 0 10px;
-  border: 0;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  outline: none;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-scope-chevron {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  width: 13px;
-  height: 13px;
-  transform: translateY(-50%);
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-divider {
-  flex: 0 0 1px;
-  align-self: stretch;
-  width: 1px;
-  height: auto;
-  background: #e2e8f0;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-input-shell {
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 auto;
+  flex: 1 1 360px;
   min-width: 0;
 }
 
-.purchase-management .purchase-orders-search-filter .search-filter-input {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
-  outline: none;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-input::placeholder {
-  color: #94a3b8;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  margin: 0 4px 0 0;
-  border: 0;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #0369a1;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-submit:hover,
-.purchase-management .purchase-orders-search-filter .search-filter-submit:focus-visible {
-  background: #dbeafe;
-  color: #075985;
-}
-
-.purchase-management .purchase-orders-search-filter .search-filter-submit:focus-visible {
-  outline: 2px solid #93c5fd;
-  outline-offset: 2px;
-}
-
-.purchase-management .purchase-orders-filter-toggle,
 .purchase-management .purchase-orders-filter-clear {
   flex: 0 0 auto;
+  min-height: 34px;
 }
 
 .purchase-management .purchase-orders-filter-clear {
-  min-height: 36px;
   padding: 0 12px;
   border: 1px solid #dbe4ef;
-  border-radius: 999px;
+  border-radius: 0 10px 10px 0;
   background: #ffffff;
   color: #475569;
   font-size: 12px;
@@ -753,42 +624,6 @@
 .purchase-management .purchase-orders-filter-clear:hover {
   background: #f8fafc;
   color: #0f172a;
-}
-
-.purchase-management .purchase-orders-filter-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid #dbe4ef;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.purchase-management .purchase-orders-filter-toggle strong {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 10px;
-}
-
-.purchase-management .purchase-orders-filter-toggle:hover,
-.purchase-management .purchase-orders-filter-toggle.is-open {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
 }
 
 .purchase-management .purchase-orders-advanced-filters {
@@ -5084,16 +4919,19 @@
 }
 
 .purchase-management .po-popup-items-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  width: 100%;
   padding: 0;
 }
 
 .purchase-management .po-popup-items-head-copy {
-  display: grid;
-  gap: 2px;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -5101,6 +4939,54 @@
   color: #0f172a;
   font-size: 0.9rem;
   line-height: 1.15;
+}
+
+.purchase-management .po-popup-supplier-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 30px;
+  width: 30px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #475569;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.purchase-management .po-popup-supplier-switch:hover:not(:disabled),
+.purchase-management .po-popup-supplier-switch:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+  color: #1d4ed8;
+  box-shadow:
+    0 6px 14px rgba(37, 99, 235, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  outline: none;
+}
+
+.purchase-management .po-popup-supplier-switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.purchase-management .po-popup-supplier-switch svg {
+  flex: 0 0 auto;
 }
 
 .purchase-management .po-popup-items-head-copy small {
@@ -5112,9 +4998,12 @@
 .purchase-management .po-popup-items-head-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-self: center;
+  width: fit-content;
+  text-align: right;
 }
 
 .purchase-management .po-popup-items-head-actions .po-popup-board-count {
@@ -5139,18 +5028,97 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-.purchase-management .po-popup-board-toolbar {
-  display: flex;
+.purchase-management .po-popup-board-count {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 8px;
-  flex-wrap: wrap;
+  min-height: 32px;
+  padding: 0 12px 0 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 
-.purchase-management .po-popup-board-count {
-  color: #475569;
-  font-size: 0.74rem;
-  font-weight: 700;
+.purchase-management .po-popup-board-count svg {
+  flex: 0 0 auto;
+  color: #3b82f6;
+}
+
+.purchase-management .po-popup-board-count strong {
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.purchase-management .po-popup-board-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.purchase-management .po-popup-page-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  width: 32px;
+  padding: 0;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  color: #334155;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.purchase-management .po-popup-page-nav:hover:not(:disabled),
+.purchase-management .po-popup-page-nav:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, #ffffff 0%, #eff6ff 100%);
+  color: #1d4ed8;
+  box-shadow:
+    0 6px 14px rgba(37, 99, 235, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  outline: none;
+}
+
+.purchase-management .po-popup-page-nav:disabled {
+  opacity: 0.45;
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.purchase-management .po-popup-page-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #334155;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .purchase-management .po-popup-items-table-head,
@@ -5688,7 +5656,7 @@
 
 .purchase-management .po-product-picker-card-copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .purchase-management .po-product-picker-card-copy strong {
@@ -5699,8 +5667,8 @@
 
 .purchase-management .po-product-picker-card-copy small {
   color: #64748b;
-  font-size: 0.68rem;
-  line-height: 1.35;
+  font-size: 0.64rem;
+  line-height: 1.2;
 }
 
 .purchase-management .po-product-picker-card-meta {
@@ -5717,13 +5685,16 @@
 }
 
 .purchase-management .po-product-picker-card-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   justify-self: start;
-  padding: 0.24rem 0.5rem;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: #e2e8f0;
   color: #334155;
-  font-size: 0.64rem;
-  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .purchase-management .po-product-picker-scroll {
@@ -5807,6 +5778,33 @@
   background: #ffffff;
 }
 
+.purchase-management .po-create-review-pages {
+  display: grid;
+  gap: 16px;
+}
+
+.purchase-management .po-create-review-page {
+  display: grid;
+  gap: 8px;
+}
+
+.purchase-management .po-create-review-page-label {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.525rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .purchase-management .po-review-bill-head,
 .purchase-management .po-review-bill-row {
   display: grid;
@@ -5832,6 +5830,16 @@
 }
 
 .purchase-management .po-review-bill-row strong {
+  text-align: right;
+}
+
+.purchase-management .po-create-review-page .po-review-bill-row {
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 0.6rem;
+}
+
+.purchase-management .po-create-review-page .po-review-bill-row strong {
   text-align: right;
 }
 
@@ -6096,6 +6104,11 @@
     text-align: left;
   }
 
+  .purchase-management .po-popup-board-pagination {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .purchase-management .po-review-bill-head {
     display: none;
   }
@@ -6107,6 +6120,10 @@
 
   .purchase-management .po-review-bill-row strong {
     text-align: left;
+  }
+
+  .purchase-management .po-create-review-pages {
+    gap: 12px;
   }
 }
 
@@ -8319,7 +8336,6 @@ body.po-modal-resizing {
 
   .purchase-management .po-popup-inline-toolbar,
   .purchase-management .po-popup-inline-toolbar-actions,
-  .purchase-management .po-popup-board-toolbar,
   .purchase-management .po-popup-search-bar,
   .purchase-management .po-popup-search-actions {
     flex-direction: column;
@@ -8328,6 +8344,12 @@ body.po-modal-resizing {
 
   .purchase-management .po-popup-items-head-actions {
     justify-content: flex-start;
+    width: 100%;
+  }
+
+  .purchase-management .po-popup-items-head {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .purchase-management .po-popup-items-search {
@@ -8428,10 +8450,6 @@ body.po-modal-resizing {
 
   .purchase-management .purchase-orders-toolbar-note {
     align-self: flex-start;
-  }
-
-  .purchase-management .purchase-orders-filter-toggle {
-    justify-content: center;
   }
 
   .purchase-management .purchase-orders-filters {

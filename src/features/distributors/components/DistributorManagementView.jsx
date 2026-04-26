@@ -11,6 +11,7 @@ const DistributorManagementView = ({
   error,
   searchTerm,
   onSearchChange,
+  onSearchSubmit,
   distributorCards,
   parseContacts,
   getStatusBadge,
@@ -83,19 +84,20 @@ const DistributorManagementView = ({
 
       {error && <div className="error-message">{error}</div>}
 
-      <div className="distributor-search-shell">
-        <SearchFilter
-          id="distributor-search"
-          placeholder="Search distributors, suppliers, or product groups..."
-          value={searchTerm}
-          onChange={onSearchChange}
-          width="100%"
-          stretch
-          className="distributor-search-filter"
-          tone="slate"
-          ariaLabel="Search distributors, suppliers, or product groups"
-        />
-      </div>
+      <SearchFilter
+        id="distributor-search"
+        placeholder="Search distributors, suppliers, or product groups..."
+        value={searchTerm}
+        onChange={onSearchChange}
+        onSubmit={onSearchSubmit}
+        width="min(920px, 100%)"
+        stretch
+        className="distributor-search-filter"
+        tone="sky"
+        ariaLabel="Search distributors, suppliers, or product groups"
+        ariaAutocomplete="none"
+        submitAriaLabel="Search distributors, suppliers, or product groups"
+      />
 
       <div className="distributors-grid">
         {distributorCards.length === 0 ? (

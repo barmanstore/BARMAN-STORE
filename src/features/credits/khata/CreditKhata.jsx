@@ -2,19 +2,21 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
-  ChevronDown,
-  ChevronUp,
   FileText,
   Minus,
   Paperclip,
   PencilLine,
   RefreshCw,
   RotateCcw,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import BackofficePageHeader from '../../../shared/components/backoffice/BackofficePageHeader';
-import { DateRangeFilter, DropdownFilter, SearchFilter } from '../../../shared/components/filters';
+import {
+  DateRangeFilter,
+  DropdownFilter,
+  FilterToggleButton,
+  SearchFilter,
+} from '../../../shared/components/filters';
 import {
   createClientRequestId,
   creditApi,
@@ -39,22 +41,6 @@ import {
 } from '../history/utils/creditLedgerPresentation';
 import { DOMAINS, registerDomainListener } from '../../../shared/services/invalidation';
 import './CreditKhata.css';
-
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'customer', label: 'Customer' },
-  { value: 'reference', label: 'Reference' },
-  { value: 'notes', label: 'Notes' },
-  { value: 'type', label: 'Type' },
-];
-
-const SEARCH_SCOPE_COPY = {
-  all: { placeholder: 'Search credit khata', ariaLabel: 'Search credit khata' },
-  customer: { placeholder: 'Search customer', ariaLabel: 'Search customer' },
-  reference: { placeholder: 'Search reference', ariaLabel: 'Search reference' },
-  notes: { placeholder: 'Search notes', ariaLabel: 'Search notes' },
-  type: { placeholder: 'Search type', ariaLabel: 'Search type' },
-};
 
 const TRANSACTION_TYPE_OPTIONS = [
   { value: 'payment', label: 'Payment' },
@@ -194,7 +180,6 @@ function CreditKhata({ user }) {
   });
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showLedgerForm, setShowLedgerForm] = useState(false);
   const [ledgerFormData, setLedgerFormData] = useState(getDefaultFormData());
@@ -414,24 +399,17 @@ function CreditKhata({ user }) {
       const typeLabel = getCreditEntryTypeLabel(entry);
       const sourceLabel = String(getCreditEntrySourceLabel(entry) || '').trim();
       const description = String(getCreditEntryDescription(entry) || '').trim();
-      const searchableFields = {
-        all: [
-          customerName,
-          entry.reference,
-          sourceLabel,
-          description,
-          getEntryDetailsText(entry),
-          typeLabel,
-          entry.type,
-          entry.amount,
-          entry.balance,
-        ],
-        customer: [customerName],
-        reference: [entry.reference, sourceLabel],
-        notes: [description, getEntryDetailsText(entry)],
-        type: [typeLabel, entry.type],
-      };
-      const searchableText = (searchableFields[searchScope] || searchableFields.all)
+      const searchableText = [
+        customerName,
+        entry.reference,
+        sourceLabel,
+        description,
+        getEntryDetailsText(entry),
+        typeLabel,
+        entry.type,
+        entry.amount,
+        entry.balance,
+      ]
         .map((value) => String(value || '').toLowerCase())
         .join(' ');
       return searchableText.includes(normalizedSearchQuery);
@@ -442,7 +420,6 @@ function CreditKhata({ user }) {
     filters.transaction_type,
     ledgerRecords,
     searchQuery,
-    searchScope,
     usersById,
   ]);
 
@@ -534,7 +511,6 @@ function CreditKhata({ user }) {
 
   const activeFilterCount = [
     searchQuery,
-    searchScope !== 'all',
     filters.user_id,
     filters.transaction_type,
     filters.start_date || filters.end_date,
@@ -552,7 +528,6 @@ function CreditKhata({ user }) {
   const handleClearAllFilters = () => {
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
     setFilters({ user_id: '', transaction_type: '', start_date: '', end_date: '' });
     setShowAdvancedFilters(false);
   };
@@ -664,40 +639,27 @@ function CreditKhata({ user }) {
       <div className="credit-khata-filters">
         <SearchFilter
           id="credit-khata-search"
-          placeholder={
-            SEARCH_SCOPE_COPY[searchScope]?.placeholder || SEARCH_SCOPE_COPY.all.placeholder
-          }
+          placeholder="Search credit khata"
           value={searchDraft}
           onChange={handleSearchDraftChange}
           onSubmit={handleSearchSubmit}
           width="100%"
           stretch
-          className="credit-khata-search-filter"
           tone="sky"
-          ariaLabel={SEARCH_SCOPE_COPY[searchScope]?.ariaLabel || SEARCH_SCOPE_COPY.all.ariaLabel}
+          ariaLabel="Search credit khata"
           ariaAutocomplete="none"
-          scopeOptions={SEARCH_SCOPE_OPTIONS}
-          scopeValue={searchScope}
-          onScopeChange={setSearchScope}
-          scopeAriaLabel="Search scope"
-          submitAriaLabel={
-            SEARCH_SCOPE_COPY[searchScope]?.ariaLabel || SEARCH_SCOPE_COPY.all.ariaLabel
+          submitAriaLabel="Search credit khata"
+          actions={
+            <FilterToggleButton
+              ref={filterToggleRef}
+              open={showAdvancedFilters}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              ariaControls="credit-khata-advanced-filters"
+              count={activeFilterCount}
+              tone="sky"
+            />
           }
         />
-
-        <button
-          ref={filterToggleRef}
-          type="button"
-          className={`credit-khata-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="credit-khata-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
 
         {hasSearchState || activeFilterCount ? (
           <button

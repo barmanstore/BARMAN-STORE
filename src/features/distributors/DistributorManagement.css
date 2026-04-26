@@ -38,64 +38,8 @@
   transform: translateY(-1px);
 }
 
-.distributor-management .distributor-search-shell {
-  width: min(920px, 100%);
-  margin-bottom: 28px;
-}
-
 .distributor-management .distributor-search-filter {
-  flex: 1 1 auto;
-  min-width: 360px;
-}
-
-.distributor-management .distributor-search-filter.search-filter-frame {
-  display: inline-grid;
-  gap: 6px;
-  width: 100%;
-}
-
-.distributor-management .distributor-search-filter .search-filter-shell {
-  display: inline-flex;
-  align-items: center;
-  min-height: 38px;
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid #dbe4ef;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  min-width: 0;
-}
-
-.distributor-management .distributor-search-filter .search-filter-shell:focus-within {
-  border-color: #cbd5e1;
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.06),
-    0 0 0 4px rgba(226, 232, 240, 0.85);
-}
-
-.distributor-management .distributor-search-filter .search-filter-input-shell {
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.distributor-management .distributor-search-filter .search-filter-input {
-  width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 12px 0 34px;
-  border: 0;
-  background: transparent;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
-  outline: none;
-}
-
-.distributor-management .distributor-search-filter .search-filter-input::placeholder {
-  color: #94a3b8;
+  margin-bottom: 28px;
 }
 
 /* Distributors Grid */

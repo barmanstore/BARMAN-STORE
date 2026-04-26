@@ -4,7 +4,19 @@ const createOrderFlagUtils = ({
   PO_LIFECYCLE_CANCELLED,
   PO_LIFECYCLE_CLOSED,
 } = {}) => {
+  const isTruthyFlag = (value = false) => {
+    if (value === true || value === 1) return true;
+    if (value === false || value === 0 || value === null || value === undefined || value === '')
+      return false;
+    const raw = String(value).trim().toLowerCase();
+    if (!raw) return false;
+    if (['true', '1', 'yes', 'y', 'on'].includes(raw)) return true;
+    if (['false', '0', 'no', 'n', 'off'].includes(raw)) return false;
+    return Boolean(value);
+  };
+
   const hasOrderBeenReceived = (order = {}) => {
+    if (isTruthyFlag(order?.delivered)) return true;
     if (
       String(order?.status || '')
         .trim()

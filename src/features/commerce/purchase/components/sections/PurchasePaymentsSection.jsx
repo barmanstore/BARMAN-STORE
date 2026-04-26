@@ -3,14 +3,11 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Check,
-  ChevronDown,
-  ChevronUp,
   Clock,
   FileText,
   Landmark,
   Plus,
   RefreshCw,
-  SlidersHorizontal,
   Smartphone,
   Wallet,
   X,
@@ -19,6 +16,7 @@ import BackofficePageHeader from '../../../../../shared/components/backoffice/Ba
 import {
   DateRangeFilter,
   DropdownFilter,
+  FilterToggleButton,
   SearchFilter,
 } from '../../../../../shared/components/filters';
 import '../../../../inventory/StockLedgerHistory.css';
@@ -31,41 +29,10 @@ const QUICK_VIEW_OPTIONS = [
   { value: 'due', label: 'Due' },
   { value: 'recent', label: 'Recent' },
 ];
-const SEARCH_SCOPE_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'supplier', label: 'Supplier' },
-  { value: 'po_number', label: 'PO #' },
-  { value: 'ledger', label: 'Ledger' },
-  { value: 'notes', label: 'Notes' },
-];
 const DEFAULT_NOW_TIMESTAMP = Date.now();
-const SEARCH_SCOPE_COPY = {
-  all: {
-    placeholder: 'Search payments',
-    ariaLabel: 'Search payments',
-    submitAriaLabel: 'Search payments and ledger',
-  },
-  supplier: {
-    placeholder: 'Search supplier',
-    ariaLabel: 'Search supplier',
-    submitAriaLabel: 'Search supplier payments',
-  },
-  po_number: {
-    placeholder: 'Search PO #',
-    ariaLabel: 'Search PO #',
-    submitAriaLabel: 'Search payments by PO number',
-  },
-  ledger: {
-    placeholder: 'Search ledger',
-    ariaLabel: 'Search ledger',
-    submitAriaLabel: 'Search ledger entries',
-  },
-  notes: {
-    placeholder: 'Search notes',
-    ariaLabel: 'Search notes',
-    submitAriaLabel: 'Search ledger notes',
-  },
-};
+const SEARCH_PLACEHOLDER = 'Search payments';
+const SEARCH_ARIA_LABEL = 'Search payments';
+const SEARCH_SUBMIT_ARIA_LABEL = 'Search payments and ledger';
 
 const formatLedgerDate = (value) => {
   const parsed = value ? new Date(value) : null;
@@ -246,7 +213,6 @@ const PurchasePaymentsSection = ({
   const [quickView, setQuickView] = useState('all');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchScope, setSearchScope] = useState('all');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const advancedFiltersRef = useRef(null);
   const filterToggleRef = useRef(null);
@@ -300,7 +266,6 @@ const PurchasePaymentsSection = ({
   );
   const payableEntries = useMemo(() => (Array.isArray(payables) ? payables : []), [payables]);
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const activeSearchScopeCopy = SEARCH_SCOPE_COPY[searchScope] || SEARCH_SCOPE_COPY.all;
   const totalPayable = useMemo(
     () => payableEntries.reduce((sum, entry) => sum + toNumber(entry?.balance_due), 0),
     [payableEntries, toNumber]
@@ -374,9 +339,8 @@ const PurchasePaymentsSection = ({
         .map((value) => String(value || '').toLowerCase())
         .join(' ');
 
-    return (scope, valuesByScope) => {
-      const scopeValues = valuesByScope[scope] || valuesByScope.all || [];
-      return !normalizedSearchQuery || text(scopeValues).includes(normalizedSearchQuery);
+    return (values = []) => {
+      return !normalizedSearchQuery || text(values).includes(normalizedSearchQuery);
     };
   }, [normalizedSearchQuery]);
   const matchesDateRange = useCallback(
@@ -414,22 +378,16 @@ const PurchasePaymentsSection = ({
         if (paymentDueDate && recentCutoff && paymentDueDate < recentCutoff) return false;
       }
       if (!matchesDateRange(paymentDueDate)) return false;
-      return matchesSearch(searchScope, {
-        all: [
-          supplierDisplayName,
-          entry?.distributor_name,
-          entry?.po_number,
-          entry?.payment_due_date,
-          entry?.balance_due,
-          entry?.po_status,
-          entry?.payment_status,
-          entry?.next_action,
-        ],
-        supplier: [supplierDisplayName, entry?.distributor_name],
-        po_number: [entry?.po_number],
-        ledger: [entry?.po_status, entry?.payment_status, entry?.next_action],
-        notes: [entry?.next_action],
-      });
+      return matchesSearch([
+        supplierDisplayName,
+        entry?.distributor_name,
+        entry?.po_number,
+        entry?.payment_due_date,
+        entry?.balance_due,
+        entry?.po_status,
+        entry?.payment_status,
+        entry?.next_action,
+      ]);
     });
 
     if (quickView !== 'due') return nextEntries;
@@ -442,7 +400,6 @@ const PurchasePaymentsSection = ({
     matchesSearch,
     payableEntries,
     quickView,
-    searchScope,
     toNumber,
   ]);
   const filteredLedgerEntries = useMemo(() => {
@@ -487,24 +444,18 @@ const PurchasePaymentsSection = ({
       const billNumber = getLedgerBillNumber(entry);
       const modeLabel = getLedgerModeMeta(entry)?.label || '';
       const typeLabel = getPurchaseLedgerTypeLabel(entry, getLedgerTypeLabel);
-      return matchesSearch(searchScope, {
-        all: [
-          supplierDisplayName,
-          entry?.distributor_name,
-          entry?.po_number,
-          billNumber,
-          entry?.reference,
-          entry?.description,
-          entry?.notes,
-          entry?.payment_mode,
-          modeLabel,
-          typeLabel,
-        ],
-        supplier: [supplierDisplayName, entry?.distributor_name],
-        po_number: [entry?.po_number, entry?.reference],
-        ledger: [billNumber, entry?.reference, entry?.payment_mode, modeLabel, typeLabel],
-        notes: [entry?.description, entry?.notes],
-      });
+      return matchesSearch([
+        supplierDisplayName,
+        entry?.distributor_name,
+        entry?.po_number,
+        billNumber,
+        entry?.reference,
+        entry?.description,
+        entry?.notes,
+        entry?.payment_mode,
+        modeLabel,
+        typeLabel,
+      ]);
     });
 
     if (quickView === 'recent') return filtered;
@@ -520,7 +471,6 @@ const PurchasePaymentsSection = ({
     matchesDateRange,
     matchesSearch,
     quickView,
-    searchScope,
   ]);
   const visiblePayables = useMemo(
     () => filteredPayableEntries.slice(0, PAYABLE_CARD_LIMIT),
@@ -577,7 +527,6 @@ const PurchasePaymentsSection = ({
 
   const activeFilterCount = [
     normalizedSearchQuery,
-    searchScope !== 'all' ? searchScope : '',
     filters.distributor_id,
     quickView !== 'all' ? quickView : '',
     filters.start_date,
@@ -594,14 +543,6 @@ const PurchasePaymentsSection = ({
 
   const handleSearchSubmit = (value = searchDraft) => {
     setSearchQuery(String(value || ''));
-  };
-
-  const handleSearchScopeChange = (nextScope) => {
-    const normalizedScope = SEARCH_SCOPE_OPTIONS.some((option) => option.value === nextScope)
-      ? nextScope
-      : 'all';
-    setSearchScope(normalizedScope);
-    setSearchQuery(searchDraft);
   };
 
   const handleSupplierFilterChange = (nextItems) => {
@@ -631,7 +572,6 @@ const PurchasePaymentsSection = ({
   const handleClearAllFilters = () => {
     setSearchDraft('');
     setSearchQuery('');
-    setSearchScope('all');
     setQuickView('all');
     onFilterChange({
       distributor_id: '',
@@ -697,7 +637,7 @@ const PurchasePaymentsSection = ({
       <div className="filters-bar stock-ledger-filters">
         <SearchFilter
           id="stock-ledger-search"
-          placeholder={activeSearchScopeCopy.placeholder}
+          placeholder={SEARCH_PLACEHOLDER}
           value={searchDraft}
           onChange={handleSearchDraftChange}
           onSubmit={handleSearchSubmit}
@@ -705,27 +645,20 @@ const PurchasePaymentsSection = ({
           stretch
           className="stock-ledger-search-filter purchase-payments-search-filter"
           tone="sky"
-          ariaLabel={activeSearchScopeCopy.ariaLabel}
+          ariaLabel={SEARCH_ARIA_LABEL}
           ariaAutocomplete="none"
-          scopeOptions={SEARCH_SCOPE_OPTIONS}
-          scopeValue={searchScope}
-          onScopeChange={handleSearchScopeChange}
-          scopeAriaLabel="Search scope"
-          submitAriaLabel={activeSearchScopeCopy.submitAriaLabel || activeSearchScopeCopy.ariaLabel}
+          submitAriaLabel={SEARCH_SUBMIT_ARIA_LABEL}
+          actions={
+            <FilterToggleButton
+              ref={filterToggleRef}
+              open={showAdvancedFilters}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              ariaControls="purchase-payments-advanced-filters"
+              count={activeFilterCount}
+              tone="sky"
+            />
+          }
         />
-        <button
-          ref={filterToggleRef}
-          type="button"
-          className={`stock-ledger-filter-toggle${showAdvancedFilters ? ' is-open' : ''}`}
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="purchase-payments-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
         {searchDraft || searchQuery || activeFilterCount ? (
           <button
             type="button"

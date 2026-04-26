@@ -12,15 +12,16 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
   X,
 } from 'lucide-react';
 import { insightsApi } from '../../shared/services/api';
 import { formatCurrency, formatDate } from '../../shared/utils/formatters';
 import BackofficePageHeader from '../../shared/components/backoffice/BackofficePageHeader';
-import { DateRangeFilter, SearchFilter } from '../../shared/components/filters';
+import {
+  DateRangeFilter,
+  FilterToggleButton,
+  SearchFilter,
+} from '../../shared/components/filters';
 import {
   FilterBar,
   FilterPills,
@@ -691,20 +692,16 @@ const DistributorInsights = () => {
           ariaLabel="Search distributors"
           ariaAutocomplete="none"
           submitAriaLabel="Search distributors"
+          actions={
+            <FilterToggleButton
+              open={showAdvancedFilters}
+              onClick={() => setShowAdvancedFilters((current) => !current)}
+              ariaControls="distributor-insights-advanced-filters"
+              count={activeFilterCount}
+              tone="sky"
+            />
+          }
         />
-
-        <button
-          type="button"
-          className="admin-btn"
-          onClick={() => setShowAdvancedFilters((current) => !current)}
-          aria-expanded={showAdvancedFilters}
-          aria-controls="distributor-insights-advanced-filters"
-        >
-          <SlidersHorizontal size={14} />
-          <span>Filters</span>
-          {activeFilterCount ? <strong>{activeFilterCount}</strong> : null}
-          {showAdvancedFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
 
         {searchDraft || searchQuery || activeFilterCount ? (
           <button type="button" className="admin-btn" onClick={handleClearAllFilters}>

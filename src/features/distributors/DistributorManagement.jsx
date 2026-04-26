@@ -91,6 +91,10 @@ function DistributorManagement() {
     products_supplied: String(supplier?.products_supplied || '').trim(),
   });
 
+  const handleSearchSubmit = useCallback((value) => {
+    setSearchTerm(String(value || ''));
+  }, []);
+
   const buildSupplierProductGroupText = (products = []) => {
     const seen = new Set();
     return (Array.isArray(products) ? products : [])
@@ -721,6 +725,7 @@ function DistributorManagement() {
       error={error}
       searchTerm={searchTerm}
       onSearchChange={(value) => setSearchTerm(value)}
+      onSearchSubmit={handleSearchSubmit}
       distributorCards={filteredDistributorCards}
       parseContacts={parseContacts}
       getStatusBadge={getStatusBadge}
