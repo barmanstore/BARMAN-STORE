@@ -167,15 +167,20 @@ function UsersSection({
                         {truncateUserName(u.name || '-', 15)}
                       </span>
                     </div>
-                    <Link
-                      to={`/admin/users/${u.id}/credit?returnTab=users`}
-                      className="action-btn credit user-compact-credit-btn"
-                      title="Credit Khata"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <CreditCard size={15} />
-                      <span>Credit Khata</span>
-                    </Link>
+                    <div className="user-credit-wrap">
+                      <Link
+                        to={`/admin/users/${u.id}/credit?returnTab=users`}
+                        className="action-btn credit user-compact-credit-btn"
+                        title="Credit Khata"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <CreditCard size={15} />
+                        <span>Credit Khata</span>
+                      </Link>
+                      <span className={`user-credit-balance ${u.credit_balance > 0 ? 'outstanding' : u.credit_balance < 0 ? 'negative' : 'settled'}`}>
+                        {formatCurrency(u.credit_balance || 0)}
+                      </span>
+                    </div>
                   </div>
                   {isExpanded && (
                     <div className="user-compact-details">

@@ -11,6 +11,7 @@ import {
 import {
   getDateRangePopoverClassName,
   getFilterActionClassName,
+  getDateFieldClassName,
   getFilterFrameClassName,
   getFilterIconClassName,
   getFilterIconTriggerClassName,
@@ -240,9 +241,13 @@ function DateRangeFilter({
   triggerMode = 'default',
   showIcon = true,
   showPlaceholderText = true,
+  triggerPlaceholder = '',
   alwaysOpen = false,
   weekStartsOn = 1,
   iconSrc = '',
+  popoverAlign = 'left',
+  open,
+  onOpenChange,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('');
@@ -257,6 +262,12 @@ function DateRangeFilter({
   const safeValue = Array.isArray(value) ? value : [];
 
   const [committedStartDate, committedEndDate] = normalizeDateRange(safeValue[0], safeValue[1]);
+  const isOpenControlled = typeof open === 'boolean';
+  const resolvedIsOpen = isOpenControlled ? open : isOpen;
+  const setResolvedIsOpen = (nextValue) => {
+    if (!alwaysOpen && onOpenChange) onOpenChange(Boolean(nextValue));
+    if (!isOpenControlled) setIsOpen(Boolean(nextValue));
+  };
 
   const committedPresetLabel = useMemo(() => {
     const safePresets = Array.isArray(presets) ? presets : [];
@@ -270,18 +281,19 @@ function DateRangeFilter({
     );
   }, [committedEndDate, committedStartDate, presets]);
 
+  const triggerFallbackText = String(triggerPlaceholder || '').trim();
   const displayValue =
     committedPresetLabel ||
     (committedStartDate && committedEndDate
       ? `${formatShortDate(committedStartDate)} – ${formatShortDate(committedEndDate)}`
       : showPlaceholderText
         ? 'Select dates'
-        : '');
+        : triggerFallbackText);
 
   const activePresetLabel = selectedPreset || committedPresetLabel;
   const hasCommittedValue = Boolean(committedStartDate || committedEndDate);
   const hasCustomRange = Boolean((committedStartDate || committedEndDate) && !committedPresetLabel);
-  const isPickerOpen = alwaysOpen || isOpen;
+  const isPickerOpen = alwaysOpen || resolvedIsOpen;
   const calendarAnchorToken = startOfMonthToken(
     draftStartDate || draftEndDate || committedStartDate || committedEndDate || new Date()
   );
@@ -343,7 +355,7 @@ function DateRangeFilter({
         if (alwaysOpen) {
           closeCustomRange();
         } else {
-          setIsOpen(false);
+          setResolvedIsOpen(false);
         }
       }
     };
@@ -353,7 +365,7 @@ function DateRangeFilter({
         if (alwaysOpen) {
           closeCustomRange();
         } else {
-          setIsOpen(false);
+          setResolvedIsOpen(false);
         }
       }
     };
@@ -469,8 +481,9 @@ function DateRangeFilter({
               aria-pressed={showCustom || hasCustomRange}
               title={hasCustomRange ? customChipLabel : 'Open custom date range'}
             >
-              Custom
+              {hasCustomRange ? customChipLabel : 'Custom'}
             </button>
+            <span className="date-chip date-chip--separator" aria-hidden="true" />
             {presets.map((preset) => {
               const isActive = preset.label === activePresetLabel;
               return (
@@ -492,6 +505,30 @@ function DateRangeFilter({
 
           {showCustom ? (
             <div className="calendar-box calendar-box--inline">
+              <div className="date-custom-inputs" role="group" aria-label="Custom date range">
+                <label className="date-custom-input">
+                  <span>From</span>
+                  <input
+                    type="date"
+                    className={getDateFieldClassName(tone)}
+                    value={draftStartDate || ''}
+                    onChange={(event) =>
+                      syncCustomRange(event.target.value, draftEndDate || '', 'start')
+                    }
+                  />
+                </label>
+                <label className="date-custom-input">
+                  <span>To</span>
+                  <input
+                    type="date"
+                    className={getDateFieldClassName(tone)}
+                    value={draftEndDate || ''}
+                    onChange={(event) =>
+                      syncCustomRange(draftStartDate || '', event.target.value, 'end')
+                    }
+                  />
+                </label>
+              </div>
               <CompactCalendar
                 monthToken={calendarMonthToken || calendarAnchorToken}
                 selectedStartDate={draftStartDate}
@@ -533,8 +570,8 @@ function DateRangeFilter({
       {triggerMode === 'icon' ? (
         <button
           type="button"
-          className={`${getFilterIconTriggerClassName({ tone, isOpen, hasValue: hasCommittedValue })} date-range-trigger date-range-trigger--icon`}
-          onClick={() => setIsOpen((current) => !current)}
+          className={`${getFilterIconTriggerClassName({ tone, isOpen: resolvedIsOpen, hasValue: hasCommittedValue })} date-range-trigger date-range-trigger--icon`}
+          onClick={() => setResolvedIsOpen(!resolvedIsOpen)}
           aria-expanded={isPickerOpen}
           aria-haspopup="dialog"
           aria-controls={popoverId}
@@ -550,8 +587,8 @@ function DateRangeFilter({
       ) : (
         <button
           type="button"
-          className={`${getFilterTriggerClassName({ tone, isOpen, hasValue: hasCommittedValue })} date-range-trigger`}
-          onClick={alwaysOpen ? undefined : () => setIsOpen((current) => !current)}
+          className={`${getFilterTriggerClassName({ tone, isOpen: resolvedIsOpen, hasValue: hasCommittedValue })} date-range-trigger`}
+          onClick={alwaysOpen ? undefined : () => setResolvedIsOpen(!resolvedIsOpen)}
           aria-expanded={isPickerOpen}
           aria-haspopup={alwaysOpen ? undefined : 'dialog'}
           aria-controls={popoverId}
@@ -566,15 +603,15 @@ function DateRangeFilter({
             )
           ) : null}
           {displayValue ? (
-            <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[13px] font-medium">
+            <span className="date-range-trigger__value min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-[13px] font-medium">
               {displayValue}
             </span>
           ) : null}
           {!alwaysOpen ? (
-            isOpen ? (
-              <ChevronUp size={15} className="shrink-0 text-slate-400" />
+            resolvedIsOpen ? (
+              <ChevronUp size={15} className="date-range-trigger__chevron shrink-0 text-slate-400" />
             ) : (
-              <ChevronDown size={15} className="shrink-0 text-slate-400" />
+              <ChevronDown size={15} className="date-range-trigger__chevron shrink-0 text-slate-400" />
             )
           ) : null}
         </button>
@@ -585,7 +622,7 @@ function DateRangeFilter({
           id={popoverId}
           role="dialog"
           aria-label={label || 'Date range filter'}
-          className={`${getDateRangePopoverClassName(tone)} date-range-popover`}
+          className={`${getDateRangePopoverClassName(tone)} date-range-popover ${String(popoverAlign).toLowerCase() === 'right' ? 'date-range-popover--right' : 'date-range-popover--left'}`}
         >
           {helperText ? (
             <div className="date-range-header">

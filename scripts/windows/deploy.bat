@@ -9,7 +9,7 @@ if errorlevel 1 (
 )
 
 set "MODE=%~1"
-set "VERCEL_NPX=npx --yes vercel@50.26.0"
+set "VERCEL_NPX=npx --yes vercel@52.0.0"
 set "PRIMARY_PROD_ALIAS=barmanstore.vercel.app"
 set "EXTRA_PROD_ALIASES=barman-store.vercel.app"
 set "LAST_LOG="
@@ -40,6 +40,13 @@ if /i "%OPS_DRY_RUN%"=="1" (
   >> "%LAST_LOG%" echo [DRY-RUN] call "%~dp0health-check.bat" quick
   >> "%LAST_LOG%" echo [DRY-RUN] npm run build
 ) else (
+  echo [INFO] Checking Vercel authentication...
+  call %VERCEL_NPX% whoami >> "%LAST_LOG%" 2>&1
+  if errorlevel 1 (
+    echo [ERROR] Vercel authentication is invalid or expired.
+    echo [INFO] Run: %VERCEL_NPX% login
+    goto :end_error
+  )
   call "%~dp0health-check.bat" quick >> "%LAST_LOG%" 2>&1
   if errorlevel 1 (
     echo [ERROR] Health check failed. Review "%LAST_LOG%"

@@ -13,7 +13,7 @@ const FILTER_PILL_CLASS_NAME =
 const FILTER_POPOVER_CLASS_NAME =
   'z-20 mt-2 grid w-full gap-3 rounded-[20px] border border-slate-200/90 bg-white/98 p-3.5 shadow-[0_24px_48px_rgba(15,23,42,0.14)] backdrop-blur-md sm:absolute sm:left-0 sm:top-[calc(100%+10px)] sm:mt-0 sm:min-w-[280px]';
 const FILTER_DATE_RANGE_POPOVER_CLASS_NAME =
-  'z-20 mt-2 grid w-full gap-3 rounded-[20px] border border-slate-200/90 bg-white/98 p-3.5 shadow-[0_24px_48px_rgba(15,23,42,0.14)] backdrop-blur-md sm:absolute sm:left-0 sm:top-[calc(100%+10px)] sm:mt-0 sm:w-[560px] sm:max-w-[calc(100vw-24px)]';
+  'z-20 grid gap-3 rounded-[20px] border border-slate-200/90 bg-white/98 p-3.5 shadow-[0_24px_48px_rgba(15,23,42,0.14)] backdrop-blur-md absolute left-0 top-[calc(100%+10px)] mt-0 w-[560px] max-w-[calc(100vw-24px)]';
 const FILTER_DATE_FIELD_CLASS_NAME =
   'h-[40px] rounded-2xl border border-slate-200 bg-white/95 px-3.5 text-[12px] font-medium text-slate-800 outline-none transition';
 const FILTER_TONES = {

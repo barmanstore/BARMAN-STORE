@@ -1,22 +1,51 @@
-import { Plus, RefreshCw } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, RefreshCw, X } from 'lucide-react';
+import { useMemo } from 'react';
 import MobileAccountLayout from '../../../shared/components/mobile/MobileAccountLayout';
 import { useSession } from '../../../providers/SessionProvider';
 import useCreditHistoryController from './hooks/useCreditHistoryController.jsx';
+import { FilterBar, FilterPills, DateRangeFilter } from '../../../shared/components/filters';
 import CreditAddTransactionModal from './components/CreditAddTransactionModal';
 import CreditEntrySharePanel from './components/CreditEntrySharePanel';
 import CreditHistoryHeader from './components/CreditHistoryHeader';
 import CreditInvoiceModal from './components/CreditInvoiceModal';
-import CreditIssuesAdminInbox from './components/CreditIssuesAdminInbox';
 import CreditMonthlyStatementSection from './components/CreditMonthlyStatementSection';
-import CreditQuickFilters from './components/CreditQuickFilters';
 import CreditReportPreview from './components/CreditReportPreview';
 import CreditTransactionsSection from './components/CreditTransactionsSection';
 import './CreditHistory.css';
 
+const toDateToken = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const shiftDateByDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const buildDateRangePresets = () => {
+  const today = new Date();
+  const todayToken = toDateToken(today);
+  const yesterday = shiftDateByDays(today, -1);
+  return [
+    { label: 'Today', value: [todayToken, todayToken] },
+    { label: 'Yesterday', value: [toDateToken(yesterday), toDateToken(yesterday)] },
+    { label: 'Last 7 Days', value: [toDateToken(shiftDateByDays(today, -6)), todayToken] },
+    {
+      label: 'This Month',
+      value: [toDateToken(new Date(today.getFullYear(), today.getMonth(), 1)), todayToken],
+    },
+  ];
+};
+
 function CreditHistory() {
   const { user } = useSession();
   const { loading, viewProps } = useCreditHistoryController({ user });
+  const dateRangePresets = useMemo(() => buildDateRangePresets(), []);
 
   if (loading) {
     return (
@@ -38,10 +67,8 @@ function CreditHistory() {
           customer={viewProps.customer}
           balanceSummary={viewProps.balanceSummary}
           balance={viewProps.balance}
-          ledgerSummary={viewProps.ledgerSummary}
           lastTransactionLine={viewProps.lastTransactionLine}
           trustLine={viewProps.trustLine}
-          billsHref={viewProps.billsHref}
           showPaymentBadges={viewProps.showPaymentBadges}
           paymentBadgesLoading={viewProps.paymentBadgesLoading}
           paymentBadges={viewProps.paymentBadges}
@@ -52,35 +79,70 @@ function CreditHistory() {
           isMobile={viewProps.isMobile}
           openAddModalWithType={viewProps.openAddModalWithType}
           onContactWhatsApp={viewProps.handleOpenWhatsAppChat}
+          onOpenReportPanel={viewProps.handleGenerateReport}
         />
 
-        <CreditQuickFilters
-          quickTypeFilter={viewProps.quickTypeFilter}
-          setQuickTypeFilter={viewProps.setQuickTypeFilter}
-          quickRangeFilter={viewProps.quickRangeFilter}
-          setQuickRangeFilter={viewProps.setQuickRangeFilter}
+        <FilterBar className="credit-history-filters">
+          <div className="credit-history-filter-chips">
+            <button
+              type="button"
+              className={`filter-chip ${viewProps.quickTypeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => viewProps.setQuickTypeFilter('all')}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`filter-chip ${viewProps.quickTypeFilter === 'given' ? 'active' : ''}`}
+              onClick={() => viewProps.setQuickTypeFilter('given')}
+            >
+              Charges
+            </button>
+            <button
+              type="button"
+              className={`filter-chip ${viewProps.quickTypeFilter === 'payment' ? 'active' : ''}`}
+              onClick={() => viewProps.setQuickTypeFilter('payment')}
+            >
+              Payment
+            </button>
+          </div>
+          <DateRangeFilter
+            value={[viewProps.filters.start_date, viewProps.filters.end_date]}
+            onChange={([start, end]) =>
+              viewProps.setFilters({ ...viewProps.filters, start_date: start, end_date: end })
+            }
+            width="220px"
+            tone="sky"
+            presets={dateRangePresets}
+            helperText="Transaction date"
+            showIcon={false}
+            showPlaceholderText={false}
+            triggerPlaceholder="Date Filter"
+            popoverAlign="right"
+          />
+        </FilterBar>
+
+        <FilterPills
+          items={[
+            viewProps.quickTypeFilter !== 'all'
+              ? {
+                  key: 'type',
+                  label: viewProps.quickTypeFilter === 'given' ? 'Charges' : 'Payment',
+                  onClear: () => viewProps.setQuickTypeFilter('all'),
+                }
+              : null,
+            viewProps.filters.start_date || viewProps.filters.end_date
+              ? {
+                  key: 'date_range',
+                  label: `${viewProps.filters.start_date || '..'} - ${viewProps.filters.end_date || '..'}`,
+                  onClear: () => viewProps.setFilters({ ...viewProps.filters, start_date: '', end_date: '' }),
+                }
+              : null,
+          ].filter(Boolean).map((pill) => ({
+            ...pill,
+            icon: <X size={12} aria-hidden="true" />,
+          }))}
         />
-
-        {!viewProps.isAdminView && (
-          <CreditMonthlyStatementSection
-            monthlyStatements={viewProps.monthlyStatements}
-            paymentBadgeSummary={viewProps.paymentBadgeSummary}
-          />
-        )}
-
-        {viewProps.isAdminView && (
-          <CreditIssuesAdminInbox
-            adminVisibleIssues={viewProps.adminVisibleIssues}
-            focusIssueId={viewProps.focusIssueId}
-            getAdminIssueDraft={viewProps.getAdminIssueDraft}
-            setAdminIssueDraft={viewProps.setAdminIssueDraft}
-            activeAdminIssueId={viewProps.activeAdminIssueId}
-            setActiveAdminIssueId={viewProps.setActiveAdminIssueId}
-            handleAdminIssueAction={viewProps.handleAdminIssueAction}
-            adminIssueSavingId={viewProps.adminIssueSavingId}
-            scrollToTransactionEntry={viewProps.scrollToTransactionEntry}
-          />
-        )}
 
         <CreditTransactionsSection
           filteredTransactions={viewProps.filteredTransactions}
@@ -102,7 +164,8 @@ function CreditHistory() {
           isTransactionWithinFiveDays={viewProps.isTransactionWithinFiveDays}
           truncateCreditDescription={viewProps.truncateCreditDescription}
           setIssueForm={viewProps.setIssueForm}
-          handlePrintInvoice={viewProps.handlePrintInvoice}
+          handleCustomerTransactionIssue={viewProps.handleCustomerTransactionIssue}
+          openEditModalWithTransaction={viewProps.openEditModalWithTransaction}
           handleSendTransactionWhatsApp={viewProps.handleSendTransactionWhatsApp}
           handleDeleteTransaction={viewProps.handleDeleteTransaction}
           deletingEntryId={viewProps.deletingEntryId}
@@ -114,12 +177,20 @@ function CreditHistory() {
           setIssueResponseDrafts={viewProps.setIssueResponseDrafts}
           handleIssueResponse={viewProps.handleIssueResponse}
           issueRespondingId={viewProps.issueRespondingId}
-          fromDate={viewProps.fromDate}
-          toDate={viewProps.toDate}
-          setFromDate={viewProps.setFromDate}
-          setToDate={viewProps.setToDate}
-          handleGenerateReport={viewProps.handleGenerateReport}
+          activeAdminIssueId={viewProps.activeAdminIssueId}
+          setActiveAdminIssueId={viewProps.setActiveAdminIssueId}
+          getAdminIssueDraft={viewProps.getAdminIssueDraft}
+          setAdminIssueDraft={viewProps.setAdminIssueDraft}
+          handleAdminIssueAction={viewProps.handleAdminIssueAction}
+          adminIssueSavingId={viewProps.adminIssueSavingId}
         />
+
+        {!viewProps.isAdminView && (
+          <CreditMonthlyStatementSection
+            monthlyStatements={viewProps.monthlyStatements}
+            paymentBadgeSummary={viewProps.paymentBadgeSummary}
+          />
+        )}
 
         {viewProps.isAdminView && (
           <CreditReportPreview
@@ -128,6 +199,11 @@ function CreditHistory() {
             reportText={viewProps.reportText}
             customer={viewProps.customer}
             paymentBadgeSummary={viewProps.paymentBadgeSummary}
+            fromDate={viewProps.fromDate}
+            toDate={viewProps.toDate}
+            setFromDate={viewProps.setFromDate}
+            setToDate={viewProps.setToDate}
+            handleGenerateReport={viewProps.handleGenerateReport}
             handleCopyReport={viewProps.handleCopyReport}
             handleSendWhatsApp={viewProps.handleSendWhatsApp}
             generatePDFReport={viewProps.generatePDFReport}
@@ -161,9 +237,6 @@ function CreditHistory() {
             >
               <Plus size={16} /> Add Manual Sale
             </button>
-            <Link to={viewProps.billsHref} className="mobile-cta bills">
-              View Bills
-            </Link>
           </div>
         )}
 

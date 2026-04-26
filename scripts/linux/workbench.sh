@@ -11,6 +11,7 @@ cd "$REPO_ROOT" || {
 DRY_RUN="${OPS_DRY_RUN:-0}"
 PRIMARY_PROD_ALIAS="barmanstore.vercel.app"
 EXTRA_PROD_ALIASES=("barman-store.vercel.app")
+VERCEL_CLI_VERSION="52.0.0"
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -43,6 +44,21 @@ run_npm() {
 run_npx() {
   require_cmd npx || return 1
   run_cmd npx "$@"
+}
+
+ensure_vercel_auth() {
+  if [[ "$DRY_RUN" == "1" ]]; then
+    echo "[DRY-RUN] npx --yes vercel@$VERCEL_CLI_VERSION whoami"
+    return 0
+  fi
+
+  echo "[INFO] Checking Vercel authentication..."
+  if ! run_npx --yes vercel@"$VERCEL_CLI_VERSION" whoami >/dev/null 2>&1; then
+    echo "[ERROR] Vercel authentication is invalid or expired."
+    echo "[INFO] Run: npx --yes vercel@$VERCEL_CLI_VERSION login"
+    return 1
+  fi
+  return 0
 }
 
 ensure_node_tools() {
@@ -458,6 +474,7 @@ deploy_vercel_prod() {
   local latest_url=""
   local remote_url
 
+  ensure_vercel_auth || return 1
   health_quick || return 1
   build_production || return 1
 
@@ -468,15 +485,15 @@ deploy_vercel_prod() {
   echo "[INFO] Writing log to \"$log_file\""
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[DRY-RUN] npx --yes vercel@50.26.0 --prod"
-    echo "[DRY-RUN] npx --yes vercel@50.26.0 alias set <deployment-url> $PRIMARY_PROD_ALIAS"
+    echo "[DRY-RUN] npx --yes vercel@$VERCEL_CLI_VERSION --prod"
+    echo "[DRY-RUN] npx --yes vercel@$VERCEL_CLI_VERSION alias set <deployment-url> $PRIMARY_PROD_ALIAS"
     for remote_url in "${EXTRA_PROD_ALIASES[@]}"; do
-      echo "[DRY-RUN] npx --yes vercel@50.26.0 alias set <deployment-url> $remote_url"
+      echo "[DRY-RUN] npx --yes vercel@$VERCEL_CLI_VERSION alias set <deployment-url> $remote_url"
     done
     return 0
   fi
 
-  if ! npx --yes vercel@50.26.0 --prod 2>&1 | tee "$log_file"; then
+  if ! npx --yes vercel@"$VERCEL_CLI_VERSION" --prod 2>&1 | tee "$log_file"; then
     echo "[ERROR] Vercel deploy failed. Review \"$log_file\""
     return 1
   fi
@@ -491,23 +508,24 @@ deploy_vercel_prod() {
   fi
 
   echo "[INFO] Updating production aliases to $latest_url"
-  run_npx --yes vercel@50.26.0 alias set "$latest_url" "$PRIMARY_PROD_ALIAS" || true
+  run_npx --yes vercel@"$VERCEL_CLI_VERSION" alias set "$latest_url" "$PRIMARY_PROD_ALIAS" || true
   for remote_url in "${EXTRA_PROD_ALIASES[@]}"; do
-    run_npx --yes vercel@50.26.0 alias set "$latest_url" "$remote_url" || true
+    run_npx --yes vercel@"$VERCEL_CLI_VERSION" alias set "$latest_url" "$remote_url" || true
   done
 }
 
 deploy_vercel_preview() {
+  ensure_vercel_auth || return 1
   health_quick || return 1
   build_production || return 1
   echo "========================================"
   echo "Deploy to Vercel (preview)"
   echo "========================================"
   if [[ "$DRY_RUN" == "1" ]]; then
-    echo "[DRY-RUN] npx --yes vercel@50.26.0"
+    echo "[DRY-RUN] npx --yes vercel@$VERCEL_CLI_VERSION"
     return 0
   fi
-  run_npx --yes vercel@50.26.0 || return 1
+  run_npx --yes vercel@"$VERCEL_CLI_VERSION" || return 1
 }
 
 deploy_git() {

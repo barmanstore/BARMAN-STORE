@@ -121,6 +121,10 @@ const useCreditHistoryController = ({ user }) => {
     setQuickTypeFilter,
     quickRangeFilter,
     setQuickRangeFilter,
+    showAdvancedFilters,
+    setShowAdvancedFilters,
+    filters,
+    setFilters,
     expandedTransactionId,
     setExpandedTransactionId,
     creditIssues,
@@ -223,6 +227,7 @@ const useCreditHistoryController = ({ user }) => {
 
   const reports = useCreditHistoryReports({
     creditHistory,
+    creditIssues,
     customer,
     balance,
     paymentBadgeSummary,
@@ -359,6 +364,7 @@ const useCreditHistoryController = ({ user }) => {
     paymentBadgesLoading,
     quickTypeFilter,
     quickRangeFilter,
+    filters,
     creditIssues,
     focusIssueId,
     applyCreditQuickFilters,
@@ -399,11 +405,17 @@ const useCreditHistoryController = ({ user }) => {
 
   const backHref = isAdminView ? getBackToAdminUrl() : '/profile';
   const backLabel = isAdminView ? 'Back to Admin' : 'Back to Profile';
-  const billsHref = isAdminView ? getAdminTabHref('view-bills') : '/my-bills';
   const trustLine = isAdminView
     ? 'Running balance is recalculated after every entry. Reversals are audit logged.'
     : 'Running balance is recalculated after every entry.';
-  const addModalTitle = newTransaction.type === 'payment' ? 'Add Payment' : 'Add Manual Sale';
+  const addModalTitle =
+    Number(newTransaction.editEntryId || 0) > 0
+      ? newTransaction.type === 'payment'
+        ? 'Edit Payment'
+        : 'Edit Manual Sale'
+      : newTransaction.type === 'payment'
+        ? 'Add Payment'
+        : 'Add Manual Sale';
   const addModalActionLabel = newTransaction.type === 'payment' ? 'Payment' : 'Manual Sale';
 
   return {
@@ -415,10 +427,8 @@ const useCreditHistoryController = ({ user }) => {
       customer,
       balanceSummary: computed.balanceSummary,
       balance,
-      ledgerSummary: computed.ledgerSummary,
       lastTransactionLine: computed.lastTransactionLine,
       trustLine,
-      billsHref,
       showPaymentBadges: computed.showPaymentBadges,
       monthlyStatements: computed.monthlyStatements,
       paymentBadgesLoading,
@@ -429,10 +439,15 @@ const useCreditHistoryController = ({ user }) => {
       success,
       isMobile,
       openAddModalWithType: transactions.openAddModalWithType,
+      openEditModalWithTransaction: transactions.openEditModalWithTransaction,
       quickTypeFilter,
       setQuickTypeFilter,
       quickRangeFilter,
       setQuickRangeFilter,
+      showAdvancedFilters,
+      setShowAdvancedFilters,
+      filters,
+      setFilters,
       adminVisibleIssues: computed.adminVisibleIssues,
       focusIssueId,
       getAdminIssueDraft: issues.getAdminIssueDraft,
@@ -458,6 +473,7 @@ const useCreditHistoryController = ({ user }) => {
       formatTransactionDate,
       truncateCreditDescription,
       setIssueForm,
+      handleCustomerTransactionIssue: issues.handleCustomerTransactionIssue,
       handlePrintInvoice: transactions.handlePrintInvoice,
       isTransactionWithinFiveDays: reports.isTransactionWithinFiveDays,
       handleSendTransactionWhatsApp: reports.handleSendTransactionWhatsApp,

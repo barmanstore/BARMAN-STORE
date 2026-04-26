@@ -2,10 +2,18 @@
   min-width: 0;
   display: grid;
   gap: 6px;
+  position: relative;
+  overflow: visible;
 }
 
 .date-range-trigger {
   font-variant-numeric: tabular-nums;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.date-range-trigger__chevron {
+  margin-left: auto;
 }
 
 .date-filter-trigger--icon {
@@ -24,6 +32,12 @@
 }
 
 .date-range-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  margin-top: 0;
+  width: min(560px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  z-index: 20;
   gap: 10px;
   padding: 12px;
   border-radius: 20px;
@@ -31,9 +45,37 @@
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
 }
 
+.date-range-popover--left {
+  left: 0;
+  right: auto;
+}
+
+.date-range-popover--right {
+  right: 0;
+  left: auto;
+}
+
 .date-range-inline {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.date-range-inline::after {
+  content: '';
+  width: 100%;
+}
+
+.date-range-inline .date-chip--separator {
+  flex-basis: 100%;
+  height: 0;
+  margin: 4px 0;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+}
+
+.date-chip {
 }
 
 .date-range-header {
@@ -86,15 +128,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 12px;
+  gap: 8px;
+  min-height: 28px;
+  padding: 0 10px;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
   background: #f8fafc;
   color: #475569;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.01em;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   transition:
@@ -224,6 +266,27 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.date-custom-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.date-custom-input {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.date-custom-input > span {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
 .date-calendar {
@@ -374,5 +437,9 @@
 
   .date-day {
     height: 28px;
+  }
+
+  .date-custom-inputs {
+    grid-template-columns: 1fr;
   }
 }

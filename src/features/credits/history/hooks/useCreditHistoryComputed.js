@@ -11,6 +11,7 @@ const useCreditHistoryComputed = ({
   paymentBadgesLoading,
   quickTypeFilter,
   quickRangeFilter,
+  filters,
   creditIssues,
   focusIssueId,
   applyCreditQuickFilters,
@@ -27,17 +28,52 @@ const useCreditHistoryComputed = ({
   // eslint-disable-next-line react-hooks/purity
   const nowTimestamp = Date.now();
 
+  const currentTransactions = useMemo(() => {
+    const correctedEntryIds = new Set();
+    for (const issue of creditIssues) {
+      const status = String(issue?.status || '')
+        .trim()
+        .toLowerCase();
+      const customerResponseStatus = String(issue?.customer_response_status || '')
+        .trim()
+        .toLowerCase();
+      const entryId = Number(issue?.credit_entry_id || 0);
+      const correctionEntryId = Number(issue?.correction_entry_id || 0);
+      const isFinalizedForReplacement =
+        (customerResponseStatus === '' || customerResponseStatus === 'acknowledged') &&
+        correctionEntryId > 0;
+      if (status === 'corrected' && entryId > 0 && isFinalizedForReplacement) {
+        correctedEntryIds.add(entryId);
+      }
+    }
+    return creditHistory.filter((entry) => !correctedEntryIds.has(Number(entry?.id || 0)));
+  }, [creditHistory, creditIssues]);
+
   const filteredTransactions = useMemo(() => {
-    return applyCreditQuickFilters(creditHistory, {
+    let result = applyCreditQuickFilters(currentTransactions, {
       typeFilter: quickTypeFilter,
       rangeFilter: quickRangeFilter,
       nowTimestamp,
       getTimestamp: getEffectiveTransactionTimestamp,
-    }).sort(compareTransactionsByDateDesc);
+    });
+
+    // Apply date range filters from advanced filters
+    if (filters?.start_date || filters?.end_date) {
+      const startTimestamp = filters.start_date ? new Date(filters.start_date).getTime() : 0;
+      const endTimestamp = filters.end_date ? new Date(filters.end_date).getTime() + 86400000 : Number.MAX_SAFE_INTEGER;
+      
+      result = result.filter((entry) => {
+        const entryTimestamp = getEffectiveTransactionTimestamp(entry);
+        return entryTimestamp >= startTimestamp && entryTimestamp < endTimestamp;
+      });
+    }
+
+    return result.sort(compareTransactionsByDateDesc);
   }, [
-    creditHistory,
+    currentTransactions,
     quickTypeFilter,
     quickRangeFilter,
+    filters,
     applyCreditQuickFilters,
     compareTransactionsByDateDesc,
     getEffectiveTransactionTimestamp,
@@ -58,7 +94,7 @@ const useCreditHistoryComputed = ({
   ]);
 
   const lastTransaction = getLastTransactionFromHistory(
-    creditHistory,
+    currentTransactions,
     getEffectiveTransactionTimestamp
   );
   const lastTransactionTimestamp = lastTransaction
@@ -72,21 +108,6 @@ const useCreditHistoryComputed = ({
       ? `Last: ${getTypeLabel(lastTransaction)} · ${formatTransactionDate(lastTransaction, { long: true })}`
       : 'Last: No recent transactions';
 
-  const ledgerSummary = useMemo(() => {
-    return creditHistory.reduce(
-      (acc, transaction) => {
-        const delta = getCreditEntryDelta(transaction);
-        if (delta >= 0) {
-          acc.totalDebit += delta;
-        } else {
-          acc.totalCredit += Math.abs(delta);
-        }
-        return acc;
-      },
-      { totalDebit: 0, totalCredit: 0 }
-    );
-  }, [creditHistory]);
-
   const balanceSummary = getBalanceSummary(balance, {
     viewerRole: isAdminView ? 'admin' : 'customer',
   });
@@ -99,18 +120,21 @@ const useCreditHistoryComputed = ({
   const showPaymentBadges = paymentBadgesLoading || paymentBadges.length > 0;
   const monthlyStatements = useMemo(
     () =>
-      buildMonthlyCreditStatements(creditHistory, {
+      buildMonthlyCreditStatements(currentTransactions, {
         getTimestamp: getEffectiveTransactionTimestamp,
         getDelta: getCreditEntryDelta,
         maxStatements: 6,
       }),
-    [creditHistory, getEffectiveTransactionTimestamp]
+    [currentTransactions, getEffectiveTransactionTimestamp]
   );
 
-  const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all';
+  const hasFiltersApplied = quickTypeFilter !== 'all' || quickRangeFilter !== 'all' || filters?.start_date || filters?.end_date;
 
   const issueFlagByEntryId = useMemo(() => {
     const map = new Map();
+    const currentEntryIds = new Set(
+      currentTransactions.map((entry) => Number(entry?.id || 0)).filter((id) => id > 0)
+    );
     const tonePriority = {
       open: 1,
       review: 2,
@@ -119,7 +143,7 @@ const useCreditHistoryComputed = ({
     };
     for (const issue of creditIssues) {
       const entryId = Number(issue?.credit_entry_id || 0);
-      if (!entryId) continue;
+      if (!entryId || !currentEntryIds.has(entryId)) continue;
       const status = String(issue?.status || '')
         .trim()
         .toLowerCase();
@@ -159,7 +183,7 @@ const useCreditHistoryComputed = ({
       }
     }
     return map;
-  }, [creditIssues]);
+  }, [creditIssues, currentTransactions]);
 
   const adminVisibleIssues = isAdminView
     ? creditIssues.filter((issue) => {
@@ -183,7 +207,6 @@ const useCreditHistoryComputed = ({
     filteredTransactions,
     groupedTransactions,
     lastTransactionLine,
-    ledgerSummary,
     balanceSummary,
     inactivityHint,
     showPaymentBadges,

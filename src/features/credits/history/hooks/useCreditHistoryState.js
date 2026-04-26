@@ -4,6 +4,7 @@ export const getCreditTransactionDefaultDescription = (type = 'payment') =>
   type === 'given' ? 'Manual sale' : 'Payment received';
 
 const createNewTransactionDraft = (getTodayDateInputValue, type = 'payment') => ({
+  editEntryId: 0,
   type: type === 'given' ? 'given' : 'payment',
   amount: '',
   description: getCreditTransactionDefaultDescription(type),
@@ -54,6 +55,12 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
   const [entryShareText, setEntryShareText] = useState('');
   const [quickTypeFilter, setQuickTypeFilter] = useState('all');
   const [quickRangeFilter, setQuickRangeFilter] = useState('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    transaction_type: '',
+    start_date: '',
+    end_date: '',
+  });
   const [expandedTransactionId, setExpandedTransactionId] = useState(null);
   const [creditIssues, setCreditIssues] = useState([]);
   const [issueSubmitting, setIssueSubmitting] = useState(false);
@@ -137,6 +144,10 @@ const useCreditHistoryState = ({ user, userId, searchParams, getTodayDateInputVa
     setQuickTypeFilter,
     quickRangeFilter,
     setQuickRangeFilter,
+    showAdvancedFilters,
+    setShowAdvancedFilters,
+    filters,
+    setFilters,
     expandedTransactionId,
     setExpandedTransactionId,
     creditIssues,

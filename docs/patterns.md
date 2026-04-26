@@ -16,6 +16,7 @@ See also: [controllers.md](controllers.md), [services.md](services.md), [naming-
   - `server/features/communication/routes/messageToCustomer/*`
 - Normalization helpers for shared domain state, such as purchase-order status mapping in [src/features/commerce/purchase/utils/orders.js](../src/features/commerce/purchase/utils/orders.js).
 - Request idempotency support through client request IDs.
+- Use the shared `BackButton` component from `src/shared/components/BackButton.jsx` for all back navigation. It provides a consistent circular button style with white background, border, and shadow. Import it and replace inline back-link implementations to keep the back button styling uniform across all pages.
 
 ## What To Repeat
 

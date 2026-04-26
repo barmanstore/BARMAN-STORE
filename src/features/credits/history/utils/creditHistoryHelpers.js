@@ -5,12 +5,13 @@ export const PDF_TABLE_LAYOUT = {
   cellPadding: 3.2,
   minCellHeight: 8,
   columnWeight: {
-    date: 0.11,
-    type: 0.09,
-    reference: 0.12,
-    amount: 0.14,
-    balance: 0.16,
-    description: 0.38,
+    date: 0.13,
+    type: 0.12,
+    reference: 0.13,
+    debit: 0.11,
+    credit: 0.11,
+    balance: 0.14,
+    description: 0.26,
   },
 };
 
@@ -154,8 +155,9 @@ export const getPdfColumnStyles = (doc) => {
     0: { cellWidth: usableWidth * w.date },
     1: { cellWidth: usableWidth * w.type },
     2: { cellWidth: usableWidth * w.reference },
-    3: { cellWidth: usableWidth * w.amount, halign: 'right' },
-    4: { cellWidth: usableWidth * w.balance, halign: 'right' },
-    5: { cellWidth: usableWidth * w.description, overflow: 'linebreak', valign: 'top' },
+    3: { cellWidth: usableWidth * w.debit, halign: 'right' },
+    4: { cellWidth: usableWidth * w.credit, halign: 'right' },
+    5: { cellWidth: usableWidth * w.balance, halign: 'right' },
+    6: { cellWidth: usableWidth * w.description, overflow: 'linebreak', valign: 'top' },
   };
 };

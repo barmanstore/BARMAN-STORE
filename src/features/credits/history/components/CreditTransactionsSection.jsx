@@ -1,9 +1,8 @@
-import { Fragment } from 'react';
-import { FileText, Eye, Printer, MessageCircle, RotateCcw } from 'lucide-react';
-import { resolveMediaUrl } from '../../../../shared/services/api/core';
+import { Fragment, useMemo, useState } from 'react';
+import { MessageCircle } from 'lucide-react';
+import CalculatedAmountInput from '../../../../shared/components/CalculatedAmountInput';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import {
-  canReverseCreditEntry,
   getCreditBalanceMeta,
   getCreditEntryDelta,
   getCreditEntryDescription,
@@ -29,10 +28,9 @@ function CreditTransactionsSection({
   isTransactionWithinFiveDays,
   truncateCreditDescription,
   setIssueForm,
-  handlePrintInvoice,
+  handleCustomerTransactionIssue,
+  openEditModalWithTransaction,
   handleSendTransactionWhatsApp,
-  handleDeleteTransaction,
-  deletingEntryId,
   issueForm,
   handleReportIssue,
   issueSubmitting,
@@ -41,12 +39,318 @@ function CreditTransactionsSection({
   setIssueResponseDrafts,
   handleIssueResponse,
   issueRespondingId,
-  fromDate,
-  toDate,
-  setFromDate,
-  setToDate,
-  handleGenerateReport,
+  activeAdminIssueId,
+  setActiveAdminIssueId,
+  getAdminIssueDraft,
+  setAdminIssueDraft,
+  handleAdminIssueAction,
+  adminIssueSavingId,
 }) {
+  const [customerIssueTransaction, setCustomerIssueTransaction] = useState(null);
+  const [customerIssueDraft, setCustomerIssueDraft] = useState({
+    correctionType: '',
+    correctionAmount: '',
+    correctionDate: '',
+    correctionDescription: '',
+    correctionReference: '',
+    reason: '',
+  });
+
+  const openCustomerIssueModal = (transaction) => {
+    const delta = getCreditEntryDelta(transaction);
+    const defaultType = delta < 0 ? 'payment' : 'given';
+    setCustomerIssueTransaction(transaction);
+    setCustomerIssueDraft({
+      correctionType: defaultType,
+      correctionAmount: String(Math.abs(Number(transaction?.amount || 0)) || ''),
+      correctionDate: String(transaction?.transaction_date || transaction?.created_at || '')
+        .trim()
+        .slice(0, 10),
+      correctionDescription: String(getCreditEntryDescription(transaction) || '').trim(),
+      correctionReference: String(transaction?.reference || '').trim(),
+      reason: '',
+    });
+  };
+
+  const closeCustomerIssueModal = () => {
+    setCustomerIssueTransaction(null);
+    setCustomerIssueDraft({
+      correctionType: '',
+      correctionAmount: '',
+      correctionDate: '',
+      correctionDescription: '',
+      correctionReference: '',
+      reason: '',
+    });
+  };
+
+  const customerIssueHeading = useMemo(() => {
+    if (!customerIssueTransaction) return '';
+    const sourceLabel = getCreditEntrySourceLabel(customerIssueTransaction);
+    const typeLabel = getCreditEntryTypeLabel(customerIssueTransaction);
+    return `${sourceLabel} · ${typeLabel}`;
+  }, [customerIssueTransaction]);
+
+  const handleTransactionOpen = (transaction) => {
+    if (isAdminView) {
+      openEditModalWithTransaction?.(transaction);
+      return;
+    }
+    openCustomerIssueModal(transaction);
+  };
+
+  const openAdminIssueFromEntry = (entryId) => {
+    const numericEntryId = Number(entryId || 0);
+    if (!isAdminView || !numericEntryId) return;
+    const relevantIssues = (Array.isArray(creditIssues) ? creditIssues : []).filter(
+      (issue) => Number(issue?.credit_entry_id || 0) === numericEntryId
+    );
+    if (!relevantIssues.length) return;
+    const priority = { open: 4, in_review: 3, rejected: 2, corrected: 1 };
+    const sorted = [...relevantIssues].sort((left, right) => {
+      const leftStatus = String(left?.status || '').trim().toLowerCase();
+      const rightStatus = String(right?.status || '').trim().toLowerCase();
+      const leftPriority = Number(priority[leftStatus] || 0);
+      const rightPriority = Number(priority[rightStatus] || 0);
+      if (rightPriority !== leftPriority) return rightPriority - leftPriority;
+      const leftTs = new Date(left?.updated_at || left?.created_at || 0).getTime() || 0;
+      const rightTs = new Date(right?.updated_at || right?.created_at || 0).getTime() || 0;
+      return rightTs - leftTs;
+    });
+    const targetIssueId = Number(sorted[0]?.id || 0);
+    if (!targetIssueId) return;
+    setActiveAdminIssueId?.(targetIssueId);
+  };
+
+  const activeAdminIssue = isAdminView
+    ? (Array.isArray(creditIssues) ? creditIssues : []).find(
+        (issue) => Number(issue?.id || 0) === Number(activeAdminIssueId || 0)
+      ) || null
+    : null;
+  const adminDraft = activeAdminIssue ? getAdminIssueDraft?.(activeAdminIssue) || {} : {};
+
+  const submitCustomerIssue = async (event) => {
+    event.preventDefault();
+    if (!customerIssueTransaction) return;
+    const ok = await handleCustomerTransactionIssue?.({
+      transaction: customerIssueTransaction,
+      draft: customerIssueDraft,
+    });
+    if (ok) closeCustomerIssueModal();
+  };
+
+  const renderDesktopTransactions = () => (
+    <table className="credit-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Debit</th>
+          <th>Credit</th>
+          <th>Balance</th>
+          <th>Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        {groupedTransactions.map((group) => (
+          <Fragment key={group.dateKey}>
+            <tr className="credit-day-divider-row">
+              <td colSpan="5">
+                <div className="credit-day-divider">
+                  <span className="credit-day-title" title={group.dateLabelLong}>
+                    {group.dateLabel}
+                  </span>
+                </div>
+              </td>
+            </tr>
+            {group.transactions.map((transaction) => {
+              const sourceLabel = getCreditEntrySourceLabel(transaction);
+              const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+              const description = getCreditEntryDescription(transaction);
+              const delta = getCreditEntryDelta(transaction);
+              const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
+              const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
+              const balanceMeta = getCreditBalanceMeta(transaction.balance);
+              const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
+              const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+
+              return (
+                <tr
+                  key={transaction.id}
+                  data-credit-entry-id={Number(transaction.id || 0) || undefined}
+                  className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
+                  onClick={() => handleTransactionOpen(transaction)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleTransactionOpen(transaction);
+                    }
+                  }}
+                >
+                  <td>
+                    <span>{entryTypeLabel}</span>
+                  </td>
+                  <td className="debit-amount">{debitAmount}</td>
+                  <td className="credit-amount">{creditAmount}</td>
+                  <td>
+                    <span className={`balance-pill ${balanceMeta.tone}`}>
+                      {balanceMeta.label} {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
+                    </span>
+                    <div className="balance-description-line">{description}</div>
+                    {canShareTransaction ? (
+                      <button
+                        type="button"
+                        className="action-icon whatsapp"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleSendTransactionWhatsApp(transaction);
+                        }}
+                        title="Share on WhatsApp"
+                        aria-label="Share on WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                      </button>
+                    ) : null}
+                    {issueFlag ? (
+                      <button
+                        type="button"
+                        className={`entry-issue-pill ${issueFlag.tone}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openAdminIssueFromEntry(transaction.id);
+                        }}
+                      >
+                        {issueFlag.label}
+                      </button>
+                    ) : null}
+                  </td>
+                  <td className="invoice-number">{sourceLabel}</td>
+                </tr>
+              );
+            })}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderMobileTransactions = () => (
+    <div className="credit-mobile-list">
+      {groupedTransactions.map((group) => (
+        <section key={group.dateKey} className="credit-day-group">
+          <h3 className="credit-day-title">{group.dateLabel}</h3>
+          <div className="credit-tile-stack">
+            {group.transactions.map((transaction) => {
+              const description = getCreditEntryDescription(transaction);
+              const sourceLabel = getCreditEntrySourceLabel(transaction);
+              const entryTypeLabel = getCreditEntryTypeLabel(transaction);
+              const delta = getCreditEntryDelta(transaction);
+              const balanceMeta = getCreditBalanceMeta(transaction.balance);
+              const canShareTransaction = isAdminView && isTransactionWithinFiveDays(transaction);
+              const isExpanded = expandedTransactionId === transaction.id;
+              const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
+              const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
+              const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
+
+              return (
+                <article
+                  key={`mobile-${transaction.id}`}
+                  data-credit-entry-id={Number(transaction.id || 0) || undefined}
+                  className={`credit-transaction-tile ${delta < 0 ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
+                  onClick={() => handleTransactionOpen(transaction)}
+                >
+                  <header className="tile-top-row">
+                    <span className="tile-type-wrap">
+                      <span className={`tile-type-pill ${delta < 0 ? 'payment' : 'given'}`}>
+                        {entryTypeLabel}
+                      </span>
+                      {issueFlag ? (
+                        <button
+                          type="button"
+                          className={`entry-issue-pill ${issueFlag.tone}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openAdminIssueFromEntry(transaction.id);
+                          }}
+                        >
+                          {issueFlag.label}
+                        </button>
+                      ) : null}
+                    </span>
+                    <span className={`tile-amount ${delta < 0 ? 'credit-amount' : 'debit-amount'}`}>
+                      {delta >= 0 ? `Debit ${debitAmount}` : `Credit ${creditAmount}`}
+                    </span>
+                  </header>
+
+                  <div className="tile-meta-row">
+                    <span>Ref: {sourceLabel}</span>
+                  </div>
+
+                  <div className="tile-description">
+                    {truncateCreditDescription(description || 'No description', 44)}
+                  </div>
+
+                  <div className="tile-footer-row">
+                    <span className={`tile-balance-pill ${balanceMeta.tone}`}>
+                      {balanceMeta.label}: {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
+                    </span>
+                    <div className="tile-footer-actions">
+                      {canShareTransaction ? (
+                        <button
+                          type="button"
+                          className="action-icon whatsapp"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleSendTransactionWhatsApp(transaction);
+                          }}
+                          title="Share on WhatsApp"
+                          aria-label="Share on WhatsApp"
+                        >
+                          <MessageCircle size={14} />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="tile-expand-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExpandedTransactionId(isExpanded ? null : transaction.id);
+                        }}
+                      >
+                        {isExpanded ? 'Less' : 'More'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="tile-expanded">
+                      <div className="tile-detail">
+                        <strong>Ref:</strong> {sourceLabel}
+                      </div>
+                      <div className="tile-detail">
+                        <strong>Type:</strong> {entryTypeLabel}
+                      </div>
+                      <div className="tile-detail">
+                        <strong>Debit:</strong> {debitAmount}
+                      </div>
+                      <div className="tile-detail">
+                        <strong>Credit:</strong> {creditAmount}
+                      </div>
+                      <div className="tile-detail">
+                        <strong>Date:</strong> {formatTransactionDate(transaction, { long: true })}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+
   return (
     <div className="credit-table-container">
       {filteredTransactions.length === 0 ? (
@@ -63,7 +367,11 @@ function CreditTransactionsSection({
             </>
           ) : (
             <>
-              <p>No entries match current filters.</p>
+              <p>
+                {hasFiltersApplied
+                  ? 'No current ledger entries match current filters.'
+                  : 'All older entries are superseded by finalized corrections.'}
+              </p>
               {hasFiltersApplied && (
                 <p>Switch filters to &quot;All&quot; to view the full ledger.</p>
               )}
@@ -71,288 +379,7 @@ function CreditTransactionsSection({
           )}
         </div>
       ) : (
-        <>
-          <table className="credit-table">
-            <thead>
-              <tr>
-                <th>Ref</th>
-                <th>Type</th>
-                <th>Debit</th>
-                <th>Credit</th>
-                <th>Balance</th>
-                <th>Description</th>
-                <th className="credit-col-actions">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupedTransactions.map((group) => (
-                <Fragment key={group.dateKey}>
-                  <tr className="credit-day-divider-row">
-                    <td colSpan="7">
-                      <div className="credit-day-divider">
-                        <span className="credit-day-title" title={group.dateLabelLong}>
-                          {group.dateLabel}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                  {group.transactions.map((transaction) => {
-                    const sourceLabel = getCreditEntrySourceLabel(transaction);
-                    const entryTypeLabel = getCreditEntryTypeLabel(transaction);
-                    const description = getCreditEntryDescription(transaction);
-                    const delta = getCreditEntryDelta(transaction);
-                    const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
-                    const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
-                    const balanceMeta = getCreditBalanceMeta(transaction.balance);
-                    const canShareTransaction =
-                      isAdminView && isTransactionWithinFiveDays(transaction);
-                    const canReverse = isAdminView && canReverseCreditEntry(transaction);
-                    const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
-
-                    return (
-                      <tr
-                        key={transaction.id}
-                        data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                        className={issueFlag ? `credit-row-issue ${issueFlag.tone}` : ''}
-                      >
-                        <td className="invoice-number">{sourceLabel}</td>
-                        <td>
-                          <span>{entryTypeLabel}</span>
-                        </td>
-                        <td className="debit-amount">{debitAmount}</td>
-                        <td className="credit-amount">{creditAmount}</td>
-                        <td>
-                          <span className={`balance-pill ${balanceMeta.tone}`}>
-                            {balanceMeta.label}{' '}
-                            {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
-                          </span>
-                        </td>
-                        <td>
-                          {description}
-                          {issueFlag ? (
-                            <span className={`entry-issue-pill ${issueFlag.tone}`}>
-                              {issueFlag.label}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="actions-cell">
-                          {!isAdminView && (
-                            <button
-                              className="action-icon"
-                              onClick={() =>
-                                setIssueForm((prev) => ({
-                                  ...prev,
-                                  credit_entry_id: String(transaction.id || ''),
-                                }))
-                              }
-                              title="Report issue on this entry"
-                            >
-                              <FileText size={16} />
-                            </button>
-                          )}
-                          {transaction.image_path && (
-                            <a
-                              href={resolveMediaUrl(transaction.image_path)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="action-icon view"
-                              title="View attachment"
-                            >
-                              <Eye size={16} />
-                            </a>
-                          )}
-                          <button
-                            className="action-icon print mobile-hide-print"
-                            onClick={() => handlePrintInvoice(transaction)}
-                            title="Print entry"
-                            disabled={isMobile}
-                            aria-disabled={isMobile}
-                          >
-                            <Printer size={16} />
-                          </button>
-                          {canShareTransaction && (
-                            <button
-                              className="action-icon whatsapp"
-                              onClick={() => handleSendTransactionWhatsApp(transaction)}
-                              title="Share on WhatsApp"
-                            >
-                              <MessageCircle size={16} />
-                            </button>
-                          )}
-                          {isAdminView && (
-                            <button
-                              className="action-icon reverse"
-                              onClick={() => handleDeleteTransaction(transaction)}
-                              title={canReverse ? 'Reverse entry' : 'Already reversed'}
-                              disabled={
-                                !canReverse || deletingEntryId === Number(transaction.id || 0)
-                              }
-                            >
-                              <RotateCcw size={16} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="credit-mobile-list">
-            {groupedTransactions.map((group) => (
-              <section key={group.dateKey} className="credit-day-group">
-                <h3 className="credit-day-title">{group.dateLabel}</h3>
-                <div className="credit-tile-stack">
-                  {group.transactions.map((transaction) => {
-                    const description = getCreditEntryDescription(transaction);
-                    const sourceLabel = getCreditEntrySourceLabel(transaction);
-                    const entryTypeLabel = getCreditEntryTypeLabel(transaction);
-                    const delta = getCreditEntryDelta(transaction);
-                    const balanceMeta = getCreditBalanceMeta(transaction.balance);
-                    const canShareTransaction =
-                      isAdminView && isTransactionWithinFiveDays(transaction);
-                    const canReverse = isAdminView && canReverseCreditEntry(transaction);
-                    const isExpanded = expandedTransactionId === transaction.id;
-                    const issueFlag = issueFlagByEntryId.get(Number(transaction.id || 0)) || null;
-                    const debitAmount = delta >= 0 ? formatCurrency(Math.abs(delta)) : '-';
-                    const creditAmount = delta < 0 ? formatCurrency(Math.abs(delta)) : '-';
-
-                    return (
-                      <article
-                        key={`mobile-${transaction.id}`}
-                        data-credit-entry-id={Number(transaction.id || 0) || undefined}
-                        className={`credit-transaction-tile ${delta < 0 ? 'payment' : 'given'}${issueFlag ? ` has-issue ${issueFlag.tone}` : ''}`}
-                      >
-                        <header className="tile-top-row">
-                          <span className="tile-type-wrap">
-                            <span className={`tile-type-pill ${delta < 0 ? 'payment' : 'given'}`}>
-                              {entryTypeLabel}
-                            </span>
-                            {issueFlag ? (
-                              <span className={`entry-issue-pill ${issueFlag.tone}`}>
-                                {issueFlag.label}
-                              </span>
-                            ) : null}
-                          </span>
-                          <span
-                            className={`tile-amount ${delta < 0 ? 'credit-amount' : 'debit-amount'}`}
-                          >
-                            {delta >= 0 ? `Debit ${debitAmount}` : `Credit ${creditAmount}`}
-                          </span>
-                        </header>
-
-                        <div className="tile-meta-row">
-                          <span>Ref: {sourceLabel}</span>
-                        </div>
-
-                        <div className="tile-description">
-                          {truncateCreditDescription(description || 'No description', 44)}
-                        </div>
-
-                        <div className="tile-footer-row">
-                          <span className={`tile-balance-pill ${balanceMeta.tone}`}>
-                            {balanceMeta.label}:{' '}
-                            {formatCurrency(Math.abs(Number(transaction.balance || 0)))}
-                          </span>
-                          <button
-                            type="button"
-                            className="tile-expand-btn"
-                            onClick={() =>
-                              setExpandedTransactionId(isExpanded ? null : transaction.id)
-                            }
-                          >
-                            {isExpanded ? 'Less' : 'More'}
-                          </button>
-                        </div>
-
-                        {isExpanded && (
-                          <div className="tile-expanded">
-                            <div className="tile-detail">
-                              <strong>Ref:</strong> {sourceLabel}
-                            </div>
-                            <div className="tile-detail">
-                              <strong>Type:</strong> {entryTypeLabel}
-                            </div>
-                            <div className="tile-detail">
-                              <strong>Debit:</strong> {debitAmount}
-                            </div>
-                            <div className="tile-detail">
-                              <strong>Credit:</strong> {creditAmount}
-                            </div>
-                            <div className="tile-detail">
-                              <strong>Date:</strong>{' '}
-                              {formatTransactionDate(transaction, { long: true })}
-                            </div>
-                            <div className="tile-actions">
-                              {!isAdminView && (
-                                <button
-                                  className="action-icon"
-                                  onClick={() =>
-                                    setIssueForm((prev) => ({
-                                      ...prev,
-                                      credit_entry_id: String(transaction.id || ''),
-                                    }))
-                                  }
-                                  title="Report issue on this entry"
-                                >
-                                  <FileText size={16} />
-                                </button>
-                              )}
-                              {transaction.image_path && (
-                                <a
-                                  href={resolveMediaUrl(transaction.image_path)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="action-icon view"
-                                  title="View attachment"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <Eye size={16} />
-                                </a>
-                              )}
-                              <button
-                                className="action-icon print mobile-hide-print"
-                                onClick={() => handlePrintInvoice(transaction)}
-                                title="Print entry"
-                                disabled={isMobile}
-                                aria-disabled={isMobile}
-                              >
-                                <Printer size={16} />
-                              </button>
-                              {canShareTransaction && (
-                                <button
-                                  className="action-icon whatsapp"
-                                  onClick={() => handleSendTransactionWhatsApp(transaction)}
-                                  title="Share on WhatsApp"
-                                >
-                                  <MessageCircle size={16} />
-                                </button>
-                              )}
-                              {isAdminView && (
-                                <button
-                                  className="action-icon reverse"
-                                  onClick={() => handleDeleteTransaction(transaction)}
-                                  title={canReverse ? 'Reverse entry' : 'Already reversed'}
-                                  disabled={
-                                    !canReverse || deletingEntryId === Number(transaction.id || 0)
-                                  }
-                                >
-                                  <RotateCcw size={16} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        </>
+        isMobile ? renderMobileTransactions() : renderDesktopTransactions()
       )}
 
       {historyHasMore && (
@@ -386,7 +413,7 @@ function CreditTransactionsSection({
                 }
               >
                 <option value="">Select (optional)</option>
-                {creditHistory.map((entry) => (
+                {filteredTransactions.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     #{entry.id} | {getCreditEntryTypeLabel(entry)} |{' '}
                     {formatCurrency(entry.amount || 0)}
@@ -495,34 +522,259 @@ function CreditTransactionsSection({
         </div>
       )}
 
-      {isAdminView && (
-        <div className="report-box">
-          <div className="report-header">
-            <strong>Generate Credit Report</strong>
-          </div>
-          <div className="report-controls">
-            <label>
-              From
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(event) => setFromDate(event.target.value)}
-              />
-            </label>
-            <label>
-              To
-              <input
-                type="date"
-                value={toDate}
-                onChange={(event) => setToDate(event.target.value)}
-              />
-            </label>
-            <button className="report-btn primary-action" onClick={handleGenerateReport}>
-              Generate
-            </button>
+      {!isAdminView && customerIssueTransaction ? (
+        <div className="modal-overlay">
+          <div className="modal-content credit-entry-modal credit-issue-popup fade-in-up">
+            <div className="modal-header">
+              <h2>Register Transaction Issue</h2>
+              <button type="button" className="close-btn" onClick={closeCustomerIssueModal}>
+                ×
+              </button>
+            </div>
+            <form className="credit-issue-form credit-issue-popup-form" onSubmit={submitCustomerIssue}>
+              <p className="credit-ledger-note credit-issue-popup-note">
+                Editing here will not change the ledger. It creates an issue request for admin
+                review.
+              </p>
+              <label>
+                Entry
+                <input type="text" value={customerIssueHeading} readOnly />
+              </label>
+              <div className="credit-issue-popup-grid">
+                <label>
+                  Proposed Type
+                  <select
+                    value={customerIssueDraft.correctionType}
+                    onChange={(event) =>
+                      setCustomerIssueDraft((prev) => ({
+                        ...prev,
+                        correctionType: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="given">Charge</option>
+                    <option value="payment">Payment</option>
+                  </select>
+                </label>
+                <label>
+                  Proposed Amount
+                  <input
+                    type="text"
+                    value={customerIssueDraft.correctionAmount}
+                    onChange={(event) =>
+                      setCustomerIssueDraft((prev) => ({
+                        ...prev,
+                        correctionAmount: event.target.value,
+                      }))
+                    }
+                    placeholder="Amount"
+                  />
+                </label>
+                <label>
+                  Proposed Date
+                  <input
+                    type="date"
+                    value={customerIssueDraft.correctionDate}
+                    onChange={(event) =>
+                      setCustomerIssueDraft((prev) => ({
+                        ...prev,
+                        correctionDate: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label>
+                  Proposed Reference
+                  <input
+                    type="text"
+                    value={customerIssueDraft.correctionReference}
+                    onChange={(event) =>
+                      setCustomerIssueDraft((prev) => ({
+                        ...prev,
+                        correctionReference: event.target.value,
+                      }))
+                    }
+                    placeholder="Reference"
+                  />
+                </label>
+              </div>
+              <label>
+                Proposed Description
+                <input
+                  type="text"
+                  value={customerIssueDraft.correctionDescription}
+                  onChange={(event) =>
+                    setCustomerIssueDraft((prev) => ({
+                      ...prev,
+                      correctionDescription: event.target.value,
+                    }))
+                  }
+                  placeholder="Description"
+                />
+              </label>
+              <label>
+                Why should this be corrected?
+                <textarea
+                  value={customerIssueDraft.reason}
+                  onChange={(event) =>
+                    setCustomerIssueDraft((prev) => ({
+                      ...prev,
+                      reason: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  required
+                  placeholder="Tell admin what is incorrect and what should be fixed."
+                />
+              </label>
+              <div className="modal-actions">
+                <button type="button" className="cancel-btn" onClick={closeCustomerIssueModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="submit-btn">
+                  Submit Issue
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      )}
+      ) : null}
+
+      {isAdminView && activeAdminIssue ? (
+        <div className="modal-overlay">
+          <div className="modal-content credit-entry-modal credit-issue-popup fade-in-up">
+            <div className="modal-header">
+              <h2>Resolve Issue #{Number(activeAdminIssue.id || 0)}</h2>
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setActiveAdminIssueId?.(0)}
+              >
+                ×
+              </button>
+            </div>
+            <form className="credit-issue-form credit-issue-popup-form" onSubmit={(event) => event.preventDefault()}>
+              <div className="credit-issue-row credit-issue-popup-note">
+                <div>
+                  <strong>Entry:</strong> #{Number(activeAdminIssue.credit_entry_id || 0) || '-'}
+                </div>
+                <div>
+                  <strong>Status:</strong> {String(activeAdminIssue.status || 'open')}
+                </div>
+                <div>{String(activeAdminIssue.message || '').trim()}</div>
+              </div>
+              <label>
+                Resolution Reason (required for reject)
+                <textarea
+                  value={adminDraft.admin_reason || ''}
+                  onChange={(event) =>
+                    setAdminIssueDraft?.(Number(activeAdminIssue.id || 0), {
+                      admin_reason: event.target.value,
+                    })
+                  }
+                  rows={2}
+                  placeholder="Reason shown to customer"
+                />
+              </label>
+              <div className="credit-issue-popup-grid">
+                <label>
+                  Correction Type
+                  <select
+                    value={adminDraft.correction_type || ''}
+                    onChange={(event) =>
+                      setAdminIssueDraft?.(Number(activeAdminIssue.id || 0), {
+                        correction_type: event.target.value,
+                      })
+                    }
+                  >
+                    <option value="">None</option>
+                    <option value="given">Credit</option>
+                    <option value="payment">Payment</option>
+                  </select>
+                </label>
+                <label>
+                  Correction Amount
+                  <CalculatedAmountInput
+                    value={adminDraft.correction_amount || ''}
+                    onValueChange={(nextValue) =>
+                      setAdminIssueDraft?.(Number(activeAdminIssue.id || 0), {
+                        correction_amount: nextValue,
+                      })
+                    }
+                    placeholder="0 or expression"
+                  />
+                </label>
+              </div>
+              <label>
+                Correction Description
+                <input
+                  type="text"
+                  value={adminDraft.correction_description || ''}
+                  onChange={(event) =>
+                    setAdminIssueDraft?.(Number(activeAdminIssue.id || 0), {
+                      correction_description: event.target.value,
+                    })
+                  }
+                  placeholder="Optional"
+                />
+              </label>
+              <label>
+                Correction Reference
+                <input
+                  type="text"
+                  value={adminDraft.correction_reference || ''}
+                  onChange={(event) =>
+                    setAdminIssueDraft?.(Number(activeAdminIssue.id || 0), {
+                      correction_reference: event.target.value,
+                    })
+                  }
+                  placeholder="Optional"
+                />
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => setActiveAdminIssueId?.(0)}
+                  disabled={adminIssueSavingId === Number(activeAdminIssue.id || 0)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  onClick={() => handleAdminIssueAction?.(activeAdminIssue, 'resolved')}
+                  disabled={adminIssueSavingId === Number(activeAdminIssue.id || 0)}
+                >
+                  {adminIssueSavingId === Number(activeAdminIssue.id || 0)
+                    ? 'Submitting...'
+                    : 'Close Issue'}
+                </button>
+                <button
+                  type="button"
+                  className="submit-btn given"
+                  onClick={() => handleAdminIssueAction?.(activeAdminIssue, 'corrected')}
+                  disabled={adminIssueSavingId === Number(activeAdminIssue.id || 0)}
+                >
+                  {adminIssueSavingId === Number(activeAdminIssue.id || 0)
+                    ? 'Submitting...'
+                    : 'Submit Correction'}
+                </button>
+                <button
+                  type="button"
+                  className="submit-btn payment"
+                  onClick={() => handleAdminIssueAction?.(activeAdminIssue, 'rejected')}
+                  disabled={adminIssueSavingId === Number(activeAdminIssue.id || 0)}
+                >
+                  {adminIssueSavingId === Number(activeAdminIssue.id || 0)
+                    ? 'Submitting...'
+                    : 'Reject (with reason)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

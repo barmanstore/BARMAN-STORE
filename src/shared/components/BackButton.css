@@ -1,0 +1,62 @@
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #374151;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.back-button:hover {
+  background: #f9fafb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  color: #111827;
+}
+
+.back-button:active {
+  transform: scale(0.96);
+}
+
+/* Size variants */
+.back-btn-sm {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+}
+
+.back-btn-md {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+}
+
+.back-btn-lg {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+}
+
+/* Label variant */
+.back-button-label {
+  margin-left: 8px;
+  font-size: 14px;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.back-button:hover .back-button-label {
+  color: #111827;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .back-btn-lg {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}

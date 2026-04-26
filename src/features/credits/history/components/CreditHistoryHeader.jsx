@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Plus, RefreshCw, User } from 'lucide-react';
+import { Plus, RefreshCw, User, FileText } from 'lucide-react';
+import BackButton from '../../../../shared/components/BackButton';
 import { resolveMediaSourceForDisplay } from '../../../../shared/services/api';
 import { formatCurrency } from '../../../../shared/utils/formatters';
 import scoreBands from '../../../../../shared/creditScoreBands.json';
@@ -37,8 +37,6 @@ function CreditHistoryHeader({
   customer,
   balanceSummary,
   balance,
-  ledgerSummary,
-  billsHref,
   showPaymentBadges,
   paymentBadgeSummary,
   inactivityHint,
@@ -47,6 +45,7 @@ function CreditHistoryHeader({
   isMobile,
   openAddModalWithType,
   onContactWhatsApp,
+  onOpenReportPanel,
 }) {
   const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -146,9 +145,7 @@ function CreditHistoryHeader({
     <>
       <div className="page-header">
         <div className="page-header-main">
-          <Link to={backHref} className="back-link">
-            <ArrowLeft size={20} /> {backLabel}
-          </Link>
+          <BackButton to={backHref} label={backLabel} />
           <div className="page-title-block">
             <h1>{pageTitle}</h1>
             <p className="page-subline">{pageSubline}</p>
@@ -261,27 +258,18 @@ function CreditHistoryHeader({
               <span className="summary-direction">{balanceSummary.directionLine}</span>
             ) : null}
           </div>
-        </div>
-      </section>
-
-      <section className="ledger-summary-strip">
-        <div className="ledger-summary-card">
-          <span className="ledger-summary-label">Total Debits</span>
-          <strong className="ledger-summary-value debit">
-            {formatCurrency(ledgerSummary?.totalDebit || 0)}
-          </strong>
-        </div>
-        <div className="ledger-summary-card">
-          <span className="ledger-summary-label">Total Credits</span>
-          <strong className="ledger-summary-value credit">
-            {formatCurrency(ledgerSummary?.totalCredit || 0)}
-          </strong>
-        </div>
-        <div className="ledger-summary-card">
-          <span className="ledger-summary-label">Running Balance</span>
-          <strong className="ledger-summary-value">
-            {formatCurrency(Math.abs(Number(balance || 0)))}
-          </strong>
+          {isAdminView ? (
+            <button
+              type="button"
+              className="balance-report-trigger"
+              onClick={() => onOpenReportPanel?.()}
+              title="Open credit report"
+              aria-label="Open credit report"
+            >
+              <FileText size={15} />
+              <span>Report</span>
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -298,9 +286,6 @@ function CreditHistoryHeader({
           <button className="admin-btn" onClick={() => openAddModalWithType('given')}>
             <Plus size={18} /> Add Manual Sale
           </button>
-          <Link to={billsHref} className="admin-btn secondary">
-            View Bills
-          </Link>
         </div>
       )}
     </>

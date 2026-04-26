@@ -134,6 +134,14 @@ function CreditIssuesAdminInbox({
                     <button
                       type="button"
                       className="report-btn secondary-action"
+                      onClick={() => handleAdminIssueAction(issue, 'resolved')}
+                      disabled={adminIssueSavingId === issueId}
+                    >
+                      {adminIssueSavingId === issueId ? 'Submitting...' : 'Close Issue'}
+                    </button>
+                    <button
+                      type="button"
+                      className="report-btn secondary-action"
                       onClick={() => handleAdminIssueAction(issue, 'in_review')}
                       disabled={adminIssueSavingId === issueId}
                     >
@@ -145,7 +153,7 @@ function CreditIssuesAdminInbox({
                       onClick={() => handleAdminIssueAction(issue, 'rejected')}
                       disabled={adminIssueSavingId === issueId}
                     >
-                      {adminIssueSavingId === issueId ? 'Submitting...' : 'Reject'}
+                      {adminIssueSavingId === issueId ? 'Submitting...' : 'Reject (with reason)'}
                     </button>
                     <button
                       type="button"

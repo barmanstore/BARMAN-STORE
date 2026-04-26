@@ -25,7 +25,15 @@ const registerUserAdminListRoutes = (deps) => {
         if (!wantsPaginated) {
           const users = (
             await dbAllAsync(
-              `SELECT * FROM users ${searchClause} ORDER BY created_at DESC`,
+              `SELECT u.*,
+                COALESCE(
+                  (SELECT ch.balance FROM credit_history ch
+                   WHERE ch.user_id = u.id
+                   ORDER BY ch.created_at DESC, ch.id DESC
+                   LIMIT 1),
+                  0
+                ) as credit_balance
+               FROM users u ${searchClause} ORDER BY u.created_at DESC`,
               searchParams
             )
           ).map(sanitizeUser);
@@ -34,7 +42,15 @@ const registerUserAdminListRoutes = (deps) => {
 
         const [users, totals] = await Promise.all([
           dbAllAsync(
-            `SELECT * FROM users ${searchClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+            `SELECT u.*,
+              COALESCE(
+                (SELECT ch.balance FROM credit_history ch
+                 WHERE ch.user_id = u.id
+                 ORDER BY ch.created_at DESC, ch.id DESC
+                 LIMIT 1),
+                0
+              ) as credit_balance
+             FROM users u ${searchClause} ORDER BY u.created_at DESC LIMIT ? OFFSET ?`,
             [...searchParams, limit, offset]
           ),
           dbGetAsync(

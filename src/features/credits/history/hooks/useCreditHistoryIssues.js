@@ -21,6 +21,53 @@ const useCreditHistoryIssues = ({
   setActiveAdminIssueId,
   fetchCreditData,
 }) => {
+  const handleCustomerTransactionIssue = async ({ transaction, draft }) => {
+    if (issueSubmitting || isAdminView) return false;
+    const entryId = Number(transaction?.id || 0);
+    if (!entryId) return false;
+    const reason = String(draft?.reason || '').trim();
+    if (!reason) {
+      setError('Please describe what should be corrected.');
+      return false;
+    }
+    const correctionType = String(draft?.correctionType || '').trim().toLowerCase();
+    const correctionAmount = String(draft?.correctionAmount || '').trim();
+    const correctionDate = String(draft?.correctionDate || '').trim();
+    const correctionDescription = String(draft?.correctionDescription || '').trim();
+    const correctionReference = String(draft?.correctionReference || '').trim();
+    const details = [
+      `Customer correction request for entry #${entryId}.`,
+      correctionType ? `Proposed Type: ${correctionType}` : '',
+      correctionAmount ? `Proposed Amount: ${correctionAmount}` : '',
+      correctionDate ? `Proposed Date: ${correctionDate}` : '',
+      correctionDescription ? `Proposed Description: ${correctionDescription}` : '',
+      correctionReference ? `Proposed Reference: ${correctionReference}` : '',
+      `Reason: ${reason}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    setIssueSubmitting(true);
+    setError('');
+    setSuccess('');
+    try {
+      await creditApi.addIssue(effectiveUserId, {
+        credit_entry_id: entryId,
+        issue_type: 'wrong_entry',
+        message: details,
+      });
+      const issueRows = await creditApi.getIssues(effectiveUserId);
+      setCreditIssues(Array.isArray(issueRows) ? issueRows : []);
+      setSuccess('Issue submitted. Entry is marked for admin review.');
+      return true;
+    } catch (err) {
+      setError(err.message || 'Failed to submit issue');
+      return false;
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
+
   const handleReportIssue = async (event) => {
     event.preventDefault();
     if (issueSubmitting || isAdminView) return;
@@ -149,6 +196,7 @@ const useCreditHistoryIssues = ({
   };
 
   return {
+    handleCustomerTransactionIssue,
     handleReportIssue,
     handleIssueResponse,
     getAdminIssueDraft,

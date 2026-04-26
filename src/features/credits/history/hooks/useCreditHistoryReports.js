@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   getCreditEntryDelta,
   getCreditEntryDescription,
@@ -53,6 +53,14 @@ const dropLastMatchingLine = (text, matcher) => {
 
 const getTrimStepsForShareType = (shareType) =>
   shareType === 'report' ? CREDIT_REPORT_TRIM_STEPS : CREDIT_SHARE_TRIM_STEPS;
+
+const toPdfSafeAscii = (value, fallback = '') => {
+  const normalized = String(value || '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized || fallback;
+};
 
 export const isCreditShareTextWithinWhatsAppLimit = ({
   phone,
@@ -109,6 +117,7 @@ export const trimCreditShareTextForWhatsApp = ({
 
 const useCreditHistoryReports = ({
   creditHistory,
+  creditIssues,
   customer,
   balance,
   paymentBadgeSummary,
@@ -143,6 +152,86 @@ const useCreditHistoryReports = ({
   getPdfColumnStyles,
 }) => {
   const launchCooldownRef = useRef(0);
+  const supersededEntryIds = useMemo(() => {
+    const correctedEntryIds = new Set();
+    for (const issue of Array.isArray(creditIssues) ? creditIssues : []) {
+      const status = String(issue?.status || '')
+        .trim()
+        .toLowerCase();
+      const customerResponseStatus = String(issue?.customer_response_status || '')
+        .trim()
+        .toLowerCase();
+      const entryId = Number(issue?.credit_entry_id || 0);
+      const correctionEntryId = Number(issue?.correction_entry_id || 0);
+      const isFinalizedForReplacement =
+        (customerResponseStatus === '' || customerResponseStatus === 'acknowledged') &&
+        correctionEntryId > 0;
+      if (status === 'corrected' && entryId > 0 && isFinalizedForReplacement) {
+        correctedEntryIds.add(entryId);
+      }
+    }
+    return correctedEntryIds;
+  }, [creditIssues]);
+  const presentCreditHistory = useMemo(
+    () =>
+      (Array.isArray(creditHistory) ? creditHistory : []).filter(
+        (entry) => !supersededEntryIds.has(Number(entry?.id || 0))
+      ),
+    [creditHistory, supersededEntryIds]
+  );
+
+  const getEffectiveRange = (rangeOverride = null) => {
+    const nextFromDate =
+      rangeOverride && typeof rangeOverride === 'object'
+        ? String(rangeOverride.fromDate || '').trim()
+        : String(fromDate || '').trim();
+    const nextToDate =
+      rangeOverride && typeof rangeOverride === 'object'
+        ? String(rangeOverride.toDate || '').trim()
+        : String(toDate || '').trim();
+    return { fromDate: nextFromDate, toDate: nextToDate };
+  };
+
+  const getReportRangeData = async (rangeOverride = null) => {
+    const range = getEffectiveRange(rangeOverride);
+    if (!range.fromDate || !range.toDate) {
+      throw new Error('Please select both From and To dates for the report.');
+    }
+    if (range.fromDate > range.toDate) {
+      throw new Error('From date cannot be later than To date.');
+    }
+    const sourceHistory =
+      typeof getHistoryForReport === 'function'
+        ? await getHistoryForReport({ fromDate: range.fromDate, toDate: range.toDate })
+        : presentCreditHistory;
+    const normalizedSourceHistory = (Array.isArray(sourceHistory) ? sourceHistory : []).filter(
+      (entry) => !supersededEntryIds.has(Number(entry?.id || 0))
+    );
+    const filtered = normalizedSourceHistory
+      .filter((transaction) => {
+        const dateKey = getEffectiveTransactionDateKey(transaction);
+        return Boolean(dateKey) && dateKey >= range.fromDate && dateKey <= range.toDate;
+      })
+      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+    const allThroughPeriod = normalizedSourceHistory
+      .filter((transaction) => {
+        const dateKey = getEffectiveTransactionDateKey(transaction);
+        return Boolean(dateKey) && dateKey <= range.toDate;
+      })
+      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+    const periodEndingBalance =
+      allThroughPeriod.length > 0
+        ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
+        : 0;
+    const currentDayBalance = Number(balance || 0);
+    return {
+      range,
+      sourceHistory: normalizedSourceHistory,
+      filtered,
+      periodEndingBalance,
+      currentDayBalance,
+    };
+  };
 
   const buildPaymentProfilePayload = (summaryOverride = null, balanceOverride = null) => {
     const summary = summaryOverride || paymentBadgeSummary || null;
@@ -174,7 +263,7 @@ const useCreditHistoryReports = ({
   };
 
   const buildCreditReport = (transactions, from, to, options = {}) => {
-    const sourceHistory = options.sourceHistory || creditHistory;
+    const sourceHistory = options.sourceHistory || presentCreditHistory;
     const allThroughPeriod = sourceHistory
       .filter((t) => {
         const dateKey = getEffectiveTransactionDateKey(t);
@@ -236,29 +325,18 @@ const useCreditHistoryReports = ({
     return finalText;
   };
 
-  const handleGenerateReport = async () => {
-    if (!fromDate || !toDate) {
-      setError('Please select both From and To dates for the report.');
-      return;
-    }
-    if (fromDate > toDate) {
-      setError('From date cannot be later than To date.');
-      return;
-    }
+  const handleGenerateReport = async (rangeOverride = null) => {
     setError('');
     setSuccess('');
     setReportSummary(null);
-
-    const sourceHistory =
-      typeof getHistoryForReport === 'function'
-        ? await getHistoryForReport({ fromDate, toDate })
-        : creditHistory;
-    const filtered = sourceHistory
-      .filter((transaction) => {
-        const dateKey = getEffectiveTransactionDateKey(transaction);
-        return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
-      })
-      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
+    let rangeData;
+    try {
+      rangeData = await getReportRangeData(rangeOverride);
+    } catch (err) {
+      setError(err.message || 'Failed to generate report');
+      return;
+    }
+    const { range, sourceHistory, filtered, periodEndingBalance } = rangeData;
 
     const totals = filtered.reduce(
       (acc, transaction) => {
@@ -272,27 +350,28 @@ const useCreditHistoryReports = ({
       },
       { totalDebit: 0, totalCredit: 0 }
     );
-
-    const allThroughPeriod = sourceHistory
-      .filter((transaction) => {
-        const dateKey = getEffectiveTransactionDateKey(transaction);
-        return Boolean(dateKey) && dateKey <= toDate;
-      })
-      .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
-    const endingBalance =
-      allThroughPeriod.length > 0
-        ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
-        : 0;
-
-    const report = buildWhatsAppReportText(filtered, fromDate, toDate, sourceHistory);
+    const report = buildWhatsAppReportText(filtered, range.fromDate, range.toDate, sourceHistory);
     setReportText(report);
     setReportSummary({
       entryCount: filtered.length,
-      fromDate,
-      toDate,
+      fromDate: range.fromDate,
+      toDate: range.toDate,
       totalDebit: totals.totalDebit,
       totalCredit: totals.totalCredit,
-      endingBalance,
+      endingBalance: periodEndingBalance,
+      transactions: filtered.map((transaction) => {
+        const delta = getCreditEntryDelta(transaction);
+        return {
+          id: Number(transaction?.id || 0),
+          date: formatTransactionDate(transaction, { long: true }),
+          type: getTypeLabel(transaction),
+          reference: getCreditEntrySourceLabel(transaction),
+          debit: delta >= 0 ? Math.abs(delta) : 0,
+          credit: delta < 0 ? Math.abs(delta) : 0,
+          balance: Number(transaction?.balance || 0),
+          description: getCreditEntryDescription(transaction),
+        };
+      }),
     });
     setShowReport(true);
   };
@@ -321,6 +400,15 @@ const useCreditHistoryReports = ({
       phone: customer?.phone,
       text: preparedText,
     });
+    const shareType = String(meta?.type || 'report')
+      .trim()
+      .toLowerCase();
+    const shareTypeLabel =
+      shareType === 'transaction'
+        ? 'transaction update'
+        : shareType === 'entry'
+          ? 'new entry update'
+          : 'credit report';
     const status = result.status;
     const preview = buildMessagePreview(preparedText, 280);
     if (typeof logWhatsAppLaunch === 'function') {
@@ -344,15 +432,244 @@ const useCreditHistoryReports = ({
       return;
     }
     if (status === 'opened_with_copy') {
-      setSuccess('Copied message. WhatsApp opened; paste and send to share.');
+      setSuccess(
+        `Copied ${shareTypeLabel} message. WhatsApp opened; tap Send to deliver.`
+      );
       return;
     }
     if (status === 'opened_without_copy') {
-      setError('WhatsApp opened. Please paste the message manually.');
+      setError(
+        `WhatsApp opened for ${shareTypeLabel}. Please paste the prepared message, then tap Send.`
+      );
     }
   };
 
+  const buildReportPdfDocument = ({
+    filtered,
+    fromDate,
+    toDate,
+    periodEndingBalance,
+    currentDayBalance,
+  }) => {
+    const doc = createPdfDoc();
+    const primaryColor = [41, 128, 185];
+    const secondaryColor = [52, 73, 94];
+    const accentColor = [39, 174, 96];
+
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 210, 45, 'F');
+
+    const pdfTitle = toPdfSafeAscii(info.TITLE, 'BARMAN STORE');
+    const pdfSubtitle = toPdfSafeAscii(
+      info.SUB_TITLE,
+      'Quality Groceries & Everyday Essentials'
+    );
+    const pdfContact = toPdfSafeAscii(`${info.EMAIL || ''} | ${info.CONTACT || ''}`, 'Contact');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    doc.text(pdfTitle, 105, 18, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(pdfSubtitle, 105, 28, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.text(pdfContact, 105, 38, { align: 'center' });
+
+    doc.setTextColor(...secondaryColor);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Credit Report', 105, 55, { align: 'center' });
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(248, 249, 250);
+    doc.roundedRect(14, 62, 182, 28, 3, 3, 'FD');
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...secondaryColor);
+    doc.text('Customer Details', 20, 72);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Name: ${customer?.name || 'N/A'}`, 20, 80);
+    doc.text(`Phone: ${customer?.phone || 'N/A'}`, 100, 80);
+    doc.text(`Email: ${customer?.email || 'N/A'}`, 20, 86);
+
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Period: ${fromDate} to ${toDate}`, 100, 86);
+
+    if (filtered.length > 0) {
+      const tableData = filtered.map((transaction) => {
+        const delta = getCreditEntryDelta(transaction);
+        return [
+          formatTransactionDate(transaction),
+          getTypeLabel(transaction),
+          getCreditEntrySourceLabel(transaction),
+          {
+            content: delta >= 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
+            styles: { halign: 'right' },
+          },
+          {
+            content: delta < 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
+            styles: { halign: 'right' },
+          },
+          {
+            content: formatPdfCurrency(Number(transaction.balance || 0)),
+            styles: { halign: 'right' },
+          },
+          getCreditEntryDescription(transaction),
+        ];
+      });
+
+      addAutoTable(doc, {
+        startY: 95,
+        head: [['Date', 'Type', 'Ref', 'Debit', 'Credit', 'Balance', 'Description']],
+        body: tableData,
+        theme: 'plain',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [45, 45, 45],
+          fontStyle: 'bold',
+          fontSize: PDF_TABLE_LAYOUT.fontSize,
+          cellPadding: PDF_TABLE_LAYOUT.cellPadding,
+          lineWidth: 0,
+        },
+        bodyStyles: {
+          fontSize: PDF_TABLE_LAYOUT.fontSize,
+          textColor: [35, 35, 35],
+          cellPadding: PDF_TABLE_LAYOUT.cellPadding,
+          minCellHeight: PDF_TABLE_LAYOUT.minCellHeight,
+          overflow: 'linebreak',
+          valign: 'top',
+          lineWidth: 0,
+        },
+        styles: {
+          lineWidth: 0,
+        },
+        columnStyles: getPdfColumnStyles(doc),
+        margin: { left: PDF_TABLE_LAYOUT.marginLeft, right: PDF_TABLE_LAYOUT.marginRight },
+      });
+
+      const finalY = Number(doc?.lastAutoTable?.finalY || 95) + 10;
+
+      let totalDebit = 0;
+      let totalCredit = 0;
+      filtered.forEach((transaction) => {
+        const delta = getCreditEntryDelta(transaction);
+        if (delta >= 0) totalDebit += delta;
+        else totalCredit += Math.abs(delta);
+      });
+
+      const summaryHeight = 42;
+      const footerReserve = 14;
+      const pageHeight = doc.internal.pageSize.height;
+      const summaryTop = finalY + summaryHeight + footerReserve > pageHeight ? 20 : finalY;
+
+      if (summaryTop !== finalY) {
+        doc.addPage();
+      }
+
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(14, summaryTop, 182, 42, 3, 3, 'F');
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...secondaryColor);
+      doc.text('Summary', 20, summaryTop + 10);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+
+      const summaryY = summaryTop + 18;
+      doc.text(`Total Debits: ${formatPdfCurrency(totalDebit)}`, 20, summaryY);
+      doc.text(`Total Credits: ${formatPdfCurrency(totalCredit)}`, 20, summaryY + 7);
+      doc.text(`Net Change: ${formatPdfCurrency(totalDebit - totalCredit)}`, 20, summaryY + 14);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...secondaryColor);
+      doc.text('Period Ending Balance:', 118, summaryY + 2);
+      doc.setTextColor(
+        periodEndingBalance >= 0 ? accentColor[0] : 231,
+        periodEndingBalance >= 0 ? accentColor[1] : 76,
+        periodEndingBalance >= 0 ? accentColor[2] : 60
+      );
+      doc.text(formatPdfCurrency(periodEndingBalance), 118, summaryY + 8);
+      doc.setTextColor(...secondaryColor);
+      doc.text('Current Day Balance:', 118, summaryY + 14);
+      doc.setTextColor(
+        currentDayBalance >= 0 ? accentColor[0] : 231,
+        currentDayBalance >= 0 ? accentColor[1] : 76,
+        currentDayBalance >= 0 ? accentColor[2] : 60
+      );
+      doc.text(formatPdfCurrency(currentDayBalance), 118, summaryY + 20);
+    } else {
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text('No transactions found in the selected date range.', 105, 110, {
+        align: 'center',
+      });
+      doc.setFontSize(9);
+      doc.setTextColor(...secondaryColor);
+      doc.text(`Period Ending Balance: ${formatPdfCurrency(periodEndingBalance)}`, 105, 118, {
+        align: 'center',
+      });
+      doc.text(`Current Day Balance: ${formatPdfCurrency(currentDayBalance)}`, 105, 124, {
+        align: 'center',
+      });
+    }
+
+    addPdfFooterWithPagination(doc, (pdf, pageIndex, pageCount) => {
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(
+        `Generated on ${new Date().toLocaleString('en-IN')} | Page ${pageIndex} of ${pageCount}`,
+        105,
+        pdf.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    });
+    return doc;
+  };
+
+  const createReportPdfFile = async (rangeOverride = null) => {
+    const { range, filtered, periodEndingBalance, currentDayBalance } =
+      await getReportRangeData(rangeOverride);
+    const doc = buildReportPdfDocument({
+      filtered,
+      fromDate: range.fromDate,
+      toDate: range.toDate,
+      periodEndingBalance,
+      currentDayBalance,
+    });
+    const fileName = `Credit_Report_${safeFileName(customer?.name || 'Customer')}_${range.fromDate}_to_${range.toDate}.pdf`;
+    const blob = doc.output('blob');
+    return { file: new File([blob], fileName, { type: 'application/pdf' }), range, doc };
+  };
+
   const handleSendWhatsApp = async () => {
+    try {
+      const { file, range } = await createReportPdfFile();
+      if (
+        typeof navigator !== 'undefined' &&
+        typeof navigator.share === 'function' &&
+        (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }))
+      ) {
+        await navigator.share({
+          files: [file],
+          title: 'Credit Report',
+          text: `Credit report for ${customer?.name || 'customer'} (${range.fromDate} to ${range.toDate})`,
+        });
+        setSuccess('PDF ready in share sheet. Select WhatsApp to send.');
+        return;
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
     await sendOnWhatsApp(reportText, {
       type: 'report',
       contextType: 'report_period',
@@ -446,222 +763,12 @@ const useCreditHistoryReports = ({
   };
 
   const generatePDFReport = async () => {
-    if (!fromDate || !toDate) {
-      setError('Please select both From and To dates for the report.');
-      return;
-    }
-    if (fromDate > toDate) {
-      setError('From date cannot be later than To date.');
-      return;
-    }
     setError('');
     setSuccess('');
 
     try {
-      const sourceHistory =
-        typeof getHistoryForReport === 'function'
-          ? await getHistoryForReport({ fromDate, toDate })
-          : creditHistory;
-      const filtered = sourceHistory
-        .filter((transaction) => {
-          const dateKey = getEffectiveTransactionDateKey(transaction);
-          return Boolean(dateKey) && dateKey >= fromDate && dateKey <= toDate;
-        })
-        .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
-
-      const allThroughPeriod = sourceHistory
-        .filter((transaction) => {
-          const dateKey = getEffectiveTransactionDateKey(transaction);
-          return Boolean(dateKey) && dateKey <= toDate;
-        })
-        .sort((a, b) => getEffectiveTransactionTimestamp(a) - getEffectiveTransactionTimestamp(b));
-
-      const periodEndingBalance =
-        allThroughPeriod.length > 0
-          ? Number(allThroughPeriod[allThroughPeriod.length - 1].balance || 0)
-          : 0;
-      const currentDayBalance = Number(balance || 0);
-
-      const doc = createPdfDoc();
-      const primaryColor = [41, 128, 185];
-      const secondaryColor = [52, 73, 94];
-      const accentColor = [39, 174, 96];
-
-      doc.setFillColor(...primaryColor);
-      doc.rect(0, 0, 210, 45, 'F');
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(24);
-      doc.setFont('helvetica', 'bold');
-      doc.text(info.TITLE || 'BARMAN STORE', 105, 18, { align: 'center' });
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(info.SUB_TITLE || 'Quality Groceries & Everyday Essentials', 105, 28, {
-        align: 'center',
-      });
-
-      doc.setFontSize(9);
-      const contactText = `${info.EMAIL || ''} | ${info.CONTACT || ''}`;
-      doc.text(contactText, 105, 38, { align: 'center' });
-
-      doc.setTextColor(...secondaryColor);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Credit Report', 105, 55, { align: 'center' });
-
-      doc.setDrawColor(200, 200, 200);
-      doc.setFillColor(248, 249, 250);
-      doc.roundedRect(14, 62, 182, 28, 3, 3, 'FD');
-
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...secondaryColor);
-      doc.text('Customer Details', 20, 72);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(`Name: ${customer?.name || 'N/A'}`, 20, 80);
-      doc.text(`Phone: ${customer?.phone || 'N/A'}`, 100, 80);
-      doc.text(`Email: ${customer?.email || 'N/A'}`, 20, 86);
-
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Period: ${fromDate} to ${toDate}`, 100, 86);
-
-      if (filtered.length > 0) {
-        const tableData = filtered.map((transaction) => {
-          const delta = getCreditEntryDelta(transaction);
-          return [
-            formatTransactionDate(transaction),
-            getTypeLabel(transaction),
-            getCreditEntrySourceLabel(transaction),
-            {
-              content: delta >= 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
-              styles: { halign: 'right' },
-            },
-            {
-              content: delta < 0 ? formatPdfCurrency(Math.abs(delta)) : '-',
-              styles: { halign: 'right' },
-            },
-            {
-              content: formatPdfCurrency(Number(transaction.balance || 0)),
-              styles: { halign: 'right' },
-            },
-            getCreditEntryDescription(transaction),
-          ];
-        });
-
-        addAutoTable(doc, {
-          startY: 95,
-          head: [['Date', 'Type', 'Ref', 'Debit', 'Credit', 'Balance', 'Description']],
-          body: tableData,
-          theme: 'plain',
-          headStyles: {
-            fillColor: [255, 255, 255],
-            textColor: [45, 45, 45],
-            fontStyle: 'bold',
-            fontSize: PDF_TABLE_LAYOUT.fontSize,
-            cellPadding: PDF_TABLE_LAYOUT.cellPadding,
-            lineWidth: 0,
-          },
-          bodyStyles: {
-            fontSize: PDF_TABLE_LAYOUT.fontSize,
-            textColor: [35, 35, 35],
-            cellPadding: PDF_TABLE_LAYOUT.cellPadding,
-            minCellHeight: PDF_TABLE_LAYOUT.minCellHeight,
-            overflow: 'linebreak',
-            valign: 'top',
-            lineWidth: 0,
-          },
-          styles: {
-            lineWidth: 0,
-          },
-          columnStyles: getPdfColumnStyles(doc),
-          margin: { left: PDF_TABLE_LAYOUT.marginLeft, right: PDF_TABLE_LAYOUT.marginRight },
-        });
-
-        const finalY = Number(doc?.lastAutoTable?.finalY || 95) + 10;
-
-        let totalDebit = 0;
-        let totalCredit = 0;
-        filtered.forEach((transaction) => {
-          const delta = getCreditEntryDelta(transaction);
-          if (delta >= 0) totalDebit += delta;
-          else totalCredit += Math.abs(delta);
-        });
-
-        const summaryHeight = 42;
-        const footerReserve = 14;
-        const pageHeight = doc.internal.pageSize.height;
-        const summaryTop = finalY + summaryHeight + footerReserve > pageHeight ? 20 : finalY;
-
-        if (summaryTop !== finalY) {
-          doc.addPage();
-        }
-
-        doc.setFillColor(248, 249, 250);
-        doc.roundedRect(14, summaryTop, 182, 42, 3, 3, 'F');
-
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...secondaryColor);
-        doc.text('Summary', 20, summaryTop + 10);
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-
-        const summaryY = summaryTop + 18;
-        doc.text(`Total Debits: ${formatPdfCurrency(totalDebit)}`, 20, summaryY);
-        doc.text(`Total Credits: ${formatPdfCurrency(totalCredit)}`, 20, summaryY + 7);
-        doc.text(`Net Change: ${formatPdfCurrency(totalDebit - totalCredit)}`, 20, summaryY + 14);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(...secondaryColor);
-        doc.text('Period Ending Balance:', 118, summaryY + 2);
-        doc.setTextColor(
-          periodEndingBalance >= 0 ? accentColor[0] : 231,
-          periodEndingBalance >= 0 ? accentColor[1] : 76,
-          periodEndingBalance >= 0 ? accentColor[2] : 60
-        );
-        doc.text(formatPdfCurrency(periodEndingBalance), 118, summaryY + 8);
-        doc.setTextColor(...secondaryColor);
-        doc.text('Current Day Balance:', 118, summaryY + 14);
-        doc.setTextColor(
-          currentDayBalance >= 0 ? accentColor[0] : 231,
-          currentDayBalance >= 0 ? accentColor[1] : 76,
-          currentDayBalance >= 0 ? accentColor[2] : 60
-        );
-        doc.text(formatPdfCurrency(currentDayBalance), 118, summaryY + 20);
-      } else {
-        doc.setFontSize(11);
-        doc.setTextColor(100, 100, 100);
-        doc.text('No transactions found in the selected date range.', 105, 110, {
-          align: 'center',
-        });
-        doc.setFontSize(9);
-        doc.setTextColor(...secondaryColor);
-        doc.text(`Period Ending Balance: ${formatPdfCurrency(periodEndingBalance)}`, 105, 118, {
-          align: 'center',
-        });
-        doc.text(`Current Day Balance: ${formatPdfCurrency(currentDayBalance)}`, 105, 124, {
-          align: 'center',
-        });
-      }
-
-      addPdfFooterWithPagination(doc, (pdf, pageIndex, pageCount) => {
-        pdf.setFontSize(8);
-        pdf.setTextColor(150, 150, 150);
-        pdf.text(
-          `Generated on ${new Date().toLocaleString('en-IN')} | Page ${pageIndex} of ${pageCount}`,
-          105,
-          pdf.internal.pageSize.height - 10,
-          { align: 'center' }
-        );
-      });
-
-      const fileName = `Credit_Report_${safeFileName(customer?.name || 'Customer')}_${fromDate}_to_${toDate}`;
+      const { file, doc } = await createReportPdfFile();
+      const fileName = String(file?.name || '').replace(/\.pdf$/i, '');
       savePdf(doc, fileName);
       setSuccess('PDF report downloaded successfully!');
     } catch (err) {

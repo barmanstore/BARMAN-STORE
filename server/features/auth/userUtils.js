@@ -15,6 +15,10 @@ const sanitizeUser = (row) => {
       row.credit_limit === null || row.credit_limit === undefined
         ? null
         : Number(row.credit_limit || 0),
+    credit_balance:
+      row.credit_balance === null || row.credit_balance === undefined
+        ? 0
+        : Number(row.credit_balance || 0),
     created_at: row.created_at,
   };
 };

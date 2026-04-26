@@ -3,6 +3,7 @@ import { readFileAsDataUrl } from '../../../../shared/utils/readFileAsDataUrl';
 import { useSession } from '../../../../providers/SessionProvider';
 import {
   getCreditBalanceMeta,
+  getCreditEntryDelta,
   getCreditEntryDescription,
   getCreditEntrySourceLabel,
   getCreditEntryTypeLabel,
@@ -112,6 +113,41 @@ const useCreditHistoryTransactions = ({
     setShowAddModal(true);
   };
 
+  const openEditModalWithTransaction = (transaction) => {
+    if (!isAdminView) return;
+    const entryId = Number(transaction?.id || 0);
+    if (!entryId) return;
+    const txTypeRaw = String(transaction?.type || '').trim().toLowerCase();
+    const delta = getCreditEntryDelta(transaction);
+    const resolvedType = txTypeRaw === 'given' || txTypeRaw === 'payment'
+      ? txTypeRaw
+      : delta < 0
+        ? 'payment'
+        : 'given';
+    const amountValue = Number(transaction?.amount || Math.abs(delta) || 0);
+    const amountToken = amountValue > 0 ? String(amountValue) : '';
+    setError('');
+    setSuccess('');
+    setUploading(false);
+    setNewTransaction({
+      editEntryId: entryId,
+      type: resolvedType,
+      amount: amountToken,
+      description: String(getCreditEntryDescription(transaction) || '').trim(),
+      reference: String(transaction?.reference || '').trim(),
+      transactionDate: String(transaction?.transaction_date || transaction?.created_at || '')
+        .trim()
+        .slice(0, 10) || getTodayDateInputValue(),
+      imageBase64: '',
+      imagePath: String(transaction?.image_path || '').trim(),
+      attachmentName: String(transaction?.image_path || '').trim() ? 'Existing attachment' : '',
+    });
+    addTransactionLockRef.current = false;
+    addTransactionRequestIdRef.current = createClientRequestId('credit');
+    resetAttachmentInput();
+    setShowAddModal(true);
+  };
+
   const handleAddTransaction = async (event) => {
     event.preventDefault();
     if (addingTransaction || addTransactionLockRef.current) return;
@@ -138,6 +174,7 @@ const useCreditHistoryTransactions = ({
       setAddingTransaction(true);
       const previousBalance = Number(balance || 0);
       const txSnapshot = {
+        editEntryId: Number(newTransaction.editEntryId || 0),
         type: newTransaction.type,
         amount,
         description:
@@ -150,17 +187,32 @@ const useCreditHistoryTransactions = ({
       const clientRequestId = addTransactionRequestIdRef.current || createClientRequestId('credit');
       addTransactionRequestIdRef.current = clientRequestId;
 
-      await creditApi.addTransaction(effectiveUserId, {
-        amount,
-        type: txSnapshot.type,
-        description: txSnapshot.description,
-        reference: txSnapshot.reference,
-        transactionDate: txSnapshot.transactionDate,
-        image_base64: String(newTransaction.imageBase64 || '').trim() || undefined,
-        created_by: authUser?.id,
-        client_request_id: clientRequestId,
-      });
-      setSuccess('Ledger entry added successfully');
+      if (txSnapshot.editEntryId > 0) {
+        await creditApi.updateTransaction(effectiveUserId, txSnapshot.editEntryId, {
+          amount,
+          type: txSnapshot.type,
+          description: txSnapshot.description,
+          reference: txSnapshot.reference,
+          transactionDate: txSnapshot.transactionDate,
+          image_base64: String(newTransaction.imageBase64 || '').trim() || undefined,
+          created_by: authUser?.id,
+          client_request_id: clientRequestId,
+        });
+      } else {
+        await creditApi.addTransaction(effectiveUserId, {
+          amount,
+          type: txSnapshot.type,
+          description: txSnapshot.description,
+          reference: txSnapshot.reference,
+          transactionDate: txSnapshot.transactionDate,
+          image_base64: String(newTransaction.imageBase64 || '').trim() || undefined,
+          created_by: authUser?.id,
+          client_request_id: clientRequestId,
+        });
+      }
+      setSuccess(
+        txSnapshot.editEntryId > 0 ? 'Ledger entry updated successfully' : 'Ledger entry added successfully'
+      );
       setEntryShareText('');
       closeAddModal();
       const refreshed = await fetchCreditData(effectiveUserId);
@@ -186,7 +238,7 @@ const useCreditHistoryTransactions = ({
         clearUser();
         return;
       }
-      setError(err.message || 'Failed to add ledger entry');
+      setError(err.message || 'Failed to save ledger entry');
     } finally {
       setAddingTransaction(false);
       addTransactionLockRef.current = false;
@@ -310,6 +362,7 @@ const useCreditHistoryTransactions = ({
     handleDeleteTransaction,
     closeAddModal,
     openAddModalWithType,
+    openEditModalWithTransaction,
     handleClearAttachment,
     handlePrintInvoice,
     printInvoice,
